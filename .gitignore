@@ -1,7 +1,6 @@
-
-# Python
-__pycache__/
-*.pyc
+# Python cache
+**/__pycache__/
+**/*.pyc
 
 # Logs
 logs/
@@ -10,15 +9,15 @@ logs/
 # Models & DB
 models/
 chroma_storage/
+*.sqlite3
 
-# Snapshots (optional, if too large)
+# Snapshots
 core/memories/*/snapshots/
 core/memories/shared/snapshots/
 
-# VSCode / IDE
+# IDE
 .vscode/
 .idea/
 
-# Others
-*.sqlite3
-
+# Keep gitignore tracked
+!.gitignore
