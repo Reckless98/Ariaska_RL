@@ -1,6 +1,6 @@
 # Python cache
-**/__pycache__/
-**/*.pyc
+__pycache__/
+*.pyc
 
 # Logs
 logs/
@@ -15,9 +15,9 @@ chroma_storage/
 core/memories/**/snapshots/
 core/memories/shared/snapshots/
 
-# IDE
+# IDE configs
 .vscode/
 .idea/
 
-# Keep gitignore tracked
+# Keep .gitignore
 !.gitignore
