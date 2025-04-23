@@ -24,12 +24,12 @@ __pycache__/
 openai_key.txt
 OPENAI_API_KEY
 OPENAI_SECRET
-gpt_cache/
-gpt_logs/
+#gpt_cache/
+#gpt_logs/
 
 # Models and training artifacts
-snapshots/
-logs/
+#snapshots/
+#logs/
 checkpoints/
 
 # OS/system junk
