@@ -33,6 +33,11 @@ class ScoutAgent(AgentInterface):
         self.last_phase = None
         self.phase_repeat_count = 0
         self.gpt_phase_cooldown = 0
+        self.phase_repeats = 0
+        self.use_cache_only = False
+        self.steps_since_toggle = 0
+        self.gpt_calls_this_episode = 0
+        self.gpt_call_limit = 10
         console.print(f"[cyan]🧭 {self.agent_id} initialized — Phase navigation online.[/cyan]")
 
     def set_agent_manager(self, agent_manager):
@@ -117,6 +122,44 @@ class ScoutAgent(AgentInterface):
             self.gpt_phase_cooldown = max(self.gpt_phase_cooldown - 1, 0)
             return current_phase
 
+        if self.last_phase == current_phase:
+            self.phase_repeats += 1
+        else:
+            self.phase_repeats = 1
+            self.last_phase = current_phase
+
+        # --- Cache-only mode for GPT efficiency ---
+        if self.phase_repeats >= 5:
+            self.use_cache_only = True
+            self.steps_since_toggle = 0
+            console.print(f"[yellow][Summary] ScoutAgent phase '{current_phase}' repeated x{self.phase_repeats} — entering cache-only mode for 10 steps.[/yellow]")
+        if self.use_cache_only:
+            self.steps_since_toggle += 1
+            if self.steps_since_toggle >= 10:
+                self.use_cache_only = False
+                self.steps_since_toggle = 0
+                console.print(f"[green][Summary] ScoutAgent exiting cache-only mode.[/green]")
+            # Use cache only
+            phase = self.phase_history[-1] if self.phase_history else "recon"
+            return phase
+
+        # Prevent infinite enumeration loops
+        if self.phase_history[-3:] == ["enumeration"] * 3:
+            if self.gpt_calls_this_episode < self.gpt_call_limit:
+                phase = self._gpt_advise_phase(state, force_gpt41=True)
+                self.gpt_calls_this_episode += 1
+                return phase
+            else:
+                # Fallback: force phase diversity
+                phase = self._suggest_alternative_phase()
+                return phase
+
+        # Phase diversity weighting: encourage phase shifts
+        phase_counts = {p: self.phase_history.count(p) for p in PHASES}
+        least_used = min(phase_counts, key=phase_counts.get)
+        if phase_counts[least_used] < 2 and random.random() < 0.2:
+            return least_used
+
         phase = self._gpt_advise_phase(state)
         if phase:
             self.cache[context_key] = phase
@@ -160,7 +203,7 @@ class ScoutAgent(AgentInterface):
                     break
         return global_phase
 
-    def _gpt_advise_phase(self, state):
+    def _gpt_advise_phase(self, state, force_gpt41=False):
         """
         Query GPT-4o-mini to recommend the next tactical phase based on current state.
         Token-optimized prompt.
@@ -172,8 +215,12 @@ class ScoutAgent(AgentInterface):
             "Suggest next phase: recon, enumeration, exploit, privesc, or exfiltrate. Respond with phase only."
         )
         try:
+            model = "gpt-4.1" if force_gpt41 else "gpt-4o-mini"
+            if self.gpt_calls_this_episode >= self.gpt_call_limit:
+                return state.get("phase", "recon")
+            self.gpt_calls_this_episode += 1
             result = subprocess.run(
-                ["sgpt", "--model", "gpt-4o-mini", "--temperature", "0.15", "--role", "aria", prompt],
+                ["sgpt", "--model", model, "--temperature", "0.15", "--role", "aria", prompt],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, text=True
             )
             phase = result.stdout.strip().lower()
@@ -293,6 +340,9 @@ class ScoutAgent(AgentInterface):
         if hasattr(self, "stats_monitor"):
             return self.stats_monitor.get_average_reward(self.agent_id)
         return 0.0
+
+    def end_episode(self):
+        self.gpt_calls_this_episode = 0
 
 if __name__ == "__main__":
     # Import MemoryManager here to avoid top-level import

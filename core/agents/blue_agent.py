@@ -23,16 +23,21 @@ from core.interfaces.agent_interface import AgentInterface
 
 console = Console()
 
+
 def safe_tensor(data, device):
     import numpy as np
+
     if isinstance(data, torch.Tensor):
         return data.clone().detach().to(device)
     elif isinstance(data, (list, tuple, np.ndarray)):
-        return torch.as_tensor(data, dtype=torch.float32, device=device).clone().detach()
+        return (
+            torch.as_tensor(data, dtype=torch.float32, device=device).clone().detach()
+        )
     elif isinstance(data, dict):
         return BlueAgent.encode_env_state_static(data, device)
     else:
         raise TypeError(f"Cannot convert type {type(data)} to tensor.")
+
 
 class BlueAgent(AgentInterface, MemorySyncInterface):
     def __init__(
@@ -43,12 +48,14 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         agent_manager=None,
         memory_router=None,
         memory_manager=None,
-        verbosity="standard"
+        verbosity="standard",
     ):
         self.agent_id = agent_id
         self.role = role
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.policy_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
+        self.policy_net = PolicyNet(
+            input_size=512, output_size=5, device=self.device
+        ).to(self.device)
         self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
         self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True)
         self.stats_monitor = StatsMonitor()
@@ -74,7 +81,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.prioritized_priorities = []
         self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
         os.makedirs("logs", exist_ok=True)
-        console.print(f"[green]✔ {self.agent_id} initialized — Sentinel Prime Mode on {self.device}[/green]")
+        console.print(
+            f"[green]✔ {self.agent_id} initialized — Sentinel Prime Mode on {self.device}[/green]"
+        )
         self.gpt_reasoning_cache = {}
         self.replay_buffer = ReplayBuffer(capacity=self.replay_memory_size)
         self.gpt_handler = GPTCacheHandler()
@@ -82,6 +91,11 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.verbosity = verbosity
         self.last_action = None
         self.repeated_action_count = 0
+        self.repetition_count = {}
+        self.last_action = None
+        self.repeat_steps = 0
+        self.gpt_calls_this_episode = 0
+        self.gpt_call_limit = 10
 
     def _init_multiagent_links(self):
         self.red = self.agent_manager.get_agent("RedAgent")
@@ -89,6 +103,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
 
     def query_tactical_gpt(self, prompt, complexity="standard"):
         model = "gpt-4.1-nano" if complexity == "standard" else "gpt-4o-mini"
+        if self.gpt_calls_this_episode >= self.gpt_call_limit:
+            return "Maintain current strategy."
+        self.gpt_calls_this_episode += 1
         try:
             result = subprocess.run(
                 ["sgpt", "--model", model, "--role", "blue_agent", prompt],
@@ -110,7 +127,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             phase = phase["response"]
         if random.random() < self.epsilon:
             action = random.randint(0, self.policy_net.output_size - 1)
-            console.print(f"[yellow]🎲 Random action selected due to exploration: {action}[/yellow]")
+            console.print(
+                f"[yellow]🎲 Random action selected due to exploration: {action}[/yellow]"
+            )
             return action
         action = self.policy_net.predict(
             state_tensor, get_phase_vector(phase, self.device)
@@ -126,14 +145,20 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
 
     def simulate_step(self, episode=1, step=1, shared_context=None):
         try:
-            state = self.env.reset() if step == 1 else getattr(self, "_last_state", self.env.get_global_state())
+            state = (
+                self.env.reset()
+                if step == 1
+                else getattr(self, "_last_state", self.env.get_global_state())
+            )
             # Use shared context for phase coordination if available
             if shared_context and "ScoutAgent_phase" in shared_context:
                 state["phase"] = shared_context["ScoutAgent_phase"]
-            if hasattr(self, 'agent_manager') and self.agent_manager:
-                scout = getattr(self.agent_manager, 'scout_agent', None)
-                if (scout and hasattr(scout, 'advise_phase')):
-                    state["phase"] = scout.advise_phase(state, self.agent_manager.all_agents())
+            if hasattr(self, "agent_manager") and self.agent_manager:
+                scout = getattr(self.agent_manager, "scout_agent", None)
+                if scout and hasattr(scout, "advise_phase"):
+                    state["phase"] = scout.advise_phase(
+                        state, self.agent_manager.all_agents()
+                    )
             try:
                 state_tensor = self.encode_env_state(state)
             except Exception:
@@ -147,15 +172,38 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 action = str(action)
             if not action or action == "N/A":
                 action = "nmap -p- -sC -sV TARGET"
-                console.print(f"[yellow]⚠ BlueAgent fallback to default action: {action}[/yellow]")
+                console.print(
+                    f"[yellow]⚠ BlueAgent fallback to default action: {action}[/yellow]"
+                )
+
+            # --- Repetition Counter for Stagnation Prevention ---
+            self.repetition_count.setdefault(action, 0)
+            if self.last_action == action:
+                self.repetition_count[action] += 1
+                self.repeat_steps += 1
+            else:
+                self.repetition_count[action] = 1
+                self.repeat_steps = 1
+            self.last_action = action
+
+            if self.repetition_count[action] >= 3:
+                console.print(
+                    f"[yellow][Summary] BlueAgent repeated action '{action}' x{self.repetition_count[action]} times — triggering forced exploration.[/yellow]"
+                )
+                action = str(random.randint(0, self.policy_net.output_size - 1))
+                self.repetition_count[action] = 0
+                self.repeat_steps = 0
+
             next_state, reward, done, _ = self.env.step(action)
             # Defensive: ensure reward is a float
             try:
                 if isinstance(reward, dict):
-                    reward = reward.get("reward", 0.0)
-                reward = float(reward)
+                    reward = float(reward.get("reward", 0.0))
+                else:
+                    reward = float(reward)
             except Exception:
                 reward = 0.0
+
             self.prioritized_experiences.append(
                 {
                     "state": state_tensor,
@@ -175,31 +223,42 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 self.last_reasoning = self.gpt_reasoning_cache[reasoning_key]
             else:
                 self.last_reasoning = self.gpt_handler.query(
-                    f"Explain why action {action} is optimal for phase {state.get('phase')}.", model="gpt-4.1-nano"
+                    f"Explain why action {action} is optimal for phase {state.get('phase')}.",
+                    model="gpt-4.1-nano",
                 )
                 self.gpt_reasoning_cache[reasoning_key] = self.last_reasoning
             display_status_bar(self.agent_id, episode, step)
             self._log_training_step(episode, step, str(action), state, self.last_output)
             # Print more info about agent state
-            console.print(f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]")
+            console.print(
+                f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]"
+            )
             # After decision, broadcast own phase/intent
             if self.agent_manager and hasattr(self.agent_manager, "broadcast"):
-                self.agent_manager.broadcast(f"{self.agent_id}_phase", state.get("phase", "N/A"), sender=self.agent_id)
+                self.agent_manager.broadcast(
+                    f"{self.agent_id}_phase",
+                    state.get("phase", "N/A"),
+                    sender=self.agent_id,
+                )
             # Activate countermeasures if alert level is high
             if state.get("blue_team_alert", 0) > 60:
                 self.current_mode = "Defensive"
-                console.print("[red]🚨 BlueAgent: Alert level high, activating countermeasures![/red]")
+                console.print(
+                    "[red]🚨 BlueAgent: Alert level high, activating countermeasures![/red]"
+                )
                 # Example: deploy honeypots or reset credentials
                 if hasattr(self.env, "honeypots"):
                     self.env.honeypots.append("fake_ssh")
-            self.replay_buffer.add({
-                "state": state_tensor,
-                "action": action,
-                "reward": reward,
-                "next_state": self.encode_env_state(next_state),
-                "done": done,
-                "command": str(action),
-            })
+            self.replay_buffer.add(
+                {
+                    "state": state_tensor,
+                    "action": action,
+                    "reward": reward,
+                    "next_state": self.encode_env_state(next_state),
+                    "done": done,
+                    "command": str(action),
+                }
+            )
             # Track repeated actions
             if self.command_history:
                 if self.command_history[-1] == self.last_action:
@@ -214,28 +273,51 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             if self.verbosity == "detailed":
                 from rich.panel import Panel
                 from rich.table import Table
+
                 table = Table.grid()
                 table.add_row("Action", str(action))
                 table.add_row("Phase", str(state.get("phase", "N/A")))
                 table.add_row("Reward", f"{reward:+.2f}")
-                table.add_row("GPT", "4.1-nano" if "4.1" in self.last_reasoning else "4o-mini")
-                console.print(Panel(table, title=f"{self.agent_id} Step {step}", border_style="blue"))
+                table.add_row(
+                    "GPT", "4.1-nano" if "4.1" in self.last_reasoning else "4o-mini"
+                )
+                console.print(
+                    Panel(
+                        table, title=f"{self.agent_id} Step {step}", border_style="blue"
+                    )
+                )
             elif self.verbosity == "standard":
                 if self.repeated_action_count > 1:
-                    console.print(f"[{self.agent_id}] Step {step} | Action: {action} (repeated x{self.repeated_action_count}) | Reward: {reward:.2f}")
+                    console.print(
+                        f"[{self.agent_id}] Step {step} | Action: {action} (repeated x{self.repeated_action_count}) | Reward: {reward:.2f}"
+                    )
                 elif step == 1 or step % 5 == 0:
-                    console.print(f"[{self.agent_id}] Step {step} | Action: {action} | Phase: {state.get('phase', 'N/A')} | Reward: {reward:.2f}")
+                    console.print(
+                        f"[{self.agent_id}] Step {step} | Action: {action} | Phase: {state.get('phase', 'N/A')} | Reward: {reward:.2f}"
+                    )
             elif self.verbosity == "quiet":
                 if reward < 0 or step == 1 or step % 10 == 0:
-                    console.print(f"[{self.agent_id}] 🚨 Step {step} | Reward: {reward:.2f}")
+                    console.print(
+                        f"[{self.agent_id}] 🚨 Step {step} | Reward: {reward:.2f}"
+                    )
             # Only display replay buffer status when thresholds are crossed
-            if len(self.prioritized_experiences) % 100 == 0 and self.verbosity != "quiet":
-                console.print(f"[dim]Replay buffer: {len(self.prioritized_experiences)}[/dim]")
+            if (
+                len(self.prioritized_experiences) % 100 == 0
+                and self.verbosity != "quiet"
+            ):
+                console.print(
+                    f"[dim]Replay buffer: {len(self.prioritized_experiences)}[/dim]"
+                )
             # Summarize every 5 steps
             if step % 5 == 0 and self.verbosity != "quiet":
-                avg_reward = sum(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-5:]) / 5
+                avg_reward = (
+                    sum(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-5:])
+                    / 5
+                )
                 alert = state.get("blue_team_alert", 0)
-                console.print(f"[Summary] {self.agent_id} Steps {step-4}-{step}: Avg Reward {avg_reward:+.1f} | Alert {alert:.1f}")
+                console.print(
+                    f"[Summary] {self.agent_id} Steps {step-4}-{step}: Avg Reward {avg_reward:+.1f} | Alert {alert:.1f}"
+                )
             # --- Add: Print stats after each step ---
             if hasattr(self.stats_monitor, "show"):
                 if step % 10 == 0 or step == 1:
@@ -258,6 +340,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         except Exception as e:
             console.print(f"[red]❌ Error in BlueAgent simulate_step: {e}[/red]")
             import traceback
+
             console.print(traceback.format_exc())
             return {
                 "command": "N/A",
@@ -276,11 +359,15 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
 
     def _log_training_step(self, episode, step, action, state, output):
         with open(self.training_log_path, "a") as f:
-            f.write(f"Episode {episode}, Step {step}, Action: {action}, Phase: {state.get('phase')}, Output: {output}\n")
+            f.write(
+                f"Episode {episode}, Step {step}, Action: {action}, Phase: {state.get('phase')}, Output: {output}\n"
+            )
 
     def react_to_action(self, command, parsed_output=None):
         if not isinstance(command, str):
-            console.print(f"[yellow]⚠ BlueAgent received non-string command: {command}[/yellow]")
+            console.print(
+                f"[yellow]⚠ BlueAgent received non-string command: {command}[/yellow]"
+            )
             return {}
         if not parsed_output:
             parsed_output = {"phase": "unknown", "success": False, "risk_score": 0.0}
@@ -289,50 +376,76 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             threat_level = 0.7
         elif "recon" in command.lower() or "scan" in command.lower():
             threat_level = 0.3
-        alert_increase = threat_level * 10 * (1.0 if parsed_output.get("success", False) else 0.5)
+        alert_increase = (
+            threat_level * 10 * (1.0 if parsed_output.get("success", False) else 0.5)
+        )
         risk_increase = threat_level * 0.5
         honeypots_deployed = []
         credentials_reset = False
         if threat_level > 0.5 and random.random() < 0.3:
             honeypots_deployed = ["fake_ssh", "fake_http"]
-            console.print(f"[blue]🛡️ {self.agent_id}: Deploying honeypot in response to threat[/blue]")
-        if "exploit" in command.lower() and parsed_output.get("success", False) and random.random() < 0.2:
+            console.print(
+                f"[blue]🛡️ {self.agent_id}: Deploying honeypot in response to threat[/blue]"
+            )
+        if (
+            "exploit" in command.lower()
+            and parsed_output.get("success", False)
+            and random.random() < 0.2
+        ):
             credentials_reset = True
-            console.print(f"[blue]🔐 {self.agent_id}: Resetting credentials after suspected breach[/blue]")
+            console.print(
+                f"[blue]🔐 {self.agent_id}: Resetting credentials after suspected breach[/blue]"
+            )
         # Dynamic risk adaptation
         if self.env.detection_risk > 5.0:
             self.current_mode = "Defensive"
             if self.verbosity != "silent":
-                console.print("[red]🔴 High Risk Detected! Switching to Defensive Mode.[/red]")
+                console.print(
+                    "[red]🔴 High Risk Detected! Switching to Defensive Mode.[/red]"
+                )
             # Deploy honeypot if not already present
             if "fake_ssh" not in self.env.honeypots:
                 self.env.honeypots.append("fake_ssh")
                 if self.verbosity == "verbose":
-                    console.print("[yellow]🛡️ BlueAgent deployed honeypot: fake_ssh[/yellow]")
+                    console.print(
+                        "[yellow]🛡️ BlueAgent deployed honeypot: fake_ssh[/yellow]"
+                    )
         return {
             "alert_increase": alert_increase,
             "risk_increase": risk_increase,
             "honeypots": honeypots_deployed,
-            "credentials_reset": credentials_reset
+            "credentials_reset": credentials_reset,
         }
 
     def train_on_batch(self):
         batch = self.replay_buffer.sample(self.batch_size)
         if not batch:
-            console.print("[yellow]⚠ Not enough experiences for batch training.[/yellow]")
+            console.print(
+                "[yellow]⚠ Not enough experiences for batch training.[/yellow]"
+            )
             return
         states = torch.stack([exp["state"] for exp in batch]).to(self.device)
-        actions = torch.tensor([exp["action"] for exp in batch], dtype=torch.long, device=self.device)
-        rewards = torch.tensor([exp["reward"] for exp in batch], dtype=torch.float32, device=self.device)
+        actions = torch.tensor(
+            [exp["action"] for exp in batch], dtype=torch.long, device=self.device
+        )
+        rewards = torch.tensor(
+            [exp["reward"] for exp in batch], dtype=torch.float32, device=self.device
+        )
         next_states = torch.stack([exp["next_state"] for exp in batch]).to(self.device)
-        dones = torch.tensor([exp["done"] for exp in batch], dtype=torch.float32, device=self.device)
+        dones = torch.tensor(
+            [exp["done"] for exp in batch], dtype=torch.float32, device=self.device
+        )
         with torch.no_grad():
             target_values = self.value_net(next_states)[0].squeeze()
             targets = rewards + self.gamma * target_values * (1 - dones)
-        self.policy_net.train_step(states, actions, targets, entropy_beta=self.entropy_beta)
+        self.policy_net.train_step(
+            states, actions, targets, entropy_beta=self.entropy_beta
+        )
         self.value_net.train_step(states, targets)
         console.print(f"[cyan]🔧 {self.agent_id}: Batch training complete.[/cyan]")
-        console.print(f"[bold magenta]🧠 {self.agent_id}: Policy/Value networks updated.[/bold magenta]")
+        console.print(
+            f"[bold magenta]🧠 {self.agent_id}: Policy/Value networks updated.[/bold magenta]"
+        )
         self._log_training_event("Batch training complete.")
 
     def _log_training_event(self, msg):
@@ -352,15 +465,24 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         table.add_row("Detection Rate", f"{detection_rate:.2%}")
         table.add_row("Epsilon (Exploration)", f"{self.epsilon:.4f}")
         table.add_row("Entropy Beta", f"{self.entropy_beta:.4f}")
-        table.add_row("Replay Buffer", f"{len(self.prioritized_experiences)} / {self.replay_memory_size}")
-        table.add_row("Last Reasoning", self.last_reasoning[:60] + "..." if self.last_reasoning else "N/A")
-        console.print(Panel(table, title="🧠 Defensive Overview", border_style="bright_blue"))
+        table.add_row(
+            "Replay Buffer",
+            f"{len(self.prioritized_experiences)} / {self.replay_memory_size}",
+        )
+        table.add_row(
+            "Last Reasoning",
+            self.last_reasoning[:60] + "..." if self.last_reasoning else "N/A",
+        )
+        console.print(
+            Panel(table, title="🧠 Defensive Overview", border_style="bright_blue")
+        )
         self.stats_monitor.visualize_phase_distribution()
         console.print(f"[dim]Training log: {self.training_log_path}[/dim]")
 
     def get_visualization_panel(self):
         from rich.panel import Panel
         from rich.table import Table
+
         table = Table(title=f"{self.agent_id} — Advanced Status", show_lines=True)
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="magenta")
@@ -370,15 +492,22 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         table.add_row("Avg Reward", f"{self.stats_monitor.get_average_reward():.2f}")
         table.add_row("Epsilon", f"{self.epsilon:.4f}")
         table.add_row("Entropy Beta", f"{self.entropy_beta:.4f}")
-        table.add_row("Last Reasoning", self.last_reasoning[:80] + "..." if self.last_reasoning else "N/A")
-        return Panel(table, title=f"🛡️ {self.agent_id} Defensive Panel", border_style="blue")
+        table.add_row(
+            "Last Reasoning",
+            self.last_reasoning[:80] + "..." if self.last_reasoning else "N/A",
+        )
+        return Panel(
+            table, title=f"🛡️ {self.agent_id} Defensive Panel", border_style="blue"
+        )
 
     def save_models(self, prefix="models/blue_agent"):
         os.makedirs(os.path.dirname(prefix), exist_ok=True)
         try:
             self.policy_net.save(f"{prefix}_policy.pt")
             self.value_net.save(f"{prefix}_value.pt")
-            console.print(f"[green]💾 {self.agent_id}: Models saved to {prefix}_*.pt[/green]")
+            console.print(
+                f"[green]💾 {self.agent_id}: Models saved to {prefix}_*.pt[/green]"
+            )
         except Exception as e:
             console.print(f"[red]❌ {self.agent_id}: Model save failed: {e}[/red]")
 
@@ -386,7 +515,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         try:
             self.policy_net.load(f"{prefix}_policy.pt")
             self.value_net.load(f"{prefix}_value.pt")
-            console.print(f"[cyan]✔ {self.agent_id}: Models loaded from {prefix}_*.pt[/cyan]")
+            console.print(
+                f"[cyan]✔ {self.agent_id}: Models loaded from {prefix}_*.pt[/cyan]"
+            )
         except Exception as e:
             console.print(f"[red]⚠ {self.agent_id}: Failed to load models: {e}[/red]")
 
@@ -398,8 +529,14 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
     @staticmethod
     def encode_env_state_static(state, device):
         import numpy as np
+
         vec = []
-        vec.append(float(state.get("phase", 0) in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]))
+        vec.append(
+            float(
+                state.get("phase", 0)
+                in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+            )
+        )
         vec.append(float(state.get("privilege_level", "none") == "root"))
         vec.append(float(state.get("detection_risk", 0)))
         vec.append(float(state.get("blue_team_alert", 0)))
@@ -422,7 +559,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             mem = self.memory_router.get_memory(self.agent_id)
             if mem and mem.get("actions"):
                 return mem["actions"][-1].get("full_command", "nmap -p- -sC -sV TARGET")
-        return self.query_tactical_gpt("Suggest a defensive command for the current phase.")
+        return self.query_tactical_gpt(
+            "Suggest a defensive command for the current phase."
+        )
 
     def execute_command(self, command):
         try:
@@ -431,7 +570,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             self.stats_monitor.log_step(self.agent_id, reward, command=command)
             return {
                 "output": output,
-                "recommendations": [{"command": command, "params": "Auto", "why": "Manual execution"}],
+                "recommendations": [
+                    {"command": command, "params": "Auto", "why": "Manual execution"}
+                ],
                 "phase": "unknown",
                 "reward": reward,
                 "alert": 0.0,
@@ -451,18 +592,32 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
     def get_base_commands(self):
         # For CLI completion/autosuggest
         return [
-            "nmap", "hydra", "msfconsole", "sqlmap", "ffuf", "gobuster",
-            "linpeas", "winpeas", "evil-winrm", "masscan", "amass", "crackmapexec", "enum4linux", "pspy"
+            "nmap",
+            "hydra",
+            "msfconsole",
+            "sqlmap",
+            "ffuf",
+            "gobuster",
+            "linpeas",
+            "winpeas",
+            "evil-winrm",
+            "masscan",
+            "amass",
+            "crackmapexec",
+            "enum4linux",
+            "pspy",
         ]
-    
+
     def sync_memory(self):
         if self.memory_router:
             self.memory_router.sync_global_insights()
         # Import or define detect_redundancy_batch here
         from core.logic.redundancy_detector import detect_redundancy
+
         # Fallback: define a dummy function if not available
         def detect_redundancy_batch(cmds):
             return cmds
+
         self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
 
 
@@ -484,6 +639,7 @@ if __name__ == "__main__":
         agent.display_advanced_status()
     if hasattr(agent, "generate_chain_snapshot"):
         from core.logic.chainbuilder import build_and_store_chain
+
         agent.generate_chain_snapshot()
 
     agent.safe_shutdown()

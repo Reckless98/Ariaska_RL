@@ -19,15 +19,21 @@ class OrionAgent(AgentInterface):
         self.agent_id = "OrionAgent"
         self.agent_manager = agent_manager
         self.memory_router = memory_router  # Optional, if needed
-        self.verbosity = verbosity
+        self.verbosity = verbosity if verbosity else "normal"
         self.last_curriculum_suggestion = None
+        self.gpt_calls_this_episode = 0
+        self.gpt_call_limit = 10
         # Delay imports to avoid circular dependencies
         from core.utils.memory_manager import MemoryManager
         from core.teach.teach import TeachModule
         from core.monitor.stats_monitor import StatsMonitor
 
         self.memory_manager = MemoryManager(agent_name="orion_agent")
-        self.cache = self.memory_manager.load_gpt_cache() if hasattr(self.memory_manager, "load_gpt_cache") else {}
+        self.cache = (
+            self.memory_manager.load_gpt_cache()
+            if hasattr(self.memory_manager, "load_gpt_cache")
+            else {}
+        )
         self.teach = TeachModule()
         self.stats_monitor = StatsMonitor()  # Access to multi-agent statistics
         self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
@@ -37,13 +43,19 @@ class OrionAgent(AgentInterface):
             f"[bold blue]👁 {self.agent_id} initialized — Overseer protocols active.[/bold blue]"
         )
 
-    def generate_strategic_chain(self, memory, force_update=False, verbosity="standard"):
+    def generate_strategic_chain(
+        self, memory, force_update=False, verbosity="standard"
+    ):
         """
         Generate a strategic action chain using GPT-4.1 Full.
         Cache and update as needed.
         """
         cache_key = "orion_strategic_chain"
-        if not force_update and hasattr(self, "chain_cache") and cache_key in self.chain_cache:
+        if (
+            not force_update
+            and hasattr(self, "chain_cache")
+            and cache_key in self.chain_cache
+        ):
             chain = self.chain_cache[cache_key]
         else:
             prompt = (
@@ -60,7 +72,11 @@ class OrionAgent(AgentInterface):
                     timeout=60,
                     text=True,
                 )
-                chain = [line.strip() for line in result.stdout.strip().splitlines() if line.strip()]
+                chain = [
+                    line.strip()
+                    for line in result.stdout.strip().splitlines()
+                    if line.strip()
+                ]
                 if not hasattr(self, "chain_cache"):
                     self.chain_cache = {}
                 self.chain_cache[cache_key] = chain
@@ -71,16 +87,22 @@ class OrionAgent(AgentInterface):
         now = datetime.now().isoformat()
         chain_with_meta = []
         for i, cmd in enumerate(chain):
-            chain_with_meta.append({
-                "phase": ["recon", "enumeration", "exploit", "privesc", "exfiltrate"][i] if i < 5 else "unknown",
-                "command": cmd,
-                "risk_level": random.choice(["low", "medium", "high"]),
-                "expected_reward": random.randint(5, 30),
-                "confidence_score": round(random.uniform(0.7, 0.99), 2),
-                "trigger_reason": "Orion preemptive strategy",
-                "timestamp": now,
-                "agent": self.agent_id
-            })
+            chain_with_meta.append(
+                {
+                    "phase": (
+                        ["recon", "enumeration", "exploit", "privesc", "exfiltrate"][i]
+                        if i < 5
+                        else "unknown"
+                    ),
+                    "command": cmd,
+                    "risk_level": random.choice(["low", "medium", "high"]),
+                    "expected_reward": random.randint(5, 30),
+                    "confidence_score": round(random.uniform(0.7, 0.99), 2),
+                    "trigger_reason": "Orion preemptive strategy",
+                    "timestamp": now,
+                    "agent": self.agent_id,
+                }
+            )
         self.current_chain = chain_with_meta
         # Display concise summary
         if verbosity != "silent" and chain:
@@ -228,12 +250,31 @@ Respond in structured JSON:
             # Track token usage for visualization
             if hasattr(self.stats_monitor, "log_gpt_call"):
                 self.stats_monitor.log_gpt_call(self.agent_id)
-            console.print(f"[bold blue][OrionAgent] Adjusted agent: {agent.agent_id} | Epsilon: {getattr(agent, 'epsilon', 'N/A')} | Entropy: {getattr(agent, 'entropy_beta', 'N/A')}[/bold blue]")
+            console.print(
+                f"[bold blue][OrionAgent] Adjusted agent: {agent.agent_id} | Epsilon: {getattr(agent, 'epsilon', 'N/A')} | Entropy: {getattr(agent, 'entropy_beta', 'N/A')}[/bold blue]"
+            )
 
-            if hasattr(agent, "epsilon_min"):
-                agent.epsilon = max(agent.epsilon * 0.98, agent.epsilon_min)
+            # Lower thresholds for intervention
+            if (
+                getattr(agent, "repeated_action_count", 0) > 2
+                or getattr(agent, "phase_repeat_count", 0) > 2
+            ):
+                if self.gpt_calls_this_episode < self.gpt_call_limit:
+                    hint = self.generate_hint()
+                    agent.last_reasoning = f"Orion strategic hint: {hint}"
+                    self.gpt_calls_this_episode += 1
+
+            # Smarter epsilon/entropy tuning
+            if hasattr(agent, "epsilon") and hasattr(agent, "epsilon_min"):
+                # Decay epsilon based on episode progress
+                agent.epsilon = max(
+                    agent.epsilon * (0.98 - 0.01 * agent.total_episodes),
+                    agent.epsilon_min,
+                )
             if hasattr(agent, "entropy_beta"):
-                agent.entropy_beta = max(agent.entropy_beta * 0.98, 0.005)
+                agent.entropy_beta = max(
+                    agent.entropy_beta * (0.98 - 0.01 * agent.total_episodes), 0.005
+                )
 
             if getattr(agent, "avg_reward", 0) > 50:
                 self.promote_agent_to_next_curriculum(agent)
@@ -270,7 +311,11 @@ Respond in structured JSON:
         if not hasattr(agent, "stats_monitor"):
             return {}
         # Defensive: Use get_average_reward if available
-        reward = agent.stats_monitor.get_average_reward(agent.agent_id) if hasattr(agent.stats_monitor, "get_average_reward") else 0.0
+        reward = (
+            agent.stats_monitor.get_average_reward(agent.agent_id)
+            if hasattr(agent.stats_monitor, "get_average_reward")
+            else 0.0
+        )
         performance = {
             "reward": reward,
             "epsilon": getattr(agent, "epsilon", 0.1),
@@ -295,14 +340,20 @@ Respond in structured JSON:
         """
         Adjust the agent's epsilon based on the strategic feedback from Orion.
         """
-        if "epsilon" in feedback and hasattr(agent, "epsilon") and hasattr(agent, "epsilon_min"):
+        if (
+            "epsilon" in feedback
+            and hasattr(agent, "epsilon")
+            and hasattr(agent, "epsilon_min")
+        ):
             new_epsilon = feedback["epsilon"]
             agent.epsilon = max(new_epsilon, agent.epsilon_min)
             console.print(
                 f"[yellow]🎯 Adjusted epsilon for {agent.agent_id} to {new_epsilon:.4f}[/yellow]"
             )
         else:
-            console.print(f"[dim]Skipping epsilon adjustment for {getattr(agent, 'agent_id', agent)} (no epsilon_min)[/dim]")
+            console.print(
+                f"[dim]Skipping epsilon adjustment for {getattr(agent, 'agent_id', agent)} (no epsilon_min)[/dim]"
+            )
 
     def _adjust_entropy(self, agent, feedback):
         """
@@ -315,17 +366,22 @@ Respond in structured JSON:
                 f"[yellow]🎯 Adjusted entropy for {agent.agent_id} to {new_entropy:.4f}[/yellow]"
             )
         else:
-            console.print(f"[dim]Skipping entropy adjustment for {getattr(agent, 'agent_id', agent)} (no entropy_beta)[/dim]")
+            console.print(
+                f"[dim]Skipping entropy adjustment for {getattr(agent, 'agent_id', agent)} (no entropy_beta)[/dim]"
+            )
 
     def _suggest_curriculum_changes(self, feedback):
         if "curriculum_suggestion" in feedback:
             suggestion = feedback["curriculum_suggestion"]
             if not hasattr(self, "teach") or self.teach is None:
                 from core.teach.teach import TeachModule
+
                 self.teach = TeachModule()
             if suggestion and suggestion != self.last_curriculum_suggestion:
                 console.print(f"[green]👁 Orion's suggestion: {suggestion}[/green]")
-                self.teach.add_action(command="Curriculum Update", description=suggestion)
+                self.teach.add_action(
+                    command="Curriculum Update", description=suggestion
+                )
                 self.last_curriculum_suggestion = suggestion
 
     def optimize_agent_memory(self, agents):
@@ -467,20 +523,26 @@ Respond in structured JSON:
         This is a stub for integration with your GPT querying system.
         """
         # Cap GPT calls per episode (early training)
-        if hasattr(self, "gpt_calls_this_episode") and self.gpt_calls_this_episode >= 10:
+        if self.gpt_calls_this_episode >= self.gpt_call_limit:
             if self.verbosity != "quiet":
-                console.print("[yellow]⚠ OrionAgent GPT call cap reached for this episode. Using cached logic.[/yellow]")
-            return json.dumps({
+                console.print(
+                    "[yellow]⚠ OrionAgent GPT call cap reached for this episode. Using cached logic.[/yellow]"
+                )
+            return json.dumps(
+                {
+                    "epsilon": 0.1,
+                    "entropy": 0.01,
+                    "curriculum_suggestion": "Use cached logic.",
+                }
+            )
+        self.gpt_calls_this_episode += 1
+        return json.dumps(
+            {
                 "epsilon": 0.1,
                 "entropy": 0.01,
-                "curriculum_suggestion": "Use cached logic."
-            })
-        self.gpt_calls_this_episode = getattr(self, "gpt_calls_this_episode", 0) + 1
-        return json.dumps({
-            "epsilon": 0.1,
-            "entropy": 0.01,
-            "curriculum_suggestion": "Increase exploration in early episodes."
-        })
+                "curriculum_suggestion": "Increase exploration in early episodes.",
+            }
+        )
 
     def generate_dynamic_scenario(self, scenario, default_services):
         """
@@ -513,49 +575,49 @@ Respond in structured JSON:
     def override_decision(self, command, state, agent_id=None):
         """
         Allow Orion to override an agent's decision based on strategic considerations.
-        
+
         Args:
             command: The original command
             state: Current environment state
             agent_id: The ID of the agent making the decision
-            
+
         Returns:
             str: The original command or an overridden command
         """
         return command
-    
+
     def provide_reasoning(self, command, state):
         """
         Provide strategic reasoning about why a command is good or bad
-        
+
         Args:
             command: The command to explain
             state: Current environment state
-            
+
         Returns:
             str: Tactical reasoning about the command
         """
         current_phase = state.get("phase", "unknown")
         return f"Command aligns with {current_phase} phase strategic objectives."
-        
+
     def evaluate_environment(self, state):
         """
         Evaluate the current environment state and provide strategic insights.
-        
+
         Args:
             state: Current environment state
-            
+
         Returns:
             str: Strategic insight or None
         """
         detection_risk = state.get("detection_risk", 0)
         phase = state.get("phase", "unknown")
-        
+
         if detection_risk > 7.0:
             return "Increase stealth operations; blue team alert is elevated."
         elif "exfiltrate" in phase:
             return "Prepare counter-measures against exfiltration detection."
-            
+
         return None
 
     def _log_training_event(self, msg):
@@ -566,6 +628,14 @@ Respond in structured JSON:
         """
         Provide a global strategy hint.
         """
+        # Inject strategic hint based on global memory trends
+        if hasattr(self, "memory_manager") and self.memory_manager.memory.get(
+            "actions"
+        ):
+            actions = self.memory_manager.memory["actions"]
+            if actions:
+                most_recent = actions[-1].get("command", "nmap")
+                return f"Consider leveraging: {most_recent}"
         return "Orion recommends: synchronize agent strategies."
 
     def execute_command(self, command):
@@ -593,6 +663,24 @@ Respond in structured JSON:
     def get_base_commands(self):
         # For CLI completion/autosuggest
         return [
-            "nmap", "hydra", "msfconsole", "sqlmap", "ffuf", "gobuster",
-            "linpeas", "winpeas", "evil-winrm", "masscan", "amass", "crackmapexec", "enum4linux", "pspy"
+            "nmap",
+            "hydra",
+            "msfconsole",
+            "sqlmap",
+            "ffuf",
+            "gobuster",
+            "linpeas",
+            "winpeas",
+            "evil-winrm",
+            "masscan",
+            "amass",
+            "crackmapexec",
+            "enum4linux",
+            "pspy",
         ]
+
+    def end_episode(self):
+        """
+        Reset GPT call count at the end of each episode.
+        """
+        self.gpt_calls_this_episode = 0

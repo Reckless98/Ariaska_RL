@@ -205,3 +205,8 @@ def show_ai_recommendations(commands, explanations, memory):
 def display_ai_hint(hint):
     panel = Panel.fit(f"💡 {hint}", title="AI Hint", style="bold green")
     console.print(panel)
+
+# Add a helper for concise summary logging
+def log_repetition_summary(agent, action, count):
+    if count >= 3:
+        console.print(f"[yellow][Summary] {agent} repeated action '{action}' x{count} times — triggering intervention.[/yellow]")

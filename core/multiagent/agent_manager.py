@@ -224,6 +224,13 @@ class AgentManager:
                             console.print(f"[bold red]❌ Error in agent execution: {e}[/bold red]")
                             import traceback
                             console.print(traceback.format_exc())
+                        
+                        # Save models/snapshots every 15 steps or at episode end
+                        if (step + 1) % 15 == 0 or (step + 1) == max_steps:
+                            if self.verbosity != "quiet":
+                                console.print(f"[green]💾 Saving models and snapshots at step {step+1}[/green]")
+                            self.save_all_models()
+                            self.snapshot_all()
                     
                     # Throttle model saves and snapshots
                     if (ep + 1) % 5 == 0 or (ep + 1) == episodes:
@@ -493,6 +500,14 @@ class AgentManager:
         for agent in self.agents:
             if hasattr(agent, "display_advanced_status"):
                 agent.display_advanced_status()
+        
+        # Visualize agent diversity and redundancy metrics
+        for agent in self.agents:
+            if hasattr(agent, "stats_monitor"):
+                stats = agent.stats_monitor
+                diversity = len(set(agent.command_history[-20:])) if hasattr(agent, "command_history") else 0
+                redundancy = max(agent.repetition_count.values()) if hasattr(agent, "repetition_count") and agent.repetition_count else 0
+                console.print(f"[blue]{agent.agent_id} Diversity (last 20): {diversity} | Max Redundancy: {redundancy}[/blue]")
 
     # ─────────────────────────────────────────────
     # 🔧 Maintenance Utilities

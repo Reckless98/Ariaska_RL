@@ -268,6 +268,10 @@ class MemoryRouter:
                 template += " <PARAM>"
         return template
 
+    def _get_timestamp(self):
+        from datetime import datetime
+        return datetime.now().isoformat()
+
 # ─────────────────────────────────────────────
 # 🚀 Diagnostic Mode
 # ─────────────────────────────────────────────

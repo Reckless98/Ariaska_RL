@@ -11,11 +11,16 @@ console = Console()
 # Only import non-agent modules at the top level to avoid circular imports
 from core.utils.memory_manager import MemoryManager
 
+
 class ShadowAgent:
     def __init__(self, agent_manager=None, memory_router=None, verbosity="standard"):
         self.agent_id = "ShadowAgent"
         self.memory_manager = MemoryManager(agent_name="shadow_agent")
-        self.cache = self.memory_manager.load_gpt_cache() if hasattr(self.memory_manager, "load_gpt_cache") else {}
+        self.cache = (
+            self.memory_manager.load_gpt_cache()
+            if hasattr(self.memory_manager, "load_gpt_cache")
+            else {}
+        )
         self.agent_manager = agent_manager
         self.memory_router = memory_router  # Optional, if needed
         self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
@@ -33,12 +38,14 @@ class ShadowAgent:
         Scan the target agent's memory for redundant command patterns.
         Use rule-based detection first, GPT for deeper insights.
         Also optimizes memory across all agents based on global performance feedback from Orion.
-        
+
         Args:
             target_agent_id: ID of the agent whose memory to optimize
             all_agents: Optional list of all agents (defaults to None)
         """
-        console.print(f"[bold magenta][ShadowAgent] Optimizing memory for {target_agent_id}[/bold magenta]")
+        console.print(
+            f"[bold magenta][ShadowAgent] Optimizing memory for {target_agent_id}[/bold magenta]"
+        )
         memory = self.memory_manager.load_shared_knowledge(
             filename=f"{target_agent_id}_insights.json"
         )
@@ -49,6 +56,7 @@ class ShadowAgent:
         redundant_patterns = self._detect_redundancy_patterns(commands)
         # Also detect ineffective patterns
         from core.logic.redundancy_detector import suggest_memory_pruning
+
         rewards = [a.get("reward", 0) for a in memory.get("actions", [])]
         prune_indices = suggest_memory_pruning(commands, rewards, threshold=0.0)
         if redundant_patterns or prune_indices:
@@ -57,11 +65,19 @@ class ShadowAgent:
                     f"[yellow]♻ Detected {len(redundant_patterns)} redundant patterns.[/yellow]"
                 )
             if prune_indices and self.verbosity != "quiet":
-                console.print(f"[yellow]🧹 Pruning {len(prune_indices)} ineffective memory entries.[/yellow]")
-                memory["actions"] = [a for i, a in enumerate(memory.get("actions", [])) if i not in prune_indices]
+                console.print(
+                    f"[yellow]🧹 Pruning {len(prune_indices)} ineffective memory entries.[/yellow]"
+                )
+                memory["actions"] = [
+                    a
+                    for i, a in enumerate(memory.get("actions", []))
+                    if i not in prune_indices
+                ]
                 self.memory_manager.save_memory()
             if hasattr(self.agent_manager, "stats_monitor"):
-                self.agent_manager.stats_monitor.visualize_phase_distribution(target_agent_id)
+                self.agent_manager.stats_monitor.visualize_phase_distribution(
+                    target_agent_id
+                )
         else:
             if self.verbosity == "detailed":
                 console.print(
@@ -85,7 +101,7 @@ class ShadowAgent:
         """
         # Only access agent.memory_manager, not agent classes directly
         for pattern in patterns:
-            if (pattern in self.cache):
+            if pattern in self.cache:
                 console.print(f"[blue]⚡ Cached optimization for:[/blue] {pattern}")
                 continue
 
@@ -139,9 +155,12 @@ Additionally, consider the following agents' feedback for optimization:
         """
         # Import locally to avoid circular import
         from core.logic.redundancy_detector import detect_redundancy_batch
+
         redundant_indices = detect_redundancy_batch(command_history)
         if redundant_indices:
-            console.print(f"[yellow]♻ Detected {len(redundant_indices)} redundant commands in history.[/yellow]")
+            console.print(
+                f"[yellow]♻ Detected {len(redundant_indices)} redundant commands in history.[/yellow]"
+            )
             self._log_training_event(f"Redundant patterns checked: {command_history}")
             return redundant_indices
         return []
@@ -153,8 +172,9 @@ Additionally, consider the following agents' feedback for optimization:
         """
         # Import locally to avoid circular import
         from core.logic.output_interpreter import analyze_output
+
         parsed_output = analyze_output(command, output)
-        if (parsed_output.get("ineffective", False)):
+        if parsed_output.get("ineffective", False):
             suggestion_prompt = f"Given the output: {output}, suggest an optimized command for the {state['phase']} phase."
             new_command = self.query_tactical_gpt(suggestion_prompt, complexity="high")
             return new_command
@@ -237,9 +257,22 @@ Additionally, consider the following agents' feedback for optimization:
     def get_base_commands(self):
         # For CLI completion/autosuggest
         return [
-            "nmap", "hydra", "msfconsole", "sqlmap", "ffuf", "gobuster",
-            "linpeas", "winpeas", "evil-winrm", "masscan", "amass", "crackmapexec", "enum4linux", "pspy"
+            "nmap",
+            "hydra",
+            "msfconsole",
+            "sqlmap",
+            "ffuf",
+            "gobuster",
+            "linpeas",
+            "winpeas",
+            "evil-winrm",
+            "masscan",
+            "amass",
+            "crackmapexec",
+            "enum4linux",
+            "pspy",
         ]
+
 
 # ─────────────────────────────────────────────
 # 🎬 Execution Test Hook

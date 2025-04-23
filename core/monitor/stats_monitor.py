@@ -203,6 +203,14 @@ class StatsMonitor:
                 "step": self.total_steps,
             }
         )
+        # Command novelty score
+        if command:
+            history = self.agent_stats[agent_name].setdefault("history", [])
+            history.append(command)
+            if len(history) > 20:
+                history.pop(0)
+            novelty = len(set(history))
+            self.agent_stats[agent_name]["novelty"] = novelty
         self.update_progress()
     # ─────────────────────────────────────────────
     # ─────────────────────────────────────────────
@@ -234,10 +242,14 @@ class StatsMonitor:
         table.add_column("Agent", style="cyan")
         table.add_column("Reward", style="green")
         table.add_column("Alerts", style="magenta")
+        table.add_column("Novelty", style="blue")
+        table.add_column("Redundancy", style="red")
         for agent in self.agents:
             rewards = total_rewards[agent]
             alerts = self.agent_stats[agent]["alerts"]
-            table.add_row(agent, f"{rewards:+.1f}", str(alerts) if alerts else "N/A")
+            novelty = self.agent_stats[agent].get("novelty", 0)
+            redundancy = max(self.agent_stats[agent]["redundancy"].values()) if self.agent_stats[agent]["redundancy"] else 0
+            table.add_row(agent, f"{rewards:+.1f}", str(alerts) if alerts else "N/A", str(novelty), str(redundancy))
         gpt_calls = sum(self.agent_stats[a]["gpt_calls"] for a in self.agents)
         snapshots = getattr(self, "snapshots_this_episode", 0)
         fallbacks = getattr(self, "fallbacks_this_episode", 0)

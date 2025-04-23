@@ -308,5 +308,20 @@
     "response": "enumeration",
     "cached_at": "2025-04-23T21:12:05.168622",
     "ttl_days": 7
+  },
+  "enumeration-none-2.67": {
+    "response": "enumeration",
+    "cached_at": "2025-04-23T21:39:48.779380",
+    "ttl_days": 7
+  },
+  "enumeration-none-0.67": {
+    "response": "enumeration",
+    "cached_at": "2025-04-23T21:48:13.573734",
+    "ttl_days": 7
+  },
+  "enumeration-none-4.0": {
+    "response": "enumeration",
+    "cached_at": "2025-04-23T22:11:21.292333",
+    "ttl_days": 7
   }
 }
