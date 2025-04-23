@@ -15,7 +15,7 @@ IMPORT_FIXES = {
     r"from core\.models\.stats_monitor import StatsMonitor": "from core.monitor.stats_monitor import StatsMonitor",
     r"from core\.logic\.output_interpreter import analyze_output": "from core.logic.output_interpreter import analyze_output",
     r"from core\.logic\.rule_engine import rule_based_selection": "from core.logic.rule_engine import rule_based_selection",
-    r"from core\.logic\.chainbuilder import .*": "from core.logic.chainbuilder import build_and_store_chain
+    r"from core\.logic\.chainbuilder import .*": "from core.logic.chainbuilder import build_and_store_chain",
     r"from core\.cyber_environment import CyberEnvironment": "from core.environment.cyber_environment import CyberEnvironment",
     r"from core\.teach import TeachModule": "from core.teach.teach import TeachModule",
     r"from core\.value_net import ValueNet": "from core.models.value_net import ValueNet",
