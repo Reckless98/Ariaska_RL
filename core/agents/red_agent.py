@@ -23,7 +23,17 @@ from core.utils.gpt_cache_handler import GPTCacheHandler
 from core.interfaces.agent_interface import AgentInterface
 
 def safe_tensor(data, device):
-    return torch.as_tensor(data, dtype=torch.float32, device=device).clone().detach()
+    # Only convert if data is already a tensor, list, or np array
+    import numpy as np
+    if isinstance(data, torch.Tensor):
+        return data.clone().detach().to(device)
+    elif isinstance(data, (list, tuple, np.ndarray)):
+        return torch.as_tensor(data, dtype=torch.float32, device=device).clone().detach()
+    elif isinstance(data, dict):
+        # Use encode_env_state to flatten dicts
+        return RedAgent.encode_env_state_static(data, device)
+    else:
+        raise TypeError(f"Cannot convert type {type(data)} to tensor.")
 
 console = Console()
 
@@ -43,7 +53,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.policy_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
         self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
-        self.env = CyberEnvironment(agent_manager=agent_manager)
+        self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True)
         self.env.blue_team = True
         self.stats_monitor = StatsMonitor()
         self.teacher = TeachModule(agent_name=self.agent_id)
@@ -115,66 +125,26 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             console.print(f"[red]⚠ GPT query failed: {e}[/red]")
             return "Maintain current strategy."
 
-    def simulate_step(self, episode=1, step=1, shared_context=None):
-        from core.logic.redundancy_detector import detect_redundancy, suggest_alternative
-        from core.logic.rule_engine import rule_based_selection
-        from core.logic.output_interpreter import analyze_output
-
-        state = self.env.reset() if step == 1 else getattr(self, "_last_state", self.env.get_global_state())
-        try:
-            if self.scout and self.agent_manager:
-                state["phase"] = self.scout.advise_phase(state, self.agent_manager.all_agents()) or state.get("phase", "recon")
-                if isinstance(state["phase"], dict) and "response" in state["phase"]:
-                    state["phase"] = state["phase"]["response"]
-            else:
-                state["phase"] = state.get("phase", "recon")
-        except Exception as e:
-            console.print(f"[yellow]⚠ Scout phase advice failed: {e}, using current phase[/yellow]")
-            state["phase"] = state.get("phase", "recon")
-
-        # Use tensor-safe code
-        state_tensor = safe_tensor(state, self.device)
-
-        # Use shared context for phase coordination if available
-        if shared_context and "ScoutAgent_phase" in shared_context:
-            state["phase"] = shared_context["ScoutAgent_phase"]
-
-        # Curriculum-driven exploration: occasionally randomize phase
-        if random.random() < 0.05:
-            state["phase"] = random.choice(["recon", "enumeration", "exploit", "privesc", "exfiltrate"])
-
-        # Validate GPT phase response
-        if self.scout and self.agent_manager:
-            phase_suggestion = self.scout.advise_phase(state, self.agent_manager.all_agents())
-            if phase_suggestion not in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]:
-                phase_suggestion = state.get("phase", "recon")
-            state["phase"] = phase_suggestion
-
-        # Accept OrionAgent's strategic chain at episode start
-        if step == 1 and hasattr(self.agent_manager, "orion_agent"):
-            chain = getattr(self.agent_manager.orion_agent, "current_chain", None)
-            if chain:
-                self.priority_queue = chain  # Inject chain for this episode
-                if self.verbosity != "quiet":
-                    console.print(f"[blue][Orion] Injected strategic chain for episode {episode}[/blue]")
-
-        # --- Decision Pipeline ---
-        phase = state["phase"]
-        cache_key = f"{self.agent_id}_decision_{phase}"
-        cached_cmd = None
-        if hasattr(self.memory_router, "check_gpt_cache"):
+    def get_smart_command(self, state, phase, cache_key=None):
+        """
+        Modular smart command generator using GPT (with cache).
+        Returns (command, reasoning).
+        """
+        # 1. Try cache first
+        if cache_key and hasattr(self.memory_router, "check_gpt_cache"):
             cached_cmd = self.memory_router.check_gpt_cache(cache_key)
-        if isinstance(cached_cmd, dict) and "response" in cached_cmd:
-            command = cached_cmd["response"]
-        else:
-            command = cached_cmd
+            if isinstance(cached_cmd, dict) and "response" in cached_cmd:
+                command = cached_cmd["response"]
+            else:
+                command = cached_cmd
+            if command and isinstance(command, str) and len(command.split()) > 1:
+                gpt_reason = self.memory_router.check_gpt_cache(f"{self.agent_id}_reason_{command}")
+                if isinstance(gpt_reason, dict) and "response" in gpt_reason:
+                    gpt_reason = gpt_reason["response"]
+                return command, gpt_reason
 
-        if command:
-            gpt_reason = self.memory_router.check_gpt_cache(f"{self.agent_id}_reason_{command}")
-            if isinstance(gpt_reason, dict) and "response" in gpt_reason:
-                gpt_reason = gpt_reason["response"]
-        else:
-            # Use GPT-4o-mini for smarter tactical suggestion
+        # 2. Use GPT for smart suggestion (with robust fallbacks)
+        try:
             prompt = (
                 f"You are ARIASKA's offensive strategist (role: aria). "
                 f"Phase: {phase}, Privilege: {state.get('privilege_level')}, "
@@ -184,206 +154,340 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 "Avoid trivial or repeated commands. Respond with command only."
             )
             command = self.query_tactical_gpt(prompt)
-            if hasattr(self.memory_router, "store_gpt_response"):
-                self.memory_router.store_gpt_response(cache_key, command)
-            gpt_reason = self.query_tactical_gpt(
-                f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
-            )
-            if hasattr(self.memory_router, "store_gpt_response"):
-                self.memory_router.store_gpt_response(f"{self.agent_id}_reason_{command}", gpt_reason)
+            
+            # Verify command is valid
+            if not command or not isinstance(command, str) or len(command.split()) < 2:
+                # Use phase-based fallback commands rather than generic echo
+                phase_commands = {
+                    "recon": "nmap -sS -sV -p- -T4 --min-rate=1000 10.10.10.10",
+                    "enumeration": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+                    "exploit": "searchsploit apache 2.4.49",
+                    "privesc": "sudo -l",
+                    "exfiltrate": "tar -czf /tmp/data.tar.gz /home/user/Documents"
+                }
+                command = phase_commands.get(phase, f"nmap -A 10.10.10.10")
+                console.print(f"[yellow]⚠ GPT failed to generate command. Using fallback for {phase}.[/yellow]")
+                
+            if hasattr(self.memory_router, "store_gpt_response") and cache_key:
+                self.memory_router.store_gpt_response(self.agent_id, cache_key, command)
+                
+            # 3. Generate reasoning via GPT (with fallback)
+            reason_prompt = f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
+            gpt_reason = self.query_tactical_gpt(reason_prompt)
+            
+            if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
+                gpt_reason = f"This {command.split()[0]} command is appropriate for the {phase} phase."
+                
+            if hasattr(self.memory_router, "store_gpt_response") and command:
+                self.memory_router.store_gpt_response(self.agent_id, f"{self.agent_id}_reason_{command}", gpt_reason)
+                
+            return command, gpt_reason
+            
+        except Exception as e:
+            # 4. Exception handler with robust fallbacks
+            console.print(f"[red]❌ Error in get_smart_command: {e}. Using phase-based fallback.[/red]")
+            fallback_commands = {
+                "recon": "nmap -sS -sV 10.10.10.10",
+                "enumeration": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
+                "exploit": "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.10.10.10",
+                "privesc": "find / -perm -u=s -type f 2>/dev/null",
+                "exfiltrate": "zip -r /tmp/data.zip /etc/passwd"
+            }
+            command = fallback_commands.get(phase, "echo 'Fallback command executed'")
+            gpt_reason = f"Fallback command for {phase} phase after GPT error."
+            return command, gpt_reason
 
-        # Ensure command is a string
-        if isinstance(command, dict):
-            command = command.get("response", str(command))
-        if not isinstance(command, str):
-            command = str(command)
+    @staticmethod
+    def encode_env_state_static(state, device):
+        # Flatten environment dict into a numeric vector for RL input
+        # This is a simple, robust encoding for RL state
+        import numpy as np
+        vec = []
+        # Example: encode some common fields, pad to 512
+        vec.append(float(state.get("phase", 0) in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]))
+        vec.append(float(state.get("privilege_level", "none") == "root"))
+        vec.append(float(state.get("detection_risk", 0)))
+        vec.append(float(state.get("blue_team_alert", 0)))
+        vec.append(float(state.get("difficulty", 1)))
+        vec.append(float(state.get("data_exfiltrated", False)))
+        vec.append(float(state.get("credentials_found", False)))
+        vec.append(float(state.get("done", False)))
+        # Encode open_ports and services as counts
+        vec.append(float(len(state.get("open_ports", []))))
+        vec.append(float(len(state.get("services", []))))
+        # Pad to 512
+        while len(vec) < 512:
+            vec.append(0.0)
+        return torch.tensor(vec, dtype=torch.float32, device=device)
 
-        # Dynamic risk management: switch to stealth if detection risk is high
-        if state.get("detection_risk", 0) > 7.0:
-            state["phase"] = "recon"
-            console.print("[yellow]⚠ Detection risk high, switching to stealth phase.[/yellow]")
+    def encode_env_state(self, state):
+        return self.encode_env_state_static(state, self.device)
 
-        # Redundancy check
-        if detect_redundancy(self.command_history, command):
-            # shaped_reward may not be defined yet, so move this logic after reward calculation
-            pass
+    def simulate_step(self, episode=1, step=1, shared_context=None):
+        from core.logic.redundancy_detector import detect_redundancy, suggest_alternative
+        from core.logic.rule_engine import rule_based_selection
+        from core.logic.output_interpreter import analyze_output
 
-        # Redundancy and no-reward tracking
-        if len(self.command_history) >= 2 and self.command_history[-1] == self.command_history[-2]:
-            self.redundancy_counter += 1
-        else:
-            self.redundancy_counter = 0
-        if self.last_reward == 0:
-            self.no_reward_steps += 1
-        else:
-            self.no_reward_steps = 0
-
-        # Redundancy and fallback logic
-        fallback_triggered = False
-        if self.redundancy_counter > 2 or self.no_reward_steps > 2:
-            # Fallback to GPT-4.1
-            prompt = (
-                f"You are ARIASKA's offensive strategist (role: aria). "
-                f"Stuck in repeated actions: {self.command_history[-1] if self.command_history else 'N/A'}. "
-                f"Suggest a novel, phase-appropriate offensive command for state: {state}. "
-                "Avoid any command similar to the last 5. Respond with command only."
-            )
-            command = self.query_tactical_gpt(prompt, complexity="full")
-            self.gpt_calls["4.1-full"] += 1
-            fallback_triggered = True
-            self.redundancy_counter = 0
-            self.no_reward_steps = 0
-            if self.verbosity != "quiet":
-                console.print(f"[red][Fallback] RedAgent engaged GPT-4.1 due to stagnation (Repeated Action: {command})[/red]")
-            self._log_training_event(f"[Fallback] GPT-4.1 triggered at step {step}: {command}")
-        else:
-            command = self.query_tactical_gpt(prompt, complexity="standard")
-            self.gpt_calls["4o-mini"] += 1
-
-        self.command_history.append(command)
-        output = self.extract_output(command)
-        if not isinstance(output, str):
-            output = str(output)
-        parsed = analyze_output(command, output)
-        interpreted_context = {
-            **state,
-            "phase": parsed.get("phase", state["phase"]),
-            "artifacts": parsed.get("artifacts", []),
-            "stealth": parsed.get("success", False),
-            "honeypot_triggered": "fake_" in output,
-            "port_lockdown": len(state.get("open_ports", [])) <= 2,
-        }
-        if self.blue:
-            self.blue.react_to_action(command, parsed)
-        next_state, env_reward, done, info = self.env.step(command)
-        # Defensive: ensure env_reward is a float
         try:
-            if isinstance(env_reward, dict):
-                env_reward = env_reward.get("reward", 0.0)
-            env_reward = float(env_reward)
-        except Exception:
-            env_reward = 0.0
-        shaped_reward = self.calculate_reward(env_reward, parsed, command, None, detect_redundancy)
-        try:
-            shaped_reward = float(shaped_reward)
-        except Exception:
-            shaped_reward = 0.0
-        if detect_redundancy(self.command_history[:-1], command):
-            shaped_reward *= self.redundancy_penalty
+            state = self.env.reset() if step == 1 else getattr(self, "_last_state", self.env.get_global_state())
+            try:
+                if self.scout and self.agent_manager:
+                    state["phase"] = self.scout.advise_phase(state, self.agent_manager.all_agents()) or state.get("phase", "recon")
+                    if isinstance(state["phase"], dict) and "response" in state["phase"]:
+                        state["phase"] = state["phase"]["response"]
+                else:
+                    state["phase"] = state.get("phase", "recon")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Scout phase advice failed: {e}, using current phase[/yellow]")
+                state["phase"] = state.get("phase", "recon")
 
-        # Redundancy detection
-        if self.command_history:
-            if self.command_history[-1] == self.last_action:
-                self.repeated_action_count += 1
+            # Use tensor-safe code
+            state_tensor = self.encode_env_state(state)
+
+            # Use shared context for phase coordination if available
+            if shared_context and "ScoutAgent_phase" in shared_context:
+                state["phase"] = shared_context["ScoutAgent_phase"]
+
+            # Curriculum-driven exploration: occasionally randomize phase
+            if random.random() < 0.05:
+                state["phase"] = random.choice(["recon", "enumeration", "exploit", "privesc", "exfiltrate"])
+
+            # Validate GPT phase response
+            if self.scout and self.agent_manager:
+                phase_suggestion = self.scout.advise_phase(state, self.agent_manager.all_agents())
+                if phase_suggestion not in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]:
+                    phase_suggestion = state.get("phase", "recon")
+                state["phase"] = phase_suggestion
+
+            # Accept OrionAgent's strategic chain at episode start
+            if step == 1 and hasattr(self.agent_manager, "orion_agent"):
+                chain = getattr(self.agent_manager.orion_agent, "current_chain", None)
+                if chain:
+                    self.priority_queue = chain  # Inject chain for this episode
+                    if self.verbosity != "quiet":
+                        console.print(f"[blue][Orion] Injected strategic chain for episode {episode}[/blue]")
+
+            # --- Decision Pipeline ---
+            phase = state["phase"]
+            cache_key = f"{self.agent_id}_decision_{phase}"
+
+            # Modular smart command selection
+            command, gpt_reason = self.get_smart_command(state, phase, cache_key=cache_key)
+
+            # Defensive: ensure command is a string and not empty
+            if not command or not isinstance(command, str) or command.strip() == "":
+                command = f"echo 'Fallback_Command_{phase}'"
+                gpt_reason = "Fallback: GPT unavailable."
+
+            # Dynamic risk management: switch to stealth if detection risk is high
+            if state.get("detection_risk", 0) > 7.0:
+                state["phase"] = "recon"
+                console.print("[yellow]⚠ Detection risk high, switching to stealth phase.[/yellow]")
+
+            # Redundancy check
+            if detect_redundancy(self.command_history, command):
+                # shaped_reward may not be defined yet, so move this logic after reward calculation
+                pass
+
+            # Redundancy and no-reward tracking
+            if len(self.command_history) >= 2 and self.command_history[-1] == self.command_history[-2]:
+                self.redundancy_counter += 1
+            else:
+                self.redundancy_counter = 0
+            if self.last_reward == 0:
+                self.no_reward_steps += 1
+            else:
+                self.no_reward_steps = 0
+
+            # Redundancy and fallback logic
+            fallback_triggered = False
+            if self.redundancy_counter > 2 or self.no_reward_steps > 2:
+                # Fallback to GPT-4.1
+                prompt = (
+                    f"You are ARIASKA's offensive strategist (role: aria). "
+                    f"Stuck in repeated actions: {self.command_history[-1] if self.command_history else 'N/A'}. "
+                    f"Suggest a novel, phase-appropriate offensive command for state: {state}. "
+                    "Avoid any command similar to the last 5. Respond with command only."
+                )
+                command = self.query_tactical_gpt(prompt, complexity="full")
+                self.gpt_calls["4.1-full"] += 1
+                fallback_triggered = True
+                self.redundancy_counter = 0
+                self.no_reward_steps = 0
+                if self.verbosity != "quiet":
+                    console.print(f"[red][Fallback] RedAgent engaged GPT-4.1 due to stagnation (Repeated Action: {command})[/red]")
+                self._log_training_event(f"[Fallback] GPT-4.1 triggered at step {step}: {command}")
+            else:
+                command = self.query_tactical_gpt(prompt, complexity="standard")
+                self.gpt_calls["4o-mini"] += 1
+
+            self.command_history.append(command)
+            output = self.extract_output(command)
+            if not isinstance(output, str):
+                output = str(output)
+            parsed = analyze_output(command, output)
+            interpreted_context = {
+                **state,
+                "phase": parsed.get("phase", state["phase"]),
+                "artifacts": parsed.get("artifacts", []),
+                "stealth": parsed.get("success", False),
+                "honeypot_triggered": "fake_" in output,
+                "port_lockdown": len(state.get("open_ports", [])) <= 2,
+            }
+            if self.blue:
+                self.blue.react_to_action(command, parsed)
+            next_state, env_reward, done, info = self.env.step(command)
+            # Defensive: ensure env_reward is a float
+            try:
+                if isinstance(env_reward, dict):
+                    env_reward = env_reward.get("reward", 0.0)
+                env_reward = float(env_reward)
+            except Exception:
+                env_reward = 0.0
+            shaped_reward = self.calculate_reward(env_reward, parsed, command, None, detect_redundancy)
+            try:
+                shaped_reward = float(shaped_reward)
+            except Exception:
+                shaped_reward = 0.0
+            if detect_redundancy(self.command_history[:-1], command):
+                shaped_reward *= self.redundancy_penalty
+
+            # Redundancy detection
+            if self.command_history:
+                if self.command_history[-1] == self.last_action:
+                    self.repeated_action_count += 1
+                else:
+                    self.repeated_action_count = 1
+                self.last_action = self.command_history[-1]
             else:
                 self.repeated_action_count = 1
-            self.last_action = self.command_history[-1]
-        else:
-            self.repeated_action_count = 1
-            self.last_action = command
+                self.last_action = command
 
-        # Escalate to GPT-4.1 if same action repeats ≥ 3 times
-        if self.repeated_action_count >= 3:
-            if self.verbosity in ("standard", "detailed"):
-                console.print(f"[red][RedAgent] 🔺 Escalating to GPT-4.1 due to repetitive actions: '{command}' x{self.repeated_action_count}[/red]")
-            prompt = (
-                f"You are ARIASKA's offensive strategist (role: aria). "
-                f"Stuck in repeated actions: {command}. "
-                f"Suggest a novel, phase-appropriate offensive command for state: {state}. "
-                "Avoid any command similar to the last 5. Respond with command only."
+            # Escalate to GPT-4.1 if same action repeats ≥ 3 times
+            if self.repeated_action_count >= 3:
+                if self.verbosity in ("standard", "detailed"):
+                    console.print(f"[red][RedAgent] 🔺 Escalating to GPT-4.1 due to repetitive actions: '{command}' x{self.repeated_action_count}[/red]")
+                prompt = (
+                    f"You are ARIASKA's offensive strategist (role: aria). "
+                    f"Stuck in repeated actions: {command}. "
+                    f"Suggest a novel, phase-appropriate offensive command for state: {state}. "
+                    "Avoid any command similar to the last 5. Respond with command only."
+                )
+                command = self.query_tactical_gpt(prompt, complexity="full")
+                self.repeated_action_count = 0  # Reset after escalation
+
+            self.last_reasoning = gpt_reason
+            self.update_memory_and_teach(
+                command,
+                shaped_reward,
+                interpreted_context,
+                parsed,
+                state_tensor,
+                next_state,
+                done,
             )
-            command = self.query_tactical_gpt(prompt, complexity="full")
-            self.repeated_action_count = 0  # Reset after escalation
+            self.stats_monitor.log_step(self.agent_id, shaped_reward, command=command)
+            self._last_state = next_state
+            self.last_output = output
+            display_status_bar(self.agent_id, episode, step)
+            self._log_training_step(episode, step, command, state, output)
+            if self.epsilon > self.epsilon_min:
+                self.epsilon *= self.epsilon_decay
+                self.epsilon = max(self.epsilon, self.epsilon_min)
+            # Print concise, informative summary for this step
+            if self.verbosity == "silent":
+                pass
+            elif self.verbosity == "standard":
+                console.log(f"[{self.agent_id}] Step {step} | Reward: {shaped_reward:.2f} | Risk: {state.get('detection_risk', 0):.2f}")
+            elif self.verbosity == "verbose":
+                console.print(f"[bold magenta]🎯 RedAgent: Step {step} | Phase: {phase} | Command: {command}[/bold magenta]")
+                console.print(f"[cyan]🧠 Reasoning:[/cyan] {self.last_reasoning}")
+            # Per-step compact panel logging
+            if self.verbosity == "detailed":
+                from rich.panel import Panel
+                from rich.table import Table
+                table = Table.grid()
+                table.add_row("Action", str(command))
+                table.add_row("Phase", str(phase))
+                table.add_row("Reward", f"{shaped_reward:+.2f}")
+                table.add_row("GPT", "4.1" if fallback_triggered else "4o-mini")
+                console.print(Panel(table, title=f"{self.agent_id} Step {step}", border_style="red"))
+            elif self.verbosity == "standard":
+                if self.repeated_action_count > 1:
+                    console.print(f"[{self.agent_id}] Step {step} | Action: {command} (repeated x{self.repeated_action_count}) | Reward: {shaped_reward:.2f}")
+                elif step == 1 or step % 5 == 0:
+                    console.print(f"[{self.agent_id}] Step {step} | Action: {command} | Phase: {phase} | Reward: {shaped_reward:.2f}")
+            elif self.verbosity == "quiet":
+                if fallback_triggered or shaped_reward < 0 or step == 1 or step % 10 == 0:
+                    console.print(f"[{self.agent_id}] 🚨 Step {step} | Reward: {shaped_reward:.2f}")
 
-        self.last_reasoning = gpt_reason
-        self.update_memory_and_teach(
-            command,
-            shaped_reward,
-            interpreted_context,
-            parsed,
-            state_tensor,
-            next_state,
-            done,
-        )
-        self.stats_monitor.log_step(self.agent_id, shaped_reward, command=command)
-        self._last_state = next_state
-        self.last_output = output
-        display_status_bar(self.agent_id, episode, step)
-        self._log_training_step(episode, step, command, state, output)
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-            self.epsilon = max(self.epsilon, self.epsilon_min)
-        # Print concise, informative summary for this step
-        if self.verbosity == "silent":
-            pass
-        elif self.verbosity == "standard":
-            console.log(f"[{self.agent_id}] Step {step} | Reward: {shaped_reward:.2f} | Risk: {state.get('detection_risk', 0):.2f}")
-        elif self.verbosity == "verbose":
-            console.print(f"[bold magenta]🎯 RedAgent: Step {step} | Phase: {phase} | Command: {command}[/bold magenta]")
-            console.print(f"[cyan]🧠 Reasoning:[/cyan] {self.last_reasoning}")
-        # Per-step compact panel logging
-        if self.verbosity == "detailed":
-            from rich.panel import Panel
-            from rich.table import Table
-            table = Table.grid()
-            table.add_row("Action", str(command))
-            table.add_row("Phase", str(phase))
-            table.add_row("Reward", f"{shaped_reward:+.2f}")
-            table.add_row("GPT", "4.1" if fallback_triggered else "4o-mini")
-            console.print(Panel(table, title=f"{self.agent_id} Step {step}", border_style="red"))
-        elif self.verbosity == "standard":
-            if self.repeated_action_count > 1:
-                console.print(f"[{self.agent_id}] Step {step} | Action: {command} (repeated x{self.repeated_action_count}) | Reward: {shaped_reward:.2f}")
-            elif step == 1 or step % 5 == 0:
-                console.print(f"[{self.agent_id}] Step {step} | Action: {command} | Phase: {phase} | Reward: {shaped_reward:.2f}")
-        elif self.verbosity == "quiet":
-            if fallback_triggered or shaped_reward < 0 or step == 1 or step % 10 == 0:
-                console.print(f"[{self.agent_id}] 🚨 Step {step} | Reward: {shaped_reward:.2f}")
+            # Summarize every 5 steps
+            if step % 5 == 0 and self.verbosity != "quiet":
+                avg_reward = sum(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-5:]) / 5
+                alert = state.get("blue_team_alert", 0)
+                console.print(f"[Summary] {self.agent_id} Steps {step-4}-{step}: Avg Reward {avg_reward:+.1f} | Alert {alert:.1f}")
+            console.print(f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]")
 
-        # Summarize every 5 steps
-        if step % 5 == 0 and self.verbosity != "quiet":
-            avg_reward = sum(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-5:]) / 5
-            alert = state.get("blue_team_alert", 0)
-            console.print(f"[Summary] {self.agent_id} Steps {step-4}-{step}: Avg Reward {avg_reward:+.1f} | Alert {alert:.1f}")
-        console.print(f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]")
+            # Track token usage for visualization
+            if hasattr(self.stats_monitor, "log_gpt_call"):
+                self.stats_monitor.log_gpt_call(self.agent_id)
 
-        # Track token usage for visualization
-        if hasattr(self.stats_monitor, "log_gpt_call"):
-            self.stats_monitor.log_gpt_call(self.agent_id)
+            # After decision, broadcast own phase/intent
+            if self.agent_manager and hasattr(self.agent_manager, "broadcast"):
+                self.agent_manager.broadcast(f"{self.agent_id}_phase", state["phase"], sender=self.agent_id)
 
-        # After decision, broadcast own phase/intent
-        if self.agent_manager and hasattr(self.agent_manager, "broadcast"):
-            self.agent_manager.broadcast(f"{self.agent_id}_phase", state["phase"], sender=self.agent_id)
+            # Add to replay buffer
+            action = self.select_action(state_tensor, state["phase"])
+            next_state_tensor = self.encode_env_state(next_state)
+            self.replay_buffer.add({
+                "state": state_tensor,
+                "action": action,
+                "reward": shaped_reward,
+                "next_state": next_state_tensor,
+                "done": done,
+                "command": command,
+            })
 
-        # Add to replay buffer
-        action = self.select_action(state_tensor, state["phase"])
-        next_state_tensor = safe_tensor(next_state, self.device)
-        self.replay_buffer.add({
-            "state": state_tensor,
-            "action": action,
-            "reward": shaped_reward,
-            "next_state": next_state_tensor,
-            "done": done,
-            "command": command,
-        })
+            self.last_reward = shaped_reward
 
-        self.last_reward = shaped_reward
+            # --- Add: Print stats after each step ---
+            if hasattr(self.stats_monitor, "show"):
+                if step % 10 == 0 or step == 1:
+                    self.stats_monitor.show()
 
-        # Always return floats for reward, epsilon, entropy
-        return {
-            "command": command,
-            "phase": state.get("phase", "N/A"),
-            "reward": float(shaped_reward),
-            "gpt_calls": self.stats_monitor.agent_stats[self.agent_id]["gpt_calls"] if self.agent_id in self.stats_monitor.agent_stats else 0,
-            "output": output,
-            "reasoning": self.last_reasoning,
-            "step": step,
-            "episode": episode,
-            "agent_id": self.agent_id,
-            "replay_buffer": len(self.prioritized_experiences),
-            "epsilon": float(self.epsilon),
-            "entropy_beta": float(self.entropy_beta),
-        }
+            # Always return floats for reward, epsilon, entropy
+            return {
+                "command": command,
+                "phase": state.get("phase", "N/A"),
+                "reward": float(shaped_reward),
+                "gpt_calls": self.stats_monitor.agent_stats[self.agent_id]["gpt_calls"] if self.agent_id in self.stats_monitor.agent_stats else 0,
+                "output": output,
+                "reasoning": self.last_reasoning,
+                "step": step,
+                "episode": episode,
+                "agent_id": self.agent_id,
+                "replay_buffer": len(self.prioritized_experiences),
+                "epsilon": float(self.epsilon),
+                "entropy_beta": float(self.entropy_beta),
+            }
+        except Exception as e:
+            console.print(f"[red]❌ Error in RedAgent simulate_step: {e}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
+            return {
+                "command": "N/A",
+                "phase": "N/A",
+                "reward": 0.0,
+                "gpt_calls": 0,
+                "output": f"Error: {e}",
+                "reasoning": "Error occurred",
+                "step": step,
+                "episode": episode,
+                "agent_id": self.agent_id,
+                "replay_buffer": 0,
+                "epsilon": float(self.epsilon),
+                "entropy_beta": float(self.entropy_beta),
+            }
 
     def _log_training_step(self, episode, step, command, state, output):
         with open(self.training_log_path, "a") as f:
@@ -535,6 +639,9 @@ class RedAgent(AgentInterface, MemorySyncInterface):
     def end_episode(self, cumulative_reward, state):
         self.total_episodes += 1
         self.log_episode_summary(cumulative_reward, state)
+        # --- Add: Print stats after each episode ---
+        if hasattr(self.stats_monitor, "display_episode_summary"):
+            self.stats_monitor.display_episode_summary()
 
     def generate_chain_snapshot(self):
         try:
@@ -552,18 +659,30 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         return self.query_tactical_gpt("Suggest a tactical command for the current phase.")
 
     def execute_command(self, command):
-        # New: Execute a command and return a dict for CLI integration
-        output = self.extract_output(command)
-        reward = random.uniform(0, 10)
-        self.stats_monitor.log_step(self.agent_id, reward, command=command)
-        return {
-            "output": output,
-            "recommendations": [{"command": command, "params": "Auto", "why": "Manual execution"}],
-            "phase": "unknown",
-            "reward": reward,
-            "alert": 0.0,
-            "entropy": None,
-        }
+        try:
+            output = self.extract_output(command)
+            if not output or output == "output":
+                output = f"Executed: {command}"
+            reward = random.uniform(0, 10)
+            self.stats_monitor.log_step(self.agent_id, reward, command=command)
+            return {
+                "output": output,
+                "recommendations": [{"command": command, "params": "Auto", "why": "Manual execution"}],
+                "phase": "unknown",
+                "reward": reward,
+                "alert": 0.0,
+                "entropy": None,
+            }
+        except Exception as e:
+            console.print(f"[red]❌ Error executing command: {e}[/red]")
+            return {
+                "output": f"Error executing command: {e}",
+                "recommendations": [],
+                "phase": "unknown",
+                "reward": 0,
+                "alert": 0.0,
+                "entropy": None,
+            }
 
     def get_base_commands(self):
         # For CLI completion/autosuggest

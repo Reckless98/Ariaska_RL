@@ -3,6 +3,7 @@
 
 import os
 import json
+import re
 from datetime import datetime
 from rich.console import Console
 
@@ -22,15 +23,17 @@ class MemoryRouter:
             self.shared_path, "snapshots", "metadata.json"
         )
         self.max_cache_size = max_cache_size
+        self.caches = {}  # Ensure caches dict is always initialized
+        self.memories = {}  # For agent memories
 
         self._initialize_directories()
         self._initialize_files()
 
     def get_memory(self, agent_id):
-        agent = self.agent_map.get(agent_id)
-        if agent and hasattr(agent, "memory_manager"):
-            return agent.memory_manager.get_all_memory()
-        raise AttributeError(f"Agent {agent_id} has no memory_manager or not found.")
+        # Defensive: ensure self.memories exists
+        if not hasattr(self, "memories"):
+            self.memories = {}
+        return self.memories.get(agent_id, {"actions": [], "rewards": {}, "scenarios": []})
 
     def _initialize_directories(self):
         os.makedirs(self.shared_path, exist_ok=True)
@@ -50,15 +53,26 @@ class MemoryRouter:
     # ⚡ Adaptive GPT Cache Management
     # ─────────────────────────────────────────────
     def check_gpt_cache(self, key):
-        cache = self._load_json(self.gpt_cache_file)
-        return cache.get(key)
+        # Defensive: ensure self.caches exists
+        if not hasattr(self, "caches"):
+            self.caches = {}
+        """
+        Check if a GPT response is in cache.
+        Return the response if found, None otherwise.
+        """
+        for agent_id in self.caches:
+            cache = self.caches[agent_id]
+            if key in cache:
+                return cache[key]
+        return None
 
-    def store_gpt_response(self, key, response):
-        cache = self._load_json(self.gpt_cache_file)
-        cache[key] = {"response": response, "timestamp": datetime.now().isoformat()}
-        cache = self._enforce_cache_limit(cache)
-        self._save_json(self.gpt_cache_file, cache)
-        console.print(f"[cyan]🧠 Cached GPT response:[/cyan] {key}")
+    def store_gpt_response(self, agent_id, key, response):
+        # Defensive: ensure self.caches exists
+        if not hasattr(self, "caches"):
+            self.caches = {}
+        if agent_id not in self.caches:
+            self.caches[agent_id] = {}
+        self.caches[agent_id][key] = response
 
     def _enforce_cache_limit(self, cache):
         if len(cache) > self.max_cache_size:
@@ -71,6 +85,9 @@ class MemoryRouter:
     # 🌐 Global Knowledge Synchronization
     # ─────────────────────────────────────────────
     def sync_global_insights(self, agents=None, reward_threshold=50):
+        # Defensive: ensure self.caches exists
+        if not hasattr(self, "caches"):
+            self.caches = {}
         if agents is None:
             agents = self.agents
         insights = self._load_json(self.global_insights_file).get("actions", [])
@@ -100,6 +117,9 @@ class MemoryRouter:
     # 📸 Smart Snapshot & Restore System
     # ─────────────────────────────────────────────
     def snapshot_all_memories(self, agents=None):
+        # Defensive: ensure self.caches exists
+        if not hasattr(self, "caches"):
+            self.caches = {}
         if agents is None:
             agents = self.agents
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -150,6 +170,9 @@ class MemoryRouter:
                 asyncio.run(agent.memory_manager.optimize_memory(reward_floor=threshold))
 
     def consolidate_gpt_cache(self):
+        # Defensive: ensure self.caches exists
+        if not hasattr(self, "caches"):
+            self.caches = {}
         # Merge all agent GPT caches into the shared cache
         cache = self._load_json(self.gpt_cache_file)
         for agent in self.agents:
@@ -184,17 +207,66 @@ class MemoryRouter:
 
     # Optional: inject_action for RedAgent/BlueAgent
     def inject_action(self, agent_id, command, reward, context, parsed):
-        # Store action in global insights for analytics
-        data = self._load_json(self.global_insights_file)
-        data.setdefault("actions", []).append({
-            "agent_id": agent_id,
+        # Defensive: ensure self.memories exists
+        if not hasattr(self, "memories"):
+            self.memories = {}
+        """
+        Record an agent's action in memory for reinforcement learning.
+        """
+        if agent_id not in self.memories:
+            self.memories[agent_id] = {"actions": [], "rewards": {}, "scenarios": []}
+
+        # Create a standardized action record
+        action = {
             "command": command,
-            "reward": reward,
-            "context": context,
-            "parsed": parsed,
-            "timestamp": datetime.now().isoformat()
-        })
-        self._save_json(self.global_insights_file, data)
+            "reward": float(reward),
+            "phase": context.get("phase", "unknown"),
+            "timestamp": self._get_timestamp(),
+            "success": parsed.get("success", False),
+            "artifacts": parsed.get("artifacts", []),
+            "full_command": command,  # Store the full command
+            "template": self._templatize_command(command)  # For pattern learning
+        }
+
+        self.memories[agent_id]["actions"].append(action)
+
+        # Update reward tracking
+        phase = context.get("phase", "unknown")
+        if phase not in self.memories[agent_id]["rewards"]:
+            self.memories[agent_id]["rewards"][phase] = []
+        self.memories[agent_id]["rewards"][phase].append(float(reward))
+
+        # Keep memory size under control
+        memory_limit = getattr(self, "memory_limit", 200)
+        if len(self.memories[agent_id]["actions"]) > memory_limit:
+            self.memories[agent_id]["actions"] = self.memories[agent_id]["actions"][-memory_limit:]
+
+        # Save periodically
+        if len(self.memories[agent_id]["actions"]) % 10 == 0:
+            self.save_memory(agent_id)
+
+    def _templatize_command(self, command):
+        """Convert command to template for pattern learning"""
+        if not command or not isinstance(command, str):
+            return "unknown_command"
+
+        parts = command.split()
+        if not parts:
+            return "empty_command"
+
+        base = parts[0]
+        # Keep structure but replace specific values
+        template = base
+        for part in parts[1:]:
+            if re.match(r'\d{1,3}(\.\d{1,3}){3}', part):
+                template += " <IP>"
+            elif re.match(r'(-|--)\w+', part):
+                template += f" {part}"  # Keep flags
+            elif re.match(r'/\w+', part):
+                template += " <PATH>"
+            else:
+                template += " <PARAM>"
+        return template
 
 # ─────────────────────────────────────────────
 # 🚀 Diagnostic Mode

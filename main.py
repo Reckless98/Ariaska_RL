@@ -2,6 +2,7 @@ import asyncio
 import os
 import signal
 import logging
+import subprocess
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -236,7 +237,7 @@ async def main_loop():
                 console.print("[yellow]⚠ No input. Type 'help' for options.[/yellow]")
                 continue
 
-            cmd_lower = command.strip().lower()  # Fixed typo: was toLowerCase()
+            cmd_lower = command.strip().lower()
             args = command.strip().split()
 
             # --- Add typo warning for common mistakes ---
@@ -270,33 +271,66 @@ async def main_loop():
                 display_phase_table()
             elif cmd_lower in ["help", "?"]:
                 show_help()
+            elif cmd_lower == "test-sgpt":
+                # Test if sgpt is working correctly
+                console.print("[yellow]Testing sgpt connectivity...[/yellow]")
+                try:
+                    result = subprocess.run(
+                        ["sgpt", "--model", "gpt-4o-mini", "Say hello"],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10
+                    )
+                    console.print(f"[green]✔ sgpt test successful:[/green] {result.stdout}")
+                except Exception as e:
+                    console.print(f"[red]❌ sgpt test failed: {e}[/red]")
             else:
                 # Live Command Execution via Primary Agent
                 if primary_agent is None:
                     console.print("[red]❌ No primary agent available.[/red]")
                     continue
-                result = primary_agent.execute_command(command)
-                if not isinstance(result, dict):
-                    console.print("[red]❌ Unexpected result format[/red]")
-                    continue
+                try:
+                    console.print(f"[cyan]Executing: {command}[/cyan]")
+                    result = primary_agent.execute_command(command)
+                    
+                    # Ensure result is a dictionary
+                    if not isinstance(result, dict):
+                        console.print("[red]❌ Unexpected result format[/red]")
+                        continue
 
-                output = result.get("output", "[yellow]⚠ No output returned.[/yellow]")
-                recommendations = result.get("recommendations", [])
-                phase = result.get("phase", "unknown")
-                reward = result.get("reward", 0)
-                alert = result.get("alert", 0.0)
-                entropy = result.get("entropy", None)
+                    output = result.get("output", "[yellow]⚠ No output returned.[/yellow]")
+                    recommendations = result.get("recommendations", [])
+                    phase = result.get("phase", "unknown")
+                    reward = result.get("reward", 0)
+                    alert = result.get("alert", 0.0)
+                    entropy = result.get("entropy", None)
 
-                primary_agent.stats_monitor.log_step(
-                    primary_agent.agent_id, reward, alert=alert, phase=phase
-                )
+                    # Make sure stats are tracked
+                    primary_agent.stats_monitor.log_step(
+                        primary_agent.agent_id, reward, alert=alert, phase=phase, command=command
+                    )
 
-                if primary_agent.stats_monitor.total_steps % 10 == 0:
-                    primary_agent.stats_monitor.show()
+                    if primary_agent.stats_monitor.total_steps % 10 == 0:
+                        primary_agent.stats_monitor.show()
 
-                display_output(output)
-                display_ai_hint_table(None, recommendations)
-                show_hint()
+                    # Show meaningful output
+                    if not output or output == "output":
+                        # Generate realistic output if the agent doesn't provide one
+                        if hasattr(primary_agent, "env") and hasattr(primary_agent.env, "generate_output"):
+                            output = primary_agent.env.generate_output(command)
+                        else:
+                            output = f"Executed: {command}"
+                    
+                    display_output(output)
+                    display_ai_hint_table(None, recommendations)
+                    
+                    # Update state visualization
+                    if hasattr(primary_agent, "env"):
+                        primary_agent.env._visualize_environment_state()
+                    
+                    show_hint()
+                except Exception as e:
+                    console.print(f"[red]❌ Error executing command: {e}[/red]")
+                    import traceback
+                    console.print(traceback.format_exc())
 
         except (KeyboardInterrupt, EOFError):
             console.print("\n[red]⚠ Interrupted. Shutting down Ariaska RL.[/red]")
@@ -316,7 +350,9 @@ async def main_loop():
             break
         except Exception as e:
             console.print(f"[bold red]❌ Runtime Error: {e}[/bold red]")
-
+            import traceback
+            console.print(traceback.format_exc())  # Print the full traceback for debugging
+            
 def graceful_shutdown(*args):
     logger.warning("SIGINT received. Initiating safe shutdown...")
     try:

@@ -17,17 +17,43 @@ class AgentManager:
 
         # Shared Systems
         self.stats_monitor = self._import_stats_monitor()()
+        self.verbosity = verbosity
+        self.shared_context = {}
+        
+        # Defer agent creation to avoid circular references
+        self.red_agent = None
+        self.blue_agent = None
+        self.scout_agent = None
+        self.shadow_agent = None
+        self.orion_agent = None
+        self.agents = []
+        
+        # Create memory router first
+        self.memory_router = self._import_memory_router()([])
+        
+        # Now create all agents
+        self._initialize_agents()
+        
+        # Auto-Sync GPT Strategy
+        self._initialize_gpt_context()
 
-        # Initialize agents dynamically from the centralized module
-        # Pass self as agent_manager to all agents to avoid recursion
-        agents = self._get_all_agents(agent_manager=self)  # Retrieve agents from centralized file
+        console.print(
+            "[green]✔ Agents Ready | MemoryRouter Active | GPT Context Synced[/green]"
+        )
+
+    def _initialize_agents(self):
+        """Initialize agents in the correct order to avoid circular references"""
+        # First, create the agents
+        agents = self._get_all_agents(agent_manager=self)
+        
+        # Store individual agent references
         self.red_agent = agents["RedAgent"]
         self.blue_agent = agents["BlueAgent"]
         self.scout_agent = agents["ScoutAgent"]
         self.shadow_agent = agents["ShadowAgent"]
         self.orion_agent = agents["OrionAgent"]
-
-        # Dynamic Registry & Intelligence Layer
+        
+        # Update the agents list
         self.agents = [
             self.red_agent,
             self.blue_agent,
@@ -35,42 +61,37 @@ class AgentManager:
             self.shadow_agent,
             self.orion_agent,
         ]
-
-        # Create MemoryRouter with all agents
-        self.memory_router = self._import_memory_router()(self.agents)
-
+        
+        # Update memory router with agents
+        self.memory_router.agents = self.agents
+        
         # Assign memory_router to each agent (if they have the attribute)
         for agent in self.agents:
             if hasattr(agent, "memory_router"):
                 agent.memory_router = self.memory_router
             if hasattr(agent, "agent_manager"):
                 agent.agent_manager = self
-
+                
         # Initialize multi-agent links for agents that have the method
         for agent in self.agents:
             if hasattr(agent, "_init_multiagent_links"):
                 agent._init_multiagent_links()
-
+                
+        # Pass verbosity to agents
+        for agent in self.agents:
+            if hasattr(agent, "verbosity"):
+                agent.verbosity = self.verbosity
+                
         # Initialize dynamic parameters for each agent's environment if present
         for agent in self.agents:
             env = getattr(agent, "env", None)
             if env and hasattr(env, "initialize_dynamic_parameters"):
                 env.initialize_dynamic_parameters()
-
-        # Auto-Sync GPT Strategy
-        self._initialize_gpt_context()
-
-        self.shared_context = {}  # New: shared dict for agent communication
-
-        self.verbosity = verbosity
-        # Pass verbosity to agents
+        
+        # After all agents are created and registered, reset their environments
         for agent in self.agents:
-            if hasattr(agent, "verbosity"):
-                agent.verbosity = verbosity
-
-        console.print(
-            "[green]✔ Agents Ready | MemoryRouter Active | GPT Context Synced[/green]"
-        )
+            if hasattr(agent, "env") and hasattr(agent.env, "reset_environment"):
+                agent.env.reset_environment()
 
     def get_agent(self, agent_id):
         """
@@ -121,101 +142,106 @@ class AgentManager:
         return self.shared_context.get(key, default)
 
     def simulate_all_agents(self, episodes=10, max_steps=40):
-        console.rule("[bold magenta]🎮 Multi-Agent Simulation Mode Engaged")
-        agents = self.agents
-        
-        # Reset global monitoring state to avoid duplicate progress bars
-        from rich.live import Live
-        global_live = None
-        
-        # Import visualization module
         try:
-            from core.visualization.training_visualizer import TrainingVisualizer
-            visualizer = TrainingVisualizer(
-                agents=[a.agent_id for a in self.agents],
-                max_history=100
-            )
-            visualizer.start_live_display()
-        except Exception as e:
-            console.print(f"[yellow]⚠ Visualization module load failed: {e}, continuing without enhanced visualization[/yellow]")
-            visualizer = None
-        
-        for ep in range(episodes):
-            console.print(f"[bright_white]--- Episode {ep+1}/{episodes} ---[/bright_white]")
+            console.rule("[bold magenta]🎮 Multi-Agent Simulation Mode Engaged")
+            agents = self.agents
             
-            # Reset all agent stats for this episode
-            for agent in agents:
-                if hasattr(agent, "reset"):
-                    agent.reset()
-                elif hasattr(agent, "command_history"):
-                    agent.command_history.clear()
-                if hasattr(agent, "stats_monitor"):
-                    agent.stats_monitor.reset()
+            # Reset global monitoring state to avoid duplicate progress bars
+            from rich.live import Live
+            global_live = None
+            
+            # Import visualization module
+            try:
+                from core.visualization.training_visualizer import TrainingVisualizer
+                visualizer = TrainingVisualizer(
+                    agents=[a.agent_id for a in self.agents],
+                    max_history=100
+                )
+                visualizer.start_live_display()
+            except Exception as e:
+                console.print(f"[yellow]⚠ Visualization module load failed: {e}, continuing without enhanced visualization[/yellow]")
+                visualizer = None
+            
+            for ep in range(episodes):
+                console.print(f"[bright_white]--- Episode {ep+1}/{episodes} ---[/bright_white]")
+                
+                # Reset all agent stats for this episode
+                for agent in agents:
+                    if hasattr(agent, "reset"):
+                        agent.reset()
+                    elif hasattr(agent, "command_history"):
+                        agent.command_history.clear()
+                    if hasattr(agent, "stats_monitor"):
+                        agent.stats_monitor.reset()
+                        
+                # Use a single progress bar for all agents/steps in this episode
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[bold blue]{task.description}"),
+                    BarColumn(bar_width=30),
+                    TextColumn("[cyan]{task.completed}/{task.total}"),
+                    TimeElapsedColumn(),
+                    console=console,
+                    transient=True,
+                ) as progress:
+                    total_steps = max_steps * len([a for a in agents if hasattr(a, "simulate_step")])
+                    task = progress.add_task(f"Episode {ep+1} Progress", total=total_steps)
                     
-            # Use a single progress bar for all agents/steps in this episode
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(bar_width=30),
-                TextColumn("[cyan]{task.completed}/{task.total}"),
-                TimeElapsedColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                total_steps = max_steps * len([a for a in agents if hasattr(a, "simulate_step")])
-                task = progress.add_task(f"Episode {ep+1} Progress", total=total_steps)
+                    # First, perform ScoutAgent phase advice for coordination
+                    scout = self.scout_agent
+                    state = self.red_agent.env.get_global_state()
+                    if scout:
+                        try:
+                            # Fixed: Pass all_agents parameter to advise_phase
+                            phase = scout.advise_phase(state, self.all_agents())
+                            console.print(f"[cyan]🧭 Episode {ep+1} starting phase: {phase}[/cyan]")
+                        except Exception as e:
+                            console.print(f"[yellow]⚠ ScoutAgent initial phase advice failed: {e}, defaulting to 'recon'[/yellow]")
+                            phase = "recon"
+                    
+                    # Then run all other agents, with improved error handling
+                    for step in range(max_steps):
+                        try:
+                            # New: Periodic sync step for agent coordination
+                            if step % 10 == 0:
+                                self._multiagent_sync()
+                            for agent in agents:
+                                if agent.agent_id == "ScoutAgent":
+                                    # Skip Scout as it's already run for coordination
+                                    continue
+                                    
+                                if hasattr(agent, "simulate_step"):
+                                    # Use the proper simulate_step method
+                                    step_info = self._simulate_agent_step(agent, ep+1, step+1, shared_context=self.shared_context)
+                                    self._log_agent_step(agent, ep+1, step+1, step_info)
+                                    if visualizer:
+                                        visualizer.update(agent_data=step_info)
+                                    progress.update(task, advance=1)
+                                elif hasattr(agent, "simulate_train"):
+                                    # For agents that don't have simulate_step
+                                    agent.simulate_train(episodes=1, max_steps=1, log_every=1, use_progress_bar=False)
+                        except Exception as e:
+                            console.print(f"[bold red]❌ Error in agent execution: {e}[/bold red]")
+                            import traceback
+                            console.print(traceback.format_exc())
+                    
+                    # Throttle model saves and snapshots
+                    if (ep + 1) % 5 == 0 or (ep + 1) == episodes:
+                        if self.verbosity != "quiet":
+                            console.print(f"[green]💾 Saving models and snapshots at episode {ep+1}[/green]")
+                        self.save_all_models()
+                        self.snapshot_all()
+                    
+                    # Print summary table after each episode
+                    self._log_multiagent_episode(ep+1)
                 
-                # First, perform ScoutAgent phase advice for coordination
-                scout = self.scout_agent
-                state = self.red_agent.env.get_global_state()
-                if scout:
-                    try:
-                        # Fixed: Pass all_agents parameter to advise_phase
-                        phase = scout.advise_phase(state, self.all_agents())
-                        console.print(f"[cyan]🧭 Episode {ep+1} starting phase: {phase}[/cyan]")
-                    except Exception as e:
-                        console.print(f"[yellow]⚠ ScoutAgent initial phase advice failed: {e}, defaulting to 'recon'[/yellow]")
-                        phase = "recon"
-                
-                # Then run all other agents, with improved error handling
-                for step in range(max_steps):
-                    try:
-                        # New: Periodic sync step for agent coordination
-                        if step % 10 == 0:
-                            self._multiagent_sync()
-                        for agent in agents:
-                            if agent.agent_id == "ScoutAgent":
-                                # Skip Scout as it's already run for coordination
-                                continue
-                                
-                            if hasattr(agent, "simulate_step"):
-                                # Use the proper simulate_step method
-                                step_info = self._simulate_agent_step(agent, ep+1, step+1, shared_context=self.shared_context)
-                                self._log_agent_step(agent, ep+1, step+1, step_info)
-                                if visualizer:
-                                    visualizer.update(agent_data=step_info)
-                                progress.update(task, advance=1)
-                            elif hasattr(agent, "simulate_train"):
-                                # For agents that don't have simulate_step
-                                agent.simulate_train(episodes=1, max_steps=1, log_every=1, use_progress_bar=False)
-                    except Exception as e:
-                        console.print(f"[bold red]❌ Error in agent execution: {e}[/bold red]")
-                        import traceback
-                        console.print(traceback.format_exc())
-                
-                # Throttle model saves and snapshots
-                if (ep + 1) % 5 == 0 or (ep + 1) == episodes:
-                    if self.verbosity != "quiet":
-                        console.print(f"[green]💾 Saving models and snapshots at episode {ep+1}[/green]")
-                    self.save_all_models()
-                    self.snapshot_all()
-                
-                # Print summary table after each episode
-                self._log_multiagent_episode(ep+1)
-            
-        self._post_simulation_sync()
-        if visualizer:
-            visualizer.stop_live_display()
+            self._post_simulation_sync()
+            if visualizer:
+                visualizer.stop_live_display()
+        except Exception as e:
+            console.print(f"[red]❌ Error in simulate_all_agents: {e}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
 
     def _simulate_agent_step(self, agent, episode, step, shared_context=None):
         info = {
@@ -240,6 +266,13 @@ class AgentManager:
                 }
         except Exception as e:
             console.print(f"[red]⚠ Error in {agent.agent_id} step: {e}[/red]")
+            info = {
+                "command": "N/A",
+                "phase": "N/A",
+                "reward": 0.0,
+                "gpt_calls": 0,
+                "output": "N/A"
+            }
         return info
 
     def _log_agent_step(self, agent, episode, step, info):

@@ -4,6 +4,7 @@
 import os
 import json
 import subprocess
+import random
 from datetime import datetime
 from rich.console import Console
 from core.teach.teach import TeachModule

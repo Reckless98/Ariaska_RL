@@ -18,6 +18,11 @@ def get_all_agents(agent_manager=None):
     shadow_agent = ShadowAgent(agent_manager=agent_manager, memory_router=None, verbosity="standard")
     orion_agent = OrionAgent(agent_manager=agent_manager, memory_router=None)
 
+    # After all agents are created, reset their environments
+    for agent in [red_agent, blue_agent]:
+        if hasattr(agent, "env") and hasattr(agent.env, "reset_environment"):
+            agent.env.reset_environment()
+
     return {
         "RedAgent": red_agent,
         "BlueAgent": blue_agent,

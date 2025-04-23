@@ -256,16 +256,26 @@ class ScoutAgent(AgentInterface):
         return f"Recommended phase: {random.choice(PHASES)}"
 
     def execute_command(self, command):
-        # New: Simulate a command execution for CLI
-        output = f"ScoutAgent cannot execute commands directly. Input: {command}"
-        return {
-            "output": output,
-            "recommendations": [],
-            "phase": "unknown",
-            "reward": 0,
-            "alert": 0.0,
-            "entropy": None,
-        }
+        try:
+            output = f"ScoutAgent cannot execute commands directly. Input: {command}"
+            return {
+                "output": output,
+                "recommendations": [],
+                "phase": "unknown",
+                "reward": 0,
+                "alert": 0.0,
+                "entropy": None,
+            }
+        except Exception as e:
+            console.print(f"[red]❌ Error executing command: {e}[/red]")
+            return {
+                "output": f"Error executing command: {e}",
+                "recommendations": [],
+                "phase": "unknown",
+                "reward": 0,
+                "alert": 0.0,
+                "entropy": None,
+            }
 
     def get_base_commands(self):
         # For CLI completion/autosuggest

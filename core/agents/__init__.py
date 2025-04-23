@@ -1,9 +1,27 @@
-from .red_agent import RedAgent
-from .blue_agent import BlueAgent
-from .scout_agent import ScoutAgent
-from .shadow_agent import ShadowAgent
-from .orion_agent import OrionAgent
+"""
+Core agents package init - Provides proper import functionality
+"""
 
-# agents/__init__.py — Init
+# Import locally within functions that need them to prevent circular imports
+def get_red_agent():
+    from .red_agent import RedAgent
+    return RedAgent
 
-# Add more agent imports here as needed
+def get_blue_agent():
+    from .blue_agent import BlueAgent
+    return BlueAgent
+
+def get_scout_agent():
+    from .scout_agent import ScoutAgent
+    return ScoutAgent
+
+def get_shadow_agent():
+    from .shadow_agent import ShadowAgent
+    return ShadowAgent
+
+def get_orion_agent():
+    from .orion_agent import OrionAgent
+    return OrionAgent
+
+# Export classes for direct access from core.agents
+__all__ = ['RedAgent', 'BlueAgent', 'ScoutAgent', 'ShadowAgent', 'OrionAgent']

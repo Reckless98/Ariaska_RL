@@ -48,7 +48,7 @@ class MemoryManager:
                 with open(path, "r") as f:
                     return json.load(f)
             except Exception as e:
-                console.print(f"[red]⚠ Failed to load {path}: {e}[/red]")
+                console.print(f"[red]❌ Failed to load {path}: {e}[/red]")
         return default
 
     def _save_json(self, path, data):
@@ -176,10 +176,10 @@ class MemoryManager:
         if len(meta["snapshots"]) > max_snapshots:
             oldest = meta["snapshots"].pop(0)
             if os.path.exists(oldest["file"]):
-                os.remove(oldest["file"])
-                console.print(
-                    f"[yellow]🗑 Removed oldest snapshot: {oldest['file']}[/yellow]"
-                )
+                try:
+                    os.remove(oldest["file"])
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Failed to remove old snapshot {oldest['file']}: {e}[/yellow]")
         self._save_json(self.meta_file, meta)
         console.print(f"[magenta][Snapshot] Saved: {snapshot_path}[/magenta]")
 
@@ -190,12 +190,10 @@ class MemoryManager:
             return
         latest = meta["snapshots"][-1]["file"]
         if os.path.exists(latest):
-            self.memory = self._load_json(
-                latest, {"actions": [], "rewards": {}, "scenarios": []}
-            )
-            console.print(f"[cyan]🔄 Restored latest snapshot: {latest}[/cyan]")
+            self.memory = self._load_json(latest, self.memory)
+            console.print(f"[green]✔ Restored from: {latest}[/green]")
         else:
-            console.print(f"[red]❌ Snapshot file missing: {latest}[/red]")
+            console.print(f"[red]❌ Snapshot file not found: {latest}[/red]")
 
     # ─────────────────────────────────────────────
     # 🧹 Async Memory Optimization
@@ -204,7 +202,7 @@ class MemoryManager:
         patched = 0
         for action in self.memory.get("actions", []):
             if action.get("reward", 0) < reward_floor:
-                action["reward"] += 5
+                action["reward"] = max(action.get("reward", 0), reward_floor)
                 patched += 1
         self._save_json(self.memory_file, self.memory)
         console.print(f"[green]✔ Async optimized {patched} low-reward actions[/green]")

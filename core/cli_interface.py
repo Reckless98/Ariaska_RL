@@ -110,11 +110,11 @@ if __name__ == "__main__":
 
     # Import or define RedAgent before using it
     try:
-        from core.red_agent import RedAgent  # Adjust the import path as needed
+        from core.agents.red_agent import RedAgent  # Correct import path for RedAgent
     except ImportError:
-        console.print("[red]Error: Could not import 'core.red_agent.RedAgent'. Please ensure the module exists and is in the PYTHONPATH.[/red]")
+        console.print("[red]Error: Could not import 'core.agents.red_agent.RedAgent'. Please ensure the module exists and is in the PYTHONPATH.[/red]")
         exit(1)
-    rl_agent = RedAgent()  # If you want to test standalone
+    rl_agent = RedAgent()  # Instantiate the agent for CLI testing
     session = setup_prompt(rl_agent)
     console.print("[green]Successfully imported RedAgent![/green]")
     try:

@@ -569,18 +569,26 @@ Respond in structured JSON:
         return "Orion recommends: synchronize agent strategies."
 
     def execute_command(self, command):
-        """
-        Simulate a command execution for CLI.
-        """
-        output = f"OrionAgent cannot execute commands directly. Input: {command}"
-        return {
-            "output": output,
-            "recommendations": [],
-            "phase": "unknown",
-            "reward": 0,
-            "alert": 0.0,
-            "entropy": None,
-        }
+        try:
+            output = f"OrionAgent cannot execute commands directly. Input: {command}"
+            return {
+                "output": output,
+                "recommendations": [],
+                "phase": "unknown",
+                "reward": 0,
+                "alert": 0.0,
+                "entropy": None,
+            }
+        except Exception as e:
+            console.print(f"[red]❌ Error executing command: {e}[/red]")
+            return {
+                "output": f"Error executing command: {e}",
+                "recommendations": [],
+                "phase": "unknown",
+                "reward": 0,
+                "alert": 0.0,
+                "entropy": None,
+            }
 
     def get_base_commands(self):
         # For CLI completion/autosuggest

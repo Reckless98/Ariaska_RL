@@ -11,7 +11,7 @@ console = Console()
 
 
 class CyberEnvironment:
-    def __init__(self, scenario="dynamic", agent_manager=None):
+    def __init__(self, scenario="dynamic", agent_manager=None, defer_reset=False):
         console.rule(
             "[bold cyan]🌐 Initializing CyberEnvironment v12.0 — Multi-Agent Combat Arena"
         )
@@ -41,8 +41,9 @@ class CyberEnvironment:
         self.training_mode = "adaptive"
         self.blue_team_aggressiveness = 3
 
-        # Do NOT call _initialize_dynamic_parameters here!
-        self.reset_environment()
+        # Only call reset_environment if not deferring
+        if not defer_reset:
+            self.reset_environment()
 
     def initialize_dynamic_parameters(self):
         # Delay the import of AgentManager to avoid circular imports
@@ -64,40 +65,53 @@ class CyberEnvironment:
         )
 
     def reset_environment(self):
-        console.print("[green]🔄 Resetting Environment State[/green]")
-        # Dynamically adjust difficulty based on agent performance
-        if self.agent_manager and hasattr(self.agent_manager, "red_agent"):
-            avg_reward = self.agent_manager.red_agent.stats_monitor.get_average_reward()
+        try:
+            console.print("[green]🔄 Resetting Environment State[/green]")
+            # Dynamically adjust difficulty based on agent performance
+            avg_reward = None
+            if self.agent_manager and hasattr(self.agent_manager, "red_agent") and getattr(self.agent_manager, "red_agent", None) is not None:
+                red_agent = self.agent_manager.red_agent
+                if hasattr(red_agent, "stats_monitor"):
+                    avg_reward = red_agent.stats_monitor.get_average_reward()
             # Scale difficulty: higher reward → higher difficulty
-            if avg_reward > 20:
-                self.difficulty_level = min(self.difficulty_level + 1, self.max_difficulty)
-            elif avg_reward < 5:
-                self.difficulty_level = max(self.difficulty_level - 1, 1)
-        else:
-            self.difficulty_level = 1
-        self.current_phase = "recon"
-        self.open_ports = sorted(
-            random.sample(range(20, 10000), k=random.randint(6, 12))
-        )
-        self.services = (
-            self.dynamic_profile.get("services", random.sample(self.default_services, 5))
-            if self.dynamic_profile else random.sample(self.default_services, 5)
-        )
-        self.target_ip = self._generate_random_ip()
-        self.hostname = f"target-{random.randint(100,999)}"
-        self.credentials_found = False
-        self.privilege_level = "none"
-        self.data_exfiltrated = False
-        self.detection_risk = 0.0
-        self.blue_team_alert = 0.0
-        self.honeypots = []
-        self.previous_actions = []
-        self.done = False
+            if avg_reward is not None:
+                if avg_reward > 20:
+                    self.difficulty_level = min(getattr(self, "difficulty_level", 1) + 1, self.max_difficulty)
+                elif avg_reward < 5:
+                    self.difficulty_level = max(getattr(self, "difficulty_level", 1) - 1, 1)
+                else:
+                    self.difficulty_level = getattr(self, "difficulty_level", 1)
+            else:
+                self.difficulty_level = 1
+            self.current_phase = "recon"
+            self.open_ports = sorted(
+                random.sample(range(20, 10000), k=random.randint(6, 12))
+            )
+            self.services = (
+                self.dynamic_profile.get("services", random.sample(self.default_services, 5))
+                if self.dynamic_profile else random.sample(self.default_services, 5)
+            )
+            self.target_ip = self._generate_random_ip()
+            self.hostname = f"target-{random.randint(100,999)}"
+            self.credentials_found = False
+            self.privilege_level = "none"
+            self.data_exfiltrated = False
+            self.detection_risk = 0.0
+            self.blue_team_alert = 0.0
+            self.honeypots = []
+            self.previous_actions = []
+            self.done = False
+        except Exception as e:
+            console.print(f"[red]❌ Error during environment reset: {e}[/red]")
 
     def reset(self):
         """Compatibility wrapper for RL agent code."""
-        self.reset_environment()
-        return self.get_global_state()
+        try:
+            self.reset_environment()
+            return self.get_global_state()
+        except Exception as e:
+            console.print(f"[red]❌ Error during environment reset: {e}[/red]")
+            return {}
 
     def _generate_random_ip(self):
         while True:
@@ -132,95 +146,101 @@ class CyberEnvironment:
         """
         Improved step method with better error handling, agent coordination, and visualization
         """
-        if self.done:
-            console.print(
-                "[yellow]⚠ Environment already completed. Reset required.[/yellow]"
-            )
-            return self.get_global_state(), 0, True, {}
-        
-        # Check if we have an agent_manager
-        if not self.agent_manager:
-            # Standalone mode - simpler processing
-            reward = 0
-            self.current_phase = action if action in self.phases else self.current_phase
-            self._adjust_risks(self.current_phase)
-            if self.current_phase == "exfiltrate" and self.privilege_level == "root":
-                self.data_exfiltrated = True
-                self.done = True
-                reward = 65.0
-            
-            # Enhanced visualization for step
-            self._visualize_state_change("Phase change", {"phase": self.current_phase})
-            
-            return self.get_global_state(), reward, self.done, {}
-        
         try:
-            # --- RedAgent acts ---
-            console.print("[bold red]🔴 RedAgent Action[/bold red]")
-            # Expect a string command, not int
-            red_action = action if isinstance(action, str) else str(action)
-            red_result = self._process_red_action(self.current_phase)
+            if self.done:
+                console.print(
+                    "[yellow]⚠ Environment already completed. Reset required.[/yellow]"
+                )
+                return self.get_global_state(), 0, True, {}
             
-            # Visualize red action result
-            self._visualize_action_result("RedAgent", red_action, red_result)
-            
-            if hasattr(self, "stats_monitor") and self.stats_monitor:
-                self.stats_monitor.log_step("RedAgent", red_result["reward"], command=str(red_action))
-
-            # --- BlueAgent acts ---
-            console.print("[bold blue]🔵 BlueAgent Response[/bold blue]")
-            blue_result = {}
-            if hasattr(self.agent_manager, "blue_agent") and self.agent_manager.blue_agent:
-                if hasattr(self.agent_manager.blue_agent, "react_to_action"):
-                    blue_result = self.agent_manager.blue_agent.react_to_action(
-                        red_action, self.get_global_state()
-                    )
-                    self._apply_blue_defense(blue_result)
-                    
-                    # Visualize blue defense result
-                    self._visualize_defense_result(blue_result)
-                    
-                    if hasattr(self, "stats_monitor") and self.stats_monitor:
-                        self.stats_monitor.log_step(
-                            "BlueAgent", 
-                            blue_result.get("reward", 0), 
-                            command=blue_result.get("action", "")
-                        )
-
-            # --- ScoutAgent phase analysis ---
-            if hasattr(self.agent_manager, "scout_agent") and self.agent_manager.scout_agent:
-                try:
-                    # Pass all_agents parameter to advise_phase
-                    scout_phase = self.agent_manager.scout_agent.advise_phase(
-                        self.get_global_state(), 
-                        self.agent_manager.all_agents()
-                    )
-                    
-                    # Visualize scout phase advice
-                    console.print(f"[bold cyan]🧭 ScoutAgent recommends phase: {scout_phase}[/bold cyan]")
-                    
-                    if hasattr(self, "stats_monitor") and self.stats_monitor:
-                        self.stats_monitor.log_step("ScoutAgent", 0, command=f"Phase advice: {scout_phase}")
-                except Exception as e:
-                    console.print(f"[yellow]⚠ ScoutAgent phase advice failed: {e}[/yellow]")
-
-            # --- End of step ---
-            if hasattr(self, "_orion_overwatch"):
-                self._orion_overwatch()
-            
-            # Final environment state visualization    
-            self._visualize_environment_state()
+            # Check if we have an agent_manager
+            if not self.agent_manager:
+                # Standalone mode - simpler processing
+                reward = 0
+                self.current_phase = action if action in self.phases else self.current_phase
+                self._adjust_risks(self.current_phase)
+                if self.current_phase == "exfiltrate" and self.privilege_level == "root":
+                    self.data_exfiltrated = True
+                    self.done = True
+                    reward = 65.0
                 
-            # Return results
-            reward = red_result["reward"]
-            if isinstance(reward, dict):
-                reward = reward.get("reward", 0.0)
-            try:
-                reward = float(reward)
-            except Exception:
-                reward = 0.0
-            return self.get_global_state(), reward, self.done, red_result
+                # Enhanced visualization for step
+                self._visualize_state_change("Phase change", {"phase": self.current_phase})
+                
+                return self.get_global_state(), reward, self.done, {}
             
+            try:
+                # --- RedAgent acts ---
+                console.print("[bold red]🔴 RedAgent Action[/bold red]")
+                # Expect a string command, not int
+                red_action = action if isinstance(action, str) else str(action)
+                red_result = self._process_red_action(self.current_phase)
+                
+                # Visualize red action result
+                self._visualize_action_result("RedAgent", red_action, red_result)
+                
+                if hasattr(self, "stats_monitor") and self.stats_monitor:
+                    self.stats_monitor.log_step("RedAgent", red_result["reward"], command=str(red_action))
+
+                # --- BlueAgent acts ---
+                console.print("[bold blue]🔵 BlueAgent Response[/bold blue]")
+                blue_result = {}
+                if hasattr(self.agent_manager, "blue_agent") and self.agent_manager.blue_agent:
+                    if hasattr(self.agent_manager.blue_agent, "react_to_action"):
+                        blue_result = self.agent_manager.blue_agent.react_to_action(
+                            red_action, self.get_global_state()
+                        )
+                        self._apply_blue_defense(blue_result)
+                        
+                        # Visualize blue defense result
+                        self._visualize_defense_result(blue_result)
+                        
+                        if hasattr(self, "stats_monitor") and self.stats_monitor:
+                            self.stats_monitor.log_step(
+                                "BlueAgent", 
+                                blue_result.get("reward", 0), 
+                                command=blue_result.get("action", "")
+                            )
+
+                # --- ScoutAgent phase analysis ---
+                if hasattr(self.agent_manager, "scout_agent") and self.agent_manager.scout_agent:
+                    try:
+                        # Pass all_agents parameter to advise_phase
+                        scout_phase = self.agent_manager.scout_agent.advise_phase(
+                            self.get_global_state(), 
+                            self.agent_manager.all_agents()
+                        )
+                        
+                        # Visualize scout phase advice
+                        console.print(f"[bold cyan]🧭 ScoutAgent recommends phase: {scout_phase}[/bold cyan]")
+                        
+                        if hasattr(self, "stats_monitor") and self.stats_monitor:
+                            self.stats_monitor.log_step("ScoutAgent", 0, command=f"Phase advice: {scout_phase}")
+                    except Exception as e:
+                        console.print(f"[yellow]⚠ ScoutAgent phase advice failed: {e}[/yellow]")
+
+                # --- End of step ---
+                if hasattr(self, "_orion_overwatch"):
+                    self._orion_overwatch()
+                
+                # Final environment state visualization    
+                self._visualize_environment_state()
+                    
+                # Return results
+                reward = red_result["reward"]
+                if isinstance(reward, dict):
+                    reward = reward.get("reward", 0.0)
+                try:
+                    reward = float(reward)
+                except Exception:
+                    reward = 0.0
+                return self.get_global_state(), reward, self.done, red_result
+                
+            except Exception as e:
+                console.print(f"[red]❌ Error in environment step: {e}[/red]")
+                import traceback
+                console.print(traceback.format_exc())
+                return self.get_global_state(), -1.0, False, {"error": str(e)}
         except Exception as e:
             console.print(f"[red]❌ Error in environment step: {e}[/red]")
             import traceback
@@ -339,36 +359,74 @@ class CyberEnvironment:
     # 🧠 GPT-Powered Output Generation
     # ─────────────────────────────────────────────
     def generate_output(self, command):
-        if self.detection_risk > 9.5:
-            return "⚠ ALERT: IDS detected malicious behavior."
-
-        gpt_prompt = f"""You are a cyber range simulation AI.
-Generate a realistic output for the following command in phase '{self.current_phase}':
-Command: {command}
-Services: {', '.join(self.services)}
-Respond concisely."""
-
+        """Generate realistic command output based on environment state and command"""
         try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    "gpt-4o-mini",
-                    "--temperature",
-                    "0.4",
-                    "--role",
-                    "aria",
-                    gpt_prompt,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=15,
-            )
-            output = result.stdout.strip()
-            return output if output else "Command executed."
-        except:
-            return "Command executed."
+            if not command or not isinstance(command, str):
+                return "Command not recognized."
+                
+            if self.detection_risk > 9.5:
+                return "⚠ ALERT: IDS detected malicious behavior. Connection terminated."
+
+            # Parse the command to determine what it does
+            cmd_parts = command.split()
+            base_cmd = cmd_parts[0].lower() if cmd_parts else ""
+            
+            # Realistic outputs based on command type and environment state
+            if base_cmd == "nmap":
+                ports = ", ".join([f"{port}/tcp open" for port in self.open_ports[:5]])
+                services = ", ".join([f"{port}: {svc}" for port, svc in 
+                                    zip(self.open_ports[:5], random.sample(self.services, min(5, len(self.services))))])
+                return f"Starting Nmap scan...\n\nPORT     STATE SERVICE\n{ports}\n\nService Info:\n{services}\n\nScan completed in 5.2s"
+                
+            elif base_cmd == "gobuster":
+                if "dir" in cmd_parts and any(s for s in self.services if "http" in s):
+                    paths = ["/admin", "/login", "/images", "/css", "/js", "/api", "/backup"]
+                    found = random.sample(paths, random.randint(2, 5))
+                    return "Starting gobuster scan...\n\n" + "\n".join([f"/{p} (Status: 200)" for p in found])
+                return "No web server detected on target."
+                
+            elif base_cmd == "hydra":
+                if random.random() < 0.3 and self.current_phase == "exploit":
+                    self.credentials_found = True
+                    return "[SUCCESS] login: admin password: Password123!"
+                return "16 of 100 tasks completed, 0 valid passwords found"
+                
+            elif base_cmd in ["sudo", "su"] and self.current_phase == "privesc":
+                if random.random() < 0.4 and self.privilege_level == "user":
+                    self.privilege_level = "root"
+                    return "# Root privileges obtained"
+                return "Password incorrect"
+                
+            elif base_cmd in ["tar", "zip", "scp"] and self.current_phase == "exfiltrate":
+                if self.privilege_level == "root" and random.random() < 0.7:
+                    self.data_exfiltrated = True
+                    return "Data successfully archived/transferred"
+                return "Permission denied or transfer failed"
+                
+            # Try GPT for complex commands, with fallback
+            try:
+                gpt_prompt = f"""You are a cyber range simulation AI.
+Generate a realistic output for the command: {command}
+Current phase: {self.current_phase}
+Services: {', '.join(self.services)}
+Privilege: {self.privilege_level}
+Keep it brief (max 5 lines) and realistic."""
+
+                result = subprocess.run(
+                    ["sgpt", "--model", "gpt-4o-mini", "--temperature", "0.4", "--role", "aria", gpt_prompt],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8
+                )
+                output = result.stdout.strip()
+                if output:
+                    return output
+            except Exception:
+                pass
+                
+            # Generic fallback based on command type
+            return f"Command '{base_cmd}' executed successfully."
+        except Exception as e:
+            console.print(f"[red]❌ Error generating output: {e}[/red]")
+            return f"Error generating output for command: {command}"
 
     def _visualize_state_change(self, title, changes):
         """Visualize state changes in the environment"""
