@@ -16,6 +16,8 @@ def parse_args():
     parser.add_argument("--snapshot", action="store_true", help="Snapshot all memories post-training")
     parser.add_argument("--orion", action="store_true", help="Enable Orion agent strategy review")
     parser.add_argument("--cycles", type=int, default=3, help="Autopilot cycles (if --auto)")
+    parser.add_argument("--steps", type=int, default=40, help="Steps per episode")
+    parser.add_argument("--verbosity", type=str, default="standard", help="Verbosity level")
     return parser.parse_args()
 
 def main():
@@ -31,8 +33,8 @@ def main():
     from core.multi_agent_trainer import MultiAgentTrainer
 
     # Initialize the StatsMonitor and AgentManager for tracking
-    stats_monitor = StatsMonitor()
-    agent_manager = AgentManager()
+    stats_monitor = StatsMonitor(verbosity=args.verbosity)
+    agent_manager = AgentManager(verbosity=args.verbosity)
     memory_router = MemoryRouter(agent_manager.all_agents())
 
     # Initialize Orion for pre/post-training insight

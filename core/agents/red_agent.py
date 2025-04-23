@@ -193,8 +193,8 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 self.memory_router.store_gpt_response(f"{self.agent_id}_reason_{command}", gpt_reason)
 
         # Ensure command is a string
-        if isinstance(command, dict) and "response" in command:
-            command = command["response"]
+        if isinstance(command, dict):
+            command = command.get("response", str(command))
         if not isinstance(command, str):
             command = str(command)
 
@@ -205,11 +205,8 @@ class RedAgent(AgentInterface, MemorySyncInterface):
 
         # Redundancy check
         if detect_redundancy(self.command_history, command):
-            shaped_reward *= 0.5
-            alt_command = suggest_alternative(self.command_history, command)
-            if alt_command and "Alternative to:" not in alt_command:
-                command = alt_command
-            # else: penalize reward later
+            # shaped_reward may not be defined yet, so move this logic after reward calculation
+            pass
 
         # Redundancy and no-reward tracking
         if len(self.command_history) >= 2 and self.command_history[-1] == self.command_history[-2]:
@@ -259,8 +256,14 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         if self.blue:
             self.blue.react_to_action(command, parsed)
         next_state, env_reward, done, info = self.env.step(command)
+        # Defensive: ensure env_reward is a float
+        try:
+            if isinstance(env_reward, dict):
+                env_reward = env_reward.get("reward", 0.0)
+            env_reward = float(env_reward)
+        except Exception:
+            env_reward = 0.0
         shaped_reward = self.calculate_reward(env_reward, parsed, command, None, detect_redundancy)
-        # Defensive: ensure reward is always a float
         try:
             shaped_reward = float(shaped_reward)
         except Exception:

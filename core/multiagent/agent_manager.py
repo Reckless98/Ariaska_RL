@@ -218,9 +218,6 @@ class AgentManager:
             visualizer.stop_live_display()
 
     def _simulate_agent_step(self, agent, episode, step, shared_context=None):
-        """
-        Simulate a single step for an agent, with improved error handling
-        """
         info = {
             "command": "N/A", 
             "phase": "N/A",
@@ -228,16 +225,12 @@ class AgentManager:
             "gpt_calls": 0,
             "output": "N/A"
         }
-        
         try:
             if hasattr(agent, "simulate_step"):
-                # Pass shared_context to agent
                 info = agent.simulate_step(episode=episode, step=step, shared_context=shared_context or self.shared_context)
-                # If this is RedAgent, pass command as string to env.step
                 if agent.agent_id == "RedAgent" and hasattr(agent, "env"):
                     agent.env.step(info["command"])
             else:
-                # Build basic info from agent state
                 info = {
                     "command": getattr(agent, "command_history", ["N/A"])[-1] if getattr(agent, "command_history", None) else "N/A",
                     "phase": getattr(agent, "current_mode", "N/A"),
@@ -247,7 +240,6 @@ class AgentManager:
                 }
         except Exception as e:
             console.print(f"[red]⚠ Error in {agent.agent_id} step: {e}[/red]")
-            
         return info
 
     def _log_agent_step(self, agent, episode, step, info):

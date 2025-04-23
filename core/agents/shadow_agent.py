@@ -58,10 +58,8 @@ class ShadowAgent:
                 )
             if prune_indices and self.verbosity != "quiet":
                 console.print(f"[yellow]🧹 Pruning {len(prune_indices)} ineffective memory entries.[/yellow]")
-                # Remove by index (example logic)
                 memory["actions"] = [a for i, a in enumerate(memory.get("actions", [])) if i not in prune_indices]
                 self.memory_manager.save_memory()
-            # Always call visualize_phase_distribution after optimization
             if hasattr(self.agent_manager, "stats_monitor"):
                 self.agent_manager.stats_monitor.visualize_phase_distribution(target_agent_id)
         else:
@@ -156,7 +154,7 @@ Additionally, consider the following agents' feedback for optimization:
         # Import locally to avoid circular import
         from core.logic.output_interpreter import analyze_output
         parsed_output = analyze_output(command, output)
-        if parsed_output.get("ineffective", False):
+        if (parsed_output.get("ineffective", False)):
             suggestion_prompt = f"Given the output: {output}, suggest an optimized command for the {state['phase']} phase."
             new_command = self.query_tactical_gpt(suggestion_prompt, complexity="high")
             return new_command

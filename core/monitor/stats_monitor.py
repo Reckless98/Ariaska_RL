@@ -164,6 +164,13 @@ class StatsMonitor:
             )
 
     def log_step(self, agent_name, reward, command=None, entropy=None, alert=None, phase=None):
+        # Defensive: ensure reward is a float
+        try:
+            if isinstance(reward, dict):
+                reward = reward.get("reward", 0.0)
+            reward = float(reward)
+        except Exception:
+            reward = 0.0
         self.total_steps += 1
         self.agent_stats[agent_name]["rewards"].append(reward)
         if entropy is not None:

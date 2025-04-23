@@ -318,13 +318,8 @@ Respond in structured JSON:
             console.print(f"[dim]Skipping entropy adjustment for {getattr(agent, 'agent_id', agent)} (no entropy_beta)[/dim]")
 
     def _suggest_curriculum_changes(self, feedback):
-        """
-        Suggest curriculum changes based on the agent's feedback.
-        This will help enhance training efficiency.
-        """
         if "curriculum_suggestion" in feedback:
             suggestion = feedback["curriculum_suggestion"]
-            # Import TeachModule locally to avoid circular import if needed
             if not hasattr(self, "teach") or self.teach is None:
                 from core.teach.teach import TeachModule
                 self.teach = TeachModule()

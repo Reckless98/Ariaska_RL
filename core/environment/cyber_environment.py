@@ -212,13 +212,20 @@ class CyberEnvironment:
             self._visualize_environment_state()
                 
             # Return results
-            return self.get_global_state(), red_result["reward"], self.done, red_result
+            reward = red_result["reward"]
+            if isinstance(reward, dict):
+                reward = reward.get("reward", 0.0)
+            try:
+                reward = float(reward)
+            except Exception:
+                reward = 0.0
+            return self.get_global_state(), reward, self.done, red_result
             
         except Exception as e:
             console.print(f"[red]❌ Error in environment step: {e}[/red]")
             import traceback
             console.print(traceback.format_exc())
-            return self.get_global_state(), -1, False, {"error": str(e)}
+            return self.get_global_state(), -1.0, False, {"error": str(e)}
 
     def _process_red_action(self, action):
         phase_rewards = {

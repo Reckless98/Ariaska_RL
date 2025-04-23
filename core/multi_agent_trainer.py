@@ -18,8 +18,8 @@ class MultiAgentTrainer:
         self.verbosity = verbosity
         self.steps = steps
         self.agent_manager = agent_manager or AgentManager(verbosity=verbosity)
-        self.stats_monitor = stats_monitor or StatsMonitor(self.agent_manager.get_agent_ids())
-        self.memory_router = memory_router or self.agent_manager.memory_router
+        self.stats_monitor = stats_monitor or StatsMonitor()
+        self.memory_router = memory_router
         self.teach = TeachModule()
         self.orion = self.agent_manager.get_agent("OrionAgent")
         self.global_step = 0

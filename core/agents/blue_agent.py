@@ -132,7 +132,10 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             state_tensor = torch.zeros(512, device=self.device)
         action = self.select_action(state_tensor, state.get("phase", None))
         next_state, reward, done, _ = self.env.step(action)
+        # Defensive: ensure reward is a float
         try:
+            if isinstance(reward, dict):
+                reward = reward.get("reward", 0.0)
             reward = float(reward)
         except Exception:
             reward = 0.0
