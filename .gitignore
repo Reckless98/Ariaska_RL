@@ -11,8 +11,8 @@ models/
 chroma_storage/
 *.sqlite3
 
-# Snapshots
-core/memories/*/snapshots/
+# Snapshots ONLY
+core/memories/**/snapshots/
 core/memories/shared/snapshots/
 
 # IDE
