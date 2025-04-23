@@ -28,7 +28,6 @@ gpt_cache/
 gpt_logs/
 
 # Models and training artifacts
-models/
 snapshots/
 logs/
 checkpoints/
