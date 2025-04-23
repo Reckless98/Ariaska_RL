@@ -33,6 +33,14 @@ snapshots/
 logs/
 checkpoints/
 
+# Ignore model weights, but NOT model code
+*.pt
+*.pth
+*.h5
+# Do NOT ignore model code
+# !core/models/
+# !core/models/*.py
+
 # OS/system junk
 .DS_Store
 Thumbs.db
