@@ -1,0 +1,102 @@
+{
+  "actions": [
+    {
+      "command": "`nmap",
+      "full_command": "`nmap -sV -p 1594,3072,3400,4207,4598,5353,7251,8470,8872,9520,9537,9964 177.188.200.62`",
+      "template": "`nmap -sV -p {PORT} {IP}",
+      "description": "Auto-parsed action.",
+      "tools": [
+        "`nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "Command aligns with enumeration phase strategic objectives.",
+      "phase": "enumeration",
+      "reward": 1,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    },
+    {
+      "command": "`nmap",
+      "full_command": "`nmap -sV -p- 177.188.200.62`",
+      "template": "`nmap -sV -p- {IP}",
+      "description": "Auto-parsed action.",
+      "tools": [
+        "`nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "Command aligns with enumeration phase strategic objectives.",
+      "phase": "enumeration",
+      "reward": 1,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    },
+    {
+      "command": "nmap",
+      "full_command": "nmap -sV -p309,1276,1938,1961,7317,7343,7929,8159,8571,9403,9630,9770 --script=banner 122.164.115.100",
+      "template": "nmap -sV {PORT} --script=banner {IP}",
+      "description": "Port scan completed",
+      "tools": [
+        "nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "The command `nmap -sV -p 309,1276,1938,1961,7317,7343,7929,8159,8571,9403,9630,9770 <target_ip>` is optimal for phase 'enumeration' because it specifically targets a curated list of ports to identify service versions, allowing for focused reconnaissance on potentially vulnerable services running on the target.",
+      "phase": "recon",
+      "reward": 3,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    },
+    {
+      "command": "`nmap",
+      "full_command": "`nmap -sV -p 998,2247,2444,2942,4196,4240,4919,5697,7982,8811,9186,9396 <target_ip>`",
+      "template": "`nmap -sV -p {PORT} <target_ip>`",
+      "description": "Recon command executed",
+      "tools": [
+        "`nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "The command `nmap -sV -p 998,2247,2444,2942,4196,4240,4919,5697,7982,8811,9186,9396 <target_ip>` is optimal for enumeration because it specifically targets a curated list of ports to identify service versions, allowing for focused reconnaissance on potentially vulnerable services running on the target.",
+      "phase": "recon",
+      "reward": 3,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    },
+    {
+      "command": "enum4linux",
+      "full_command": "enum4linux -a 165.201.204.228",
+      "template": "enum4linux -a {IP}",
+      "description": "Recon command executed",
+      "tools": [
+        "enum4linux"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "The command `nmap -sV -p 998,2247,2444,2942,4196,4240,4919,5697,7982,8811,9186,9396 <target_ip>` is optimal for enumeration because it specifically targets a curated list of ports to identify service versions, allowing for focused reconnaissance on potentially vulnerable services running on the target.",
+      "phase": "recon",
+      "reward": 2,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    }
+  ],
+  "rewards": {
+    "`nmap -sV -p 1594,3072,3400,4207,4598,5353,7251,8470,8872,9520,9537,9964 177.188.200.62`": 1,
+    "`nmap -sV -p- 177.188.200.62`": 1,
+    "nmap -sV -p309,1276,1938,1961,7317,7343,7929,8159,8571,9403,9630,9770 --script=banner 122.164.115.100": 3,
+    "`nmap -sV -p 998,2247,2444,2942,4196,4240,4919,5697,7982,8811,9186,9396 <target_ip>`": 3,
+    "enum4linux -a 165.201.204.228": 2
+  },
+  "scenarios": []
+}

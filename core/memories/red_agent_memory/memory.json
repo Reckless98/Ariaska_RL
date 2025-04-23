@@ -1,0 +1,26 @@
+{
+  "actions": [
+    {
+      "command": "Curriculum",
+      "full_command": "Curriculum Update",
+      "template": "Curriculum Update",
+      "description": "Increase exploration in early episodes.",
+      "tools": [
+        "Curriculum"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Unknown context.",
+      "why": "No reasoning given.",
+      "phase": "Recon",
+      "reward": 10,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    }
+  ],
+  "rewards": {
+    "Curriculum Update": 10
+  },
+  "scenarios": []
+}

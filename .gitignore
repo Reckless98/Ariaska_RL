@@ -1,23 +1,38 @@
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 
-# Logs
-logs/
+# Environments
+.env
+.venv
+*.egg-info/
+
+# Virtual environments & tools
 *.log
-
-# Models & DB
-models/
-chroma_storage/
 *.sqlite3
+*.db
+*.pkl
+*.pt
+*.ckpt
+*.jsonl
 
-# Snapshots ONLY
-core/memories/**/snapshots/
-core/memories/shared/snapshots/
-
-# IDE configs
+# VSCode and IDE files
 .vscode/
 .idea/
 
-# Keep .gitignore
-!.gitignore
+# GPT or secret keys
+openai_key.txt
+OPENAI_API_KEY
+OPENAI_SECRET
+gpt_cache/
+gpt_logs/
+
+# Models and training artifacts
+models/
+snapshots/
+logs/
+checkpoints/
+
+# OS/system junk
+.DS_Store
+Thumbs.db

