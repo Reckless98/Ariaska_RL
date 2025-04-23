@@ -1,0 +1,45 @@
+{
+  "actions": [
+    {
+      "command": "`nmap",
+      "full_command": "`nmap -sV -p 1594,3072,3400,4207,4598,5353,7251,8470,8872,9520,9537,9964 177.188.200.62`",
+      "template": "`nmap -sV -p {PORT} {IP}",
+      "description": "Auto-parsed action.",
+      "tools": [
+        "`nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "Command aligns with enumeration phase strategic objectives.",
+      "phase": "enumeration",
+      "reward": 1,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    },
+    {
+      "command": "`nmap",
+      "full_command": "`nmap -sV -p- 177.188.200.62`",
+      "template": "`nmap -sV -p- {IP}",
+      "description": "Auto-parsed action.",
+      "tools": [
+        "`nmap"
+      ],
+      "parameters": [],
+      "param_descriptions": [],
+      "when": "Ep1-Step0",
+      "why": "Command aligns with enumeration phase strategic objectives.",
+      "phase": "enumeration",
+      "reward": 1,
+      "tags": [],
+      "is_novel": true,
+      "distill_ready": false
+    }
+  ],
+  "rewards": {
+    "`nmap -sV -p 1594,3072,3400,4207,4598,5353,7251,8470,8872,9520,9537,9964 177.188.200.62`": 1,
+    "`nmap -sV -p- 177.188.200.62`": 1
+  },
+  "scenarios": []
+}

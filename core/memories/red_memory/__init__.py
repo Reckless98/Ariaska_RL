@@ -1,0 +1,1 @@
+# Init for core/memories/red_memory

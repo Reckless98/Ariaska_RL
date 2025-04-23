@@ -1,0 +1,38 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environments
+.env
+.venv
+*.egg-info/
+
+# Virtual environments & tools
+*.log
+*.sqlite3
+*.db
+*.pkl
+*.pt
+*.ckpt
+*.jsonl
+
+# VSCode and IDE files
+.vscode/
+.idea/
+
+# GPT or secret keys
+openai_key.txt
+OPENAI_API_KEY
+OPENAI_SECRET
+gpt_cache/
+gpt_logs/
+
+# Models and training artifacts
+models/
+snapshots/
+logs/
+checkpoints/
+
+# OS/system junk
+.DS_Store
+Thumbs.db
