@@ -9,8 +9,13 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from core.models.policy_net import PolicyNet
-from core.models.value_net import ValueNet
+try:
+    from core.models.policy_net import PolicyNet
+    from core.models.value_net import ValueNet
+except ModuleNotFoundError:
+    from ..models.policy_net import PolicyNet
+    from ..models.value_net import ValueNet
+
 from core.models.layers import get_phase_vector
 from core.monitor.stats_monitor import StatsMonitor
 from core.environment.cyber_environment import CyberEnvironment
