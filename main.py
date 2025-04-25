@@ -12,11 +12,13 @@ from core.ui_helpers import (
     display_output,
     display_ai_hint_table,
     display_phase_tables,
+    display_redagent_learning_dashboard
 )
 from core.multiagent.agent_manager import AgentManager
 from core.logic.chainbuilder import ChainBuilder  # Fixed import
 from core.monitor.stats_monitor import StatsMonitor
 from prompt_toolkit.formatted_text import HTML
+from core.gpt_manager import GPTManager
 
 logger = logging.getLogger("ariaska")
 logging.basicConfig(level=logging.INFO, filename="logs/ariaska.log", filemode="a")
@@ -25,6 +27,7 @@ console = Console()
 session = create_prompt_session()
 stats_monitor = StatsMonitor()  # StatsMonitor will track and display agent stats
 agent_manager = AgentManager()  # Initialize the agent manager
+gpt_manager = GPTManager()
 
 # Define the primary agent using AgentManager
 primary_agent = agent_manager.red_agent  # Or use .get_primary_agent() if implemented
@@ -237,8 +240,12 @@ async def main_loop():
                 console.print("[yellow]⚠ No input. Type 'help' for options.[/yellow]")
                 continue
 
-            cmd_lower = command.strip().lower()
-            args = command.strip().split()
+            if isinstance(command, str):
+                cmd_lower = command.strip().lower()
+                args = command.strip().split()
+            else:
+                console.print("[red]Error: Command input is not a valid string.[/red]")
+                continue
 
             # --- Add typo warning for common mistakes ---
             if cmd_lower.startswith("simualate-train"):
@@ -272,16 +279,13 @@ async def main_loop():
             elif cmd_lower in ["help", "?"]:
                 show_help()
             elif cmd_lower == "test-sgpt":
-                # Test if sgpt is working correctly
-                console.print("[yellow]Testing sgpt connectivity...[/yellow]")
+                # Test if GPTManager is working correctly
+                console.print("[yellow]Testing GPTManager connectivity...[/yellow]")
                 try:
-                    result = subprocess.run(
-                        ["sgpt", "--model", "gpt-4o-mini", "Say hello"],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10
-                    )
-                    console.print(f"[green]✔ sgpt test successful:[/green] {result.stdout}")
+                    response = gpt_manager.gpt_request("Say hello from ARIASKA diagnostic.", agent_id="CLI")
+                    console.print(f"[green]✔ GPTManager test successful:[/green] {response}")
                 except Exception as e:
-                    console.print(f"[red]❌ sgpt test failed: {e}[/red]")
+                    console.print(f"[red]❌ GPTManager test failed: {e}[/red]")
             else:
                 # Live Command Execution via Primary Agent
                 if primary_agent is None:

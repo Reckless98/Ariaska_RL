@@ -1,686 +1,606 @@
-# core/agents/orion_agent.py — ARIASKA OrionAgent v3.0
-# 👁 Strategic Overseer | GPT-4.1 Intelligence | Post-Training Optimization | Curriculum Architect
+# core/agents/orion_agent.py — ARIASKA OrionAgent v12.0 APEX OVERSEER
+# 👁️ Strategic Overseer | 🔄 Adaptive Chain Builder | ♻️ Dynamic Memory Integration | 🧠 High-Level Performance Analysis
 
 import os
 import json
-import subprocess
+import time
+import random
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from core.interfaces.agent_interface import AgentInterface
-from core.utils.gpt_cache_handler import GPTCacheHandler
-from datetime import datetime
-import random
+from core.interfaces.memory_sync_interface import MemorySyncInterface
+from core.gpt_manager import GPTManager
+from core.utils.llm_orchestrator import LLMRouter
 
 console = Console()
 
+class OrionAgent(AgentInterface, MemorySyncInterface):
+    """
+    OrionAgent: Strategic overseer for the multi-agent system.
+    - Analyzes agent performance and provides high-level strategic guidance
+    - Creates/modifies attack chains based on performance data
+    - Provides dynamic adjustments to agent parameters (epsilon, learning rate)
+    - Uses GPTManager for all LLM calls with efficient caching and token tracking
+    - Unified memory schema: actions, rewards, scenarios
+    """
 
-class OrionAgent(AgentInterface):
-    def __init__(self, agent_manager, memory_router=None, verbosity="standard"):
-        self.agent_id = "OrionAgent"
-        self.agent_manager = agent_manager
-        self.memory_router = memory_router  # Optional, if needed
-        self.verbosity = verbosity if verbosity else "normal"
-        self.last_curriculum_suggestion = None
-        self.gpt_calls_this_episode = 0
-        self.gpt_call_limit = 10
-        # Delay imports to avoid circular dependencies
-        from core.utils.memory_manager import MemoryManager
-        from core.teach.teach import TeachModule
-        from core.monitor.stats_monitor import StatsMonitor
-
-        self.memory_manager = MemoryManager(agent_name="orion_agent")
-        self.cache = (
-            self.memory_manager.load_gpt_cache()
-            if hasattr(self.memory_manager, "load_gpt_cache")
-            else {}
-        )
-        self.teach = TeachModule()
-        self.stats_monitor = StatsMonitor()  # Access to multi-agent statistics
-        self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
-        os.makedirs("logs", exist_ok=True)
-        self.gpt_handler = GPTCacheHandler()
-        console.print(
-            f"[bold blue]👁 {self.agent_id} initialized — Overseer protocols active.[/bold blue]"
-        )
-
-    def generate_strategic_chain(
-        self, memory, force_update=False, verbosity="standard"
+    def __init__(
+        self,
+        agent_id="OrionAgent",
+        role="StrategicOverseer",
+        agent_manager=None,
+        memory_router=None,
+        memory_manager=None,
+        verbosity="standard",
     ):
-        """
-        Generate a strategic action chain using GPT-4.1 Full.
-        Cache and update as needed.
-        """
-        cache_key = "orion_strategic_chain"
-        if (
-            not force_update
-            and hasattr(self, "chain_cache")
-            and cache_key in self.chain_cache
-        ):
-            chain = self.chain_cache[cache_key]
-        else:
-            prompt = (
-                "You are ARIASKA's strategic commander (role: aria). "
-                "Generate a 5-step, phase-diverse offensive chain (Recon, Enumeration, Exploit, PrivEsc, Exfil) "
-                "for a red team operation. Use advanced tactics, avoid repetition and trivial commands. "
-                "Respond ONLY with 5 unique, phase-ordered commands, one per line."
-            )
-            try:
-                result = subprocess.run(
-                    ["sgpt", "--model", "gpt-4.1", "--role", "aria", prompt],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=60,
-                    text=True,
-                )
-                chain = [
-                    line.strip()
-                    for line in result.stdout.strip().splitlines()
-                    if line.strip()
-                ]
-                if not hasattr(self, "chain_cache"):
-                    self.chain_cache = {}
-                self.chain_cache[cache_key] = chain
-            except Exception as e:
-                console.print(f"[red]⚠ OrionAgent chain generation failed: {e}[/red]")
-                chain = []
-        # Add metadata to each chain step
-        now = datetime.now().isoformat()
-        chain_with_meta = []
-        for i, cmd in enumerate(chain):
-            chain_with_meta.append(
-                {
-                    "phase": (
-                        ["recon", "enumeration", "exploit", "privesc", "exfiltrate"][i]
-                        if i < 5
-                        else "unknown"
-                    ),
-                    "command": cmd,
-                    "risk_level": random.choice(["low", "medium", "high"]),
-                    "expected_reward": random.randint(5, 30),
-                    "confidence_score": round(random.uniform(0.7, 0.99), 2),
-                    "trigger_reason": "Orion preemptive strategy",
-                    "timestamp": now,
-                    "agent": self.agent_id,
-                }
-            )
-        self.current_chain = chain_with_meta
-        # Display concise summary
-        if verbosity != "silent" and chain:
-            summary = ", ".join(chain)
-            console.print(f"[bold blue]Orion Strategic Chain:[/bold blue] {summary}")
-        return chain_with_meta
+        self.agent_id = agent_id
+        self.role = role
+        self.agent_manager = agent_manager
+        self.memory_router = memory_router
+        self.memory_manager = memory_manager
+        self.verbosity = verbosity
+        
+        # Unified memory schema
+        self.memory = {
+            "actions": [],
+            "rewards": {},
+            "scenarios": []
+        }
+        
+        # Strategic chain tracking
+        self.current_chain = []
+        self.chain_history = []
+        self.chain_performance = {}
+        
+        # GPT usage and memory paths
+        self.gpt_manager = GPTManager()
+        self.insights_path = os.path.join("logs", f"{self.agent_id}_insights.jsonl")
+        self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
+        os.makedirs(os.path.dirname(self.insights_path), exist_ok=True)
+        
+        # Performance tracking
+        self.agent_performance = {}
+        self.global_strategy = "balanced"
+        self.strategy_history = []
+        self.last_analysis_time = 0
+        self.analysis_cooldown = 300  # 5 minutes between full analyses
+        
+        self.llm_router = LLMRouter()
+        
+        console.print(f"[magenta]👁️ {self.agent_id} initialized — Strategic Oversight Active[/magenta]")
 
-    # ─────────────────────────────────────────────
-    # 🎯 Strategic Analysis (Post-Training Optimization)
-    # ─────────────────────────────────────────────
-    def analyze_training(self, agents: list):
+    def analyze_training(self, agents):
         """
-        Perform deep post-training analysis across all agents.
-        Identifies inefficiencies, phase weaknesses, and curriculum improvement suggestions.
+        Analyze training performance across all agents and generate strategic insights.
+        Uses GPTManager for efficient token usage and caching.
+        
+        Args:
+            agents (list): List of agent objects to analyze
         """
-        console.rule(f"[bold cyan]👁 Orion: Commencing Strategic Analysis[/bold cyan]")
-        summary = {}
-
+        console.print(f"[bold magenta]👁️ {self.agent_id}: Analyzing multi-agent performance...[/bold magenta]")
+        
+        # Skip if called too frequently (except in verbose mode)
+        current_time = time.time()
+        if current_time - self.last_analysis_time < self.analysis_cooldown and self.verbosity != "verbose":
+            console.print("[dim]👁️ Analysis skipped: cooldown period active.[/dim]")
+            return
+        
+        self.last_analysis_time = current_time
+        
+        # Gather performance data from all agents
+        training_data = {}
         for agent in agents:
-            memory = agent.memory_manager.load_memory()
-            stats = self._analyze_memory_patterns(memory, agent.agent_id)
-            performance = self._evaluate_agent_performance(agent)
+            if agent.agent_id == self.agent_id:
+                continue
+                
+            agent_data = {
+                "rewards": [],
+                "actions": [],
+                "phases": []
+            }
+            
+            # Extract metrics if available
+            if hasattr(agent, "stats_monitor") and agent.stats_monitor:
+                stats = agent.stats_monitor.agent_stats.get(agent.agent_id, {})
+                agent_data["rewards"] = stats.get("rewards", [])[-50:]
+                agent_data["gpt_calls"] = stats.get("gpt_calls", 0)
+                
+            # Extract command history if available
+            if hasattr(agent, "command_history"):
+                agent_data["actions"] = agent.command_history[-50:] if agent.command_history else []
+            
+            # Extract phases from redagent_brain if available
+            if hasattr(agent, "redagent_brain") and hasattr(agent.redagent_brain, "episodic_memory"):
+                episodes = agent.redagent_brain.episodic_memory
+                if episodes:
+                    last_episode = episodes[-1]
+                    phases = [step.get("state", {}).get("phase") for step in last_episode.get("steps", [])]
+                    agent_data["phases"] = [p for p in phases if p]
+            
+            training_data[agent.agent_id] = agent_data
+        
+        # Generate performance feedback using GPT
+        feedback = self._generate_performance_feedback(training_data)
+        console.print(f"[magenta]👁️ Strategic Analysis:[/magenta] {feedback}")
+        
+        # Log insights to file
+        self._log_insight({
+            "timestamp": time.time(),
+            "analysis": feedback,
+            "training_data": training_data
+        })
+        
+        # Update memory with strategic insights
+        self.memory["actions"].append({
+            "command": "analyze_training",
+            "phase": "strategic",
+            "reward": 10.0,
+            "output": feedback,
+            "timestamp": time.time()
+        })
+        
+        # Return feedback for agent coordination
+        return feedback
 
-            # Integrating stats from StatsMonitor
-            stats["performance_metrics"] = performance
-            summary[agent.agent_id] = stats
-
-        self._generate_strategic_report(summary)
-        self._log_training_event("Strategic analysis complete.")
-
-    def _analyze_memory_patterns(self, memory, agent_id):
+    def _generate_performance_feedback(self, training_data):
         """
-        Analyze agent's memory using GPT-4o-mini to detect inefficiencies and suggest optimizations.
+        Generate performance feedback using GPTManager instead of subprocess call.
+        
+        Args:
+            training_data (dict): Training data for all agents
+        
+        Returns:
+            str: Strategic feedback
         """
-        actions = memory.get("actions", [])
-        if not actions:
-            console.print(f"[yellow]⚠ No actions to analyze for {agent_id}[/yellow]")
-            return {"status": "No Data"}
+        try:
+            # Prepare summary data for the GPT prompt
+            prompt = f"""
+As Orion, the strategic overseer for a multi-agent cybersecurity system, analyze this training data 
+and provide strategic recommendations:
 
-        sample = actions[:15] if len(actions) > 15 else actions
-        prompt_data = json.dumps(sample, indent=2)
+{json.dumps(training_data, indent=2)}
 
-        # GPT-4o-mini prompt to analyze actions and detect inefficiencies
-        prompt = f"""
-You are ARIASKA's strategic overseer (role: aria).
-Analyze the following command patterns for agent {agent_id}:
+Focus on:
+1. Success/failure patterns in RedAgent's actions
+2. Key areas for improvement
+3. Agent coordination opportunities
+4. Suggested tactical adjustments
 
-{prompt_data}
-
-Identify:
-- Redundancy issues
-- Weak phases
-- Opportunities for curriculum enhancement
-- Any risky or inefficient behaviors
-
-Respond in structured JSON:
-{{"redundancy": "...", "weak_phases": "...", "curriculum_suggestion": "...", "risks": "..."}}
+Respond with 3-4 concrete, actionable recommendations.
 """
-        try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    "gpt-4o-mini",
-                    "--temperature",
-                    "0.25",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=60,
-                text=True,
+            # Use GPTManager instead of direct subprocess call
+            response = self.gpt_manager.gpt_request(
+                prompt=prompt, 
+                task_type="reflection",
+                agent_id=self.agent_id
             )
-            analysis = json.loads(result.stdout.strip())
-            console.print(f"[green]✔ Orion analyzed {agent_id} successfully.[/green]")
-            return analysis
+            
+            return response
+            
         except Exception as e:
-            console.print(
-                f"[yellow]⚠ GPT-4o-mini failed: {e}. Trying GPT-4.1...[/yellow]"
-            )
-            return self._fallback_analysis(prompt)
-
-    def _fallback_analysis(self, prompt):
-        """
-        If GPT-4o-mini fails, fall back to GPT-4.1 for complex analysis.
-        """
-        try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    "gpt-4.1",
-                    "--temperature",
-                    "0.3",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=60,
-                text=True,
-            )
-            return json.loads(result.stdout.strip())
-        except Exception as e:
-            console.print(f"[red]❌ Orion fallback failed: {e}[/red]")
-            return {"status": "Analysis Failed"}
-
-    def _generate_strategic_report(self, summary):
-        """
-        Generate and save the strategic optimization report after analyzing all agents.
-        """
-        path = os.path.join("logs", "orion_strategic_report.json")
-        os.makedirs("logs", exist_ok=True)
-
-        with open(path, "w") as f:
-            json.dump(summary, f, indent=2)
-
-        panel_text = "\n".join(
-            f"[bold]{agent}[/bold]: {details.get('curriculum_suggestion', 'No Data')}"
-            for agent, details in summary.items()
-        )
-
-        console.print(Panel(panel_text, title="👁 Orion Strategic Recommendations"))
-        console.print(f"[green]📄 Full report saved to {path}[/green]")
+            console.print(f"[red]❌ GPT analysis error: {e}. Using fallback analysis.[/red]")
+            return "Automatic analysis unavailable. Focus on diversifying agent strategies and improving attack phases."
 
     def apply_orion_strategic_adjustments(self, agents):
         """
-        Apply Orion's strategic adjustments based on global performance insights.
-        This modulates epsilon, entropy, and reward thresholds across all agents.
+        Apply strategic adjustments to agents based on performance analysis.
+        
+        Args:
+            agents (list): List of agent objects to adjust
         """
-        console.rule(f"[bold cyan]👁 Orion: Applying Strategic Adjustments[/bold cyan]")
-
+        if not agents:
+            return
+            
+        console.print(f"[magenta]👁️ {self.agent_id}: Applying strategic adjustments...[/magenta]")
+        
+        # Perform analysis to get fresh insights
+        insights = self.analyze_training(agents)
+        
+        # Extract key signals from insights for agent adjustment
+        focus_more_exploration = "explore" in insights.lower() or "diverse" in insights.lower()
+        focus_more_exploitation = "exploit" in insights.lower() or "leverage" in insights.lower()
+        improve_phase = None
+        
+        for phase in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]:
+            if phase in insights.lower():
+                improve_phase = phase
+                break
+        
+        # Apply adjustments based on insights
         for agent in agents:
-            # Skip agents without stats_monitor (e.g., ScoutAgent)
-            if not hasattr(agent, "stats_monitor"):
+            if agent.agent_id == self.agent_id:
                 continue
-            agent_performance = self._evaluate_agent_performance(agent)
-            agent_feedback = self._generate_performance_feedback(agent_performance)
-            self._adjust_epsilon(agent, agent_feedback)
-            self._adjust_entropy(agent, agent_feedback)
-            self._suggest_curriculum_changes(agent_feedback)
-            # Track token usage for visualization
-            if hasattr(self.stats_monitor, "log_gpt_call"):
-                self.stats_monitor.log_gpt_call(self.agent_id)
-            console.print(
-                f"[bold blue][OrionAgent] Adjusted agent: {agent.agent_id} | Epsilon: {getattr(agent, 'epsilon', 'N/A')} | Entropy: {getattr(agent, 'entropy_beta', 'N/A')}[/bold blue]"
-            )
-
-            # Lower thresholds for intervention
-            if (
-                getattr(agent, "repeated_action_count", 0) > 2
-                or getattr(agent, "phase_repeat_count", 0) > 2
-            ):
-                if self.gpt_calls_this_episode < self.gpt_call_limit:
-                    hint = self.generate_hint()
-                    agent.last_reasoning = f"Orion strategic hint: {hint}"
-                    self.gpt_calls_this_episode += 1
-
-            # Smarter epsilon/entropy tuning
-            if hasattr(agent, "epsilon") and hasattr(agent, "epsilon_min"):
-                # Decay epsilon based on episode progress
-                agent.epsilon = max(
-                    agent.epsilon * (0.98 - 0.01 * agent.total_episodes),
-                    agent.epsilon_min,
-                )
+                
+            # Adjust epsilon (exploration rate)
+            if hasattr(agent, "epsilon"):
+                if focus_more_exploration:
+                    agent.epsilon = min(agent.epsilon * 1.2, 0.95)
+                    console.print(f"[cyan]👁️ Increased exploration for {agent.agent_id}: {agent.epsilon:.3f}[/cyan]")
+                elif focus_more_exploitation:
+                    agent.epsilon = max(agent.epsilon * 0.8, agent.epsilon_min)
+                    console.print(f"[cyan]👁️ Decreased exploration for {agent.agent_id}: {agent.epsilon:.3f}[/cyan]")
+            
+            # Adjust entropy beta (action diversity)
             if hasattr(agent, "entropy_beta"):
-                agent.entropy_beta = max(
-                    agent.entropy_beta * (0.98 - 0.01 * agent.total_episodes), 0.005
+                if focus_more_exploration:
+                    agent.entropy_beta = min(agent.entropy_beta * 1.3, 0.05)
+                    console.print(f"[cyan]👁️ Increased entropy for {agent.agent_id}: {agent.entropy_beta:.3f}[/cyan]")
+                elif focus_more_exploitation:
+                    agent.entropy_beta = max(agent.entropy_beta * 0.7, 0.001)
+                    console.print(f"[cyan]👁️ Decreased entropy for {agent.agent_id}: {agent.entropy_beta:.3f}[/cyan]")
+
+            # --- Stuck/Redundancy Detection ---
+            if self.agent_stuck(agent):
+                suggestion = self.llm_router.route_task(
+                    "strategic",
+                    f"Agent {agent.agent_id} is stuck with reward {getattr(agent, 'last_reward', 0)}. Suggest new action."
                 )
+                console.print(f"[yellow]🔄 GPT Suggestion for {agent.agent_id}:[/yellow] {suggestion}")
+                # Optionally: store suggestion or inject as next action
+                if hasattr(agent, "priority_queue"):
+                    agent.priority_queue = [suggestion]
+            # ...existing curriculum adjustment logic...
+            # Example: If agent is performing well, increase difficulty or reduce epsilon
+            avg_reward = getattr(agent.stats_monitor, "get_average_reward", lambda: 0.0)()
+            if avg_reward > 15 and hasattr(agent, "epsilon"):
+                agent.epsilon = max(agent.epsilon * 0.95, agent.epsilon_min)
+                console.print(f"[cyan]👁️ {agent.agent_id}: High reward, reducing epsilon to {agent.epsilon:.3f}[/cyan]")
+            if avg_reward > 20 and hasattr(agent, "env") and hasattr(agent.env, "difficulty_level"):
+                agent.env.difficulty_level = min(getattr(agent.env, "difficulty_level", 1) + 1, getattr(agent.env, "max_difficulty", 20))
+                console.print(f"[magenta]👁️ {agent.agent_id}: Raising environment difficulty to {agent.env.difficulty_level}[/magenta]")
+        
+        # Generate new attack chain if needed
+        if random.random() < 0.3:  # 30% chance of new chain
+            self.generate_attack_chain(agents)
+            
+        # Return insights
+        return insights
 
-            if getattr(agent, "avg_reward", 0) > 50:
-                self.promote_agent_to_next_curriculum(agent)
-            if getattr(agent, "redundancy_rate", 0) > 0.15:
-                self.force_exploration(agent)
-            if getattr(agent, "gpt_tokens_used", 0) > 1000:
-                self.enforce_gpt_minimization(agent)
+    def agent_stuck(self, agent, stagnation_window=5, min_reward_delta=0.1):
+        """
+        Detect if agent is stuck: reward hasn't improved for N steps or repeated actions.
+        """
+        # Check reward stagnation
+        rewards = getattr(agent.stats_monitor, "agent_stats", {}).get(agent.agent_id, {}).get("rewards", [])
+        if len(rewards) >= stagnation_window:
+            recent = rewards[-stagnation_window:]
+            if max(recent) - min(recent) < min_reward_delta:
+                return True
+        # Check repeated actions
+        cmd_hist = getattr(agent, "command_history", [])
+        if len(cmd_hist) >= stagnation_window and len(set(cmd_hist[-stagnation_window:])) == 1:
+            return True
+        return False
 
-        self._log_training_event("Strategic adjustments applied.")
-
-    def promote_agent_to_next_curriculum(self, agent):
+    def _log_insight(self, insight):
         """
-        Promote the agent to the next curriculum level.
-        """
-        pass
-
-    def force_exploration(self, agent):
-        """
-        Force the agent to explore new strategies.
-        """
-        pass
-
-    def enforce_gpt_minimization(self, agent):
-        """
-        Enforce minimization of GPT token usage.
-        """
-        pass
-
-    def _evaluate_agent_performance(self, agent):
-        """
-        Evaluate the agent's performance based on its reward, epsilon, and entropy.
-        Skip agents without stats_monitor.
-        """
-        if not hasattr(agent, "stats_monitor"):
-            return {}
-        # Defensive: Use get_average_reward if available
-        reward = (
-            agent.stats_monitor.get_average_reward(agent.agent_id)
-            if hasattr(agent.stats_monitor, "get_average_reward")
-            else 0.0
-        )
-        performance = {
-            "reward": reward,
-            "epsilon": getattr(agent, "epsilon", 0.1),
-            "entropy": getattr(agent, "entropy_beta", 0.01),
-        }
-        return performance
-
-    def _generate_performance_feedback(self, performance):
-        """
-        Generate feedback based on the agent's performance using GPT-4.1 or fallback.
-        This feedback will drive real-time adjustments.
-        """
-        prompt = f"""
-        Evaluate the following agent performance metrics:
-        Reward: {performance['reward']}, Epsilon: {performance['epsilon']}, Entropy: {performance['entropy']}
-        Suggest strategic adjustments, including changes in epsilon, entropy, and reward thresholds.
-        """
-        feedback = self.query_tactical_gpt(prompt, complexity="high")
-        return json.loads(feedback)
-
-    def _adjust_epsilon(self, agent, feedback):
-        """
-        Adjust the agent's epsilon based on the strategic feedback from Orion.
-        """
-        if (
-            "epsilon" in feedback
-            and hasattr(agent, "epsilon")
-            and hasattr(agent, "epsilon_min")
-        ):
-            new_epsilon = feedback["epsilon"]
-            agent.epsilon = max(new_epsilon, agent.epsilon_min)
-            console.print(
-                f"[yellow]🎯 Adjusted epsilon for {agent.agent_id} to {new_epsilon:.4f}[/yellow]"
-            )
-        else:
-            console.print(
-                f"[dim]Skipping epsilon adjustment for {getattr(agent, 'agent_id', agent)} (no epsilon_min)[/dim]"
-            )
-
-    def _adjust_entropy(self, agent, feedback):
-        """
-        Adjust the agent's entropy based on strategic feedback.
-        """
-        if "entropy" in feedback and hasattr(agent, "entropy_beta"):
-            new_entropy = feedback["entropy"]
-            agent.entropy_beta = max(new_entropy, 0.005)
-            console.print(
-                f"[yellow]🎯 Adjusted entropy for {agent.agent_id} to {new_entropy:.4f}[/yellow]"
-            )
-        else:
-            console.print(
-                f"[dim]Skipping entropy adjustment for {getattr(agent, 'agent_id', agent)} (no entropy_beta)[/dim]"
-            )
-
-    def _suggest_curriculum_changes(self, feedback):
-        if "curriculum_suggestion" in feedback:
-            suggestion = feedback["curriculum_suggestion"]
-            if not hasattr(self, "teach") or self.teach is None:
-                from core.teach.teach import TeachModule
-
-                self.teach = TeachModule()
-            if suggestion and suggestion != self.last_curriculum_suggestion:
-                console.print(f"[green]👁 Orion's suggestion: {suggestion}[/green]")
-                self.teach.add_action(
-                    command="Curriculum Update", description=suggestion
-                )
-                self.last_curriculum_suggestion = suggestion
-
-    def optimize_agent_memory(self, agents):
-        """
-        Optimize the memory of each agent using feedback from Orion.
-        This ensures agents retain only the most relevant experiences and avoid redundancy.
-        """
-        console.rule(f"[bold cyan]👁 Orion: Optimizing Agent Memory[/bold cyan]")
-
-        for agent in agents:
-            memory = agent.memory_router.get_memory(agent.agent_id)
-            optimized_memory = self._process_memory(memory, agent)
-            self._update_agent_memory(agent, optimized_memory)
-
-    def _process_memory(self, memory, agent):
-        """
-        Process and filter the agent's memory to retain the most valuable experiences.
-        Uses GPT-4.1-nano to suggest which experiences to retain or discard.
-        """
-        prompt = f"""
-        Analyze the following memory for agent {agent.agent_id} and suggest improvements:
-        {json.dumps(memory, indent=2)}
-
-        - Identify redundant experiences
-        - Suggest improvements or deletions
-        - Suggest new strategies for memory optimization
-        """
-        memory_feedback = self.query_tactical_gpt(prompt, complexity="high")
-        return json.loads(memory_feedback)
-
-    def _update_agent_memory(self, agent, optimized_memory):
-        """
-        Update the agent's memory with the optimized memory suggested by Orion.
-        """
-        agent.memory_router.update_memory(agent.agent_id, optimized_memory)
-        console.print(
-            f"[green]✔ {self.agent_id}: Memory for {agent.agent_id} optimized successfully.[/green]"
-        )
-
-    def update_global_strategy(self, agents, environment):
-        """
-        Update the global strategy for all agents based on the current environment and agent feedback.
-        This ensures all agents work towards the same goal efficiently.
-        """
-        console.rule(f"[bold cyan]👁 Orion: Updating Global Strategy[/bold cyan]")
-        strategy_feedback = self._generate_global_strategy(agents, environment)
-        self._apply_global_strategy(agents, strategy_feedback)
-
-    def _generate_global_strategy(self, agents, environment):
-        """
-        Generate a global strategy based on the current state of the environment and agent performance.
-        Uses GPT-4.1-nano for strategic feedback.
-        """
-        prompt = f"""
-        Given the current environment state: {environment}, and the following performance data for agents: {json.dumps([agent.stats_monitor.get_metrics() for agent in agents], indent=2)},
-        suggest a global strategy to optimize agent collaboration and performance.
-        """
-        strategy_feedback = self.query_tactical_gpt(prompt, complexity="high")
-        return json.loads(strategy_feedback)
-
-    def _apply_global_strategy(self, agents, strategy_feedback):
-        """
-        Apply the global strategy to each agent, adjusting parameters and suggesting action plans.
-        """
-        for agent in agents:
-            if "adjust_entropy" in strategy_feedback:
-                agent.entropy_beta = strategy_feedback["adjust_entropy"]
-            if "adjust_epsilon" in strategy_feedback:
-                agent.epsilon = strategy_feedback["adjust_epsilon"]
-            if "suggest_mode" in strategy_feedback:
-                agent.current_mode = strategy_feedback["suggest_mode"]
-
-            console.print(
-                f"[magenta]🚨 Global Strategy applied to {agent.agent_id}:[/magenta] {strategy_feedback}"
-            )
-
-    def generate_strategic_report(self, agents, environment):
-        """
-        Generate and save the strategic optimization report based on agent performance and environment state.
-        This includes feedback on agent performance, memory, and suggested curriculum changes.
-        """
-        console.rule(f"[bold cyan]👁 Orion: Generating Strategic Report[/bold cyan]")
-        report = {}
-
-        for agent in agents:
-            performance_metrics = self._evaluate_agent_performance(agent)
-            memory_feedback = self._analyze_memory_patterns(
-                agent.memory_router.get_memory(agent.agent_id), agent.agent_id
-            )
-            report[agent.agent_id] = {
-                "performance": performance_metrics,
-                "memory_feedback": memory_feedback,
-            }
-
-        # Generate and save report
-        report_path = os.path.join("logs", "orion_final_report.json")
-        os.makedirs("logs", exist_ok=True)
-        with open(report_path, "w") as f:
-            json.dump(report, f, indent=2)
-
-        console.print(f"[green]📄 Strategic report saved to {report_path}[/green]")
-
-        # Optional: Show a condensed version of the report
-        panel_text = "\n".join(
-            f"[bold]{agent}[/bold]: {details.get('performance', 'No Data')}"
-            for agent, details in report.items()
-        )
-        console.print(Panel(panel_text, title="👁 Orion Final Strategic Insights"))
-
-    def execute(self, agents, environment, episodes=10):
-        """
-        Execute the full training and strategic adjustment cycle for all agents.
-        """
-        console.rule(f"[bold cyan]👁 Orion: Starting Full Execution[/bold cyan]")
-
-        # Execute training and adjustments for each agent
-        for episode in range(episodes):
-            console.print(
-                f"\n[cyan]🔄 Episode {episode + 1}/{episodes} started...[/cyan]"
-            )
-
-            # Evaluate and adjust agent strategies
-            self.apply_orion_strategic_adjustments(agents)
-            self.optimize_agent_memory(agents)
-
-            for agent in agents:
-                agent.simulate_train(episodes=1)
-
-            # End of episode feedback
-            self.generate_strategic_report(agents, environment)
-
-        console.print(
-            "[green]📚 Training complete. Strategic optimization report generated.[/green]"
-        )
-
-    def query_tactical_gpt(self, prompt, complexity="high"):
-        """
-        Query a tactical GPT model for feedback or suggestions.
-        This is a stub for integration with your GPT querying system.
-        """
-        # Cap GPT calls per episode (early training)
-        if self.gpt_calls_this_episode >= self.gpt_call_limit:
-            if self.verbosity != "quiet":
-                console.print(
-                    "[yellow]⚠ OrionAgent GPT call cap reached for this episode. Using cached logic.[/yellow]"
-                )
-            return json.dumps(
-                {
-                    "epsilon": 0.1,
-                    "entropy": 0.01,
-                    "curriculum_suggestion": "Use cached logic.",
-                }
-            )
-        self.gpt_calls_this_episode += 1
-        return json.dumps(
-            {
-                "epsilon": 0.1,
-                "entropy": 0.01,
-                "curriculum_suggestion": "Increase exploration in early episodes.",
-            }
-        )
-
-    def generate_dynamic_scenario(self, scenario, default_services):
-        """
-        Generate a dynamic scenario profile for the environment.
-        Returns a dict with keys: difficulty, traceback_threshold, training_mode, blue_aggressiveness, services.
-        """
-        import random
-
-        if scenario == "dynamic":
-            difficulty = random.choice([10, 15, 20, 25])
-            traceback_threshold = random.choice([60, 75, 90])
-            training_mode = random.choice(["adaptive", "standard", "aggressive"])
-            blue_aggressiveness = random.choice([2, 3, 4, 5])
-            services = random.sample(default_services, k=min(5, len(default_services)))
-        else:
-            difficulty = 20
-            traceback_threshold = 75
-            training_mode = "adaptive"
-            blue_aggressiveness = 3
-            services = default_services[:5]
-
-        return {
-            "difficulty": difficulty,
-            "traceback_threshold": traceback_threshold,
-            "training_mode": training_mode,
-            "blue_aggressiveness": blue_aggressiveness,
-            "services": services,
-        }
-
-    def override_decision(self, command, state, agent_id=None):
-        """
-        Allow Orion to override an agent's decision based on strategic considerations.
-
+        Log an insight to the insights file.
+        
         Args:
-            command: The original command
-            state: Current environment state
-            agent_id: The ID of the agent making the decision
-
-        Returns:
-            str: The original command or an overridden command
+            insight (dict): Insight to log
         """
-        return command
-
-    def provide_reasoning(self, command, state):
-        """
-        Provide strategic reasoning about why a command is good or bad
-
-        Args:
-            command: The command to explain
-            state: Current environment state
-
-        Returns:
-            str: Tactical reasoning about the command
-        """
-        current_phase = state.get("phase", "unknown")
-        return f"Command aligns with {current_phase} phase strategic objectives."
-
-    def evaluate_environment(self, state):
-        """
-        Evaluate the current environment state and provide strategic insights.
-
-        Args:
-            state: Current environment state
-
-        Returns:
-            str: Strategic insight or None
-        """
-        detection_risk = state.get("detection_risk", 0)
-        phase = state.get("phase", "unknown")
-
-        if detection_risk > 7.0:
-            return "Increase stealth operations; blue team alert is elevated."
-        elif "exfiltrate" in phase:
-            return "Prepare counter-measures against exfiltration detection."
-
-        return None
-
-    def _log_training_event(self, msg):
-        with open(self.training_log_path, "a") as f:
-            f.write(f"{msg}\n")
-
-    def generate_hint(self):
-        """
-        Provide a global strategy hint.
-        """
-        # Inject strategic hint based on global memory trends
-        if hasattr(self, "memory_manager") and self.memory_manager.memory.get(
-            "actions"
-        ):
-            actions = self.memory_manager.memory["actions"]
-            if actions:
-                most_recent = actions[-1].get("command", "nmap")
-                return f"Consider leveraging: {most_recent}"
-        return "Orion recommends: synchronize agent strategies."
-
-    def execute_command(self, command):
         try:
-            output = f"OrionAgent cannot execute commands directly. Input: {command}"
-            return {
-                "output": output,
-                "recommendations": [],
-                "phase": "unknown",
-                "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
-            }
+            with open(self.insights_path, "a") as f:
+                f.write(json.dumps(insight) + "\n")
         except Exception as e:
-            console.print(f"[red]❌ Error executing command: {e}[/red]")
-            return {
-                "output": f"Error executing command: {e}",
-                "recommendations": [],
-                "phase": "unknown",
-                "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
-            }
+            console.print(f"[red]❌ Failed to log insight: {e}[/red]")
 
-    def get_base_commands(self):
-        # For CLI completion/autosuggest
+    def _log_training_event(self, message):
+        """
+        Log a training event.
+        
+        Args:
+            message (str): Message to log
+        """
+        try:
+            with open(self.training_log_path, "a") as f:
+                f.write(f"[{time.time()}] {message}\n")
+        except Exception as e:
+            console.print(f"[red]❌ Failed to log training event: {e}[/red]")
+
+    def generate_attack_chain(self, agents):
+        """
+        Generate a strategic attack chain using LLMRouter (SenecaLLM→LilyLLM→GPT-4o fallback).
+        """
+        console.print(f"[magenta]🔗 {self.agent_id}: Generating strategic attack chain...[/magenta]")
+        
+        # Get RedAgent from agents list
+        red_agent = None
+        for agent in agents:
+            if (agent.agent_id == "RedAgent"):
+                red_agent = agent
+                break
+                
+        if not red_agent:
+            console.print("[yellow]⚠ RedAgent not found, cannot generate attack chain.[/yellow]")
+            return
+            
+        # Gather successful commands from RedAgent memory
+        successful_commands = []
+        if hasattr(red_agent, "memory_manager") and red_agent.memory_manager:
+            memory = red_agent.memory_manager.memory
+            for action in memory.get("actions", []):
+                if action.get("reward", 0) > 5:
+                    successful_commands.append(action.get("command"))
+        
+        # If not enough successful commands, add default commands
+        if len(successful_commands) < 3:
+            successful_commands.extend([
+                "nmap -sS -sV 10.10.10.10",
+                "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
+                "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.10.10.10"
+            ])
+        
+        # Generate chain using LLMRouter
+        task_desc = "Generate optimized 5-step attack chain based on recent successes: " + ", ".join(successful_commands)
+        chain = self.llm_router.route_task("planner", task_desc)
+        
+        # Store and broadcast chain
+        self.current_chain = chain
+        self.chain_history.append({
+            "timestamp": time.time(),
+            "chain": chain,
+            "performance": None  # Will be updated after execution
+        })
+        
+        console.print(f"[magenta]🔗 New attack chain generated: {', '.join(chain)}[/magenta]")
+        
+        # Return the generated chain
+        return chain
+
+    def _gpt_generate_chain(self, successful_commands):
+        """
+        Use GPTManager to generate an optimized attack chain.
+        
+        Args:
+            successful_commands (list): List of successful commands
+        
+        Returns:
+            list: Generated attack chain
+        """
+        # Limit context to avoid token bloat
+        cmd_context = successful_commands[-15:]
+        
+        prompt = f"""
+As OrionAgent, the strategic overseer, create an optimized 5-step attack chain using the following successful commands as reference:
+
+{json.dumps(cmd_context)}
+
+The attack chain should:
+1. Follow a logical progression through phases (recon → enumeration → exploit → privesc → exfiltrate)
+2. Be coherent and build on previous steps
+3. Include specific commands (not generic descriptions)
+
+Respond with a JSON array of 5 commands representing the optimal attack chain:
+"""
+
+        try:
+            # Use GPTManager for the request
+            response = self.gpt_manager.gpt_request(
+                prompt=prompt,
+                task_type="strategic",
+                agent_id=self.agent_id,
+                model="gpt-4.1"  # Use primary model for strategic work
+            )
+            
+            # Parse JSON response
+            try:
+                chain = json.loads(response)
+                if isinstance(chain, list) and len(chain) > 0:
+                    return chain[:5]  # Ensure we have at most 5 commands
+            except json.JSONDecodeError:
+                # Fallback: extract commands using regex
+                import re
+                commands = re.findall(r'"(.*?)"', response)
+                if commands:
+                    return commands[:5]
+            
+        except Exception as e:
+            console.print(f"[red]❌ Chain generation failed: {e}[/red]")
+        
+        # Fallback chain
         return [
-            "nmap",
-            "hydra",
-            "msfconsole",
-            "sqlmap",
-            "ffuf",
-            "gobuster",
-            "linpeas",
-            "winpeas",
-            "evil-winrm",
-            "masscan",
-            "amass",
-            "crackmapexec",
-            "enum4linux",
-            "pspy",
+            "nmap -sS -sV 10.10.10.10",
+            "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
+            "searchsploit apache 2.4.49",
+            "python3 exploit.py",
+            "zip -r /tmp/data.zip /etc/passwd"
         ]
 
-    def end_episode(self):
+    def _analyze_memory_patterns(self, memory, agent_id):
         """
-        Reset GPT call count at the end of each episode.
+        Analyze memory patterns for an agent and provide optimization suggestions.
+        Used by ShadowAgent for memory optimization.
+        
+        Args:
+            memory (dict): Memory to analyze
+            agent_id (str): Agent ID
+            
+        Returns:
+            str: Optimization suggestions
         """
-        self.gpt_calls_this_episode = 0
+        actions = memory.get("actions", [])
+        if not actions:
+            return "No actions to analyze."
+            
+        # Extract key metrics for analysis
+        command_counts = {}
+        phase_transition = []
+        rewards = []
+        
+        for action in actions:
+            cmd = action.get("command", "")
+            if cmd:
+                command_counts[cmd] = command_counts.get(cmd, 0) + 1
+            phase = action.get("phase")
+            if phase:
+                phase_transition.append(phase)
+            reward = action.get("reward")
+            if reward is not None:
+                rewards.append(reward)
+                
+        # Find patterns
+        repeated_commands = [cmd for cmd, count in command_counts.items() if count > 3]
+        avg_reward = sum(rewards) / len(rewards if rewards else 0)
+        
+        # Generate insights using GPT
+        prompt = f"""
+Analyze these memory patterns for {agent_id}:
+- Most repeated commands: {repeated_commands[:5]}
+- Phase transitions: {phase_transition[-10:]}
+- Average reward: {avg_reward:.2f}
+
+Suggest memory optimization strategies in a single sentence.
+"""
+        
+        try:
+            response = self.gpt_manager.gpt_request(
+                prompt=prompt,
+                task_type="analysis",
+                agent_id=self.agent_id,
+                model="gpt-4o-mini"  # Use lightweight model for analysis
+            )
+            return response
+        except Exception as e:
+            return f"Memory analysis error: {e}"
+
+    def sync_memory(self):
+        """
+        Sync memory with MemoryRouter for global insights.
+        Implementation for MemorySyncInterface.
+        """
+        if self.memory_router:
+            self.memory_router.save_memory(self.agent_id, self.memory)
+
+    def display_status(self):
+        """Display agent status in the terminal."""
+        table = Table(title=f"👁️ {self.agent_id} Status")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_row("Role", self.role)
+        table.add_row("Strategy", self.global_strategy)
+        table.add_row("Insights Count", str(len(self.memory.get("actions", []))))
+        table.add_row("Current Chain", str(len(self.current_chain)))
+        
+        # Show current attack chain if available
+        if self.current_chain:
+            chain_table = Table(title="🔗 Current Attack Chain")
+            chain_table.add_column("Step", style="cyan")
+            chain_table.add_column("Command", style="yellow")
+            
+            for i, cmd in enumerate(self.current_chain):
+                chain_table.add_row(str(i+1), cmd)
+                
+            console.print(Panel(chain_table, title="Attack Chain", border_style="cyan"))
+        
+        console.print(Panel(table, title=f"👁️ {self.agent_id} Overview", border_style="magenta"))
+        
+    def generate_hint(self):
+        """
+        Generate a strategic hint using LLMRouter.
+        
+        Returns:
+            str: A helpful hint for the user
+        """
+        return self.llm_router.route_task("strategic", "Provide a strategic hint for advancing in current cyber phase")
+
+    def query_tactical_gpt(self, prompt, complexity="standard"):
+        """
+        Use GPTManager for all LLM calls, with caching, fallback, and output sanitization.
+        
+        Args:
+            prompt (str): Prompt to send to GPT
+            complexity (str): Complexity level
+            
+        Returns:
+            str: GPT response
+        """
+        return self.gpt_manager.gpt_request(prompt, task_type="reasoning", model="gpt-4o-mini")
+
+    def save_models(self, prefix="models/orion_agent"):
+        """
+        Save models to disk.
+        
+        Args:
+            prefix (str): Path prefix for saved models
+        """
+        os.makedirs(os.path.dirname(prefix), exist_ok=True)
+        try:
+            # Save current chain and insights
+            with open(f"{prefix}_chain.json", "w") as f:
+                json.dump(self.current_chain, f, indent=2)
+            console.print(f"[green]💾 {self.agent_id}: Chain saved to {prefix}_chain.json[/green]")
+        except Exception as e:
+            console.print(f"[red]❌ {self.agent_id}: Chain save failed: {e}[/red]")
+
+    def load_models(self, prefix="models/orion_agent"):
+        """
+        Load models from disk.
+        
+        Args:
+            prefix (str): Path prefix for saved models
+        """
+        try:
+            # Load saved chain
+            if os.path.exists(f"{prefix}_chain.json"):
+                with open(f"{prefix}_chain.json", "r") as f:
+                    self.current_chain = json.load(f)
+                console.print(f"[green]✓ {self.agent_id}: Chain loaded from {prefix}_chain.json[/green]")
+        except Exception as e:
+            console.print(f"[red]⚠ {self.agent_id}: Chain load failed: {e}[/red]")
+
+    def reset(self):
+        """Reset agent for new episode."""
+        # Keep chain history but reset current episode tracking
+        self.memory["actions"] = []
+        self._log_training_event("Reset for new episode")
+
+    def strategic_chain_planning(self, prompt):
+        # Use LLMRouter for planning
+        chain = self.llm_router.route_task("planner", prompt)
+        return chain
+
+    def analyze_agent_stuck(self, agent_id, reward_history):
+        """
+        Detect if agent is stuck (no reward improvement for N episodes).
+        If so, call LLMRouter for advice and log it.
+        """
+        N = 5
+        if len(reward_history) >= N and all(r <= reward_history[0] for r in reward_history[-N:]):
+            advice = self.llm_router.route_task("strategic", f"Agent {agent_id} is stuck, suggest next steps.")
+            # Log or print advice
+            print(f"[Orion] Advice for {agent_id}: {advice}")
+            return advice
+        return None
+
+    def adjust_agent_parameters(self, agent, dqn_insights):
+        """
+        Adjust agent parameters (e.g., epsilon) based on DQN insights.
+        """
+        if dqn_insights.get("increase_exploration"):
+            agent.epsilon = min(1.0, agent.epsilon * 1.1)
+        if dqn_insights.get("decrease_exploration"):
+            agent.epsilon = max(agent.epsilon * 0.9, agent.epsilon_min)
+
+# For CLI testing
+if __name__ == "__main__":
+    console.print("[bold blue]Testing OrionAgent in standalone mode[/bold blue]")
+    
+    orion = OrionAgent()
+    orion.display_status()
+    
+    # Test GPT integration - should use GPTManager
+    test_data = {
+        "RedAgent": {
+            "rewards": [5, 8, 10, -2, 15],
+            "actions": ["nmap -sV 10.10.10.10", "gobuster dir -u http://10.10.10.10"],
+            "phases": ["recon", "enumeration"]
+        }
+    }
+    
+    feedback = orion._generate_performance_feedback(test_data)
+    console.print(f"[cyan]GPT Feedback:[/cyan] {feedback}")
+    
+    chain = orion._gpt_generate_chain(["nmap -sV 10.10.10.10", "gobuster dir -u http://10.10.10.10"])
+    console.print(f"[cyan]Generated Chain:[/cyan] {chain}")

@@ -1,280 +1,276 @@
-from prompt_toolkit.lexers import Lexer
-from prompt_toolkit.formatted_text import FormattedText, HTML
-from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.styles import Style
-from prompt_toolkit.shortcuts import PromptSession
-from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
-
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.align import Align
 from rich.layout import Layout
 from rich.live import Live
-from rich.progress import Progress, BarColumn, TextColumn
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, SpinnerColumn
+from rich.columns import Columns
 from rich import box
-from shutil import get_terminal_size
+import os
 
-import re
-import time
-from core.vector_search import VectorSearch
+# Add prompt_toolkit-based prompt session for CLI input
+def create_prompt_session(prompt_text="> ", completer=None, lexer=None, style=None):
+    """
+    Create a Rich-compatible prompt session for CLI input.
+    Optionally accepts a prompt_toolkit Completer, Lexer, and Style.
+    """
+    try:
+        from prompt_toolkit import PromptSession
+    except ImportError:
+        raise ImportError("prompt_toolkit is required for create_prompt_session.")
+    session_kwargs = {}
+    if completer:
+        session_kwargs["completer"] = completer
+    if lexer:
+        session_kwargs["lexer"] = lexer
+    if style:
+        session_kwargs["style"] = style
+    return PromptSession(prompt_text, **session_kwargs)
 
 console = Console()
 
-# 🚀 Vector Worker Init (Singleton)
-vector_worker = VectorSearch(cache_size=75)
-console.print(
-    "[cyan]✔ VectorSearch initialized — AI-powered suggestions active.[/cyan]"
-)
-# 🎨 Custom Syntax Highlighting Lexer
-class CustomLexer(Lexer):
-    def lex_document(self, document):
-        text = document.text
+def display_output(output, title="Output", style="cyan"):
+    """
+    Display formatted output in a Rich panel.
+    """
+    from rich.panel import Panel
+    from rich.syntax import Syntax
 
-        def get_line(lineno):
-            tokens = []
-            for word in text.split():
-                if re.match(
-                    r"\b(sudo|nmap|hydra|msfconsole|sqlmap|ffuf|gobuster|linpeas|winpeas|evil-winrm|masscan|amass|crackmapexec|enum4linux|pspy)\b",
-                    word,
-                ):
-                    tokens.append(("class:command", word + " "))
-                elif word.startswith("-"):
-                    tokens.append(("class:param", word + " "))
-                else:
-                    tokens.append(("", word + " "))
-            return FormattedText(tokens)
-
-        return get_line
-# 👻 Ghost Text AutoSuggest (Vector AI)
-class VectorAutoSuggest(AutoSuggest):
-    def get_suggestion(self, buffer, document):
-        # Disable vector ghost suggestions to avoid interruptions
-        return None
-# ⌨️ GhostText Tab Completion (Context-Aware)
-class VectorCompleter(Completer):
-    def __init__(self, base_commands, top_k=5):
-        self.commands = base_commands
-        self.top_k = top_k
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor.strip()
-        # Only suggest base commands, no vector/AI suggestions
-        for cmd in self.commands:
-            if cmd.startswith(text):
-                yield Completion(cmd, start_position=-len(text), style="fg:#FFB86C bold")
-        # Do NOT yield vector/AI completions or use display=HTML(...)
-# 🎨 Syntax Highlighter for Output (Rich Style)
-def syntax_highlight(text):
-    rules = [
-        (r"\bsudo\b", "[bold red]sudo[/bold red]"),
-        (r"\bnmap\b", "[bold green]nmap[/bold green]"),
-        (r"\bgobuster\b", "[bold cyan]gobuster[/bold cyan]"),
-        (r"\bffuf\b", "[bold cyan]ffuf[/bold cyan]"),
-        (r"\bhydra\b", "[bold yellow]hydra[/bold yellow]"),
-        (r"\bmsfconsole\b", "[bold magenta]msfconsole[/bold magenta]"),
-        (r"\bsqlmap\b", "[bold yellow]sqlmap[/bold yellow]"),
-        (r"\bevil-winrm\b", "[bold red]evil-winrm[/bold red]"),
-        (r"\blinpeas\b", "[bold cyan]linpeas[/bold cyan]"),
-        (r"\bwinpeas\b", "[bold cyan]winpeas[/bold cyan]"),
-        (r"\bmasscan\b", "[bold cyan]masscan[/bold cyan]"),
-        (r"\bamass\b", "[bold green]amass[/bold green]"),
-        (r"\b(enum4linux|pspy|crackmapexec)\b", "[bold magenta]\\1[/bold magenta]"),
-        (r"\s(-{1,2}[a-zA-Z0-9]+)", r" [bold blue]\1[/bold blue]"),
-        (r"\b\d{1,3}(\.\d{1,3}){3}\b", "[bold green]\\g<0>"),
-        (r"\b([0-9]{2,5})/(tcp|udp)\b", "[bold cyan]\\1/\\2"),
-        (r"\bhttps?\b", "[bold magenta]\\g<0>"),
-        (r"(flag\{[^\}]+\})", "[bold red]\\1[/bold red]"),
-    ]
-
-    for pattern, replacement in rules:
-        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
-
-    return text
-# 📤 Display: Command Output Panel
-def display_output(output, title="Command Output", style="bold blue"):
-    if not output:
-        output = "[yellow]No output returned.[/yellow]"
-    colorized_output = syntax_highlight(output)
-    panel = Panel.fit(
-        colorized_output, title=title, style=style, padding=(1, 2), box=box.ROUNDED
-    )
-    console.print(panel)
-# 💡 Display: AI Hint Panel
-def display_ai_hint(hint):
-    panel = Panel.fit(
-        f"💡 {hint}", title="AI Hint", style="bold green", box=box.ROUNDED
-    )
-    console.print(panel)
-# 📊 Display: AI Recommendations Table
-def display_ai_hint_table(hint, recommendations):
-    term_width = get_terminal_size().columns
-    console.rule("[bold green]🤖 AI Recommendations[/bold green]")
-
-    if hint:
-        display_ai_hint(
-            hint
-            if isinstance(hint, str)
-            else hint.get("command", "💡 No hint available.")
-        )
+    # If output is code-like, use Syntax highlighting, else plain text
+    if isinstance(output, str) and ("\n" in output or len(output) > 80):
+        try:
+            # Try to auto-detect code blocks
+            panel_content = Syntax(output, "bash", theme="ansi_dark", line_numbers=False)
+        except Exception:
+            panel_content = output
     else:
-        console.print(
-            Panel("💡 No AI hint available.", style="yellow", box=box.ROUNDED)
-        )
+        panel_content = output
+
+    console.print(Panel(panel_content, title=title, border_style=style))
+
+def display_ai_hint_table(phase=None, recommendations=None):
+    """
+    Display AI-suggested commands and recommendations in a Rich table.
+    
+    Args:
+        phase (str, optional): Current phase of attack. Defaults to None.
+        recommendations (list, optional): List of command recommendations. Defaults to None.
+    """
+    from rich.table import Table
 
     if not recommendations:
-        console.print("[yellow]⚠ No AI Recommendations Available.[/yellow]")
         return
 
-    table = Table(show_header=True, show_lines=True, expand=True, box=box.ROUNDED)
-    table.add_column("Command", style="cyan", justify="center")
-    table.add_column("Params", style="yellow", justify="center")
-    table.add_column("Why", style="green", justify="center")
-    table.add_column("Full Command", style="magenta", justify="center")
+    table = Table(title=f"🧠 AI-Suggested Commands {f'for {phase}' if phase else ''}", box=box.ROUNDED)
+    table.add_column("Command", style="cyan")
+    table.add_column("Params", style="magenta")
+    table.add_column("Description", style="green")
 
     for rec in recommendations:
-        table.add_row(
-            rec.get("command", "N/A"),
-            rec.get("params", "N/A"),
-            rec.get("why", "N/A"),
-            rec.get("command", "N/A"),
-        )
+        # Handle different recommendation formats
+        if isinstance(rec, dict):
+            command = rec.get("command", "N/A")
+            params = rec.get("params", "")
+            desc = rec.get("why", "")
+            table.add_row(command, params, desc)
+        elif isinstance(rec, str):
+            # Simple string recommendation
+            table.add_row(rec, "", "")
 
-    aligned_table = Align.center(table, vertical="middle", width=term_width)
-    console.print(aligned_table)
-# 📊 Display: Agent Status Bar
-def display_status_bar(agent, episode, step):
-    console.rule(
-        f"[bold cyan]Agent: {agent} | Episode: {episode} | Step: {step}[/bold cyan]",
-        style="cyan",
-    )
-# 🧭 Display: Phase Recommendations Tables
-def display_phase_tables():
-    phases = {
-        "🔎 Recon": [
-            (
-                "nmap",
-                "-p- -sC -sV",
-                "Initial port & service scan",
-                "nmap -p- -sC -sV 10.10.10.10",
-            ),
-            (
-                "masscan",
-                "-p1-65535 --rate=10000",
-                "High-speed scan",
-                "masscan -p1-65535 10.10.10.10 --rate=10000",
-            ),
-        ],
-        "💥 Exploit": [
-            (
-                "hydra",
-                "-L users.txt -P passwords.txt ssh://TARGET",
-                "Brute-force login",
-                "hydra -L users.txt -P passwords.txt ssh://10.10.10.10",
-            ),
-            (
-                "sqlmap",
-                "-u URL --cookie=session",
-                "Automate SQLi",
-                "sqlmap -u http://10.10.10.10/login.php --cookie=PHPSESSID=123 --dbs",
-            ),
-        ],
-        "🛡 PrivEsc": [
-            (
-                "linpeas.sh",
-                "",
-                "Linux privilege escalation enumeration",
-                "bash linpeas.sh",
-            ),
-            ("winpeas.exe", "", "Windows privilege escalation", "winpeas.exe"),
-        ],
-        "🎯 Post-Exploitation": [
-            (
-                "crackmapexec",
-                "smb --shares",
-                "Enumerate SMB shares",
-                "crackmapexec smb 10.10.10.10 -u user -p pass --shares",
-            ),
-            (
-                "evil-winrm",
-                "-i IP -u user -p pass",
-                "WinRM shell access",
-                "evil-winrm -i 10.10.10.10 -u Admin -p Pass123!",
-            ),
-        ],
+    console.print(table)
+
+def get_action_description(action_index):
+    action_map = {
+        0: "nmap -sS -sV [target]",
+        1: "gobuster dir -u [url] -w [wordlist]",
+        2: "hydra -l admin -P [wordlist] ssh://[target]",
+        3: "find / -perm -u=s -type f",
+        4: "zip -r /tmp/data.zip /etc/passwd",
     }
+    return action_map.get(action_index, f"Custom/Unknown ({action_index})")
 
-    for phase, commands in phases.items():
-        table = Table(
-            title=f"{phase} Phase Recommendations",
-            show_lines=True,
-            box=box.ROUNDED,
-            expand=True,
+def display_redagent_learning_dashboard(redagent=None, memory_router=None, redagent_brain=None):
+    # Accept either direct agent or memory_router/brain
+    if redagent is not None:
+        memory_router = getattr(redagent, "memory_router", None)
+        redagent_brain = getattr(redagent, "redagent_brain", None)
+    if memory_router is None or redagent_brain is None:
+        console.print("[yellow]RedAgent dashboard: missing memory_router or redagent_brain[/yellow]")
+        return
+
+    # Timeline panel: last 15 steps, color-coded by success
+    steps = redagent_brain.load_recent_steps(n=15)
+    timeline = Table(title="RedAgent Timeline", box=box.ROUNDED)
+    timeline.add_column("Step", style="dim")
+    timeline.add_column("Intent", style="cyan")
+    timeline.add_column("Command", style="magenta")
+    timeline.add_column("Reward", style="green")
+    timeline.add_column("Success", style="yellow")
+    timeline.add_column("Model", style="blue")
+    for s in steps:
+        reward = s.get("reward", 0)
+        reward_str = f"[green]{reward:.2f}[/green]" if reward > 0 else f"[red]{reward:.2f}[/red]"
+        success = s.get("success", False)
+        success_str = "[bold green]✔[/bold green]" if success else "[red]✗[/red]"
+        action = s.get("command", "-")
+        if isinstance(action, int):
+            action = get_action_description(action)
+        timeline.add_row(
+            str(s.get("step", "-")),
+            str(s.get("state", {}).get("phase", "-")),
+            str(action),
+            reward_str,
+            success_str,
+            str(s.get("model", "-"))
         )
-        table.add_column("Command", style="cyan", justify="center")
-        table.add_column("Params / Description", style="yellow", justify="center")
-        table.add_column("When / Why", style="green", justify="center")
-        table.add_column("Example", style="magenta", justify="center")
 
-        for cmd, params, why, example in commands:
-            table.add_row(cmd, params, why, example)
-        console.print(table)
-
-# 🧠 Display: Output Intelligence Analysis
-def display_output_analysis(parsed_result):
-    phase = parsed_result.get("phase", "unknown")
-    success = parsed_result.get("success", False)
-    artifacts = parsed_result.get("artifacts", [])
-    hints = parsed_result.get("hints", [])
-    entities = parsed_result.get("entities", {})
-    excerpt = parsed_result.get("output_excerpt", "")
-    risk = parsed_result.get("risk_score", 0.0)
-    stealth = parsed_result.get("stealth_score", 1.0)
-
-    console.rule("[bold blue]📡 Output Intelligence Summary[/bold blue]")
-
-    status = "[green]✅ SUCCESS[/green]" if success else "[red]❌ FAILURE[/red]"
-    console.print(f"[cyan]Phase:[/cyan] {phase} • {status}")
-    console.print(f"[red]Risk:[/red] {risk} | [green]Stealth:[/green] {stealth}")
-
-    if artifacts:
-        console.print(f"[bold green]Artifacts:[/bold green] {', '.join(artifacts)}")
-    if hints:
-        for hint in hints:
-            console.print(f"[yellow]💡 Hint:[/yellow] {hint}")
-
-    if entities:
-        ent_table = Table(title="📦 Entities Detected", show_lines=True, box=box.SIMPLE)
-        ent_table.add_column("Type", style="cyan", justify="right")
-        ent_table.add_column("Values", style="white", overflow="fold")
-        for k, v in entities.items():
-            if v:
-                val_str = ", ".join(str(i) for i in v[:5]) + (
-                    "..." if len(v) > 5 else ""
-                )
-                ent_table.add_row(k, val_str)
-        console.print(ent_table)
-
-    if excerpt:
-        console.print(
-            Panel.fit(
-                syntax_highlight(excerpt), title="🔎 Output Snapshot", style="dim"
-            )
+    # GPT call log: last 5 GPT feedbacks
+    gpt_feedbacks = redagent_brain.load_recent_gpt_feedback(n=5)
+    gpt_table = Table(title="SGPT Call Log", box=box.ROUNDED)
+    gpt_table.add_column("Episode", style="dim")
+    gpt_table.add_column("Prompt", style="cyan")
+    gpt_table.add_column("Summary", style="magenta")
+    gpt_table.add_column("Feedback", style="yellow")
+    for f in gpt_feedbacks:
+        gpt_table.add_row(
+            str(f.get("episode", "-")),
+            (f.get("prompt", "")[:30] + "...") if f.get("prompt") else "",
+            (f.get("summary", "")[:30] + "...") if f.get("summary") else "",
+            (f.get("gpt_feedback", "")[:40] + "...") if f.get("gpt_feedback") else ""
         )
-# 🚀 Create Prompt Session (Vector + GhostText)
-# 🖌️ CLI Style Definition
-cli_style = Style.from_dict({
-    "command": "bold cyan",
-    "param": "bold yellow",
-    "": "",  # default
-})
 
-def create_prompt_session():
-    return PromptSession(
-        lexer=CustomLexer(),
-        completer=VectorCompleter(base_commands=["nmap", "hydra", "msfconsole", "sqlmap", "ffuf", "gobuster", "linpeas", "winpeas", "evil-winrm", "masscan", "amass", "crackmapexec", "enum4linux", "pspy"]),
-        auto_suggest=VectorAutoSuggest(),
-        style=cli_style,
-        # Use a visible arrow in your prompt, e.g. in main.py:
-        # prompt_text = HTML('<ansicyan>zer0</ansicyan><ansimagenta>@ARIASKA</ansimagenta><ansibright_white> > </ansibright_white>')
+    # Rolling reward graph (ASCII bar)
+    rewards = [s.get("reward", 0) for s in steps]
+    reward_bar = "".join(
+        "[green]█[/green]" if r > 0 else "[red]█[/red]" for r in rewards
     )
+    reward_panel = Panel(reward_bar, title="Rolling Reward", border_style="green")
+
+    # Memory snapshot: show last 5 commands and their success
+    mem_snapshot = Table(title="Memory Snapshot", box=box.ROUNDED)
+    mem_snapshot.add_column("Command", style="cyan")
+    mem_snapshot.add_column("Success", style="yellow")
+    for s in steps[-5:]:
+        mem_snapshot.add_row(
+            str(s.get("command", "-")),
+            "[green]✔[/green]" if s.get("success", False) else "[red]✗[/red]"
+        )
+
+    # Evolution stats: top 3 commands by success
+    stats = memory_router.get_evolution_stats() if hasattr(memory_router, "get_evolution_stats") else {}
+    top_cmds = []
+    for intent_hash, stat in stats.items():
+        for cmd, count in stat.get("commands", {}).items():
+            top_cmds.append((cmd, count, stat.get("success", 0)))
+    top_cmds = sorted(top_cmds, key=lambda x: -x[1])[:3]
+    stats_table = Table(title="Top Commands", box=box.ROUNDED)
+    stats_table.add_column("Command", style="magenta")
+    stats_table.add_column("Count", style="cyan")
+    stats_table.add_column("Success", style="green")
+    for cmd, count, succ in top_cmds:
+        stats_table.add_row(str(cmd), str(count), str(succ))
+
+    # Layout
+    layout = Layout()
+    layout.split_column(
+        Layout(Columns([timeline, gpt_table]), name="top", ratio=2),
+        Layout(Columns([reward_panel, mem_snapshot, stats_table]), name="bottom", ratio=1)
+    )
+    console.print(layout)
+
+def display_phase_tables(agent=None, memory=None, phase_counts=None, title="Phase Distribution"):
+    """
+    Display phase distribution or phase-related tables for an agent using Rich.
+    Args:
+        agent: Agent instance (optional, for title/context).
+        memory: Memory dict with 'actions' (optional).
+        phase_counts: Dict of phase -> count (optional, overrides memory).
+        title: Table title.
+    """
+    from rich.table import Table
+    from rich.panel import Panel
+
+    # Compute phase counts if not provided
+    if phase_counts is None and memory is not None:
+        phase_counts = {}
+        for action in memory.get("actions", []):
+            phase = action.get("phase") or action.get("context", {}).get("phase", "unknown")
+            phase_counts[phase] = phase_counts.get(phase, 0) + 1
+
+    if not phase_counts:
+        console.print("[yellow]No phase data available to display.[/yellow]")
+        return
+
+    table = Table(title=title, box=box.ROUNDED)
+    table.add_column("Phase", style="cyan")
+    table.add_column("Count", style="magenta")
+
+    for phase, count in sorted(phase_counts.items()):
+        table.add_row(str(phase), str(count))
+
+    agent_title = f" for {getattr(agent, 'agent_id', '')}" if agent else ""
+    console.print(Panel(table, title=f"📊 Phase Table{agent_title}", border_style="blue"))
+
+def display_status_bar(agent_id, episode, step, reward=None, phase=None, info=None):
+    """
+    Display a compact status bar for an agent's current step, with color-coded phase, risk, and GPT usage.
+    """
+    bar = f"[bold cyan]{agent_id}[/bold cyan] | Ep [green]{episode}[/green] | Step [yellow]{step}[/yellow]"
+    if phase:
+        phase_colors = {
+            "recon": "blue",
+            "enumeration": "cyan",
+            "exploit": "yellow",
+            "privesc": "magenta",
+            "exfiltrate": "red"
+        }
+        color = phase_colors.get(str(phase).lower(), "white")
+        bar += f" | Phase: [{color}]{phase}[/{color}]"
+    if reward is not None:
+        color = "green" if reward > 0 else "red" if reward < 0 else "yellow"
+        bar += f" | Reward: [{color}]{reward:.2f}[/{color}]"
+    if info:
+        if "risk" in info:
+            risk = info["risk"]
+            risk_color = "green" if risk < 3 else "yellow" if risk < 6 else "red"
+            bar += f" | Risk: [{risk_color}]{risk:.2f}[/{risk_color}]"
+        if "gpt_calls" in info:
+            gpt_calls = info["gpt_calls"]
+            bar += f" | GPT: [magenta]{gpt_calls}[/magenta]"
+        for k, v in info.items():
+            if k not in ("risk", "gpt_calls"):
+                bar += f" | {k}: {v}"
+    console.print(bar, highlight=False)
+
+def display_agent_panel(agent, info=None):
+    """
+    Display a Rich panel with agent info and optional step info.
+    """
+    table = Table(title=f"{getattr(agent, 'agent_id', 'Agent')} Status", box=box.ROUNDED)
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="magenta")
+    table.add_row("Role", getattr(agent, "role", "N/A"))
+    table.add_row("Episode", str(getattr(agent, "total_episodes", "N/A")))
+    table.add_row("Step", str(getattr(agent, "total_steps", "N/A")))
+    table.add_row("Epsilon", f"{getattr(agent, 'epsilon', 0):.3f}")
+    table.add_row("Entropy", f"{getattr(agent, 'entropy_beta', 0):.3f}")
+    if info:
+        for k, v in info.items():
+            table.add_row(str(k), str(v))
+    console.print(Panel(table, border_style="blue"))
+
+def display_training_progress(current, total, agent_id=None):
+    """
+    Display a Rich progress bar for training steps.
+    """
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(bar_width=30),
+        TextColumn("[cyan]{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(f"{agent_id or 'Agent'} Training", total=total)
+        progress.update(task, completed=current)

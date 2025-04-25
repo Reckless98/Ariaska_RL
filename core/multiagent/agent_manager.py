@@ -5,12 +5,19 @@ from rich.panel import Panel
 import subprocess
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, SpinnerColumn
 from rich.table import Table
+from rich import box  # <-- Add this import
 
 console = Console()
 
 
 class AgentManager:
     def __init__(self, verbosity="standard"):
+        console.rule("[bold cyan]🚀 ARIASKA Multi-Agent Deployment: System Initialization[/bold cyan]")
+        # --- Grouped Initialization Logs ---
+        agent_init_table = Table(title="Multi-Agent Deployment", box=box.ROUNDED)  # <-- fix here
+        agent_init_table.add_column("Agent", style="cyan")
+        agent_init_table.add_column("Mode", style="magenta")
+        agent_init_table.add_column("Status", style="green")
         console.rule(
             "[bold cyan]🚀 Initializing ARIASKA Multi-Agent Orchestration v11.5 APEX PRIME"
         )
@@ -34,8 +41,20 @@ class AgentManager:
         # Now create all agents
         self._initialize_agents()
         
+        # Collect agent status for dashboard
+        for agent in self.agents:
+            mode = getattr(agent, "current_mode", getattr(agent, "role", "N/A"))
+            agent_init_table.add_row(
+                getattr(agent, "agent_id", "Unknown"),
+                str(mode),
+                "[green]✔ Ready[/green]"
+            )
+        
         # Auto-Sync GPT Strategy
-        self._initialize_gpt_context()
+        gpt_context_synced = self._initialize_gpt_context()
+
+        # Print summary panel after all initialization
+        self._print_startup_dashboard(agent_init_table, gpt_context_synced)
 
         console.print(
             "[green]✔ Agents Ready | MemoryRouter Active | GPT Context Synced[/green]"
@@ -338,6 +357,11 @@ class AgentManager:
             
         table.add_row("Output", output)
         
+        # Add reasoning if available
+        reasoning = info.get("reasoning", "")
+        if reasoning:
+            table.add_row("Reasoning", str(reasoning)[:120])
+        
         # Environment state if available
         if "environment" in info:
             env_data = info.get("environment", {})
@@ -468,13 +492,25 @@ class AgentManager:
     # ─────────────────────────────────────────────
     def save_all_models(self):
         console.rule("[bold yellow]💾 Saving Models & Critical States")
+        # Only save at logical checkpoints (end of episode or batch)
         for agent in self.agents:
             if hasattr(agent, "save_models"):
-                agent.save_models(prefix=f"models/{agent.agent_id}")
+                if hasattr(agent, "total_steps") and hasattr(agent, "total_episodes"):
+                    # Only save if at end of episode (simulate_all_agents controls this)
+                    if getattr(agent, "_is_end_of_episode", False):
+                        agent.save_models(prefix=f"models/{agent.agent_id}")
+                else:
+                    agent.save_models(prefix=f"models/{agent.agent_id}")
 
     def snapshot_all(self):
         console.rule("[bold magenta]📸 Creating Global Memory Snapshots")
-        self.memory_router.snapshot_all_memories()
+        # Only snapshot at logical checkpoints (end of episode or batch)
+        for agent in self.agents:
+            if hasattr(agent, "total_steps") and hasattr(agent, "total_episodes"):
+                if getattr(agent, "_is_end_of_episode", False):
+                    self.memory_router.snapshot_all_memories()
+            else:
+                self.memory_router.snapshot_all_memories()
 
     # ─────────────────────────────────────────────
     # ♻️ Dynamic Memory & GPT Intelligence Sync
@@ -520,7 +556,8 @@ class AgentManager:
         self._initialize_gpt_context()
 
     def _initialize_gpt_context(self):
-        """Prime GPT with current agent configuration and mission context."""
+        """Prime GPT with current agent configuration and mission context using GPTManager."""
+        from core.gpt_manager import GPTManager
         prompt = """
 You are ARIASKA's core strategist AI. 
 Agents initialized: Red (Offense), Blue (Defense), Scout (Navigator), Shadow (Optimizer), Orion (Overseer).
@@ -528,18 +565,76 @@ Ensure optimal synergy, minimize redundancy, and align strategies across offensi
 Acknowledge with 'Strategic Context Loaded'.
 """
         try:
-            result = subprocess.run(
-                ["sgpt", "--model", "gpt-4o-mini", "--role", "aria", prompt],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=15,
-                text=True,
-            )
-            response = result.stdout.strip()
-            console.print(f"[cyan]🧠 GPT Context:[/cyan] {response}")
+            gpt_manager = GPTManager()
+            response = gpt_manager.gpt_request(prompt, task_type="reasoning")
+            self.shared_context['gpt_context'] = response
+            if isinstance(response, str) and "Strategic Context Loaded" in response:
+                console.print("[green]✔ GPT Context Synced[/green]")
+                return True
+            else:
+                console.print(f"[yellow]⚠ GPT context sync incomplete: {response}[/yellow]")
+                return False
         except Exception as e:
             console.print(f"[yellow]⚠ GPT context sync failed: {e}[/yellow]")
+            return False
 
+    def _print_startup_dashboard(self, agent_init_table, gpt_context_synced):
+        from rich.panel import Panel
+        from rich.table import Table
+        from rich.columns import Columns
+        from rich import box  # <-- ensure import here if needed
+        # Agents summary
+        agents_summary = agent_init_table
+        # GPT Models summary
+        gpt_table = Table(title="GPT Models Ready", box=box.ROUNDED)  # <-- fix here
+        gpt_table.add_column("Model", style="cyan")
+        gpt_table.add_column("Purpose", style="magenta")
+        gpt_table.add_row("GPT-4.1", "Primary Reasoning")
+        gpt_table.add_row("GPT-4o-mini", "Fallback/Lightweight")
+        gpt_table.add_row("GPT-4.1-nano", "Embeddings/Light Tasks")
+        # Environment summary
+        env_table = Table(title="Environment", box=box.ROUNDED)  # <-- fix here
+        env_mode = "Simulated"
+        try:
+            env = self.red_agent.env if hasattr(self.red_agent, "env") else None
+            if env and hasattr(env, "training_mode"):
+                env_mode = getattr(env, "training_mode", "Simulated")
+        except Exception:
+            pass
+        env_table.add_column("Mode", style="cyan")
+        env_table.add_column("Status", style="green")
+        env_table.add_row(env_mode, "[green]Ready[/green]")
+        # Memory summary
+        mem_table = Table(title="Memory Status", box=box.ROUNDED)  # <-- fix here
+        mem_table.add_column("Component", style="cyan")
+        mem_table.add_column("Status", style="green")
+        mem_table.add_row("Replay Buffers", "Initialized")
+        mem_table.add_row("GPT Cache", "Active")
+        # Curriculum/difficulty
+        curriculum_table = Table(title="Curriculum", box=box.ROUNDED)  # <-- fix here
+        curriculum_table.add_column("Phase", style="cyan")
+        curriculum_table.add_column("Difficulty", style="magenta")
+        try:
+            diff = getattr(env, "difficulty_level", 1) if env else 1
+            phase = getattr(env, "current_phase", "N/A") if env else "N/A"
+        except Exception:
+            diff = 1
+            phase = "N/A"
+        curriculum_table.add_row(str(phase), str(diff))
+        # Compose dashboard
+        dashboard = Columns([
+            Panel(agents_summary, title="Agents Active", border_style="green"),
+            Panel(gpt_table, title="LLM Orchestration", border_style="magenta"),
+            Panel(env_table, title="Environment Mode", border_style="cyan"),
+            Panel(mem_table, title="Memory", border_style="yellow"),
+            Panel(curriculum_table, title="Curriculum", border_style="blue"),
+        ], equal=True)
+        console.rule("[bold green]🧠 ARIASKA Multi-Agent System Ready[/bold green]")
+        console.print(dashboard)
+        # Phase data placeholder
+        phase_data = getattr(self.red_agent.env, "current_phase", None) if hasattr(self.red_agent, "env") else None
+        if not phase_data or phase_data == "N/A":
+            console.print("[yellow]ℹ️ Awaiting first agent action to generate phase data...[/yellow]")
 
     def _multiagent_sync(self):
         """Periodic sync: agents can adjust strategies based on group state."""

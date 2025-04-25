@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from rich.console import Console
 import asyncio
+import threading
 
 console = Console()
 
@@ -34,6 +35,8 @@ class MemoryManager:
 
         self._initialize_meta()
 
+        self._lock = threading.Lock()
+
         console.print(
             f"[green]✔ {self.agent_name.capitalize()} MemoryManager v12.0 initialized[/green]"
         )
@@ -52,11 +55,20 @@ class MemoryManager:
         return default
 
     def _save_json(self, path, data):
-        try:
-            with open(path, "w") as f:
-                json.dump(data, f, indent=2)
-        except Exception as e:
-            console.print(f"[red]❌ Failed to save {path}: {e}[/red]")
+        with self._lock:
+            try:
+                with open(path, "w") as f:
+                    json.dump(data, f, indent=2)
+            except Exception as e:
+                console.print(f"[red]❌ Failed to save {path}: {e}[/red]")
+
+    def append_jsonl(self, path, entry):
+        with self._lock:
+            try:
+                with open(path, "a") as f:
+                    f.write(json.dumps(entry) + "\n")
+            except Exception as e:
+                console.print(f"[red]❌ Failed to append to {path}: {e}[/red]")
 
     def save_all(self):
         self._save_json(self.memory_file, self.memory)

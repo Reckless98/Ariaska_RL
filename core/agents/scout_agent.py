@@ -1,354 +1,561 @@
-# core/agents/scout_agent.py — ARIASKA ScoutAgent v3.0
-# 🧭 Phase Navigator | GPT-4.1-Nano Optimized | Zero-Redundancy | Multi-Agent Coordination | Global Phase Awareness
+# core/agents/scout_agent.py — ARIASKA ScoutAgent v11.1 APEX NAVIGATOR
+# 🧭 Phase Navigator | 🔄 Environment Observer | 🧠 GPT-4o-mini Powered | 📚 Adaptive Phase Library
 
-import random
-import subprocess
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 import os
 import json
-from rich.console import Console
-from core.monitor.stats_monitor import StatsMonitor
+import time
+import random
+import hashlib
+from typing import Dict, List, Any, Optional
 from core.interfaces.agent_interface import AgentInterface
+from core.interfaces.memory_sync_interface import MemorySyncInterface
+from core.gpt_manager import GPTManager
+from core.logic.rule_engine import phase_distribution_for_visualization
+from core.utils.local_llm_manager import LocalLLMManager
 
 console = Console()
 
-PHASES = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
-
-class ScoutAgent(AgentInterface):
-    def __init__(self, agent_id="ScoutAgent", memory_manager=None, agent_manager=None, memory_router=None, verbosity="standard"):
+class ScoutAgent(AgentInterface, MemorySyncInterface):
+    """
+    ScoutAgent: Phase navigator and environment observer.
+    - Advises phase for RedAgent and others.
+    - Uses GPTManager for phase detection and reasoning.
+    - Unified memory schema: actions, rewards, scenarios.
+    """
+    
+    def __init__(
+        self,
+        agent_id="ScoutAgent",
+        role="PhaseNavigator",
+        agent_manager=None,
+        memory_router=None,
+        memory_manager=None,
+        verbosity="standard",
+    ):
         self.agent_id = agent_id
-        # Import MemoryManager here to avoid circular imports
-        if memory_manager is None:
-            from core.utils.memory_manager import MemoryManager
-            self.memory_manager = MemoryManager(agent_name="scout_agent")
-        else:
-            self.memory_manager = memory_manager
-        self.cache = self.memory_manager.load_gpt_cache() if hasattr(self.memory_manager, "load_gpt_cache") else {}
-        self.agent_manager = agent_manager  # Set by AgentManager or passed in
-        self.memory_router = memory_router  # Optional, if needed
-        self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
-        os.makedirs("logs", exist_ok=True)
-        self.stats_monitor = StatsMonitor(agents_list=[self.agent_id])
-        self.phase_history = []
-        self.verbosity = verbosity
-        self.last_phase = None
-        self.phase_repeat_count = 0
-        self.gpt_phase_cooldown = 0
-        self.phase_repeats = 0
-        self.use_cache_only = False
-        self.steps_since_toggle = 0
-        self.gpt_calls_this_episode = 0
-        self.gpt_call_limit = 10
-        console.print(f"[cyan]🧭 {self.agent_id} initialized — Phase navigation online.[/cyan]")
-
-    def set_agent_manager(self, agent_manager):
+        self.role = role
         self.agent_manager = agent_manager
-
-    def advise_phase(self, state, all_agents=None, shared_context=None):
-        """
-        Suggest the most logical next phase based on the current state of all agents.
-        Uses cache, then GPT-4o-mini (token-optimized), and global strategy from Orion if needed.
-        Tracks token usage per step for visualization.
+        self.memory_router = memory_router
+        self.memory_manager = memory_manager
+        self.verbosity = verbosity
         
-        Parameters:
+        # Unified memory schema
+        self.memory = {
+            "actions": [],
+            "rewards": {},
+            "scenarios": []
+        }
+        self.current_phase = "recon"
+        self.phase_history = []
+        self.phase_cache = {}  # Cache for phase advice - {state_hash: (phase, timestamp)}
+        self.phase_cache_ttl = 300  # TTL in seconds for phase cache entries
+        self.phase_switch_cooldown = 0  # Steps to wait before switching phases again
+        
+        # Environment metrics
+        self.env_complexity = 1.0
+        self.last_state = {}
+        
+        # Phase duration tracking
+        self.phase_durations = {p: 0 for p in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]}
+        self.total_steps = 0
+        
+        # Phase advice confidence
+        self.confidence_scores = {}
+        self.last_advice_time = 0
+        self.gpt_calls_this_episode = 0
+        self.max_gpt_calls_per_episode = 10  # Limit GPT calls per episode
+        
+        # Use GPTManager for all LLM operations
+        self.gpt_manager = GPTManager()
+        self.local_llm = LocalLLMManager(model_name="wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF")
+        
+        # Logging
+        self.phase_log_path = os.path.join("logs", f"{self.agent_id}_phase_log.jsonl")
+        os.makedirs(os.path.dirname(self.phase_log_path), exist_ok=True)
+        
+        console.print(f"[cyan]🧭 {self.agent_id} initialized — Phase Navigator Active[/cyan]")
+
+    def _init_multiagent_links(self):
+        """Initialize links to other agents for phase coordination."""
+        pass  # Scout can operate independently for now
+
+    def advise_phase(self, state: Dict[str, Any], all_agents: List = None) -> str:
+        """
+        Determine the optimal mission phase based on environment state.
+        Uses cached results when possible, GPT-4o-mini for phase recognition.
+        
+        Args:
             state: Current environment state
-            all_agents: Optional list of all agents for coordination (defaults to None for backward compatibility)
-            shared_context: Optional shared context for consensus building (defaults to None)
+            all_agents: List of all agents in the system for coordination
+            
+        Returns:
+            str: Optimal phase name (recon, enumeration, exploit, privesc, exfiltrate)
         """
-        context_key = self._generate_context_key(state)
-
-        # Cap GPT calls per episode
-        self.gpt_calls_this_episode = getattr(self, "gpt_calls_this_episode", 0)
-        if self.gpt_calls_this_episode >= 10:
-            if self.verbosity != "quiet":
-                console.print("[yellow]⚠ ScoutAgent GPT call cap reached for this episode. Using cached phase.[/yellow]")
-            phase = self.phase_history[-1] if self.phase_history else "recon"
+        # Track call in history
+        self.total_steps += 1
+        
+        # First, check if we're on phase cooldown (prevent rapid switching)
+        if self.phase_switch_cooldown > 0:
+            self.phase_switch_cooldown -= 1
+            return self.current_phase
+        
+        # Check if we have a cached result for this state
+        state_hash = self._hash_state(state)
+        if state_hash in self.phase_cache:
+            cached_phase, timestamp = self.phase_cache[state_hash]
+            # Check if cache is still valid
+            if time.time() - timestamp < self.phase_cache_ttl:
+                return cached_phase
+        
+        # Check if we've exceeded our GPT call budget for this episode
+        if self.gpt_calls_this_episode >= self.max_gpt_calls_per_episode:
+            # If over budget, use heuristic phase selection
+            phase = self._heuristic_phase_selection(state)
+            if self.verbosity in ("standard", "verbose"):
+                console.print(f"[yellow]⚠️ {self.agent_id}: Using heuristic phase selection due to GPT call limit ({phase})[/yellow]")
             return phase
-
-        # Use cache if available
-        if (context_key in self.cache):
-            phase = self.cache[context_key]
-            # Fix: If phase is a dict (from cache_gpt_response), extract 'response'
-            if isinstance(phase, dict) and "response" in phase:
-                phase = phase["response"]
-            console.print(f"[blue]🔹 ScoutAgent (cache): Recommended Phase → {phase}[/blue]")
-            self._log_training_event(f"Advise phase: {phase} for state: {state}")
-            self.stats_monitor.log_gpt_call(self.agent_id)
-            self.phase_history.append(phase)
-            if self.phase_history[-4:] == ['recon'] * 4:
-                phase = self._suggest_alternative_phase()
-            return phase
-
-        # Use shared_context to build consensus if available
-        if shared_context:
-            phase_votes = [v for k, v in shared_context.items() if k.endswith("_phase")]
-            if phase_votes:
-                # Consensus: pick most common phase among agents
-                from collections import Counter
-                most_common = Counter(phase_votes).most_common(1)
-                if most_common:
-                    consensus_phase = most_common[0][0]
-                    console.print(f"[green]🧭 Consensus phase: {consensus_phase}[/green]")
-                    self.stats_monitor.log_gpt_call(self.agent_id)
-                    self.phase_history.append(consensus_phase)
-                    if self.phase_history[-4:] == ['recon'] * 4:
-                        consensus_phase = self._suggest_alternative_phase()
-                    return consensus_phase
-
-        # Query Orion for global phase strategy before GPT suggestion
-        global_phase = None
-        if all_agents:
-            global_phase = self._get_orion_global_phase(all_agents)
-        if global_phase:
-            console.print(f"[green]🧭 Orion suggests phase: {global_phase}[/green]")
-            self._log_training_event(f"Advise phase: {global_phase} for state: {state}")
-            self.stats_monitor.log_gpt_call(self.agent_id)
-            self.phase_history.append(global_phase)
-            if self.phase_history[-4:] == ['recon'] * 4:
-                global_phase = self._suggest_alternative_phase()
-            return global_phase
-
-        # Use GPT-4o-mini for phase suggestion (token-optimized)
-        current_phase = state.get("phase", "recon")
-        if self.last_phase == current_phase:
-            self.phase_repeat_count += 1
-        else:
-            self.phase_repeat_count = 1
-            self.last_phase = current_phase
-        # Avoid GPT spam: if phase repeats ≥ 3, suppress GPT call and use cached
-        suppress_gpt_call = self.phase_repeat_count >= 3 or self.gpt_phase_cooldown > 0
-        if suppress_gpt_call:
-            if self.verbosity in ("standard", "detailed"):
-                console.print(f"[yellow][ScoutAgent] Phase '{current_phase}' repeated x{self.phase_repeat_count}, using cached phase.[/yellow]")
-            self.gpt_phase_cooldown = max(self.gpt_phase_cooldown - 1, 0)
-            return current_phase
-
-        if self.last_phase == current_phase:
-            self.phase_repeats += 1
-        else:
-            self.phase_repeats = 1
-            self.last_phase = current_phase
-
-        # --- Cache-only mode for GPT efficiency ---
-        if self.phase_repeats >= 5:
-            self.use_cache_only = True
-            self.steps_since_toggle = 0
-            console.print(f"[yellow][Summary] ScoutAgent phase '{current_phase}' repeated x{self.phase_repeats} — entering cache-only mode for 10 steps.[/yellow]")
-        if self.use_cache_only:
-            self.steps_since_toggle += 1
-            if self.steps_since_toggle >= 10:
-                self.use_cache_only = False
-                self.steps_since_toggle = 0
-                console.print(f"[green][Summary] ScoutAgent exiting cache-only mode.[/green]")
-            # Use cache only
-            phase = self.phase_history[-1] if self.phase_history else "recon"
-            return phase
-
-        # Prevent infinite enumeration loops
-        if self.phase_history[-3:] == ["enumeration"] * 3:
-            if self.gpt_calls_this_episode < self.gpt_call_limit:
-                phase = self._gpt_advise_phase(state, force_gpt41=True)
-                self.gpt_calls_this_episode += 1
-                return phase
-            else:
-                # Fallback: force phase diversity
-                phase = self._suggest_alternative_phase()
-                return phase
-
-        # Phase diversity weighting: encourage phase shifts
-        phase_counts = {p: self.phase_history.count(p) for p in PHASES}
-        least_used = min(phase_counts, key=phase_counts.get)
-        if phase_counts[least_used] < 2 and random.random() < 0.2:
-            return least_used
-
-        phase = self._gpt_advise_phase(state)
-        if phase:
-            self.cache[context_key] = phase
-            if hasattr(self.memory_manager, "cache_gpt_response"):
-                self.memory_manager.cache_gpt_response(context_key, phase)
-        self._log_training_event(f"Advise phase: {phase} for state: {state}")
-        self.stats_monitor.log_gpt_call(self.agent_id)
+        
+        # Alternative rule-based phase detection first
+        rule_based_phase = self._rule_based_phase_detection(state)
+        if rule_based_phase:
+            self.phase_cache[state_hash] = (rule_based_phase, time.time())
+            return rule_based_phase
+        
+        # Last resort: Use GPT for phase detection (with rate limiting)
+        current_time = time.time()
+        if current_time - self.last_advice_time < 10:  # At most one call per 10 seconds
+            # Use the most recent phase if too frequent
+            if self.phase_history:
+                return self.phase_history[-1]
+            return self.current_phase
+            
+        # Increment GPT call counter
+        self.gpt_calls_this_episode += 1
+        self.last_advice_time = current_time
+        
+        # Use GPTManager to detect phase (with token tracking)
+        phase = self._gpt_phase_detection(state)
+        
+        # Store in cache for future use
+        self.phase_cache[state_hash] = (phase, time.time())
+        
+        # Update phase history
         self.phase_history.append(phase)
-        if self.phase_history[-4:] == ['recon'] * 4:
-            phase = self._suggest_alternative_phase()
-        # Track phase for visualization
-        if hasattr(self.agent_manager, "stats_monitor"):
-            self.agent_manager.stats_monitor.visualize_phase_distribution(self.agent_id)
-
-        # Streamlined phase advice logging
-        if len(self.phase_history) >= 5 and all(ph == self.phase_history[-1] for ph in self.phase_history[-5:]):
-            if self.verbosity != "quiet":
-                console.print(f"[ScoutAgent] Phase advice stable: {self.phase_history[-1]} (x5)")
-
-        # After GPT call, set cooldown
-        self.gpt_phase_cooldown = 2
-
+        if len(self.phase_history) > 20:  # Keep history manageable
+            self.phase_history = self.phase_history[-20:]
+        
+        # Set cooldown to prevent rapid phase changes
+        self.phase_switch_cooldown = 2
+        
+        # Update current phase
+        self.current_phase = phase
+        
+        # Log phase selection
+        self._log_phase_selection(state, phase)
+        
         return phase
+        
+    def _hash_state(self, state: Dict[str, Any]) -> str:
+        """
+        Generate a hash for the relevant parts of the environment state.
+        This allows efficient caching of phase advice.
+        """
+        # Create a simplified state representation for consistent hashing
+        simple_state = {
+            "open_ports": sorted(state.get("open_ports", [])),
+            "privilege_level": state.get("privilege_level", "none"),
+            "services": sorted(state.get("services", [])),
+            "blue_team_alert": round(state.get("blue_team_alert", 0)),
+            "detection_risk": round(state.get("detection_risk", 0) * 10) / 10,
+            "credentials_found": state.get("credentials_found", False),
+            "data_exfiltrated": state.get("data_exfiltrated", False)
+        }
+        
+        # Convert to string and hash
+        state_str = json.dumps(simple_state, sort_keys=True)
+        return hashlib.md5(state_str.encode()).hexdigest()
 
-    def _generate_context_key(self, state):
-        return f"{state.get('phase')}-{state.get('privilege_level')}-{state.get('blue_team_alert')}"
+    def _rule_based_phase_detection(self, state: Dict[str, Any]) -> Optional[str]:
+        """
+        Use rule-based heuristics to determine the phase without GPT.
+        Returns a phase string or None if uncertain.
+        """
+        # Check for phase indicators based on environment state
+        privilege = state.get("privilege_level", "none")
+        
+        # Complete exfiltration conditions
+        if state.get("data_exfiltrated", False):
+            return "exfiltrate"
+            
+        # Privilege escalation conditions
+        if privilege in ["root", "administrator"] and not state.get("data_exfiltrated", False):
+            return "privesc"
+            
+        # Exploit conditions: low privilege obtained but not root yet
+        if privilege in ["user", "low"] and not state.get("credentials_found", False):
+            return "exploit"
+            
+        # Enumeration conditions: ports discovered but no access yet
+        if len(state.get("open_ports", [])) > 0 and privilege == "none":
+            return "enumeration"
+            
+        # Recon conditions: early stage, few ports known
+        if len(state.get("open_ports", [])) <= 2:
+            return "recon"
+            
+        # If no clear indicator, return None to use GPT
+        return None
 
-    def _get_orion_global_phase(self, all_agents):
+    def _heuristic_phase_selection(self, state: Dict[str, Any]) -> str:
         """
-        Get global phase suggestion based on feedback from all agents and Orion.
-        This ensures that the phase decision aligns with the global strategy.
+        Select the next phase based on heuristics when GPT is unavailable.
+        This is a fallback method that doesn't use GPT.
         """
-        # Gather feedback from all agents
-        global_phase = None
-        for agent in all_agents:
-            if hasattr(agent, 'current_mode') and agent.current_mode in PHASES:
-                if global_phase is None:
-                    global_phase = agent.current_mode
-                elif agent.current_mode != global_phase:
-                    global_phase = "recon"  # Default to recon if there’s conflict in phases
-                    break
-        return global_phase
+        # Simple progression logic based on discovered assets
+        privilege = state.get("privilege_level", "none")
+        blue_alert = state.get("blue_team_alert", 0)
+        
+        if state.get("data_exfiltrated", False):
+            # Data already exfiltrated, restart cycle
+            return "recon"
+            
+        if privilege in ["root", "administrator"]:
+            # We have highest privileges, move to exfiltration
+            return "exfiltrate"
+            
+        if privilege in ["user", "low"]:
+            # We have basic access, move to privilege escalation
+            return "privesc"
+            
+        if len(state.get("open_ports", [])) > 3 or len(state.get("services", [])) > 2:
+            # We've found several ports/services, time to exploit
+            return "exploit"
+            
+        if len(state.get("open_ports", [])) > 0:
+            # We've found some ports, move to enumeration
+            return "enumeration"
+            
+        # Default to recon if nothing else matches
+        return "recon"
 
-    def _gpt_advise_phase(self, state, force_gpt41=False):
+    def _gpt_phase_detection(self, state: dict) -> str:
         """
-        Query GPT-4o-mini to recommend the next tactical phase based on current state.
-        Token-optimized prompt.
+        Use both SenecaLLM and GPTManager for phase navigation.
         """
-        prompt = (
-            f"Phase: {state.get('phase')}, Privilege: {state.get('privilege_level')}, "
-            f"Ports: {state.get('open_ports')}, Alert: {state.get('blue_team_alert')}, "
-            f"Risk: {state.get('detection_risk')}. "
-            "Suggest next phase: recon, enumeration, exploit, privesc, or exfiltrate. Respond with phase only."
+        simplified_state = {
+            "ports": state.get("open_ports", []),
+            "privilege": state.get("privilege_level", "none"),
+            "services": state.get("services", []),
+            "alert": state.get("blue_team_alert", 0),
+            "risk": state.get("detection_risk", 0),
+            "found_creds": state.get("credentials_found", False),
+            "data_taken": state.get("data_exfiltrated", False)
+        }
+        task_desc = (
+            f"State: {simplified_state}. "
+            "Determine next optimal phase transition (recon, enumeration, exploit, privesc, exfiltrate)."
         )
         try:
-            model = "gpt-4.1" if force_gpt41 else "gpt-4o-mini"
-            if self.gpt_calls_this_episode >= self.gpt_call_limit:
-                return state.get("phase", "recon")
-            self.gpt_calls_this_episode += 1
-            result = subprocess.run(
-                ["sgpt", "--model", model, "--temperature", "0.15", "--role", "aria", prompt],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, text=True
+            seneca_phase = self.local_llm.query(task_desc)
+            review_prompt = (
+                f"As a cyber navigation strategist, review the AI's suggested phase:\n\n"
+                f"Task: {task_desc}\n"
+                f"Suggestion: {seneca_phase}\n\n"
+                f"Do you approve this phase? If not, refine it. Respond ONLY with the final phase."
             )
-            phase = result.stdout.strip().lower()
-            if phase in PHASES:
-                console.print(f"[cyan]🧭 ScoutAgent (GPT-4o-mini): Next Phase → {phase}[/cyan]")
-                self.gpt_calls_this_episode += 1
-                return phase
-            else:
-                console.print(f"[yellow]⚠ GPT returned invalid phase: {phase}. Defaulting to current.[/yellow]")
-                return state.get("phase", "recon")
+            phase = self.gpt_manager.gpt_request(
+                review_prompt, task_type="navigation", model="gpt-4o-mini"
+            )
+            phase = str(phase).strip().lower()
+            if phase not in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]:
+                phase = "recon"
+            return phase
         except Exception as e:
-            console.print(f"[red]⚠ ScoutAgent GPT error: {e}. Defaulting to current phase.[/red]")
-            return state.get("phase", "recon")
+            console.print(f"[red]❌ _gpt_phase_detection error: {e}[/red]")
+            return "recon"
 
-    def _suggest_alternative_phase(self):
-        # Suggest a phase not recently used
-        for phase in PHASES:
-            if self.phase_history.count(phase) < 2:
-                return phase
-        return random.choice(PHASES)
+    def log_phase_advice(self, state, phase):
+        """
+        Log phase advice to memory and file.
+        """
+        entry = {
+            "state": state,
+            "phase": phase,
+            "timestamp": time.time()
+        }
+        self.memory["actions"].append(entry)
+        with open(self.phase_log_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
 
-    def detect_redundancy(self, command_history):
+    def sync_memory(self):
         """
-        Detect redundant commands across the history of actions.
-        Uses GPT for complex situations when needed.
+        Sync memory with MemoryRouter for global insights.
         """
-        # Import detect_redundancy here to avoid circular imports
-        from core.logic.redundancy_detector import detect_redundancy, detect_redundancy_batch
+        if self.memory_router:
+            self.memory_router.save_memory(self.agent_id, self.memory)
+
+    def simulate_step(self, episode=1, step=1, shared_context=None):
+        """
+        Simulate a step for the ScoutAgent.
+        This agent focuses on environment analysis and phase advice rather than direct actions.
+        """
+        state = None
         
-        # First check for simple redundancy
-        if any(detect_redundancy(command_history[:i], cmd) for i, cmd in enumerate(command_history)):
-            console.print(f"[yellow]⚠ Redundant commands detected in history![/yellow]")
-            self._log_training_event(f"Redundancy check: {command_history}")
-            return True
-            
-        # Then do batch analysis for pattern detection
-        redundant_indices = detect_redundancy_batch(command_history)
-        if redundant_indices:
-            console.print(f"[yellow]⚠ Pattern-based redundancy detected in history! ({len(redundant_indices)} instances)[/yellow]")
-            self._log_training_event(f"Redundancy check: {command_history}")
-            return True
-        
-        return False
-
-    def optimize_memory(self, all_agents):
-        """
-        Optimize the memory of all agents by using feedback from the global system.
-        Helps to eliminate inefficiencies and improve agent training.
-        """
-        for agent in all_agents:
-            # Pass memory_router as an attribute of agent, do not import agent classes here
-            if hasattr(agent, 'memory_router'):
-                agent.memory_router.optimize_memory(agent.agent_id)
-                console.print(f"[green]✔ {self.agent_id}: Optimized memory for {agent.agent_id}[/green]")
-                console.print(f"[bold green][ScoutAgent] Optimized memory for {agent.agent_id}[/bold green]")
-
-    def log_memory_to_file(self):
-        """
-        Log memory data to a file for analysis and redundancy detection.
-        """
-        memory_data = self.memory_manager.get_all_memory()
-        file_path = f"{self.agent_id}_memory.json"
-        with open(file_path, "w") as f:
-            json.dump(memory_data, f, indent=2)
-        console.print(f"[green]✔ Memory logged to {file_path}[/green]")
-
-    def safe_shutdown(self):
-        """
-        Clean shutdown procedure for ScoutAgent.
-        """
-        self.log_memory_to_file()
-        console.print(f"[cyan]🧭 {self.agent_id}: Safe shutdown complete.[/cyan]")
-
-    def _log_training_event(self, msg):
-        with open(self.training_log_path, "a") as f:
-            f.write(f"{msg}\n")
-
-    def generate_hint(self):
-        # New: Provide a phase hint
-        return f"Recommended phase: {random.choice(PHASES)}"
-
-    def execute_command(self, command):
         try:
-            output = f"ScoutAgent cannot execute commands directly. Input: {command}"
+            # Get global state from environment or shared context
+            if (shared_context and "environment_state" in shared_context):
+                state = shared_context["environment_state"]
+            elif self.agent_manager:
+                # Try to get state from RedAgent's environment
+                red_agent = self.agent_manager.get_agent("RedAgent")
+                if (red_agent and hasattr(red_agent, "env")):
+                    state = red_agent.env.get_global_state()
+            
+            if not state:
+                # Fallback state if nothing available
+                state = {
+                    "phase": "recon",
+                    "open_ports": [],
+                    "privilege_level": "none",
+                    "blue_team_alert": 0,
+                    "detection_risk": 0
+                }
+                
+            # Track environment changes for trend analysis
+            if self.last_state:
+                self._analyze_state_change(self.last_state, state)
+                
+            self.last_state = state.copy()
+                
+            # Determine the optimal phase
+            phase = self.advise_phase(state, self.agent_manager.all_agents() if self.agent_manager else None)
+            
+            # Track duration in each phase
+            if phase in self.phase_durations:
+                self.phase_durations[phase] += 1
+                
+            # Broadcast phase to shared context
+            if (shared_context is not None and self.agent_manager and hasattr(self.agent_manager, "broadcast")):
+                self.agent_manager.broadcast(f"{self.agent_id}_phase", phase, sender=self.agent_id)
+                
+            # Calculate environment complexity score (useful for curriculum)
+            self._update_complexity_score(state)
+            
+            # Provide advice based on phase
+            advice = self._generate_phase_advice(phase, state)
+            
+            # Log step information
+            if self.verbosity in ("standard", "verbose"):
+                console.print(f"[cyan]🧭 {self.agent_id}:[/cyan] Advised phase: [bold]{phase}[/bold]")
+                if self.verbosity == "verbose":
+                    console.print(f"[cyan]🧭 Advice:[/cyan] {advice}")
+                    
+            # Return step results
             return {
-                "output": output,
-                "recommendations": [],
-                "phase": "unknown",
-                "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
+                "command": "phase_advice",
+                "phase": phase,
+                "reward": 0,  # Scout doesn't receive direct rewards
+                "output": advice,
+                "gpt_calls": self.gpt_calls_this_episode,
+                "reasoning": f"Environment analysis indicates {phase} phase is optimal",
+                "step": step,
+                "episode": episode,
+                "agent_id": self.agent_id,
             }
+            
         except Exception as e:
-            console.print(f"[red]❌ Error executing command: {e}[/red]")
+            console.print(f"[red]❌ Error in ScoutAgent simulate_step: {e}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
+            
             return {
-                "output": f"Error executing command: {e}",
-                "recommendations": [],
+                "command": "error",
                 "phase": "unknown",
                 "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
+                "output": f"Error: {e}",
+                "gpt_calls": self.gpt_calls_this_episode,
+                "reasoning": "Error occurred",
+                "step": step,
+                "episode": episode,
+                "agent_id": self.agent_id
             }
 
-    def get_base_commands(self):
-        # For CLI completion/autosuggest
-        return [
-            "nmap", "masscan", "gobuster", "ffuf", "amass", "enum4linux"
+    def _analyze_state_change(self, old_state: Dict[str, Any], new_state: Dict[str, Any]):
+        """Analyze changes between states to detect trends."""
+        # Track changes in key metrics
+        if "blue_team_alert" in old_state and "blue_team_alert" in new_state:
+            alert_change = new_state["blue_team_alert"] - old_state["blue_team_alert"]
+            if alert_change > 3 and self.verbosity != "quiet":
+                console.print(f"[yellow]⚠️ {self.agent_id}: Blue team alert increasing rapidly (+{alert_change:.1f})[/yellow]")
+                
+        # Track newly discovered ports
+        old_ports = set(old_state.get("open_ports", []))
+        new_ports = set(new_state.get("open_ports", []))
+        new_discoveries = new_ports - old_ports
+        if new_discoveries and self.verbosity != "quiet":
+            console.print(f"[cyan]🧭 {self.agent_id}: New ports discovered: {new_discoveries}[/cyan]")
+            
+        # Track privilege level changes
+        old_priv = old_state.get("privilege_level", "none")
+        new_priv = new_state.get("privilege_level", "none")
+        if new_priv != old_priv and self.verbosity != "quiet":
+            console.print(f"[green]🧭 {self.agent_id}: Privilege level changed from {old_priv} to {new_priv}[/green]")
+
+    def _update_complexity_score(self, state: Dict[str, Any]):
+        """
+        Update the environment complexity score based on current state.
+        This can be used for curriculum scheduling.
+        """
+        # Basic complexity factors
+        factors = [
+            len(state.get("open_ports", [])) * 0.2,  # More ports = more complex
+            {"none": 0, "user": 0.5, "low": 0.5, "high": 0.7, "root": 1.0}.get(state.get("privilege_level", "none"), 0),
+            len(state.get("services", [])) * 0.15,  # More services = more complex
+            state.get("blue_team_alert", 0) * 0.1,  # Higher alert = more complex
+            state.get("detection_risk", 0) * 0.1   # Higher risk = more complex
         ]
+        
+        # Calculate complexity (normalize to 0.0-1.0 range)
+        self.env_complexity = min(1.0, sum(factors) / 5.0)
+
+    def _generate_phase_advice(self, phase: str, state: Dict[str, Any]) -> str:
+        """Generate advice based on the current phase."""
+        phase_advice = {
+            "recon": "Conduct target discovery and initial port scanning.",
+            "enumeration": "Identify services and gather detailed information.",
+            "exploit": "Attempt to gain initial access by exploiting vulnerabilities.",
+            "privesc": "Escalate privileges for deeper system access.",
+            "exfiltrate": "Extract valuable data while minimizing traces."
+        }
+        
+        # Basic advice based on phase
+        advice = phase_advice.get(phase, "Analyze the environment and proceed cautiously.")
+        
+        # Add context-specific advice
+        alert_level = state.get("blue_team_alert", 0)
+        if alert_level > 7:
+            advice += " Blue team alert is high, prioritize stealth."
+        elif alert_level > 4:
+            advice += " Exercise caution, blue team is moderately alert."
+            
+        return advice
+
+    def act(self, state):
+        """
+        Implementation of AgentInterface.act()
+        Returns the suggested phase for the current state.
+        """
+        return self.advise_phase(state)
+
+    def learn(self):
+        """
+        Implementation of AgentInterface.learn()
+        Scout agent doesn't do traditional learning.
+        """
+        pass
+
+    def sync_memory(self):
+        """
+        Sync memory with MemoryRouter for global insights.
+        """
+        if self.memory_router:
+            self.memory_router.save_memory(self.agent_id, self.memory)
+
+    def _prune_phase_cache(self):
+        """Remove expired entries from the phase cache."""
+        current_time = time.time()
+        expired_keys = []
+        
+        for key, (_, timestamp) in self.phase_cache.items():
+            if current_time - timestamp > self.phase_cache_ttl:
+                expired_keys.append(key)
+                
+        for key in expired_keys:
+            del self.phase_cache[key]
+            
+        if expired_keys and self.verbosity == "verbose":
+            console.print(f"[dim]♻️ {self.agent_id}: Pruned {len(expired_keys)} expired cache entries[/dim]")
+
+    def display_advanced_status(self):
+        """Display detailed agent status for monitoring."""
+        # Create a table for the basic status
+        table = Table(title=f"{self.agent_id} Status Overview")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+        
+        # Basic metrics
+        table.add_row("Role", self.role)
+        table.add_row("Current Phase", self.current_phase)
+        table.add_row("Total Steps", str(self.total_steps))
+        table.add_row("GPT Calls This Episode", str(self.gpt_calls_this_episode))
+        table.add_row("Environment Complexity", f"{self.env_complexity:.2f}")
+        
+        # Phase durations
+        phases_table = Table(title="Phase Distribution")
+        phases_table.add_column("Phase", style="cyan")
+        phases_table.add_column("Duration", style="green")
+        phases_table.add_column("Percentage", style="yellow")
+        
+        total_steps = sum(self.phase_durations.values())
+        for phase, duration in self.phase_durations.items():
+            percentage = (duration / total_steps * 100) if total_steps > 0 else 0
+            phases_table.add_row(phase, str(duration), f"{percentage:.1f}%")
+            
+        # Display both tables
+        console.print(Panel(table, title="📊 Scout Status", border_style="cyan"))
+        console.print(Panel(phases_table, title="📈 Phase Distribution", border_style="cyan"))
 
     def reset(self):
-        """Reset stats for compatibility with multi-agent manager."""
-        if hasattr(self, "stats_monitor"):
-            self.stats_monitor.reset()
-
-    def get_average_reward(self):
-        """For compatibility with OrionAgent and stats_monitor."""
-        if hasattr(self, "stats_monitor"):
-            return self.stats_monitor.get_average_reward(self.agent_id)
-        return 0.0
-
-    def end_episode(self):
+        """Reset agent for new episode."""
         self.gpt_calls_this_episode = 0
+        self.phase_history.clear()
+        self.current_phase = "recon"
+        
+        # Don't clear the phase cache between episodes for efficiency
+        # But we can limit its size to prevent unbounded growth
+        if len(self.phase_cache) > 1000:
+            self._prune_phase_cache()
 
+    def query_tactical_gpt(self, prompt, complexity="standard"):
+        """
+        Use GPTManager for all LLM calls, with caching, fallback, and output sanitization.
+        """
+        return self.gpt_manager.gpt_request(prompt, task_type="reasoning", model="gpt-4o-mini")
+
+    # NOTE: If ScoutAgent is upgraded to DQN, follow the RedAgent/BlueAgent pattern:
+    # - Add policy_net, target_net, replay_buffer, epsilon, etc.
+    # - Use select_action() with argmax Q-value.
+    # - Use train_on_batch() with DQN update.
+
+# For standalone testing
 if __name__ == "__main__":
-    # Import MemoryManager here to avoid top-level import
-    from core.utils.memory_manager import MemoryManager
-    memory_manager = MemoryManager(agent_name="scout_agent")
-    agent = ScoutAgent(memory_manager=memory_manager)
-    agent.optimize_memory([agent])
-    agent.detect_redundancy(["command1", "command1", "command1", "command2"])
-    agent.safe_shutdown()  # Ensures memory logging and shutdown
+    console.print("[cyan]Testing ScoutAgent in standalone mode[/cyan]")
+    
+    # Create a dummy state for testing
+    test_state = {
+        "open_ports": [22, 80, 443],
+        "privilege_level": "none",
+        "services": ["ssh", "http", "https"],
+        "blue_team_alert": 3.5,
+        "detection_risk": 0.4
+    }
+    
+    # Create agent in test mode
+    agent = ScoutAgent(verbosity="verbose")
+    
+    # Test phase advice
+    phase = agent.advise_phase(test_state)
+    console.print(f"[bold]Advised phase:[/bold] {phase}")
+    
+    # Test phase advice with modified state
+    test_state["privilege_level"] = "user"
+    test_state["blue_team_alert"] = 6.0
+    phase = agent.advise_phase(test_state)
+    console.print(f"[bold]Advised phase after privilege gain:[/bold] {phase}")
+    
+    # Test simulated step
+    result = agent.simulate_step()
+    console.print(Panel(f"Step result: {result}", title="Test Step"))

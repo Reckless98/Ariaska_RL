@@ -12,13 +12,15 @@ import random
 from core.models.layers import NoisyLinear, get_activation, get_phase_vector
 from core.models.gpt_context_encoder import GPTContextEncoder
 from rich.console import Console
+from core.gpt_manager import GPTManager
+from core.utils.local_llm_manager import LocalLLMManager
 
 console = Console()
 
 
 class ValueNet(nn.Module):
     """
-    ARIASKA ValueNet v12.0 APEX INTEL
+    ARIASKA ValueNet v12.1 APEX INTEL (DQN Mode)
     • Deep GPT-Integrated Value Reasoning
     • Entropy-Adaptive Exploration Control
     • Phase & Context-Aware Dynamic Embedding
@@ -67,17 +69,23 @@ class ValueNet(nn.Module):
         # GPT Context Encoder
         self.context_encoder = GPTContextEncoder()
 
+        self.gpt_manager = GPTManager()
+
         self.to(self.device)
         self._init_weights()
 
     def _init_weights(self):
-        for layer in [self.fc1, self.fc2, self.fc3]:
-            nn.init.kaiming_uniform_(layer.weight, nonlinearity="relu")
-            nn.init.constant_(layer.bias, 0)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.constant_(self.fc1.bias, 0)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.constant_(self.fc2.bias, 0)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        nn.init.constant_(self.fc3.bias, 0)
 
     def forward(self, state, phase_vector=None, context_text=None):
         """
         Forward pass through encoder with phase & GPT-context integration.
+        Returns value estimate for the state.
         """
         x = self.activation(self.norm1(self.fc1(state)))
         x = self.dropout1(x)
@@ -102,13 +110,11 @@ class ValueNet(nn.Module):
         x = self.dropout3(x)
 
         value = self.noisy_fc(x)
-        return value, x
+        return value
 
-    def predict(
-        self, state_tensor, phase_vector=None, context_text=None, explain=False
-    ):
+    def predict(self, state_tensor, phase_vector=None, context_text=None):
         """
-        Predict scalar value. If explain=True, trigger GPT-based reasoning.
+        Predict scalar value for a state.
         """
         self.eval()
         with torch.no_grad():
@@ -116,20 +122,14 @@ class ValueNet(nn.Module):
                 state_tensor = state_tensor.unsqueeze(0)
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
-
-            value, features = self.forward(
+            value = self.forward(
                 state_tensor.to(self.device), phase_vector, context_text
             )
-
-        if explain and random.random() < 0.2:  # Smarter GPT trigger (20% chance)
-            reasoning = self._gpt_explain_value(value.item(), features, context_text)
-            console.print(f"[bold blue]🔎 GPT Reasoning:[/bold blue] {reasoning}")
-
         return value.item()
 
     def train_step(self, states, targets, context_texts=None, grad_clip=1.0):
         """
-        Perform a robust training step with context-aware gradient optimization.
+        DQN value update: minimize (V(s) - target)^2.
         """
         self.train()
         batch_size = states.size(0)
@@ -137,7 +137,7 @@ class ValueNet(nn.Module):
 
         for i in range(batch_size):
             ctx_text = context_texts[i] if context_texts else None
-            predicted, _ = self.forward(states[i], context_text=ctx_text)
+            predicted = self.forward(states[i], context_text=ctx_text)
             loss = F.smooth_l1_loss(predicted.squeeze(), targets[i])
 
             self.optimizer.zero_grad()
@@ -209,13 +209,12 @@ class ValueNet(nn.Module):
 
     def _gpt_explain_value(self, value_estimate, features, context_text=None):
         """
-        Use GPT to explain why this value might have been assigned, enriched by context.
+        Use GPTManager to explain why this value might have been assigned, enriched by context.
         """
         feature_summary = f"Feature Norm: {features.norm().item():.3f}"
         context_note = (
             f"Context: {context_text}" if context_text else "General analysis."
         )
-
         prompt = f"""
 You are an AI reinforcement learning strategist.
 Explain why a state received a value estimate of {value_estimate:.3f}.
@@ -223,28 +222,12 @@ Explain why a state received a value estimate of {value_estimate:.3f}.
 {feature_summary}
 Respond concisely in one insightful sentence.
 """
-
         try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    "gpt-4o-mini",
-                    "--temperature",
-                    "0.3",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=12,
-                text=True,
-            )
-            explanation = result.stdout.strip()
-            return explanation if explanation else "No insight provided."
+            response = self.gpt_manager.gpt_request(prompt, task_type="analysis")
+            return self.gpt_manager._sanitize_output(response)
         except Exception as e:
-            return f"GPT reasoning failed: {e}"
+            console.print(f"[yellow]⚠ GPT value explanation failed: {e}[/yellow]")
+            return "No insight provided."
 
     def save(self, path):
         """

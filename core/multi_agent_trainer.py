@@ -3,7 +3,11 @@
 
 import time
 from rich.console import Console
+from rich.table import Table
+from rich.live import Live
 from rich.panel import Panel
+from rich.progress import Progress
+from rich import box
 
 from core.multiagent.agent_manager import AgentManager
 from core.monitor.stats_monitor import StatsMonitor
@@ -12,6 +16,71 @@ from core.teach.teach import TeachModule
 
 console = Console()
 
+def display_live_training_dashboard(agents, episode, step, rewards_history, llm_usage):
+    """
+    Display a live dashboard with agent stats, reward graph, and LLM usage.
+    """
+    # Agent stats table
+    stats_table = Table(title=f"Episode {episode} | Step {step}", box=box.ROUNDED)
+    stats_table.add_column("Agent")
+    stats_table.add_column("Epsilon", justify="right")
+    stats_table.add_column("Last Reward", justify="right")
+    stats_table.add_column("Total Reward", justify="right")
+    stats_table.add_column("Phase", justify="center")
+    stats_table.add_column("LLM Calls", justify="right")
+    for agent in agents:
+        eps = getattr(agent, "epsilon", 0.0)
+        last_r = getattr(agent, "last_reward", 0.0)
+        total_r = sum(getattr(agent.stats_monitor, "agent_stats", {}).get(agent.agent_id, {}).get("rewards", [])) if hasattr(agent, "stats_monitor") else 0.0
+        phase = getattr(agent, "current_mode", "N/A")
+        llm_calls = getattr(agent.stats_monitor, "agent_stats", {}).get(agent.agent_id, {}).get("gpt_calls", 0) if hasattr(agent, "stats_monitor") else 0
+        stats_table.add_row(
+            getattr(agent, "agent_id", "N/A"),
+            f"{eps:.3f}",
+            f"{last_r:+.2f}",
+            f"{total_r:+.2f}",
+            str(phase),
+            str(llm_calls)
+        )
+
+    # Reward/performance sparkline
+    reward_panel = Panel(
+        "Episode rewards: " + " ".join(f"{r:+.1f}" for r in rewards_history[-10:]) +
+        f"\nAverage reward: {sum(rewards_history)/len(rewards_history):.2f}" if rewards_history else "",
+        title="Reward Trend",
+        border_style="green"
+    )
+
+    # LLM usage summary
+    llm_table = Table(title="LLM Usage", box=box.ROUNDED)
+    llm_table.add_column("Model")
+    llm_table.add_column("Calls", justify="right")
+    llm_table.add_column("Tokens", justify="right")
+    for model, usage in llm_usage.items():
+        llm_table.add_row(model, str(usage.get("calls", 0)), str(usage.get("tokens", 0)))
+
+    # Compose dashboard
+    dashboard = Panel(
+        stats_table,
+        title="Live Agent Stats",
+        border_style="cyan"
+    )
+    console.print(dashboard)
+    console.print(reward_panel)
+    console.print(llm_table)
+
+def log_phase_transition(prev_phase, new_phase):
+    """
+    Print a summary panel when the system shifts phase.
+    """
+    if prev_phase != new_phase:
+        console.print(
+            Panel(
+                f"Phase transition: [yellow]{prev_phase}[/yellow] → [green]{new_phase}[/green]",
+                title="Phase Transition",
+                border_style="magenta"
+            )
+        )
 
 class MultiAgentTrainer:
     def __init__(self, agent_manager=None, stats_monitor=None, memory_router=None, verbosity="standard", optimize_mode=False, steps=40):

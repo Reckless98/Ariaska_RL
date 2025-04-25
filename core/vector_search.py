@@ -8,6 +8,7 @@ import hashlib
 import subprocess
 from typing import Dict, Any, List
 from rich.console import Console
+from core.gpt_manager import GPTManager
 
 console = Console()
 
@@ -20,6 +21,11 @@ def generate_embedding(text: str) -> List[float]:
 
 
 class VectorSearch:
+    """
+    Hybrid GPT-Vector search and memory system for ARIASKA. Supports context-aware suggestions, Orion-synced knowledge,
+    and GPT-powered fallback for low-confidence queries. All GPT calls are routed through GPTManager for orchestration,
+    caching, and token tracking.
+    """
     def __init__(
         self, storage_path="data/knowledge/ariaska_vectors.json", cache_size=100
     ):
@@ -29,6 +35,7 @@ class VectorSearch:
         self.gpt_trigger_threshold = 0.4
         self.gpt_model = "gpt-4o-mini"
         self.database = self._load_database()
+        self.gpt_manager = GPTManager()
         console.print(
             f"[green]✔ VectorSearch v12.0 initialized with {len(self.database)} entries[/green]"
         )
@@ -89,25 +96,13 @@ class VectorSearch:
         return {"query": query_text, "results": results}
 
     def _gpt_suggest(self, query_text: str) -> str:
+        """
+        Use GPTManager to suggest a tactical command for a query. Fallback to empty string on failure.
+        """
         prompt = f"Suggest a tactical cybersecurity command for: {query_text}\nRespond ONLY with the command."
         try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    self.gpt_model,
-                    "--temperature",
-                    "0.25",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=18,
-            )
-            suggestion = result.stdout.strip().splitlines()[0]
+            suggestion = self.gpt_manager.gpt_request(prompt, model=self.gpt_model)
+            suggestion = suggestion.strip().splitlines()[0]
             console.print(f"[magenta]🎯 GPT Suggestion:[/magenta] {suggestion}")
             return suggestion
         except Exception as e:
@@ -149,6 +144,9 @@ class VectorSearch:
         console.print(table)
 
     def gpt_enhance_database(self):
+        """
+        Enhance database entries with GPT-powered tactical insights using GPTManager.
+        """
         console.print(
             "[blue]⚡ Running GPT enhancement across database entries...[/blue]"
         )
@@ -157,24 +155,8 @@ class VectorSearch:
             if "gpt_insight" not in entry:
                 prompt = f"Provide a brief tactical insight for this cybersecurity command: {entry['text']}"
                 try:
-                    result = subprocess.run(
-                        [
-                            "sgpt",
-                            "--model",
-                            self.gpt_model,
-                            "--temperature",
-                            "0.25",
-                            "--role",
-                            "aria",
-                            prompt,
-                        ],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        timeout=15,
-                    )
-                    insight = result.stdout.strip()
-                    entry["gpt_insight"] = insight
+                    insight = self.gpt_manager.gpt_request(prompt, model=self.gpt_model)
+                    entry["gpt_insight"] = insight.strip()
                     enhanced += 1
                 except Exception as e:
                     console.print(

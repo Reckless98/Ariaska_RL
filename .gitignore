@@ -12,9 +12,9 @@ __pycache__/
 *.sqlite3
 *.db
 *.pkl
-*.pt
+#*.pt
 *.ckpt
-*.jsonl
+#*.jsonl
 
 # VSCode and IDE files
 .vscode/

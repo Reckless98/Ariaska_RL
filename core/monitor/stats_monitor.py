@@ -4,7 +4,7 @@
 import os
 import time
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -15,7 +15,9 @@ from rich.progress import (
     TimeElapsedColumn,
     SpinnerColumn,
 )
-# import subprocess  # Removed as it is not used
+from rich.panel import Panel
+from rich.columns import Columns
+from rich import box
 
 console = Console()
 
@@ -34,17 +36,16 @@ class StatsMonitor:
             "ShadowAgent",
             "OrionAgent",
         ]
-        self.agent_stats = {
-            agent: {
-                "rewards": [],
-                "gpt_calls": 0,
-                "alerts": 0,
-                "redundancy": Counter(),
-                "last_command": None,
-                "entropy": [],
-            }
-            for agent in self.agents
-        }
+        self.agent_stats = defaultdict(lambda: {
+            "rewards": [],
+            "gpt_calls": 0,
+            "redundancy": 0,
+            "phases": [],
+            "steps": 0,
+            "risk": [],
+            "alert": [],
+            "tokens": 0,
+        })
 
         self.total_steps = 0
         self.total_episodes = 0
@@ -135,8 +136,9 @@ class StatsMonitor:
     # ─────────────────────────────────────────────
     # 🧠 GPT Call Logging + Orion Insight Triggers
     # ─────────────────────────────────────────────
-    def log_gpt_call(self, agent_name):
+    def log_gpt_call(self, agent_name, tokens=0):
         self.agent_stats[agent_name]["gpt_calls"] += 1
+        self.agent_stats[agent_name]["tokens"] += tokens
         self._log_replay(
             {"event": "gpt_call", "agent": agent_name, "step": self.total_steps}
         )
@@ -163,55 +165,23 @@ class StatsMonitor:
                 f"{agent_name} accumulated {self.agent_stats[agent_name]['alerts']} alerts."
             )
 
-    def log_step(self, agent_name, reward, command=None, entropy=None, alert=None, phase=None):
-        # Defensive: ensure reward is a float
-        try:
-            if isinstance(reward, dict):
-                reward = reward.get("reward", 0.0)
-            reward = float(reward)
-        except Exception:
-            reward = 0.0
-        self.total_steps += 1
-        self.agent_stats[agent_name]["rewards"].append(reward)
-        if entropy is not None:
-            self.agent_stats[agent_name]["entropy"].append(entropy)
-        if command:
-            last_cmd = self.agent_stats[agent_name]["last_command"]
-            if command == last_cmd:
-                self.agent_stats[agent_name]["redundancy"][command] += 1
-                if self.agent_stats[agent_name]["redundancy"][command] % 4 == 0:
-                    self._trigger_warning(
-                        f"{agent_name} repeating command: {command} — repeated {self.agent_stats[agent_name]['redundancy'][command]} times."
-                    )
-            self.agent_stats[agent_name]["last_command"] = command
+    def log_step(self, agent_id, reward, command=None, phase=None, redundancy=False, risk=0.0, alert=0.0, tokens=0):
+        stats = self.agent_stats[agent_id]
+        stats["rewards"].append(reward)
+        stats["steps"] += 1
+        if phase:
+            stats["phases"].append(phase)
+        if redundancy:
+            stats["redundancy"] += 1
+        if risk is not None:
+            stats["risk"].append(risk)
         if alert is not None:
-            self.agent_stats[agent_name]["alerts"] += alert
-        if phase is not None:
-            if not hasattr(self, "agent_history"):
-                self.agent_history = {}
-            if agent_name not in self.agent_history:
-                self.agent_history[agent_name] = {"phases": []}
-            self.agent_history[agent_name]["phases"].append(phase)
-        if self.verbosity == "quiet" and reward >= 0:
-            return  # Suppress non-critical logs
-        self._log_replay(
-            {
-                "event": "step",
-                "agent": agent_name,
-                "reward": reward,
-                "command": command,
-                "step": self.total_steps,
-            }
-        )
-        # Command novelty score
-        if command:
-            history = self.agent_stats[agent_name].setdefault("history", [])
-            history.append(command)
-            if len(history) > 20:
-                history.pop(0)
-            novelty = len(set(history))
-            self.agent_stats[agent_name]["novelty"] = novelty
+            stats["alert"].append(alert)
+        if tokens:
+            stats["tokens"] += tokens
+        self.total_steps += 1
         self.update_progress()
+
     # ─────────────────────────────────────────────
     # ─────────────────────────────────────────────
     # 🎥 Session Replay Logger─────────────────────
@@ -237,7 +207,6 @@ class StatsMonitor:
             agent: sum(self.agent_stats[agent]["rewards"]) for agent in self.agents
         }
         # Concise dashboard
-        from rich.table import Table
         table = Table(title=f"Episode {self.total_episodes} Summary", show_lines=True)
         table.add_column("Agent", style="cyan")
         table.add_column("Reward", style="green")
@@ -295,15 +264,16 @@ class StatsMonitor:
         # First stop any active displays
         self.stop_progress()
         # Then reset the data
-        for agent in self.agents:
-            self.agent_stats[agent] = {
-                "rewards": [],
-                "entropy": [],
-                "gpt_calls": 0,
-                "alerts": 0,
-                "redundancy": Counter(),
-                "last_command": None,
-            }
+        self.agent_stats = defaultdict(lambda: {
+            "rewards": [],
+            "gpt_calls": 0,
+            "redundancy": 0,
+            "phases": [],
+            "steps": 0,
+            "risk": [],
+            "alert": [],
+            "tokens": 0,
+        })
         self.total_steps = 0
         self.total_episodes = 0
         self.start_time = time.time()
@@ -428,15 +398,14 @@ class StatsMonitor:
             all_rewards.extend(self.agent_stats.get(agent, {}).get("rewards", []))
         return sum(all_rewards) / max(len(all_rewards), 1) if all_rewards else 0.0
 
-    def get_detection_rate(self, agent_id=None):
-        """Calculate detection rate (for Blue agent)"""
-        # This is a placeholder implementation - in a real system 
-        # you'd use specific metrics tracked for detection events
-        if agent_id and agent_id in self.agent_stats:
-            alerts = self.agent_stats[agent_id].get("alerts", 0)
-            total = max(self.total_steps / len(self.agents), 1)
-            return min(alerts / total, 1.0)  # Cap at 1.0
-        return 0.0
+    def get_detection_rate(self):
+        # Example: percent of steps with alert > 5
+        total, detected = 0, 0
+        for stats in self.agent_stats.values():
+            alerts = stats.get("alert", [])
+            total += len(alerts)
+            detected += sum(1 for a in alerts if a > 5)
+        return detected / total if total else 0.0
 
     def get_redundancy_rate(self, agent_id=None):
         """Calculate redundancy rate for an agent"""
@@ -452,39 +421,54 @@ class StatsMonitor:
             total_commands += len(self.agent_stats.get(agent, {}).get("rewards", []))
         return total_redundancy / max(total_commands, 1)
 
-    def get_metrics(self):
-        """Return a dictionary of key metrics for Orion analysis"""
-        return {
-            "total_steps": self.total_steps,
-            "total_episodes": self.total_episodes,
-            "agents": {
-                agent: {
-                    "avg_reward": sum(self.agent_stats[agent].get("rewards", [])) / 
-                        max(len(self.agent_stats[agent].get("rewards", [])), 1) if agent in self.agent_stats else 0.0,
-                    "gpt_calls": self.agent_stats[agent].get("gpt_calls", 0) if agent in self.agent_stats else 0,
-                    "redundancy_rate": self.get_redundancy_rate(agent) if agent in self.agent_stats else 0,
-                    "alerts": self.agent_stats[agent].get("alerts", 0) if agent in self.agent_stats else 0
-                } for agent in self.agents
-            }
-        }
+    def get_phase_counts(self, agent_id):
+        stats = self.agent_stats[agent_id]
+        return dict(Counter(stats["phases"]))
 
     def visualize_phase_distribution(self, agent_id=None):
-        """Print a live phase distribution chart for the agent or all agents."""
-        from collections import Counter
-        from rich.panel import Panel
-        from rich.table import Table
+        try:
+            """Print a live phase distribution chart for the agent or all agents."""
+            if agent_id and agent_id in self.agent_stats:
+                rewards = self.agent_stats[agent_id].get("rewards", [])
+                phases = [a.get("phase", "unknown") for a in getattr(self, "agent_history", {}).get(agent_id, {}).get("phases", [])]
+                counts = Counter(phases)
+                table = Table(title=f"{agent_id} Phase Distribution", show_lines=True)
+                table.add_column("Phase", style="cyan")
+                table.add_column("Count", style="magenta")
+                for phase, count in counts.items():
+                    table.add_row(phase, str(count))
+                console.print(Panel(table, title="Phase Distribution", border_style="magenta"))
+            else:
+                # All agents
+                for agent in self.agents:
+                    self.visualize_phase_distribution(agent)
+            # Downsample to last 100 points
+            if len(data) > 100:
+                data = data[-100:]
+        except Exception as e:
+            console.print(f"[yellow]⚠ StatsMonitor visualization error: {e}[/yellow]")
 
-        if agent_id and agent_id in self.agent_stats:
-            rewards = self.agent_stats[agent_id].get("rewards", [])
-            phases = [a.get("phase", "unknown") for a in getattr(self, "agent_history", {}).get(agent_id, {}).get("phases", [])]
-            counts = Counter(phases)
-            table = Table(title=f"{agent_id} Phase Distribution", show_lines=True)
-            table.add_column("Phase", style="cyan")
-            table.add_column("Count", style="magenta")
-            for phase, count in counts.items():
-                table.add_row(phase, str(count))
-            console.print(Panel(table, title="Phase Distribution", border_style="magenta"))
-        else:
-            # All agents
-            for agent in self.agents:
-                self.visualize_phase_distribution(agent)
+    def show(self, live_plot=True):
+        if not live_plot:
+            return
+        try:
+            # Show a dashboard of all tracked stats
+            tables = []
+            for agent_id, stats in self.agent_stats.items():
+                table = Table(title=f"{agent_id} Stats", show_lines=True, box=box.ROUNDED)
+                table.add_column("Metric", style="cyan")
+                table.add_column("Value", style="magenta")
+                table.add_row("Steps", str(stats["steps"]))
+                table.add_row("Avg Reward", f"{self.get_average_reward(agent_id):.2f}")
+                table.add_row("Redundancy Rate", f"{self.get_redundancy_rate(agent_id):.2%}")
+                table.add_row("GPT Calls", str(stats["gpt_calls"]))
+                table.add_row("Tokens", str(stats["tokens"]))
+                table.add_row("Detection Rate", f"{self.get_detection_rate():.2%}")
+                table.add_row("Phases", ", ".join(stats["phases"][-5:]))
+                table.add_row("Recent Rewards", ", ".join(f"{r:.1f}" for r in stats["rewards"][-5:]))
+                table.add_row("Recent Risk", ", ".join(f"{r:.2f}" for r in stats.get("risk", [])[-5:]))
+                table.add_row("Recent Alert", ", ".join(f"{a:.2f}" for a in stats.get("alert", [])[-5:]))
+                tables.append(Panel(table, border_style="green"))
+            console.print(Columns(tables))
+        except Exception as e:
+            console.print(f"[yellow]⚠ StatsMonitor show error: {e}[/yellow]")

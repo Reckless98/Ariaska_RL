@@ -1,23 +1,25 @@
 import subprocess
+from core.gpt_manager import GPTManager
 
 class GPTCacheHandler:
+    """
+    Legacy cache handler for GPT queries. Now delegates all GPT calls to GPTManager for centralized orchestration,
+    caching, token tracking, and fallback logic. Maintains a local cache for compatibility.
+    """
     def __init__(self):
         self.cache = {}
+        self.gpt_manager = GPTManager()
 
-    def query(self, prompt, model="gpt-4o-mini"):
+    def query(self, prompt, model="gpt-4o-mini", agent_id=None):
+        """
+        Query GPT via GPTManager with caching and fallback. Use agent_id for token tracking.
+        """
         key = hash(prompt)
         if key in self.cache:
             return self.cache[key]
         try:
-            result = subprocess.run(
-                ["sgpt", "--model", model, "--role", "aria", prompt],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=15,
-                text=True,
-            )
-            response = result.stdout.strip()
-        except Exception:
-            response = "GPT unavailable."
+            response = self.gpt_manager.gpt_request(prompt, model=model, agent_id=agent_id)
+        except Exception as e:
+            response = f"GPT unavailable: {e}"
         self.cache[key] = response
         return response

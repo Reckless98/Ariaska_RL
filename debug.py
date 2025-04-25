@@ -27,9 +27,12 @@ try:
     from core.teach.teach import TeachModule
     from core.logic.output_interpreter import analyze_output
     from core.logic.chainbuilder import build_and_store_chain
+    from core.gpt_manager import GPTManager
 except ImportError as imp_err:
     print("[FATAL] Failed to import core modules:", imp_err)
     sys.exit(1)
+
+gpt_manager = GPTManager()
 
 # Logging
 def log(msg):
@@ -99,14 +102,13 @@ def test_teach_module():
 def test_sgpt_cli():
     try:
         test_prompt = 'Return JSON: {"description": "desc", "when": "context", "why": "reason", "parameters": [], "param_descriptions": []}'
-        result = subprocess.run(["sgpt", "--model", "gpt-4.1-nano", "--temperature", "0.3", "--role", "aria", test_prompt],
-                                stdout=subprocess.PIPE, text=True, timeout=10)
-        if result.stdout.strip().startswith("{"):
-            report("SGPT CLI", "✅ OK", "GPT response format valid")
+        response = gpt_manager.gpt_request(test_prompt, agent_id="DebugCLI")
+        if response.strip().startswith("{"):
+            report("GPTManager CLI", "✅ OK", "GPT response format valid")
         else:
-            report("SGPT CLI", "❌ FAIL", "Output not valid JSON")
+            report("GPTManager CLI", "❌ FAIL", "Output not valid JSON")
     except Exception as e:
-        report("SGPT CLI", "❌ FAIL", str(e))
+        report("GPTManager CLI", "❌ FAIL", str(e))
 
 # RedAgent + GPT Feedback
 def test_rlagent_gpt_interaction():

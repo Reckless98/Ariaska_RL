@@ -4,14 +4,17 @@
 import math
 import json
 import subprocess
+import random
 from typing import Dict, List, Any
 from rich.console import Console
 from rich.table import Table
 
 from core.teach.teach import TeachModule
+from core.gpt_manager import GPTManager
 
 console = Console()
 teach = TeachModule()
+gpt_manager = GPTManager()
 
 # ─────────────────────────────────────────────
 # 🔢 Utility Scoring & Entropy Functions
@@ -30,39 +33,51 @@ def entropy_of_probs(probs: List[float]) -> float:
 
 
 # ─────────────────────────────────────────────
-# 🎯 Core Decision Pipeline — GPT First
+# 🎯 Core Decision Pipeline — Dynamic, Adaptive Rules
 # ─────────────────────────────────────────────
 def rule_based_selection(
     memory: Dict[str, Any], state: Dict[str, Any], agent_id="RedAgent", memory_router=None, shared_context=None
 ) -> Dict[str, Any]:
     """
-    Hybrid selection: Prefers GPT-optimized decisions, with rule-based fallback.
-    Now considers shared_context for multi-agent coordination.
+    Hybrid selection: Prefers GPT-optimized decisions, with dynamic rule-based fallback.
+    Rules adapt based on training feedback and environment state.
     """
     console.rule(f"[bold cyan]🎯 {agent_id}: Initiating Decision Pipeline[/bold cyan]")
 
     # Use shared_context for context-aware decision making
     if shared_context:
-        # Example: avoid redundant commands if another agent just did it
         recent_phases = [v for k, v in shared_context.items() if k.endswith("_phase")]
         if recent_phases and state.get("phase") in recent_phases:
             console.print(f"[yellow]⚡ {agent_id}: Phase {state.get('phase')} already active by another agent.[/yellow]")
-            # Optionally, suggest a different phase or command
 
+    # Dynamic rule adaptation: adjust rules based on environment and agent feedback
+    dynamic_rules = get_dynamic_rules(state, memory)
+    if dynamic_rules:
+        for rule in dynamic_rules:
+            if rule["condition"](state, memory):
+                console.print(f"[blue]🧠 Dynamic Rule Triggered: {rule['description']}[/blue]")
+                decision = rule["action"](state, memory)
+                reasoning = rule.get("reasoning", lambda s, m: "Dynamic rule applied.")(state, memory)
+                return {
+                    "command": decision,
+                    "source": "dynamic-rule",
+                    "reasoning": reasoning,
+                }
+
+    # Fallback to GPT or static rules
     decision = gpt_decision_suggest(state, agent_id, memory_router=memory_router)
     if not decision or len(str(decision).split()) < 2:
         console.print(
-            f"[yellow]⚠ {agent_id}: GPT suggestion weak, using rule fallback.[/yellow]"
+            f"[yellow]⚠ {agent_id}: GPT suggestion weak, using static fallback.[/yellow]"
         )
         decision = fallback_command(state)
 
-    # Integrate redundancy/inefficiency detection
+    # Redundancy/inefficiency detection
     if memory and "actions" in memory:
         from core.logic.redundancy_detector import detect_redundancy
         recent_cmds = [a.get("command") for a in memory["actions"][-5:]]
         if detect_redundancy(recent_cmds, state.get("last_command", "")):
             console.print(f"[yellow]♻ {agent_id}: Detected redundancy in recent commands.[/yellow]")
-            # Optionally, trigger GPT for a novel command
 
     from core.logic.redundancy_detector import detect_redundancy
     redundancy_flag = detect_redundancy(state.get("history", []), decision)
@@ -78,6 +93,51 @@ def rule_based_selection(
         "source": "gpt" if not redundancy_flag else "gpt-redundancy",
         "reasoning": reasoning,
     }
+
+# --- Dynamic Rule System ---
+def get_dynamic_rules(state, memory):
+    """
+    Return a list of dynamic rules (dicts) that adapt based on state/memory.
+    Each rule: {"condition": fn, "action": fn, "description": str, "reasoning": fn}
+    """
+    rules = []
+
+    # Example: If alert/risk is high, enforce stealth
+    def high_alert_condition(state, memory):
+        return state.get("blue_team_alert", 0) > 8 or state.get("detection_risk", 0) > 7
+
+    def high_alert_action(state, memory):
+        return "sleep 2 && nmap -T1 --top-ports 10 10.10.10.10"
+
+    rules.append({
+        "condition": high_alert_condition,
+        "action": high_alert_action,
+        "description": "High alert/risk: enforce stealthy command.",
+        "reasoning": lambda s, m: "Stealth enforced due to high alert/risk."
+    })
+
+    # Example: If agent is stuck in phase, suggest phase shift
+    def phase_stuck_condition(state, memory):
+        phase_hist = state.get("phase_history", [])
+        return len(phase_hist) >= 4 and all(p == phase_hist[-1] for p in phase_hist[-4:])
+
+    def phase_stuck_action(state, memory):
+        alt_phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+        current = state.get("phase", "recon")
+        alt = [p for p in alt_phases if p != current]
+        return f"echo 'Switching phase to {random.choice(alt)}'"
+
+    rules.append({
+        "condition": phase_stuck_condition,
+        "action": phase_stuck_action,
+        "description": "Phase stuck: suggest phase shift.",
+        "reasoning": lambda s, m: "Phase repeated, shifting for diversity."
+    })
+
+    # Add more dynamic rules as needed, possibly loaded from agent feedback or environment logs
+
+    return rules
+
 # 🚨 Redundancy Detection & GPT Recovery
 # ─────────────────────────────────────────────
 def detect_redundancy(command_history: List[str], new_command: str) -> bool:
@@ -96,7 +156,8 @@ Last Command: {state.get('history', [])[-1] if state.get('history') else 'N/A'}
 Suggest a novel, non-redundant command for phase '{state.get('phase')}'.
 Respond ONLY with the command.
 """
-    return _call_gpt_with_fallback(prompt, agent_id, memory_router=memory_router)
+    response = gpt_manager.gpt_request(prompt, task_type="reasoning", agent_id=agent_id)
+    return gpt_manager._sanitize_output(response)
 
 
 # ─────────────────────────────────────────────
@@ -112,14 +173,9 @@ def gpt_decision_suggest(
     if cache_key in gpt_decision_cache:
         return gpt_decision_cache[cache_key]
     if memory_router is None:
-        # Import locally to avoid circular import
-        from core.multiagent.memory_router import MemoryRouter
-        memory_router = MemoryRouter([])
-    cache_key = f"{agent_id}_decision_{state.get('phase', '')}"
+        return "echo 'No memory_router provided'"
     cached = memory_router.check_gpt_cache(cache_key)
     if cached:
-        if isinstance(cached, dict) and "response" in cached:
-            return cached["response"]
         return cached
 
     prompt = f"""
@@ -135,39 +191,11 @@ Mission Context:
 Suggest ONE optimal command for this phase. Be concise and effective.
 Respond ONLY with the command.
 """
-    decision = _call_gpt_with_fallback(prompt, agent_id, memory_router=memory_router)
+    decision = gpt_manager.gpt_request(prompt, task_type="decision", agent_id=agent_id)
+    decision = gpt_manager._sanitize_output(decision)
     memory_router.store_gpt_response(cache_key, decision)
     gpt_decision_cache[cache_key] = decision
     return decision
-
-
-def _call_gpt_with_fallback(prompt: str, agent_id: str, memory_router=None) -> str:
-    for model in ["gpt-4o-mini", "gpt-4.1-nano"]:
-        try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    model,
-                    "--temperature",
-                    "0.35",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                text=True,
-                timeout=25,
-            )
-            output = result.stdout.strip()
-            if output and len(output.split()) > 1:
-                console.print(
-                    f"[blue]🎯 {agent_id}: GPT({model}) Decision → {output}[/blue]"
-                )
-                return output
-        except Exception as e:
-            console.print(f"[red]⚠ {agent_id}: {model} failed: {e}[/red]")
-    return "echo 'Fallback_Command'"
 
 
 def orion_override_decision(
@@ -207,29 +235,10 @@ Explain in 2 sentences why the following command is optimal:
 
 Focus on stealth, efficiency, and strategic fit.
 """
-    try:
-        result = subprocess.run(
-            [
-                "sgpt",
-                "--model",
-                "gpt-4o-mini",
-                "--temperature",
-                "0.3",
-                "--role",
-                "aria",
-                prompt,
-            ],
-            stdout=subprocess.PIPE,
-            text=True,
-            timeout=15,
-        )
-        reasoning = result.stdout.strip()
-        memory_router.store_gpt_response(cache_key, reasoning)
-        gpt_reasoning_cache[cache_key] = reasoning
-        return reasoning
-    except Exception as e:
-        console.print(f"[yellow]⚠ Reasoning GPT failed: {e}[/yellow]")
-        return "Strategic reasoning unavailable."
+    reasoning = gpt_manager.gpt_request(prompt, task_type="reasoning")
+    memory_router.store_gpt_response(cache_key, reasoning)
+    gpt_reasoning_cache[cache_key] = reasoning
+    return reasoning
 
 
 def summarize_rule_stats(agent):

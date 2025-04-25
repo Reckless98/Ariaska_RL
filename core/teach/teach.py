@@ -8,6 +8,7 @@ import re
 import time
 from rich.console import Console
 from core.utils.memory_manager import MemoryManager
+from core.gpt_manager import GPTManager
 
 console = Console()
 
@@ -23,6 +24,7 @@ class TeachModule:
         self.teach_log_path = os.path.join("logs", f"{agent_name}_teach_log.jsonl")
         os.makedirs("logs", exist_ok=True)
         self.gpt_cache = {}
+        self.gpt_manager = GPTManager()
         console.print(
             f"[green]🎓 TeachModule v12.0 Initialized for {agent_name}[/green]"
         )
@@ -146,67 +148,27 @@ Return STRICT JSON:
         for model in models:
             try:
                 self.gpt_calls += 1
-                result = subprocess.run(
-                    [
-                        "sgpt",
-                        "--model",
-                        model,
-                        "--temperature",
-                        "0.35",
-                        "--role",
-                        "aria",
-                        prompt,
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=30,
-                )
-                raw = result.stdout.strip()
+                response = self.gpt_manager.gpt_request(prompt, model=model, agent_id=self.agent_name)
+                raw = self.gpt_manager._sanitize_output(response)
                 if raw.startswith("{"):
                     gpt_data = json.loads(raw)
                     return self._inject_parsed_action(gpt_data, command, phase, reward)
             except Exception as e:
                 console.print(f"[yellow]⚠ {model} failed: {e}[/yellow]")
-        return self.inject_from_openai(command, phase, reward)
+        return self._inject_fallback_action(command, phase, reward)
 
-    def inject_from_openai(self, command, phase, reward=10):
-        try:
-            import openai
-
-            openai.api_key = os.getenv("OPENAI_API_KEY", "")
-            if not openai.api_key:
-                raise RuntimeError("OPENAI_API_KEY not set")
-            self.gpt_calls += 1
-            response = openai.ChatCompletion.create(
-                model="gpt-4.1-mini",
-                temperature=0.35,
-                max_tokens=250,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a cyber instructor AI. Reply with structured JSON only.",
-                    },
-                    {"role": "user", "content": self._build_prompt(command, phase)},
-                ],
-            )
-            raw = response.choices[0].message.content.strip()
-            json_str = re.search(r"\{.*\}", raw, re.DOTALL)
-            gpt_data = json.loads(json_str.group(0) if json_str else raw)
-            return self._inject_parsed_action(gpt_data, command, phase, reward)
-        except Exception as e:
-            console.print(f"[red]⚠ OpenAI fallback failed: {e} — using stub[/red]")
-            return self.add_action(
-                command=command,
-                description="Fallback: GPT unavailable",
-                when="Auto-injected context",
-                why="GPT parsing failure",
-                parameters=[],
-                param_descriptions=[],
-                phase=phase,
-                reward=reward,
-                tags=["fallback"],
-            )
+    def _inject_fallback_action(self, command, phase, reward):
+        return self.add_action(
+            command=command,
+            description="Fallback: GPT unavailable",
+            when="Auto-injected context",
+            why="GPT parsing failure",
+            parameters=[],
+            param_descriptions=[],
+            phase=phase,
+            reward=reward,
+            tags=["fallback"],
+        )
 
     def _inject_parsed_action(self, gpt_data, command, phase, reward):
         self.add_action(
@@ -291,7 +253,11 @@ Return STRICT JSON:
     def ask_gpt(self, prompt):
         if prompt in self.gpt_cache:
             return self.gpt_cache[prompt]
-        # ...existing code...
-        response = ... # result from GPT
-        self.gpt_cache[prompt] = response
-        return response
+        try:
+            response = self.gpt_manager.gpt_request(prompt, agent_id=self.agent_name)
+            sanitized = self.gpt_manager._sanitize_output(response)
+            self.gpt_cache[prompt] = sanitized
+            return sanitized
+        except Exception as e:
+            console.print(f"[red]❌ TeachModule GPT error: {e}[/red]")
+            return "GPT unavailable."

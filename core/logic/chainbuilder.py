@@ -9,6 +9,7 @@ from datetime import datetime
 from rich.console import Console
 from core.teach.teach import TeachModule
 from core.vector_search import VectorSearch
+from core.gpt_manager import GPTManager
 
 console = Console()
 teach = TeachModule()
@@ -30,6 +31,7 @@ class ChainBuilder:
         self.memory_router = memory_router
         self.verbosity = verbosity
         self.chain_cache = {}
+        self.gpt_manager = GPTManager()
         console.print(
             f"[green]✔ ChainBuilder v12.0 Initialized — Smart Chain Synthesis Ready[/green]"
         )
@@ -111,27 +113,12 @@ Respond ONLY with 5 unique, phase-ordered commands, each on a new line. No expla
         return summary
 
     def _call_gpt(self, prompt, agent_name, model="gpt-4o-mini"):
+        """
+        Use GPTManager to generate chain commands. Returns a list of commands.
+        """
         try:
-            result = subprocess.run(
-                [
-                    "sgpt",
-                    "--model",
-                    model,
-                    "--temperature",
-                    "0.3",
-                    "--role",
-                    "aria",
-                    prompt,
-                ],
-                stdout=subprocess.PIPE,
-                text=True,
-                timeout=60 if model == "gpt-4.1" else 45,
-            )
-            cmds = [
-                line.strip()
-                for line in result.stdout.strip().splitlines()
-                if line.strip()
-            ]
+            response = self.gpt_manager.gpt_request(prompt, model=model, agent_id=agent_name)
+            cmds = [line.strip() for line in response.strip().splitlines() if line.strip()]
             # Remove duplicates and trivial commands
             unique_cmds = []
             seen = set()

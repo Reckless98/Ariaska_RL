@@ -6,6 +6,7 @@ import ipaddress
 import subprocess
 import json
 from rich.console import Console
+import numpy as np
 
 console = Console()
 

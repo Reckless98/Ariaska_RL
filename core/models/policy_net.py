@@ -12,6 +12,7 @@ import random
 from core.models.layers import NoisyLinear, get_activation, get_phase_vector
 from core.models.gpt_context_encoder import GPTContextEncoder
 from rich.console import Console
+from core.gpt_manager import GPTManager
 
 console = Console()
 
@@ -20,21 +21,19 @@ def safe_tensor(data, device):
 
 class PolicyNet(nn.Module):
     """
-    ARIASKA PolicyNet v12.0 APEX STRATEGOS
-    • GPT-Enhanced Contextual Awareness
-    • Adaptive Entropy & Temperature Tuning
-    • NoisyLinear Exploration + Dynamic Phase Embedding
-    • Token-Efficient GPT Tactical Insights
+    ARIASKA PolicyNet v12.1 APEX STRATEGOS (DQN Mode)
+    • Deep context/phase embedding
+    • Noisy layers for smarter exploration
+    • Entropy diagnostics for adaptive ε
     """
-
     def __init__(
         self,
         input_size=512,
-        hidden_size=288,
+        hidden_size=384,
         output_size=6,
-        lr=9e-5,
+        lr=7e-5,
         device="cuda",
-        activation="silu",
+        activation="gelu",
     ):
         super().__init__()
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
@@ -47,27 +46,26 @@ class PolicyNet(nn.Module):
         self.phase_embed = nn.Linear(5, hidden_size)
         self.context_embed = nn.Linear(32, hidden_size)
 
-        # Core Layers
+        # Deep Core Layers
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.norm1 = nn.LayerNorm(hidden_size)
-        self.dropout1 = nn.Dropout(p=0.10)
+        self.dropout1 = nn.Dropout(p=0.15)
 
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.norm2 = nn.LayerNorm(hidden_size)
-        self.dropout2 = nn.Dropout(p=0.10)
+        self.dropout2 = nn.Dropout(p=0.15)
 
-        # Decision Head
+        self.fc3 = nn.Linear(hidden_size, hidden_size)
+        self.norm3 = nn.LayerNorm(hidden_size)
+        self.dropout3 = nn.Dropout(p=0.10)
+
+        # DQN Head: Noisy layers for exploration
         self.noisy_fc3 = NoisyLinear(hidden_size, hidden_size)
         self.noisy_fc4 = NoisyLinear(hidden_size, output_size)
 
-        # Control Parameters
-        self.entropy_beta = 0.02
-        self.temperature = 1.0
-        self.use_dynamic_temp = True
-        self.inject_context = True
-
         # GPT Context Encoder
         self.context_encoder = GPTContextEncoder()
+        self.gpt_manager = GPTManager()
 
         # Optimizer & Scheduler
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-5)
@@ -79,10 +77,15 @@ class PolicyNet(nn.Module):
     def _init_weights(self):
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.constant_(self.fc1.bias, 0)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.constant_(self.fc2.bias, 0)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        nn.init.constant_(self.fc3.bias, 0)
 
     def forward(self, state, phase_vector=None, context_text=None):
         """
         Forward pass with phase and GPT-encoded context injection.
+        Returns Q-values for all actions.
         """
         x = self.activation(self.norm1(self.fc1(state)))
         x = self.dropout1(x)
@@ -91,7 +94,7 @@ class PolicyNet(nn.Module):
             phase_proj = self.activation(self.phase_embed(phase_vector))
             x = x + phase_proj
 
-        if self.inject_context and context_text:
+        if context_text:
             context_vec = torch.tensor(
                 self.context_encoder.encode(context_text),
                 dtype=torch.float32,
@@ -102,18 +105,16 @@ class PolicyNet(nn.Module):
 
         x = self.activation(self.norm2(self.fc2(x)))
         x = self.dropout2(x)
+        x = self.activation(self.norm3(self.fc3(x)))
+        x = self.dropout3(x)
 
         x = self.activation(self.noisy_fc3(x))
-        logits = self.noisy_fc4(x)
-
-        if self.use_dynamic_temp:
-            logits = logits / self.temperature
-
-        return logits
+        q_values = self.noisy_fc4(x)
+        return q_values
 
     def predict(self, state, phase_vector=None, context_text=None, deterministic=True):
         """
-        Predict action index with optional GPT tactical explanation.
+        Predict action index by selecting argmax Q-value.
         """
         self.eval()
         with torch.no_grad():
@@ -123,113 +124,60 @@ class PolicyNet(nn.Module):
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
 
-            logits = self.forward(state_tensor, phase_vector, context_text)
-            probs = F.softmax(logits, dim=-1)
-
-            action = (
-                torch.argmax(probs, dim=-1).item()
-                if deterministic
-                else torch.multinomial(probs, 1).item()
-            )
-
-            if random.random() < 0.08:
-                self._gpt_action_explain(action, probs.squeeze().tolist(), context_text)
-    
+            q_values = self.forward(state_tensor, phase_vector, context_text)
+            action = torch.argmax(q_values, dim=-1).item()
             return action
 
-    def _gpt_action_explain(self, action_idx, probs, context_text):
+    def entropy(self, state, phase_vector=None, context_text=None):
         """
-        Token-efficient GPT explanation of action choice.
+        Estimate entropy of Q-value distribution for smarter exploration.
         """
-        prompt = f"""
-Summarize why action index {action_idx} is optimal.
-Probabilities: {probs}
-Context: {context_text or "Standard offensive operation."}
-Respond in one short tactical sentence.
-"""
-        try:
-            result = subprocess.run(
-                ["sgpt", "--model", "gpt-4.1-nano", "--temperature", "0.25", "--role", "aria", prompt],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10,
-            )
-            explanation = result.stdout.strip()
-            console.print(f"[dim cyan]🎯 GPT Tactical Insight:[/dim cyan] {explanation}")
-        except Exception as e:
-            console.print(f"[yellow]⚠ GPT insight failed: {e}[/yellow]")
+        self.eval()
+        with torch.no_grad():
+            state_tensor = safe_tensor(state, self.device)
+            if state_tensor.ndim == 1:
+                state_tensor = state_tensor.unsqueeze(0)
+            if phase_vector is not None:
+                phase_vector = phase_vector.to(self.device)
+            q_values = self.forward(state_tensor, phase_vector, context_text)
+            probs = torch.softmax(q_values, dim=-1)
+            entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1)
+            return entropy.item()
 
-    def train_step(self, states, actions, advantages, entropy_beta=None, grad_clip=0.5):
+    def inspect_distribution(self, state, phase_vector=None, context_text=None):
         """
-        Policy gradient update with advanced entropy regulation.
+        Print Q-value distribution and entropy for diagnostics.
+        """
+        self.eval()
+        with torch.no_grad():
+            state_tensor = safe_tensor(state, self.device)
+            if state_tensor.ndim == 1:
+                state_tensor = state_tensor.unsqueeze(0)
+            if phase_vector is not None:
+                phase_vector = phase_vector.to(self.device)
+            q_values = self.forward(state_tensor, phase_vector, context_text)
+            probs = torch.softmax(q_values, dim=-1)
+            entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1)
+            console.print(f"[blue]Q-values:[/blue] {q_values.cpu().numpy().tolist()}")
+            console.print(f"[magenta]Softmax:[/magenta] {probs.cpu().numpy().tolist()}")
+            console.print(f"[yellow]Entropy:[/yellow] {entropy.item():.4f}")
+
+    def train_step(self, states, actions, targets, grad_clip=1.0):
+        """
+        DQN update: minimize (Q(s,a) - target)^2.
         """
         self.train()
-        logits = self.forward(states)
-        log_probs = F.log_softmax(logits, dim=-1)
-        probs = F.softmax(logits, dim=-1)
-        entropy = -(log_probs * probs).sum(dim=-1).mean()
-
-        selected_log_probs = log_probs.gather(1, actions.unsqueeze(1)).squeeze()
-        policy_loss = -(selected_log_probs * advantages.detach()).mean()
-        total_loss = policy_loss - (entropy_beta or self.entropy_beta) * entropy
-
+        q_values = self.forward(states)
+        q_selected = q_values.gather(1, actions.unsqueeze(1)).squeeze()
+        loss = torch.nn.functional.smooth_l1_loss(q_selected, targets)
         self.optimizer.zero_grad()
-        total_loss.backward()
+        loss.backward()
         nn.utils.clip_grad_norm_(self.parameters(), grad_clip)
         self.optimizer.step()
         self.scheduler.step()
-
         self.noisy_fc3.reset_noise()
         self.noisy_fc4.reset_noise()
-
-        if self.use_dynamic_temp:
-            self._adjust_temperature(entropy.item())
-
-        return total_loss.item(), entropy.item()
-
-    def _adjust_temperature(self, entropy_val):
-        """
-        Dynamically adjust temperature based on entropy.
-        """
-        target_entropy = 0.85
-        self.temperature *= (1.0 + (target_entropy - entropy_val))
-        self.temperature = max(0.3, min(1.8, self.temperature))
-
-    def adjust_entropy_beta(self, factor):
-        self.entropy_beta = max(0.005, min(0.05, self.entropy_beta * factor))
-        console.print(f"[cyan]🔧 Entropy beta adjusted to {self.entropy_beta:.4f}[/cyan]")
-
-    def inspect_distribution(self, state, context_text=None):
-        """
-        Visualize action probabilities for a given state and context.
-        """
-        self.eval()
-        with torch.no_grad():
-            state_tensor = safe_tensor(state, self.device).unsqueeze(0)
-            context_vector = None
-            if context_text:
-                context_vector = torch.tensor(self.context_encoder.encode(context_text), dtype=torch.float32).unsqueeze(0).to(self.device)
-
-            logits = self.forward(state_tensor, context_texts=[context_text])
-            probs = F.softmax(logits, dim=-1).squeeze()
-
-            console.print("[bold cyan]🎯 Action Probability Distribution:[/bold cyan]")
-            for idx, prob in enumerate(probs):
-                console.print(f"  Action {idx}: [green]{prob:.4f}[/green]")
-
-    def uncertainty_score(self, state, context_text=None):
-        """
-        Calculate entropy as a measure of uncertainty in decision-making.
-        """
-        self.eval()
-        with torch.no_grad():
-            state_tensor = safe_tensor(state, self.device).unsqueeze(0)
-            logits = self.forward(state_tensor, context_texts=[context_text])
-            probs = F.softmax(logits, dim=-1)
-            log_probs = F.log_softmax(logits, dim=-1)
-            entropy = -(log_probs * probs).sum(dim=-1)
-            return entropy.item()
+        return loss.item()
 
     def save(self, path):
         try:
