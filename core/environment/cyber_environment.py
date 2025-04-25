@@ -32,6 +32,22 @@ class CyberEnvironment:
         ]
         self.phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
 
+        # Initialize all required attributes with default values
+        self.difficulty_level = 1
+        self.open_ports = []
+        self.services = []
+        self.target_ip = "10.10.10.10"
+        self.hostname = "target"
+        self.credentials_found = False
+        self.privilege_level = "none"
+        self.data_exfiltrated = False
+        self.detection_risk = 0.0
+        self.blue_team_alert = 0.0
+        self.honeypots = []
+        self.previous_actions = []
+        self.done = False
+        self.current_phase = "recon"  # Default starting phase
+
         # Only set agent_manager if provided (prevents recursion)
         self.agent_manager = agent_manager
         self.stats_monitor = None
@@ -84,6 +100,8 @@ class CyberEnvironment:
                     self.difficulty_level = getattr(self, "difficulty_level", 1)
             else:
                 self.difficulty_level = 1
+            
+            # Initialize all attributes needed by get_global_state
             self.current_phase = "recon"
             self.open_ports = sorted(
                 random.sample(range(20, 10000), k=random.randint(6, 12))
@@ -102,6 +120,23 @@ class CyberEnvironment:
             self.honeypots = []
             self.previous_actions = []
             self.done = False
+            
+            # Create/update state object for agents
+            self.state = {
+                "phase": self.current_phase,
+                "open_ports": self.open_ports,
+                "services": self.services,
+                "target_ip": self.target_ip,
+                "hostname": self.hostname,
+                "credentials_found": self.credentials_found,
+                "privilege_level": self.privilege_level,
+                "data_exfiltrated": self.data_exfiltrated,
+                "detection_risk": self.detection_risk,
+                "blue_team_alert": self.blue_team_alert,
+                "honeypots": self.honeypots,
+                "difficulty": self.difficulty_level,
+                "done": self.done
+            }
         except Exception as e:
             console.print(f"[red]❌ Error during environment reset: {e}[/red]")
 
@@ -143,17 +178,41 @@ class CyberEnvironment:
     # ─────────────────────────────────────────────
     # 🎮 Multi-Agent Step Execution
     # ─────────────────────────────────────────────
-    def step(self, action=None):
+    def step(self, action=None, agent_actions=None, event_log=None):
         """
-        Improved step method with better error handling, agent coordination, and visualization
+        Improved step method with better error handling, agent coordination, and visualization.
+        Accepts either a single action (legacy) or a batch of agent_actions (event-driven).
+        Optionally logs all transitions to the shared event log.
         """
         try:
             if self.done:
                 console.print(
                     "[yellow]⚠ Environment already completed. Reset required.[/yellow]"
                 )
+                if event_log is not None:
+                    event_log.append({"event_type": "env_transition", "done": True, "state": self.get_global_state()})
                 return self.get_global_state(), 0, True, {}
-            
+            # --- Event-driven batch update ---
+            if agent_actions and isinstance(agent_actions, list):
+                # Apply all agent actions in batch (e.g., RedAgent, BlueAgent, etc.)
+                for agent_event in agent_actions:
+                    agent_id = agent_event.get("agent_id")
+                    command = agent_event.get("command")
+                    # For RedAgent, process as main action
+                    if agent_id == "RedAgent":
+                        result = self._process_red_action(command)
+                        if event_log is not None:
+                            event_log.append({"event_type": "env_transition", "agent_id": agent_id, "result": result})
+                    # For BlueAgent, process as defense (if needed)
+                    elif agent_id == "BlueAgent":
+                        # Optionally, process blue defense here
+                        pass
+                    # Add more agent types as needed
+                # After all actions, update state and return
+                state = self.get_global_state()
+                if event_log is not None:
+                    event_log.append({"event_type": "env_state", "state": state})
+                return state, 0, self.done, {}
             # Check if we have an agent_manager
             if not self.agent_manager:
                 # Standalone mode - simpler processing
@@ -256,10 +315,19 @@ class CyberEnvironment:
             "privesc": 28.0 if self.privilege_level == "user" else -6.0,
             "exfiltrate": 65.0 if self.privilege_level == "root" else -10.0,
         }
-
+        # --- Reward shaping: add sub-goal rewards ---
+        subgoal_reward = 0.0
+        if action == "recon" and len(self.open_ports) > 0:
+            subgoal_reward += 1.0  # Found scan target
+        if action == "exploit" and self.credentials_found:
+            subgoal_reward += 3.0  # Exploit attempt initiated
+        if action == "privesc" and self.privilege_level == "user":
+            subgoal_reward += 2.0  # Privilege escalation attempt
+        if action == "exfiltrate" and self.privilege_level == "root":
+            subgoal_reward += 5.0  # Data exfiltration attempt
         if action in self.phases:
             self.current_phase = action
-            reward = phase_rewards.get(action, -2.0)
+            reward = phase_rewards.get(action, -2.0) + subgoal_reward
             self._adjust_risks(action)
             if action == "exploit" and reward > 0:
                 self.privilege_level = "user"
@@ -272,7 +340,6 @@ class CyberEnvironment:
             reward = -15.0
             self._increase_detection(0.5)
             console.print(f"[red]❌ Invalid action by RedAgent: {action}[/red]")
-
         return {
             "phase": self.current_phase,
             "reward": reward,
@@ -574,3 +641,6 @@ Keep it brief (max 5 lines) and realistic."""
         if hasattr(self, "honeypots"):
             self.honeypots.append(f"honeypot_{random.randint(100,999)}")
             console.print("[yellow]🛡️ Honeypot deployed due to RedAgent aggression.[/yellow]")
+
+    # --- Curriculum scaffolding: progressive difficulty ---
+    # To implement: parameterize scenario difficulty in config/setup_multiagent.py and increase self.difficulty_level over episodes.

@@ -3,6 +3,7 @@ import os
 import json
 import sqlite3
 from typing import Optional
+import numpy as np
 
 class ReplayBuffer:
     """
@@ -63,18 +64,36 @@ class ReplayBuffer:
             if len(self.buffer) > self.capacity:
                 self.buffer.pop()
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, prioritized=False):
         """
-        Sample a batch of experiences, prioritized by reward.
+        Sample a batch of experiences.
+        By default, uses uniform random sampling for stability.
+        If prioritized=True, uses proportional sampling by priority^alpha.
         Args:
             batch_size (int): Number of experiences to sample.
+            prioritized (bool): Whether to use prioritized sampling.
         Returns:
             list: Sampled experiences.
         """
         if self.use_sqlite:
             cursor = self.conn.execute("SELECT experience FROM experiences ORDER BY priority DESC LIMIT ?", (batch_size,))
             return [json.loads(row[0]) for row in cursor.fetchall()]
-        return [exp for _, exp in self.buffer[:batch_size]]
+        if not self.buffer:
+            return []
+        if prioritized:
+            # --- Proportional sampling by priority^alpha (importance sampling) ---
+            import numpy as np
+            priorities = np.array([priority for priority, _ in self.buffer])
+            probs = priorities ** self.alpha
+            probs /= probs.sum()
+            indices = np.random.choice(len(self.buffer), size=min(batch_size, len(self.buffer)), p=probs, replace=False)
+            batch = [self.buffer[i][1] for i in indices]
+            return batch
+        else:
+            # --- Uniform random sampling (default, recommended for DQN stability) ---
+            indices = random.sample(range(len(self.buffer)), min(batch_size, len(self.buffer)))
+            batch = [self.buffer[i][1] for i in indices]
+            return batch
 
     def prune_redundancy(self, redundancy_detector):
         """

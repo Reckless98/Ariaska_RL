@@ -24,14 +24,12 @@ def parse_args():
     parser.add_argument("--log-level", type=str, default="info", help="Logging level")
     return parser.parse_args()
 
-from core.multi_agent_trainer import display_live_training_dashboard, log_phase_transition
-
 def main():
     args = parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     console.rule("[bold magenta]🚀 ARIASKA RL TRAINER v12.0 — Multi-Agent Protocols Engaged")
 
-    # Import dependencies locally to avoid circular imports
+    # --- Modular Initialization ---
     from core.monitor.stats_monitor import StatsMonitor
     from core.multiagent.agent_manager import AgentManager
     from core.multiagent.memory_router import MemoryRouter
@@ -39,127 +37,125 @@ def main():
     from core.agents.orion_agent import OrionAgent
     from core.multi_agent_trainer import MultiAgentTrainer
     from core.ui_helpers import display_redagent_learning_dashboard
+    from core.strategy_optimizer import StrategyOptimizer
+    from core.utils.llm_orchestrator import LLMRouter
 
-    # Initialize the StatsMonitor and AgentManager for tracking
-    stats_monitor = StatsMonitor(verbosity=args.verbosity)
-    agent_manager = AgentManager(verbosity=args.verbosity)
+    # Load configuration (could be extended to YAML/JSON)
+    episodes = args.episodes
+    steps = args.steps
+    verbosity = args.verbosity
+
+    # Instantiate shared components
+    stats_monitor = StatsMonitor(verbosity=verbosity)
+    agent_manager = AgentManager(verbosity=verbosity)
     memory_router = MemoryRouter(agent_manager.all_agents())
+    llm_router = LLMRouter()  # Central LLM dispatcher
+    strategy_optimizer = StrategyOptimizer(agent_manager=agent_manager, memory_router=memory_router) if not args.no_gpt else None
 
-    # Initialize Orion for pre/post-training insight
-    orion_agent = OrionAgent(agent_manager=agent_manager, memory_router=memory_router)
+    # Assign per-agent modules
+    for agent in agent_manager.all_agents():
+        if hasattr(agent, "memory_manager") and agent.memory_manager is None:
+            from core.utils.memory_manager import MemoryManager
+            agent.memory_manager = MemoryManager(agent_id=agent.agent_id)
+        if hasattr(agent, "memory_router"):
+            agent.memory_router = memory_router
+        if hasattr(agent, "stats_monitor"):
+            agent.stats_monitor = stats_monitor
 
-    # Initialize the MultiAgentTrainer
-    trainer = MultiAgentTrainer(agent_manager=agent_manager, stats_monitor=stats_monitor, memory_router=memory_router)
-
-    # Pre-training briefing from Orion
-    if args.orion:
-        orion_agent.trigger_orion_review()
-
-    # --- Enhanced Training Loop ---
-    meta_interval = 5  # Meta-learning every N episodes
-    rewards_history = []
-    llm_usage = {"Seneca": {"calls": 0, "tokens": 0}, "Lily": {"calls": 0, "tokens": 0}, "GPT-4o": {"calls": 0, "tokens": 0}}
-    prev_phase = None
-    try:
-        if args.auto:
-            trainer.run_autopilot(cycles=args.cycles)
-        else:
-            # Smarter per-agent training loop with detailed logging
-            for episode in range(1, (args.max_episodes or args.episodes) + 1):
-                console.rule(f"[bold cyan]🌐 Episode {episode}/{args.episodes} — Multi-Agent Training[/bold cyan]")
-                for agent in agent_manager.all_agents():
-                    if hasattr(agent, "reset"):
-                        agent.reset()
-                for step in range(args.steps):
-                    for agent in agent_manager.all_agents():
-                        if hasattr(agent, "simulate_step"):
-                            info = agent.simulate_step(episode=episode, step=step + 1)
-                            # Human-readable UI logging
-                            console.print(
-                                f"[bold blue]{agent.agent_id}[/bold blue] | "
-                                f"Step: {step+1} | "
-                                f"Phase: {info.get('phase', 'N/A')} | "
-                                f"Action: {info.get('command', 'N/A')} | "
-                                f"Reward: {info.get('reward', 0):+.2f} | "
-                                f"GPT Calls: {info.get('gpt_calls', 0)}"
-                            )
-                            if info.get("reasoning"):
-                                console.print(f"[dim]🧠 Reasoning: {info['reasoning']}[/dim]")
-                            # Prevent repetitive actions: check replay buffer and adapt
-                            if hasattr(agent, "replay_buffer") and hasattr(agent, "command_history"):
-                                recent_cmds = agent.command_history[-5:]
-                                if len(set(recent_cmds)) < len(recent_cmds):
-                                    console.print(
-                                        f"[yellow]♻️ {agent.agent_id}: Detected repetition in recent actions. Forcing exploration.[/yellow]"
-                                    )
-                                    agent.epsilon = min(1.0, agent.epsilon * 1.05)
-                            # --- RedAgent dashboard after each step ---
-                            if getattr(agent, "agent_id", None) == "RedAgent":
-                                display_redagent_learning_dashboard(
-                                    redagent=agent,
-                                    memory_router=agent.memory_router,
-                                    redagent_brain=agent.redagent_brain
-                                )
-                            # CLI live dashboard
-                            rewards_history.append(info.get("reward", 0))
-                            # Phase transition logging
-                            phase = info.get("phase", None)
-                            if prev_phase is not None and phase is not None:
-                                log_phase_transition(prev_phase, phase)
-                            prev_phase = phase
-                            # LLM usage tracking (example, adapt as needed)
-                            if hasattr(agent, "gpt_manager"):
-                                llm_usage["GPT-4o"]["calls"] += 1
-                                llm_usage["GPT-4o"]["tokens"] += agent.gpt_manager.get_token_usage(agent.agent_id)
-                            # Display live dashboard every 5 steps
-                            if (step + 1) % 5 == 0:
-                                display_live_training_dashboard(agent_manager.all_agents(), episode, step + 1, rewards_history, llm_usage)
-                    # Optional: checkpoint every N steps
-                    if (step + 1) % 10 == 0:
-                        console.print(f"[green]💾 Checkpointing models and memory at step {step+1}[/green]")
-                        agent_manager.save_all_models()
-                        agent_manager.snapshot_all()
-                # End of episode: batch train and checkpoint
-                console.print(f"[magenta]🔁 Batch training after episode {episode}[/magenta]")
-                agent_manager.batch_train_all(batches=args.batches)
-                agent_manager.save_all_models()
-                agent_manager.snapshot_all()
-                agent_manager.sync_all_memories()
-                # Show episode summary
-                agent_manager._log_multiagent_episode(episode)
-                # Meta-learning loop: every N episodes, summarize RedAgent evolution and send to GPT for strategy update
-                if episode % meta_interval == 0:
-                    red_agent = agent_manager.get_agent("RedAgent")
-                    if hasattr(red_agent, "memory_router") and hasattr(red_agent.memory_router, "get_redagent_evolution_stats"):
-                        stats = red_agent.memory_router.get_redagent_evolution_stats(n=200)
-                        summary = f"Top commands: {sorted(stats['commands'], key=stats['commands'].get, reverse=True)[:5]}\n" \
-                                  f"Success rates: {sorted(stats['success_rates'].items(), key=lambda x: x[1], reverse=True)[:5]}\n" \
-                                  f"Failures: {sorted(stats['failures'].items(), key=lambda x: x[1], reverse=True)[:5]}"
-                        prompt = f"""
-You are a cybersecurity RL coach. Analyze these RedAgent stats and recommend improvements:
-{summary}
-- Identify weak strategies and suggest alternatives.
-- Recommend new tactics to explore.
-Respond in JSON: {{"recommendations": [...], "new_tactics": [...]}}
-"""
-                        gpt_feedback = red_agent.gpt_manager.gpt_request(prompt, task_type="meta-analysis")
-                        # Optionally log or print meta-analysis
-                        console.print(f"[bold magenta]🧠 Meta-Learning Feedback:[/bold magenta] {gpt_feedback}")
-                # Checkpointing every 5 episodes
-                if episode % 5 == 0:
-                    agent_manager.save_all_models()
-                    agent_manager.snapshot_all()
-            # Print LLM usage summary at end
-            display_live_training_dashboard(agent_manager.all_agents(), episode, args.steps, rewards_history, llm_usage)
-            # Post-training Orion insights and session summary
-            if args.orion:
-                orion_agent.display_episode_summary()
-    except Exception as e:
-        logging.error(f"Training loop crashed: {e}")
+    # --- Main Episode Loop (Event-Driven Turn-Based) ---
+    for episode in range(1, (args.max_episodes or episodes) + 1):
+        console.rule(f"[bold cyan]🌐 Episode {episode}/{episodes} — Multi-Agent Training[/bold cyan]")
+        # Reset environment and agent states
+        for agent in agent_manager.all_agents():
+            if hasattr(agent, "reset"):
+                agent.reset()
+        # Turn Loop: Red and Blue alternate steps
+        for step in range(1, steps + 1):
+            # --- RedAgent Turn ---
+            red = agent_manager.get_agent("RedAgent")
+            red_info = red.simulate_step(episode=episode, step=step)
+            # --- BlueAgent Turn ---
+            blue = agent_manager.get_agent("BlueAgent")
+            blue_info = blue.simulate_step(episode=episode, step=step)
+            # --- Output Interpretation ---
+            from core.logic.output_interpreter import analyze_output
+            red_parsed = analyze_output(red_info["command"], red_info["output"])
+            blue_parsed = analyze_output(blue_info["command"], blue_info["output"])
+            # --- Reward Computation (handled by agent's simulate_step) ---
+            # --- Memory Logging ---
+            if hasattr(red, "memory_manager"):
+                red.memory_manager.save_experience(red_info)
+            if hasattr(blue, "memory_manager"):
+                blue.memory_manager.save_experience(blue_info)
+            
+            # Fixed: Use log_transition with proper parameters instead of route_memory with agent IDs
+            memory_router.log_transition(
+                red.agent_id, 
+                red_info["state"], 
+                red_info["command"], 
+                red_info["reward"], 
+                red_info.get("next_state", red_info["state"]), 
+                gpt_tokens=red_info.get("gpt_calls", 0)
+            )
+            memory_router.log_transition(
+                blue.agent_id, 
+                blue_info["state"], 
+                blue_info["command"], 
+                blue_info["reward"], 
+                blue_info.get("next_state", blue_info["state"]), 
+                gpt_tokens=blue_info.get("gpt_calls", 0)
+            )
+            
+            # --- Stats Logging ---
+            stats_monitor.log_step(red.agent_id, red_info["reward"], phase=red_info.get("phase"), command=red_info["command"])
+            stats_monitor.log_step(blue.agent_id, blue_info["reward"], phase=blue_info.get("phase"), command=blue_info["command"])
+            # --- Teaching Update ---
+            teach = TeachModule()
+            teach.add_action(command=red_info["command"], description=red_info.get("reasoning", ""), phase=red_info.get("phase"), reward=red_info["reward"])
+            teach.add_action(command=blue_info["command"], description=blue_info.get("reasoning", ""), phase=blue_info.get("phase"), reward=blue_info["reward"])
+            
+            # --- Synchronization (global insights) ---
+            # Fixed: route_memory expects a dictionary, not agent IDs
+            memory_router.on_turn_end()  # Use event-based hook instead of direct routing
+        # --- End of Episode ---
+        # Snapshot Memory
+        for agent in agent_manager.all_agents():
+            if hasattr(agent, "memory_manager") and hasattr(agent.memory_manager, "snapshot"):
+                agent.memory_manager.snapshot()
+        # Global Sync
+        memory_router.snapshot_all_memories()
+        memory_router.sync_global_insights()
+        # Statistics Display
+        stats_monitor.display_episode_summary()
+        # Optionally show Orion's insights
+        orion = agent_manager.get_agent("OrionAgent")
+        if hasattr(orion, "display_episode_summary"):
+            orion.display_episode_summary()
+        # Chain Generation
+        if args.chain:
+            from core.logic.chainbuilder import build_and_store_chain
+            for agent in agent_manager.all_agents():
+                build_and_store_chain(agent.memory_manager.memory)
+        # Strategy Optimization
+        if strategy_optimizer:
+            perf_metrics = stats_monitor.get_performance_metrics()
+            strategy_report = strategy_optimizer.optimize_strategy(perf_metrics)
+            if strategy_report and "insights" in strategy_report:
+                console.print(f"[bold magenta]🧠 Strategy Insights:[/bold magenta] {strategy_report['insights']}")
+        # DQN Training (policy/value updates)
+        for agent in agent_manager.all_agents():
+            if hasattr(agent, "train_on_batch"):
+                agent.train_on_batch()
+        # Save models
         agent_manager.save_all_models()
-        agent_manager.snapshot_all()
-        raise
-
+        # Visualization (optional)
+        from core.visualization.training_visualizer import TrainingVisualizer
+        visualizer = TrainingVisualizer(agents=[a.agent_id for a in agent_manager.all_agents()])
+        visualizer.update(env_state=red.env.get_global_state())
+        visualizer.save_visualization_snapshot()
+    # --- Cleanup ---
+    memory_router.close()
+    stats_monitor.flush_logs()
     console.rule("[bold green]🏁 Training Session Complete — ARIASKA Standing By")
 
 # === Monitoring & Observability Stubs ===
@@ -167,13 +163,13 @@ def prometheus_metrics_stub():
     """
     Prometheus metrics endpoint stub. Integrate with Prometheus client to expose agent stats, token usage, and episode metrics.
     """
-    pass  # TODO: Implement Prometheus metrics export
+    pass
 
 def streamlit_dashboard_stub():
     """
     Streamlit dashboard integration stub. Use Streamlit to visualize agent learning, GPT usage, and environment state.
     """
-    pass  # TODO: Implement Streamlit dashboard
+    pass
 
 if __name__ == "__main__":
     main()

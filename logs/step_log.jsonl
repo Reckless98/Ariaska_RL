@@ -1,0 +1,7 @@
+{"agent_id": "RedAgent", "reward": 8.00137850405124, "timestamp": 1745558584.548611, "command": "ollama run seneca\n> Task: Suggest a Linux command to enumerate SMB shares.\n"}
+{"agent_id": "RedAgent", "reward": 8.00137850405124, "timestamp": 1745558584.5489483, "alert": 0.0, "phase": "unknown", "command": "ollama run seneca\n> Task: Suggest a Linux command to enumerate SMB shares.\n"}
+{"agent_id": "RedAgent", "reward": 8.175261210869246, "timestamp": 1745558586.3664105, "command": "ollama run seneca\n> Task: Suggest a Linux command to enumerate SMB shares.\n"}
+{"agent_id": "RedAgent", "reward": 8.175261210869246, "timestamp": 1745558586.366995, "alert": 0.0, "phase": "unknown", "command": "ollama run seneca\n> Task: Suggest a Linux command to enumerate SMB shares.\n"}
+{"agent_id": "RedAgent", "reward": 3.0, "timestamp": 1745561985.3158512, "command": "hydra -l admin -P [wordlist] ssh://[target]"}
+{"agent_id": "ScoutAgent", "reward": 0, "timestamp": 1745561985.316539, "command": "Phase advice: enumeration"}
+{"agent_id": "BlueAgent", "reward": -1.0, "timestamp": 1745561985.3179638, "command": "hydra -l admin -P [wordlist] ssh://[target]"}

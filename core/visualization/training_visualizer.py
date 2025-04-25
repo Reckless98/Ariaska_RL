@@ -58,9 +58,24 @@ class DisplayManager:
         console.print("[yellow]⚠ Display error. Minimal status only.[/yellow]")
 
 class TrainingVisualizer:
-    _active_live_display = None  # Singleton for live display
-
+    # Use class variable to track active instance
+    _active_instance = None
+    _active_live_display = None
+    
+    @classmethod
+    def get_instance(cls, agents=None, max_history=100, log_dir="logs"):
+        """Singleton factory method - ensures only one TrainingVisualizer exists globally"""
+        if cls._active_instance is None:
+            cls._active_instance = TrainingVisualizer(agents, max_history, log_dir)
+        return cls._active_instance
+    
     def __init__(self, agents=None, max_history=100, log_dir="logs"):
+        # If an instance already exists, prevent creating a new one
+        if TrainingVisualizer._active_instance is not None:
+            if agents is not None:
+                console.print("[yellow]⚠ TrainingVisualizer already exists. Use get_instance() instead.[/yellow]")
+            return
+            
         self.agents = agents or ["RedAgent", "BlueAgent", "ScoutAgent", "ShadowAgent", "OrionAgent"]
         self.max_history = max_history
         self.log_dir = log_dir
@@ -86,33 +101,68 @@ class TrainingVisualizer:
         self.coherence_score = 1.0
         self.token_usage = {agent: 0 for agent in self.agents}
         self.token_usage_per_episode = {agent: [] for agent in self.agents}
+        self.epsilon_history = {agent: deque(maxlen=max_history) for agent in self.agents}
+        self.alerts = deque(maxlen=5)
+        self.llm_usage_stats = {
+            agent: {"Seneca": 0, "Lily": 0, "GPT": 0, "tokens": 0, "response_times": []}
+            for agent in self.agents
+        }
+        self.last_update_step = 0
+        self.update_interval = 5  # Only update visuals every N steps for performance
         
     def start_live_display(self):
         """Start live visualization display (singleton)"""
-        display_mgr = DisplayManager.get_instance()
-        if not display_mgr.start(self.live_display):
-            return
-        if self.live_display is None:
-            self.live_display = Live(console=console, refresh_per_second=4)
-            self.live_display.start()
-            self.is_active = True
-            TrainingVisualizer._active_live_display = self.live_display
+        # If there's already a live display active in another instance, stop it first
+        if TrainingVisualizer._active_live_display is not None and TrainingVisualizer._active_live_display is not self.live_display:
+            try:
+                # Try to gracefully stop the other instance's display
+                if hasattr(TrainingVisualizer._active_instance, 'stop_live_display'):
+                    TrainingVisualizer._active_instance.stop_live_display()
+                else:
+                    TrainingVisualizer._active_live_display.stop()
+            except Exception as e:
+                console.print(f"[yellow]⚠ Error stopping previous display: {e}[/yellow]")
+
+        # Start our display
+        try:
+            if self.live_display is None:
+                self.live_display = Live(self.render(), console=console, refresh_per_second=4)
+                self.live_display.start()
+                self.is_active = True
+                TrainingVisualizer._active_live_display = self.live_display
+                TrainingVisualizer._active_instance = self
+                return True
+        except Exception as e:
+            console.print(f"[red]❌ Error starting live display: {e}[/red]")
+            return False
+        return self.is_active
 
     def stop_live_display(self):
         """Stop live visualization display (singleton)"""
-        DisplayManager.get_instance().stop()
-        if self.live_display:
-            try:
+        try:
+            if self.live_display:
                 self.live_display.stop()
-            except Exception:
-                pass
+                self.live_display = None
+                self.is_active = False
+                if TrainingVisualizer._active_live_display is self.live_display:
+                    TrainingVisualizer._active_live_display = None
+                return True
+        except Exception as e:
+            console.print(f"[yellow]⚠ Error stopping live display: {e}[/yellow]")
             self.live_display = None
             self.is_active = False
-            if TrainingVisualizer._active_live_display is self.live_display:
-                TrainingVisualizer._active_live_display = None
+            TrainingVisualizer._active_live_display = None
+        return not self.is_active
             
-    def update(self, agent_data=None, env_state=None, gpt_insight=None, coherence=None):
-        """Update visualization with new data and optionally update global GPT insight/coherence."""
+    def update(self, agent_data=None, env_state=None, gpt_insight=None, coherence=None, force=False):
+        """
+        Update visualization with new data and optionally update global GPT insight/coherence.
+        Only refresh visuals every self.update_interval steps unless force=True.
+        """
+        step = agent_data.get("step", 0) if agent_data else 0
+        if not force and step and (step - self.last_update_step) < self.update_interval:
+            return
+        self.last_update_step = step
         if agent_data:
             self._update_agent_data(agent_data)
             # Store detailed info for advanced panels
@@ -127,6 +177,18 @@ class TrainingVisualizer:
             # Track token usage per step if available
             if agent_id and "gpt_calls" in agent_data:
                 self.token_usage[agent_id] = agent_data["gpt_calls"]
+            # Track epsilon for live plot
+            if agent_id and "epsilon" in agent_data:
+                self.epsilon_history[agent_id].append(agent_data["epsilon"])
+            # Track LLM usage stats if available
+            if agent_id:
+                for llm in ["Seneca", "Lily", "GPT"]:
+                    if f"{llm.lower()}_calls" in agent_data:
+                        self.llm_usage_stats[agent_id][llm] += agent_data.get(f"{llm.lower()}_calls", 0)
+                if "gpt_tokens" in agent_data:
+                    self.llm_usage_stats[agent_id]["tokens"] += agent_data["gpt_tokens"]
+                if "llm_response_time" in agent_data:
+                    self.llm_usage_stats[agent_id]["response_times"].append(agent_data["llm_response_time"])
         if env_state:
             self._update_env_state(env_state)
         if gpt_insight:
@@ -160,10 +222,12 @@ class TrainingVisualizer:
     def _generate_layout(self):
         layout = Layout()
         layout.split(
+            Layout(name="alerts", size=3),
             Layout(name="header", size=6),
             Layout(name="main", ratio=4),
             Layout(name="insights", size=12),
         )
+        layout["alerts"].update(self._generate_alert_panel())
         layout["header"].update(self._generate_header())
         layout["main"].split_row(
             Layout(self._generate_agent_panels(), name="agent_panels", ratio=3),
@@ -175,6 +239,15 @@ class TrainingVisualizer:
             Layout(self._generate_token_usage_panel(), name="tokens"),
         )
         return layout
+
+    def _generate_alert_panel(self):
+        """Show recent alerts/errors at the top of the dashboard."""
+        if not self.alerts:
+            return Panel("[green]No alerts[/green]", title="Status", border_style="green")
+        panels = []
+        for msg, color in list(self.alerts):
+            panels.append(Panel(f"[{color}]{msg}[/{color}]", border_style=color))
+        return Columns(panels)
             
     def _generate_header(self):
         """Generate header with summary metrics"""
@@ -202,36 +275,32 @@ class TrainingVisualizer:
         return Panel(table, title="🚀 Training Progress", border_style="bright_blue")
         
     def _generate_agent_panels(self):
-        """Show per-agent panels with advanced info and phase charts."""
+        """Show per-agent panels with advanced info, phase charts, and live epsilon/reward plots."""
         panels = []
         for agent in self.agents:
             data = getattr(self, "agent_panels", {}).get(agent, {})
-            table = Table(title=f"{agent} Recent Steps", box=box.ROUNDED)
-            table.add_column("Step", style="dim")
-            table.add_column("Action", style="cyan")
-            table.add_column("Phase", style="magenta")
-            table.add_column("Reward", style="green")
-            table.add_column("GPT", style="yellow")
-            table.add_column("ReplayBuf", style="blue")
-            table.add_column("Eps", style="cyan")
-            table.add_column("Ent", style="magenta")
-            table.add_column("Reasoning", style="blue")
-            for i in range(-5, 0):
-                idx = i if i < 0 else None
-                action = data.get("command", "N/A")
-                phase = data.get("phase", "N/A")
-                reward = data.get("reward", 0)
-                gpt_calls = data.get("gpt_calls", "-")
-                replay_buffer = data.get("replay_buffer", "-")
-                epsilon = f"{data.get('epsilon', 0):.3f}" if "epsilon" in data else "-"
-                entropy = f"{data.get('entropy_beta', 0):.3f}" if "entropy_beta" in data else "-"
-                reasoning = data.get("reasoning", "-")
-                # Highlight anomalies
-                reward_str = f"[red]{reward}[/red]" if reward < 0 else str(reward)
-                table.add_row(str(idx), str(action), str(phase), reward_str, str(gpt_calls), str(replay_buffer), str(epsilon), str(entropy), str(reasoning))
-            phase_chart = self._generate_phase_chart(agent)
-            panels.append(Panel.fit(table, title=f"{agent} Steps", border_style="blue"))
-            panels.append(phase_chart)
+            table = Table(title=f"{agent} State", box=box.ROUNDED)
+            table.add_column("Field", style="cyan")
+            table.add_column("Value", style="magenta")
+            # Phase, last action, status
+            phase = data.get("phase", "N/A")
+            action = data.get("command", "N/A")
+            stuck = False
+            if "stuck" in data and data["stuck"]:
+                stuck = True
+            elif "reward" in data and isinstance(data["reward"], (int, float)):
+                # Heuristic: reward not improving for N steps
+                rewards = list(self.agent_history[agent]["rewards"])
+                if len(rewards) >= 4 and max(rewards[-4:]) - min(rewards[-4:]) < 1e-3:
+                    stuck = True
+            status = "[red]STUCK[/red]" if stuck else "[green]OK[/green]"
+            table.add_row("Phase", str(phase))
+            table.add_row("Last Action", str(action))
+            table.add_row("Status", status)
+            # Epsilon and reward plots
+            table.add_row("Epsilon", self._plot_line_ascii(self.epsilon_history[agent], "cyan"))
+            table.add_row("Reward", self._plot_line_ascii(self.agent_history[agent]["rewards"], "green"))
+            panels.append(Panel(table, border_style="blue"))
         return Columns(panels)
         
     def _generate_phase_chart(self, agent):
@@ -353,7 +422,7 @@ class TrainingVisualizer:
         # Show services if available
         if "services" in state:
             services = state["services"]
-            service_display = ", ".join(services[:6])
+            service_display = ", ". join(services[:6])
             if len(services) > 6:
                 service_display += f" +{len(services)-6}"
             table.add_row("Services", service_display)
@@ -379,16 +448,42 @@ class TrainingVisualizer:
         )
 
     def _generate_token_usage_panel(self):
-        """Show GPT call stats for all agents, per step and per episode."""
-        table = Table(title="🧠 GPT Token Usage", box=box.ROUNDED)
+        """Show LLM call stats for all agents, including Seneca/Lily/GPT, tokens, and response times."""
+        table = Table(title="🧠 LLM Usage", box=box.ROUNDED)
         table.add_column("Agent", style="cyan")
-        table.add_column("GPT Calls (Step)", style="yellow")
-        table.add_column("Total (Episode)", style="magenta")
+        table.add_column("Seneca", style="yellow")
+        table.add_column("Lily", style="magenta")
+        table.add_column("GPT", style="red")
+        table.add_column("Tokens", style="green")
+        table.add_column("Avg Resp (s)", style="blue")
         for agent in self.agents:
-            step_calls = self.token_usage.get(agent, 0)
-            episode_calls = sum(self.token_usage_per_episode.get(agent, []))
-            table.add_row(agent, str(step_calls), str(episode_calls))
-        return Panel(table, title="🧠 Token Usage", border_style="yellow")
+            stats = self.llm_usage_stats.get(agent, {})
+            avg_resp = (
+                sum(stats.get("response_times", [])) / len(stats.get("response_times", []))
+                if stats.get("response_times") else 0.0
+            )
+            table.add_row(
+                agent,
+                str(stats.get("Seneca", 0)),
+                str(stats.get("Lily", 0)),
+                str(stats.get("GPT", 0)),
+                str(stats.get("tokens", 0)),
+                f"{avg_resp:.2f}"
+            )
+        return Panel(table, title="🧠 LLM Usage", border_style="yellow")
+
+    def _plot_line_ascii(self, values, color="green", width=24, height=1):
+        """Render a simple ASCII bar for a list of values."""
+        if not values:
+            return ""
+        min_v, max_v = min(values), max(values)
+        rng = max(1e-6, max_v - min_v)
+        scaled = [int((v - min_v) / rng * (width - 1)) if rng > 0 else 0 for v in values[-width:]]
+        bar = [" "] * width
+        for idx in scaled:
+            if 0 <= idx < width:
+                bar[idx] = "█"
+        return f"[{color}]{''.join(bar)}[/{color}]"
 
     def save_visualization_snapshot(self, filename=None):
         """Save current visualization to a file"""
@@ -446,3 +541,36 @@ class TrainingVisualizer:
             console_output.print(f"  Steps: {len(data['rewards'])}")
             
         console_output.file.close()
+        
+    def push_alert(self, message, level="error"):
+        """Push an alert/warning to be displayed at the top of the dashboard."""
+        color = "red" if level == "error" else "yellow"
+        self.alerts.appendleft((message, color))
+
+    def render(self):
+        """
+        Generate a rich layout for the live visualization display.
+        This serves as the main rendering function for the Live display.
+        
+        Returns:
+            Layout: A rich Layout object with nested panels and tables.
+        """
+        layout = Layout()
+        layout.split(
+            Layout(name="alerts", size=3),
+            Layout(name="header", size=6),
+            Layout(name="main", ratio=4),
+            Layout(name="insights", size=12),
+        )
+        layout["alerts"].update(self._generate_alert_panel())
+        layout["header"].update(self._generate_header())
+        layout["main"].split_row(
+            Layout(self._generate_agent_panels(), name="agent_panels", ratio=3),
+            Layout(self._generate_environment_panel(), name="environment", ratio=2)
+        )
+        layout["insights"].split_row(
+            Layout(self._generate_gpt_insight_panel(), name="gpt"),
+            Layout(self._generate_coherence_panel(), name="coherence"),
+            Layout(self._generate_token_usage_panel(), name="tokens"),
+        )
+        return layout

@@ -25,7 +25,7 @@ class ShadowAgent:
 
     def __init__(self, agent_manager=None, memory_router=None, verbosity="standard"):
         self.agent_id = "ShadowAgent"
-        self.memory_manager = MemoryManager(agent_name="shadow_agent")
+        self.memory_manager = MemoryManager(agent_id="shadow_agent")
         self.memory = {
             "actions": [],
             "rewards": {},

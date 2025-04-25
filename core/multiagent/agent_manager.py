@@ -26,6 +26,7 @@ class AgentManager:
         self.stats_monitor = self._import_stats_monitor()()
         self.verbosity = verbosity
         self.shared_context = {}
+        self.event_log = []  # Shared, append-only event log for all agent/environment events
         
         # Defer agent creation to avoid circular references
         self.red_agent = None
@@ -39,7 +40,23 @@ class AgentManager:
         self.memory_router = self._import_memory_router()([])
         
         # Now create all agents
-        self._initialize_agents()
+        try:
+            self._initialize_agents()
+        except Exception as e:
+            console.print(f"[red]❌ Agent initialization failed: {e}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
+        
+        # Ensure OrionAgent is present
+        if not self.orion_agent or not any(a for a in self.agents if getattr(a, "agent_id", None) == "OrionAgent"):
+            try:
+                from core.agents.orion_agent import OrionAgent
+                orion = OrionAgent(agent_manager=self, memory_router=self.memory_router)
+                self.orion_agent = orion
+                self.agents.append(orion)
+                console.print("[yellow]⚠ OrionAgent was missing and has been instantiated.[/yellow]")
+            except Exception as e:
+                console.print(f"[red]❌ Failed to instantiate OrionAgent: {e}[/red]")
         
         # Collect agent status for dashboard
         for agent in self.agents:
@@ -220,30 +237,38 @@ class AgentManager:
                     
                     # Then run all other agents, with improved error handling
                     for step in range(max_steps):
-                        try:
-                            # New: Periodic sync step for agent coordination
-                            if step % 10 == 0:
-                                self._multiagent_sync()
-                            for agent in agents:
-                                if agent.agent_id == "ScoutAgent":
-                                    # Skip Scout as it's already run for coordination
-                                    continue
-                                    
-                                if hasattr(agent, "simulate_step"):
-                                    # Use the proper simulate_step method
-                                    step_info = self._simulate_agent_step(agent, ep+1, step+1, shared_context=self.shared_context)
-                                    self._log_agent_step(agent, ep+1, step+1, step_info)
-                                    if visualizer:
-                                        visualizer.update(agent_data=step_info)
-                                    progress.update(task, advance=1)
-                                elif hasattr(agent, "simulate_train"):
-                                    # For agents that don't have simulate_step
-                                    agent.simulate_train(episodes=1, max_steps=1, log_every=1, use_progress_bar=False)
-                        except Exception as e:
-                            console.print(f"[bold red]❌ Error in agent execution: {e}[/bold red]")
-                            import traceback
-                            console.print(traceback.format_exc())
-                        
+                        turn_events = []
+                        shared_state = self._get_latest_shared_state()
+                        # --- Turn-based event loop: each agent acts in sequence ---
+                        for agent in agents:
+                            if agent.agent_id == "ScoutAgent":
+                                continue  # ScoutAgent may act as advisor, not actor
+                            try:
+                                # Each agent consumes the latest shared state and emits an action event
+                                action_event = self._agent_emit_action_event(agent, ep+1, step+1, shared_state)
+                                turn_events.append(action_event)
+                            except Exception as e:
+                                console.print(f"[bold red]❌ Error in {agent.agent_id} action: {e}[/bold red]")
+                                import traceback
+                                console.print(traceback.format_exc())
+                                turn_events.append({
+                                    "agent_id": agent.agent_id,
+                                    "error": str(e),
+                                    "step": step+1,
+                                    "episode": ep+1
+                                })
+                        # --- Apply all actions to environment in one batch update ---
+                        env_events = self._apply_actions_to_environment(turn_events)
+                        # --- Append all events to the shared event log (atomic, append-only) ---
+                        self.event_log.extend(turn_events)
+                        self.event_log.extend(env_events)
+                        # --- MemorySyncInterface: serialize memory updates after env step ---
+                        self._sync_all_agent_memories()
+                        # --- Visualization ---
+                        if 'visualizer' in locals() and visualizer:
+                            for event in turn_events + env_events:
+                                visualizer.update(agent_data=event)
+                        # ...existing code for progress, model saves, etc...
                         # Save models/snapshots every 15 steps or at episode end
                         if (step + 1) % 15 == 0 or (step + 1) == max_steps:
                             if self.verbosity != "quiet":
@@ -268,6 +293,118 @@ class AgentManager:
             console.print(f"[red]❌ Error in simulate_all_agents: {e}[/red]")
             import traceback
             console.print(traceback.format_exc())
+
+    def _agent_emit_action_event(self, agent, episode, step, shared_state):
+        """
+        Each agent consumes the latest shared state and emits an action event.
+        Returns a dict event: {agent_id, action, phase, ...}
+        """
+        info = {
+            "agent_id": agent.agent_id,
+            "step": step,
+            "episode": episode,
+            "event_type": "action"
+        }
+        try:
+            if hasattr(agent, "simulate_step"):
+                agent_info = agent.simulate_step(episode=episode, step=step, shared_context=shared_state)
+                info.update(agent_info)
+            else:
+                info["command"] = getattr(agent, "command_history", ["N/A"])[-1] if getattr(agent, "command_history", None) else "N/A"
+                info["phase"] = getattr(agent, "current_mode", "N/A")
+            return info
+        except Exception as e:
+            info["error"] = str(e)
+            return info
+
+    def _apply_actions_to_environment(self, turn_events):
+        """
+        Apply all agent actions to the environment in a single batch update.
+        Returns a list of environment transition events.
+        """
+        env_events = []
+        # Example: RedAgent and BlueAgent actions are applied to the environment
+        # (You may extend this logic for more agents or more complex coordination)
+        red_action = next((e for e in turn_events if e.get("agent_id") == "RedAgent"), None)
+        blue_action = next((e for e in turn_events if e.get("agent_id") == "BlueAgent"), None)
+        # Apply RedAgent action
+        if red_action and hasattr(self.red_agent, "env"):
+            try:
+                state, reward, done, info = self.red_agent.env.step(red_action.get("command"))
+                env_events.append({
+                    "event_type": "env_transition",
+                    "agent_id": "RedAgent",
+                    "state": state,
+                    "reward": reward,
+                    "done": done,
+                    "info": info,
+                    "step": red_action.get("step"),
+                    "episode": red_action.get("episode")
+                })
+            except Exception as e:
+                env_events.append({
+                    "event_type": "env_transition",
+                    "agent_id": "RedAgent",
+                    "error": str(e),
+                    "step": red_action.get("step"),
+                    "episode": red_action.get("episode")
+                })
+        # Apply BlueAgent action (if needed)
+        if blue_action and hasattr(self.blue_agent, "env"):
+            try:
+                # Optionally, BlueAgent may react to RedAgent's action or environment state
+                # For now, just log the action as an event
+                env_events.append({
+                    "event_type": "env_transition",
+                    "agent_id": "BlueAgent",
+                    "action": blue_action.get("command"),
+                    "step": blue_action.get("step"),
+                    "episode": blue_action.get("episode")
+                })
+            except Exception as e:
+                env_events.append({
+                    "event_type": "env_transition",
+                    "agent_id": "BlueAgent",
+                    "error": str(e),
+                    "step": blue_action.get("step"),
+                    "episode": blue_action.get("episode")
+                })
+        # Add more agent/environment coordination as needed
+        return env_events
+
+    def _get_latest_shared_state(self):
+        """
+        Return the latest shared state for agents to consume.
+        This can include environment state, last actions, etc.
+        """
+        # For simplicity, use RedAgent's environment state as the canonical shared state
+        if hasattr(self.red_agent, "env"):
+            return self.red_agent.env.get_global_state()
+        return {}
+
+    def _sync_all_agent_memories(self):
+        """
+        Serialize and atomically sync all agent memories after environment update.
+        """
+        for agent in self.agents:
+            if isinstance(agent, MemorySyncInterface):
+                try:
+                    agent.sync_memory()
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Memory sync failed for {agent.agent_id}: {e}[/yellow]")
+
+    def replay_event_log(self):
+        """
+        Replay the event log for validation and reproducibility.
+        """
+        console.rule("[bold cyan]🔁 Replaying Multi-Agent Event Log")
+        for event in self.event_log:
+            if event.get("event_type") == "action":
+                console.print(f"[blue]{event.get('agent_id')} action: {event.get('command')} (step {event.get('step')})[/blue]")
+            elif event.get("event_type") == "env_transition":
+                console.print(f"[green]Env transition by {event.get('agent_id')}: reward={event.get('reward', '')} done={event.get('done', '')}[/green]")
+            elif "error" in event:
+                console.print(f"[red]Error: {event['error']}[/red]")
 
     def _simulate_agent_step(self, agent, episode, step, shared_context=None):
         info = {
@@ -477,6 +614,9 @@ class AgentManager:
                 )
                 for _ in range(batches):
                     agent.train_on_batch()
+                # --- Copilot: Update target_value_net after batch for BlueAgent ---
+                if hasattr(agent, "target_value_net") and hasattr(agent, "value_net"):
+                    agent.target_value_net.load_state_dict(agent.value_net.state_dict())
         self._post_training_analysis()
 
     def _post_training_analysis(self):
@@ -501,6 +641,21 @@ class AgentManager:
                         agent.save_models(prefix=f"models/{agent.agent_id}")
                 else:
                     agent.save_models(prefix=f"models/{agent.agent_id}")
+            # --- Copilot: Save target networks if present ---
+            if hasattr(agent, "target_value_net"):
+                try:
+                    agent.target_value_net.eval()
+                    path = f"models/{agent.agent_id}_target_value.pt"
+                    agent.target_value_net.save(path)
+                except Exception:
+                    pass
+            if hasattr(agent, "target_net"):
+                try:
+                    agent.target_net.eval()
+                    path = f"models/{agent.agent_id}_target_policy.pt"
+                    agent.target_net.save(path)
+                except Exception:
+                    pass
 
     def snapshot_all(self):
         console.rule("[bold magenta]📸 Creating Global Memory Snapshots")

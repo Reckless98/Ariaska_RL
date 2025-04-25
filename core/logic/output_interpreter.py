@@ -1,98 +1,268 @@
 """
-Output Interpreter - Analyzes command outputs for the multi-agent system.
+Output Interpreter - Modular, extensible command output analysis for ARIASKA RL.
 """
 
 import re
 import random
+from dataclasses import dataclass, asdict
+from typing import List, Dict, Any, Optional
 from rich.console import Console
 
 console = Console()
 
-def analyze_output(command, output):
-    """
-    Analyze command output to extract success status, entities, risk score, etc.
-    
-    Args:
-        command (str): The executed command
-        output (str): The command output text
-        
-    Returns:
-        dict: Analysis results containing success, entities, risk_score, etc.
-    """
-    if not isinstance(command, str):
-        command = str(command)
-    if not isinstance(output, str):
-        output = str(output)
-    
-    # Default values
-    result = {
-        "success": False,
-        "entities": {},
-        "risk_score": 0.0,
-        "stealth_score": 1.0,
-        "phase": detect_phase(command),
-        "artifacts": [],
-        "output_excerpt": output[:100] + "..." if len(output) > 100 else output,
-    }
-    
-    # Command-specific analyzers
-    cmd_base = command.split()[0].lower() if command.split() else ""
-    
-    if cmd_base == "nmap":
-        result.update(analyze_nmap(output))
-    elif cmd_base == "gobuster" or cmd_base == "ffuf":
-        result.update(analyze_dir_scan(output))
-    elif cmd_base == "hydra" or cmd_base == "crackmapexec":
-        result.update(analyze_brute_force(output))
-    elif cmd_base in ["sqlmap", "msfconsole"]:
-        result.update(analyze_exploit_tool(output))
-    elif cmd_base in ["sudo", "su", "chmod"]:
-        result.update(analyze_privesc(output))
-    elif cmd_base in ["scp", "zip", "tar", "nc", "netcat"]:
-        result.update(analyze_exfil(output))
-    else:
-        # Generic analysis
-        result.update(analyze_generic(command, output))
-    
-    # Extract entities from output (IPs, ports, usernames, etc.)
-    result["entities"] = extract_entities(output)
-    
-    # Detect success/failure markers in output
-    result["success"] = (
-        "success" in output.lower() or 
-        "completed" in output.lower() or
-        "[+]" in output or 
-        "open port" in output.lower()
-    ) and not (
-        "failed" in output.lower() or
-        "error" in output.lower() or
-        "no such file" in output.lower()
-    )
-    
-    # Calculate stealth score based on command type and success
-    result["stealth_score"] = calculate_stealth_score(command, result["success"])
-    
-    return result
+# ─────────────────────────────────────────────
+# 📦 Structured Output: ParsedResult
+# ─────────────────────────────────────────────
+@dataclass
+class ParsedResult:
+    success: bool = False
+    phase: str = "unknown"
+    description: str = ""
+    risk_score: float = 0.0
+    stealth_score: float = 1.0
+    artifacts: List[str] = None
+    entities: Dict[str, List[str]] = None
+    output_excerpt: str = ""
+    summary: str = ""
+    error: Optional[str] = None
 
-def detect_phase(command):
-    """Detect which phase a command belongs to"""
-    cmd_lower = command.lower()
-    
-    if any(x in cmd_lower for x in ["nmap", "masscan", "ping", "whois", "dig"]):
-        return "recon"
-    elif any(x in cmd_lower for x in ["gobuster", "ffuf", "enum4linux", "smbclient", "showmount"]):
-        return "enumeration"
-    elif any(x in cmd_lower for x in ["exploit", "hydra", "sqlmap", "msfconsole", "ssh", "ftp"]):
-        return "exploit"
-    elif any(x in cmd_lower for x in ["sudo", "su", "chmod", "chown", "linpeas", "winpeas"]):
-        return "privesc"
-    elif any(x in cmd_lower for x in ["scp", "zip", "tar", "nc", "netcat"]):
-        return "exfiltrate"
-    else:
-        return "unknown"
+    def as_dict(self):
+        return asdict(self)
 
-def extract_entities(output):
-    """Extract entities like IPs, ports, usernames, etc. from output"""
+    def summary_text(self):
+        if self.error:
+            return f"[red]Parse error:[/red] {self.error}"
+        base = f"{self.description or 'No description'}"
+        if self.success:
+            base += " [green](Success)[/green]"
+        if self.artifacts:
+            base += f" | Artifacts: {', '.join(self.artifacts)}"
+        if self.entities:
+            ents = ", ".join(f"{k}: {v}" for k, v in self.entities.items() if v)
+            if ents:
+                base += f" | Entities: {ents}"
+        return base
+
+# ─────────────────────────────────────────────
+# 🧩 Modular Parsers (Each tool gets a class)
+# ─────────────────────────────────────────────
+class BaseParser:
+    def parse(self, output: str) -> ParsedResult:
+        return ParsedResult(
+            description="No parser implemented.",
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+            artifacts=[],
+            entities={},
+        )
+
+class NmapParser(BaseParser):
+    port_re = re.compile(r'(\d+)/(tcp|udp)\s+open\s+(\w+)', re.IGNORECASE)
+    version_re = re.compile(r'(service version|service info)', re.IGNORECASE)
+
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="recon",
+            description="Port scan completed",
+            risk_score=0.3,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        ports = self.port_re.findall(output)
+        if ports:
+            result.artifacts = [f"{p[0]}/{p[1]}:{p[2]}" for p in ports]
+            result.success = True
+            result.description = f"Discovered {len(ports)} open ports"
+        if self.version_re.search(output):
+            result.description += " with service version information"
+            result.risk_score = 0.5
+        return result
+
+class DirScanParser(BaseParser):
+    dir_re = re.compile(r'(/[\w\.\-/]+)\s+\(Status:\s+(\d+)\)', re.IGNORECASE)
+
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="enumeration",
+            description="Directory scan completed",
+            risk_score=0.4,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        dirs = self.dir_re.findall(output)
+        if dirs:
+            result.artifacts = [f"{d[0]} (HTTP {d[1]})" for d in dirs]
+            result.success = True
+            result.description = f"Discovered {len(dirs)} web paths"
+        return result
+
+class BruteForceParser(BaseParser):
+    cred_re = re.compile(r'login:\s*(\w+).*?password:\s*(\S+)', re.IGNORECASE | re.DOTALL)
+
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="exploit",
+            description="Authentication attempt",
+            risk_score=0.7,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        if "successful" in output.lower() or "password found" in output.lower() or "success" in output:
+            result.success = True
+            result.description = "Successful authentication"
+            result.risk_score = 0.8
+            creds = self.cred_re.findall(output)
+            if creds:
+                result.artifacts = [f"Credentials: {u}:{p}" for u, p in creds]
+        return result
+
+class ExploitToolParser(BaseParser):
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="exploit",
+            description="Exploitation attempt",
+            risk_score=0.8,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        if any(s in output.lower() for s in ["shell", "session opened", "vulnerability confirmed", "injection point found"]):
+            result.success = True
+            result.description = "Successful exploitation"
+            result.risk_score = 0.9
+            result.artifacts.append("Gained access")
+        return result
+
+class PrivescParser(BaseParser):
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="privesc",
+            description="Privilege escalation attempt",
+            risk_score=0.8,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        if "uid=0" in output.lower() or "root" in output.lower() or "#" in output:
+            result.success = True
+            result.description = "Successful privilege escalation"
+            result.risk_score = 0.95
+            result.artifacts.append("Root access")
+        return result
+
+class ExfilParser(BaseParser):
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            phase="exfiltrate",
+            description="Data transfer attempt",
+            risk_score=0.9,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        if any(s in output.lower() for s in ["transfer complete", "bytes sent", "connection successful"]) or output.strip() == "":
+            result.success = True
+            result.description = "Successful data exfiltration"
+            result.risk_score = 0.95
+            result.artifacts.append("Data transferred")
+        return result
+
+class GenericParser(BaseParser):
+    def parse(self, output: str) -> ParsedResult:
+        result = ParsedResult(
+            description="Command executed",
+            risk_score=0.4,
+            artifacts=[],
+            entities={},
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+        )
+        if (
+            len(output) > 10 and
+            "error" not in output.lower() and
+            "not found" not in output.lower()
+        ):
+            result.success = True
+        return result
+
+# ─────────────────────────────────────────────
+# 🧠 LLM Fallback Parser (Optional)
+# ─────────────────────────────────────────────
+class LLMParser(BaseParser):
+    def parse(self, output: str) -> ParsedResult:
+        # Optionally use LLM for ambiguous output parsing
+        try:
+            from core.gpt_manager import GPTManager
+            gpt = GPTManager()
+            prompt = f"Analyze this command output and summarize: {output[:500]}"
+            summary = gpt.gpt_request(prompt, task_type="output_parse")
+            return ParsedResult(
+                description="LLM summary",
+                summary=summary,
+                output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+                success="success" in summary.lower(),
+                artifacts=[],
+                entities={},
+            )
+        except Exception as e:
+            return ParsedResult(
+                description="LLM parse failed",
+                output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+                error=str(e),
+            )
+
+# ─────────────────────────────────────────────
+# 🧠 Main Dispatcher: analyze_output
+# ─────────────────────────────────────────────
+PARSER_MAP = {
+    "nmap": NmapParser(),
+    "gobuster": DirScanParser(),
+    "ffuf": DirScanParser(),
+    "hydra": BruteForceParser(),
+    "crackmapexec": BruteForceParser(),
+    "sqlmap": ExploitToolParser(),
+    "msfconsole": ExploitToolParser(),
+    "sudo": PrivescParser(),
+    "su": PrivescParser(),
+    "chmod": PrivescParser(),
+    "scp": ExfilParser(),
+    "zip": ExfilParser(),
+    "tar": ExfilParser(),
+    "nc": ExfilParser(),
+    "netcat": ExfilParser(),
+}
+
+def analyze_output(command: str, output: str) -> Dict[str, Any]:
+    """
+    Analyze command output and return structured ParsedResult as dict.
+    """
+    try:
+        if not isinstance(command, str):
+            command = str(command)
+        if not isinstance(output, str):
+            output = str(output)
+        cmd_base = command.split()[0].lower() if command.split() else ""
+        parser = PARSER_MAP.get(cmd_base, GenericParser())
+        result = parser.parse(output)
+        # Extract entities from output (IPs, ports, usernames, etc.)
+        result.entities = extract_entities(output)
+        # Calculate stealth score based on command type and success
+        result.stealth_score = calculate_stealth_score(command, result.success)
+        # Human-readable summary for CLI/logging
+        result.summary = result.summary_text()
+        return result.as_dict()
+    except Exception as e:
+        return ParsedResult(
+            description="Parse error",
+            output_excerpt=output[:100] + "..." if len(output) > 100 else output,
+            error=str(e),
+        ).as_dict()
+
+# ─────────────────────────────────────────────
+# 🔎 Entity Extraction & Utility Functions
+# ─────────────────────────────────────────────
+def extract_entities(output: str) -> Dict[str, List[str]]:
     entities = {
         "ips": [],
         "ports": [],
@@ -100,206 +270,56 @@ def extract_entities(output):
         "services": [],
         "paths": [],
     }
-    
     # Extract IPs
-    ip_pattern = r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
-    entities["ips"] = re.findall(ip_pattern, output)
-    
+    ip_pattern = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
+    entities["ips"] = ip_pattern.findall(output)
     # Extract ports
-    port_pattern = r'(\d{1,5})/(tcp|udp)'
-    port_matches = re.findall(port_pattern, output)
+    port_pattern = re.compile(r'(\d{1,5})/(tcp|udp)')
+    port_matches = port_pattern.findall(output)
     entities["ports"] = [match[0] for match in port_matches]
-    
     # Extract usernames
     if "login:" in output.lower() or "username:" in output.lower():
-        username_pattern = r'(login|username):\s*(\w+)'
-        username_matches = re.findall(username_pattern, output, re.IGNORECASE)
+        username_pattern = re.compile(r'(login|username):\s*(\w+)', re.IGNORECASE)
+        username_matches = username_pattern.findall(output)
         entities["usernames"] = [match[1] for match in username_matches]
-    
     # Extract services
-    service_pattern = r'(http[s]?|ftp|ssh|telnet|smtp|pop3|imap|rdp|smb|mysql|postgresql)'
-    entities["services"] = re.findall(service_pattern, output, re.IGNORECASE)
-    
+    service_pattern = re.compile(r'(http[s]?|ftp|ssh|telnet|smtp|pop3|imap|rdp|smb|mysql|postgresql)', re.IGNORECASE)
+    entities["services"] = service_pattern.findall(output)
     # Extract paths
-    path_pattern = r'(/[\w/\.-]+)'
-    entities["paths"] = re.findall(path_pattern, output)
-    
+    path_pattern = re.compile(r'(/[\w/\.-]+)')
+    entities["paths"] = path_pattern.findall(output)
     return entities
 
-def calculate_stealth_score(command, success):
-    """Calculate a stealth score for the command (0.0-1.0)"""
-    cmd_lower = command.lower()
-    
-    # High-noise commands reduce stealth
-    if any(x in cmd_lower for x in ["nmap -T5", "-A", "masscan", "medusa", "--min-rate=1000"]):
-        return 0.2 if success else 0.4
-    
-    # Medium-noise commands
-    if any(x in cmd_lower for x in ["nmap", "gobuster", "hydra", "sqlmap", "crackmapexec"]):
-        return 0.5 if success else 0.7
-    
-    # Low-noise commands
-    if any(x in cmd_lower for x in ["ping", "smbclient", "showmount", "ssh", "ftp"]):
-        return 0.8 if success else 0.9
-    
-    # Default
-    return 0.6
+def calculate_stealth_score(command: str, success: bool) -> float:
+    # Simple heuristic: more stealth for non-loud commands and success
+    loud_tools = ["nmap", "hydra", "ffuf", "gobuster"]
+    base = 1.0
+    if any(tool in command for tool in loud_tools):
+        base -= 0.3
+    if not success:
+        base -= 0.2
+    return max(0.0, min(1.0, base))
 
-def analyze_nmap(output):
-    """Analyze nmap scan output"""
-    result = {
-        "description": "Port scan completed",
-        "risk_score": 0.3,
-        "artifacts": [],
-    }
-    
-    # Extract open ports
-    port_pattern = r'(\d+)/(tcp|udp)\s+open\s+(\w+)'
-    port_matches = re.findall(port_pattern, output)
-    
-    if port_matches:
-        result["artifacts"] = [f"{match[0]}/{match[1]}:{match[2]}" for match in port_matches]
-        result["success"] = True
-        result["description"] = f"Discovered {len(port_matches)} open ports"
-    
-    # Check for service version info
-    if "service version" in output.lower() or "service info" in output.lower():
-        result["description"] += " with service version information"
-        result["risk_score"] = 0.5
-    
-    return result
+def detect_phase(command: str) -> str:
+    # Heuristic phase detection
+    if not isinstance(command, str):
+        return "unknown"
+    cmd = command.lower()
+    if any(x in cmd for x in ["nmap", "masscan", "ping"]):
+        return "recon"
+    if any(x in cmd for x in ["gobuster", "enum4linux", "ffuf"]):
+        return "enumeration"
+    if any(x in cmd for x in ["hydra", "crackmapexec", "sqlmap", "msfconsole"]):
+        return "exploit"
+    if any(x in cmd for x in ["sudo", "su", "chmod", "linpeas", "winpeas"]):
+        return "privesc"
+    if any(x in cmd for x in ["scp", "zip", "tar", "nc", "netcat"]):
+        return "exfiltrate"
+    return "unknown"
 
-def analyze_dir_scan(output):
-    """Analyze directory scanner output (gobuster, ffuf)"""
-    result = {
-        "description": "Directory scan completed",
-        "risk_score": 0.4,
-        "artifacts": [],
-    }
-    
-    # Extract discovered directories
-    dir_pattern = r'(/[\w\.\-/]+)\s+\(Status:\s+(\d+)\)'
-    dir_matches = re.findall(dir_pattern, output)
-    
-    if dir_matches:
-        result["artifacts"] = [f"{match[0]} (HTTP {match[1]})" for match in dir_matches]
-        result["success"] = True
-        result["description"] = f"Discovered {len(dir_matches)} web paths"
-    
-    return result
-
-def analyze_brute_force(output):
-    """Analyze brute force tool output (hydra, crackmapexec)"""
-    result = {
-        "description": "Authentication attempt",
-        "risk_score": 0.7,
-        "artifacts": [],
-    }
-    
-    # Check for successful login
-    if "successful" in output.lower() or "password found" in output.lower() or "SUCCESS" in output:
-        result["success"] = True
-        result["description"] = "Successful authentication"
-        result["risk_score"] = 0.8
-        
-        # Try to extract credentials
-        cred_pattern = r'login:\s*(\w+).*?password:\s*(\S+)'
-        cred_matches = re.findall(cred_pattern, output, re.IGNORECASE | re.DOTALL)
-        
-        if cred_matches:
-            result["artifacts"] = [f"Credentials: {match[0]}:{match[1]}" for match in cred_matches]
-    
-    return result
-
-def analyze_exploit_tool(output):
-    """Analyze exploitation tool output"""
-    result = {
-        "description": "Exploitation attempt",
-        "risk_score": 0.8,
-        "artifacts": [],
-    }
-    
-    # Check for successful exploitation
-    if (
-        "shell" in output.lower() or 
-        "session opened" in output.lower() or
-        "vulnerability confirmed" in output.lower() or
-        "injection point found" in output.lower()
-    ):
-        result["success"] = True
-        result["description"] = "Successful exploitation"
-        result["risk_score"] = 0.9
-        result["artifacts"].append("Gained access")
-    
-    return result
-
-def analyze_privesc(output):
-    """Analyze privilege escalation command output"""
-    result = {
-        "description": "Privilege escalation attempt",
-        "risk_score": 0.8,
-        "artifacts": [],
-    }
-    
-    # Check for successful privesc
-    if (
-        "uid=0" in output.lower() or
-        "root" in output.lower() or
-        "#" in output
-    ):
-        result["success"] = True
-        result["description"] = "Successful privilege escalation"
-        result["risk_score"] = 0.95
-        result["artifacts"].append("Root access")
-    
-    return result
-
-def analyze_exfil(output):
-    """Analyze data exfiltration command output"""
-    result = {
-        "description": "Data transfer attempt",
-        "risk_score": 0.9,
-        "artifacts": [],
-    }
-    
-    # Check for successful exfil
-    if (
-        "transfer complete" in output.lower() or
-        "bytes sent" in output.lower() or
-        "connection successful" in output.lower() or
-        output.strip() == ""  # Many exfil commands return empty output when successful
-    ):
-        result["success"] = True
-        result["description"] = "Successful data exfiltration"
-        result["risk_score"] = 0.95
-        result["artifacts"].append("Data transferred")
-    
-    return result
-
-def analyze_generic(command, output):
-    """Generic analysis for unrecognized commands"""
-    result = {
-        "description": "Command executed",
-        "risk_score": 0.4,
-        "artifacts": [],
-    }
-    
-    # Simple heuristic for success detection
-    if (
-        len(output) > 10 and
-        "error" not in output.lower() and
-        "not found" not in output.lower()
-    ):
-        result["success"] = True
-    
-    # Generate a phase-appropriate description
-    phase = detect_phase(command)
-    if phase != "unknown":
-        result["description"] = f"{phase.capitalize()} command executed"
-    
-    return result
-
-# Test the interpreter if run directly
+# ─────────────────────────────────────────────
+# 🧪 CLI/Debug: Test the interpreter
+# ─────────────────────────────────────────────
 if __name__ == "__main__":
     test_commands = [
         ("nmap -sV 10.10.10.10", """Starting Nmap 7.91 ( https://nmap.org ) 
@@ -310,10 +330,12 @@ PORT   STATE SERVICE VERSION
         ("gobuster dir -u http://10.10.10.10 -w wordlist.txt", """/admin (Status: 200)
 /login (Status: 200)
 /images (Status: 301)"""),
-        ("hydra -l admin -P passwords.txt 10.10.10.10 ssh", """[22][ssh] host: 10.10.10.10   login: admin   password: Password123!""")
+        ("hydra -l admin -P passwords.txt 10.10.10.10 ssh", """[22][ssh] host: 10.10.10.10   login: admin   password: Password123!"""),
+        ("sudo su", "root@target:~# id\nuid=0(root) gid=0(root) groups=0(root)"),
+        ("scp data.txt user@remote:/tmp/", "Transfer complete. 1024 bytes sent."),
+        ("unknowncmd", "Some output that doesn't match any known pattern."),
     ]
-    
     for cmd, out in test_commands:
         result = analyze_output(cmd, out)
         print(f"\nCommand: {cmd}")
-        print(f"Analysis: {result}")
+        print(f"Analysis: {result['summary']}")

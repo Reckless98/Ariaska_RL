@@ -1,263 +1,151 @@
-# core/teach/teach.py — ARIASKA TeachModule v12.0 Distillation Nexus
-# 🎓 Curriculum-Aware | 🧠 Deep GPT Distillation | 🌐 Global Knowledge Orchestrator | 📊 Advanced Teaching Analytics
-
 import os
 import json
-import subprocess
-import re
-import time
+import threading
+import asyncio
+from typing import Dict, Any, Optional, List
 from rich.console import Console
+from core.utils.llm_orchestrator import LLMRouter
 from core.utils.memory_manager import MemoryManager
-from core.gpt_manager import GPTManager
 
 console = Console()
 
-
-class TeachModule:
-    def __init__(self, agent_name="red_agent"):
-        self.agent_name = agent_name
-        self.memory_manager = MemoryManager(agent_name=agent_name)
-        self.memory = self.memory_manager.memory
-        self.template_cache = set(self._load_existing_templates())
-        self.gpt_calls = 0
-        self.gpt_call_limit = 100  # Expanded for smarter sessions
-        self.teach_log_path = os.path.join("logs", f"{agent_name}_teach_log.jsonl")
-        os.makedirs("logs", exist_ok=True)
-        self.gpt_cache = {}
-        self.gpt_manager = GPTManager()
-        console.print(
-            f"[green]🎓 TeachModule v12.0 Initialized for {agent_name}[/green]"
-        )
-
-    def _load_existing_templates(self):
+class TemplateEngine:
+    """Handles command templating and parsing for teaching events."""
+    def parse_action(self, command: str, phase: str, reward: float, **kwargs) -> Dict[str, Any]:
+        # Standardize action object
         return {
-            self.template_from_command(
-                action.get("full_command", action.get("command", ""))
-            )
-            for action in self.memory.get("actions", [])
-        }
-
-    def template_from_command(self, command):
-        patterns = [
-            (re.compile(r"(\b(?:\d{1,3}\.){3}\d{1,3}\b)"), "{IP}"),
-            (re.compile(r"\b\d{2,5}\b"), "{PORT}"),
-            (re.compile(r"\b[a-f0-9]{32,64}\b"), "{HASH}"),
-            (re.compile(r"/[^\s]*"), "{PATH}"),
-        ]
-        tokens = command.strip().split()
-        rebuilt = []
-        for tok in tokens:
-            replaced = False
-            for pattern, placeholder in patterns:
-                if pattern.search(tok):
-                    rebuilt.append(placeholder)
-                    replaced = True
-                    break
-            if not replaced:
-                rebuilt.append(tok)
-        return " ".join(rebuilt)
-
-    def add_action(
-        self,
-        command,
-        description="",
-        phase="Recon",
-        reward=10,
-        parameters=None,
-        param_descriptions=None,
-        when="",
-        why="",
-        tags=None,
-    ):
-        if not command or not command.strip():
-            console.print("[red]❌ Invalid command (empty).[/red]")
-            return
-
-        base_command = command.strip().split()[0]
-        parameters = parameters or []
-        param_descriptions = param_descriptions or []
-        tags = tags or []
-
-        template = self.template_from_command(command)
-        is_new_template = template not in self.template_cache
-        if is_new_template:
-            self.template_cache.add(template)
-
-        existing_cmds = [a.get("command") for a in self.memory["actions"]]
-        if base_command in existing_cmds and not is_new_template:
-            console.print(f"[yellow]⚠ Duplicate detected in KB: {command}[/yellow]")
-            return
-
-        entry = {
-            "command": base_command,
-            "full_command": command,
-            "template": template,
-            "description": description or "No description provided.",
-            "tools": [base_command],
-            "parameters": parameters,
-            "param_descriptions": param_descriptions,
-            "when": when or "Unknown context.",
-            "why": why or "No reasoning given.",
+            "command": command,
             "phase": phase,
             "reward": reward,
-            "tags": tags,
-            "is_novel": is_new_template,
-            "distill_ready": reward >= 50,
+            "description": kwargs.get("description", ""),
+            "when": kwargs.get("when", ""),
+            "why": kwargs.get("why", ""),
+            "full_command": kwargs.get("full_command", command),
+            "meta": kwargs.get("meta", {}),
         }
 
-        self.memory["actions"].append(entry)
-        self.memory["rewards"][command] = reward
+class TeacherLogger:
+    """Handles logging of teaching events and batching file I/O."""
+    def __init__(self, log_path="logs/teach_events.jsonl"):
+        self.log_path = log_path
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        self._lock = threading.Lock()
+        self._buffer = []
+        self._flush_interval = 10  # flush every 10 events
+        self._event_count = 0
 
-        if reward >= 60:
-            shared = self.memory_manager.load_shared_knowledge()
-            shared["insights"].append(entry)
-            self.memory_manager.save_shared_knowledge(shared)
+    def log_event(self, event: Dict[str, Any]):
+        with self._lock:
+            self._buffer.append(event)
+            self._event_count += 1
+            if self._event_count % self._flush_interval == 0:
+                self.flush()
 
-        self._log_teach_event(entry)
-        console.print(
-            f"[cyan]➕ Action Learned:[/cyan] {command} ({'🆕' if is_new_template else '↻'})"
+    def flush(self):
+        with self._lock:
+            if not self._buffer:
+                return
+            with open(self.log_path, "a") as f:
+                for event in self._buffer:
+                    f.write(json.dumps(event) + "\n")
+            self._buffer.clear()
+
+    def summarize(self, n=10) -> List[Dict[str, Any]]:
+        """Return the last n logged events."""
+        if not os.path.exists(self.log_path):
+            return []
+        with open(self.log_path, "r") as f:
+            lines = f.readlines()[-n:]
+        return [json.loads(line) for line in lines]
+
+class TeacherPolicy:
+    """Decides when to teach and how to prioritize taught actions."""
+    def should_teach(self, action: Dict[str, Any], memory: List[Dict[str, Any]]) -> bool:
+        # Avoid teaching exact or semantically redundant actions
+        commands = [a["command"] for a in memory]
+        if action["command"] in commands:
+            return False
+        # TODO: Add semantic redundancy check if needed
+        return True
+
+class TeachModule:
+    """
+    Refactored TeachModule:
+    - Separation of concerns (templating, logging, policy)
+    - Async LLM routing via LLMRouter
+    - Thread-safe caching and batching
+    - Clean API for agent/trainer integration
+    """
+    def __init__(self, agent_name="RedAgent", memory_manager: Optional[MemoryManager]=None):
+        self.agent_name = agent_name
+        self.memory_manager = memory_manager or MemoryManager(agent_name)
+        self.template_engine = TemplateEngine()
+        self.logger = TeacherLogger(log_path=f"logs/{agent_name}_teach_events.jsonl")
+        self.policy = TeacherPolicy()
+        self.llm_router = LLMRouter()
+        self._cache = {}
+        self._cache_lock = threading.Lock()
+
+    def add_action(self, command: str, phase: str, reward: float, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Add a new taught action, with templating, deduplication, and logging.
+        Returns standardized action object if added, else None.
+        """
+        action = self.template_engine.parse_action(command, phase, reward, **kwargs)
+        memory = self.memory_manager.get_actions()
+        if not self.policy.should_teach(action, memory):
+            return None
+        self.memory_manager.add_action(action)
+        self.logger.log_event(action)
+        return action
+
+    async def summarize_action(self, action: Dict[str, Any]) -> str:
+        """
+        Use LLMRouter to summarize an action asynchronously.
+        """
+        prompt = f"Summarize the following cybersecurity action for teaching:\n{json.dumps(action)}"
+        cache_key = f"summarize_{hash(json.dumps(action))}"
+        with self._cache_lock:
+            if cache_key in self._cache:
+                return self._cache[cache_key]
+        # Use LLMRouter for async LLM call
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, lambda: self.llm_router.route_task("teach_action_parsing", prompt, model="gpt-4o-mini")
         )
-        self.memory_manager.save_memory()
+        with self._cache_lock:
+            self._cache[cache_key] = response
+        return response
 
-    def inject_from_gpt(self, command, phase, reward=10):
-        if self.gpt_calls >= self.gpt_call_limit:
-            console.print("[yellow]⚠ GPT session limit reached.[/yellow]")
-            return
-        prompt = self._build_prompt(command, phase)
-        return self._call_gpt_with_fallbacks(prompt, command, phase, reward)
+    def add_action_sync(self, command: str, phase: str, reward: float, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        Synchronous wrapper for add_action (for legacy code).
+        """
+        return self.add_action(command, phase, reward, **kwargs)
 
-    def _build_prompt(self, command, phase):
-        return f"""
-You are an elite cyber instructor AI.
-Analyze this command for deep learning purposes.
+    def flush_logs(self):
+        self.logger.flush()
 
-Command: {command}
-Phase: {phase}
+    def get_recent_actions(self, n=10) -> List[Dict[str, Any]]:
+        return self.logger.summarize(n=n)
 
-Return STRICT JSON:
-- description
-- when
-- why
-- parameters (array)
-- param_descriptions (array)
-- tags (array of relevant keywords)
-"""
-
-    def _call_gpt_with_fallbacks(self, prompt, command, phase, reward):
-        models = ["gpt-4o-mini", "gpt-4.1-nano"]
-        for model in models:
-            try:
-                self.gpt_calls += 1
-                response = self.gpt_manager.gpt_request(prompt, model=model, agent_id=self.agent_name)
-                raw = self.gpt_manager._sanitize_output(response)
-                if raw.startswith("{"):
-                    gpt_data = json.loads(raw)
-                    return self._inject_parsed_action(gpt_data, command, phase, reward)
-            except Exception as e:
-                console.print(f"[yellow]⚠ {model} failed: {e}[/yellow]")
-        return self._inject_fallback_action(command, phase, reward)
-
-    def _inject_fallback_action(self, command, phase, reward):
-        return self.add_action(
-            command=command,
-            description="Fallback: GPT unavailable",
-            when="Auto-injected context",
-            why="GPT parsing failure",
-            parameters=[],
-            param_descriptions=[],
-            phase=phase,
-            reward=reward,
-            tags=["fallback"],
-        )
-
-    def _inject_parsed_action(self, gpt_data, command, phase, reward):
-        self.add_action(
-            command=command,
-            description=gpt_data.get("description", ""),
-            when=gpt_data.get("when", ""),
-            why=gpt_data.get("why", ""),
-            parameters=gpt_data.get("parameters", []),
-            param_descriptions=gpt_data.get("param_descriptions", []),
-            tags=gpt_data.get("tags", []),
-            phase=phase,
-            reward=reward,
-        )
-
-    def bulk_add_actions(self, actions):
-        added = 0
-        for a in actions:
-            cmd = a.get("full_command") or a.get("command")
-            if not cmd:
-                continue
-            template = self.template_from_command(cmd)
-            if template in self.template_cache:
-                continue
-            self.template_cache.add(template)
-
-            base = cmd.strip().split()[0]
-            entry = {
-                "command": base,
-                "full_command": cmd,
-                "template": template,
-                "description": a.get("description", "No description."),
-                "tools": a.get("tools", [base]),
-                "parameters": a.get("parameters", []),
-                "param_descriptions": a.get("param_descriptions", []),
-                "when": a.get("when", "Unknown"),
-                "why": a.get("why", "No reasoning."),
-                "phase": a.get("phase", "Recon"),
-                "reward": a.get("reward", 50),
-                "tags": a.get("tags", []),
-                "is_novel": True,
-                "distill_ready": True,
-            }
-            self.memory["actions"].append(entry)
-            self.memory["rewards"][cmd] = entry["reward"]
-            added += 1
-        if added:
-            console.print(f"[cyan]➕ Bulk imported {added} new actions.[/cyan]")
-            self.memory_manager.save_memory()
-        else:
-            console.print(
-                "[yellow]⚠ No novel actions detected in bulk import.[/yellow]"
-            )
-
-    def add_scenario(self, name, description=""):
-        if not name.strip():
-            console.print("[red]❌ Invalid scenario name[/red]")
-            return
-        existing = [s.get("name") for s in self.memory.get("scenarios", [])]
-        if name in existing:
-            console.print(f"[yellow]⚠ Scenario already exists: {name}[/yellow]")
-            return
-        self.memory["scenarios"].append(
-            {"name": name.strip(), "description": description or "No description."}
-        )
-        console.print(f"[cyan]➕ Scenario registered:[/cyan] {name}")
-        self.memory_manager.save_memory()
-
-    def _log_teach_event(self, entry):
-        log_entry = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "agent": self.agent_name,
-            "command": entry["full_command"],
-            "reward": entry["reward"],
-            "phase": entry["phase"],
-            "is_novel": entry["is_novel"],
-            "tags": entry.get("tags", []),
+    def register_taught_action_for_dqn(self, action: Dict[str, Any], replay_buffer):
+        """
+        Optionally add taught action to replay buffer for prioritized experience replay.
+        """
+        experience = {
+            "state": action.get("meta", {}).get("state", [0.0]*512),
+            "action": action["command"],
+            "reward": action["reward"],
+            "next_state": action.get("meta", {}).get("next_state", [0.0]*512),
+            "gpt_tokens": action.get("meta", {}).get("gpt_tokens", 0)
         }
-        with open(self.teach_log_path, "a") as logf:
-            logf.write(json.dumps(log_entry) + "\n")
-        console.print(f"[dim]📝 Teach log updated.[/dim]")
+        replay_buffer.add(experience)
 
-    def ask_gpt(self, prompt):
-        if prompt in self.gpt_cache:
-            return self.gpt_cache[prompt]
-        try:
-            response = self.gpt_manager.gpt_request(prompt, agent_id=self.agent_name)
-            sanitized = self.gpt_manager._sanitize_output(response)
-            self.gpt_cache[prompt] = sanitized
-            return sanitized
-        except Exception as e:
-            console.print(f"[red]❌ TeachModule GPT error: {e}[/red]")
-            return "GPT unavailable."
+    def shutdown(self):
+        self.flush_logs()
+
+# Example usage:
+# teach = TeachModule(agent_name="RedAgent")
+# teach.add_action("nmap -sV 10.10.10.10", phase="recon", reward=2.0, description="Scan for open services")
+# asyncio.run(teach.summarize_action({...}))

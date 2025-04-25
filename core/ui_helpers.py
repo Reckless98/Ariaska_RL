@@ -274,3 +274,39 @@ def display_training_progress(current, total, agent_id=None):
     ) as progress:
         task = progress.add_task(f"{agent_id or 'Agent'} Training", total=total)
         progress.update(task, completed=current)
+
+def display_llm_usage_summary(agent_manager, gpt_manager):
+    """
+    [Dashboard] Show LLM usage summary for all agents.
+    """
+    table = Table(title="🧠 LLM Usage Summary", box=None)
+    table.add_column("Agent", style="cyan")
+    table.add_column("Seneca", style="blue")
+    table.add_column("Lily", style="magenta")
+    table.add_column("GPT", style="yellow")
+    for agent in agent_manager.all_agents():
+        agent_id = getattr(agent, "agent_id", "N/A")
+        # TODO: Track Seneca/Lily calls if available
+        gpt_calls = gpt_manager.get_token_usage(agent_id)
+        table.add_row(agent_id, "-", "-", str(gpt_calls))
+    console.print(Panel(table, title="LLM Calls Per Agent", border_style="yellow"))
+
+def display_agent_health_panel(agent_manager):
+    """
+    [Dashboard] Show agent health (exploration/exploitation, stagnation, etc).
+    """
+    table = Table(title="Agent Health", box=None)
+    table.add_column("Agent", style="cyan")
+    table.add_column("Phase", style="magenta")
+    table.add_column("Health", style="green")
+    for agent in agent_manager.all_agents():
+        phase = getattr(agent, "current_mode", "N/A")
+        # Health: green/yellow/red based on recent rewards (stub)
+        rewards = getattr(agent.stats_monitor, "agent_stats", {}).get(agent.agent_id, {}).get("rewards", [])
+        health = "[green]●[/green]"
+        if rewards and sum(rewards[-5:]) < 0:
+            health = "[red]●[/red]"
+        elif rewards and sum(rewards[-5:]) < 2.5:
+            health = "[yellow]●[/yellow]"
+        table.add_row(agent.agent_id, str(phase), health)
+    console.print(Panel(table, title="Agent Health", border_style="green"))

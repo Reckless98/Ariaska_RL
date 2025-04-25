@@ -29,6 +29,7 @@ class MemoryRouter:
         self.sqlite_path = sqlite_path
         self.agents = agents or []
         self.transition_logs = {}
+        self.global_memory = {}  # Added global_memory dictionary to store agent-specific data
         if use_sqlite:
             self._init_sqlite()
 
@@ -145,3 +146,393 @@ class MemoryRouter:
     def close(self):
         if self.use_sqlite:
             self.conn.close()
+
+    def consolidate_gpt_cache(self):
+        """
+        Consolidate and optimize the GPT cache across all agents.
+        This method is called during post_cycle_operations in MultiAgentTrainer.
+        
+        1. Identifies common prompts/responses across agents
+        2. Deduplicates similar prompts to save token usage
+        3. Persists optimized cache to disk for reuse
+        """
+        try:
+            if not hasattr(self, 'gpt_manager'):
+                from core.gpt_manager import GPTManager
+                self.gpt_manager = GPTManager()
+                
+            # Get unified cache stats
+            cache_stats = {}
+            total_saved = 0
+            total_entries = 0
+            
+            # Collect cache data from all agent references
+            for agent_id, agent_data in self.global_memory.items():
+                if hasattr(agent_data, 'get_gpt_cache'):
+                    agent_cache = agent_data.get_gpt_cache()
+                    if agent_cache:
+                        cache_stats[agent_id] = len(agent_cache)
+                        total_entries += len(agent_cache)
+                        
+            # Check if the GPTManager has a consolidate method
+            if hasattr(self.gpt_manager, 'consolidate_caches'):
+                tokens_saved = self.gpt_manager.consolidate_caches()
+                total_saved = tokens_saved
+            
+            # Log consolidation results
+            from rich.console import Console
+            console = Console()
+            console.print(f"[blue]🔄 GPT cache consolidated: {total_entries} entries, ~{total_saved} tokens saved[/blue]")
+            
+            return {
+                "cache_stats": cache_stats,
+                "total_entries": total_entries,
+                "tokens_saved": total_saved
+            }
+        except Exception as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[yellow]⚠️ GPT cache consolidation error: {str(e)}[/yellow]")
+            return {"error": str(e), "cache_stats": {}, "total_entries": 0, "tokens_saved": 0}
+
+    def optimize_memories(self):
+        """
+        Optimize stored memories by:
+        1. Deduplicating similar experiences
+        2. Pruning low-value memories
+        3. Enhancing high-value memories with additional context
+        
+        This is called by the repair_memories() method in the trainer.
+        """
+        try:
+            from rich.console import Console
+            console = Console()
+            
+            # Track statistics for reporting
+            stats = {
+                "memories_before": 0,
+                "memories_after": 0,
+                "duplicates_removed": 0,
+                "low_value_removed": 0,
+                "enhanced_memories": 0
+            }
+            
+            # Process each agent's memory data
+            for agent_id in self.global_memory.keys():
+                agent_transitions = self.get_agent_transitions(agent_id)
+                if not agent_transitions:
+                    continue
+                    
+                # Count initial memories
+                stats["memories_before"] += len(agent_transitions)
+                
+                # 1. Deduplicate similar experiences
+                unique_transitions = []
+                seen_hashes = set()
+                
+                for transition in agent_transitions:
+                    # Create a simple hash of the state-action pair
+                    if isinstance(transition, dict) and 'state' in transition and 'action' in transition:
+                        # For string actions, use the action directly
+                        if isinstance(transition['action'], str):
+                            action_hash = transition['action']
+                        else:
+                            # For numeric actions, use string representation
+                            action_hash = str(transition['action'])
+                            
+                        # Create a simple hash with state shape and action
+                        if isinstance(transition['state'], list):
+                            state_shape = str(len(transition['state']))
+                        else:
+                            state_shape = "unknown"
+                        
+                        transition_hash = f"{state_shape}:{action_hash}"
+                        
+                        if transition_hash not in seen_hashes:
+                            seen_hashes.add(transition_hash)
+                            unique_transitions.append(transition)
+                        else:
+                            stats["duplicates_removed"] += 1
+                    else:
+                        # Keep transitions that don't match our expected format
+                        unique_transitions.append(transition)
+                
+                # 2. Remove low-value memories (those with near-zero rewards)
+                valuable_transitions = []
+                for transition in unique_transitions:
+                    if isinstance(transition, dict) and 'reward' in transition:
+                        if abs(transition['reward']) > 0.1:  # Keep non-trivial rewards
+                            valuable_transitions.append(transition)
+                        else:
+                            stats["low_value_removed"] += 1
+                    else:
+                        valuable_transitions.append(transition)
+                
+                # 3. Enhance high-value memories with additional context if available
+                enhanced_transitions = []
+                for transition in valuable_transitions:
+                    if isinstance(transition, dict) and 'reward' in transition and abs(transition['reward']) > 1.0:
+                        # This is a high-value memory, enhance it if possible
+                        if hasattr(self, 'gpt_manager') and self.gpt_manager:
+                            # Only enhance if we have the necessary fields
+                            if 'action' in transition and isinstance(transition['action'], str):
+                                # Add metadata about why this memory is valuable
+                                if 'metadata' not in transition:
+                                    transition['metadata'] = {}
+                                
+                                transition['metadata']['high_value'] = True
+                                transition['metadata']['value_reason'] = f"High reward: {transition['reward']}"
+                                stats["enhanced_memories"] += 1
+                    
+                    enhanced_transitions.append(transition)
+                
+                # Update the agent's transitions with optimized memories
+                self.set_agent_transitions(agent_id, enhanced_transitions)
+                stats["memories_after"] += len(enhanced_transitions)
+            
+            # Log optimization results
+            console.print(f"[green]✅ Memory optimization complete:[/green]")
+            console.print(f"[green]   - Before: {stats['memories_before']} memories[/green]")
+            console.print(f"[green]   - After: {stats['memories_after']} memories[/green]")
+            console.print(f"[green]   - Duplicates removed: {stats['duplicates_removed']}[/green]")
+            console.print(f"[green]   - Low-value removed: {stats['low_value_removed']}[/green]")
+            console.print(f"[green]   - High-value enhanced: {stats['enhanced_memories']}[/green]")
+            
+            return stats
+        except Exception as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]❌ Memory optimization error: {str(e)}[/red]")
+            return {"error": str(e)}
+
+    def set_agent_transitions(self, agent_id, transitions):
+        """Set the transitions for a specific agent, replacing any existing transitions."""
+        if agent_id not in self.global_memory:
+            self.global_memory[agent_id] = {}
+        
+        self.global_memory[agent_id]['transitions'] = transitions
+
+    def get_agent_transitions(self, agent_id):
+        """Get all transitions for a specific agent."""
+        if agent_id in self.global_memory and 'transitions' in self.global_memory[agent_id]:
+            return self.global_memory[agent_id]['transitions']
+        return []
+
+    def sync_global_insights(self):
+        """
+        Synchronize insights and experiences across all agents.
+        This method is called during post_cycle_operations in MultiAgentTrainer.
+        
+        1. Shares high-value experiences between agents
+        2. Consolidates global insights from individual agent experiences
+        3. Updates the central memory repository with synchronized data
+        """
+        try:
+            from rich.console import Console
+            console = Console()
+            
+            # Initialize statistics for reporting
+            stats = {
+                "shared_experiences": 0,
+                "global_insights_updated": 0,
+                "high_value_memories": 0
+            }
+            
+            # Skip if no agents or global memory
+            if not self.global_memory:
+                console.print("[yellow]⚠️ No global memory data to synchronize[/yellow]")
+                return stats
+                
+            # 1. Collect high-value experiences from all agents
+            high_value_experiences = {}
+            for agent_id, agent_data in self.global_memory.items():
+                agent_transitions = self.get_agent_transitions(agent_id)
+                if not agent_transitions:
+                    continue
+                
+                # Find high-value experiences (high absolute reward)
+                valuable_experiences = []
+                for transition in agent_transitions:
+                    if isinstance(transition, dict) and 'reward' in transition:
+                        # Consider experiences with significant rewards
+                        if abs(transition['reward']) > 1.0:
+                            valuable_experiences.append(transition)
+                            stats["high_value_memories"] += 1
+                
+                if valuable_experiences:
+                    high_value_experiences[agent_id] = valuable_experiences
+            
+            # 2. Share valuable experiences between compatible agents
+            # Define sharing groups (which agents can share experiences)
+            sharing_groups = {
+                "red_team": ["RedAgent", "ScoutAgent", "ShadowAgent"],
+                "blue_team": ["BlueAgent"],
+                "oversight": ["OrionAgent"]
+            }
+            
+            # Map agents to their groups
+            agent_to_group = {}
+            for group, agents in sharing_groups.items():
+                for agent in agents:
+                    agent_to_group[agent] = group
+            
+            # Share experiences within groups
+            for source_agent_id, experiences in high_value_experiences.items():
+                source_group = agent_to_group.get(source_agent_id)
+                if not source_group:
+                    continue
+                    
+                # Find other agents in the same group
+                for target_agent_id in self.global_memory.keys():
+                    if target_agent_id == source_agent_id:
+                        continue  # Skip self
+                        
+                    target_group = agent_to_group.get(target_agent_id)
+                    if target_group == source_group:
+                        # These agents can share experiences
+                        # Get existing transitions
+                        existing = self.get_agent_transitions(target_agent_id)
+                        
+                        # Add unique experiences from source agent
+                        for exp in experiences:
+                            # Add a note about where this experience came from
+                            if 'metadata' not in exp:
+                                exp['metadata'] = {}
+                            exp['metadata']['shared_from'] = source_agent_id
+                            
+                            # Add to target agent's memories
+                            existing.append(exp)
+                            stats["shared_experiences"] += 1
+                        
+                        # Update target agent's transitions
+                        self.set_agent_transitions(target_agent_id, existing)
+            
+            # 3. Update global insights repository
+            if not hasattr(self, 'global_insights'):
+                self.global_insights = {}
+                
+            # Extract key insights from high-value experiences
+            for agent_id, experiences in high_value_experiences.items():
+                for exp in experiences:
+                    if isinstance(exp, dict) and 'action' in exp and 'reward' in exp:
+                        # Create a simplified insight
+                        action = exp['action']
+                        reward = exp['reward']
+                        
+                        # Use action as key for insight
+                        if isinstance(action, str):
+                            insight_key = action[:50]  # Limit key size
+                            insight_value = {
+                                'reward': reward,
+                                'agent': agent_id,
+                                'count': 1
+                            }
+                            
+                            # Update existing insight or add new one
+                            if insight_key in self.global_insights:
+                                self.global_insights[insight_key]['count'] += 1
+                                # Update reward with rolling average
+                                old_reward = self.global_insights[insight_key]['reward']
+                                old_count = self.global_insights[insight_key]['count'] - 1
+                                new_reward = (old_reward * old_count + reward) / (old_count + 1)
+                                self.global_insights[insight_key]['reward'] = new_reward
+                            else:
+                                self.global_insights[insight_key] = insight_value
+                                stats["global_insights_updated"] += 1
+            
+            # Log synchronization results
+            console.print(f"[blue]🔄 Global insights synchronized:[/blue]")
+            console.print(f"[blue]   - Shared experiences: {stats['shared_experiences']}[/blue]")
+            console.print(f"[blue]   - Global insights updated: {stats['global_insights_updated']}[/blue]")
+            console.print(f"[blue]   - High-value memories found: {stats['high_value_memories']}[/blue]")
+            
+            return stats
+            
+        except Exception as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]❌ Global insight synchronization error: {str(e)}[/red]")
+            return {"error": str(e)}
+
+    def snapshot_all_memories(self):
+        """
+        Take a snapshot of all agent memories to persist them to disk.
+        This method is called during post_cycle_operations in MultiAgentTrainer.
+        
+        1. Persists all agent memories to disk in a structured format
+        2. Creates a timestamped backup to prevent data loss
+        3. Optimizes storage by deduplicating similar memories
+        """
+        try:
+            import json
+            import os
+            import datetime
+            from rich.console import Console
+            console = Console()
+            
+            # Generate timestamp for the snapshot
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create base directories if they don't exist
+            snapshot_dir = os.path.join("logs", "memory_snapshots")
+            os.makedirs(snapshot_dir, exist_ok=True)
+            
+            # Snapshot stats
+            stats = {
+                "total_memories": 0,
+                "agent_memories": {},
+                "snapshot_file": f"memory_snapshot_{timestamp}.json"
+            }
+            
+            # Export all memories to a single consolidated file
+            snapshot_data = {
+                "timestamp": timestamp,
+                "agents": {},
+                "global_insights": getattr(self, "global_insights", {})
+            }
+            
+            # Process each agent's memory data
+            for agent_id in self.global_memory.keys():
+                agent_transitions = self.get_agent_transitions(agent_id)
+                if not agent_transitions:
+                    continue
+                
+                # Count memories for this agent
+                stats["agent_memories"][agent_id] = len(agent_transitions)
+                stats["total_memories"] += len(agent_transitions)
+                
+                # Add to the snapshot data
+                snapshot_data["agents"][agent_id] = {
+                    "transitions": agent_transitions,
+                    "count": len(agent_transitions)
+                }
+            
+            # Write the consolidated snapshot to disk
+            snapshot_path = os.path.join(snapshot_dir, stats["snapshot_file"])
+            with open(snapshot_path, 'w') as f:
+                json.dump(snapshot_data, f, indent=2, default=str)
+            
+            # Create agent-specific snapshots for easy analysis
+            for agent_id, agent_data in snapshot_data["agents"].items():
+                agent_snapshot_dir = os.path.join(snapshot_dir, agent_id)
+                os.makedirs(agent_snapshot_dir, exist_ok=True)
+                
+                agent_snapshot_path = os.path.join(agent_snapshot_dir, f"memory_{timestamp}.json")
+                with open(agent_snapshot_path, 'w') as f:
+                    json.dump(agent_data, f, indent=2, default=str)
+            
+            # Log snapshot results
+            console.print(f"[green]📸 Memory snapshot created:[/green]")
+            console.print(f"[green]   - Total memories: {stats['total_memories']}[/green]")
+            console.print(f"[green]   - Agents: {len(stats['agent_memories'])}[/green]")
+            console.print(f"[green]   - Saved to: {snapshot_path}[/green]")
+            
+            return stats
+            
+        except Exception as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]❌ Memory snapshot error: {str(e)}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
+            return {"error": str(e)}

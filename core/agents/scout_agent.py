@@ -82,17 +82,9 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         """Initialize links to other agents for phase coordination."""
         pass  # Scout can operate independently for now
 
-    def advise_phase(self, state: Dict[str, Any], all_agents: List = None) -> str:
+    def advise_phase(self, state: dict, all_agents=None) -> str:
         """
-        Determine the optimal mission phase based on environment state.
-        Uses cached results when possible, GPT-4o-mini for phase recognition.
-        
-        Args:
-            state: Current environment state
-            all_agents: List of all agents in the system for coordination
-            
-        Returns:
-            str: Optimal phase name (recon, enumeration, exploit, privesc, exfiltrate)
+        Use dual-LLM critique for phase navigation if available.
         """
         # Track call in history
         self.total_steps += 1
@@ -156,6 +148,14 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         # Log phase selection
         self._log_phase_selection(state, phase)
         
+        # Optionally: integrate dual-LLM feedback for phase advice
+        if hasattr(self, "gpt_manager"):
+            task_desc = (
+                f"State: {state}. Determine optimal next phase (recon, enumeration, exploit, privesc, exfiltrate)."
+            )
+            dual_feedback = self.gpt_manager.dual_llm_feedback(task_desc, agent_id=self.agent_id)
+            # Optionally log or use dual_feedback for phase selection
+
         return phase
         
     def _hash_state(self, state: Dict[str, Any]) -> str:

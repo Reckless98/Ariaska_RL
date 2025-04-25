@@ -85,7 +85,7 @@ class ValueNet(nn.Module):
     def forward(self, state, phase_vector=None, context_text=None):
         """
         Forward pass through encoder with phase & GPT-context integration.
-        Returns value estimate for the state.
+        Returns value estimate for the state and feature representation.
         """
         x = self.activation(self.norm1(self.fc1(state)))
         x = self.dropout1(x)
@@ -109,8 +109,11 @@ class ValueNet(nn.Module):
         x = self.activation(self.norm3(self.fc3(x)))
         x = self.dropout3(x)
 
+        # Store features for entropy calculation and explainability
+        features = x
+        
         value = self.noisy_fc(x)
-        return value
+        return value, features
 
     def predict(self, state_tensor, phase_vector=None, context_text=None):
         """
@@ -122,7 +125,7 @@ class ValueNet(nn.Module):
                 state_tensor = state_tensor.unsqueeze(0)
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
-            value = self.forward(
+            value, _ = self.forward(
                 state_tensor.to(self.device), phase_vector, context_text
             )
         return value.item()
@@ -137,7 +140,7 @@ class ValueNet(nn.Module):
 
         for i in range(batch_size):
             ctx_text = context_texts[i] if context_texts else None
-            predicted = self.forward(states[i], context_text=ctx_text)
+            predicted, _ = self.forward(states[i], context_text=ctx_text)
             loss = F.smooth_l1_loss(predicted.squeeze(), targets[i])
 
             self.optimizer.zero_grad()

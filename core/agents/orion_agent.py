@@ -23,6 +23,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
     - Provides dynamic adjustments to agent parameters (epsilon, learning rate)
     - Uses GPTManager for all LLM calls with efficient caching and token tracking
     - Unified memory schema: actions, rewards, scenarios
+    - Provides dynamic scenario generation for CyberEnvironment (difficulty, thresholds, etc.)
     """
 
     def __init__(
@@ -583,6 +584,62 @@ Suggest memory optimization strategies in a single sentence.
         if dqn_insights.get("decrease_exploration"):
             agent.epsilon = max(agent.epsilon * 0.9, agent.epsilon_min)
 
+    def generate_dynamic_scenario(self, scenario, services):
+        """
+        Generate a dynamic scenario profile for CyberEnvironment.
+        Args:
+            scenario (str): Scenario name or type (e.g., 'dynamic', 'ctf', etc.)
+            services (list): List of available services (e.g., ['ssh', 'http', ...])
+        Returns:
+            dict: Scenario profile with keys: difficulty, traceback_threshold, training_mode, blue_aggressiveness, services
+        """
+        try:
+            # Validate input
+            if not isinstance(services, list) or not services:
+                services = ["ssh", "http", "ftp", "smb"]
+            # Example: Use scenario to influence difficulty
+            if scenario == "ctf":
+                difficulty = random.randint(10, 18)
+                training_mode = "live"
+            elif scenario == "simulated":
+                difficulty = random.randint(5, 12)
+                training_mode = "simulated"
+            else:
+                difficulty = random.randint(7, 16)
+                training_mode = "adaptive"
+            profile = {
+                "difficulty": difficulty,
+                "traceback_threshold": random.randint(60, 90),
+                "training_mode": training_mode,
+                "blue_aggressiveness": random.randint(2, 5),
+                "services": services,
+            }
+            # Optionally, allow for future config-driven overrides here
+            return profile
+        except Exception as e:
+            # Fallback defaults
+            console.print(f"[yellow]⚠ OrionAgent.generate_dynamic_scenario failed: {e}[/yellow]")
+            return {
+                "difficulty": 10,
+                "traceback_threshold": 75,
+                "training_mode": "adaptive",
+                "blue_aggressiveness": 3,
+                "services": services if services else ["ssh", "http"],
+            }
+
+    def provide_reasoning(self, context, data):
+        """
+        Generate a strategic reasoning statement based on context and data.
+        """
+        # For now, return a stub or use LLM if available
+        try:
+            prompt = f"As OrionAgent, provide reasoning for context: {context} with data: {data}"
+            if hasattr(self, 'gpt_manager'):
+                return self.gpt_manager.gpt_request(prompt, task_type="strategic", model="gpt-4o-mini")
+            return f"OrionAgent strategic reasoning for {context}: {data}"
+        except Exception as e:
+            return f"[OrionAgent] Reasoning unavailable: {e}"
+
 # For CLI testing
 if __name__ == "__main__":
     console.print("[bold blue]Testing OrionAgent in standalone mode[/bold blue]")
@@ -600,7 +657,3 @@ if __name__ == "__main__":
     }
     
     feedback = orion._generate_performance_feedback(test_data)
-    console.print(f"[cyan]GPT Feedback:[/cyan] {feedback}")
-    
-    chain = orion._gpt_generate_chain(["nmap -sV 10.10.10.10", "gobuster dir -u http://10.10.10.10"])
-    console.print(f"[cyan]Generated Chain:[/cyan] {chain}")

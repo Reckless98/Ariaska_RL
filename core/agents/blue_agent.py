@@ -62,13 +62,12 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.agent_id = agent_id
         self.role = role
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.policy_net = PolicyNet(
-            input_size=512, output_size=5, device=self.device
-        ).to(self.device)
-        # --- DQN Target Network ---
-        self.target_net = PolicyNet(
-            input_size=512, output_size=5, device=self.device
-        ).to(self.device)
+        self.policy_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
+        self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
+        self.target_value_net = ValueNet(input_size=512, device=self.device).to(self.device)
+        self.target_value_net.load_state_dict(self.value_net.state_dict())
+        self.target_value_net.eval()
+        self.target_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True)
@@ -77,8 +76,6 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.memory_router = memory_router or MemoryRouter()
         self.agent_manager = agent_manager
         self.memory_manager = memory_manager
-        self.red = None
-        self.orion = None
         self.replay_memory_size = 1500
         self.batch_size = 40
         self.gamma = 0.99
@@ -93,38 +90,50 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.current_mode = "Standard"
         self.training_log_path = os.path.join("logs", f"{self.agent_id}_training.log")
         os.makedirs("logs", exist_ok=True)
-        console.print(
-            f"[green]✔ {self.agent_id} initialized — Sentinel Prime Mode on {self.device}[/green]"
-        )
         self.gpt_reasoning_cache = {}
         self.gpt_handler = GPTCacheHandler()
-        self.gpt_cache = {}
         self.verbosity = verbosity
         self.last_action = None
-        self.repeated_action_count = 0
         self.repetition_count = {}
-        self.last_action = None
         self.repeat_steps = 0
         self.gpt_calls_this_episode = 0
         self.gpt_call_limit = 10
         self.gpt_manager = GPTManager()
-        self.replay_buffer = ReplayBuffer(capacity=self.replay_memory_size, alpha=0.6, use_sqlite=True, db_path=f"core/memories/blueagent_memory/replay_buffer.sqlite3")
+        self.replay_buffer = ReplayBuffer(
+            capacity=self.replay_memory_size,
+            alpha=0.6,
+            use_sqlite=True,
+            db_path=f"core/memories/blueagent_memory/replay_buffer.sqlite3"
+        )
         self.prioritized_experiences = []
         self.prioritized_priorities = []
-        self.mode_switch_cooldown = 0  # Add cooldown for GPT mode switch
-        self.target_update_freq = 50  # Update target net every N steps
+        self.mode_switch_cooldown = 0
+        self.target_update_freq = 1000  # More stable: update every 1000 steps
         self.step_count = 0
         self.local_llm = LocalLLMManager(model_name="wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF")
+        self.lily_llm = LocalLLMManager(model_name="QuantFactory/Lily-Cybersecurity-7B-v0.2-GGUF:Q8_0")
 
     def _init_multiagent_links(self):
         self.red = self.agent_manager.get_agent("RedAgent")
         self.orion = self.agent_manager.get_agent("OrionAgent")
+        self.local_llm = LocalLLMManager(model_name="wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF")
 
     def query_tactical_gpt(self, prompt, complexity="standard"):
         """
-        Use both SenecaLLM and GPTManager for defensive/tactical suggestions.
+        Use LilyLLM for concise tactical advice, fallback to SenecaLLM+GPT review.
         """
         try:
+            # LilyLLM prompt template
+            lily_prompt = (
+                "Provide a concise tactical recommendation in one sentence. "
+                "Avoid any self-referential commentary.\n"
+                f"{prompt.strip()}"
+            )
+            lily_suggestion = self.lily_llm.query(lily_prompt)
+            lily_suggestion = self._postprocess_lily_output(lily_suggestion)
+            if self.gpt_manager._is_simple_command(lily_suggestion):
+                return lily_suggestion
+            # Fallback: SenecaLLM + GPT review
             seneca_suggestion = self.local_llm.query(prompt)
             review_prompt = (
                 f"As a blue team strategist, review the AI's suggested command:\n\n"
@@ -140,28 +149,50 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             console.print(f"[red]❌ query_tactical_gpt error: {e}[/red]")
             return self.gpt_manager.smart_decision(task_type="defense", task_description=prompt)
 
+    def _postprocess_lily_output(self, output: str) -> str:
+        """
+        Remove verbose/AI disclaimers from LilyLLM output.
+        """
+        import re
+        if not output:
+            return ""
+        patterns = [
+            r"(?i)^as an ai( language)? model[,. ]*",
+            r"(?i)^as a (cybersecurity )?ai( assistant)?[,. ]*",
+            r"(?i)^i am (an|a) (ai|language model)[,. ]*",
+            r"(?i)^note:.*",
+            r"(?i)^please note.*",
+        ]
+        for pat in patterns:
+            output = re.sub(pat, "", output).strip()
+        output = re.sub(r"(?i)for more information.*$", "", output).strip()
+        return output
+
     def select_action(self, state_tensor, phase=None):
-        # DQN: argmax Q-value from policy_net
         if isinstance(phase, dict) and "response" in phase:
             phase = phase["response"]
+        # Use get_action_description for readable logs
+        action_idx = None
         if random.random() < self.epsilon:
-            action = random.randint(0, self.policy_net.output_size - 1)
-            console.print(f"[yellow]🎲 Random action selected due to exploration: {action}[/yellow]")
-            return action
+            action_idx = random.randint(0, self.policy_net.output_size - 1)
+            if self.verbosity in ("debug", "verbose"):
+                console.print(f"[yellow]🎲 Random action selected: {get_action_description(action_idx)}[/yellow]")
+            return action_idx
         phase_vec = get_phase_vector(phase, self.device)
         q_values = self.policy_net(state_tensor.unsqueeze(0), phase_vector=phase_vec)
-        action = torch.argmax(q_values, dim=-1).item()
-        console.print(f"[cyan]🎯 PolicyNet action selected: {action}[/cyan]")
+        action_idx = torch.argmax(q_values, dim=-1).item()
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[cyan]🎯 PolicyNet action selected: {get_action_description(action_idx)}[/cyan]")
         if self.current_mode != "Defensive" and self.mode_switch_cooldown == 0:
             mode_switch_prompt = f"Current mode: {self.current_mode}. Should BlueAgent switch to a more defensive posture based on the current threat level?"
             mode_switch_decision = self.query_tactical_gpt(mode_switch_prompt)
             if "yes" in mode_switch_decision.lower():
                 self.current_mode = "Defensive"
                 console.print(f"[magenta]🚨 Mode switched to Defensive.[/magenta]")
-            self.mode_switch_cooldown = 5  # Debounce: only ask every 5 steps
+            self.mode_switch_cooldown = 5
         elif self.mode_switch_cooldown > 0:
             self.mode_switch_cooldown -= 1
-        return action
+        return action_idx
 
     def simulate_step(self, episode=1, step=1, shared_context=None):
         try:
@@ -170,22 +201,19 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 if step == 1
                 else getattr(self, "_last_state", self.env.get_global_state())
             )
-            # Use shared context for phase coordination if available
+            # Inject ScoutAgent_phase if available
             if shared_context and "ScoutAgent_phase" in shared_context:
                 state["phase"] = shared_context["ScoutAgent_phase"]
             if hasattr(self, "agent_manager") and self.agent_manager:
                 scout = getattr(self.agent_manager, "scout_agent", None)
                 if scout and hasattr(scout, "advise_phase"):
-                    state["phase"] = scout.advise_phase(
-                        state, self.agent_manager.all_agents()
-                    )
+                    state["phase"] = scout.advise_phase(state, self.agent_manager.all_agents())
             try:
                 state_tensor = self.encode_env_state(state)
             except Exception:
-                # fallback for dict state
                 state_tensor = torch.zeros(512, device=self.device)
-            action = self.select_action(state_tensor, state.get("phase", None))
-            # Defensive: ensure action is a string
+            action_idx = self.select_action(state_tensor, state.get("phase", None))
+            action = get_action_description(action_idx)
             if isinstance(action, dict):
                 action = action.get("response", str(action))
             if not isinstance(action, str):
@@ -193,7 +221,6 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             if not action or action == "N/A":
                 action = "nmap -p- -sC -sV TARGET"
                 console.print(f"[yellow]⚠ BlueAgent fallback to default action: {action}[/yellow]")
-            # --- Repetition Counter for Stagnation Prevention ---
             self.repetition_count.setdefault(action, 0)
             if self.last_action == action:
                 self.repetition_count[action] += 1
@@ -210,7 +237,6 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 self.repetition_count[action] = 0
                 self.repeat_steps = 0
             next_state, reward, done, _ = self.env.step(action)
-            # Defensive: ensure reward is a float
             try:
                 if isinstance(reward, dict):
                     reward = float(reward.get("reward", 0.0))
@@ -233,33 +259,26 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 self.gpt_reasoning_cache[reasoning_key] = self.last_reasoning
             display_status_bar(self.agent_id, episode, step)
             self._log_training_step(episode, step, str(action), state, self.last_output)
-            # Print more info about agent state
             console.print(
                 f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]"
             )
-            # After decision, broadcast own phase/intent
             if self.agent_manager and hasattr(self.agent_manager, "broadcast"):
                 self.agent_manager.broadcast(
                     f"{self.agent_id}_phase",
                     state.get("phase", "N/A"),
                     sender=self.agent_id,
                 )
-            # Activate countermeasures if alert level is high
             if state.get("blue_team_alert", 0) > 60:
                 self.current_mode = "Defensive"
                 console.print(
                     "[red]🚨 BlueAgent: Alert level high, activating countermeasures![/red]"
                 )
-                # Example: deploy honeypots or reset credentials
                 if hasattr(self.env, "honeypots"):
                     self.env.honeypots.append("fake_ssh")
-            # --- Enhanced Threat Detection ---
-            # Analyze RedAgent's last action for threat patterns
             red_agent = getattr(self.agent_manager, "red_agent", None)
             red_command = None
             if red_agent and hasattr(red_agent, "command_history") and red_agent.command_history:
                 red_command = red_agent.command_history[-1]
-                # Use GPT-4o-mini for anomaly detection if high risk
                 if "exploit" in red_command or "privesc" in red_command:
                     anomaly_prompt = (
                         f"RedAgent issued: {red_command}. "
@@ -274,9 +293,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                     if "reset" in gpt_defense.lower():
                         console.print(f"[blue]🔐 BlueAgent: Resetting credentials per GPT defense.[/blue]")
                     console.print(f"[yellow]🧠 GPT-4o-mini Defense: {gpt_defense}[/yellow]")
-            # --- Dynamic Defensive Response ---
             if state.get("blue_team_alert", 0) > 60 or state.get("detection_risk", 0) > 5.0:
-                # Use GPT-4o-mini for adaptive defense
                 defense_prompt = (
                     f"Alert: {state.get('blue_team_alert', 0)}, Risk: {state.get('detection_risk', 0)}. "
                     "Suggest immediate defensive action."
@@ -289,7 +306,6 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 if "lockdown" in gpt_action.lower():
                     console.print("[red]🔒 BlueAgent: Initiating system lockdown![/red]")
                 self.current_mode = "Defensive"
-            # --- Detailed Logging ---
             console.print(
                 f"[dim][BlueAgent] Step {step} | Action: {action} | Phase: {state.get('phase', 'N/A')} | Reward: {reward:.2f} | Mode: {self.current_mode}[/dim]"
             )
@@ -302,13 +318,56 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 'gpt_tokens': gpt_tokens
             }
             self.replay_buffer.add(experience)
-            # At the end of episode, decay epsilon
             if step == 1:
+                old_epsilon = self.epsilon
                 self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-            # --- DQN Target Network Update ---
+                if self.verbosity in ("debug", "verbose"):
+                    console.print(f"[cyan]🔧 Epsilon decayed: {old_epsilon:.4f} → {self.epsilon:.4f}[/cyan]")
+            self.step_count += 1
+            # --- Target network update every target_update_freq steps ---
             if self.step_count % self.target_update_freq == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
-            # Always return floats for reward, epsilon, entropy
+            # Log epsilon for monitoring
+            if (step == 1 or step % 10 == 0) and self.verbosity in ("debug", "verbose"):
+                console.print(f"[cyan]Epsilon: {self.epsilon:.4f}[/cyan]")
+            # LLM usage summary (stub, see below)
+            if step == 1 or step % 10 == 0:
+                gpt_calls = self.gpt_manager.get_token_usage(self.agent_id)
+                console.print(f"[blue]LLM usage: Seneca calls: N/A, Lily calls: N/A, GPT calls: {gpt_calls}[/blue]")
+            # --- Stuck-Agent Detection ---
+            stuck_window = 3
+            stuck = False
+            if len(self.command_history) >= stuck_window:
+                recent_cmds = self.command_history[-stuck_window:]
+                if len(set(recent_cmds)) < stuck_window:
+                    stuck = True
+            # No-progress detection: if reward hasn't increased for K steps
+            no_progress_steps = 4
+            if hasattr(self, "last_rewards"):
+                self.last_rewards.append(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-1] if self.stats_monitor.agent_stats[self.agent_id]["rewards"] else 0)
+                if len(self.last_rewards) > no_progress_steps:
+                    self.last_rewards.pop(0)
+                if (
+                    len(self.last_rewards) == no_progress_steps
+                    and max(self.last_rewards) - min(self.last_rewards) < 1e-3
+                ):
+                    stuck = True
+            else:
+                self.last_rewards = [self.stats_monitor.agent_stats[self.agent_id]["rewards"][-1] if self.stats_monitor.agent_stats[self.agent_id]["rewards"] else 0]
+            if stuck:
+                console.print(f"[yellow]⚠ {self.agent_id} appears stuck. Triggering GPT-based recovery.[/yellow]")
+                recovery_prompt = (
+                    f"Agent {self.agent_id} has repeated action '{self.last_action}' {stuck_window} times with no success. "
+                    f"Recent rewards: {getattr(self, 'last_rewards', [])}. "
+                    "Suggest an alternative defensive strategy or command to escape this local minimum. Respond ONLY with the command."
+                )
+                recovery_cmd = self.gpt_manager.gpt_request(
+                    recovery_prompt, task_type="reasoning", agent_id=self.agent_id, use_gpt=True
+                )
+                if recovery_cmd and isinstance(recovery_cmd, str) and len(recovery_cmd.split()) > 1:
+                    action = recovery_cmd
+                    console.print(f"[green]🧠 GPT Recovery Command Applied: {action}[/green]")
+                    self.repetition_count[action] = 0
             return {
                 "command": str(action),
                 "phase": state.get("phase", "N/A"),
@@ -348,199 +407,95 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 f"Episode {episode}, Step {step}, Action: {action}, Phase: {state.get('phase')}, Output: {output}\n"
             )
 
-    def react_to_action(self, command, parsed_output=None):
-        if not isinstance(command, str):
-            console.print(
-                f"[yellow]⚠ BlueAgent received non-string command: {command}[/yellow]"
-            )
-            return {}
-        if not parsed_output:
-            parsed_output = {"phase": "unknown", "success": False, "risk_score": 0.0}
-        threat_level = 0.0
-        if "exploit" in command.lower() or "privesc" in command.lower():
-            threat_level = 0.7
-        elif "recon" in command.lower() or "scan" in command.lower():
-            threat_level = 0.3
-        alert_increase = (
-            threat_level * 10 * (1.0 if parsed_output.get("success", False) else 0.5)
-        )
-        risk_increase = threat_level * 0.5
-        honeypots_deployed = []
-        credentials_reset = False
-        if threat_level > 0.5 and random.random() < 0.3:
-            honeypots_deployed = ["fake_ssh", "fake_http"]
-            console.print(
-                f"[blue]🛡️ {self.agent_id}: Deploying honeypot in response to threat[/blue]"
-            )
-        if (
-            "exploit" in command.lower()
-            and parsed_output.get("success", False)
-            and random.random() < 0.2
-        ):
-            credentials_reset = True
-            console.print(
-                f"[blue]🔐 {self.agent_id}: Resetting credentials after suspected breach[/blue]"
-            )
-        # Dynamic risk adaptation
-        if self.env.detection_risk > 5.0:
-            self.current_mode = "Defensive"
-            if self.verbosity != "silent":
-                console.print(
-                    "[red]🔴 High Risk Detected! Switching to Defensive Mode.[/red]"
-                )
-            # Deploy honeypot if not already present
-            if "fake_ssh" not in self.env.honeypots:
-                self.env.honeypots.append("fake_ssh")
-                if self.verbosity == "verbose":
-                    console.print(
-                        "[yellow]🛡️ BlueAgent deployed honeypot: fake_ssh[/yellow]"
-                    )
-        # --- Human-Readable Logging ---
-        console.print(
-            f"[dim][BlueAgent] Detected threat: {command} | Alert+{alert_increase:.1f} | Risk+{risk_increase:.2f} | Honeypots: {honeypots_deployed} | Credentials Reset: {credentials_reset}[/dim]"
-        )
-        return {
-            "alert_increase": alert_increase,
-            "risk_increase": risk_increase,
-            "honeypots": honeypots_deployed,
-            "credentials_reset": credentials_reset,
-        }
-
     def train_on_batch(self):
-        # DQN: Use target_net for stable Q-targets, prioritized replay, ε-decay
-        batch = self.replay_buffer.sample(self.batch_size)
+        # DQN: Use target_value_net for stable Q-targets, prioritized replay, ε-decay
+        batch = self.replay_buffer.sample(self.batch_size, prioritized=False)  # Use uniform random sampling
         if not batch:
             console.print(
                 "[yellow]⚠ Not enough experiences for batch training.[/yellow]"
             )
             return
-        # Prepare tensors
+        # --- Use stored actions, not select_action (fixes DQN bug) ---
         states = torch.stack([torch.tensor(exp['state'], dtype=torch.float32, device=self.device) for exp in batch])
         actions = torch.tensor(
-            [self.select_action(torch.tensor(exp['state'], dtype=torch.float32, device=self.device), None) for exp in batch], dtype=torch.long, device=self.device
+            [exp['action'] if isinstance(exp['action'], int) else 0 for exp in batch], dtype=torch.long, device=self.device
         )
         rewards = torch.tensor(
             [exp['reward'] for exp in batch], dtype=torch.float32, device=self.device
         )
         next_states = torch.stack([torch.tensor(exp['next_state'], dtype=torch.float32, device=self.device) for exp in batch])
-        dones = torch.zeros(len(batch), dtype=torch.float32, device=self.device)  # Placeholder
-
-        # --- DQN Q-value computation ---
+        dones = torch.zeros(len(batch), dtype=torch.float32, device=self.device)
         # Q(s,a) from policy_net
         q_values = self.policy_net(states)
         q_selected = q_values.gather(1, actions.unsqueeze(1)).squeeze()
-        # Q(s',a') from target_net
+        # --- Double DQN (optional, scaffolded) ---
+        # next_actions = self.policy_net(next_states).argmax(dim=1)
+        # next_q_values = self.target_value_net(next_states)
+        # max_next_q = next_q_values.gather(1, next_actions.unsqueeze(1)).squeeze()
+        # --- Standard DQN target ---
         with torch.no_grad():
-            next_q_values = self.target_net(next_states)
+            next_q_values = self.target_value_net(next_states)
             max_next_q = next_q_values.max(dim=1)[0]
             targets = rewards + self.gamma * max_next_q * (1 - dones)
-        # Loss: MSE or Huber
         loss = torch.nn.functional.smooth_l1_loss(q_selected, targets)
         self.policy_net.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
         self.policy_net.optimizer.step()
         self.policy_net.scheduler.step()
-        self.target_net.eval()
+        self.target_value_net.eval()
+        # --- Target value net update ---
+        # Only update every target_update_freq steps (handled in simulate_step)
         # --- Epsilon decay after each batch ---
+        old_epsilon = self.epsilon
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-        # --- Target network update ---
-        if self.step_count % self.target_update_freq == 0:
-            self.target_net.load_state_dict(self.policy_net.state_dict())
-        console.print(f"[cyan]🔧 {self.agent_id}: DQN batch training complete. Loss: {loss.item():.4f}[/cyan]")
-        self._log_training_event("Batch training complete.")
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[cyan]🔧 {self.agent_id}: DQN batch training complete. Loss: {loss.item():.4f} | Epsilon: {old_epsilon:.4f}→{self.epsilon:.4f}[/cyan]")
+        self._log_training_event(f"Batch training complete. Loss: {loss.item():.4f}")
+        # --- Moving average reward/loss logging ---
+        if not hasattr(self, "loss_history"):
+            self.loss_history = []
+        self.loss_history.append(loss.item())
+        if len(self.loss_history) > 100:
+            self.loss_history.pop(0)
+        avg_loss = sum(self.loss_history) / len(self.loss_history)
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[magenta]Moving Avg Loss (last 100): {avg_loss:.4f}[/magenta]")
         # Prune buffer if needed
         if hasattr(self.replay_buffer, "buffer") and len(self.replay_buffer.buffer) > self.replay_memory_size:
             self.replay_buffer.buffer = self.replay_buffer.buffer[-self.replay_memory_size:]
+        # Prune redundancy after each batch
+        from core.logic.redundancy_detector import detect_redundancy_batch
+        self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
 
     def _log_training_event(self, msg):
         with open(self.training_log_path, "a") as f:
             f.write(f"{msg}\n")
 
-    def display_advanced_status(self):
-        table = Table(title=f"🛡️ {self.agent_id} Defensive Status", show_lines=True)
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="magenta")
-        avg_reward = self.stats_monitor.get_average_reward()
-        detection_rate = self.stats_monitor.get_detection_rate()
-        table.add_row("Role", self.role)
-        table.add_row("Episodes Completed", str(self.total_episodes))
-        table.add_row("Total Steps", str(self.total_steps))
-        table.add_row("Avg Reward", f"{avg_reward:.2f}")
-        table.add_row("Detection Rate", f"{detection_rate:.2%}")
-        table.add_row("Epsilon (Exploration)", f"{self.epsilon:.4f}")
-        table.add_row("Entropy Beta", f"{self.entropy_beta:.4f}")
-        table.add_row(
-            "Replay Buffer",
-            f"{len(self.prioritized_experiences)} / {self.replay_memory_size}",
-        )
-        table.add_row(
-            "Last Reasoning",
-            self.last_reasoning[:60] + "..." if self.last_reasoning else "N/A",
-        )
-        console.print(
-            Panel(table, title="🧠 Defensive Overview", border_style="bright_blue")
-        )
-        self.stats_monitor.visualize_phase_distribution()
-        console.print(f"[dim]Training log: {self.training_log_path}[/dim]")
-
-    def get_visualization_panel(self):
-        from rich.panel import Panel
-        from rich.table import Table
-
-        table = Table(title=f"{self.agent_id} — Advanced Status", show_lines=True)
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="magenta")
-        table.add_row("Role", self.role)
-        table.add_row("Episodes", str(self.total_episodes))
-        table.add_row("Steps", str(self.total_steps))
-        table.add_row("Avg Reward", f"{self.stats_monitor.get_average_reward():.2f}")
-        table.add_row("Epsilon", f"{self.epsilon:.4f}")
-        table.add_row("Entropy Beta", f"{self.entropy_beta:.4f}")
-        table.add_row(
-            "Last Reasoning",
-            self.last_reasoning[:80] + "..." if self.last_reasoning else "N/A",
-        )
-        return Panel(
-            table, title=f"🛡️ {self.agent_id} Defensive Panel", border_style="blue"
-        )
-
-    def save_models(self, prefix="models/blue_agent"):
-        os.makedirs(os.path.dirname(prefix), exist_ok=True)
-        try:
-            self.policy_net.save(f"{prefix}_policy.pt")
-            self.value_net.save(f"{prefix}_value.pt")
-            console.print(
-                f"[green]💾 {self.agent_id}: Models saved to {prefix}_*.pt[/green]"
-            )
-        except Exception as e:
-            console.print(f"[red]❌ {self.agent_id}: Model save failed: {e}[/red]")
-
-    def load_models(self, prefix="models/blue_agent"):
-        try:
-            self.policy_net.load(f"{prefix}_policy.pt")
-            self.value_net.load(f"{prefix}_value.pt")
-            console.print(
-                f"[cyan]✔ {self.agent_id}: Models loaded from {prefix}_*.pt[/cyan]"
-            )
-        except Exception as e:
-            console.print(f"[red]⚠ {self.agent_id}: Failed to load models: {e}[/red]")
-
-    def safe_shutdown(self):
-        self.save_models()
-        console.print(f"[blue]🛡️ {self.agent_id}: Safe shutdown complete.[/blue]")
-        self._log_training_event("Safe shutdown complete.")
-
     @staticmethod
     def encode_env_state_static(state, device):
         import numpy as np
         vec = []
-        vec.append(
-            float(
-                state.get("phase", 0)
-                in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
-            )
-        )
+        # Add phase one-hot vector (5 dims)
+        phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+        phase_vec = [1.0 if state.get("phase") == p else 0.0 for p in phases]
+        vec.extend(phase_vec)
+        # Add last action index (if available)
+        last_action_idx = 0
+        if "last_action" in state:
+            try:
+                last_action_idx = int(state["last_action"])
+            except Exception:
+                last_action_idx = 0
+        vec.append(float(last_action_idx))
+        # LLM context features: last reasoning reward, chain updated flag
+        llm_reward = state.get("llm_last_reward", 0.0)
+        chain_updated = 1.0 if state.get("chain_updated", False) else 0.0
+        vec.append(float(llm_reward))
+        vec.append(float(chain_updated))
+        # Pad with zeros for future LLM/context features
+        vec.extend([0.0, 0.0])
+        # Add other environment features
         vec.append(float(state.get("privilege_level", "none") == "root"))
         vec.append(float(state.get("detection_risk", 0)))
         vec.append(float(state.get("blue_team_alert", 0)))
@@ -555,62 +510,11 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         return torch.tensor(vec, dtype=torch.float32, device=device)
 
     def encode_env_state(self, state):
+        # Ensure phase and last action are included
+        state = dict(state)
+        if hasattr(self, "last_action") and self.last_action is not None:
+            state["last_action"] = self.last_action
         return self.encode_env_state_static(state, self.device)
-
-    def generate_hint(self):
-        # New: Provide a tactical hint using memory or GPT
-        if self.memory_router:
-            mem = self.memory_router.get_memory(self.agent_id)
-            if mem and mem.get("actions"):
-                return mem["actions"][-1].get("full_command", "nmap -p- -sC -sV TARGET")
-        return self.query_tactical_gpt(
-            "Suggest a defensive command for the current phase."
-        )
-
-    def execute_command(self, command):
-        try:
-            output = f"Executed: {command}"
-            reward = random.uniform(0, 10)
-            self.stats_monitor.log_step(self.agent_id, reward, command=command)
-            return {
-                "output": output,
-                "recommendations": [
-                    {"command": command, "params": "Auto", "why": "Manual execution"}
-                ],
-                "phase": "unknown",
-                "reward": reward,
-                "alert": 0.0,
-                "entropy": None,
-            }
-        except Exception as e:
-            console.print(f"[red]❌ Error executing command: {e}[/red]")
-            return {
-                "output": f"Error executing command: {e}",
-                "recommendations": [],
-                "phase": "unknown",
-                "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
-            }
-
-    def get_base_commands(self):
-        # For CLI completion/autosuggest
-        return [
-            "nmap",
-            "hydra",
-            "msfconsole",
-            "sqlmap",
-            "ffuf",
-            "gobuster",
-            "linpeas",
-            "winpeas",
-            "evil-winrm",
-            "masscan",
-            "amass",
-            "crackmapexec",
-            "enum4linux",
-            "pspy",
-        ]
 
     def sync_memory(self):
         if self.memory_router:
@@ -618,14 +522,33 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         from core.logic.redundancy_detector import detect_redundancy_batch
         self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
 
+    def get_smart_command(self, state, phase, cache_key=None):
+        """
+        Use both SenecaLLM and GPTManager for command generation.
+        Integrate dual-LLM critique loop for defensive strategy.
+        """
+        task_desc = (
+            f"Phase: {phase}, Privilege: {state.get('privilege_level')}, "
+            f"Alert: {state.get('blue_team_alert')}, Risk: {state.get('detection_risk')}."
+            " Suggest the most effective, non-redundant, phase-appropriate defensive command."
+        )
+        dual_feedback = self.gpt_manager.dual_llm_feedback(task_desc, agent_id=self.agent_id)
+        command = self.gpt_manager._sanitize_output(dual_feedback)
+        # TODO: integrate dual-LLM critique loop with agent feedback/memory
+        if hasattr(self, "gpt_reasoning_cache"):
+            self.gpt_reasoning_cache[f"dual_llm_{phase}"] = dual_feedback
+        return command
+
     def reset(self):
-        """Reset stats and replay buffer for new episode."""
         self.total_steps = 0
         self.command_history.clear()
         self.prioritized_experiences.clear()
         self.prioritized_priorities.clear()
         if hasattr(self, "stats_monitor"):
             self.stats_monitor.reset()
+        if hasattr(self, "gpt_reasoning_cache") and "dual_llm_reset" in self.gpt_reasoning_cache:
+            feedback = self.gpt_reasoning_cache["dual_llm_reset"]
+            # Log or use as needed for strategy adaptation
 
 # ─────────────────────────────────────────────
 # 🎬 Execution Test Hook

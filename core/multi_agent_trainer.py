@@ -13,6 +13,7 @@ from core.multiagent.agent_manager import AgentManager
 from core.monitor.stats_monitor import StatsMonitor
 from core.logic.chainbuilder import build_and_store_chain_multiagent
 from core.teach.teach import TeachModule
+from core.visualization.training_visualizer import TrainingVisualizer
 
 console = Console()
 
@@ -97,6 +98,12 @@ class MultiAgentTrainer:
         self.verbosity = verbosity
         self.optimize_mode = optimize_mode
         self.token_usage = {}
+        self.visualizer = TrainingVisualizer(
+            agents=[a.agent_id for a in agent_manager.all_agents()],
+            max_history=100
+        )
+        self.visualizer.start_live_display()
+        self.visualizer_update_interval = 5  # Only update visuals every N steps
         console.print(
             Panel.fit(
                 "[bold cyan]🎮 MultiAgentTrainer v11.5 Initialized — Global Sync Online[/bold cyan]"
@@ -153,6 +160,13 @@ class MultiAgentTrainer:
                 if risk > 7.0:
                     console.log("🔚 Ending episode early due to high risk.")
                     break
+
+            # Update visualizer every N steps
+            if self.global_step % self.visualizer_update_interval == 0:
+                self.visualizer.update(agent_data={
+                    "global_step": self.global_step,
+                    "token_usage": self.token_usage
+                })
 
             self.global_step += 1
             time.sleep(1)

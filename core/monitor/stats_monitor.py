@@ -1,474 +1,484 @@
-# core/models/stats_monitor.py — ARIASKA StatsMonitor v12.0 APEX PRIME
-# 🎯 Live Multi-Agent Dashboard | 🧠 Orion GPT Insights | ⚡ Event-Driven Alerts | 📈 Advanced Health Metrics
-
-import os
-import time
-import json
-from collections import Counter, defaultdict
 from rich.console import Console
 from rich.table import Table
-from rich.live import Live
-from rich.progress import (
-    Progress,
-    BarColumn,
-    TextColumn,
-    TimeElapsedColumn,
-    SpinnerColumn,
-)
 from rich.panel import Panel
-from rich.columns import Columns
-from rich import box
+from rich.layout import Layout
+from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, SpinnerColumn
+from rich.live import Live
+from collections import defaultdict, deque, Counter
+import threading
+import time
+import json
+import os
 
 console = Console()
 
+# ─────────────────────────────────────────────
+# 📈 Progress Tracker
+# ─────────────────────────────────────────────
+class ProgressTracker:
+    def __init__(self, total_steps=100, total_episodes=10):
+        self.total_steps = total_steps
+        self.total_episodes = total_episodes
+        self.current_step = 0
+        self.current_episode = 0
+        self.progress = None
+        self.task = None
 
-class StatsMonitor:
-    _active_live_dashboard = None  # Singleton for live dashboard
+    def start(self):
+        self.progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[cyan]{task.completed}/{task.total}"),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
+        )
+        self.task = self.progress.add_task("Training Progress", total=self.total_steps * self.total_episodes)
+        self.progress.start()
 
-    def __init__(self, agents_list=None, log_dir="logs", verbosity="standard"):
+    def update(self, step=1, episode=0):
+        self.current_step = step
+        self.current_episode = episode
+        if self.progress and self.task is not None:
+            self.progress.update(self.task, completed=(episode * self.total_steps + step))
+
+    def stop(self):
+        if self.progress:
+            self.progress.stop()
+            self.progress = None
+
+# ─────────────────────────────────────────────
+# 📝 Data Logger (Async)
+# ─────────────────────────────────────────────
+class DataLogger:
+    def __init__(self, log_dir="logs"):
         self.log_dir = log_dir
         os.makedirs(log_dir, exist_ok=True)
+        self.step_log_path = os.path.join(log_dir, "step_log.jsonl")
+        self.episode_log_path = os.path.join(log_dir, "episode_log.jsonl")
+        self.gpt_log_path = os.path.join(log_dir, "gpt_usage.jsonl")
+        self.lock = threading.Lock()
 
-        self.agents = agents_list or [
-            "RedAgent",
-            "BlueAgent",
-            "ScoutAgent",
-            "ShadowAgent",
-            "OrionAgent",
-        ]
-        self.agent_stats = defaultdict(lambda: {
-            "rewards": [],
-            "gpt_calls": 0,
-            "redundancy": 0,
-            "phases": [],
-            "steps": 0,
-            "risk": [],
-            "alert": [],
-            "tokens": 0,
-        })
+    def log_step(self, agent_id, reward, **info):
+        entry = {"agent_id": agent_id, "reward": reward, "timestamp": time.time(), **info}
+        self._write_async(self.step_log_path, entry)
 
-        self.total_steps = 0
-        self.total_episodes = 0
-        self.start_time = time.time()
-        self.prev_snapshot = {
-            agent: {"reward": 0, "gpt_calls": 0, "alerts": 0} for agent in self.agents
-        }
+    def log_episode(self, agent_id, total_reward, **info):
+        entry = {"agent_id": agent_id, "total_reward": total_reward, "timestamp": time.time(), **info}
+        self._write_async(self.episode_log_path, entry)
 
-        self.logs = {
-            "session_replay": os.path.join(log_dir, "session_replay.jsonl"),
-            "warnings": os.path.join(log_dir, "warnings.log"),
-        }
-        for path in self.logs.values():
-            open(path, "w").close()
+    def log_gpt_usage(self, agent_id, tokens):
+        entry = {"agent_id": agent_id, "tokens": tokens, "timestamp": time.time()}
+        self._write_async(self.gpt_log_path, entry)
 
-        self.live_dashboard = None
-        self.progress = None
-        self.episode_task = None
+    def log_alert(self, message, level="warning"):
+        entry = {"message": message, "level": level, "timestamp": time.time()}
+        self._write_async(os.path.join(self.log_dir, "alerts.jsonl"), entry)
+
+    def _write_async(self, path, entry):
+        def _write():
+            with self.lock:
+                with open(path, "a") as f:
+                    f.write(json.dumps(entry) + "\n")
+        threading.Thread(target=_write, daemon=True).start()
+
+# ─────────────────────────────────────────────
+# 🖥️ Dashboard Renderer
+# ─────────────────────────────────────────────
+class DashboardRenderer:
+    def __init__(self, agents, max_history=100, verbosity="standard"):
+        self.agents = agents
+        self.max_history = max_history
         self.verbosity = verbosity
-        console.print(
-            "[green]✔ StatsMonitor v12.0 APEX PRIME Initialized — Tactical Dashboard Ready[/green]"
+        self.agent_stats = {a: {"rewards": deque(maxlen=max_history), "gpt_calls": 0, "steps": 0, "redundancy": 0} for a in agents}
+        self.live = None
+        self.last_update = 0
+        self.update_interval = 3  # seconds
+        self.alerts = deque(maxlen=5)
+        self.orion_insight = ""
+        self.lock = threading.Lock()
+
+    def start_live(self):
+        if not self.live:
+            self.live = Live(self.render(), console=console, refresh_per_second=2)
+            self.live.start()
+
+    def stop_live(self):
+        if self.live:
+            self.live.stop()
+            self.live = None
+
+    def update(self, force=False):
+        now = time.time()
+        if force or now - self.last_update > self.update_interval:
+            if self.live:
+                self.live.update(self.render())
+            self.last_update = now
+
+    def render(self):
+        layout = Layout()
+        layout.split(
+            Layout(name="header", size=3),
+            Layout(name="main", ratio=2),
+            Layout(name="alerts", size=3),
+            Layout(name="orion", size=4),
         )
+        layout["header"].update(self._render_header())
+        layout["main"].update(self._render_stats_table())
+        layout["alerts"].update(self._render_alerts())
+        layout["orion"].update(self._render_orion())
+        return layout
 
-    # ─────────────────────────────────────────────
-    # 🎮 Episode Progress Control
-    # ─────────────────────────────────────────────
-    def start_episode_progress(self, total_steps):
-        """Initialize progress tracking safely"""
-        # Only create a new progress if we don't have one
-        if self.progress is None:
-            self.progress = Progress(
-                SpinnerColumn(),
-                TextColumn("[bold blue]{task.description}"),
-                BarColumn(bar_width=30),
-                TextColumn("[cyan]{task.percentage:>3.0f}%"),
-                TimeElapsedColumn(),
-                console=console,
-                transient=True,
-            )
-        
-        if self.episode_task is not None:
-            # Clean up any existing task
-            try:
-                self.progress.remove_task(self.episode_task)
-            except:
-                pass
-        
-        self.episode_task = self.progress.add_task(f"Episode {self.total_episodes + 1}", total=total_steps)
-        
-        # Only start if not already started
-        try:
-            self.progress.start()
-        except:
-            pass
-            
-        # Initialize live dashboard only if needed
-        if self.live_dashboard is None and StatsMonitor._active_live_dashboard is None:
-            self.live_dashboard = Live(console=console, refresh_per_second=2)
-            self.live_dashboard.start()
-            StatsMonitor._active_live_dashboard = self.live_dashboard
+    def _render_header(self):
+        table = Table.grid(expand=True)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Steps", style="magenta")
+        table.add_column("Avg Reward", style="green")
+        table.add_column("GPT Calls", style="yellow")
+        for agent in self.agents:
+            stats = self.agent_stats[agent]
+            avg_reward = sum(stats["rewards"]) / max(1, len(stats["rewards"]))
+            table.add_row(agent, str(stats["steps"]), f"{avg_reward:.2f}", str(stats["gpt_calls"]))
+        return Panel(table, title="Training Progress", border_style="bright_blue")
 
-    def update_progress(self):
-        if self.episode_task is not None:
-            self.progress.update(self.episode_task, advance=1)
-            self.render_live_dashboard()
+    def _render_stats_table(self):
+        table = Table(title="Agent Stats", show_lines=True)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Last Reward", style="green")
+        table.add_column("Avg Reward", style="magenta")
+        table.add_column("Redundancy", style="yellow")
+        for agent in self.agents:
+            stats = self.agent_stats[agent]
+            last_reward = stats["rewards"][-1] if stats["rewards"] else 0.0
+            avg_reward = sum(stats["rewards"]) / max(1, len(stats["rewards"]))
+            redundancy = stats.get("redundancy", 0)
+            table.add_row(agent, f"{last_reward:.2f}", f"{avg_reward:.2f}", str(redundancy))
+        return Panel(table, border_style="green")
 
-    def stop_progress(self):
-        """Safely stop progress tracking"""
-        if self.progress is not None and self.episode_task is not None:
-            try:
-                self.progress.stop()
-                self.progress.remove_task(self.episode_task)
-            except:
-                pass
-        
-        # Reset for next time
-        self.episode_task = None
-        
-        if self.live_dashboard is not None:
-            try:
-                self.live_dashboard.stop()
-            except:
-                pass
-            if StatsMonitor._active_live_dashboard is self.live_dashboard:
-                StatsMonitor._active_live_dashboard = None
-            self.live_dashboard = None
+    def _render_alerts(self):
+        if not self.alerts:
+            return Panel("[green]No alerts[/green]", title="Alerts", border_style="green")
+        table = Table(title="Alerts", show_lines=True)
+        table.add_column("Level", style="red")
+        table.add_column("Message", style="yellow")
+        for level, msg in self.alerts:
+            table.add_row(level, msg)
+        return Panel(table, border_style="red")
 
-    # ─────────────────────────────────────────────
-    # 🧠 GPT Call Logging + Orion Insight Triggers
-    # ─────────────────────────────────────────────
-    def log_gpt_call(self, agent_name, tokens=0):
-        self.agent_stats[agent_name]["gpt_calls"] += 1
-        self.agent_stats[agent_name]["tokens"] += tokens
-        self._log_replay(
-            {"event": "gpt_call", "agent": agent_name, "step": self.total_steps}
-        )
+    def _render_orion(self):
+        return Panel(self.orion_insight or "[dim]No Orion insight yet[/dim]", title="OrionAgent GPT Insights", border_style="magenta")
 
-        if self.agent_stats[agent_name]["gpt_calls"] % 15 == 0:
-            self._trigger_warning(f"{agent_name} exceeded 15 GPT calls.")
+    def log_alert(self, message, level="warning"):
+        self.alerts.appendleft((level, message))
+        self.update(force=True)
 
-    # ─────────────────────────────────────────────
-    # 🚨 Alert & Redundancy Logging
-    # ─────────────────────────────────────────────
-    def log_alert(self, agent_name, alert_level=1):
-        self.agent_stats[agent_name]["alerts"] += alert_level
-        self._log_replay(
-            {
-                "event": "alert",
-                "agent": agent_name,
-                "level": alert_level,
-                "step": self.total_steps,
-            }
-        )
+    def set_orion_insight(self, insight):
+        self.orion_insight = insight
+        self.update(force=True)
 
-        if self.agent_stats[agent_name]["alerts"] % 10 == 0:
-            self._trigger_warning(
-                f"{agent_name} accumulated {self.agent_stats[agent_name]['alerts']} alerts."
-            )
-
-    def log_step(self, agent_id, reward, command=None, phase=None, redundancy=False, risk=0.0, alert=0.0, tokens=0):
+    def update_stats(self, agent_id, reward, gpt_calls=0, redundancy=0):
         stats = self.agent_stats[agent_id]
         stats["rewards"].append(reward)
         stats["steps"] += 1
-        if phase:
-            stats["phases"].append(phase)
-        if redundancy:
-            stats["redundancy"] += 1
-        if risk is not None:
-            stats["risk"].append(risk)
-        if alert is not None:
-            stats["alert"].append(alert)
-        if tokens:
-            stats["tokens"] += tokens
-        self.total_steps += 1
-        self.update_progress()
+        stats["gpt_calls"] = gpt_calls
+        stats["redundancy"] = redundancy
+        self.update()
 
-    # ─────────────────────────────────────────────
-    # ─────────────────────────────────────────────
-    # 🎥 Session Replay Logger─────────────────────
-    # ─────────────────────────────────────────────
-    def _log_replay(self, event_data):
-        with open(self.logs["session_replay"], "a") as f:
-            f.write(json.dumps(event_data) + "\n")
-
-    def _trigger_warning(self, message):
-        timestamp = time.strftime("%H:%M:%S")
-        warning_msg = f"[{timestamp}] ⚠ {message}"
-        with open(self.logs["warnings"], "a") as f:
-            f.write(warning_msg + "\n")
-        console.print(f"[yellow]{warning_msg}[/yellow]")
-
-    # ─────────────────────────────────────────────
-    # ─────────────────────────────────────────────
-    # 🏁 Episode Summary + Orion AI Strategic Note─
-    # ─────────────────────────────────────────────
-    def display_episode_summary(self):
-        self.total_episodes += 1
-        total_rewards = {
-            agent: sum(self.agent_stats[agent]["rewards"]) for agent in self.agents
-        }
-        # Concise dashboard
-        table = Table(title=f"Episode {self.total_episodes} Summary", show_lines=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Reward", style="green")
-        table.add_column("Alerts", style="magenta")
-        table.add_column("Novelty", style="blue")
-        table.add_column("Redundancy", style="red")
-        for agent in self.agents:
-            rewards = total_rewards[agent]
-            alerts = self.agent_stats[agent]["alerts"]
-            novelty = self.agent_stats[agent].get("novelty", 0)
-            redundancy = max(self.agent_stats[agent]["redundancy"].values()) if self.agent_stats[agent]["redundancy"] else 0
-            table.add_row(agent, f"{rewards:+.1f}", str(alerts) if alerts else "N/A", str(novelty), str(redundancy))
-        gpt_calls = sum(self.agent_stats[a]["gpt_calls"] for a in self.agents)
-        snapshots = getattr(self, "snapshots_this_episode", 0)
-        fallbacks = getattr(self, "fallbacks_this_episode", 0)
-        console.print(table)
-        console.print(f"GPT Calls: {gpt_calls} | Snapshots: {snapshots} | Fallbacks: {fallbacks}")
-        insight = self._generate_orion_insight(total_rewards)
-        console.print(f"[bold blue]🧠 Orion Insight:[/bold blue] {insight}")
-        self._save_log(
-            f"Episode {self.total_episodes} | Insight: {insight}", "episodes"
-        )
-        self.stop_progress()
-        # Final session health overview
-        console.rule("[bold green]📊 Final Session Health Overview")
-        for agent in self.agents:
-            rewards = self.agent_stats[agent]["rewards"]
-            avg_reward = sum(rewards) / len(rewards) if rewards else 0
-            bar = "#" * int(avg_reward / 4)
-            console.print(f"{agent}: [{bar}] ({avg_reward:.2f})")
-        uptime = time.time() - self.start_time
-        console.print(
-            f"[cyan]⏱ Uptime:[/cyan] {uptime:.1f}s | [yellow]Steps:[/yellow] {self.total_steps} | [magenta]Episodes:[/magenta] {self.total_episodes}"
-        )
-        self._save_log(
-            f"Session completed in {uptime:.1f}s with {self.total_steps} steps.",
-            "session",
-        )
-
-    def _generate_orion_insight(self, rewards):
-        avg_reward = sum(rewards.values()) / len(rewards) if rewards else 0
-        if avg_reward > 120:
-            return "🚀 Offensive dominance detected. Recommend stealth optimization."
-        elif avg_reward < 60:
-            return "⚠ Tactical inefficiency noted. Diversify attack vectors."
-        return "✅ Balanced performance. Maintain adaptive strategies."
-    # ─────────────────────────────────────────────
-    # ─────────────────────────────────────────────
-    # ─────────────────────────────────────────────
-    # ─────────────────────────────────────────────
-    # 🛡️ Reset System for Next Simulation─────────
-    # ─────────────────────────────────────────────
     def reset(self):
-        """Complete reset of the stats monitor"""
-        # First stop any active displays
-        self.stop_progress()
-        # Then reset the data
-        self.agent_stats = defaultdict(lambda: {
-            "rewards": [],
-            "gpt_calls": 0,
-            "redundancy": 0,
-            "phases": [],
-            "steps": 0,
-            "risk": [],
-            "alert": [],
-            "tokens": 0,
-        })
-        self.total_steps = 0
-        self.total_episodes = 0
-        self.start_time = time.time()
-        console.print("[yellow]🔄 StatsMonitor reset — Ready for next operation.[/yellow]")
-    # 📂 Unified Logger────────────────────────────
-    # ─────────────────────────────────────────────
-    def _save_log(self, content, log_type):
-        with open(self.logs.get(log_type, os.path.join(self.log_dir, f"{log_type}.log")), "a") as f:
-            f.write(content + "\n")
+        for stats in self.agent_stats.values():
+            stats["rewards"].clear()
+            stats["steps"] = 0
+            stats["gpt_calls"] = 0
+            stats["redundancy"] = 0
+        self.alerts.clear()
+        self.orion_insight = ""
+        self.update(force=True)
 
-    def print_agent_actions_and_gpt(self):
-        table = Table(title="Agent Actions & GPT Calls", show_lines=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Last Action", style="magenta")
-        table.add_column("GPT Calls", style="yellow")
-        for agent in self.agents:
-            last_cmd = self.agent_stats[agent]["last_command"]
-            gpt_calls = self.agent_stats[agent]["gpt_calls"]
-            table.add_row(agent, str(last_cmd), str(gpt_calls))
-        console.print(table)
+# ─────────────────────────────────────────────
+# 🚨 Alert System
+# ─────────────────────────────────────────────
+class AlertSystem:
+    def __init__(self, dashboard: DashboardRenderer, datalogger: DataLogger):
+        self.dashboard = dashboard
+        self.datalogger = datalogger
 
-    def render_live_dashboard(self):
-        """Generate rich dashboard for live training display"""
-        if self.live_dashboard is None:
-            return
-        # Create a table to show live agent performance
-        table = Table(title="🚀 Live Agent Performance", show_lines=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Last Cmd", style="yellow", overflow="fold")
-        table.add_column("Last Reward", style="green")
-        table.add_column("Avg Reward", style="magenta")
-        table.add_column("GPT Calls", style="blue")
-        table.add_column("Redundancy %", style="red")
-        for agent in self.agents:
-            stats = self.agent_stats[agent]
-            last_cmd = str(stats.get("last_command", "N/A"))
-            if len(last_cmd) > 30:
-                last_cmd = last_cmd[:27] + "..."
-            rewards = stats.get("rewards", [])
-            avg_reward = sum(rewards) / max(len(rewards), 1) if rewards else 0
-            last_reward = rewards[-1] if rewards else 0
-            total_cmds = self.total_steps / len(self.agents) if len(self.agents) > 0 else 1
-            redundancy_count = sum(stats.get("redundancy", {}).values())
-            redundancy_pct = (redundancy_count / max(total_cmds, 1)) * 100
-            # Color indicators for risk
-            risk_val = 0
-            if hasattr(self, "env") and hasattr(self.env, "detection_risk"):
-                risk_val = self.env.detection_risk
-            risk_color = "red" if risk_val > 5.0 else "yellow" if risk_val > 2.5 else "green"
-            table.add_row(
-                agent,
-                last_cmd,
-                f"{last_reward:.2f}",
-                f"{avg_reward:.2f}",
-                str(stats.get("gpt_calls", 0)),
-                f"[{risk_color}]{redundancy_pct:.1f}%[/{risk_color}]"
-            )
-        # Create a progress panel with the dashboard
-        from rich.panel import Panel
-        from rich.layout import Layout
-        layout = Layout()
-        layout.split_column(
-            Layout(table, name="table"),
-            Layout(self._create_environment_panel(), name="environment")
-        )
-        self.live_dashboard.update(layout)
+    def warn(self, message):
+        self.dashboard.log_alert(message, level="warning")
+        self.datalogger.log_alert(message, level="warning")
 
-    def _create_environment_panel(self):
-        """Create a panel showing environment state"""
-        from rich.panel import Panel
-        # Get environment state from the first agent's environment if available
-        env_state = {}
-        for agent_name in self.agents:
-            # This is a simple approximate approach - in a real system you'd have a more direct way
-            # to access the environment state from the StatsMonitor
-            replay_data = self._load_latest_replay()
-            if replay_data:
-                env_state = replay_data.get("state", {})
-                break
-        if not env_state:
-            return Panel("No environment data available", title="🌍 Environment")
-        # Format state data
-        state_lines = [
-            f"[cyan]Phase:[/cyan] {env_state.get('phase', 'N/A')}",
-            f"[red]Alert:[/red] {env_state.get('blue_team_alert', 0):.1f}",
-            f"[yellow]Risk:[/yellow] {env_state.get('detection_risk', 0):.1f}",
-            f"[green]Privilege:[/green] {env_state.get('privilege_level', 'none')}",
-        ]
-        if "open_ports" in env_state:
-            ports = env_state['open_ports']
-            port_display = ", ".join(str(p) for p in ports[:5])
-            if len(ports) > 5:
-                port_display += f" +{len(ports)-5} more"
-            state_lines.append(f"[blue]Ports:[/blue] {port_display}")
-        services = env_state.get('services', [])
-        if services:
-            service_display = ", ".join(services[:5])
-            if len(services) > 5:
-                service_display += f" +{len(services)-5} more"
-            state_lines.append(f"[magenta]Services:[/magenta] {service_display}")
-        return Panel("\n".join(state_lines), title="🌍 Environment State")
+    def error(self, message):
+        self.dashboard.log_alert(message, level="error")
+        self.datalogger.log_alert(message, level="error")
 
-    def _load_latest_replay(self):
-        """Load the most recent replay event"""
-        try:
-            with open(self.logs["session_replay"], "r") as f:
-                lines = f.readlines()
-                if lines:
-                    return json.loads(lines[-1])
-        except Exception:
-            pass
-        return {}
+    def info(self, message):
+        self.dashboard.log_alert(message, level="info")
+        self.datalogger.log_alert(message, level="info")
+
+# ─────────────────────────────────────────────
+# 🧠 StatsMonitor (Event-Driven Observer)
+# ─────────────────────────────────────────────
+class StatsMonitor:
+    """
+    Modular, event-driven stats monitor for ARIASKA multi-agent RL.
+    - ProgressTracker: step/episode progress bars
+    - DataLogger: async event logging
+    - DashboardRenderer: periodic CLI stats, reward plots, agent tables
+    - AlertSystem: warnings, errors, info
+    - Orion integration via plugin/callback
+    """
+    def __init__(self, agents_list=None, agents=None, max_history=100, verbosity="standard"):
+        # Handle agent initialization more robustly
+        if agents_list and isinstance(agents_list, list):
+            # Use agent IDs from agent objects if available
+            self.agents = [a.agent_id if hasattr(a, 'agent_id') else str(a) for a in agents_list]
+        elif agents and isinstance(agents, list):
+            # Use provided agent ID strings
+            self.agents = list(agents)
+        else:
+            # Default to standard agent types
+            self.agents = ["RedAgent", "BlueAgent", "ScoutAgent", "ShadowAgent", "OrionAgent"]
+            
+        self.verbosity = verbosity
+        self.progress = ProgressTracker()
+        self.datalogger = DataLogger()
+        self.dashboard = DashboardRenderer(self.agents, max_history=max_history, verbosity=verbosity)
+        self.alerts = AlertSystem(self.dashboard, self.datalogger)
+        self.orion_callback = None  # Set externally for Orion integration
+        
+        # Initialize agent_stats dictionary to track metrics for each agent
+        self.agent_stats = {agent: {"rewards": [], "actions": [], "steps": 0, "gpt_calls": 0, "redundancy": 0} 
+                            for agent in self.agents}
+        
+        # Initialize other metrics trackers
+        self.global_stats = {"total_steps": 0, "total_episodes": 0, "convergence_score": 0.0}
+        
+        console.print(f"[cyan]✓ StatsMonitor initialized with {len(self.agents)} agents: {', '.join(self.agents)}[/cyan]")
+
+    def log_step(self, agent_id, reward, **info):
+        """
+        Log a step for an agent with robust handling for unknown agents
+        """
+        # Ensure agent exists in tracking dictionaries
+        if agent_id not in self.agent_stats:
+            self.add_agent(agent_id)
+            
+        # Update step counts
+        self.agent_stats[agent_id]["steps"] += 1
+        self.agent_stats[agent_id]["rewards"].append(reward)
+        self.global_stats["total_steps"] += 1
+        
+        # Track command if provided
+        if "command" in info:
+            self.agent_stats[agent_id]["actions"].append(info["command"])
+        
+        # Handle GPT token tracking
+        gpt_calls = info.get("gpt_calls", 0)
+        if gpt_calls > 0:
+            self.agent_stats[agent_id]["gpt_calls"] += gpt_calls
+            
+        # Handle redundancy tracking  
+        redundancy = info.get("redundancy", 0)
+        if redundancy > 0:
+            self.agent_stats[agent_id]["redundancy"] += redundancy
+        
+        # Update dashboard and logs
+        self.datalogger.log_step(agent_id, reward, **info)
+        self.dashboard.update_stats(agent_id, reward, 
+                                   self.agent_stats[agent_id]["gpt_calls"], 
+                                   self.agent_stats[agent_id]["redundancy"])
+        
+        if self.verbosity != "quiet":
+            self.dashboard.update()
+
+    def add_agent(self, agent_id):
+        """
+        Add a new agent to tracking if it doesn't exist
+        """
+        if agent_id not in self.agent_stats:
+            self.agent_stats[agent_id] = {
+                "rewards": [], 
+                "actions": [], 
+                "steps": 0, 
+                "gpt_calls": 0, 
+                "redundancy": 0
+            }
+            self.agents.append(agent_id)
+            console.print(f"[yellow]⚠️ Added new agent to tracking: {agent_id}[/yellow]")
+            
+            # Make sure dashboard knows about this agent too
+            if hasattr(self.dashboard, "agent_stats") and agent_id not in self.dashboard.agent_stats:
+                self.dashboard.agent_stats[agent_id] = {
+                    "rewards": deque(maxlen=self.dashboard.max_history),
+                    "gpt_calls": 0,
+                    "steps": 0,
+                    "redundancy": 0
+                }
+
+    def get_performance_metrics(self):
+        """
+        Get comprehensive performance metrics for strategy optimization
+        
+        Returns:
+            dict: Performance metrics for all agents
+        """
+        metrics = {
+            "global": {
+                "total_steps": self.global_stats["total_steps"],
+                "total_episodes": self.global_stats["total_episodes"],
+                "convergence_score": self.global_stats["convergence_score"]
+            }
+        }
+        
+        for agent_id in self.agent_stats:
+            agent_data = self.agent_stats[agent_id]
+            metrics[agent_id] = {
+                "steps": agent_data["steps"],
+                "avg_reward": sum(agent_data["rewards"]) / max(1, len(agent_data["rewards"])),
+                "total_reward": sum(agent_data["rewards"]),
+                "gpt_calls": agent_data["gpt_calls"],
+                "redundancy": agent_data["redundancy"],
+                "redundancy_rate": self.get_redundancy_rate(agent_id),
+                "unique_actions": len(set(agent_data["actions"]))
+            }
+            
+        return metrics
+
+    def log_episode(self, agent_id, total_reward, **info):
+        # Ensure agent exists
+        if agent_id not in self.agent_stats:
+            self.add_agent(agent_id)
+            
+        self.global_stats["total_episodes"] += 1
+        self.datalogger.log_episode(agent_id, total_reward, **info)
+        if self.verbosity != "quiet":
+            self.dashboard.update(force=True)
+
+    def report_gpt_usage(self, agent_id, tokens):
+        # Ensure agent exists
+        if agent_id not in self.agent_stats:
+            self.add_agent(agent_id)
+            
+        self.agent_stats[agent_id]["gpt_calls"] += tokens
+        self.datalogger.log_gpt_usage(agent_id, tokens)
+
+    def display_episode_summary(self):
+        if self.verbosity != "quiet":
+            self.dashboard.update(force=True)
+            
+            # Print summary table to console
+            table = Table(title="Episode Summary", show_lines=True)
+            table.add_column("Agent", style="cyan")
+            table.add_column("Steps", style="blue")
+            table.add_column("Avg Reward", style="green")
+            table.add_column("Total Reward", style="yellow")
+            table.add_column("GPT Calls", style="magenta")
+            
+            for agent_id in self.agents:
+                if agent_id in self.agent_stats:
+                    stats = self.agent_stats[agent_id]
+                    avg_reward = sum(stats["rewards"]) / max(1, len(stats["rewards"]))
+                    total_reward = sum(stats["rewards"])
+                    table.add_row(
+                        agent_id, 
+                        str(stats["steps"]), 
+                        f"{avg_reward:.2f}", 
+                        f"{total_reward:.2f}",
+                        str(stats["gpt_calls"])
+                    )
+                    
+            console.print(table)
+
+    def set_orion_insight(self, insight):
+        self.dashboard.set_orion_insight(insight)
+
+    def warn(self, message):
+        self.alerts.warn(message)
+
+    def error(self, message):
+        self.alerts.error(message)
+
+    def info(self, message):
+        self.alerts.info(message)
+
+    def reset(self):
+        """Reset all stats for a new episode"""
+        # Don't destroy agent entries, just clear their stats
+        for agent_id in self.agent_stats:
+            self.agent_stats[agent_id]["rewards"] = []
+            self.agent_stats[agent_id]["actions"] = []
+            self.agent_stats[agent_id]["steps"] = 0
+            self.agent_stats[agent_id]["redundancy"] = 0
+            # Don't reset gpt_calls as we want to track total usage across episodes
+        
+        # Reset dashboard display
+        self.dashboard.reset()
+        
+    def flush_logs(self):
+        """Ensure all logs are written to disk"""
+        pass  # The async DataLogger handles this automatically
+
+    def start_live(self):
+        self.dashboard.start_live()
+
+    def stop_live(self):
+        self.dashboard.stop_live()
 
     def get_average_reward(self, agent_id=None):
-        """Get the average reward for a specific agent or all agents"""
+        """
+        Calculate average reward for an agent or globally.
+        Args:
+            agent_id (str, optional): The specific agent to get average for.
+        Returns:
+            float: Average reward or 0.0 if no data.
+        """
         if agent_id and agent_id in self.agent_stats:
             rewards = self.agent_stats[agent_id].get("rewards", [])
             return sum(rewards) / max(len(rewards), 1) if rewards else 0.0
-        # If no agent specified, return average across all agents
+        
+        # If no agent_id specified or not found, return global average
         all_rewards = []
-        for agent in self.agents:
-            all_rewards.extend(self.agent_stats.get(agent, {}).get("rewards", []))
+        for agent in self.agent_stats:
+            all_rewards.extend(self.agent_stats[agent].get("rewards", []))
         return sum(all_rewards) / max(len(all_rewards), 1) if all_rewards else 0.0
-
-    def get_detection_rate(self):
-        # Example: percent of steps with alert > 5
-        total, detected = 0, 0
-        for stats in self.agent_stats.values():
-            alerts = stats.get("alert", [])
-            total += len(alerts)
-            detected += sum(1 for a in alerts if a > 5)
-        return detected / total if total else 0.0
-
+    
+    def get_detection_rate(self, agent_id=None):
+        """
+        Calculate detection rate (percentage of actions detected).
+        Args:
+            agent_id (str, optional): The specific agent to get rate for.
+        Returns:
+            float: Detection rate as ratio (0.0 to 1.0)
+        """
+        # This is a stub - implement based on your detection tracking logic
+        return 0.0  # Default implementation returns 0%
+    
     def get_redundancy_rate(self, agent_id=None):
-        """Calculate redundancy rate for an agent"""
+        """
+        Calculate redundancy rate (percentage of redundant actions).
+        Args:
+            agent_id (str, optional): The specific agent to get rate for.
+        Returns:
+            float: Redundancy rate as ratio (0.0 to 1.0)
+        """
         if agent_id and agent_id in self.agent_stats:
-            redundancy = sum(self.agent_stats[agent_id].get("redundancy", {}).values())
-            total = max(len(self.agent_stats[agent_id].get("rewards", [])), 1)
-            return redundancy / total
-        # If no agent specified, return average across all agents
-        total_redundancy = 0
-        total_commands = 0
-        for agent in self.agents:
-            total_redundancy += sum(self.agent_stats.get(agent, {}).get("redundancy", {}).values())
-            total_commands += len(self.agent_stats.get(agent, {}).get("rewards", []))
-        return total_redundancy / max(total_commands, 1)
+            redundancy = self.agent_stats[agent_id].get("redundancy", 0)
+            steps = self.agent_stats[agent_id].get("steps", 0)
+            return redundancy / max(steps, 1) if steps else 0.0
+        return 0.0  # Default implementation returns 0%
 
-    def get_phase_counts(self, agent_id):
-        stats = self.agent_stats[agent_id]
-        return dict(Counter(stats["phases"]))
-
-    def visualize_phase_distribution(self, agent_id=None):
-        try:
-            """Print a live phase distribution chart for the agent or all agents."""
-            if agent_id and agent_id in self.agent_stats:
-                rewards = self.agent_stats[agent_id].get("rewards", [])
-                phases = [a.get("phase", "unknown") for a in getattr(self, "agent_history", {}).get(agent_id, {}).get("phases", [])]
-                counts = Counter(phases)
-                table = Table(title=f"{agent_id} Phase Distribution", show_lines=True)
-                table.add_column("Phase", style="cyan")
-                table.add_column("Count", style="magenta")
-                for phase, count in counts.items():
-                    table.add_row(phase, str(count))
-                console.print(Panel(table, title="Phase Distribution", border_style="magenta"))
-            else:
-                # All agents
-                for agent in self.agents:
-                    self.visualize_phase_distribution(agent)
-            # Downsample to last 100 points
-            if len(data) > 100:
-                data = data[-100:]
-        except Exception as e:
-            console.print(f"[yellow]⚠ StatsMonitor visualization error: {e}[/yellow]")
-
-    def show(self, live_plot=True):
-        if not live_plot:
-            return
-        try:
-            # Show a dashboard of all tracked stats
-            tables = []
-            for agent_id, stats in self.agent_stats.items():
-                table = Table(title=f"{agent_id} Stats", show_lines=True, box=box.ROUNDED)
-                table.add_column("Metric", style="cyan")
-                table.add_column("Value", style="magenta")
-                table.add_row("Steps", str(stats["steps"]))
-                table.add_row("Avg Reward", f"{self.get_average_reward(agent_id):.2f}")
-                table.add_row("Redundancy Rate", f"{self.get_redundancy_rate(agent_id):.2%}")
-                table.add_row("GPT Calls", str(stats["gpt_calls"]))
-                table.add_row("Tokens", str(stats["tokens"]))
-                table.add_row("Detection Rate", f"{self.get_detection_rate():.2%}")
-                table.add_row("Phases", ", ".join(stats["phases"][-5:]))
-                table.add_row("Recent Rewards", ", ".join(f"{r:.1f}" for r in stats["rewards"][-5:]))
-                table.add_row("Recent Risk", ", ".join(f"{r:.2f}" for r in stats.get("risk", [])[-5:]))
-                table.add_row("Recent Alert", ", ".join(f"{a:.2f}" for a in stats.get("alert", [])[-5:]))
-                tables.append(Panel(table, border_style="green"))
-            console.print(Columns(tables))
-        except Exception as e:
-            console.print(f"[yellow]⚠ StatsMonitor show error: {e}[/yellow]")
+# ─────────────────────────────────────────────
+# 🚀 Diagnostic Mode
+# ─────────────────────────────────────────────
+if __name__ == "__main__":
+    monitor = StatsMonitor()
+    monitor.start_live()
+    for i in range(10):
+        monitor.log_step("RedAgent", reward=i, gpt_calls=i*10)
+        time.sleep(0.5)
+    monitor.set_orion_insight("Orion: All systems nominal.")
+    monitor.warn("Test warning")
+    monitor.error("Test error")
+    monitor.info("Test info")
+    monitor.display_episode_summary()
+    monitor.stop_live()

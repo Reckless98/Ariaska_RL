@@ -34,11 +34,11 @@ def get_all_agents(agent_manager=None, memory_router=None, memory_manager=None, 
 
     # Create memory managers for each agent if not provided
     if not memory_manager:
-        red_memory_manager = MemoryManager(agent_name="red_agent")
-        blue_memory_manager = MemoryManager(agent_name="blue_agent")
-        scout_memory_manager = MemoryManager(agent_name="scout_agent")
-        shadow_memory_manager = MemoryManager(agent_name="shadow_agent")
-        orion_memory_manager = MemoryManager(agent_name="orion_agent")
+        red_memory_manager = MemoryManager(agent_id="red_agent")
+        blue_memory_manager = MemoryManager(agent_id="blue_agent")
+        scout_memory_manager = MemoryManager(agent_id="scout_agent")
+        shadow_memory_manager = MemoryManager(agent_id="shadow_agent")
+        orion_memory_manager = MemoryManager(agent_id="orion_agent")
     else:
         # Use the provided memory manager
         red_memory_manager = blue_memory_manager = scout_memory_manager = shadow_memory_manager = orion_memory_manager = memory_manager
@@ -130,7 +130,7 @@ def create_agent(agent_type, agent_manager=None, memory_router=None, memory_mana
     # Create memory manager if needed
     if not memory_manager:
         from core.utils.memory_manager import MemoryManager
-        memory_manager = MemoryManager(agent_name=agent_type.lower())
+        memory_manager = MemoryManager(agent_id=agent_type.lower())
     
     # Initialize the agent
     agent = agent_class(

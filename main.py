@@ -15,7 +15,7 @@ from core.ui_helpers import (
     display_redagent_learning_dashboard
 )
 from core.multiagent.agent_manager import AgentManager
-from core.logic.chainbuilder import ChainBuilder  # Fixed import
+from core.logic.chainbuilder import ChainGenerator  # Fixed import
 from core.monitor.stats_monitor import StatsMonitor
 from prompt_toolkit.formatted_text import HTML
 from core.gpt_manager import GPTManager
@@ -170,7 +170,7 @@ def build_chain():
     console.print("[magenta]🔗 Generating attack chains for all agents...[/magenta]")
     # Instantiate ChainBuilder, pass memory_router if available
     memory_router = getattr(agent_manager, "memory_router", None)
-    chain_builder = ChainBuilder(memory_router=memory_router)
+    chain_builder = ChainGenerator(memory_router=memory_router)
     # Use the multi-agent chain build method
     chain_builder.build_and_store_chain_multiagent(agent_manager)
 
