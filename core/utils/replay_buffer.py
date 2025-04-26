@@ -5,11 +5,13 @@ import sqlite3
 from typing import Optional
 import numpy as np
 
+
 class ReplayBuffer:
     """
     Experience replay buffer for RL agents. Supports prioritized replay, deduplication, and optional SQLite storage.
     Stores (state, action, reward, next_state, gpt_tokens) tuples for efficient sampling and memory management.
     """
+
     def __init__(self, capacity=2000, alpha=0.6, use_sqlite=False, db_path=None):
         """
         Initialize the replay buffer.
@@ -31,38 +33,76 @@ class ReplayBuffer:
         """
         Initialize SQLite database for experience storage.
         """
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
         self.conn = sqlite3.connect(self.db_path)
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS experiences (
+        self.conn.execute(
+            """CREATE TABLE IF NOT EXISTS experiences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             priority REAL,
             experience TEXT
-        )''')
+        )"""
+        )
         self.conn.commit()
 
-    def add(self, experience):
+    def add(self, experience, td_error=None, memory_router=None):
         """
-        Add an experience to the buffer, deduplicating by (command, state, action).
+        Add an experience to the buffer, deduplicating by (command, state, action, gpt_tokens, reward).
+        Optionally accepts TD-error for prioritized replay and logs via MemoryRouter.
         Args:
             experience (dict): Experience tuple to store.
+            td_error (float, optional): TD-error for prioritized replay.
+            memory_router (MemoryRouter, optional): For logging buffer operations.
         """
-        # Deduplicate by command/state/action tuple
+        # Deduplicate by expanded key
         key = self._experience_key(experience)
         if self.use_sqlite:
             if self._sqlite_exists(key):
+                if memory_router:
+                    memory_router.log_event("replay_buffer_duplicate", {"key": key})
                 return
-            priority = abs(experience.get('reward', 0)) + 0.01
+            priority = (
+                float(
+                    abs(td_error)
+                    if td_error is not None
+                    else abs(experience.get("reward", 0))
+                )
+                + 0.01
+            )
             exp_json = json.dumps(experience)
-            self.conn.execute("INSERT INTO experiences (priority, experience) VALUES (?, ?)", (priority, exp_json))
+            self.conn.execute(
+                "INSERT INTO experiences (priority, experience) VALUES (?, ?)",
+                (priority, exp_json),
+            )
             self.conn.commit()
             self._sqlite_prune()
+            if memory_router:
+                memory_router.log_event(
+                    "replay_buffer_add", {"key": key, "priority": priority}
+                )
         else:
             if any(self._experience_key(e) == key for _, e in self.buffer):
+                if memory_router:
+                    memory_router.log_event("replay_buffer_duplicate", {"key": key})
                 return
-            priority = abs(experience.get('reward', 0)) + 0.01
+            priority = (
+                float(
+                    abs(td_error)
+                    if td_error is not None
+                    else abs(experience.get("reward", 0))
+                )
+                + 0.01
+            )
             self.buffer.append((priority, experience))
             self.buffer = sorted(self.buffer, key=lambda x: x[0], reverse=True)
             if len(self.buffer) > self.capacity:
                 self.buffer.pop()
+            if memory_router:
+                memory_router.log_event(
+                    "replay_buffer_add", {"key": key, "priority": priority}
+                )
 
     def sample(self, batch_size, prioritized=False):
         """
@@ -76,45 +116,79 @@ class ReplayBuffer:
             list: Sampled experiences.
         """
         if self.use_sqlite:
-            cursor = self.conn.execute("SELECT experience FROM experiences ORDER BY priority DESC LIMIT ?", (batch_size,))
+            cursor = self.conn.execute(
+                "SELECT experience FROM experiences ORDER BY priority DESC LIMIT ?",
+                (batch_size,),
+            )
             return [json.loads(row[0]) for row in cursor.fetchall()]
         if not self.buffer:
             return []
         if prioritized:
             # --- Proportional sampling by priority^alpha (importance sampling) ---
             import numpy as np
+
             priorities = np.array([priority for priority, _ in self.buffer])
-            probs = priorities ** self.alpha
+            probs = priorities**self.alpha
             probs /= probs.sum()
-            indices = np.random.choice(len(self.buffer), size=min(batch_size, len(self.buffer)), p=probs, replace=False)
+            indices = np.random.choice(
+                len(self.buffer),
+                size=min(batch_size, len(self.buffer)),
+                p=probs,
+                replace=False,
+            )
             batch = [self.buffer[i][1] for i in indices]
             return batch
         else:
             # --- Uniform random sampling (default, recommended for DQN stability) ---
-            indices = random.sample(range(len(self.buffer)), min(batch_size, len(self.buffer)))
+            indices = random.sample(
+                range(len(self.buffer)), min(batch_size, len(self.buffer))
+            )
             batch = [self.buffer[i][1] for i in indices]
             return batch
 
-    def prune_redundancy(self, redundancy_detector):
+    def prune_redundancy(
+        self, redundancy_detector, semantic_detector=None, memory_router=None
+    ):
         """
         Remove redundant experiences using a provided redundancy detector function.
+        Optionally uses a semantic similarity detector for advanced pruning.
+        Logs pruning events via MemoryRouter if provided.
         Args:
-            redundancy_detector (callable): Function that returns indices of redundant commands.
+            redundancy_detector (callable): Returns indices of redundant commands.
+            semantic_detector (callable, optional): Returns indices of semantically redundant experiences.
+            memory_router (MemoryRouter, optional): For logging buffer operations.
         """
         if self.use_sqlite:
-            # Load all, prune, and rewrite
             cursor = self.conn.execute("SELECT id, experience FROM experiences")
             exps = [(row[0], json.loads(row[1])) for row in cursor.fetchall()]
-            commands = [e['command'] for _, e in exps if 'command' in e]
+            commands = [e["command"] for _, e in exps if "command" in e]
             redundant_idxs = set(redundancy_detector(commands))
+            if semantic_detector:
+                redundant_idxs |= set(semantic_detector([e for _, e in exps]))
             for idx, (rowid, _) in enumerate(exps):
                 if idx in redundant_idxs:
                     self.conn.execute("DELETE FROM experiences WHERE id=?", (rowid,))
             self.conn.commit()
+            if memory_router:
+                memory_router.log_event(
+                    "replay_buffer_prune", {"count": len(redundant_idxs)}
+                )
         else:
-            commands = [exp['command'] for _, exp in self.buffer if 'command' in exp]
-            redundant_idxs = redundancy_detector(commands)
-            self.buffer = [item for idx, item in enumerate(self.buffer) if idx not in redundant_idxs]
+            commands = [exp["command"] for _, exp in self.buffer if "command" in exp]
+            redundant_idxs = set(redundancy_detector(commands))
+            if semantic_detector:
+                redundant_idxs |= set(
+                    semantic_detector([exp for _, exp in self.buffer])
+                )
+            self.buffer = [
+                item
+                for idx, item in enumerate(self.buffer)
+                if idx not in redundant_idxs
+            ]
+            if memory_router:
+                memory_router.log_event(
+                    "replay_buffer_prune", {"count": len(redundant_idxs)}
+                )
 
     def _experience_key(self, exp):
         """
@@ -124,11 +198,13 @@ class ReplayBuffer:
         Returns:
             tuple: Key for deduplication.
         """
-        # Use a tuple of (command, state, action) for deduplication
+        # Expanded key: (command, state, action, gpt_tokens, reward)
         return (
-            exp.get('command'),
-            str(exp.get('state', '')),
-            str(exp.get('action', '')),
+            exp.get("command"),
+            str(exp.get("state", "")),
+            str(exp.get("action", "")),
+            str(exp.get("gpt_tokens", "")),
+            str(exp.get("reward", "")),
         )
 
     def _sqlite_exists(self, key):
@@ -155,6 +231,6 @@ class ReplayBuffer:
         cursor = self.conn.execute("SELECT id FROM experiences ORDER BY priority DESC")
         ids = [row[0] for row in cursor.fetchall()]
         if len(ids) > self.capacity:
-            for id_to_remove in ids[self.capacity:]:
+            for id_to_remove in ids[self.capacity :]:
                 self.conn.execute("DELETE FROM experiences WHERE id=?", (id_to_remove,))
             self.conn.commit()

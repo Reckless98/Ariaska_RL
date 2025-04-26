@@ -5,7 +5,13 @@ from rich.panel import Panel
 import subprocess
 from rich.progress import Progress, BarColumn, TextColumn, TimeElapsedColumn, SpinnerColumn
 from rich.table import Table
-from rich import box  # <-- Add this import
+from rich import box
+from rich.columns import Columns
+import os
+import time
+import threading
+import signal
+from typing import Dict, List, Any, Optional
 
 console = Console()
 
@@ -14,7 +20,7 @@ class AgentManager:
     def __init__(self, verbosity="standard"):
         console.rule("[bold cyan]🚀 ARIASKA Multi-Agent Deployment: System Initialization[/bold cyan]")
         # --- Grouped Initialization Logs ---
-        agent_init_table = Table(title="Multi-Agent Deployment", box=box.ROUNDED)  # <-- fix here
+        agent_init_table = Table(title="Multi-Agent Deployment", box=box.ROUNDED)
         agent_init_table.add_column("Agent", style="cyan")
         agent_init_table.add_column("Mode", style="magenta")
         agent_init_table.add_column("Status", style="green")
@@ -39,292 +45,294 @@ class AgentManager:
         # Create memory router first
         self.memory_router = self._import_memory_router()([])
         
-        # Now create all agents
-        try:
-            self._initialize_agents()
-        except Exception as e:
-            console.print(f"[red]❌ Agent initialization failed: {e}[/red]")
-            import traceback
-            console.print(traceback.format_exc())
-        
-        # Ensure OrionAgent is present
-        if not self.orion_agent or not any(a for a in self.agents if getattr(a, "agent_id", None) == "OrionAgent"):
-            try:
-                from core.agents.orion_agent import OrionAgent
-                orion = OrionAgent(agent_manager=self, memory_router=self.memory_router)
-                self.orion_agent = orion
-                self.agents.append(orion)
-                console.print("[yellow]⚠ OrionAgent was missing and has been instantiated.[/yellow]")
-            except Exception as e:
-                console.print(f"[red]❌ Failed to instantiate OrionAgent: {e}[/red]")
-        
-        # Collect agent status for dashboard
-        for agent in self.agents:
-            mode = getattr(agent, "current_mode", getattr(agent, "role", "N/A"))
-            agent_init_table.add_row(
-                getattr(agent, "agent_id", "Unknown"),
-                str(mode),
-                "[green]✔ Ready[/green]"
-            )
-        
-        # Auto-Sync GPT Strategy
-        gpt_context_synced = self._initialize_gpt_context()
-
-        # Print summary panel after all initialization
-        self._print_startup_dashboard(agent_init_table, gpt_context_synced)
-
-        console.print(
-            "[green]✔ Agents Ready | MemoryRouter Active | GPT Context Synced[/green]"
-        )
-
-    def _initialize_agents(self):
-        """Initialize agents in the correct order to avoid circular references"""
-        # First, create the agents
-        agents = self._get_all_agents(agent_manager=self)
-        
-        # Store individual agent references
-        self.red_agent = agents["RedAgent"]
-        self.blue_agent = agents["BlueAgent"]
-        self.scout_agent = agents["ScoutAgent"]
-        self.shadow_agent = agents["ShadowAgent"]
-        self.orion_agent = agents["OrionAgent"]
-        
-        # Update the agents list
-        self.agents = [
-            self.red_agent,
-            self.blue_agent,
-            self.scout_agent,
-            self.shadow_agent,
-            self.orion_agent,
-        ]
-        
-        # Update memory router with agents
-        self.memory_router.agents = self.agents
-        
-        # Assign memory_router to each agent (if they have the attribute)
-        for agent in self.agents:
-            if hasattr(agent, "memory_router"):
-                agent.memory_router = self.memory_router
-            if hasattr(agent, "agent_manager"):
-                agent.agent_manager = self
+        # Initialize agents
+        if self.verbosity not in ["quiet", "silent"]:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[bold blue]{task.description}"),
+                BarColumn(),
+                TimeElapsedColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task("[bold cyan]Deploying multi-agent system...", total=100)
                 
-        # Initialize multi-agent links for agents that have the method
+                # Step 1: Import dependencies
+                progress.update(task, advance=15, description="[bold blue]Importing dependencies...")
+                self.gpt_manager = self._import_gpt_manager()()
+                
+                # Step 2: Create agents
+                progress.update(task, advance=35, description="[bold blue]Creating agents...")
+                self._initialize_agents(agent_init_table)
+                
+                # Step 3: Initialize memory router with agents
+                progress.update(task, advance=25, description="[bold blue]Linking memory subsystems...")
+                self.memory_router = self._import_memory_router()(self.agents)
+                
+                # Step 4: Initialize agent links
+                progress.update(task, advance=15, description="[bold blue]Establishing agent connections...")
+                self._initialize_agent_links()
+                
+                # Step 5: Set up environment connections
+                progress.update(task, advance=10, description="[bold blue]Configuring environment...")
+                self._setup_environments()
+                
+                progress.update(task, completed=100)
+
+        # Initialize hierarchical structure (OrionAgent as overseer)
+        self._initialize_hierarchy()
+        
+        # Cache flag for context synchronization
+        gpt_context_synced = self._sync_gpt_context()
+        
+        if self.verbosity not in ["quiet", "silent"]:
+            self._print_startup_dashboard(agent_init_table, gpt_context_synced)
+        
+        # Startup signal handlers for clean shutdown
+        self._setup_signal_handlers()
+
+    def _import_memory_router(self):
+        """Dynamically import MemoryRouter to avoid circular imports."""
+        try:
+            from core.multiagent.memory_router import MemoryRouter
+            return MemoryRouter
+        except ImportError:
+            console.print("[yellow]⚠ MemoryRouter import failed, using placeholder[/yellow]")
+            # Create placeholder class if import fails
+            class PlaceholderMemoryRouter:
+                def __init__(self, agents=None):
+                    pass
+
+                def store_experience(self, *args, **kwargs):
+                    pass
+                    
+                def log_transition(self, *args, **kwargs):
+                    pass
+
+            return PlaceholderMemoryRouter
+
+    def _import_gpt_manager(self):
+        """Dynamically import GPTManager to avoid circular imports."""
+        try:
+            from core.gpt_manager import GPTManager
+            return GPTManager
+        except ImportError:
+            console.print("[yellow]⚠ GPTManager import failed, using placeholder[/yellow]")
+            # Create placeholder class if import fails
+            class PlaceholderGPTManager:
+                def __init__(self):
+                    pass
+
+                def smart_decision(self, *args, **kwargs):
+                    return "Placeholder GPTManager response"
+
+            return PlaceholderGPTManager
+
+    def _import_stats_monitor(self):
+        """Dynamically import StatsMonitor to avoid circular imports."""
+        try:
+            from core.utils.stats_monitor import StatsMonitor
+            return StatsMonitor
+        except ImportError:
+            console.print("[yellow]⚠ StatsMonitor import failed, using placeholder[/yellow]")
+            # Create placeholder class if import fails
+            class PlaceholderStatsMonitor:
+                def __init__(self):
+                    self.agent_stats = {}
+
+                def log_step(self, *args, **kwargs):
+                    pass
+
+            return PlaceholderStatsMonitor
+
+    def _initialize_agents(self, agent_init_table):
+        """Initialize all agents in the system."""
+        try:
+            from core.agents.red_agent import RedAgent
+            from core.agents.blue_agent import BlueAgent
+            from core.agents.scout_agent import ScoutAgent
+            from core.agents.shadow_agent import ShadowAgent
+            from core.agents.orion_agent import OrionAgent
+
+            # Create agents
+            self.red_agent = RedAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+            self.blue_agent = BlueAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+            self.scout_agent = ScoutAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+            self.shadow_agent = ShadowAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+            self.orion_agent = OrionAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+
+            # Add to agents list
+            self.agents = [
+                self.red_agent,
+                self.blue_agent,
+                self.scout_agent,
+                self.shadow_agent,
+                self.orion_agent
+            ]
+
+            # Update the table with agent information
+            if agent_init_table:
+                for agent in self.agents:
+                    agent_init_table.add_row(
+                        agent.agent_id,
+                        getattr(agent, "current_mode", "Standard"),
+                        "✓ Active"
+                    )
+
+        except ImportError as e:
+            console.print(f"[red]❌ Agent initialization failed: {e}[/red]")
+            raise
+
+    def _initialize_agent_links(self):
+        """Initialize links between agents."""
         for agent in self.agents:
             if hasattr(agent, "_init_multiagent_links"):
                 agent._init_multiagent_links()
+
+    def _initialize_hierarchy(self):
+        """Setup hierarchical structure with OrionAgent as overseer."""
+        if self.orion_agent:
+            for agent in self.agents:
+                if agent.agent_id != "OrionAgent" and hasattr(self.orion_agent, "register_subordinate"):
+                    self.orion_agent.register_subordinate(agent)
+
+    def _setup_environments(self):
+        """Configure environments for agents that need them."""
+        # Import only when needed
+        try:
+            from core.environment.cyber_environment import CyberEnvironment
+            
+            # Initialize environments for agents needing them
+            if self.red_agent and not hasattr(self.red_agent, "env"):
+                self.red_agent.env = CyberEnvironment(agent_manager=self)
                 
-        # Pass verbosity to agents
-        for agent in self.agents:
-            if hasattr(agent, "verbosity"):
-                agent.verbosity = self.verbosity
-                
-        # Initialize dynamic parameters for each agent's environment if present
-        for agent in self.agents:
-            env = getattr(agent, "env", None)
-            if env and hasattr(env, "initialize_dynamic_parameters"):
-                env.initialize_dynamic_parameters()
-        
-        # After all agents are created and registered, reset their environments
-        for agent in self.agents:
-            if hasattr(agent, "env") and hasattr(agent.env, "reset_environment"):
-                agent.env.reset_environment()
+            if self.blue_agent and not hasattr(self.blue_agent, "env"):
+                # Blue agent typically shares red agent's environment
+                if hasattr(self.red_agent, "env"):
+                    self.blue_agent.env = self.red_agent.env
+                else:
+                    self.blue_agent.env = CyberEnvironment(agent_manager=self)
+                    
+        except ImportError as e:
+            console.print(f"[yellow]⚠ Environment setup warning: {e}[/yellow]")
+
+    def _sync_gpt_context(self):
+        """Synchronize GPT context and configurations across agents."""
+        try:
+            # Ensure all agents use the same GPTManager instance
+            for agent in self.agents:
+                if hasattr(agent, "gpt_manager"):
+                    agent.gpt_manager = self.gpt_manager
+            return True
+        except Exception as e:
+            console.print(f"[yellow]⚠ GPT context sync warning: {e}[/yellow]")
+            return False
+
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for clean shutdown."""
+        # Handle SIGINT (Ctrl+C) and SIGTERM
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+
+    def _signal_handler(self, sig, frame):
+        """Handle shutdown signals."""
+        console.print("\n[yellow]⚠ Shutdown signal received. Cleaning up...[/yellow]")
+        self.shutdown()
+        os._exit(0)  # Force exit after cleanup
 
     def get_agent(self, agent_id):
-        """
-        Retrieve an agent by its agent_id string.
-        """
-        for agent in self.agents:
-            if getattr(agent, "agent_id", None) == agent_id:
-                return agent
-        raise ValueError(f"Agent '{agent_id}' not found in AgentManager.")
+        """Get an agent by ID."""
+        if agent_id == "RedAgent":
+            return self.red_agent
+        elif agent_id == "BlueAgent":
+            return self.blue_agent
+        elif agent_id == "ScoutAgent":
+            return self.scout_agent
+        elif agent_id == "ShadowAgent":
+            return self.shadow_agent
+        elif agent_id == "OrionAgent":
+            return self.orion_agent
+        return None
 
-    def get_memory_router(self):
-        return self.memory_router
-
-    def _import_stats_monitor(self):
-        # Import locally to avoid circular import
-        from core.monitor.stats_monitor import StatsMonitor
-        return StatsMonitor
-
-    def _import_memory_router(self):
-        # Import locally to avoid circular import
-        from core.multiagent.memory_router import MemoryRouter
-        return MemoryRouter
-
-    def _get_all_agents(self, agent_manager=None):
-        # Import locally to avoid circular import
-        from core.multiagent.agents import get_all_agents
-        return get_all_agents(agent_manager=agent_manager)
-
-    def _import_summarize_rule_stats(self):
-        # Import locally to avoid circular import
-        from core.logic.rule_engine import summarize_rule_stats
-        return summarize_rule_stats
-
-    # ─────────────────────────────────────────────
-    # 🎮 Orchestration Controls
-    # ─────────────────────────────────────────────
     def all_agents(self):
+        """Get all agents."""
         return self.agents
 
     def broadcast(self, key, value, sender=None):
-        """Agents can broadcast key-value pairs to the shared context."""
+        """Broadcast a message to all agents."""
+        # Log broadcast to event log
+        self.event_log.append({
+            "event_type": "broadcast",
+            "key": key,
+            "value": value,
+            "sender": sender,
+            "timestamp": time.time()
+        })
+        
+        # Update shared context
         self.shared_context[key] = value
-        if sender:
-            console.print(f"[cyan]📡 {sender} broadcasted: {key} = {value}[/cyan]")
+        
+        # Notify agents with receive_broadcast method
+        for agent in self.agents:
+            if hasattr(agent, "receive_broadcast"):
+                try:
+                    agent.receive_broadcast(key, value, sender=sender)
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Broadcast error for {agent.agent_id}: {e}[/yellow]")
 
     def query_context(self, key, default=None):
-        """Agents can query the shared context."""
+        """Get a value from the shared context."""
         return self.shared_context.get(key, default)
 
-    def simulate_all_agents(self, episodes=10, max_steps=40):
-        try:
-            console.rule("[bold magenta]🎮 Multi-Agent Simulation Mode Engaged")
-            agents = self.agents
-            
-            # Reset global monitoring state to avoid duplicate progress bars
-            from rich.live import Live
-            global_live = None
-            
-            # Import visualization module
-            try:
-                from core.visualization.training_visualizer import TrainingVisualizer
-                visualizer = TrainingVisualizer(
-                    agents=[a.agent_id for a in self.agents],
-                    max_history=100
-                )
-                visualizer.start_live_display()
-            except Exception as e:
-                console.print(f"[yellow]⚠ Visualization module load failed: {e}, continuing without enhanced visualization[/yellow]")
-                visualizer = None
-            
-            for ep in range(episodes):
-                console.print(f"[bright_white]--- Episode {ep+1}/{episodes} ---[/bright_white]")
+    def simulate_all_agents(self, episode=1, step=1):
+        """Run a simulation step for all agents."""
+        turn_events = []
+        
+        # Get current shared context
+        shared_state = self._get_latest_shared_state()
+        
+        # 1. Scout phase determination
+        if self.scout_agent:
+            scout_result = self.scout_agent.simulate_step(episode, step, shared_state)
+            turn_events.append(scout_result)
+            # Broadcast phase if available
+            if scout_result and isinstance(scout_result, dict) and "phase" in scout_result:
+                self.broadcast("ScoutAgent_phase", scout_result["phase"], sender="ScoutAgent")
                 
-                # Reset all agent stats for this episode
-                for agent in agents:
-                    if hasattr(agent, "reset"):
-                        agent.reset()
-                    elif hasattr(agent, "command_history"):
-                        agent.command_history.clear()
-                    if hasattr(agent, "stats_monitor"):
-                        agent.stats_monitor.reset()
-                        
-                # Use a single progress bar for all agents/steps in this episode
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[bold blue]{task.description}"),
-                    BarColumn(bar_width=30),
-                    TextColumn("[cyan]{task.completed}/{task.total}"),
-                    TimeElapsedColumn(),
-                    console=console,
-                    transient=True,
-                ) as progress:
-                    total_steps = max_steps * len([a for a in agents if hasattr(a, "simulate_step")])
-                    task = progress.add_task(f"Episode {ep+1} Progress", total=total_steps)
-                    
-                    # First, perform ScoutAgent phase advice for coordination
-                    scout = self.scout_agent
-                    state = self.red_agent.env.get_global_state()
-                    if scout:
-                        try:
-                            # Fixed: Pass all_agents parameter to advise_phase
-                            phase = scout.advise_phase(state, self.all_agents())
-                            console.print(f"[cyan]🧭 Episode {ep+1} starting phase: {phase}[/cyan]")
-                        except Exception as e:
-                            console.print(f"[yellow]⚠ ScoutAgent initial phase advice failed: {e}, defaulting to 'recon'[/yellow]")
-                            phase = "recon"
-                    
-                    # Then run all other agents, with improved error handling
-                    for step in range(max_steps):
-                        turn_events = []
-                        shared_state = self._get_latest_shared_state()
-                        # --- Turn-based event loop: each agent acts in sequence ---
-                        for agent in agents:
-                            if agent.agent_id == "ScoutAgent":
-                                continue  # ScoutAgent may act as advisor, not actor
-                            try:
-                                # Each agent consumes the latest shared state and emits an action event
-                                action_event = self._agent_emit_action_event(agent, ep+1, step+1, shared_state)
-                                turn_events.append(action_event)
-                            except Exception as e:
-                                console.print(f"[bold red]❌ Error in {agent.agent_id} action: {e}[/bold red]")
-                                import traceback
-                                console.print(traceback.format_exc())
-                                turn_events.append({
-                                    "agent_id": agent.agent_id,
-                                    "error": str(e),
-                                    "step": step+1,
-                                    "episode": ep+1
-                                })
-                        # --- Apply all actions to environment in one batch update ---
-                        env_events = self._apply_actions_to_environment(turn_events)
-                        # --- Append all events to the shared event log (atomic, append-only) ---
-                        self.event_log.extend(turn_events)
-                        self.event_log.extend(env_events)
-                        # --- MemorySyncInterface: serialize memory updates after env step ---
-                        self._sync_all_agent_memories()
-                        # --- Visualization ---
-                        if 'visualizer' in locals() and visualizer:
-                            for event in turn_events + env_events:
-                                visualizer.update(agent_data=event)
-                        # ...existing code for progress, model saves, etc...
-                        # Save models/snapshots every 15 steps or at episode end
-                        if (step + 1) % 15 == 0 or (step + 1) == max_steps:
-                            if self.verbosity != "quiet":
-                                console.print(f"[green]💾 Saving models and snapshots at step {step+1}[/green]")
-                            self.save_all_models()
-                            self.snapshot_all()
-                    
-                    # Throttle model saves and snapshots
-                    if (ep + 1) % 5 == 0 or (ep + 1) == episodes:
-                        if self.verbosity != "quiet":
-                            console.print(f"[green]💾 Saving models and snapshots at episode {ep+1}[/green]")
-                        self.save_all_models()
-                        self.snapshot_all()
-                    
-                    # Print summary table after each episode
-                    self._log_multiagent_episode(ep+1)
-                
-            self._post_simulation_sync()
-            if visualizer:
-                visualizer.stop_live_display()
-        except Exception as e:
-            console.print(f"[red]❌ Error in simulate_all_agents: {e}[/red]")
-            import traceback
-            console.print(traceback.format_exc())
-
-    def _agent_emit_action_event(self, agent, episode, step, shared_state):
-        """
-        Each agent consumes the latest shared state and emits an action event.
-        Returns a dict event: {agent_id, action, phase, ...}
-        """
-        info = {
-            "agent_id": agent.agent_id,
-            "step": step,
-            "episode": episode,
-            "event_type": "action"
-        }
-        try:
-            if hasattr(agent, "simulate_step"):
-                agent_info = agent.simulate_step(episode=episode, step=step, shared_context=shared_state)
-                info.update(agent_info)
-            else:
-                info["command"] = getattr(agent, "command_history", ["N/A"])[-1] if getattr(agent, "command_history", None) else "N/A"
-                info["phase"] = getattr(agent, "current_mode", "N/A")
-            return info
-        except Exception as e:
-            info["error"] = str(e)
-            return info
+        # 2. OrionAgent strategic oversight
+        if self.orion_agent:
+            orion_result = self.orion_agent.simulate_step(episode, step, shared_state)
+            turn_events.append(orion_result)
+            
+        # 3. RedAgent and BlueAgent actions
+        if self.red_agent:
+            red_result = self.red_agent.simulate_step(episode, step, shared_state)
+            turn_events.append(red_result)
+            
+        if self.blue_agent:
+            blue_result = self.blue_agent.simulate_step(episode, step, shared_state)
+            turn_events.append(blue_result)
+            
+        # 4. ShadowAgent memory optimization
+        if self.shadow_agent:
+            shadow_result = self.shadow_agent.simulate_step(episode, step, shared_state)
+            turn_events.append(shadow_result)
+        
+        # Apply actions to environment and get results
+        env_events = self._apply_actions_to_environment(turn_events)
+        
+        # Sync agent memories
+        self._sync_all_agent_memories()
+        
+        # Periodic global optimization
+        if step % 5 == 0:
+            self._multiagent_sync()
+            
+        # Return combined events
+        return turn_events + env_events
 
     def _apply_actions_to_environment(self, turn_events):
-        """
-        Apply all agent actions to the environment in a single batch update.
-        Returns a list of environment transition events.
-        """
         env_events = []
-        # Example: RedAgent and BlueAgent actions are applied to the environment
-        # (You may extend this logic for more agents or more complex coordination)
+        
         red_action = next((e for e in turn_events if e.get("agent_id") == "RedAgent"), None)
         blue_action = next((e for e in turn_events if e.get("agent_id") == "BlueAgent"), None)
         # Apply RedAgent action
@@ -386,6 +394,11 @@ class AgentManager:
         """
         Serialize and atomically sync all agent memories after environment update.
         """
+        # Import MemorySyncInterface locally to avoid circular import issues
+        try:
+            from core.multiagent.memory_router import MemorySyncInterface
+        except ImportError:
+            MemorySyncInterface = type("MemorySyncInterface", (), {})
         for agent in self.agents:
             if isinstance(agent, MemorySyncInterface):
                 try:
@@ -415,368 +428,65 @@ class AgentManager:
             "output": "N/A"
         }
         try:
-            if hasattr(agent, "simulate_step"):
-                info = agent.simulate_step(episode=episode, step=step, shared_context=shared_context or self.shared_context)
-                if agent.agent_id == "RedAgent" and hasattr(agent, "env"):
-                    agent.env.step(info["command"])
-            else:
-                info = {
-                    "command": getattr(agent, "command_history", ["N/A"])[-1] if getattr(agent, "command_history", None) else "N/A",
-                    "phase": getattr(agent, "current_mode", "N/A"),
-                    "reward": getattr(agent.stats_monitor, "get_average_reward", lambda: 0.0)() if hasattr(agent, "stats_monitor") else 0.0,
-                    "gpt_calls": getattr(agent.stats_monitor, "agent_stats", {}).get(agent.agent_id, {}).get("gpt_calls", 0) if hasattr(agent, "stats_monitor") else 0,
-                    "output": getattr(agent, "last_output", "N/A")
-                }
+            step_info = agent.simulate_step(episode, step, shared_context)
+            return step_info if step_info else info
         except Exception as e:
-            console.print(f"[red]⚠ Error in {agent.agent_id} step: {e}[/red]")
-            info = {
-                "command": "N/A",
-                "phase": "N/A",
-                "reward": 0.0,
-                "gpt_calls": 0,
-                "output": "N/A"
-            }
-        return info
-
-    def _log_agent_step(self, agent, episode, step, info):
-        # Enhanced visualization with detailed information
-        table = Table(title=f"[bold cyan]{agent.agent_id} Step {step} (Episode {episode})", show_lines=True)
-        table.add_column("Field", style="magenta")
-        table.add_column("Value", style="green")
-        
-        # Basic command info with enhanced formatting
-        command = info.get("command", "N/A")
-        if isinstance(command, dict) and "response" in command:
-            command = command["response"]
-        table.add_row("Command", f"[bold cyan]{command}[/bold cyan]")
-        
-        # Phase info with color coding
-        phase = info.get("phase", "N/A")
-        if isinstance(phase, dict) and "response" in phase:
-            phase = phase["response"]
-        phase_colors = {
-            "recon": "[blue]recon[/blue]",
-            "enumeration": "[cyan]enumeration[/cyan]",
-            "exploit": "[yellow]exploit[/yellow]",
-            "privesc": "[orange]privesc[/orange]",
-            "exfiltrate": "[bold red]exfiltrate[/bold red]",
-            "unknown": "[dim]unknown[/dim]"
-        }
-        table.add_row("Phase", phase_colors.get(str(phase).lower(), str(phase)))
-        
-        # Reward with color coding based on value
-        reward = info.get("reward", 0)
-        if reward > 20:
-            reward_str = f"[bold green]{reward:.2f}[/bold green]"
-        elif reward > 0:
-            reward_str = f"[green]{reward:.2f}[/green]"
-        elif reward < -10:
-            reward_str = f"[bold red]{reward:.2f}[/bold red]"
-        elif reward < 0:
-            reward_str = f"[red]{reward:.2f}[/red]"
-        else:
-            reward_str = f"[yellow]{reward:.2f}[/yellow]"
-        table.add_row("Reward", reward_str)
-        
-        # Additional stats
-        table.add_row("GPT Calls", str(info.get("gpt_calls", 0)))
-        
-        # Command output with syntax highlighting
-        output = str(info.get("output", "N/A"))
-        if output and len(output) > 120:
-            output = output[:117] + "..."
-            
-        # Add basic syntax highlighting
-        if "error" in output.lower() or "failed" in output.lower():
-            output = f"[red]{output}[/red]"
-        elif "success" in output.lower() or "completed" in output.lower():
-            output = f"[green]{output}[/green]"
-            
-        table.add_row("Output", output)
-        
-        # Add reasoning if available
-        reasoning = info.get("reasoning", "")
-        if reasoning:
-            table.add_row("Reasoning", str(reasoning)[:120])
-        
-        # Environment state if available
-        if "environment" in info:
-            env_data = info.get("environment", {})
-            env_str = ", ".join(f"{k}={v}" for k, v in env_data.items())
-            table.add_row("Environment", env_str)
-        
-        # Add more agent info
-        table.add_row("Replay Buffer", str(info.get("replay_buffer", "-")))
-        table.add_row("Epsilon", f"{info.get('epsilon', 0):.3f}")
-        table.add_row("Entropy", f"{info.get('entropy_beta', 0):.3f}")
-        
-        console.print(table)
-
-    def _log_multiagent_episode(self, episode_num):
-        """Enhanced episode summary with more detailed visualization"""
-        from rich.table import Table
-        from rich.panel import Panel
-        from rich.columns import Columns
-        
-        # Create a table for each major agent type
-        tables = []
-        
-        # Group agents by type
-        agent_groups = {
-            "Offensive": [a for a in self.agents if "Red" in a.agent_id],
-            "Defensive": [a for a in self.agents if "Blue" in a.agent_id],
-            "Intelligence": [a for a in self.agents if a.agent_id in ["ScoutAgent", "ShadowAgent", "OrionAgent"]]
-        }
-        
-        for group_name, agents in agent_groups.items():
-            if not agents:
-                continue
-                
-            table = Table(title=f"🧠 {group_name} Agents - Episode {episode_num}", show_lines=True)
-            table.add_column("Agent", style="cyan")
-            table.add_column("Last Action", style="magenta")
-            table.add_column("Phase", style="yellow")
-            table.add_column("Reward", style="green")
-            table.add_column("GPT Call", style="blue")
-            
-            for agent in agents:
-                last_action = getattr(agent, "command_history", ["N/A"])[-1] if hasattr(agent, "command_history") and agent.command_history else "N/A"
-                phase = getattr(agent, "current_mode", "N/A")
-                
-                # Get reward stats
-                reward = getattr(agent, "stats_monitor", None)
-                reward_val = reward.get_average_reward() if reward else "N/A"
-                
-                # Format reward color
-                if isinstance(reward_val, (int, float)):
-                    if reward_val > 20:
-                        reward_str = f"[bold green]{reward_val:.2f}[/bold green]"
-                    elif reward_val > 0:
-                        reward_str = f"[green]{reward_val:.2f}[/green]"
-                    elif reward_val < 0:
-                        reward_str = f"[red]{reward_val:.2f}[/red]"
-                    else:
-                        reward_str = f"[yellow]{reward_val:.2f}[/yellow]"
-                else:
-                    reward_str = str(reward_val)
-                
-                gpt = getattr(agent, "last_reasoning", "N/A")
-                gpt_str = str(gpt)[:40] + "..." if len(str(gpt)) > 40 else str(gpt)
-                
-                table.add_row(
-                    agent.agent_id, 
-                    str(last_action), 
-                    str(phase), 
-                    reward_str,
-                    gpt_str
-                )
-                
-            tables.append(Panel(table))
-        
-        console.print(Columns(tables))
-        
-        # Add environment snapshot after the agent tables
-        if hasattr(self.red_agent, "env") and self.red_agent.env:
-            env_state = self.red_agent.env.get_global_state()
-            env_table = Table(title="🌍 Environment State")
-            env_table.add_column("Property", style="cyan")
-            env_table.add_column("Value", style="green")
-            
-            # Add key environment variables
-            for key, value in env_state.items():
-                if isinstance(value, list) and len(value) > 5:
-                    value_str = str(value[:5])[:-1] + ", ...]"
-                else:
-                    value_str = str(value)
-                    
-                env_table.add_row(key, value_str)
-                
-            console.print(Panel(env_table))
-
-    def simulate_all(self, episodes=10):
-        # Alias for CLI compatibility
-        self.simulate_all_agents(episodes=episodes)
-
-    # ─────────────────────────────────────────────
-    # 📊 Post-Simulation Sync & Review
-    # ─────────────────────────────────────────────
-    def _post_simulation_sync(self):
-        console.rule("[bold cyan]♻️ Post-Simulation: Memory Sync & Orion Review")
-        self.sync_all_memories()
-        self.trigger_orion_review()
-
-    def batch_train_all(self, batches=5):
-        console.rule("[bold cyan]📈 Batch Training Across All Agents")
-        for agent in self.agents:
-            if hasattr(agent, "train_on_batch"):
-                console.print(
-                    f"[cyan]{agent.agent_id}: Training {batches} batches[/cyan]"
-                )
-                for _ in range(batches):
-                    agent.train_on_batch()
-                # --- Copilot: Update target_value_net after batch for BlueAgent ---
-                if hasattr(agent, "target_value_net") and hasattr(agent, "value_net"):
-                    agent.target_value_net.load_state_dict(agent.value_net.state_dict())
-        self._post_training_analysis()
-
-    def _post_training_analysis(self):
-        console.rule("[bold magenta]👁 Orion: Strategic Post-Training Analysis")
-        # Import summarize_rule_stats locally to avoid circular import
-        summarize_rule_stats = self._import_summarize_rule_stats()
-        self.orion_agent.analyze_training(self.agents)
-        for agent in self.agents:
-            summarize_rule_stats(agent)
-
-    # ─────────────────────────────────────────────
-    # 💾 Model & Memory Management
-    # ─────────────────────────────────────────────
-    def save_all_models(self):
-        console.rule("[bold yellow]💾 Saving Models & Critical States")
-        # Only save at logical checkpoints (end of episode or batch)
-        for agent in self.agents:
-            if hasattr(agent, "save_models"):
-                if hasattr(agent, "total_steps") and hasattr(agent, "total_episodes"):
-                    # Only save if at end of episode (simulate_all_agents controls this)
-                    if getattr(agent, "_is_end_of_episode", False):
-                        agent.save_models(prefix=f"models/{agent.agent_id}")
-                else:
-                    agent.save_models(prefix=f"models/{agent.agent_id}")
-            # --- Copilot: Save target networks if present ---
-            if hasattr(agent, "target_value_net"):
-                try:
-                    agent.target_value_net.eval()
-                    path = f"models/{agent.agent_id}_target_value.pt"
-                    agent.target_value_net.save(path)
-                except Exception:
-                    pass
-            if hasattr(agent, "target_net"):
-                try:
-                    agent.target_net.eval()
-                    path = f"models/{agent.agent_id}_target_policy.pt"
-                    agent.target_net.save(path)
-                except Exception:
-                    pass
-
-    def snapshot_all(self):
-        console.rule("[bold magenta]📸 Creating Global Memory Snapshots")
-        # Only snapshot at logical checkpoints (end of episode or batch)
-        for agent in self.agents:
-            if hasattr(agent, "total_steps") and hasattr(agent, "total_episodes"):
-                if getattr(agent, "_is_end_of_episode", False):
-                    self.memory_router.snapshot_all_memories()
-            else:
-                self.memory_router.snapshot_all_memories()
-
-    # ─────────────────────────────────────────────
-    # ♻️ Dynamic Memory & GPT Intelligence Sync
-    # ─────────────────────────────────────────────
-    def sync_all_memories(self):
-        console.print("[cyan]🔗 Syncing Global Insights & Optimizing GPT Cache[/cyan]")
-        self.memory_router.sync_global_insights()
-        self.memory_router.consolidate_gpt_cache()
-        self.memory_router.optimize_memories()
-
-    # ─────────────────────────────────────────────
-    # 👁 Orion Oversight & Auto-Adjustments
-    # ─────────────────────────────────────────────
-    def trigger_orion_review(self):
-        console.print("[bold blue]👁 Initiating OrionAgent Strategic Review[/bold blue]")
-        self.orion_agent.apply_orion_strategic_adjustments(self.agents)
-
-    # ─────────────────────────────────────────────
-    # 🚨 Agent Health Diagnostics
-    # ─────────────────────────────────────────────
-    def display_full_status(self):
-        console.rule("[bold green]🧩 Multi-Agent Status Dashboard")
-        for agent in self.agents:
-            if hasattr(agent, "display_advanced_status"):
-                agent.display_advanced_status()
-        
-        # Visualize agent diversity and redundancy metrics
-        for agent in self.agents:
-            if hasattr(agent, "stats_monitor"):
-                stats = agent.stats_monitor
-                diversity = len(set(agent.command_history[-20:])) if hasattr(agent, "command_history") else 0
-                redundancy = max(agent.repetition_count.values()) if hasattr(agent, "repetition_count") and agent.repetition_count else 0
-                console.print(f"[blue]{agent.agent_id} Diversity (last 20): {diversity} | Max Redundancy: {redundancy}[/blue]")
-
-    # ─────────────────────────────────────────────
-    # 🔧 Maintenance Utilities
-    # ─────────────────────────────────────────────
-    def reset_all_agents(self):
-        console.print("[yellow]🔄 Resetting All Agents to Baseline States...[/yellow]")
-        for agent in self.agents:
-            if hasattr(agent, "reset"):
-                agent.reset()
-        self._initialize_gpt_context()
-
-    def _initialize_gpt_context(self):
-        """Prime GPT with current agent configuration and mission context using GPTManager."""
-        from core.gpt_manager import GPTManager
-        prompt = """
-You are ARIASKA's core strategist AI. 
-Agents initialized: Red (Offense), Blue (Defense), Scout (Navigator), Shadow (Optimizer), Orion (Overseer).
-Ensure optimal synergy, minimize redundancy, and align strategies across offensive and defensive operations.
-Acknowledge with 'Strategic Context Loaded'.
-"""
-        try:
-            gpt_manager = GPTManager()
-            response = gpt_manager.gpt_request(prompt, task_type="reasoning")
-            self.shared_context['gpt_context'] = response
-            if isinstance(response, str) and "Strategic Context Loaded" in response:
-                console.print("[green]✔ GPT Context Synced[/green]")
-                return True
-            else:
-                console.print(f"[yellow]⚠ GPT context sync incomplete: {response}[/yellow]")
-                return False
-        except Exception as e:
-            console.print(f"[yellow]⚠ GPT context sync failed: {e}[/yellow]")
-            return False
+            console.print(f"[red]❌ Error simulating {agent.agent_id}: {e}[/red]")
+            return {**info, "error": str(e), "agent_id": agent.agent_id}
 
     def _print_startup_dashboard(self, agent_init_table, gpt_context_synced):
-        from rich.panel import Panel
-        from rich.table import Table
-        from rich.columns import Columns
-        from rich import box  # <-- ensure import here if needed
-        # Agents summary
-        agents_summary = agent_init_table
-        # GPT Models summary
-        gpt_table = Table(title="GPT Models Ready", box=box.ROUNDED)  # <-- fix here
-        gpt_table.add_column("Model", style="cyan")
-        gpt_table.add_column("Purpose", style="magenta")
-        gpt_table.add_row("GPT-4.1", "Primary Reasoning")
-        gpt_table.add_row("GPT-4o-mini", "Fallback/Lightweight")
-        gpt_table.add_row("GPT-4.1-nano", "Embeddings/Light Tasks")
-        # Environment summary
-        env_table = Table(title="Environment", box=box.ROUNDED)  # <-- fix here
-        env_mode = "Simulated"
-        try:
-            env = self.red_agent.env if hasattr(self.red_agent, "env") else None
-            if env and hasattr(env, "training_mode"):
-                env_mode = getattr(env, "training_mode", "Simulated")
-        except Exception:
-            pass
-        env_table.add_column("Mode", style="cyan")
-        env_table.add_column("Status", style="green")
-        env_table.add_row(env_mode, "[green]Ready[/green]")
-        # Memory summary
-        mem_table = Table(title="Memory Status", box=box.ROUNDED)  # <-- fix here
-        mem_table.add_column("Component", style="cyan")
-        mem_table.add_column("Status", style="green")
-        mem_table.add_row("Replay Buffers", "Initialized")
-        mem_table.add_row("GPT Cache", "Active")
-        # Curriculum/difficulty
-        curriculum_table = Table(title="Curriculum", box=box.ROUNDED)  # <-- fix here
-        curriculum_table.add_column("Phase", style="cyan")
-        curriculum_table.add_column("Difficulty", style="magenta")
-        try:
-            diff = getattr(env, "difficulty_level", 1) if env else 1
-            phase = getattr(env, "current_phase", "N/A") if env else "N/A"
-        except Exception:
-            diff = 1
-            phase = "N/A"
-        curriculum_table.add_row(str(phase), str(diff))
-        # Compose dashboard
+        # Create dashboards for startup visualization
+        agents_summary = Table(box=box.SIMPLE)
+        agents_summary.add_column("Agent")
+        agents_summary.add_column("Role")
+        agents_summary.add_column("Status")
+        
+        # Add agents to summary
+        for agent in self.agents:
+            agents_summary.add_row(
+                agent.agent_id,
+                getattr(agent, "role", "N/A"),
+                "[green]Active[/green]"
+            )
+            
+        # Create GPT table
+        gpt_table = Table(box=box.SIMPLE)
+        gpt_table.add_column("Model")
+        gpt_table.add_column("Status")
+        
+        # Add GPT info
+        gpt_table.add_row("GPT-4o-mini", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
+        gpt_table.add_row("GPT-4.1-nano", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
+        
+        # Create environment table
+        env_table = Table(box=box.SIMPLE)
+        env_table.add_column("Setting")
+        env_table.add_column("Value")
+        
+        # Add environment info
+        env_mode = "Simulated" if not os.environ.get("ARIASKA_LIVE_MODE") else "Live"
+        env_table.add_row("Mode", env_mode)
+        env_table.add_row("Difficulty", os.environ.get("ARIASKA_DIFFICULTY", "Standard"))
+        
+        # Create memory table
+        mem_table = Table(box=box.SIMPLE)
+        mem_table.add_column("Setting")
+        mem_table.add_column("Value")
+        
+        # Add memory info
+        mem_table.add_row("Router", "[green]Active[/green]" if self.memory_router else "[red]Inactive[/red]")
+        mem_table.add_row("Cache", "Enabled")
+        
+        # Create curriculum table
+        curriculum_table = Table(box=box.SIMPLE)
+        curriculum_table.add_column("Setting")
+        curriculum_table.add_column("Value")
+        
+        # Add curriculum info
+        curriculum_table.add_row("Mode", "Progressive")
+        curriculum_table.add_row("Current", "Phase 1")
+        
+        # Combine all tables into a dashboard
         dashboard = Columns([
             Panel(agents_summary, title="Agents Active", border_style="green"),
             Panel(gpt_table, title="LLM Orchestration", border_style="magenta"),
@@ -802,6 +512,90 @@ Acknowledge with 'Strategic Context Loaded'.
             self.orion_agent.apply_orion_strategic_adjustments(self.agents)
         if hasattr(self, "shadow_agent") and self.shadow_agent:
             self.shadow_agent.optimize_all_agents_memory(self.agents)
+            
+    def batch_train_all(self, batches=1):
+        """Train all agents with batch updates."""
+        for _ in range(batches):
+            for agent in self.agents:
+                if hasattr(agent, "train_on_batch"):
+                    try:
+                        agent.train_on_batch()
+                    except Exception as e:
+                        console.print(f"[yellow]⚠ Training error for {agent.agent_id}: {e}[/yellow]")
+                        
+    def save_all_models(self):
+        """Save all agent models."""
+        for agent in self.agents:
+            if hasattr(agent, "save_model"):
+                try:
+                    agent.save_model()
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Model save error for {agent.agent_id}: {e}[/yellow]")
+                    
+    def snapshot_all(self):
+        """Take snapshots of all agent states."""
+        if hasattr(self.memory_router, "snapshot_all_memories"):
+            try:
+                self.memory_router.snapshot_all_memories()
+            except Exception as e:
+                console.print(f"[yellow]⚠ Memory snapshot error: {e}[/yellow]")
+                
+    def display_full_status(self):
+        """Display comprehensive status of all agents."""
+        console.rule("[bold cyan]📊 ARIASKA Multi-Agent System Status[/bold cyan]")
+        
+        for agent in self.agents:
+            if hasattr(agent, "display_advanced_status"):
+                agent.display_advanced_status()
+            else:
+                # Basic status display for agents without custom display
+                status_panel = Panel(
+                    f"Role: {getattr(agent, 'role', 'Unknown')}\n"
+                    f"Mode: {getattr(agent, 'current_mode', 'Standard')}\n"
+                    f"Last Action: {getattr(agent, 'last_action', 'None')}",
+                    title=f"[bold]{agent.agent_id}[/bold]",
+                    border_style="cyan"
+                )
+                console.print(status_panel)
+                
+        # Display memory stats if available
+        if hasattr(self.memory_router, "get_stats"):
+            try:
+                mem_stats = self.memory_router.get_stats()
+                mem_table = Table(title="Memory Statistics")
+                mem_table.add_column("Metric")
+                mem_table.add_column("Value")
+                
+                for key, value in mem_stats.items():
+                    if isinstance(value, dict):
+                        mem_table.add_row(key, str(len(value)))
+                    else:
+                        mem_table.add_row(key, str(value))
+                        
+                console.print(mem_table)
+            except Exception as e:
+                console.print(f"[yellow]⚠ Memory stats error: {e}[/yellow]")
+        
+    def shutdown(self):
+        """Clean shutdown of all agents and resources."""
+        console.print("[cyan]🔄 Shutting down ARIASKA Multi-Agent System...[/cyan]")
+        
+        # Close memory router first to ensure data persistence
+        if hasattr(self.memory_router, "close"):
+            try:
+                self.memory_router.close()
+            except Exception as e:
+                console.print(f"[yellow]⚠ Memory router close error: {e}[/yellow]")
+        
+        # Shutdown all agents
+        for agent in self.agents:
+            if hasattr(agent, "safe_shutdown"):
+                try:
+                    agent.safe_shutdown()
+                except Exception as e:
+                    console.print(f"[yellow]⚠ Agent shutdown error for {agent.agent_id}: {e}[/yellow]")
+        
+        console.print("[green]✓ ARIASKA Multi-Agent System shutdown complete[/green]")
 
 
 # ─────────────────────────────────────────────

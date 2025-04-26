@@ -5,6 +5,8 @@ import subprocess
 import time
 import shutil
 import re
+import threading
+from typing import Dict, Any, Optional, Tuple, List, Union
 from pathlib import Path
 from rich.console import Console
 
@@ -26,7 +28,7 @@ class LocalLLMManager:
         token_usage (dict): Tracks token usage
         cache (dict): In-memory cache of queries
     """
-    def __init__(self, model_name=None, host=None):
+    def __init__(self, model_name=None, host=None, cache_size=1000, timeout=30):
         # Allow model name and host to be set via env/config
         self.model_name = model_name or _get_env_or_default("ARIASKA_LOCAL_LLM_MODEL", "wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF")
         self.host = host or _get_env_or_default("ARIASKA_OLLAMA_HOST", "http://localhost:11434")
@@ -38,9 +40,19 @@ class LocalLLMManager:
         
         # Enhanced configuration
         self.max_retries = 3
-        self.timeout = 30  # Default timeout
+        self.timeout = timeout  # Default timeout
+        self.max_cache_size = cache_size
         self.token_usage = {"total": 0, "seneca": 0, "lily": 0}
         self.last_error = None
+        self.cache_lock = threading.Lock()  # Thread-safe caching
+        self.model_loaded = False  # Track model loading state
+        self.stats = {
+            "total_requests": 0,
+            "cache_hits": 0,
+            "failures": 0,
+            "avg_response_time": 0,
+            "response_times": []
+        }
         
         # Load cache and check model availability
         self._load_cache()
@@ -65,9 +77,21 @@ class LocalLLMManager:
             # Ensure the directory exists
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
             
-            # Write cache to file
-            with open(self.cache_path, "w") as f:
-                json.dump(self.cache, f, indent=2)
+            # Write cache to file with cache size management
+            with self.cache_lock:
+                # Limit cache size by removing oldest entries
+                if len(self.cache) > self.max_cache_size:
+                    # Sort by timestamp if available, otherwise use basic dict ordering
+                    if all("timestamp" in item for item in self.cache.values()):
+                        sorted_items = sorted(
+                            self.cache.items(),
+                            key=lambda x: x[1].get("timestamp", 0)
+                        )
+                        # Keep only the newest items
+                        self.cache = dict(sorted_items[-self.max_cache_size:])
+                
+                with open(self.cache_path, "w") as f:
+                    json.dump(self.cache, f, indent=2)
         except Exception as e:
             console.print(f"[yellow]⚠️ Could not save LLM cache: {e}[/yellow]")
 
@@ -87,9 +111,11 @@ class LocalLLMManager:
             self._check_ollama_server()
             self._check_model_loaded()
             self.ollama_available = True
+            self.model_loaded = True
         except Exception as e:
             self.last_error = str(e)
             console.print(f"[yellow]⚠️ Ollama setup issue: {e}[/yellow]")
+            # We don't re-raise here to allow for GPT fallback later
 
     def _check_ollama_server(self):
         """Check if Ollama server is running with enhanced error reporting."""
@@ -124,6 +150,7 @@ class LocalLLMManager:
             
             if available:
                 console.print(f"[green]✅ Model '{self.model_name}' available[/green]")
+                return True
             else:
                 console.print(f"[yellow]⚠️ Model '{self.model_name}' not loaded. Attempting to pull...[/yellow]")
                 
@@ -138,6 +165,7 @@ class LocalLLMManager:
                 # Check pull success
                 if result.returncode == 0:
                     console.print(f"[green]✅ Model '{self.model_name}' successfully pulled[/green]")
+                    return True
                 else:
                     console.print(f"[red]❌ Failed to pull model: {result.stderr}[/red]")
                     # List available models as fallback suggestion
@@ -155,7 +183,7 @@ class LocalLLMManager:
                 console.print(f"[yellow]⚠️ Model check timed out. If this is first run, model may still be downloading.[/yellow]")
             else:
                 console.print(f"[red]❌ Model check failed: {e}[/red]")
-            raise
+            return False
 
     def _extract_command(self, output: str):
         """
@@ -254,7 +282,7 @@ class LocalLLMManager:
                 return stripped
                 
         # 5. Handle single-word valid commands (special case for commands like "ls", "pwd")
-        single_word_commands = {"ls", "pwd", "whoami", "id", "ps", "top", "help"}
+        single_word_commands = {"ls", "pwd", "whoami", "id", "ps", "top", "help", "ifconfig", "ip"}
         for line in lines:
             stripped = line.strip()
             if stripped.lower() in single_word_commands:
@@ -324,6 +352,19 @@ class LocalLLMManager:
         
         # Construct the final prompt
         return f"{base_prefix}{prefix}{task_prefix}{prompt}"
+    
+    def _estimate_tokens(self, text: str) -> int:
+        """
+        Estimate the number of tokens in a text string.
+        
+        Args:
+            text: The text to estimate tokens for
+            
+        Returns:
+            Estimated number of tokens
+        """
+        # Simple approximation: ~4 characters per token
+        return max(1, len(text) // 4)
         
     def query(self, prompt, model=None, task_type="general", timeout=None, allow_fallback=True, retry_with_different_prompt=True):
         """
@@ -343,6 +384,9 @@ class LocalLLMManager:
         Raises:
             RuntimeError: If query fails and fallback is disabled
         """
+        start_time = time.time()
+        self.stats["total_requests"] += 1
+        
         # Use provided model or default
         model = model or self.model_name
         timeout = timeout or self.timeout
@@ -351,9 +395,11 @@ class LocalLLMManager:
         cache_key = f"{model}|{task_type}|{prompt.strip()[:120]}"
         
         # Return cached response if available
-        if cache_key in self.cache:
-            self._log(f"🔄 Using cached response for: {prompt[:50]}...", "info")
-            return self.cache[cache_key]
+        with self.cache_lock:
+            if cache_key in self.cache:
+                self._log(f"🔄 Using cached response for: {prompt[:50]}...", "info")
+                self.stats["cache_hits"] += 1
+                return self.cache[cache_key].get("response", self.cache[cache_key])
             
         # Create an effective prompt with proper instructions for the model
         effective_prompt = self._create_effective_prompt(task_type, prompt)
@@ -426,15 +472,34 @@ class LocalLLMManager:
                 # This would reject valid single-word commands like 'ls'
                 
                 # Cache the successful result
-                self.cache[cache_key] = parsed_command
-                self._save_cache()
+                elapsed_time = time.time() - start_time
+                with self.cache_lock:
+                    self.cache[cache_key] = {
+                        "response": parsed_command,
+                        "raw_output": raw_output,
+                        "timestamp": time.time(),
+                        "elapsed_time": elapsed_time
+                    }
+                    
+                    # Periodically save cache in a thread to avoid blocking
+                    if self.stats["total_requests"] % 10 == 0:
+                        threading.Thread(target=self._save_cache).start()
                 
                 # Track token usage (approximate)
-                self.token_usage["total"] += len(effective_prompt.split())
+                prompt_tokens = self._estimate_tokens(effective_prompt)
+                response_tokens = self._estimate_tokens(raw_output)
+                self.token_usage["total"] += prompt_tokens + response_tokens
+                
                 if "seneca" in model.lower():
-                    self.token_usage["seneca"] += 1
+                    self.token_usage["seneca"] += prompt_tokens + response_tokens
                 elif "lily" in model.lower():
-                    self.token_usage["lily"] += 1
+                    self.token_usage["lily"] += prompt_tokens + response_tokens
+                
+                # Update stats
+                self.stats["response_times"].append(elapsed_time)
+                if len(self.stats["response_times"]) > 100:  # Keep only last 100 response times
+                    self.stats["response_times"] = self.stats["response_times"][-100:]
+                self.stats["avg_response_time"] = sum(self.stats["response_times"]) / len(self.stats["response_times"])
                     
                 return parsed_command
                 
@@ -446,38 +511,172 @@ class LocalLLMManager:
                 time.sleep(0.5)
                 
         # If we reach here, all attempts failed
+        self.stats["failures"] += 1
         self._log(f"❌ All {max_tries} attempts failed: {last_error}", "error")
         
         # Fall back to GPT if allowed
         if allow_fallback:
-            self._log("🔄 Falling back to GPTManager", "warning")
+            self._log("🔄 Falling back to LLM Router", "warning")
             try:
-                from core.gpt_manager import GPTManager
-                # Use a more direct prompt for GPT
-                gpt_prompt = f"Provide ONLY the exact command for this cybersecurity task. Command MUST be in backticks: {prompt}"
-                response = GPTManager().gpt_request(gpt_prompt, model="gpt-4o-mini", allow_fallback=False)
+                # Try to use LLMRouter first if it's available
+                try:
+                    from core.utils.llm_router import LLMRouter
+                    from core.utils.llm_integration import get_router
+                    
+                    # Get the router instance
+                    router = get_router()
+                    
+                    # Use a more direct prompt
+                    router_prompt = f"Provide the exact command for this cybersecurity task: {prompt}"
+                    response = router.request(
+                        prompt=router_prompt,
+                        role="tactical",
+                        require_validation=False
+                    )
+                    
+                    result = response.content
                 
-                # Cache the GPT response
-                self.cache[cache_key] = response
-                self._save_cache()
-                return response
+                except (ImportError, Exception) as router_error:
+                    # Fallback to GPTManager directly if LLMRouter isn't available
+                    self._log(f"⚠️ LLMRouter fallback failed: {router_error}, trying GPTManager", "warning")
+                    from core.gpt_manager import GPTManager
+                    
+                    # Use a more direct prompt for GPT
+                    gpt_prompt = f"Provide ONLY the exact command for this cybersecurity task. Command MUST be in backticks: {prompt}"
+                    result = GPTManager().gpt_request(gpt_prompt, model="gpt-4o-mini", allow_fallback=False)
+                
+                # Cache the fallback response
+                elapsed_time = time.time() - start_time
+                with self.cache_lock:
+                    self.cache[cache_key] = {
+                        "response": result,
+                        "timestamp": time.time(),
+                        "source": "fallback",
+                        "elapsed_time": elapsed_time
+                    }
+                    # Save cache in background thread
+                    threading.Thread(target=self._save_cache).start()
+                    
+                return result
                 
             except Exception as gpt_error:
-                self._log(f"❌ GPT fallback also failed: {gpt_error}", "error")
-                raise RuntimeError(f"Local LLM failed: {last_error}, and GPT fallback failed: {gpt_error}")
+                self._log(f"❌ Fallback also failed: {gpt_error}", "error")
+                raise RuntimeError(f"Local LLM failed: {last_error}, and fallback failed: {gpt_error}")
         else:
             error_msg = f"Local LLM query failed after {max_tries} attempts: {last_error}"
             self._log(f"❌ {error_msg}", "error")
             raise RuntimeError(error_msg)
 
+    def query_json(self, prompt, task_type="general", schema=None, timeout=None, allow_fallback=True) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Query the LLM for structured JSON output with schema validation.
+        
+        Args:
+            prompt (str): The prompt for the LLM
+            task_type (str): Task type for prompt optimization
+            schema (Dict): Expected JSON schema (optional)
+            timeout (int, optional): Request timeout
+            allow_fallback (bool): Whether to allow fallback to GPT
+            
+        Returns:
+            Tuple[bool, Dict]: (success, result) where result is parsed JSON
+        """
+        # Add JSON formatting instructions
+        json_prompt = f"{prompt}\n\nRespond with only valid JSON containing command and metadata. For example:\n```json\n{{\"command\": \"nmap -sV 10.10.10.10\", \"target\": \"10.10.10.10\"}}\n```"
+        
+        # Try multiple times with different prompt formulations
+        for attempt in range(2):
+            try:
+                if attempt > 0:
+                    # Second attempt is more explicit
+                    json_prompt = f"Return only a valid JSON object with command and metadata for: {prompt}\nFormat: {{\"command\": \"actual command\"}}. No explanations."
+                
+                # Query the LLM
+                raw_response = self.query(
+                    json_prompt,
+                    task_type=task_type,
+                    timeout=timeout,
+                    allow_fallback=allow_fallback
+                )
+                
+                # Extract JSON from the response
+                import re
+                import json
+                
+                # Try to find JSON content between curly braces or code blocks
+                json_pattern = r'```(?:json)?\s*(\{.*?\})\s*```|(\{.*?\})'
+                json_match = re.search(json_pattern, raw_response, re.DOTALL)
+                
+                if json_match:
+                    json_str = json_match.group(1) or json_match.group(2)
+                    parsed = json.loads(json_str)
+                    
+                    # Validate against schema if provided
+                    if schema:
+                        # Simple schema validation
+                        for key in schema:
+                            if key not in parsed:
+                                return False, {"error": f"Missing required field: {key}", "raw": raw_response}
+                    
+                    return True, parsed
+                else:
+                    # Try parsing the whole response as JSON
+                    try:
+                        parsed = json.loads(raw_response)
+                        return True, parsed
+                    except json.JSONDecodeError:
+                        pass
+            
+            except Exception as e:
+                self._log(f"JSON extraction failed: {e}", "warning")
+                
+        # If we get here, JSON extraction failed
+        # Return the best effort - try one more time with GPT if allowed
+        if allow_fallback:
+            try:
+                from core.gpt_manager import GPTManager
+                json_prompt = f"Return valid JSON with command information. NO explanations or markdown, ONLY the JSON object.\nTask: {prompt}"
+                gpt_response = GPTManager().gpt_request(json_prompt, model="gpt-4o-mini")
+                
+                try:
+                    parsed = json.loads(gpt_response)
+                    return True, parsed
+                except json.JSONDecodeError:
+                    pass
+            except Exception:
+                pass
+                
+        return False, {"error": "Failed to extract valid JSON", "raw": raw_response}
+
     def get_token_usage(self):
         """Get token usage statistics."""
-        return self.token_usage
+        # Return a copy to avoid accidental mutation
+        return dict(self.token_usage)
+        
+    def get_stats(self):
+        """Get comprehensive usage statistics."""
+        stats = dict(self.stats)
+        stats["token_usage"] = self.get_token_usage()
+        stats["model"] = self.model_name
+        stats["cache_size"] = len(self.cache)
+        return stats
         
     def reset_token_usage(self):
         """Reset token usage statistics."""
         self.token_usage = {"total": 0, "seneca": 0, "lily": 0}
+        
+    def clear_cache(self):
+        """Clear the entire response cache."""
+        with self.cache_lock:
+            self.cache = {}
+            try:
+                if os.path.exists(self.cache_path):
+                    os.remove(self.cache_path)
+            except Exception as e:
+                self._log(f"Failed to remove cache file: {e}", "warning")
+        self._log("Cache cleared", "success")
 
+# Specialized classes for specific models
 class LocalLilyLLMManager(LocalLLMManager):
     """
     LilyLLM manager. Uses same API as LocalLLMManager, but with Lily model.

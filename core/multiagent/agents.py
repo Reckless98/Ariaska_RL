@@ -1,98 +1,72 @@
-# core/multiagent/agents.py — ARIASKA Agent Factory v1.0
-# 🧩 Centralized Agent Creation | 🔄 Import Resolution | 🧠 Agent Configuration
-
-"""
-Centralized module for agent creation and management.
-Helps resolve circular imports by dynamically importing agents only when needed.
-"""
+# core/multiagent/agents.py — ARIASKA Multi-Agent Factory v1.0
+# Factory method for creating all agents in the correct order to avoid circular imports
 
 from rich.console import Console
 from typing import Dict, Any, List
 
 console = Console()
 
-def get_all_agents(agent_manager=None, memory_router=None, memory_manager=None, verbosity="standard"):
+def get_all_agents(agent_manager=None, memory_router=None):
     """
-    Create all agents with appropriate dependencies.
-    This function centralizes agent creation to avoid circular imports.
+    Create all agents in the correct order to avoid circular imports.
     
     Args:
-        agent_manager: Optional AgentManager instance for agent coordination
-        memory_router: Optional MemoryRouter instance for memory sharing
-        memory_manager: Optional MemoryManager instance for memory persistence
-        verbosity: Verbosity level for agents
+        agent_manager: Optional agent manager instance
+        memory_router: Optional memory router instance
         
     Returns:
-        dict: Dictionary with agent instances keyed by agent_id
+        Dict of agent instances keyed by agent_id
     """
-    from core.agents.red_agent import RedAgent
-    from core.agents.blue_agent import BlueAgent
-    from core.agents.scout_agent import ScoutAgent
-    from core.agents.shadow_agent import ShadowAgent
-    from core.agents.orion_agent import OrionAgent
-    from core.utils.memory_manager import MemoryManager
-
-    # Create memory managers for each agent if not provided
-    if not memory_manager:
-        red_memory_manager = MemoryManager(agent_id="red_agent")
-        blue_memory_manager = MemoryManager(agent_id="blue_agent")
-        scout_memory_manager = MemoryManager(agent_id="scout_agent")
-        shadow_memory_manager = MemoryManager(agent_id="shadow_agent")
-        orion_memory_manager = MemoryManager(agent_id="orion_agent")
-    else:
-        # Use the provided memory manager
-        red_memory_manager = blue_memory_manager = scout_memory_manager = shadow_memory_manager = orion_memory_manager = memory_manager
-
-    # Create agents
-    red_agent = RedAgent(
-        agent_id="RedAgent",
-        role="CyberOffense",
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        memory_manager=red_memory_manager,
-        verbosity=verbosity
-    )
+    agents = {}
     
-    blue_agent = BlueAgent(
-        agent_id="BlueAgent",
-        role="CyberDefense",
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        memory_manager=blue_memory_manager,
-        verbosity=verbosity
-    )
+    # Create RedAgent
+    try:
+        from core.agents.red_agent import RedAgent
+        agents["RedAgent"] = RedAgent(agent_manager=agent_manager, memory_router=memory_router)
+        console.print("[green]✓ RedAgent created successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating RedAgent: {e}[/red]")
+        import traceback
+        console.print(traceback.format_exc())
+        agents["RedAgent"] = None
     
-    scout_agent = ScoutAgent(
-        agent_id="ScoutAgent",
-        role="PhaseNavigator",
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        memory_manager=scout_memory_manager,
-        verbosity=verbosity
-    )
+    # Create BlueAgent
+    try:
+        from core.agents.blue_agent import BlueAgent
+        agents["BlueAgent"] = BlueAgent(agent_manager=agent_manager, memory_router=memory_router)
+        console.print("[green]✓ BlueAgent created successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating BlueAgent: {e}[/red]")
+        agents["BlueAgent"] = None
     
-    shadow_agent = ShadowAgent(
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        verbosity=verbosity
-    )
+    # Create ScoutAgent
+    try:
+        from core.agents.scout_agent import ScoutAgent
+        agents["ScoutAgent"] = ScoutAgent(agent_manager=agent_manager, memory_router=memory_router)
+        console.print("[green]✓ ScoutAgent created successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating ScoutAgent: {e}[/red]")
+        agents["ScoutAgent"] = None
     
-    orion_agent = OrionAgent(
-        agent_id="OrionAgent",
-        role="StrategicOverseer",
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        memory_manager=orion_memory_manager,
-        verbosity=verbosity
-    )
+    # Create ShadowAgent
+    try:
+        from core.agents.shadow_agent import ShadowAgent
+        agents["ShadowAgent"] = ShadowAgent(agent_manager=agent_manager, memory_router=memory_router)
+        console.print("[green]✓ ShadowAgent created successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating ShadowAgent: {e}[/red]")
+        agents["ShadowAgent"] = None
     
-    return {
-        "RedAgent": red_agent,
-        "BlueAgent": blue_agent,
-        "ScoutAgent": scout_agent,
-        "ShadowAgent": shadow_agent,
-        "OrionAgent": orion_agent
-    }
+    # Create OrionAgent (must be last)
+    try:
+        from core.agents.orion_agent import OrionAgent
+        agents["OrionAgent"] = OrionAgent(agent_manager=agent_manager, memory_router=memory_router)
+        console.print("[green]✓ OrionAgent created successfully[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating OrionAgent: {e}[/red]")
+        agents["OrionAgent"] = None
+    
+    return agents
 
 def create_agent(agent_type, agent_manager=None, memory_router=None, memory_manager=None, verbosity="standard", **kwargs):
     """

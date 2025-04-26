@@ -21,96 +21,48 @@ def safe_tensor(data, device):
 
 class PolicyNet(nn.Module):
     """
-    ARIASKA PolicyNet v12.1 APEX STRATEGOS (DQN Mode)
-    • Deep context/phase embedding
-    • Noisy layers for smarter exploration
-    • Entropy diagnostics for adaptive ε
+    Dueling DQN Policy Network for ARIASKA_RL
+    - Modular, extensible, and PyTorch best-practice compliant
+    - Supports both standard and dueling architectures
     """
-    def __init__(
-        self,
-        input_size=512,
-        hidden_size=384,
-        output_size=6,
-        lr=7e-5,
-        device="cuda",
-        activation="gelu",
-    ):
+    def __init__(self, input_size, output_size, hidden_size=256, dueling=True, device="cpu"):
         super().__init__()
-        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.activation = get_activation(activation)
-
-        # Embeddings
-        self.phase_embed = nn.Linear(5, hidden_size)
-        self.context_embed = nn.Linear(32, hidden_size)
-
-        # Deep Core Layers
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.norm1 = nn.LayerNorm(hidden_size)
-        self.dropout1 = nn.Dropout(p=0.15)
-
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.norm2 = nn.LayerNorm(hidden_size)
-        self.dropout2 = nn.Dropout(p=0.15)
-
-        self.fc3 = nn.Linear(hidden_size, hidden_size)
-        self.norm3 = nn.LayerNorm(hidden_size)
-        self.dropout3 = nn.Dropout(p=0.10)
-
-        # DQN Head: Noisy layers for exploration
-        self.noisy_fc3 = NoisyLinear(hidden_size, hidden_size)
-        self.noisy_fc4 = NoisyLinear(hidden_size, output_size)
-
-        # GPT Context Encoder
-        self.context_encoder = GPTContextEncoder()
-        self.gpt_manager = GPTManager()
-
-        # Optimizer & Scheduler
-        self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=1e-5)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=600, gamma=0.92)
-
-        self.to(self.device)
-        self._init_weights()
-
-    def _init_weights(self):
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.constant_(self.fc1.bias, 0)
-        nn.init.xavier_uniform_(self.fc2.weight)
-        nn.init.constant_(self.fc2.bias, 0)
-        nn.init.xavier_uniform_(self.fc3.weight)
-        nn.init.constant_(self.fc3.bias, 0)
-
-    def forward(self, state, phase_vector=None, context_text=None):
-        """
-        Forward pass with phase and GPT-encoded context injection.
-        Returns Q-values for all actions.
-        """
-        x = self.activation(self.norm1(self.fc1(state)))
-        x = self.dropout1(x)
-
-        if phase_vector is not None:
-            phase_proj = self.activation(self.phase_embed(phase_vector))
-            x = x + phase_proj
-
-        if context_text:
-            context_vec = torch.tensor(
-                self.context_encoder.encode(context_text),
-                dtype=torch.float32,
-                device=self.device
+        self.device = device
+        self.dueling = dueling
+        self.feature = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+        )
+        if dueling:
+            self.value_stream = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, 1)
             )
-            context_proj = self.activation(self.context_embed(context_vec))
-            x = x + context_proj
+            self.advantage_stream = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size)
+            )
+        else:
+            self.head = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size)
+            )
 
-        x = self.activation(self.norm2(self.fc2(x)))
-        x = self.dropout2(x)
-        x = self.activation(self.norm3(self.fc3(x)))
-        x = self.dropout3(x)
-
-        x = self.activation(self.noisy_fc3(x))
-        q_values = self.noisy_fc4(x)
-        return q_values
+    def forward(self, x):
+        x = x.to(self.device)
+        features = self.feature(x)
+        if self.dueling:
+            value = self.value_stream(features)
+            advantage = self.advantage_stream(features)
+            qvals = value + (advantage - advantage.mean(dim=1, keepdim=True))
+            return qvals
+        else:
+            return self.head(features)
 
     def predict(self, state, phase_vector=None, context_text=None, deterministic=True):
         """
@@ -124,7 +76,7 @@ class PolicyNet(nn.Module):
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
 
-            q_values = self.forward(state_tensor, phase_vector, context_text)
+            q_values = self.forward(state_tensor)
             action = torch.argmax(q_values, dim=-1).item()
             return action
 
@@ -139,7 +91,7 @@ class PolicyNet(nn.Module):
                 state_tensor = state_tensor.unsqueeze(0)
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
-            q_values = self.forward(state_tensor, phase_vector, context_text)
+            q_values = self.forward(state_tensor)
             probs = torch.softmax(q_values, dim=-1)
             entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1)
             return entropy.item()
@@ -155,7 +107,7 @@ class PolicyNet(nn.Module):
                 state_tensor = state_tensor.unsqueeze(0)
             if phase_vector is not None:
                 phase_vector = phase_vector.to(self.device)
-            q_values = self.forward(state_tensor, phase_vector, context_text)
+            q_values = self.forward(state_tensor)
             probs = torch.softmax(q_values, dim=-1)
             entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1)
             console.print(f"[blue]Q-values:[/blue] {q_values.cpu().numpy().tolist()}")
@@ -175,8 +127,6 @@ class PolicyNet(nn.Module):
         nn.utils.clip_grad_norm_(self.parameters(), grad_clip)
         self.optimizer.step()
         self.scheduler.step()
-        self.noisy_fc3.reset_noise()
-        self.noisy_fc4.reset_noise()
         return loss.item()
 
     def save(self, path):
@@ -198,7 +148,7 @@ class PolicyNet(nn.Module):
 # 🚀 Diagnostic Mode
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
-    net = PolicyNet()
+    net = PolicyNet(input_size=512, output_size=6, dueling=True, device="cuda")
     dummy_state = torch.randn(512)
     context = "Target in exploitation phase with moderate blue team alert."
     action = net.predict(dummy_state.tolist(), context_text=context)

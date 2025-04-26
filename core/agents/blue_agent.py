@@ -17,7 +17,7 @@ except ModuleNotFoundError:
     from ..models.value_net import ValueNet
 
 from core.models.layers import get_phase_vector
-from core.monitor.stats_monitor import StatsMonitor
+from core.utils.stats_monitor import StatsMonitor
 from core.environment.cyber_environment import CyberEnvironment
 from core.teach.teach import TeachModule
 from core.ui_helpers import display_status_bar
@@ -27,7 +27,7 @@ from core.utils.replay_buffer import ReplayBuffer
 from core.utils.gpt_cache_handler import GPTCacheHandler
 from core.interfaces.agent_interface import AgentInterface
 from core.gpt_manager import GPTManager
-from core.memory_router import MemoryRouter
+from core.multiagent.memory_router import MemoryRouter
 from core.utils.local_llm_manager import LocalLLMManager
 
 console = Console()
@@ -49,6 +49,23 @@ def safe_tensor(data, device):
 
 
 class BlueAgent(AgentInterface, MemorySyncInterface):
+    # Add property definitions for agent_id and role
+    @property
+    def agent_id(self):
+        return self._agent_id
+        
+    @agent_id.setter
+    def agent_id(self, value):
+        self._agent_id = value
+        
+    @property
+    def role(self):
+        return self._role
+        
+    @role.setter
+    def role(self, value):
+        self._role = value
+    
     def __init__(
         self,
         agent_id="BlueAgent",
@@ -59,8 +76,8 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         memory_manager=None,
         verbosity="standard",
     ):
-        self.agent_id = agent_id
-        self.role = role
+        self._agent_id = agent_id  # Use internal attribute for property
+        self._role = role  # Use internal attribute for property
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.policy_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
         self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
@@ -318,12 +335,17 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 'gpt_tokens': gpt_tokens
             }
             self.replay_buffer.add(experience)
-            if step == 1:
-                old_epsilon = self.epsilon
-                self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
-                if self.verbosity in ("debug", "verbose"):
-                    console.print(f"[cyan]🔧 Epsilon decayed: {old_epsilon:.4f} → {self.epsilon:.4f}[/cyan]")
-            self.step_count += 1
+            # Log experience to MemoryRouter for global observability
+            if self.memory_router and hasattr(self.memory_router, 'log_transition'):
+                self.memory_router.log_transition(
+                    self.agent_id,
+                    state,
+                    action,
+                    reward,
+                    next_state,
+                    priority=abs(reward)+0.01,
+                    gpt_tokens=gpt_tokens
+                )
             # --- Target network update every target_update_freq steps ---
             if self.step_count % self.target_update_freq == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())

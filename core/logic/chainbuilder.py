@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
-from core.utils.llm_orchestrator import LLMRouter
+from core.utils.llm_router import LLMRouter
 from core.vector_search import VectorSearch
 
 console = Console()

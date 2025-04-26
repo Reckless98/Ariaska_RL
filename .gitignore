@@ -1,37 +1,69 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+bin/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.egg
 
-# Environments
+# Environment
 .env
 .venv
-*.egg-info/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Virtual environments & tools
+# Logs and databases
 *.log
-#*.sqlite3
+*.sqlite3
+logs/
+db.sqlite
 *.db
-*.pkl
-#*.pt
-*.ckpt
-#*.jsonl
 
-# VSCode and IDE files
-.vscode/
+# PyCharm
 .idea/
 
-# GPT or secret keys
-openai_key.txt
-OPENAI_API_KEY
-OPENAI_SECRET
-#gpt_cache/
-#gpt_logs/
+# VS Code
+.vscode/
 
-# Models and training artifacts
-#snapshots/
-#logs/
-checkpoints/
+# Jupyter Notebook
+.ipynb_checkpoints
 
-# OS/system junk
+# PyTorch models and checkpoints
+*.pt
+*.pth
+#models/
+
+# Project specific
+core/memories/
+chroma_data/
+runs/
+
+# API keys and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+.dockerignore
+
+# Streamlit
+.streamlit/
+
+# Temporary files
+*~
 .DS_Store
-Thumbs.db

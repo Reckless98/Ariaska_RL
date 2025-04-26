@@ -4,7 +4,7 @@ import threading
 import asyncio
 from typing import Dict, Any, Optional, List
 from rich.console import Console
-from core.utils.llm_orchestrator import LLMRouter
+from core.utils.llm_router import LLMRouter
 from core.utils.memory_manager import MemoryManager
 
 console = Console()

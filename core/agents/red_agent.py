@@ -17,8 +17,9 @@ except ModuleNotFoundError:
     from core.models.policy_net import PolicyNet
     from core.models.value_net import ValueNet
 
+from typing import Dict, Any, List, Optional
 from core.models.layers import get_phase_vector
-from core.monitor.stats_monitor import StatsMonitor
+from core.utils.stats_monitor import StatsMonitor
 from core.environment.cyber_environment import CyberEnvironment
 from core.teach.teach import TeachModule
 from core.ui_helpers import display_status_bar
@@ -27,7 +28,7 @@ from core.utils.replay_buffer import ReplayBuffer
 from core.utils.gpt_cache_handler import GPTCacheHandler
 from core.interfaces.agent_interface import AgentInterface
 from core.gpt_manager import GPTManager
-from core.memory_router import MemoryRouter
+from core.multiagent.memory_router import MemoryRouter
 from core.agents.redagent_brain import RedAgentBrain
 from core.ui_helpers import get_action_description
 from core.utils.local_llm_manager import LocalLLMManager
@@ -61,7 +62,6 @@ def safe_tensor(data, device):
 
 console = Console()
 
-
 class RedAgent(AgentInterface, MemorySyncInterface):
     """
     RedAgent: Autonomous offensive RL agent with continual self-evolution.
@@ -78,6 +78,18 @@ class RedAgent(AgentInterface, MemorySyncInterface):
     GPT_TOKEN_LIMIT = 6000  # Configurable token limit
     epsilon_min = 0.1  # Ensure OrionAgent can always adjust
     entropy_beta = 0.01
+    
+    @property
+    def agent_id(self):
+        return self._agent_id
+        
+    @agent_id.setter
+    def agent_id(self, value):
+        self._agent_id = value
+        
+    @property
+    def role(self):
+        return self._role
 
     def __init__(
         self,
@@ -89,8 +101,8 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         memory_manager=None,
         verbosity="standard",
     ):
-        self.agent_id = agent_id
-        self.role = role
+        self._agent_id = agent_id
+        self._role = role
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.policy_net = PolicyNet(
             input_size=512, output_size=5, device=self.device
@@ -499,7 +511,25 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             command, gpt_reason = self._query_gpt_for_command(
                 prompt, phase, cache_key=cache_key
             )
-            
+            # --- ShadowAgent Collaboration: Suggest stealthier alternative ---
+            if self.shadow and hasattr(self.shadow, "suggest_quieter_alternative"):
+                try:
+                    alternative = self.shadow.suggest_quieter_alternative(command)
+                    if (alternative and alternative != command):
+                        console.print(f"[blue]🕵️ ShadowAgent suggested quieter alternative: {alternative}[/blue]")
+                        # Log the substitution event
+                        if hasattr(self.memory_router, "log_shadow_suggestion"):
+                            self.memory_router.log_shadow_suggestion(
+                                original_command=command,
+                                alternative_command=alternative,
+                                phase=phase,
+                                episode=episode,
+                                step=step,
+                                agent_id=self.agent_id
+                            )
+                        command = alternative
+                except Exception as e:
+                    console.print(f"[yellow]⚠ ShadowAgent suggestion failed: {e}[/yellow]")
             # --- NEW: Use RedAgentBrain for redundancy detection ---
             is_redundant = False
             if hasattr(self, "redagent_brain") and self.redagent_brain:
@@ -983,20 +1013,17 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         )
 
     def train_on_batch(self):
-        # DQN: Use target_net for stable Q-targets, prioritized replay, ε-decay
-        batch = self.replay_buffer.sample(self.batch_size, prioritized=False)  # Use uniform random sampling
+        # Double DQN: Use policy_net to select next action, target_net to evaluate
+        batch, indices, weights = self.replay_buffer.sample(self.batch_size, prioritized=True, return_indices=True)
         if not batch:
             console.print(
                 "[yellow]⚠ Not enough experiences for batch training.[/yellow]"
             )
             return
-        # --- Use stored actions, not select_action (fixes DQN bug) ---
-        states = torch.stack(
-            [
-                torch.tensor(exp["state"], dtype=torch.float32, device=self.device)
-                for exp in batch
-            ]
-        )
+        states = torch.stack([
+            torch.tensor(exp["state"], dtype=torch.float32, device=self.device)
+            for exp in batch
+        ])
         actions = torch.tensor(
             [exp["action"] if isinstance(exp["action"], int) else 0 for exp in batch],
             dtype=torch.long,
@@ -1005,45 +1032,39 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         rewards = torch.tensor(
             [exp["reward"] for exp in batch], dtype=torch.float32, device=self.device
         )
-        next_states = torch.stack(
-            [
-                torch.tensor(exp["next_state"], dtype=torch.float32, device=self.device)
-                for exp in batch
-            ]
-        )
-        dones = torch.zeros(
-            len(batch), dtype=torch.float32, device=self.device
-        )  # Placeholder
+        next_states = torch.stack([
+            torch.tensor(exp["next_state"], dtype=torch.float32, device=self.device)
+            for exp in batch
+        ])
+        dones = torch.zeros(len(batch), dtype=torch.float32, device=self.device)  # Placeholder
+        weights = torch.tensor(weights, dtype=torch.float32, device=self.device) if weights is not None else torch.ones(len(batch), device=self.device)
 
-        # --- DQN Q-value computation ---
-        # Q(s,a) from policy_net
+        # Double DQN logic
+        with torch.no_grad():
+            next_actions = self.policy_net(next_states).argmax(dim=1)
+            next_q_values = self.target_net(next_states)
+            max_next_q = next_q_values.gather(1, next_actions.unsqueeze(1)).squeeze()
+            targets = rewards + self.gamma * max_next_q * (1 - dones)
         q_values = self.policy_net(states)
         q_selected = q_values.gather(1, actions.unsqueeze(1)).squeeze()
-        # --- Double DQN (optional, scaffolded) ---
-        # next_actions = self.policy_net(next_states).argmax(dim=1)
-        # next_q_values = self.target_net(next_states)
-        # max_next_q = next_q_values.gather(1, next_actions.unsqueeze(1)).squeeze()
-        # --- Standard DQN target ---
-        with torch.no_grad():
-            next_q_values = self.target_net(next_states)
-            max_next_q = next_q_values.max(dim=1)[0]
-            targets = rewards + self.gamma * max_next_q * (1 - dones)
-        # Loss: MSE or Huber
-        loss = torch.nn.functional.smooth_l1_loss(q_selected, targets)
+        # Use importance-sampling weights for prioritized replay
+        loss = (weights * torch.nn.functional.smooth_l1_loss(q_selected, targets, reduction='none')).mean()
         self.policy_net.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
         self.policy_net.optimizer.step()
         self.policy_net.scheduler.step()
         self.target_net.eval()
-        # --- Target net update handled in simulate_step ---
-        # --- Epsilon decay ---
+        # Update priorities in replay buffer
+        td_errors = (q_selected - targets).detach().cpu().numpy()
+        self.replay_buffer.update_priorities(indices, td_errors)
+        # Epsilon decay
         old_epsilon = self.epsilon
         self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
         if self.verbosity in ("debug", "verbose"):
-            console.print(f"[cyan]🔧 {self.agent_id}: DQN batch training complete. Loss: {loss.item():.4f} | Epsilon: {old_epsilon:.4f}→{self.epsilon:.4f}[/cyan]")
-        self._log_training_event(f"Batch training complete. Loss: {loss.item():.4f}")
-        # --- Moving average reward/loss logging ---
+            console.print(f"[cyan]🔧 {self.agent_id}: Double DQN batch training complete. Loss: {loss.item():.4f} | Epsilon: {old_epsilon:.4f}→{self.epsilon:.4f}[/cyan]")
+        self._log_training_event(f"Double DQN batch training complete. Loss: {loss.item():.4f}")
+        # Moving average loss
         if not hasattr(self, "loss_history"):
             self.loss_history = []
         self.loss_history.append(loss.item())
@@ -1052,7 +1073,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         avg_loss = sum(self.loss_history) / len(self.loss_history)
         if self.verbosity in ("debug", "verbose"):
             console.print(f"[magenta]Moving Avg Loss (last 100): {avg_loss:.4f}")
-        # --- Redundancy pruning after each batch ---
+        # Redundancy pruning after each batch
         from core.logic.redundancy_detector import detect_redundancy_batch
         self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
 
@@ -1116,11 +1137,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         episode_summary_table.add_row(
             "Detection Rate", f"{self.stats_monitor.get_detection_rate():.2%}"
         )
-        episode_summary_table.add_row(
-                "reward": 0,
-                "alert": 0.0,
-                "entropy": None,
-            }
+        # Removed incomplete add_row call that caused syntax error.
 
     def get_base_commands(self):
         # For CLI completion/autosuggest
@@ -1195,19 +1212,20 @@ You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and
 Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": "..."}}
 """
         gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-4o-mini")
-        agent_manager.get_memory_manager()
-        if hasattr(agent_manager, "get_memory_manager")
-        else None
-    )
-    agent = RedAgent(
-        agent_manager=agent_manager,
-        memory_router=memory_router,
-        memory_manager=memory_manager,
-    )
-    agent.simulate_train(episodes=3)  # 3 episodes for test
-    agent.display_advanced_status()  # Show live metrics
-    agent.generate_chain_snapshot()  # Optional chain snapshot for strategy review
-    agent.safe_shutdown()  # Ensures all models and memory are saved at the end of execution
+        
+        # Log GPT feedback using redagent_brain
+        if gpt_feedback and hasattr(self, "redagent_brain") and self.redagent_brain:
+            summary = f"Episode {self.total_episodes} reset reflection"
+            self.redagent_brain.log_gpt_feedback(
+            prompt=prompt,
+            gpt_feedback=gpt_feedback,
+            summary=summary,
+            episode=self.total_episodes
+            )
+            console.print(f"[green]🧠 GPT Feedback logged to RedAgentBrain[/green]")
+        elif gpt_feedback:
+            # Fallback if redagent_brain isn't available
+            console.print(f"[yellow]🧠 GPT Feedback (not logged): {gpt_feedback}[/yellow]")
 
     def _build_gpt_prompt(self, state, phase):
         """
@@ -1309,3 +1327,158 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             # Always return a string, never fail completely
             console.print(f"[yellow]⚠ Error in extract_output: {e}[/yellow]")
             return f"Error executing command: {str(e)}"
+
+    def process_directive(self, directive_type: str, parameters: Dict[str, Any], 
+                         priority: int = 1, source_agent: str = "OrionAgent") -> Dict[str, Any]:
+        """
+        Process a strategic directive from another agent (typically OrionAgent).
+        
+        Implements the AgentInterface's process_directive method to handle directives from OrionAgent.
+        
+        Args:
+            directive_type: Type of directive (e.g., STEALTH, AGGRESSIVE, FOCUSED_TARGET)
+            parameters: Additional parameters for the directive
+            priority: Priority level (1-5, with 5 being highest)
+            source_agent: Agent that issued the directive
+            
+        Returns:
+            Dict with processing results
+        """
+        processing_result = {
+            "processed": True,
+            "directive_type": directive_type,
+            "source_agent": source_agent,
+            "priority": priority,
+            "action_taken": None
+        }
+        
+        try:
+            # Log directive receipt
+            console.print(f"[cyan]📥 {self.agent_id} received directive '{directive_type}' (priority: {priority}) from {source_agent}[/cyan]")
+            
+            # Process based on directive type
+            directive_type_lower = directive_type.lower()
+            
+            # Handle stealth directives
+            if "stealth" in directive_type_lower or "avoid_detection" in directive_type_lower:
+                # Apply stealth mode
+                self.current_mode = "stealth"
+                
+                # Adjust exploration and entropy parameters for stealth operations
+                if hasattr(self, "epsilon") and self.epsilon > 0.1:
+                    self.epsilon = max(0.1, self.epsilon * 0.8)  # Reduce exploration
+                
+                if hasattr(self, "entropy_beta") and self.entropy_beta > 0.005:
+                    self.entropy_beta = max(0.005, self.entropy_beta * 0.7)  # Reduce entropy
+                
+                processing_result["action_taken"] = "Applied stealth mode and reduced exploration parameters"
+                console.print(f"[blue]🕵️ RedAgent switched to stealth mode (epsilon: {self.epsilon:.3f}, entropy: {self.entropy_beta:.3f})[/blue]")
+            
+            # Handle aggressive directives
+            elif "aggressive" in directive_type_lower:
+                # Apply aggressive mode
+                self.current_mode = "aggressive"
+                
+                # Adjust exploration and entropy parameters for more aggressive operations
+                if hasattr(self, "epsilon") and self.epsilon < 0.5:
+                    self.epsilon = min(0.5, self.epsilon * 1.5)  # Increase exploration
+                
+                if hasattr(self, "entropy_beta") and self.entropy_beta < 0.02:
+                    self.entropy_beta = min(0.02, self.entropy_beta * 1.5)  # Increase entropy
+                
+                processing_result["action_taken"] = "Applied aggressive mode and increased exploration parameters"
+                console.print(f"[red]⚡ RedAgent switched to aggressive mode (epsilon: {self.epsilon:.3f}, entropy: {self.entropy_beta:.3f})[/red]")
+            
+            # Handle focused target directives
+            elif "focused_target" in directive_type_lower:
+                target_service = parameters.get("service_focus")
+                if target_service:
+                    # Set focus on specific service
+                    self.current_focus = target_service
+                    processing_result["action_taken"] = f"Set focus on service: {target_service}"
+                    console.print(f"[yellow]🎯 RedAgent focusing on {target_service}[/yellow]")
+                
+                target_action = parameters.get("action")
+                if target_action:
+                    # Add specific action to priority queue if we track that
+                    if hasattr(self, "priority_queue"):
+                        if not isinstance(self.priority_queue, list):
+                            self.priority_queue = []
+                        
+                        # Add action to priority queue with directive's priority
+                        self.priority_queue.append((target_action, priority))
+                        processing_result["action_taken"] = f"Added {target_action} to priority queue"
+            
+            # Handle phase change directives
+            elif "change_phase" in directive_type_lower:
+                new_phase = parameters.get("new_phase")
+                if new_phase and hasattr(self, "env") and hasattr(self.env, "current_phase"):
+                    # Change phase in environment
+                    old_phase = self.env.current_phase
+                    self.env.current_phase = new_phase
+                    
+                    processing_result["action_taken"] = f"Changed phase from {old_phase} to {new_phase}"
+                    console.print(f"[magenta]🔄 RedAgent changed phase: {old_phase} → {new_phase}[/magenta]")
+            
+            # Handle coordination directives
+            elif "coordination" in directive_type_lower:
+                # Extract action chain if provided
+                action_chain = parameters.get("action_chain")
+                if action_chain and isinstance(action_chain, list) and action_chain:
+                    # Store action chain for execution
+                    if not hasattr(self, "action_chains"):
+                        self.action_chains = []
+                    
+                    # Store the chain with its priority for later execution
+                    self.action_chains.append({"chain": action_chain, "priority": priority, "index": 0})
+                    
+                    processing_result["action_taken"] = f"Stored action chain with {len(action_chain)} steps"
+                    console.print(f"[green]📋 RedAgent received action chain with {len(action_chain)} steps[/green]")
+            
+            # Handle resource allocation directives
+            elif "resource_allocation" in directive_type_lower:
+                # Handle forced exploration parameter
+                if parameters.get("forced_exploration", False):
+                    old_epsilon = self.epsilon
+                    self.epsilon = 0.9  # Force high exploration
+                    
+                    # Reset repetition tracking
+                    if hasattr(self, "repeated_action_count"):
+                        self.repeated_action_count = 0
+                    if hasattr(self, "repeat_steps"):
+                        self.repeat_steps = 0
+                    
+                    processing_result["action_taken"] = f"Increased exploration from {old_epsilon:.2f} to {self.epsilon:.2f}"
+                
+                # Handle novel command suggestion
+                novel_command = parameters.get("novel_command")
+                if novel_command and hasattr(self, "command_history"):
+                    # Add command to history to execute on next step
+                    self.command_history.append(novel_command)
+                    
+                    # Use brain to evaluate this command if available
+                    if hasattr(self, "redagent_brain") and self.redagent_brain:
+                        self.redagent_brain.log_novel_command(
+                            command=novel_command, 
+                            source="OrionAgent",
+                            reason="Resource allocation directive"
+                        )
+                    
+                    processing_result["action_taken"] = f"Added novel command to history: {novel_command}"
+            
+            # Log to memory router if available
+            if hasattr(self, "memory_router") and self.memory_router:
+                self.memory_router.log_directive_processed(
+                    agent_id=self.agent_id,
+                    directive_type=directive_type,
+                    result=processing_result["action_taken"],
+                    source_agent=source_agent
+                )
+            
+            return processing_result
+            
+        except Exception as e:
+            console.print(f"[red]❌ Error processing directive: {e}[/red]")
+            processing_result["processed"] = False
+            processing_result["error"] = str(e)
+            return processing_result
