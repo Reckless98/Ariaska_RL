@@ -442,3 +442,249 @@ class RedAgentBrain:
         """Reset temporary metrics for a new episode while preserving historical data"""
         self.redundancy_count = 0
         self.last_reward = 0
+
+    def get_recommendations(self, command, output, state=None):
+        """
+        Generate intelligent command recommendations based on:
+        - Current command and its output
+        - Command history and success patterns
+        - Current environment state
+        - Current phase of operation
+        
+        Args:
+            command (str): The command that was just executed
+            output (str): The output of the command execution
+            state (dict, optional): Current environment state
+            
+        Returns:
+            list: List of recommendation dicts with command, params, and why fields
+        """
+        try:
+            recommendations = []
+            current_phase = state.get("phase", "recon") if state else "recon"
+            
+            # Get the normalized command type
+            cmd_type = command.split()[0] if ' ' in command else command
+            
+            # Analysis of output for keywords indicating success/information
+            has_success_indicators = any(kw in output.lower() for kw in [
+                "success", "found", "open", "available", "discovered", 
+                "vulnerable", "exploitable", "completed"
+            ])
+            
+            # Find commands from history with good rewards in this phase
+            successful_cmds = []
+            for step in self.steps:
+                if (step.get("phase") == current_phase and 
+                    step.get("reward", 0) > 5.0 and
+                    step.get("command") != command):
+                    successful_cmds.append({
+                        "command": step.get("command"),
+                        "reward": step.get("reward", 0)
+                    })
+            
+            # Sort by reward, highest first
+            successful_cmds.sort(key=lambda x: x.get("reward", 0), reverse=True)
+            
+            # Phase-specific recommendations
+            if current_phase == "recon":
+                # After port scanning, suggest more detailed scanning or enumeration
+                if "nmap" in command.lower() or "masscan" in command.lower():
+                    # Check if we found ports
+                    ports_found = re.search(r'(\d+)/\w+\s+open', output)
+                    if ports_found:
+                        recommendations.append({
+                            "command": f"nmap -sV -p {ports_found.group(1)} {state.get('target_ip', '10.10.10.10')}",
+                            "params": "-sV -p",
+                            "why": f"Enumerate service on port {ports_found.group(1)}"
+                        })
+                        
+                        # If HTTP port found
+                        if any(port in output for port in ["80", "443", "8080", "8443"]):
+                            recommendations.append({
+                                "command": f"gobuster dir -u http://{state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt",
+                                "params": "-u -w",
+                                "why": "Enumerate web directories on discovered HTTP port"
+                            })
+                            
+                    else:
+                        # Suggest different scan types
+                        recommendations.append({
+                            "command": f"nmap -sS -p- {state.get('target_ip', '10.10.10.10')}",
+                            "params": "-sS -p-",
+                            "why": "Try a full SYN scan on all ports"
+                        })
+                        
+            elif current_phase == "enumeration":
+                # Based on output, suggest follow-up enumeration
+                if "gobuster" in command.lower() or "dirb" in command.lower():
+                    # If found interesting directories in web scan
+                    interesting_dirs = re.findall(r'(/\w+)\s+\(Status: 200\)', output)
+                    if interesting_dirs:
+                        recommendations.append({
+                            "command": f"nikto -host http://{state.get('target_ip', '10.10.10.10')}{interesting_dirs[0]}",
+                            "params": "-host",
+                            "why": f"Run vulnerability scan on discovered directory {interesting_dirs[0]}"
+                        })
+                
+                # If SMB service was mentioned
+                if "smb" in output.lower() or "445" in output:
+                    recommendations.append({
+                        "command": f"enum4linux -a {state.get('target_ip', '10.10.10.10')}",
+                        "params": "-a",
+                        "why": "Enumerate SMB service details"
+                    })
+                
+            elif current_phase == "exploit":
+                # After finding vulnerabilities, suggest exploitation
+                if "vulnerability" in output.lower() or "cve" in output.lower():
+                    # Extract CVE if present
+                    cve_match = re.search(r'(CVE-\d{4}-\d{4,})', output, re.IGNORECASE)
+                    if cve_match:
+                        cve = cve_match.group(1)
+                        recommendations.append({
+                            "command": f"searchsploit {cve}",
+                            "params": cve,
+                            "why": f"Search for exploits for {cve}"
+                        })
+                        recommendations.append({
+                            "command": f"msfconsole -q -x \"search {cve}; exit;\"",
+                            "params": cve,
+                            "why": f"Check Metasploit for {cve} exploits"
+                        })
+                
+                # If we see unauthorized login message, suggest brute force
+                if any(kw in output.lower() for kw in ["login", "password", "auth", "credentials"]):
+                    for service in ["ssh", "ftp", "http"]:
+                        if service in output.lower():
+                            recommendations.append({
+                                "command": f"hydra -L /usr/share/wordlists/metasploit/common_users.txt -P /usr/share/wordlists/metasploit/common_passwords.txt {state.get('target_ip', '10.10.10.10')} {service}",
+                                "params": "-L -P",
+                                "why": f"Attempt credential brute force on {service}"
+                            })
+                            break
+            
+            elif current_phase == "privesc":
+                # Suggest privilege escalation techniques
+                recommendations.append({
+                    "command": "sudo -l",
+                    "params": "-l",
+                    "why": "Check sudo permissions for current user"
+                })
+                recommendations.append({
+                    "command": "find / -perm -u=s -type f 2>/dev/null",
+                    "params": "-perm -u=s",
+                    "why": "Find SUID binaries for privilege escalation"
+                })
+                
+                # If we find indicators of kernel exploits
+                if "kernel" in output.lower() or "linux version" in output.lower():
+                    recommendations.append({
+                        "command": "uname -a",
+                        "params": "-a",
+                        "why": "Get kernel version details for potential exploits"
+                    })
+            
+            elif current_phase == "exfiltrate":
+                # Suggest data exfiltration techniques
+                recommendations.append({
+                    "command": "find / -name \"*.txt\" -o -name \"*.pdf\" -o -name \"*.doc\" 2>/dev/null | grep -v \"proc\"",
+                    "params": "-name",
+                    "why": "Find potentially valuable documents"
+                })
+                recommendations.append({
+                    "command": f"tar czf /tmp/data.tar.gz /home/",
+                    "params": "czf",
+                    "why": "Archive user home directories"
+                })
+            
+            # Include successful historical commands if relevant
+            if successful_cmds:
+                for i, cmd_data in enumerate(successful_cmds[:2]):  # Add up to 2 historical commands
+                    cmd = cmd_data.get("command")
+                    # Only add if not too similar to current command or existing recommendations
+                    if not any(self._command_similarity(cmd, r.get("command", "")) > 0.7 for r in recommendations):
+                        recommendations.append({
+                            "command": cmd,
+                            "params": "",
+                            "why": f"Previously successful command in {current_phase} phase"
+                        })
+            
+            # Ensure we have at least 3 recommendations
+            if len(recommendations) < 3:
+                # Add general recommendations based on phase
+                phase_defaults = {
+                    "recon": [
+                        {"command": f"nmap -sV -sS {state.get('target_ip', '10.10.10.10')}", "params": "-sV -sS", "why": "Service version detection scan"},
+                        {"command": f"nmap -sU --top-ports 20 {state.get('target_ip', '10.10.10.10')}", "params": "-sU", "why": "UDP port scan for top ports"}
+                    ],
+                    "enumeration": [
+                        {"command": f"nikto -host http://{state.get('target_ip', '10.10.10.10')}", "params": "-host", "why": "Web server vulnerability scan"},
+                        {"command": f"whatweb {state.get('target_ip', '10.10.10.10')}", "params": "", "why": "Identify web technologies in use"}
+                    ],
+                    "exploit": [
+                        {"command": f"searchsploit apache 2.4", "params": "", "why": "Search for Apache exploits"},
+                        {"command": f"msfconsole -q -x \"search type:exploit platform:linux\"", "params": "", "why": "Browse Linux exploits in Metasploit"}
+                    ],
+                    "privesc": [
+                        {"command": "linpeas.sh", "params": "", "why": "Run LinPEAS privilege escalation scanner"},
+                        {"command": "cat /etc/passwd", "params": "", "why": "Examine user accounts on system"}
+                    ],
+                    "exfiltrate": [
+                        {"command": "python3 -m http.server 8000", "params": "", "why": "Start web server to exfiltrate data"},
+                        {"command": "zip -r /tmp/evidence.zip /etc/", "params": "-r", "why": "Archive system configuration files"}
+                    ]
+                }
+                
+                if current_phase in phase_defaults:
+                    for default_rec in phase_defaults[current_phase]:
+                        if not any(self._command_similarity(default_rec["command"], r.get("command", "")) > 0.7 for r in recommendations):
+                            recommendations.append(default_rec)
+                            if len(recommendations) >= 3:
+                                break
+            
+            # Limit to maximum of 5 recommendations
+            return recommendations[:5]
+            
+        except Exception as e:
+            console.print(f"[red]❌ Error generating recommendations: {e}[/red]")
+            import traceback
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            return [
+                {"command": "nmap -sS -sV 10.10.10.10", "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
+                {"command": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/dirb/common.txt", "params": "", "why": "Web directory enumeration (fallback)"}
+            ]
+
+    def log_novel_command(self, command, source, reason=""):
+        """
+        Log a novel command that was suggested or discovered
+        
+        Args:
+            command (str): The command
+            source (str): Where the command came from (e.g., "OrionAgent", "user", etc.)
+            reason (str): Why this command is being logged
+        """
+        with self.lock:
+            entry = {
+                "timestamp": datetime.now().isoformat(),
+                "command": command,
+                "source": source,
+                "reason": reason,
+                "is_novel": True
+            }
+            
+            # Add to command history for future recommendations
+            if command:
+                self.command_history.append(command)
+                
+            # Write to disk
+            try:
+                with open(self.step_log_path, "a") as f:
+                    f.write(json.dumps(entry) + "\n")
+            except Exception as e:
+                console.print(f"[yellow]⚠ RedAgentBrain: Failed to log novel command: {e}[/yellow]")
+
+    def get_recent_steps(self, n=10):
+        """Return the n most recent steps"""
+        with self.lock:
+            return list(self.steps)[-n:]

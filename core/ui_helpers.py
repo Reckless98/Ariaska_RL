@@ -16,15 +16,27 @@ def create_prompt_session(prompt_text="> ", completer=None, lexer=None, style=No
     """
     try:
         from prompt_toolkit import PromptSession
+        from prompt_toolkit.output.defaults import create_output
+        from prompt_toolkit.input.defaults import create_input
     except ImportError:
         raise ImportError("prompt_toolkit is required for create_prompt_session.")
-    session_kwargs = {}
+    
+    # Create new input/output objects each time to reset terminal state
+    input_obj = create_input()
+    output_obj = create_output()
+    
+    session_kwargs = {
+        'input': input_obj,
+        'output': output_obj
+    }
+    
     if completer:
         session_kwargs["completer"] = completer
     if lexer:
         session_kwargs["lexer"] = lexer
     if style:
         session_kwargs["style"] = style
+        
     return PromptSession(prompt_text, **session_kwargs)
 
 console = Console()

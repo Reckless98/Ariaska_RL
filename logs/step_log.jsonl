@@ -5,3 +5,5 @@
 {"agent_id": "RedAgent", "reward": 3.0, "timestamp": 1745561985.3158512, "command": "hydra -l admin -P [wordlist] ssh://[target]"}
 {"agent_id": "ScoutAgent", "reward": 0, "timestamp": 1745561985.316539, "command": "Phase advice: enumeration"}
 {"agent_id": "BlueAgent", "reward": -1.0, "timestamp": 1745561985.3179638, "command": "hydra -l admin -P [wordlist] ssh://[target]"}
+{"agent_id": "RedAgent", "reward": 2.26, "timestamp": 1745716241.230795, "command": "ls", "redundancy": 0}
+{"agent_id": "RedAgent", "reward": 2.26, "timestamp": 1745716241.2319987, "command": "ls", "phase": "recon", "output": "```plaintext\nuser@target:~$ ls\nDesktop    Documents    Downloads    Music    Pictures    Videos\n```"}

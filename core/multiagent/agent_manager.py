@@ -283,52 +283,134 @@ class AgentManager:
         """Get a value from the shared context."""
         return self.shared_context.get(key, default)
 
-    def simulate_all_agents(self, episode=1, step=1):
-        """Run a simulation step for all agents."""
-        turn_events = []
+    def simulate_all_agents(self, episode=1, step=1, episodes=None, max_steps=None):
+        """Run a simulation across multiple episodes and steps.
         
-        # Get current shared context
-        shared_state = self._get_latest_shared_state()
+        Args:
+            episode: Current episode number (legacy parameter)
+            step: Current step number within the episode
+            episodes: Number of episodes to run (overrides episode if provided)
+            max_steps: Maximum steps per episode
+        """
+        # Handle both episode and episodes parameters for backward compatibility
+        if episodes is not None:
+            episode = episodes
+            
+        # Default max_steps if not provided
+        if max_steps is None:
+            max_steps = 40
+            
+        all_events = []
         
-        # 1. Scout phase determination
-        if self.scout_agent:
-            scout_result = self.scout_agent.simulate_step(episode, step, shared_state)
-            turn_events.append(scout_result)
-            # Broadcast phase if available
-            if scout_result and isinstance(scout_result, dict) and "phase" in scout_result:
-                self.broadcast("ScoutAgent_phase", scout_result["phase"], sender="ScoutAgent")
+        # Run for the specified number of episodes
+        for ep in range(1, episode + 1):
+            console.print(f"[bold cyan]Episode {ep}/{episode}[/bold cyan]")
+            
+            # Reset environment for each episode if possible
+            if self.red_agent and hasattr(self.red_agent, "env"):
+                self.red_agent.env.reset()
                 
-        # 2. OrionAgent strategic oversight
-        if self.orion_agent:
-            orion_result = self.orion_agent.simulate_step(episode, step, shared_state)
-            turn_events.append(orion_result)
+            # Reset agents for the new episode
+            for agent in self.agents:
+                if hasattr(agent, "reset"):
+                    agent.reset()
             
-        # 3. RedAgent and BlueAgent actions
-        if self.red_agent:
-            red_result = self.red_agent.simulate_step(episode, step, shared_state)
-            turn_events.append(red_result)
+            # Run for the specified number of steps per episode
+            for st in range(1, max_steps + 1):
+                console.print(f"[cyan]Step {st}/{max_steps}[/cyan]")
+                
+                # Get current shared context
+                shared_state = self._get_latest_shared_state()
+                
+                turn_events = []
+                
+                # 1. Scout phase determination
+                if self.scout_agent:
+                    scout_result = self.scout_agent.simulate_step(ep, st, shared_state)
+                    turn_events.append(scout_result)
+                    # Broadcast phase if available
+                    if scout_result and isinstance(scout_result, dict) and "phase" in scout_result:
+                        self.broadcast("ScoutAgent_phase", scout_result["phase"], sender="ScoutAgent")
+                        
+                # 2. OrionAgent strategic oversight
+                if self.orion_agent:
+                    orion_result = self.orion_agent.simulate_step(ep, st, shared_state)
+                    turn_events.append(orion_result)
+                    
+                # 3. RedAgent and BlueAgent actions
+                if self.red_agent:
+                    red_result = self.red_agent.simulate_step(ep, st, shared_state)
+                    turn_events.append(red_result)
+                    
+                if self.blue_agent:
+                    blue_result = self.blue_agent.simulate_step(ep, st, shared_state)
+                    turn_events.append(blue_result)
+                    
+                # 4. ShadowAgent memory optimization
+                if self.shadow_agent:
+                    shadow_result = self.shadow_agent.simulate_step(ep, st, shared_state)
+                    turn_events.append(shadow_result)
+                
+                # Apply actions to environment and get results
+                env_events = self._apply_actions_to_environment(turn_events)
+                
+                # Track events
+                all_events.extend(turn_events + env_events)
+                
+                # Sync agent memories
+                self._sync_all_agent_memories()
+                
+                # Periodic global optimization
+                if st % 5 == 0:
+                    self._multiagent_sync()
+                
+                # Check if the environment is done
+                env_done = False
+                for event in env_events:
+                    if event.get("done", False) or (isinstance(event.get("info"), dict) and event.get("info", {}).get("done", False)):
+                        env_done = True
+                        break
+                
+                # If environment signals done, break the step loop
+                if env_done:
+                    console.print("[yellow]⚠ Environment signals episode completion. Moving to next episode.[/yellow]")
+                    break
             
-        if self.blue_agent:
-            blue_result = self.blue_agent.simulate_step(episode, step, shared_state)
-            turn_events.append(blue_result)
+            # After completing all steps for this episode
+            # Execute post-episode processing
+            self._run_episode_analysis(ep)
             
-        # 4. ShadowAgent memory optimization
-        if self.shadow_agent:
-            shadow_result = self.shadow_agent.simulate_step(episode, step, shared_state)
-            turn_events.append(shadow_result)
+            # Update stats for all agents
+            if hasattr(self, 'stats_monitor'):
+                for agent in self.agents:
+                    if hasattr(agent, 'stats_monitor') and hasattr(agent.stats_monitor, 'get_average_reward'):
+                        avg_reward = agent.stats_monitor.get_average_reward()
+                        console.print(f"[green]{agent.agent_id} Average Reward: {avg_reward:.2f}[/green]")
+                    
+        # Return all events from all episodes
+        return all_events
         
-        # Apply actions to environment and get results
-        env_events = self._apply_actions_to_environment(turn_events)
-        
-        # Sync agent memories
-        self._sync_all_agent_memories()
-        
-        # Periodic global optimization
-        if step % 5 == 0:
-            self._multiagent_sync()
-            
-        # Return combined events
-        return turn_events + env_events
+    def _run_episode_analysis(self, episode_num):
+        """Run analysis after each episode completes."""
+        # Get Orion to analyze all agents' performance
+        if self.orion_agent and hasattr(self.orion_agent, "analyze_training"):
+            try:
+                analysis = self.orion_agent.analyze_training(self.agents)
+                if isinstance(analysis, dict) and 'gpt_insight' in analysis:
+                    console.print(f"[blue]👁️ Orion Training Analysis:[/blue] {analysis['gpt_insight']}")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Orion analysis error: {e}[/yellow]")
+                
+        # Update global strategy
+        if self.orion_agent and hasattr(self.orion_agent, "update_global_strategy"):
+            try:
+                strategy_insight = self.orion_agent.update_global_strategy(self.agents)
+                console.print(f"[blue]👁️ Strategy Update:[/blue] {strategy_insight}")
+            except Exception as e:
+                console.print(f"[yellow]⚠ Strategy update error: {e}[/yellow]")
+                
+        # Display per-episode metrics
+        self._display_episode_metrics(episode_num)
 
     def _apply_actions_to_environment(self, turn_events):
         env_events = []
@@ -596,6 +678,78 @@ class AgentManager:
                     console.print(f"[yellow]⚠ Agent shutdown error for {agent.agent_id}: {e}[/yellow]")
         
         console.print("[green]✓ ARIASKA Multi-Agent System shutdown complete[/green]")
+
+    def _display_episode_metrics(self, episode_num):
+        """Display metrics after each episode."""
+        try:
+            # Create a table for all agent metrics
+            table = Table(title=f"Episode {episode_num} Results", box=box.ROUNDED)
+            table.add_column("Agent", style="cyan")
+            table.add_column("Avg Reward", style="green")
+            table.add_column("Steps", style="yellow")
+            table.add_column("Phase", style="magenta")
+            table.add_column("Mode", style="blue")
+            
+            # Collect metrics from all agents
+            for agent in self.agents:
+                avg_reward = 0.0
+                steps = 0
+                phase = "N/A"
+                mode = getattr(agent, "current_mode", "Standard")
+                
+                # Get metrics from stats_monitor if available
+                if hasattr(agent, "stats_monitor"):
+                    stats_monitor = agent.stats_monitor
+                    if hasattr(stats_monitor, "get_average_reward"):
+                        avg_reward = stats_monitor.get_average_reward()
+                    if hasattr(stats_monitor, "get_steps"):
+                        steps = stats_monitor.get_steps(agent.agent_id)
+                    if hasattr(stats_monitor, "get_current_phase"):
+                        phase = stats_monitor.get_current_phase(agent.agent_id) or "N/A"
+                
+                # Get environment phase if agent has access to environment
+                if hasattr(agent, "env") and phase == "N/A":
+                    if hasattr(agent.env, "current_phase"):
+                        phase = agent.env.current_phase
+                
+                table.add_row(
+                    agent.agent_id,
+                    f"{avg_reward:.2f}",
+                    str(steps),
+                    phase,
+                    mode
+                )
+            
+            # Display metrics table
+            console.print(table)
+            
+            # Add environment state summary if available
+            if self.red_agent and hasattr(self.red_agent, "env"):
+                env = self.red_agent.env
+                if hasattr(env, "get_global_state"):
+                    env_state = env.get_global_state()
+                    
+                    # Filter out large objects for cleaner display
+                    filtered_state = {}
+                    for key, value in env_state.items():
+                        if isinstance(value, list) and len(value) > 5:
+                            filtered_state[key] = f"{len(value)} items"
+                        else:
+                            filtered_state[key] = value
+                    
+                    env_table = Table(title="Environment Summary", box=box.SIMPLE)
+                    env_table.add_column("Key", style="cyan")
+                    env_table.add_column("Value", style="green")
+                    
+                    for key, value in filtered_state.items():
+                        env_table.add_row(key, str(value))
+                        
+                    console.print(env_table)
+                    
+        except Exception as e:
+            import traceback
+            console.print(f"[yellow]⚠ Error displaying episode metrics: {e}[/yellow]")
+            console.print(traceback.format_exc())
 
 
 # ─────────────────────────────────────────────

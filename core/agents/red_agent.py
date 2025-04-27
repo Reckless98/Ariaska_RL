@@ -1482,3 +1482,149 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             processing_result["processed"] = False
             processing_result["error"] = str(e)
             return processing_result
+
+    def execute_command(self, command):
+        """
+        Execute a command directly from the CLI and return the results.
+        This method is called when a user types a command in the ARIASKA CLI.
+        
+        Args:
+            command (str): The command to execute
+            
+        Returns:
+            dict: A dictionary containing the command output and related information
+        """
+        try:
+            console.print(f"[cyan]RedAgent executing: {command}[/cyan]")
+            
+            # Get current state from environment
+            current_state = self.env.get_global_state() if hasattr(self, "env") else {}
+            current_phase = current_state.get("phase", "recon")
+            
+            # Execute the command through the environment
+            output = self.extract_output(command)
+            
+            # Process the command through the rule engine for proper analysis
+            from core.logic.output_interpreter import analyze_output
+            parsed_output = analyze_output(command, output)
+            
+            # Calculate reward based on the command and output
+            reward = self.calculate_reward(0.0, parsed_output, command)
+            
+            # Update state and track the command
+            if command not in self.command_history:
+                self.command_history.append(command)
+            
+            # Get recommendations for next steps based on the output
+            recommendations = []
+            
+            try:
+                # Generate recommendations using the brain or GPT
+                if hasattr(self, "redagent_brain") and self.redagent_brain:
+                    # Use RedAgentBrain for recommendations
+                    recommendations = self.redagent_brain.get_recommendations(
+                        command=command, 
+                        output=output, 
+                        state=current_state
+                    )
+                    
+                if not recommendations or len(recommendations) == 0:
+                    # Fall back to GPT-based recommendations
+                    recommendation_prompt = (
+                        f"You are ARIASKA's offensive strategist. Based on the command '{command}' "
+                        f"and output: '{output[:300]}...', suggest 3 follow-up commands for phase '{current_phase}'. "
+                        f"Format as a list of command objects with 'command', 'params', and 'why' fields. Keep it concise."
+                    )
+                    gpt_response = self.gpt_manager.gpt_request(
+                        recommendation_prompt, 
+                        task_type="recommendations",
+                        model="gpt-4o-mini"
+                    )
+                    
+                    # Parse the GPT response into recommendations
+                    import json
+                    try:
+                        # Try to parse as JSON if it looks like JSON
+                        if gpt_response and '{' in gpt_response and '}' in gpt_response:
+                            recs = json.loads(gpt_response)
+                            if isinstance(recs, list):
+                                recommendations = recs
+                            elif isinstance(recs, dict) and "recommendations" in recs:
+                                recommendations = recs["recommendations"]
+                            else:
+                                # Create recommendations from text
+                                recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                        else:
+                            # Simple fallback format
+                            recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                    except json.JSONDecodeError:
+                        # If JSON parsing fails, create a simple recommendation
+                        recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+            except Exception as e:
+                console.print(f"[yellow]⚠ Error generating recommendations: {e}[/yellow]")
+                import traceback
+                console.print(traceback.format_exc())
+                recommendations = []
+            
+            # Track this command in statistics
+            if hasattr(self, "stats_monitor") and self.stats_monitor:
+                self.stats_monitor.log_step(
+                    self.agent_id, 
+                    reward, 
+                    command=command,
+                    phase=current_phase,
+                    output=output[:100]  # Truncate output to avoid extremely large logs
+                )
+            
+            # Log the command execution to the RedAgentBrain
+            if hasattr(self, "redagent_brain") and self.redagent_brain:
+                self.redagent_brain.log_step(
+                    state=current_state,
+                    command=command,
+                    output=output,
+                    reward=reward,
+                    success=parsed_output.get("success", False),
+                    model="manual",  # Indicate this was a manual command
+                    step=self.total_steps + 1,
+                    episode=self.total_episodes
+                )
+            
+            # Generate a reasoning explanation about the command
+            gpt_reason = ""
+            try:
+                reason_prompt = f"Explain in one sentence what the command '{command}' does and what its output shows."
+                gpt_reason = self.gpt_manager.gpt_request(
+                    reason_prompt, 
+                    task_type="reasoning",
+                    model="gpt-4o-mini"
+                )
+            except Exception:
+                gpt_reason = f"Manual command execution: {command}"
+                
+            # Update stats
+            self.total_steps += 1
+            self.last_action = command
+            self.last_reasoning = gpt_reason
+            
+            # Build and return the result dictionary
+            # This matches the expected return format in main.py
+            return {
+                "output": output,
+                "recommendations": recommendations,
+                "phase": current_phase,
+                "reward": reward,
+                "alert": current_state.get("blue_team_alert", 0.0),
+                "entropy": self.entropy_beta
+            }
+            
+        except Exception as e:
+            console.print(f"[red]❌ Error in execute_command: {e}[/red]")
+            import traceback
+            console.print(traceback.format_exc())
+            return {
+                "output": f"Error executing command: {str(e)}",
+                "recommendations": [],
+                "phase": "error",
+                "reward": -1.0,
+                "alert": 0.0
+            }

@@ -30,6 +30,7 @@ try:
         SpinnerColumn,
     )
     from rich.live import Live
+    from rich.errors import LiveError
 
     RICH_AVAILABLE = True
 except ImportError:
@@ -37,6 +38,9 @@ except ImportError:
 
 console = Console() if RICH_AVAILABLE else None
 logger = logging.getLogger(__name__)
+
+# Global flag to track if a live display is active
+_LIVE_DISPLAY_ACTIVE = False
 
 
 # ─────────────────────────────────────────────
@@ -136,34 +140,75 @@ class DataLogger:
 # 🖥️ Dashboard Renderer (Rich Hybrid)
 # ─────────────────────────────────────────────
 class DashboardRenderer:
+    _instance = None
+    _live_display_active = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(DashboardRenderer, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, agents, max_history=100):
-        self.agents = agents
-        self.stats = {
-            a: {"rewards": deque(maxlen=max_history), "gpt_calls": 0, "steps": 0}
-            for a in agents
-        }
-        self.alerts = deque(maxlen=5)
-        self.orion_insight = ""
-        self.last_update = 0
-        self.update_interval = 3
-        self.live = (
-            Live(console=console, refresh_per_second=2) if RICH_AVAILABLE else None
-        )
+        if not hasattr(self, "initialized"):  # Prevent reinitialization
+            self.agents = agents
+            self.stats = {
+                a: {"rewards": deque(maxlen=max_history), "gpt_calls": 0, "steps": 0}
+                for a in agents
+            }
+            self.alerts = deque(maxlen=5)
+            self.orion_insight = ""
+            self.last_update = 0
+            self.update_interval = 3
+            self.live = None  # Don't create Live object until start() is called
+            self.initialized = True
 
     def start(self):
-        if self.live:
+        if not RICH_AVAILABLE:
+            return
+            
+        # Don't start a new live display if one is already active
+        if DashboardRenderer._live_display_active:
+            return
+            
+        try:
+            # Reset the terminal state before starting a new live display
+            console.clear_live()
+            
+            # Create a new Live object only when starting
+            self.live = Live(
+                self.render(),
+                console=console, 
+                refresh_per_second=2,
+                auto_refresh=False  # Manual refresh only
+            )
             self.live.start()
+            DashboardRenderer._live_display_active = True
+        except Exception as e:
+            console.print(f"[yellow]⚠ Live display error: {e}[/yellow]")
 
     def stop(self):
-        if self.live:
-            self.live.stop()
+        if self.live and DashboardRenderer._live_display_active:
+            try:
+                self.live.stop()
+                
+                # Force a final refresh of the console to reset terminal state
+                console.clear_live()
+                console.print()  # Print an empty line to reset cursor
+                
+                self.live = None
+                DashboardRenderer._live_display_active = False
+            except Exception as e:
+                console.print(f"[yellow]⚠ Error stopping live display: {e}[/yellow]")
 
     def update(self, force=False):
         now = time.time()
-        if force or now - self.last_update > self.update_interval:
-            if self.live:
+        if (force or now - self.last_update > self.update_interval) and self.live and DashboardRenderer._live_display_active:
+            try:
                 self.live.update(self.render())
-            self.last_update = now
+                self.last_update = now
+            except Exception as e:
+                console.print(f"[yellow]⚠ Live update error: {e}[/yellow]")
+                self.stop()  # Stop on error to prevent further issues
 
     def render(self):
         layout = Layout()
@@ -284,11 +329,20 @@ class StatsMonitor:
         self.metrics = defaultdict(list)
         self.global_steps = 0
         self.global_episodes = 0
+        self.agent_stats = {agent: {"rewards": [], "steps": 0, "phases": {}, 
+                                   "avg_reward": 0.0, "total_reward": 0.0,
+                                   "commands": [], "current_phase": "recon"} 
+                           for agent in self.agents}
         console.print(
             f"[cyan]StatsMonitor initialized for agents: {', '.join(self.agents)}[/cyan]"
         )
+        
+        # Start the dashboard if in verbose mode
+        if self.verbosity not in ["quiet", "silent"]:
+            self.dashboard.start()
 
     def log_step(self, agent_id, reward, **info):
+        # Ensure agent exists in our tracking
         if agent_id not in self.agents:
             self.agents.append(agent_id)
             self.dashboard.stats[agent_id] = {
@@ -296,27 +350,71 @@ class StatsMonitor:
                 "gpt_calls": 0,
                 "steps": 0,
             }
+            self.agent_stats[agent_id] = {
+                "rewards": [], 
+                "steps": 0, 
+                "phases": {}, 
+                "avg_reward": 0.0,
+                "total_reward": 0.0,
+                "commands": [],
+                "current_phase": "recon"
+            }
 
         self.global_steps += 1
+        
+        # Update dashboard stats
         self.dashboard.update_stats(agent_id, reward, info.get("gpt_calls", 0))
+        
+        # Log to file
         self.logger.log_step(agent_id, reward, **info)
 
-        # Track metrics
-        self.metrics[agent_id].append(
-            {
-                "step": self.global_steps,
-                "reward": reward,
-                "gpt_calls": info.get("gpt_calls", 0),
-                "timestamp": time.time(),
-            }
-        )
+        # Track detailed metrics
+        self.metrics[agent_id].append({
+            "step": self.global_steps,
+            "reward": reward,
+            "gpt_calls": info.get("gpt_calls", 0),
+            "timestamp": time.time(),
+            "phase": info.get("phase", "unknown"),
+            "command": info.get("command", "")
+        })
+        
+        # Update agent's stats
+        if agent_id in self.agent_stats:
+            stats = self.agent_stats[agent_id]
+            stats["rewards"].append(reward)
+            stats["steps"] += 1
+            stats["total_reward"] += reward
+            
+            # Calculate rolling average reward
+            if len(stats["rewards"]) > 0:
+                stats["avg_reward"] = stats["total_reward"] / stats["steps"]
+                
+            # Track command history
+            if "command" in info and info["command"]:
+                stats["commands"].append(info["command"])
+                
+            # Track phases
+            if "phase" in info and info["phase"]:
+                phase = info["phase"]
+                stats["current_phase"] = phase
+                if phase not in stats["phases"]:
+                    stats["phases"][phase] = 0
+                stats["phases"][phase] += 1
 
+        # Update visualization if appropriate verbosity
         if self.verbosity != "quiet":
             self.dashboard.update()
 
     def log_episode(self, agent_id, total_reward, **info):
         self.global_episodes += 1
         self.logger.log_episode(agent_id, total_reward, **info)
+        
+        # Reset episode-specific stats while preserving cumulative stats
+        if agent_id in self.agent_stats:
+            # Keep a history of rewards but reset other episode-specific data
+            self.agent_stats[agent_id]["total_reward"] = 0.0
+        
+        # Update visualization
         if self.verbosity != "quiet":
             self.dashboard.update(force=True)
 
@@ -357,8 +455,14 @@ class StatsMonitor:
         self.global_steps = 0
         self.global_episodes = 0
         self.metrics.clear()
-        self.dashboard.reset()
-        self.console.print("[yellow]🔄 StatsMonitor reset for new session.[/yellow]")
+        for agent in self.agents:
+            self.agent_stats[agent]["rewards"] = []
+            self.agent_stats[agent]["steps"] = 0
+            self.agent_stats[agent]["total_reward"] = 0.0
+            self.agent_stats[agent]["avg_reward"] = 0.0
+            self.agent_stats[agent]["commands"] = []
+            
+        console.print("[yellow]🔄 StatsMonitor reset for new session.[/yellow]")
 
     def flush_logs(self):
         """Ensure async logs are persisted."""
@@ -366,11 +470,11 @@ class StatsMonitor:
 
     def start_live(self):
         """Activate live dashboard."""
-        self.dashboard.start_live()
+        self.dashboard.start()
 
     def stop_live(self):
         """Deactivate live dashboard."""
-        self.dashboard.stop_live()
+        self.dashboard.stop()
 
     def get_metrics_history(self, agent_id=None):
         """Retrieve detailed metrics for analysis."""
@@ -379,63 +483,77 @@ class StatsMonitor:
         return dict(self.metrics)
 
     def get_average_reward(self, agent_id=None):
-        if agent_id:
+        """Get the average reward for a specific agent or all agents."""
+        if agent_id and agent_id in self.agent_stats:
+            stats = self.agent_stats[agent_id]
+            return stats["avg_reward"]
+        
+        # Fallback to dashboard stats if agent stats not available
+        if agent_id and agent_id in self.dashboard.stats:
             rewards = self.dashboard.stats[agent_id]["rewards"]
             return sum(rewards) / max(1, len(rewards))
+            
+        # Return average across all agents
         all_rewards = []
-        for stats in self.dashboard.stats.values():
+        for agent_id, stats in self.agent_stats.items():
             all_rewards.extend(stats["rewards"])
+        
+        if not all_rewards:  # Check if all_rewards is empty
+            return 0.0
+            
         return sum(all_rewards) / max(1, len(all_rewards))
 
+    def get_steps(self, agent_id=None):
+        """Get the number of steps taken by a specific agent."""
+        if agent_id and agent_id in self.agent_stats:
+            return self.agent_stats[agent_id]["steps"]
+        return 0
+        
+    def get_current_phase(self, agent_id=None):
+        """Get the current phase for a specific agent."""
+        if agent_id and agent_id in self.agent_stats:
+            return self.agent_stats[agent_id]["current_phase"]
+        return None
+
+    def get_detection_rate(self, agent_id=None):
+        """Get the detection rate for an agent (placeholder)."""
+        # This could be calculated from environment alerts
+        return 0.0
+
     def get_redundancy_rate(self, agent_id=None):
+        """Get the command redundancy rate."""
         # Placeholder for redundancy tracking
         return 0.0
 
-    def print_summary(self, recent_episodes: int = None):
-        """Print summarized metrics over recent episodes."""
-        history = self.dashboard.history
-        if not history:
-            self.console.print("[dim]No metrics history available.[/dim]")
+    def show(self):
+        """Display a summary of current stats."""
+        if not RICH_AVAILABLE:
             return
-
-        episodes = list(history.values())
-        if recent_episodes:
-            episodes = episodes[-recent_episodes:]
-
-        avg_reward = sum(ep["reward"] for ep in episodes) / len(episodes)
-        avg_steps = sum(ep["steps"] for ep in episodes) / len(episodes)
-        avg_exploits = sum(ep["exploits"] for ep in episodes) / len(episodes)
-        avg_alerts = sum(ep["alerts"] for ep in episodes) / len(episodes)
-        avg_tokens = sum(ep["tokens"] for ep in episodes) / len(episodes)
-
-        summary = Table(title="📊 Training Summary", show_lines=True)
-        summary.add_column("Metric", style="cyan")
-        summary.add_column("Average", justify="right")
-        summary.add_column("Total", justify="right")
-
-        summary.add_row(
-            "Reward", f"{avg_reward:.2f}", str(sum(ep["reward"] for ep in episodes))
-        )
-        summary.add_row(
-            "Steps", f"{avg_steps:.1f}", str(sum(ep["steps"] for ep in episodes))
-        )
-        summary.add_row(
-            "Exploits",
-            f"{avg_exploits:.1f}",
-            str(sum(ep["exploits"] for ep in episodes)),
-        )
-        summary.add_row(
-            "Alerts", f"{avg_alerts:.1f}", str(sum(ep["alerts"] for ep in episodes))
-        )
-        summary.add_row(
-            "GPT Tokens", f"{avg_tokens:.1f}", str(sum(ep["tokens"] for ep in episodes))
-        )
-
-        self.console.print(summary)
-
-    # ─────────────────────────────────────────────
-    # 🚀 Diagnostic CLI Mode
-    # ─────────────────────────────────────────────
+            
+        table = Table(title="📊 Training Stats", box=True)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Steps", style="yellow")
+        table.add_column("Avg. Reward", style="green")
+        table.add_column("Current Phase", style="magenta")
+        
+        for agent_id, stats in self.agent_stats.items():
+            avg_reward = stats["avg_reward"]
+            steps = stats["steps"]
+            phase = stats["current_phase"]
+            
+            table.add_row(
+                agent_id,
+                str(steps),
+                f"{avg_reward:.2f}",
+                phase
+            )
+        
+        console.print(table)
+        
+    @property
+    def total_steps(self):
+        """Get the total number of steps across all agents."""
+        return self.global_steps
 
 
 if __name__ == "__main__":
