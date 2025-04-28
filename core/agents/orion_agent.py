@@ -81,7 +81,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         self.verbosity = verbosity
 
         # Initialize LLM systems
-        self.llm_orchestrator = LLMOrchestrator(cache_dir="cache/orion_responses")
+        self.llm_orchestrator = LLMOrchestrator(cache_dir="core/memory/llm_cache/orion_responses")
         self.gpt_manager = GPTManager()
         self.local_llm = LocalLLMManager(
             model_name="wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF"
@@ -121,7 +121,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         self.replay_buffer = ReplayBuffer(
             capacity=200,
             use_sqlite=True,
-            db_path="core/memories/orion_memory/replay_buffer.sqlite3",
+            db_path="core/memory/orionagent/replay_buffer.sqlite3",
         )
 
         # Performance tracking over episodes
@@ -762,7 +762,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         Returns:
             List of directive strings
         """
-        if phase in self.strategic_directives:
+        if (phase in self.strategic_directives):
             return self.strategic_directives[phase]
         else:
             return [

@@ -64,11 +64,12 @@ class ChainGenerator:
     Consumes agent memory/actions and produces a chain (list of commands) using LLMRouter.
     Handles caching, retries, and fallback logic.
     """
-    def __init__(self, llm_router=None, vector_search=None, cache=None, verbosity="standard"):
+    def __init__(self, llm_router=None, vector_search=None, cache=None, verbosity="standard", memory_router=None):
         self.llm_router = llm_router or LLMRouter()
         self.vector_search = vector_search or VectorSearch()
         self.cache = cache or ChainCache()
         self.verbosity = verbosity
+        self.memory_router = memory_router  # Store memory_router for future use
 
     def _memory_hash(self, actions: List[Dict[str, Any]]) -> str:
         # Hash the top-N actions (by reward) for cache key

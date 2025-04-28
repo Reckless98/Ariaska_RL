@@ -111,16 +111,48 @@ class RedAgentBrain:
         return command
 
     def _command_similarity(self, cmd1, cmd2):
-        """Calculate similarity between two commands using SequenceMatcher"""
-        if not cmd1 or not cmd2:
+        """
+        Calculate similarity between two commands to detect redundancy
+        
+        Args:
+            cmd1 (str): First command
+            cmd2 (str): Second command
+            
+        Returns:
+            float: Similarity score between 0.0 and 1.0
+        """
+        if not cmd1 or not cmd2 or not isinstance(cmd1, str) or not isinstance(cmd2, str):
             return 0.0
             
         # Normalize commands
-        norm_cmd1 = self._normalize_command(cmd1)
-        norm_cmd2 = self._normalize_command(cmd2)
+        cmd1 = cmd1.lower().strip()
+        cmd2 = cmd2.lower().strip()
         
-        # Use SequenceMatcher for string similarity
-        return SequenceMatcher(None, norm_cmd1, norm_cmd2).ratio()
+        # If exact match
+        if cmd1 == cmd2:
+            return 1.0
+            
+        # Extract base command (e.g., nmap from nmap -sV 10.10.10.10)
+        base_cmd1 = cmd1.split()[0] if ' ' in cmd1 else cmd1
+        base_cmd2 = cmd2.split()[0] if ' ' in cmd2 else cmd2
+        
+        # Different base commands - low similarity
+        if base_cmd1 != base_cmd2:
+            return 0.1
+            
+        # Same base command, check arguments
+        tokens1 = set(cmd1.split())
+        tokens2 = set(cmd2.split())
+        
+        # Calculate Jaccard similarity
+        intersection = len(tokens1.intersection(tokens2))
+        union = len(tokens1.union(tokens2))
+        
+        if union == 0:  # Prevent division by zero
+            return 0.0
+            
+        # Return similarity score
+        return intersection / union
 
     def _get_command_hash(self, command):
         """Get hash of command for exact duplicate detection"""

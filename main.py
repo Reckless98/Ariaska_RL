@@ -3,9 +3,12 @@ import os
 import signal
 import logging
 import subprocess
+import sys
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich import box
+from dotenv import load_dotenv
 
 from core.ui_helpers import (
     create_prompt_session,
@@ -14,23 +17,80 @@ from core.ui_helpers import (
     display_phase_tables,
     display_redagent_learning_dashboard
 )
-from core.multiagent.agent_manager import AgentManager  # Updated import
-from core.logic.chainbuilder import ChainGenerator  # Fixed import
+from core.multiagent.agent_manager import AgentManager
+from core.logic.chainbuilder import ChainGenerator
 from core.utils.stats_monitor import StatsMonitor
+from core.utils.config_loader import get_config
 from prompt_toolkit.formatted_text import HTML
 from core.gpt_manager import GPTManager
 
+# Setup logging
 logger = logging.getLogger("ariaska")
-logging.basicConfig(level=logging.INFO, filename="logs/ariaska.log", filemode="a")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[
+        logging.FileHandler("logs/ariaska.log"),
+        logging.StreamHandler() if os.environ.get("DEBUG", "0") == "1" else logging.NullHandler()
+    ]
+)
 
+# Initialize main components
 console = Console()
 session = create_prompt_session()
 stats_monitor = StatsMonitor()  # StatsMonitor will track and display agent stats
-agent_manager = AgentManager()  # Use new centralized manager
 gpt_manager = GPTManager()
 
-# Define the primary agent using AgentManager
-primary_agent = agent_manager.get_agent("RedAgent")  # Use .get_agent()
+# Create necessary directories
+def setup_environment():
+    """Load environment variables and create necessary directories"""
+    # Load environment variables using ConfigLoader
+    config = get_config()
+    console.print(f"[green]✓ Configuration loaded: Live Mode = {config.is_live_mode()}[/green]")
+    
+    if config.is_live_mode():
+        console.print(f"[bold yellow]⚠ LIVE MODE ACTIVE - Target IP: {config.get_target_ip()}[/bold yellow]")
+        console.print("[bold red]❗ WARNING: Commands will be executed on real targets![/bold red]")
+    
+    # Create necessary directories
+    os.makedirs("logs", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("core/memories", exist_ok=True)
+    
+    # Set up specific memory directories
+    memory_dirs = [
+        "core/memories/redagent_memory",
+        "core/memories/blueagent_memory",
+        "core/memories/shared",
+        "core/memories/vectorstore"
+    ]
+    for directory in memory_dirs:
+        os.makedirs(directory, exist_ok=True)
+        
+    # Check for API keys
+    if not os.environ.get("OPENAI_API_KEY"):
+        console.print("[yellow]⚠️ Warning: OPENAI_API_KEY not set in environment variables[/yellow]")
+        console.print("[yellow]Some functionality may be limited. Consider creating a .env file from .env.example[/yellow]")
+
+# Initialize agent manager (should happen only once)
+def init_agent_manager():
+    verbosity = os.environ.get("VERBOSITY", "standard")
+    try:
+        agent_manager = AgentManager(verbosity=verbosity)
+        # Define the primary agent
+        primary_agent = agent_manager.get_agent("RedAgent")
+        
+        if primary_agent is None:
+            console.print("[red]❌ Failed to initialize RedAgent as primary agent[/red]")
+            return None, None
+            
+        return agent_manager, primary_agent
+    except Exception as e:
+        console.print(f"[red]❌ Failed to initialize agent manager: {e}[/red]")
+        import traceback
+        console.print(traceback.format_exc())
+        return None, None
 
 # ─────────────────────────────────────────────
 # Banner
@@ -45,7 +105,11 @@ def banner():
     ╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝         
         ARIASKA_RL | Hybrid Offensive RL AI ⚔
     """
-    agent_stats = f"[cyan]Agents Active:[/cyan] {len(agent_manager.all_agents())} | [magenta]Mode:[/magenta] Multi-Agent Ops"
+    # Check live mode
+    config = get_config()
+    mode_text = "[bold red]LIVE MODE[/bold red]" if config.is_live_mode() else "Simulation Mode"
+    
+    agent_stats = f"[cyan]Agents Active:[/cyan] {len(agent_manager.all_agents()) if agent_manager else 0} | [magenta]Mode:[/magenta] {mode_text}"
     panel = Panel.fit(
         banner_text + f"\n{agent_stats}", style="bold magenta", padding=(1, 2)
     )
@@ -58,29 +122,44 @@ def show_hint():
     if primary_agent is None:
         console.print("[red]❌ No primary agent available.[/red]")
         return
-    hint_command = primary_agent.generate_hint()
-    if hint_command:
-        display_ai_hint_table(
-            hint_command,
-            [
-                {
-                    "command": hint_command,
-                    "params": "Auto",
-                    "why": "Rule Engine Suggestion",
-                    "Full Command": hint_command,
-                }
-            ],
-        )
-    else:
-        fallback = "nmap -p- -sC -sV TARGET"
-        console.print("[yellow]⚠ No hint generated. Using fallback.[/yellow]")
+    try:
+        hint_command = primary_agent.generate_hint()
+        if hint_command:
+            display_ai_hint_table(
+                hint_command,
+                [
+                    {
+                        "command": hint_command,
+                        "params": "Auto",
+                        "why": "Rule Engine Suggestion",
+                        "Full Command": hint_command,
+                    }
+                ],
+            )
+        else:
+            fallback = "nmap -p- -sC -sV TARGET"
+            console.print("[yellow]⚠ No hint generated. Using fallback.[/yellow]")
+            display_ai_hint_table(
+                fallback,
+                [
+                    {
+                        "command": fallback,
+                        "params": "-p- -sC -sV",
+                        "why": "Fallback (no memory)",
+                        "Full Command": fallback,
+                    }
+                ],
+            )
+    except Exception as e:
+        console.print(f"[yellow]⚠ Error generating hint: {e}[/yellow]")
+        fallback = "nmap -sS -sV 10.10.10.10"
         display_ai_hint_table(
             fallback,
             [
                 {
                     "command": fallback,
-                    "params": "-p- -sC -sV",
-                    "why": "Fallback (no memory)",
+                    "params": "-sS -sV",
+                    "why": "Error recovery fallback",
                     "Full Command": fallback,
                 }
             ],
@@ -88,12 +167,31 @@ def show_hint():
 
 def run_replay_training():
     console.print("[cyan]🔁 Running Multi-Agent Replay Trainer...[/cyan]")
-    agent_manager.train_all_batches(batches=5)
+    if agent_manager:
+        try:
+            agent_manager.train_all_batches(batches=5)
+            console.print("[green]✓ Replay training completed[/green]")
+        except Exception as e:
+            console.print(f"[red]❌ Replay training failed: {e}[/red]")
+    else:
+        console.print("[red]❌ Agent manager not initialized[/red]")
 
 def run_simulated_environment_training(episodes=50):
+    if not agent_manager:
+        console.print("[red]❌ Agent manager not initialized[/red]")
+        return
+        
     console.print(
         f"[cyan]🤖 Running Multi-Agent Cyber Simulation for {episodes} episodes...[/cyan]"
     )
+    
+    # Clear previous visualizer instances if any
+    try:
+        from core.visualization.training_visualizer import TrainingVisualizer
+        if hasattr(TrainingVisualizer, "_active_live_display") and TrainingVisualizer._active_live_display:
+            TrainingVisualizer._active_live_display.stop()
+    except Exception:
+        pass
     
     # Import visualization module
     try:
@@ -134,6 +232,11 @@ def run_simulated_environment_training(episodes=50):
             # After-episode analysis
             agent_manager.display_full_status()
             
+            # Periodically refresh the UI to avoid overlapping
+            if (ep + 1) % 3 == 0:
+                console.clear()
+                banner()
+            
             # Periodic model saving
             if (ep + 1) % 10 == 0:
                 agent_manager.save_all_models()
@@ -158,47 +261,100 @@ def run_simulated_environment_training(episodes=50):
                 visualizer.stop_live_display()
                 
             agent_manager.display_full_status()
-        except:
-            console.print("[red]❌ Status display also failed.[/red]")
+        except Exception as cleanup_err:
+            console.print(f"[red]❌ Status display also failed: {cleanup_err}[/red]")
 
 def show_status():
-    agent_manager.display_all_status()
+    if agent_manager:
+        try:
+            agent_manager.display_all_status()
+        except Exception as e:
+            console.print(f"[red]❌ Error displaying status: {e}[/red]")
+            stats_monitor.show()  # Fallback to basic stats
+    else:
+        console.print("[red]❌ Agent manager not initialized[/red]")
+        stats_monitor.show()  # Fallback to basic stats
 
 def render_plots():
-    stats_monitor.render_ascii_summary()
+    try:
+        stats_monitor.render_ascii_summary()
+    except Exception as e:
+        console.print(f"[red]❌ Error rendering plots: {e}[/red]")
+        console.print("[yellow]⚠ Stats may be unavailable or corrupted[/yellow]")
 
 def build_chain():
+    if not agent_manager:
+        console.print("[red]❌ Agent manager not initialized[/red]")
+        return
+        
     console.print("[magenta]🔗 Generating attack chains for all agents...[/magenta]")
     # Instantiate ChainBuilder, pass memory_router if available
     memory_router = getattr(agent_manager, "memory_router", None)
-    chain_builder = ChainGenerator(memory_router=memory_router)
-    # Use the multi-agent chain build method
-    chain_builder.build_and_store_chain_multiagent(agent_manager)
+    
+    try:
+        chain_builder = ChainGenerator(memory_router=memory_router)
+        # Use the multi-agent chain build method
+        chain_builder.build_and_store_chain_multiagent(agent_manager)
+        console.print("[green]✓ Chain generation completed[/green]")
+    except Exception as e:
+        console.print(f"[red]❌ Chain generation failed: {e}[/red]")
 
 def run_distillation():
     console.print("[cyan]🧠 Running GPT distillation module...[/cyan]")
-    os.system("python3 core/gpt_distiller.py")
+    try:
+        result = subprocess.run(
+            ["python3", "core/gpt_distiller.py"], 
+            capture_output=True, 
+            text=True,
+            check=True
+        )
+        console.print(f"[green]✓ Distillation complete: {result.stdout}[/green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]❌ Distillation failed: {e}[/red]")
+        console.print(e.stderr)
 
 def repair_memory():
     console.print(
         "[blue]🧠 Repairing low-reward memory entries via GPT across agents...[/blue]"
     )
-    os.system("python3 trainer.py --replay-fix")
+    try:
+        result = subprocess.run(
+            ["python3", "trainer.py", "--replay-fix"], 
+            capture_output=True, 
+            text=True,
+            check=True
+        )
+        console.print(f"[green]✓ Memory repair complete: {result.stdout}[/green]")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]❌ Memory repair failed: {e}[/red]")
+        console.print(e.stderr)
 
 def display_reward_window():
-    avg_rewards = {
-        agent.agent_id: agent.stats_monitor.get_avg_reward()
-        for agent in agent_manager.all_agents()
-    }
-    table = Table(title="📈 Average Rewards Window")
-    table.add_column("Agent", style="cyan")
-    table.add_column("Avg Reward", style="green")
-    for agent, avg in avg_rewards.items():
-        table.add_row(agent, f"{avg:.2f}")
-    console.print(table)
+    if not agent_manager:
+        console.print("[red]❌ Agent manager not initialized[/red]")
+        return
+        
+    try:
+        avg_rewards = {
+            agent.agent_id: agent.stats_monitor.get_avg_reward()
+            for agent in agent_manager.all_agents()
+            if hasattr(agent, 'stats_monitor') and callable(getattr(agent.stats_monitor, 'get_avg_reward', None))
+        }
+        table = Table(title="📈 Average Rewards Window")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Avg Reward", style="green")
+        for agent, avg in avg_rewards.items():
+            table.add_row(agent, f"{avg:.2f}")
+        console.print(table)
+    except Exception as e:
+        console.print(f"[red]❌ Error displaying rewards: {e}[/red]")
+        stats_monitor.show()  # Fallback to basic stats
 
 def display_phase_table():
-    display_phase_tables()
+    try:
+        display_phase_tables()
+    except Exception as e:
+        console.print(f"[red]❌ Error displaying phase table: {e}[/red]")
 
 def show_help():
     commands = [
@@ -212,6 +368,7 @@ def show_help():
         ("repair", "Fix low-reward memory"),
         ("reward", "Show average rewards"),
         ("phases", "Display phase info"),
+        ("refresh", "Clear console and refresh UI"),
         ("exit", "Exit Ariaska CLI"),
     ]
     table = Table(title="🛈 Available Commands")
@@ -225,10 +382,26 @@ def show_help():
 # Async CLI Loop
 # ─────────────────────────────────────────────
 async def main_loop():
+    global agent_manager, primary_agent
+    
+    # Initialize environment
+    setup_environment()
+    
+    # Initialize agent manager
+    agent_manager, primary_agent = init_agent_manager()
+    
+    # Display banner and phase tables
     banner()
     console.print("[cyan]Initializing multi-agent modules...[/cyan]")
-    display_phase_tables()
-    console.print("[green]✔ Ariaska RL Ready. Type 'help' for commands.[/green]\n")
+    try:
+        display_phase_tables()
+    except Exception as e:
+        console.print(f"[yellow]⚠ Error displaying phase tables: {e}[/yellow]")
+    
+    if agent_manager and primary_agent:
+        console.print("[green]✓ Ariaska RL Ready. Type 'help' for commands.[/green]\n")
+    else:
+        console.print("[yellow]⚠ Ariaska RL initialized with warnings. Some features may be limited.[/yellow]\n")
 
     # Colorized prompt with visible arrow
     prompt_text = HTML('<ansicyan>zer0</ansicyan><ansimagenta>@ARIASKA</ansimagenta><ansibright_white> > </ansibright_white>')
@@ -277,6 +450,9 @@ async def main_loop():
                 display_reward_window()
             elif cmd_lower in ["phases", "phase"]:
                 display_phase_table()
+            elif cmd_lower in ["refresh", "clear"]:
+                console.clear()
+                banner()
             elif cmd_lower in ["help", "?"]:
                 show_help()
             elif cmd_lower == "test-sgpt":
@@ -284,7 +460,7 @@ async def main_loop():
                 console.print("[yellow]Testing GPTManager connectivity...[/yellow]")
                 try:
                     response = gpt_manager.gpt_request("Say hello from ARIASKA diagnostic.", agent_id="CLI")
-                    console.print(f"[green]✔ GPTManager test successful:[/green] {response}")
+                    console.print(f"[green]✓ GPTManager test successful:[/green] {response}")
                 except Exception as e:
                     console.print(f"[red]❌ GPTManager test failed: {e}[/red]")
             else:
@@ -294,7 +470,12 @@ async def main_loop():
                     continue
                 try:
                     console.print(f"[cyan]Executing: {command}[/cyan]")
-                    result = primary_agent.execute_command(command)
+                    
+                    # Execute with timeout protection
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(primary_agent.execute_command, command),
+                        timeout=30.0  # 30-second timeout for command execution
+                    )
                     
                     # Ensure result is a dictionary
                     if not isinstance(result, dict):
@@ -309,29 +490,35 @@ async def main_loop():
                     entropy = result.get("entropy", None)
 
                     # Make sure stats are tracked
-                    primary_agent.stats_monitor.log_step(
-                        primary_agent.agent_id, reward, alert=alert, phase=phase, command=command
-                    )
-
-                    if primary_agent.stats_monitor.total_steps % 10 == 0:
-                        primary_agent.stats_monitor.show()
+                    if hasattr(primary_agent, "stats_monitor") and primary_agent.stats_monitor:
+                        primary_agent.stats_monitor.log_step(
+                            primary_agent.agent_id, reward, alert=alert, phase=phase, command=command
+                        )
+                        
+                        if primary_agent.stats_monitor.total_steps % 10 == 0:
+                            primary_agent.stats_monitor.show()
 
                     # Show meaningful output
-                    if not output or output == "output":
+                    if not output or output == "output" or output == "Error executing command: ":
                         # Generate realistic output if the agent doesn't provide one
                         if hasattr(primary_agent, "env") and hasattr(primary_agent.env, "generate_output"):
                             output = primary_agent.env.generate_output(command)
                         else:
                             output = f"Executed: {command}"
                     
+                    # Display output
                     display_output(output)
-                    display_ai_hint_table(None, recommendations)
+                    
+                    # Only display recommendations if they exist
+                    if recommendations and len(recommendations) > 0:
+                        display_ai_hint_table(None, recommendations)
                     
                     # Update state visualization
-                    if hasattr(primary_agent, "env"):
+                    if hasattr(primary_agent, "env") and hasattr(primary_agent.env, "_visualize_environment_state"):
                         primary_agent.env._visualize_environment_state()
                     
-                    show_hint()
+                except asyncio.TimeoutError:
+                    console.print("[red]❌ Command execution timed out after 30 seconds[/red]")
                 except Exception as e:
                     console.print(f"[red]❌ Error executing command: {e}[/red]")
                     import traceback
@@ -347,9 +534,10 @@ async def main_loop():
             except Exception:
                 pass
             try:
-                agent_manager.save_all_models()
-                agent_manager.snapshot_all()
-                console.print("[green]💾 Models and memory saved on shutdown.[/green]")
+                if agent_manager:
+                    agent_manager.save_all_models()
+                    agent_manager.snapshot_all()
+                    console.print("[green]💾 Models and memory saved on shutdown.[/green]")
             except Exception as e:
                 console.print(f"[yellow]⚠ Failed to save models/memory: {e}[/yellow]")
             break
@@ -361,10 +549,16 @@ async def main_loop():
 def graceful_shutdown(*args):
     logger.warning("SIGINT received. Initiating safe shutdown...")
     try:
-        agent_manager.save_all_models()
-        agent_manager.snapshot_all()
-        from core.visualization.training_visualizer import DisplayManager
-        DisplayManager.get_instance().stop()
+        if 'agent_manager' in globals() and agent_manager:
+            agent_manager.save_all_models()
+            agent_manager.snapshot_all()
+        
+        # Stop any active visualizers
+        try:
+            from core.visualization.training_visualizer import DisplayManager
+            DisplayManager.get_instance().stop()
+        except Exception:
+            pass
     except Exception as e:
         logger.error(f"Shutdown error: {e}")
     exit(0)
@@ -375,6 +569,10 @@ signal.signal(signal.SIGINT, graceful_shutdown)
 # Launch
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
+    # Define global variables
+    agent_manager = None
+    primary_agent = None
+    
     try:
         asyncio.run(main_loop())
     except KeyboardInterrupt:
@@ -382,330 +580,5 @@ if __name__ == "__main__":
         graceful_shutdown()
     except Exception as e:
         logger.error(f"Fatal error: {e}")
-
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# main.py — ARIASKA_RL Main Entry Point v2.1 APEX
-# 🚀 Multi-Agent Cybersecurity Platform | 🧠 Training Controller | 🌐 Deployment Interface
-
-import os
-import argparse
-import logging
-import sys
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.panel import Panel
-from rich.table import Table
-from rich import box
-from dotenv import load_dotenv
-
-console = Console()
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[RichHandler(rich_tracebacks=True)]
-)
-logger = logging.getLogger("ariaska")
-
-def setup_environment():
-    """Load environment variables and create necessary directories"""
-    # Load environment variables
-    load_dotenv()
-    
-    # Create necessary directories
-    os.makedirs("logs", exist_ok=True)
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("core/memories", exist_ok=True)
-    
-    # Set up specific memory directories
-    memory_dirs = [
-        "core/memories/redagent_memory",
-        "core/memories/blueagent_memory",
-        "core/memories/shared",
-        "core/memories/vectorstore"
-    ]
-    for directory in memory_dirs:
-        os.makedirs(directory, exist_ok=True)
-        
-    # Check for API keys
-    if not os.environ.get("OPENAI_API_KEY"):
-        console.print("[yellow]⚠️ Warning: OPENAI_API_KEY not set in environment variables[/yellow]")
-        console.print("[yellow]Some functionality may be limited. Consider creating a .env file from .env.example[/yellow]")
-
-def display_welcome_banner():
-    """Display a welcome banner with system information"""
-    console.rule("[bold cyan]🧠 ARIASKA_RL MULTI-AGENT CYBERSECURITY PLATFORM[/bold cyan]")
-    
-    # Create feature table
-    features = Table(title="System Components", box=box.ROUNDED)
-    features.add_column("Component", style="cyan")
-    features.add_column("Status", style="green")
-    features.add_column("Mode", style="yellow")
-    
-    # Check for component availability
-    try:
-        import torch
-        torch_status = f"[green]Available[/green] (CUDA: {torch.cuda.is_available()})"
-    except ImportError:
-        torch_status = "[red]Not installed[/red]"
-        
-    try:
-        import openai
-        openai_status = "[green]Available[/green]"
-    except ImportError:
-        openai_status = "[red]Not installed[/red]"
-        
-    try:
-        import chromadb  # type: ignore
-        chromadb_status = "[green]Available[/green]"
-    except ImportError:
-        chromadb_status = "[red]Not installed[/red]"
-    
-    # Get environment mode
-    env_mode = os.environ.get("ARIASKA_MODE", "simulated")
-    
-    # Build status table
-    features.add_row("PyTorch", torch_status, "")
-    features.add_row("OpenAI API", openai_status, "")
-    features.add_row("ChromaDB", chromadb_status, "")
-    features.add_row("Environment", "[green]Ready[/green]", f"[yellow]{env_mode.upper()}[/yellow]")
-    features.add_row("GPT Models", "[green]Ready[/green]", os.environ.get("PRIMARY_MODEL", "gpt-4o-mini"))
-    
-    # Display system info
-    info_table = Table(title="System Information", box=box.ROUNDED)
-    info_table.add_column("Setting", style="cyan")
-    info_table.add_column("Value", style="green")
-    
-    info_table.add_row("Version", "2.1 APEX")
-    info_table.add_row("Mode", env_mode.upper())
-    info_table.add_row("Verbosity", os.environ.get("VERBOSITY", "standard"))
-    info_table.add_row("Max Episodes", os.environ.get("EPISODES", "100"))
-    
-    # Display both tables
-    console.print(Panel.fit(features))
-    console.print(Panel.fit(info_table))
-    
-    console.rule("[bold green]System Initialized - Ready for Operation[/bold green]")
-
-def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(
-        description="ARIASKA_RL - Multi-Agent Cybersecurity Training Platform"
-    )
-    
-    parser.add_argument(
-        "--train",
-        action="store_true",
-        help="Start training mode with all agents"
-    )
-    
-    parser.add_argument(
-        "--episodes",
-        type=int,
-        default=int(os.environ.get("EPISODES", "100")),
-        help="Number of episodes for training"
-    )
-    
-    parser.add_argument(
-        "--steps",
-        type=int,
-        default=int(os.environ.get("MAX_STEPS", "50")),
-        help="Maximum steps per episode"
-    )
-    
-    parser.add_argument(
-        "--mode",
-        choices=["simulated", "live"],
-        default=os.environ.get("ARIASKA_MODE", "simulated"),
-        help="Environment mode: simulated or live"
-    )
-    
-    parser.add_argument(
-        "--verbosity",
-        choices=["quiet", "standard", "verbose", "detailed"],
-        default=os.environ.get("VERBOSITY", "standard"),
-        help="Output verbosity level"
-    )
-    
-    parser.add_argument(
-        "--ui",
-        action="store_true",
-        help="Enable visualization UI (if available)"
-    )
-    
-    parser.add_argument(
-        "--test-env",
-        action="store_true",
-        help="Test environment setup without starting training"
-    )
-    
-    return parser.parse_args()
-
-def run_training(args):
-    """Run the training loop with agent manager"""
-    try:
-        from core.multiagent.agent_manager import AgentManager
-        
-        # Initialize agent manager with verbosity setting
-        console.print("[cyan]Initializing AgentManager and multi-agent system...[/cyan]")
-        agent_manager = AgentManager(verbosity=args.verbosity)
-        
-        # Start training with specified episodes and steps
-        console.print(f"[green]Starting training with {args.episodes} episodes, {args.steps} max steps per episode[/green]")
-        agent_manager.simulate_all_agents(episodes=args.episodes, max_steps=args.steps)
-        
-        # Batch train all agents after simulation
-        console.print("[cyan]Running batch training for all agents...[/cyan]")
-        agent_manager.batch_train_all(batches=5)
-        
-        # Save all models
-        console.print("[cyan]Saving trained models and memory snapshots...[/cyan]")
-        agent_manager.save_all_models()
-        agent_manager.snapshot_all()
-        
-        # Display final status
-        agent_manager.display_full_status()
-        
-        console.print("[bold green]✓ Training completed successfully![/bold green]")
-        return True
-        
-    except ImportError as e:
-        console.print(f"[bold red]Error loading required modules: {e}[/bold red]")
-        console.print("[yellow]Please ensure all requirements are installed: pip install -r requirements.txt[/yellow]")
-        return False
-    except Exception as e:
-        console.print(f"[bold red]Error during training: {e}[/bold red]")
         import traceback
-        console.print(traceback.format_exc())
-        return False
-
-def test_environment():
-    """Test the environment setup without full training"""
-    try:
-        from core.environment.cyber_environment import CyberEnvironment
-        from core.environment.environment_context_detector import EnvironmentContextDetector
-        
-        # Initialize environment
-        console.print("[cyan]Initializing CyberEnvironment for testing...[/cyan]")
-        env = CyberEnvironment(defer_reset=False)
-        
-        # Initialize context detector
-        console.print("[cyan]Initializing EnvironmentContextDetector...[/cyan]")
-        context_detector = EnvironmentContextDetector()
-        
-        # Get environment state
-        state = env.get_global_state()
-        
-        # Display environment info
-        env_table = Table(title="Environment Test", show_header=True)
-        env_table.add_column("Property", style="cyan")
-        env_table.add_column("Value", style="green")
-        
-        for key, value in state.items():
-            # Limit list length for display
-            if isinstance(value, list) and len(value) > 5:
-                value_str = str(value[:5])[:-1] + ", ...]"
-            else:
-                value_str = str(value)
-            env_table.add_row(key, value_str)
-            
-        console.print(env_table)
-        
-        # Test context detector
-        context = context_detector.get_environment_context("10.10.10.10")
-        
-        # Test randomization
-        randomized = context_detector.randomize_domain()
-        
-        console.print("[bold green]✓ Environment tests completed successfully![/bold green]")
-        return True
-        
-    except ImportError as e:
-        console.print(f"[bold red]Error loading required modules: {e}[/bold red]")
-        return False
-    except Exception as e:
-        console.print(f"[bold red]Error testing environment: {e}[/bold red]")
-        import traceback
-        console.print(traceback.format_exc())
-        return False
-
-def launch_visualization():
-    """Launch visualization dashboard if streamlit is installed"""
-    try:
-        # Try to import streamlit but handle the case where it's not installed
-        try:
-            import streamlit
-        except ImportError:
-            console.print("[yellow]⚠️ Streamlit not installed. Install with: pip install streamlit[/yellow]")
-            return False
-        
-        # Check if streamlit server is already running
-        import subprocess
-        import time
-        
-        console.print("[cyan]Attempting to launch Streamlit visualization...[/cyan]")
-        
-        # Launch streamlit as a subprocess
-        process = subprocess.Popen(
-            ["streamlit", "run", "streamlit_app.py"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        
-        # Wait briefly to check if process starts successfully
-        time.sleep(2)
-        
-        if process.poll() is None:
-            console.print("[green]✓ Streamlit visualization launched! Open http://localhost:8501 in your browser[/green]")
-            return True
-        else:
-            console.print("[yellow]⚠️ Streamlit visualization failed to start[/yellow]")
-            return False
-    
-    except ImportError:
-        console.print("[yellow]⚠️ Streamlit not installed. Install with: pip install streamlit[/yellow]")
-        return False
-
-def main():
-    """Main entry point for the ARIASKA_RL platform"""
-    # Setup environment variables and directories
-    setup_environment()
-    
-    # Display welcome banner
-    display_welcome_banner()
-    
-    # Parse command line arguments
-    args = parse_arguments()
-    
-    # Set verbosity level
-    os.environ["VERBOSITY"] = args.verbosity
-    
-    # Execute based on arguments
-    if args.test_env:
-        test_environment()
-    elif args.train:
-        run_training(args)
-        
-        # Launch visualization if requested
-        if args.ui:
-            launch_visualization()
-    elif args.ui:
-        # Just launch visualization
-        launch_visualization()
-    else:
-        # Default: show help
-        console.print("[yellow]No action specified. Use --train to start training or --help for more options.[/yellow]")
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Operation interrupted by user. Shutting down...[/bold yellow]")
-        sys.exit(0)
-    except Exception as e:
-        console.print(f"[bold red]Unhandled error: {e}[/bold red]")
-        import traceback
-        console.print(traceback.format_exc())
-        sys.exit(1)
+        logger.error(traceback.format_exc())

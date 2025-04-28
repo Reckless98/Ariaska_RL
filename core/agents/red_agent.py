@@ -168,10 +168,10 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             capacity=self.replay_memory_size,
             alpha=0.6,
             use_sqlite=True,
-            db_path=f"core/memories/redagent_memory/replay_buffer.sqlite3",
+            db_path=f"core/memory/redagent/replay_buffer.sqlite3",
         )
         self.prioritized_experiences = []
-        self.prioritized_priorities = []
+        self.prioritized_priorities = []  # Ensure this is always initialized
         self.local_llm = LocalLLMManager(model_name="wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF")
         console.print(
             f"[green]✔ {self.agent_id} initialized — Apex++ Mode on {self.device}[/green]"
@@ -470,7 +470,7 @@ class RedAgent(AgentInterface, MemorySyncInterface):
             # Use tensor-safe code
             state_tensor = self.encode_env_state(state)
             # Use shared context for phase coordination if available
-            if shared_context and "ScoutAgent_phase" in shared_context:
+            if (shared_context and "ScoutAgent_phase" in shared_context):
                 state["phase"] = shared_context["ScoutAgent_phase"]
             # Curriculum-driven exploration: occasionally randomize phase
             if random.random() < 0.05:
@@ -1192,8 +1192,17 @@ class RedAgent(AgentInterface, MemorySyncInterface):
         """Reset stats and replay buffer for new episode."""
         self.total_steps = 0
         self.command_history.clear()
+        
+        # Initialize prioritized collections if they don't exist
+        if not hasattr(self, 'prioritized_experiences'):
+            self.prioritized_experiences = []
+        if not hasattr(self, 'prioritized_priorities'):
+            self.prioritized_priorities = []
+            
+        # Clear prioritized experiences and priorities
         self.prioritized_experiences.clear()
         self.prioritized_priorities.clear()
+        
         if hasattr(self, "stats_monitor"):
             self.stats_monitor.reset()
         # Retrieve recent steps from episodic memory (last 10 steps)
@@ -1217,10 +1226,10 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
         if gpt_feedback and hasattr(self, "redagent_brain") and self.redagent_brain:
             summary = f"Episode {self.total_episodes} reset reflection"
             self.redagent_brain.log_gpt_feedback(
-            prompt=prompt,
-            gpt_feedback=gpt_feedback,
-            summary=summary,
-            episode=self.total_episodes
+                prompt=prompt,
+                gpt_feedback=gpt_feedback,
+                summary=summary,
+                episode=self.total_episodes
             )
             console.print(f"[green]🧠 GPT Feedback logged to RedAgentBrain[/green]")
         elif gpt_feedback:
@@ -1289,39 +1298,92 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
 
     def extract_output(self, command):
         """
-        Extract the output of a command, either by running it in simulation
+        Extract the output of a command, either by running it in a subprocess
         or by parsing from CyberEnvironment's response.
         
-        This is a defensive implementation that handles various output formats.
+        This executes commands in simulation or live mode depending on settings.
         """
         try:
-            # Try to run the command through the environment
+            # Try to run the command through the environment first
             if hasattr(self.env, "get_command_output"):
                 output = self.env.get_command_output(command)
                 if output:
+                    # Log that we're executing a real command via environment
+                    if self.verbosity not in ["quiet", "silent"]:
+                        console.print(f"[green]🚀 Executing via environment: {command}[/green]")
                     return output
+            
+            # Check if we're allowed to run real commands (live mode)
+            is_live_mode = False
+            if hasattr(self.env, "live_mode"):
+                is_live_mode = self.env.live_mode
+            
+            # In live mode, try to run the actual command in a subprocess with safety checks
+            if is_live_mode:
+                # SAFETY: Check for dangerous commands before executing
+                dangerous_commands = ["rm -rf", ":(){ :|:& };:", "> /dev/sda", "dd if=/dev/zero"]
+                if any(dangerous in command for dangerous in dangerous_commands):
+                    console.print(f"[red]⚠️ Blocked dangerous command: {command}[/red]")
+                    return f"Command blocked for safety: {command}"
                 
-            # If the environment does not provide output, simulate it
+                # Execute in subprocess with timeout
+                try:
+                    import subprocess
+                    import threading
+                    
+                    # Set a timeout of 10 seconds for command execution
+                    result = subprocess.run(
+                        command, 
+                        shell=True, 
+                        capture_output=True, 
+                        text=True, 
+                        timeout=10
+                    )
+                    
+                    # Get the output
+                    if result.returncode == 0:
+                        console.print(f"[green]✅ Command executed successfully: {command}[/green]")
+                        return result.stdout
+                    else:
+                        console.print(f"[yellow]⚠️ Command returned error ({result.returncode}): {command}[/yellow]")
+                        return f"Error: {result.stderr}"
+                except subprocess.TimeoutExpired:
+                    console.print(f"[yellow]⏱️ Command timed out: {command}[/yellow]")
+                    return "Command execution timed out"
+                except Exception as e:
+                    console.print(f"[red]❌ Error executing command: {e}[/red]")
+                    return f"Error executing command: {str(e)}"
+            
+            # If we get here, run in simulation mode
+            console.print(f"[blue]🔮 Simulating command: {command}[/blue]")
+            
+            # Simulation logic for different command types
             if command.startswith("echo"):
                 return command[5:]  # Echo command output
             
             if command.startswith("nmap"):
-                return "Starting Nmap scan...\nScanning 10.10.10.10...\nOpen ports: 22, 80, 445\nService detection completed."
+                target = command.split()[-1] if len(command.split()) > 1 else "10.10.10.10"
+                return f"Starting Nmap scan...\nScanning {target}...\nOpen ports: 22, 80, 445\nService detection completed."
                 
             if "gobuster" in command:
-                return "Starting gobuster...\n/admin (Status: 200)\n/login (Status: 200)\n/css (Status: 301)"
+                target = "http://10.10.10.10"
+                for part in command.split():
+                    if part.startswith("http"):
+                        target = part
+                return f"Starting gobuster scan on {target}...\n/admin (Status: 200)\n/login (Status: 200)\n/css (Status: 301)"
                 
             if "hydra" in command:
-                return "Hydra starting...\n[22][ssh] host: 10.10.10.10   login: admin   password: password123"
+                target = command.split()[-1] if len(command.split()) > 1 else "ssh://10.10.10.10"
+                return f"Hydra starting...\n[22][ssh] host: {target}   login: admin   password: password123"
                 
             if "find" in command and "perm" in command:
                 return "/usr/bin/sudo\n/bin/ping\n/usr/bin/passwd"
                 
             if any(term in command for term in ["nc", "zip", "tar", "base64"]):
-                return "Data transfer complete."
+                return f"Data transfer complete: {command}"
                 
             # Generic fallback for any other command
-            return f"Command executed: {command}"
+            return f"Command executed (simulation): {command}"
             
         except Exception as e:
             # Always return a string, never fail completely
@@ -1521,50 +1583,100 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             try:
                 # Generate recommendations using the brain or GPT
                 if hasattr(self, "redagent_brain") and self.redagent_brain:
-                    # Use RedAgentBrain for recommendations
-                    recommendations = self.redagent_brain.get_recommendations(
-                        command=command, 
-                        output=output, 
-                        state=current_state
-                    )
-                    
-                if not recommendations or len(recommendations) == 0:
-                    # Fall back to GPT-based recommendations
-                    recommendation_prompt = (
-                        f"You are ARIASKA's offensive strategist. Based on the command '{command}' "
-                        f"and output: '{output[:300]}...', suggest 3 follow-up commands for phase '{current_phase}'. "
-                        f"Format as a list of command objects with 'command', 'params', and 'why' fields. Keep it concise."
-                    )
-                    gpt_response = self.gpt_manager.gpt_request(
-                        recommendation_prompt, 
-                        task_type="recommendations",
-                        model="gpt-4o-mini"
-                    )
-                    
-                    # Parse the GPT response into recommendations
-                    import json
                     try:
-                        # Try to parse as JSON if it looks like JSON
-                        if gpt_response and '{' in gpt_response and '}' in gpt_response:
-                            recs = json.loads(gpt_response)
-                            if isinstance(recs, list):
-                                recommendations = recs
-                            elif isinstance(recs, dict) and "recommendations" in recs:
-                                recommendations = recs["recommendations"]
-                            else:
-                                # Create recommendations from text
-                                recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                        # Try to use RedAgentBrain for recommendations 
+                        recommendations = self.redagent_brain.get_recommendations(
+                            command=command, 
+                            output=output, 
+                            state=current_state
+                        )
+                    except Exception as brain_err:
+                        console.print(f"[yellow]⚠ Brain recommendations error: {brain_err}, falling back to defaults[/yellow]")
+                        # Provide fallback recommendations based on command type
+                        if command.startswith("nmap"):
+                            recommendations = [
+                                {"command": f"nmap -sV -p 80,443 {current_state.get('target_ip', '10.10.10.10')}", 
+                                 "params": "-sV -p", "why": "Check web services"},
+                                {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt", 
+                                 "params": "-w", "why": "Directory enumeration"}
+                            ]
                         else:
-                            # Simple fallback format
-                            recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
-                    except json.JSONDecodeError:
-                        # If JSON parsing fails, create a simple recommendation
-                        recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                            recommendations = [
+                                {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                                 "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
+                                {"command": "whoami", 
+                                 "params": "", "why": "Check current user context"}
+                            ]
+                    
+                # If no recommendations yet, try using GPT
+                if not recommendations or len(recommendations) == 0:
+                    try:
+                        # Fall back to GPT-based recommendations with error handling
+                        recommendation_prompt = (
+                            f"You are ARIASKA's offensive strategist. Based on the command '{command}' "
+                            f"and output: '{output[:300]}...', suggest 3 follow-up commands for phase '{current_phase}'. "
+                            f"Format as a list of command objects with 'command', 'params', and 'why' fields. Keep it concise."
+                        )
+                        
+                        # Try using GPT with a timeout
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(
+                                self.gpt_manager.gpt_request,
+                                recommendation_prompt, 
+                                task_type="recommendations",
+                                model="gpt-4o-mini"
+                            )
+                            try:
+                                # Wait up to 5 seconds for GPT response
+                                gpt_response = future.result(timeout=5.0)
+                                
+                                # Parse the GPT response into recommendations
+                                import json
+                                try:
+                                    # Try to parse as JSON if it looks like JSON
+                                    if gpt_response and '{' in gpt_response and '}' in gpt_response:
+                                        recs = json.loads(gpt_response)
+                                        if isinstance(recs, list):
+                                            recommendations = recs
+                                        elif isinstance(recs, dict) and "recommendations" in recs:
+                                            recommendations = recs["recommendations"]
+                                        else:
+                                            # Create recommendations from text
+                                            recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                                    else:
+                                        # Simple fallback format
+                                        recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                                except json.JSONDecodeError:
+                                    # If JSON parsing fails, create a simple recommendation
+                                    recommendations = [{"command": gpt_response, "params": "Auto", "why": "GPT Suggestion"}]
+                            except concurrent.futures.TimeoutError:
+                                console.print(f"[yellow]⚠ GPT recommendation timed out, using defaults[/yellow]")
+                                recommendations = [
+                                    {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                                     "params": "-sS -sV", "why": "Basic recon scan (timeout fallback)"},
+                                    {"command": "whoami", 
+                                     "params": "", "why": "Check current user context"}
+                                ]
+                    except Exception as gpt_err:
+                        console.print(f"[yellow]⚠ GPT recommendations error: {gpt_err}, using defaults[/yellow]")
+                        recommendations = [
+                            {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                             "params": "-sS -sV", "why": "Basic recon scan (error fallback)"},
+                            {"command": "whoami", 
+                             "params": "", "why": "Check current user context"}
+                        ]
+                            
             except Exception as e:
                 console.print(f"[yellow]⚠ Error generating recommendations: {e}[/yellow]")
                 import traceback
                 console.print(traceback.format_exc())
-                recommendations = []
+                recommendations = [
+                    {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                     "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
+                    {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt", 
+                     "params": "", "why": "Web directory enumeration (fallback)"}
+                ]
             
             # Track this command in statistics
             if hasattr(self, "stats_monitor") and self.stats_monitor:
@@ -1578,26 +1690,37 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             
             # Log the command execution to the RedAgentBrain
             if hasattr(self, "redagent_brain") and self.redagent_brain:
-                self.redagent_brain.log_step(
-                    state=current_state,
-                    command=command,
-                    output=output,
-                    reward=reward,
-                    success=parsed_output.get("success", False),
-                    model="manual",  # Indicate this was a manual command
-                    step=self.total_steps + 1,
-                    episode=self.total_episodes
-                )
+                try:
+                    self.redagent_brain.log_step(
+                        state=current_state,
+                        command=command,
+                        output=output,
+                        reward=reward,
+                        success=parsed_output.get("success", False),
+                        model="manual",  # Indicate this was a manual command
+                        step=self.total_steps + 1,
+                        episode=self.total_episodes
+                    )
+                except Exception as brain_log_err:
+                    console.print(f"[yellow]⚠ Error logging to brain: {brain_log_err}[/yellow]")
             
             # Generate a reasoning explanation about the command
             gpt_reason = ""
             try:
-                reason_prompt = f"Explain in one sentence what the command '{command}' does and what its output shows."
-                gpt_reason = self.gpt_manager.gpt_request(
-                    reason_prompt, 
-                    task_type="reasoning",
-                    model="gpt-4o-mini"
-                )
+                # Use a timeout here as well to avoid hanging
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        self.gpt_manager.gpt_request,
+                        f"Explain in one sentence what the command '{command}' does and what its output shows.", 
+                        task_type="reasoning",
+                        model="gpt-4o-mini"
+                    )
+                    try:
+                        # Wait up to 3 seconds for GPT response
+                        gpt_reason = future.result(timeout=3.0)
+                    except concurrent.futures.TimeoutError:
+                        gpt_reason = f"Manual command execution: {command}"
             except Exception:
                 gpt_reason = f"Manual command execution: {command}"
                 
@@ -1623,7 +1746,10 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             console.print(traceback.format_exc())
             return {
                 "output": f"Error executing command: {str(e)}",
-                "recommendations": [],
+                "recommendations": [
+                    {"command": "ls", "params": "", "why": "List files in current directory"},
+                    {"command": "whoami", "params": "", "why": "Check current user context"}
+                ],
                 "phase": "error",
                 "reward": -1.0,
                 "alert": 0.0

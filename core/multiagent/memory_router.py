@@ -192,8 +192,8 @@ class MemoryRouter:
         # Thread safety
         self.lock = threading.Lock()
         
-        # Set up persistence
-        self.persistence_path = persistence_path or os.path.join("core", "memories", "memory_router.db")
+        # Set up persistence - Use the standardized path
+        self.persistence_path = persistence_path or os.path.join("core", "memory", "memory_router.db")
         self.enable_sqlite = enable_sqlite
         if enable_sqlite:
             self._init_sqlite()
@@ -202,7 +202,17 @@ class MemoryRouter:
         """Initialize SQLite database for persistence"""
         os.makedirs(os.path.dirname(self.persistence_path), exist_ok=True)
         
-        self.conn = sqlite3.connect(self.persistence_path, check_same_thread=False)
+        # Use connection timeout and proper locking settings
+        self.conn = sqlite3.connect(
+            self.persistence_path, 
+            check_same_thread=False,
+            timeout=30.0  # Increase timeout for busy database
+        )
+        
+        # Enable WAL mode for better concurrency
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        
+        # Create all required tables
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS transitions (
                 id TEXT PRIMARY KEY,
@@ -760,7 +770,11 @@ class MemoryRouter:
     def close(self) -> None:
         """Close database connections and clean up resources"""
         if self.enable_sqlite and hasattr(self, 'conn'):
-            self.conn.close()
+            try:
+                self.conn.close()
+                logger.info("Successfully closed SQLite connection")
+            except Exception as e:
+                logger.error(f"Error closing SQLite connection: {e}")
     
     def log_directive(
         self,

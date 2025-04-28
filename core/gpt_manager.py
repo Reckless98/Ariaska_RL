@@ -27,7 +27,7 @@ class GPTManager:
     """
 
     # === Configurable Fallback Tree and Cache Persistence ===
-    FALLBACK_TREE = ["lily", "seneca", "gpt"]  # Can be extended via config
+    FALLBACK_TREE = ["rabbit", "lily", "psy", "seneca", "gpt"]  # Can be extended via config
     CACHE_PERSIST_PATH = os.getenv("GPT_CACHE_PERSIST", "logs/gpt_prompt_cache.json")
 
     def __init__(
@@ -50,9 +50,12 @@ class GPTManager:
         self.log_path = log_path or os.getenv("GPT_LOG_PATH", "logs/gpt_manager.log")
         os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
 
-        # Initialize Local LLM (SenecaLLM via Ollama)
-        self.local_llm = LocalLLMManager()
+        # Initialize Local LLM managers
+        self.local_llm = LocalLLMManager()  # Default SenecaLLM
         self.lily_llm = LocalLLMManager(model_name="QuantFactory/Lily-Cybersecurity-7B-v0.2-GGUF:Q8_0")
+        # Initialize the new LLMs
+        self.rabbit_llm = LocalLLMManager(model_name="TheBloke/WhiteRabbitNeo-13B-GGUF:Q6_K", host=os.getenv("ARIASKA_OLLAMA_HOST", "http://localhost:11434"))
+        self.psy_llm = LocalLLMManager(model_name="TheBloke/Psyfighter-13B-GGUF:Q6_K", host=os.getenv("ARIASKA_OLLAMA_HOST", "http://localhost:11434"))
 
         # Prompt templates for different tasks (optimized for token efficiency)
         self.prompt_templates = self._init_prompt_templates()
@@ -163,10 +166,12 @@ class GPTManager:
         context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Enhanced dual-LLM decision flow:
+        Enhanced multi-LLM decision flow:
         1. Format prompt with task-specific template and minimal context
-        2. For tactical/planning tasks, use local LLMs (SenecaLLM/LilyLLM) first.
-        3. Only use GPT if use_gpt=True AND local LLM fails or returns poor quality.
+        2. For strategic tasks, use WhiteRabbitNeo (rabbit) first
+        3. For tactical tasks, try Lily first (specialized for concise commands)
+        4. Psyfighter (psy) is used for specialized tasks
+        5. Only use GPT if use_gpt=True AND local LLMs fail
         
         Args:
             task_type: Type of task ('tactical', 'planning', etc.)
@@ -194,12 +199,43 @@ class GPTManager:
         try:
             # Track attempts and results
             attempts = {
+                "rabbit": {"tried": False, "success": False, "result": None},
                 "lily": {"tried": False, "success": False, "result": None},
+                "psy": {"tried": False, "success": False, "result": None},
                 "seneca": {"tried": False, "success": False, "result": None},
                 "gpt": {"tried": False, "success": False, "result": None}
             }
             
-            # Step 1: For tactical tasks, try Lily first (specialized for concise commands)
+            # Step 1: For strategic and planning tasks, try WhiteRabbitNeo first
+            if task_type in ("strategic", "planning", "reasoning", "overseer"):
+                attempts["rabbit"]["tried"] = True
+                try:
+                    # WhiteRabbitNeo is good for strategic thinking
+                    rabbit_suggestion = self.rabbit_llm.query(formatted_prompt)
+                    rabbit_suggestion = self._postprocess_lily_output(rabbit_suggestion)  # Use same postprocessor
+                    console.print(f"[magenta]🐇 WhiteRabbitNeo Suggestion:[/magenta] {rabbit_suggestion}")
+                    
+                    if self._is_valid_command(rabbit_suggestion):
+                        attempts["rabbit"]["success"] = True
+                        attempts["rabbit"]["result"] = rabbit_suggestion
+                        
+                        # If we're not forcing GPT, return it directly
+                        if not use_gpt:
+                            console.print("[green]✓ Using WhiteRabbitNeo suggestion (no GPT refinement needed)[/green]")
+                            
+                            # Cache and return
+                            self.prompt_cache[prompt_hash] = rabbit_suggestion
+                            self._save_cache()
+                            
+                            # Track successful request
+                            self.successful_requests += 1
+                            self.request_times.append(time.time() - start_time)
+                            
+                            return rabbit_suggestion
+                except Exception as e:
+                    console.print(f"[yellow]⚠️ WhiteRabbitNeo error: {e}[/yellow]")
+            
+            # Step 2: For tactical tasks, try Lily (specialized for concise commands)
             if task_type in ("tactical", "recon"):
                 attempts["lily"]["tried"] = True
                 try:
@@ -229,7 +265,36 @@ class GPTManager:
                 except Exception as e:
                     console.print(f"[yellow]⚠️ LilyLLM error: {e}[/yellow]")
             
-            # Step 2: Try Seneca for all task types
+            # Step 3: Try Psyfighter for specialized tasks or if the other models failed
+            attempts["psy"]["tried"] = True
+            try:
+                # Add task type hint to help Psyfighter generate better response
+                enhanced_prompt = f"As a cybersecurity expert, task type: {task_type}\n{formatted_prompt}"
+                psy_suggestion = self.psy_llm.query(enhanced_prompt)
+                console.print(f"[yellow]🧠 Psyfighter Suggestion:[/yellow] {psy_suggestion}")
+                
+                # Check if Psyfighter returned a valid command
+                if self._is_valid_command(psy_suggestion):
+                    attempts["psy"]["success"] = True
+                    attempts["psy"]["result"] = psy_suggestion
+                    
+                    # If it's a valid command and we're not forcing GPT, return it directly
+                    if not use_gpt:
+                        console.print("[green]✓ Using Psyfighter suggestion (no GPT refinement needed)[/green]")
+                        
+                        # Cache and return
+                        self.prompt_cache[prompt_hash] = psy_suggestion
+                        self._save_cache()
+                        
+                        # Track successful request
+                        self.successful_requests += 1
+                        self.request_times.append(time.time() - start_time)
+                        
+                        return psy_suggestion
+            except Exception as e:
+                console.print(f"[yellow]⚠️ Psyfighter error: {e}[/yellow]")
+            
+            # Step 4: Try Seneca as a fallback for all LLMs
             attempts["seneca"]["tried"] = True
             try:
                 # Add task type hint to help Seneca generate better response
@@ -261,23 +326,20 @@ class GPTManager:
             # Track fallback attempt
             self.fallback_attempts += 1
             
-            # Step 3: Only use GPT in specific situations:
+            # Step 5: Only use GPT in specific situations:
             # - If explicitly requested (use_gpt=True)
-            # - OR if both local LLMs failed to produce valid outputs
-            use_gpt_now = use_gpt or (
-                (attempts["lily"]["tried"] and not attempts["lily"]["success"]) and
-                (attempts["seneca"]["tried"] and not attempts["seneca"]["success"])
-            )
+            # - OR if all local LLMs failed to produce valid outputs
+            use_gpt_now = use_gpt or not any(attempts[src]["success"] for src in ["rabbit", "lily", "psy", "seneca"])
             
             if use_gpt_now:
                 attempts["gpt"]["tried"] = True
                 
                 # Prioritize the best local LLM result to send to GPT
                 best_local_result = None
-                if attempts["lily"]["success"]:
-                    best_local_result = attempts["lily"]["result"]
-                elif attempts["seneca"]["success"]:
-                    best_local_result = attempts["seneca"]["result"]
+                for src in ["rabbit", "lily", "psy", "seneca"]:
+                    if attempts[src]["success"]:
+                        best_local_result = attempts[src]["result"]
+                        break
                 
                 if best_local_result:
                     # If we have a local result, ask GPT to review/refine it
@@ -321,7 +383,7 @@ class GPTManager:
                     
                     return sanitized
             
-            # Step 4: Correction loop: try to auto-correct with next LLM in tree
+            # Step 6: Correction loop: try to auto-correct with next LLM in tree
             if not any(attempts[src]["success"] for src in self.FALLBACK_TREE):
                 for idx, src in enumerate(self.FALLBACK_TREE):
                     if attempts[src]["tried"] and not attempts[src]["success"]:
@@ -330,11 +392,15 @@ class GPTManager:
                             next_src = self.FALLBACK_TREE[idx + 1]
                             feedback = f"Previous {src} output was invalid. Please provide a valid shell command only."
                             try:
-                                if next_src == "seneca":
-                                    enhanced_prompt = f"{formatted_prompt}\n{feedback}"
-                                    suggestion = self.local_llm.query(enhanced_prompt)
+                                if next_src == "rabbit":
+                                    suggestion = self.rabbit_llm.query(f"{formatted_prompt}\n{feedback}")
                                 elif next_src == "lily":
                                     suggestion = self.lily_llm.query(self._lily_prompt(formatted_prompt + f"\n{feedback}"))
+                                elif next_src == "psy":
+                                    suggestion = self.psy_llm.query(f"{formatted_prompt}\n{feedback}")
+                                elif next_src == "seneca":
+                                    enhanced_prompt = f"{formatted_prompt}\n{feedback}"
+                                    suggestion = self.local_llm.query(enhanced_prompt)
                                 else:  # gpt
                                     suggestion = self.gpt_request(
                                         f"{formatted_prompt}\n{feedback}",
@@ -360,7 +426,7 @@ class GPTManager:
                             except Exception as e:
                                 console.print(f"[yellow]⚠ Correction loop error ({next_src}): {e}[/yellow]")
 
-            # Step 5: Return best available result, with fallback priority:
+            # Step 7: Return best available result, with fallback priority:
             # Local LLMs are preferred if they succeeded but GPT refinement failed or wasn't used
             for source in self.FALLBACK_TREE:
                 if attempts[source]["success"]:

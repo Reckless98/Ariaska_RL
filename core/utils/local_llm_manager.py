@@ -696,3 +696,46 @@ class LocalSenecaLLMManager(LocalLLMManager):
         super().__init__(model_name=_get_env_or_default("ARIASKA_SENECA_MODEL", "wahidmounir/SenecaLLM_x_Qwen2.5-7B-CyberSecurity-Q8_0-GGUF"), host=host)
         # Seneca-specific optimizations
         self.timeout = 25  # Seneca needs more thinking time
+
+class LocalWhiteRabbitNeoManager(LocalLLMManager):
+    """
+    WhiteRabbitNeo manager. Uses same API as LocalLLMManager, but with WhiteRabbitNeo model.
+    Specialized for strategic planning and deep reasoning tasks.
+    """
+    def __init__(self, host=None):
+        super().__init__(model_name=_get_env_or_default("ARIASKA_WHITERABBIT_MODEL", "TheBloke/WhiteRabbitNeo-13B-GGUF:Q6_K"), host=host)
+        # WhiteRabbitNeo-specific optimizations
+        self.timeout = 30  # Needs more time for deep reasoning
+        
+    def _create_effective_prompt(self, task_type, prompt):
+        """Specialized prompting for WhiteRabbitNeo"""
+        if task_type in ("strategic", "planning", "reasoning", "overseer"):
+            return f"""As a strategic cybersecurity specialist, provide a concise, actionable response to the task below.
+Focus on clear recommendations and avoid self-references (don't say 'I would' or 'As an AI').
+Generate exactly ONE clear command or specific recommendation.
+
+TASK: {prompt}
+
+RESPONSE:"""
+        return super()._create_effective_prompt(task_type, prompt)
+
+class LocalPsyfighterManager(LocalLLMManager):
+    """
+    Psyfighter manager. Uses same API as LocalLLMManager, but with Psyfighter model.
+    Specialized for complex attack scenarios and psychological operations.
+    """
+    def __init__(self, host=None):
+        super().__init__(model_name=_get_env_or_default("ARIASKA_PSYFIGHTER_MODEL", "TheBloke/Psyfighter-13B-GGUF:Q6_K"), host=host)
+        # Psyfighter-specific optimizations
+        self.timeout = 25  # Complex but efficient processing
+        
+    def _create_effective_prompt(self, task_type, prompt):
+        """Specialized prompting for Psyfighter"""
+        if task_type in ("exploit", "attack", "advanced"):
+            return f"""As a cybersecurity specialist with expertise in offensive security, analyze this task:
+
+TASK: {prompt}
+
+Provide a single, concise command or specific action to take. Use precise syntax. No explanations.
+"""
+        return super()._create_effective_prompt(task_type, prompt)
