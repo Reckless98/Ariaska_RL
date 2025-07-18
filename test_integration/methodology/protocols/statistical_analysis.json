@@ -1,0 +1,28 @@
+{
+  "analysis_protocol": {
+    "descriptive_statistics": [
+      "Calculate means, standard deviations, and confidence intervals",
+      "Check for outliers using IQR method",
+      "Assess normality using Shapiro-Wilk test",
+      "Create visualizations (histograms, boxplots)"
+    ],
+    "inferential_statistics": [
+      "Select appropriate test based on data type and distribution",
+      "Check statistical assumptions",
+      "Set alpha level (typically 0.05)",
+      "Calculate effect sizes",
+      "Interpret practical significance"
+    ],
+    "multiple_comparisons": [
+      "Apply Bonferroni correction if needed",
+      "Consider False Discovery Rate (FDR) control",
+      "Report adjusted p-values"
+    ],
+    "reporting": [
+      "Report test statistics, p-values, and effect sizes",
+      "Include confidence intervals",
+      "Provide practical interpretation",
+      "Discuss limitations"
+    ]
+  }
+}

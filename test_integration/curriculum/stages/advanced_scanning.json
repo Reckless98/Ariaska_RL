@@ -1,0 +1,25 @@
+{
+  "stage_id": "advanced_scanning",
+  "difficulty": "DifficultyLevel.INTERMEDIATE",
+  "learning_objectives": [
+    "Master advanced scanning techniques",
+    "Learn to evade basic detection",
+    "Understand service enumeration"
+  ],
+  "environment_params": {
+    "target_complexity": "moderate",
+    "network_size": "medium",
+    "defensive_measures": "basic",
+    "time_pressure": "low"
+  },
+  "success_criteria": {
+    "avg_reward": 15.0,
+    "success_rate": 0.6,
+    "phase_accuracy": 0.75
+  },
+  "prerequisites": [
+    "basic_recon"
+  ],
+  "estimated_episodes": 30,
+  "description": "Advanced scanning and enumeration techniques"
+}
