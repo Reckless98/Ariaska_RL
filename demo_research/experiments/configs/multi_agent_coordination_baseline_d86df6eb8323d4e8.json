@@ -1,0 +1,46 @@
+{
+  "name": "multi_agent_coordination_baseline",
+  "description": "Baseline configuration for multi-agent coordination study",
+  "agents": [
+    "RedAgent",
+    "BlueAgent",
+    "ScoutAgent",
+    "ShadowAgent",
+    "OrionAgent"
+  ],
+  "episodes": 100,
+  "max_steps": 50,
+  "environment_type": "simulated",
+  "random_seed": 42,
+  "hyperparameters": {
+    "learning_rate": 0.001,
+    "batch_size": 64,
+    "gamma": 0.99,
+    "epsilon_start": 1.0,
+    "epsilon_end": 0.01,
+    "epsilon_decay": 0.995,
+    "replay_buffer_size": 10000,
+    "target_update_frequency": 10
+  },
+  "gpt_config": {
+    "primary_model": "gpt-4o-mini",
+    "fallback_model": "gpt-4o-mini",
+    "embedding_model": "gpt-4.1-nano",
+    "token_limit": 5000
+  },
+  "memory_config": {
+    "use_prioritized_replay": true,
+    "alpha": 0.6,
+    "beta": 0.4,
+    "memory_sharing": true,
+    "deduplication": true
+  },
+  "training_config": {
+    "curriculum_learning": false,
+    "multi_objective": false,
+    "transfer_learning": false
+  },
+  "version": "1.0",
+  "git_commit": "26d7679d98629d1d487cd5202a4f2bc414013431",
+  "timestamp": "2025-07-18T16:20:18.692365"
+}

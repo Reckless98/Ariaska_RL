@@ -1,0 +1,23 @@
+{
+  "name": "coordination_effect_test",
+  "condition_a": "coordination_disabled",
+  "condition_b": "coordination_disabled",
+  "num_replications": 5,
+  "configs": {
+    "A": [
+      "7a775896fa3a4edf",
+      "1903ccbd232350dc",
+      "0b86a33a62590510",
+      "881b907c06b5ec21",
+      "d295311b0fd70cfe"
+    ],
+    "B": [
+      "5e0dfc46e78a9d6e",
+      "3f36d08d37b7b1e4",
+      "49d2fef06f27c1f7",
+      "e474baaf70397332",
+      "f4e9d6ca3b61408b"
+    ]
+  },
+  "created_at": "2025-07-18T16:20:20.018870"
+}

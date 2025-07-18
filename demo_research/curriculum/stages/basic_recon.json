@@ -1,0 +1,23 @@
+{
+  "stage_id": "basic_recon",
+  "difficulty": "DifficultyLevel.BEGINNER",
+  "learning_objectives": [
+    "Learn to perform network discovery",
+    "Identify open ports and services",
+    "Understand basic scanning techniques"
+  ],
+  "environment_params": {
+    "target_complexity": "simple",
+    "network_size": "small",
+    "defensive_measures": "minimal",
+    "time_pressure": "none"
+  },
+  "success_criteria": {
+    "avg_reward": 10.0,
+    "success_rate": 0.7,
+    "phase_accuracy": 0.8
+  },
+  "prerequisites": [],
+  "estimated_episodes": 20,
+  "description": "Introduction to network reconnaissance and discovery"
+}

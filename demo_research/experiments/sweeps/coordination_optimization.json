@@ -1,0 +1,52 @@
+{
+  "name": "coordination_optimization",
+  "base_config": "multi_agent_coordination_baseline",
+  "sweep_params": {
+    "learning_rate": [
+      0.001,
+      0.003,
+      0.01
+    ],
+    "batch_size": [
+      32,
+      64,
+      128
+    ],
+    "gamma": [
+      0.95,
+      0.99,
+      0.999
+    ]
+  },
+  "num_variants": 27,
+  "configs": [
+    "34b565c1c4fe7cd2",
+    "635a636867f8906f",
+    "ca8ba2f18e12845d",
+    "da2d572aee80b02a",
+    "1fac18a8e7ba079c",
+    "61742befd4c34c9b",
+    "01830e7b04e5ee8b",
+    "071432e74e0849cb",
+    "5b7e20c590d397fe",
+    "c202fa7e7f9fe14b",
+    "cbe63bdc50310d14",
+    "a6b455b86cb1c3bb",
+    "efb277a775e97d57",
+    "f50e4fea6b9dc490",
+    "91aec27448d6224a",
+    "65ef374f08719e65",
+    "e70e3ddcfb71e70e",
+    "e4d9e0d12aecaa18",
+    "2d9aa2a6783074a5",
+    "1f0d7e5eb8eb9387",
+    "6cdf5b0cff3d57c1",
+    "4fb7aae8663d89a5",
+    "45ff9f8c9f7c6024",
+    "82513204334c3df7",
+    "75ed6532490f6492",
+    "a63ee4a1cb116755",
+    "9b11743fb2056b4a"
+  ],
+  "created_at": "2025-07-18T16:20:19.952681"
+}

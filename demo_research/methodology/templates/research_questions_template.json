@@ -1,0 +1,16 @@
+{
+  "research_questions": [
+    {
+      "id": "RQ1",
+      "question": "How does [intervention] affect [outcome] in [population/context]?",
+      "hypothesis": "We hypothesize that [intervention] will [predicted effect] because [theoretical reasoning]",
+      "variables": {
+        "independent": "[intervention variable]",
+        "dependent": "[outcome measure]",
+        "control": "[variables to control for]"
+      },
+      "significance": "This research addresses [gap] and has implications for [application area]",
+      "methodology": "We will use [experimental design] with [sample size] to test this hypothesis"
+    }
+  ]
+}

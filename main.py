@@ -329,6 +329,81 @@ def repair_memory():
         console.print(f"[red]❌ Memory repair failed: {e}[/red]")
         console.print(e.stderr)
 
+def run_research_framework():
+    """Launch advanced research framework"""
+    console.print("[cyan]🧪 Launching ARIASKA_RL Research Framework...[/cyan]")
+    try:
+        from core.research.research_integration import ResearchIntegration
+        research_framework = ResearchIntegration("ariaska_research")
+        
+        # Show help and framework capabilities
+        research_framework.help_research()
+        
+        console.print(f"[green]✓[/green] Research framework initialized and ready")
+        console.print(f"[blue]💡[/blue] Use 'research-demo' command to see full capabilities")
+        
+        # Future: Could add interactive research CLI here
+        
+    except Exception as e:
+        console.print(f"[red]❌[/red] Research framework failed to load: {e}")
+        import traceback
+        console.print(traceback.format_exc())
+
+def run_research_demo():
+    """Run research framework demonstration"""
+    console.print("[cyan]🔬 Running Research Framework Demo...[/cyan]")
+    try:
+        # Import and run demo
+        result = subprocess.run([sys.executable, "research_demo.py"], 
+                              capture_output=True, text=True, check=True)
+        console.print("[green]✓[/green] Research demo completed successfully")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]❌[/red] Research demo failed: {e}")
+        if e.stderr:
+            console.print(e.stderr)
+    except Exception as e:
+        console.print(f"[red]❌[/red] Error running research demo: {e}")
+
+def run_curriculum_training_demo():
+    """Demonstrate curriculum learning with actual agents"""
+    if not agent_manager:
+        console.print("[red]❌[/red] Agent manager not initialized")
+        return
+        
+    console.print("[green]📚[/green] Running Curriculum Learning Demo...")
+    try:
+        from core.research.curriculum_learning import CurriculumLearning
+        curriculum = CurriculumLearning("ariaska_curriculum")
+        
+        # Initialize curriculum for primary agent
+        agent_id = primary_agent.agent_id if primary_agent else "RedAgent"
+        curriculum.initialize_agent_progress(agent_id)
+        
+        # Run curriculum training for demonstration
+        for episode in range(20):
+            curriculum_config = curriculum.get_current_curriculum_config(agent_id)
+            
+            # Simulate episode with curriculum parameters
+            console.print(f"Episode {episode+1}: Stage '{curriculum_config['stage_id']}' ({curriculum_config['difficulty']})")
+            
+            # Update with simulated performance
+            performance = {
+                "avg_reward": 10.0 + episode * 0.5,
+                "success_rate": 0.5 + episode * 0.02,
+                "phase_accuracy": 0.6 + episode * 0.015
+            }
+            curriculum.update_agent_performance(agent_id, episode, performance)
+        
+        # Display final curriculum report
+        report = curriculum.generate_curriculum_report(agent_id)
+        console.print("[green]✓[/green] Curriculum learning demo completed")
+        console.print(f"[dim]Final stage: {curriculum_config['stage_id']}[/dim]")
+        
+    except Exception as e:
+        console.print(f"[red]❌[/red] Curriculum demo failed: {e}")
+        import traceback
+        console.print(traceback.format_exc())
+
 def display_reward_window():
     if not agent_manager:
         console.print("[red]❌ Agent manager not initialized[/red]")
@@ -368,6 +443,8 @@ def show_help():
         ("repair", "Fix low-reward memory"),
         ("reward", "Show average rewards"),
         ("phases", "Display phase info"),
+        ("research", "Launch advanced research framework"),
+        ("research-demo", "Run research framework demo"),
         ("refresh", "Clear console and refresh UI"),
         ("exit", "Exit Ariaska CLI"),
     ]
@@ -453,6 +530,12 @@ async def main_loop():
             elif cmd_lower in ["refresh", "clear"]:
                 console.clear()
                 banner()
+            elif cmd_lower == "research":
+                run_research_framework()
+            elif cmd_lower == "research-demo":
+                run_research_demo()
+            elif cmd_lower == "curriculum-demo":
+                run_curriculum_training_demo()
             elif cmd_lower in ["help", "?"]:
                 show_help()
             elif cmd_lower == "test-sgpt":

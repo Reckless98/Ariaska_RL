@@ -1,0 +1,25 @@
+{
+  "stage_id": "vuln_assessment",
+  "difficulty": "DifficultyLevel.INTERMEDIATE",
+  "learning_objectives": [
+    "Identify common vulnerabilities",
+    "Assess exploitability",
+    "Prioritize attack vectors"
+  ],
+  "environment_params": {
+    "target_complexity": "moderate",
+    "network_size": "medium",
+    "defensive_measures": "moderate",
+    "time_pressure": "moderate"
+  },
+  "success_criteria": {
+    "avg_reward": 20.0,
+    "success_rate": 0.5,
+    "phase_accuracy": 0.7
+  },
+  "prerequisites": [
+    "advanced_scanning"
+  ],
+  "estimated_episodes": 40,
+  "description": "Comprehensive vulnerability assessment and analysis"
+}

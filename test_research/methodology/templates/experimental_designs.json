@@ -1,0 +1,38 @@
+{
+  "experimental_designs": {
+    "randomized_controlled": {
+      "description": "Participants randomly assigned to experimental and control conditions",
+      "advantages": [
+        "High internal validity",
+        "Causal inference possible"
+      ],
+      "requirements": [
+        "Random assignment",
+        "Control group",
+        "Adequate sample size"
+      ],
+      "considerations": [
+        "Ethical issues",
+        "External validity",
+        "Practical constraints"
+      ]
+    },
+    "factorial_design": {
+      "description": "Multiple independent variables tested simultaneously",
+      "advantages": [
+        "Tests interactions",
+        "Efficient",
+        "Real-world complexity"
+      ],
+      "requirements": [
+        "Orthogonal factors",
+        "Balanced design",
+        "Power analysis"
+      ],
+      "considerations": [
+        "Complexity interpretation",
+        "Sample size requirements"
+      ]
+    }
+  }
+}
