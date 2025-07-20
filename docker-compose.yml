@@ -1,0 +1,177 @@
+version: '3.8'
+
+services:
+  ariaska:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ariaska-core
+    volumes:
+      - ./data:/home/ariaska/ARIASKA_RL/data
+      - ./logs:/home/ariaska/ARIASKA_RL/logs
+      - ./models:/home/ariaska/ARIASKA_RL/models
+      - ./.env:/home/ariaska/ARIASKA_RL/.env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_PRIMARY_MODEL=${GPT_PRIMARY_MODEL:-gpt-4o-mini}
+      - GPT_FALLBACK_MODEL=${GPT_FALLBACK_MODEL:-gpt-4.1-nano}
+      - GPT_TOKEN_LIMIT=${GPT_TOKEN_LIMIT:-8000}
+      - PYTHONPATH=/home/ariaska/ARIASKA_RL
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+    command: main --verbosity standard
+    restart: unless-stopped
+    networks:
+      - ariaska-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Optional: Streamlit visualization dashboard
+  visualization:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ariaska-viz
+    command: core.visualization.streamlit_app --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/home/ariaska/ARIASKA_RL/logs
+      - ./models:/home/ariaska/ARIASKA_RL/models
+      - ./.env:/home/ariaska/ARIASKA_RL/.env
+    environment:
+      - PYTHONPATH=/home/ariaska/ARIASKA_RL
+    depends_on:
+      - ariaska
+    networks:
+      - ariaska-net
+
+  # Optional: ChromaDB vector database for memory enhancement
+  chromadb:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: ariaska-chromadb
+    volumes:
+      - ./data/chromadb:/chroma/data
+    environment:
+      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+      - CHROMA_SERVER_AUTH_CREDENTIALS_FILE=/chroma/data/auth.json
+      - PERSIST_DIRECTORY=/chroma/data
+    ports:
+      - "8000:8000"
+    networks:
+      - ariaska-net
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ariaska-prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - ariaska-net
+
+  # Optional: Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ariaska-grafana
+    volumes:
+      - ./monitoring/grafana:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    networks:
+      - ariaska-net
+    depends_on:
+      - prometheus
+
+  # Optional: Development container for interactive coding
+  dev:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+    container_name: ariaska-dev
+    volumes:
+      - .:/home/ariaska/ARIASKA_RL
+    command: sleep infinity
+    networks:
+      - ariaska-net
+
+  ariaska-rl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ariaska-rl
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./core/memories:/app/core/memories
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8501:8501"  # For Streamlit UI (if enabled)
+    networks:
+      - ariaska-net
+    command: "python -m main"
+    
+  # Vector database for long-term memories
+  chroma-db:
+    image: ghcr.io/chroma-core/chroma:latest
+    restart: unless-stopped
+    volumes:
+      - ./chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_DB_IMPL=duckdb+parquet
+      - CHROMA_PERSIST_DIRECTORY=/chroma/chroma
+    ports:
+      - "8000:8000"  # API endpoint
+    networks:
+      - ariaska-net
+
+  # Optional Streamlit dashboard
+  streamlit-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: ariaska-streamlit
+    volumes:
+      - ./core:/app/core  # Ensure access to visualization modules
+      - ./logs:/app/logs  # Access to logs for visualization
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_HEADLESS=true
+    ports:
+      - "8501:8501"
+    networks:
+      - ariaska-net
+    restart: unless-stopped
+    depends_on:
+      - ariaska-rl
+    profiles:
+      - with-ui  # Only start with docker-compose --profile with-ui up
+
+networks:
+  ariaska-net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

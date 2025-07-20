@@ -1,0 +1,27 @@
+{
+  "fallback_chains": {
+    "tactical": [
+      "LocalLilyLLM",
+      "GPT4o-mini",
+      "GPT4o"
+    ],
+    "strategic": [
+      "LocalSenecaLLM",
+      "LocalWhiteRabbitNeo",
+      "GPT4o"
+    ],
+    "advanced": [
+      "GPT4o",
+      "GPT4-turbo"
+    ]
+  },
+  "max_cache_size": 1000,
+  "cache_ttl_hours": 24,
+  "default_timeout": 30,
+  "token_budget": {
+    "default": 500,
+    "tactical": 300,
+    "strategic": 800,
+    "advanced": 2000
+  }
+}
