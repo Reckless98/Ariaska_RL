@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Union
 from datetime import datetime
 from collections import deque, defaultdict, OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 # Add project root to path
@@ -43,16 +43,19 @@ from rich import box
 from rich.text import Text
 
 # Project imports
-from core.ui_helpers import display_detailed_agent_status, display_training_metrics, display_gpu_status
-from core.ui.enhanced_agent_dashboard import EnhancedAgentDashboard
-from core.agents.red_agent import RedAgent
-from core.agents.blue_agent import BlueAgent  
-from core.agents.scout_agent import ScoutAgent
-from core.agents.shadow_agent import ShadowAgent
-from core.agents.orion_agent import OrionAgent
-from core.environment.cyber_environment import CyberEnvironment
-from core.utils.stats_monitor import StatsMonitor
-from core.memory.enhanced_memory_router import EnhancedMemoryRouter
+try:
+    from core.ui_helpers import display_detailed_agent_status, display_training_metrics, display_gpu_status
+    from core.agents.red_agent import RedAgent
+    from core.agents.blue_agent import BlueAgent  
+    from core.agents.scout_agent import ScoutAgent
+    from core.agents.shadow_agent import ShadowAgent
+    from core.agents.orion_agent import OrionAgent
+    from core.environment.cyber_environment import CyberEnvironment
+    from core.utils.stats_monitor import StatsMonitor
+    from core.memory.enhanced_memory_router import EnhancedMemoryRouter
+except ImportError as e:
+    print(f"⚠️ Import error: {e}")
+    print("Some modules may not be available, using fallbacks...")
 
 @dataclass
 class AgentAction:
@@ -67,7 +70,7 @@ class AgentAction:
     timestamp: float
     gpt_tokens_used: int = 0
     learning_loss: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = None
 
 class TrainingPhase(Enum):
     """Training phases for curriculum learning."""
@@ -136,15 +139,6 @@ class EnhancedUnifiedTrainingSystem:
         self.episode_metrics: List[Dict] = []
         self.current_episode = 0
         
-        # Enhanced UI Dashboard
-        try:
-            self.dashboard = EnhancedAgentDashboard(update_interval=0.5)
-            self.dashboard_available = True
-        except Exception as e:
-            print(f"⚠️ Dashboard initialization failed: {e}")
-            self.dashboard = None
-            self.dashboard_available = False
-        
         # Training state
         self.training_active = False
         self.start_time = None
@@ -193,7 +187,8 @@ class EnhancedUnifiedTrainingSystem:
                     from core.agents.red_agent import RedAgent
                     self.agents['RedAgent'] = RedAgent(
                         agent_id=f"RedAgent_{self.session_id}",
-                        device=str(self.device)
+                        device=self.device,
+                        enhanced_mode=True
                     )
                     progress.advance(task)
                     self.logger.info("RedAgent initialized successfully")
@@ -207,7 +202,8 @@ class EnhancedUnifiedTrainingSystem:
                     from core.agents.blue_agent import BlueAgent
                     self.agents['BlueAgent'] = BlueAgent(
                         agent_id=f"BlueAgent_{self.session_id}",
-                        device=str(self.device)
+                        device=self.device,
+                        enhanced_mode=True
                     )
                     progress.advance(task)
                     self.logger.info("BlueAgent initialized successfully")
@@ -327,14 +323,9 @@ class EnhancedUnifiedTrainingSystem:
             display_gpu_status(self.device)
 
     def run_training(self) -> Dict[str, Any]:
-        """Execute the complete training process with enhanced dashboard."""
+        """Execute the complete training process."""
         self.training_active = True
         self.start_time = time.time()
-        
-        # Start live dashboard if available
-        if self.dashboard_available and self.dashboard:
-            self.dashboard.start_live_dashboard()
-            print("🎮 Live Agent Dashboard Started")
         
         self.console.print(Panel(
             f"🚀 Starting Enhanced Training\n"
@@ -355,10 +346,6 @@ class EnhancedUnifiedTrainingSystem:
                 
                 episode_duration = time.time() - episode_start
                 self.episode_metrics.append(episode_results)
-                
-                # Update coordination status
-                if self.dashboard_available and self.dashboard:
-                    self._update_coordination_dashboard(episode)
                 
                 # Log episode completion
                 self.logger.info(f"Episode {episode}/{self.episodes} completed in {episode_duration:.2f}s")
@@ -395,7 +382,6 @@ class EnhancedUnifiedTrainingSystem:
             return {}
         finally:
             self.training_active = False
-            # Dashboard will be closed automatically when training stops
 
     def _run_episode(self, episode: int) -> Dict[str, Any]:
         """Execute a single training episode."""
@@ -442,7 +428,7 @@ class EnhancedUnifiedTrainingSystem:
         # Execute actions for each agent
         for agent_name, agent in self.agents.items():
             try:
-                # Get agent action with enhanced details
+                # Get agent action
                 action_result = self._get_agent_action(agent, state, agent_name, episode, step)
                 
                 # Process action (fix slice error)
@@ -462,33 +448,6 @@ class EnhancedUnifiedTrainingSystem:
                 
                 # Calculate reward
                 reward = self._calculate_reward(action_command, env_result, agent_name)
-                
-                # Get agent decision info for dashboard
-                agent_decision_info = self._get_agent_decision_info(agent, action_command, reward)
-                
-                # Get stored decision context if available
-                decision_context = getattr(agent, '_last_decision_context', {})
-                
-                # Update dashboard with real-time agent status including thought process
-                if self.dashboard_available and self.dashboard:
-                    self.dashboard.update_agent_status(agent_name, {
-                        "action": action_command,
-                        "target": env_result.get('target', 'N/A'),
-                        "output": env_result.get('output', 'No output'),
-                        "thought_process": decision_context.get('thought_process', f"Executing {action_command}"),
-                        "next_step": decision_context.get('next_step', "Analyzing results..."),
-                        "reasoning": agent_decision_info.get("reasoning", f"Executing {action_command}"),
-                        "reward": reward,
-                        "epsilon": agent_decision_info.get("epsilon", 0.0),
-                        "confidence": agent_decision_info.get("confidence", 0.5),
-                        "status": "ACTIVE",
-                        "phase": state.get('phase', 'unknown'),
-                        "step_count": step,
-                        "success_rate": agent_decision_info.get("success_rate", 0.0),
-                        "neural_state": agent_decision_info.get("neural_state", {}),
-                        "gpt_calls": agent_decision_info.get("gpt_calls", 0),
-                        "success": env_result.get('success', False)
-                    })
                 
                 # Create action record
                 action_record = AgentAction(
@@ -538,191 +497,49 @@ class EnhancedUnifiedTrainingSystem:
         
         # Display agent activity
         if self.verbosity == "detailed":
-            if self.dashboard_available and self.dashboard:
-                # Dashboard handles the display automatically
-                pass
+            if 'display_detailed_agent_status' in globals():
+                display_detailed_agent_status(agent_data, episode, step)
             else:
                 self._display_basic_activity(agent_data, episode, step)
         
         step_results['agent_data'] = agent_data
         return step_results
 
-    def _get_agent_action(self, agent: Any, state: Dict, agent_name: str, episode: int, step: int) -> str:
-        """Get agent action with detailed thought process and next step analysis."""
+    def _get_agent_action(self, agent: Any, state: Dict, agent_name: str, episode: int, step: int) -> Any:
+        """Get action from agent with proper error handling."""
         try:
-            # Prepare agent state with enhanced context
+            # Prepare agent state
             agent_state = {
                 'target': self.target_ip,
                 'phase': state.get('phase', 'reconnaissance'),
                 'episode': episode,
                 'step': step,
-                'previous_actions': len(self.action_history),
-                'recent_outputs': [action.output for action in self.action_history[-3:]] if self.action_history else [],
-                'last_success': self.action_history[-1].success if self.action_history else False
+                'previous_actions': len(self.action_history)
             }
             
-            # Get action based on agent type - handle different return formats
-            action_result = None
-            decision_context = {}
-            
+            # Get action based on agent type
             if hasattr(agent, 'act'):
-                action_result = agent.act(agent_state)
-                # Try to extract thought process from agent
-                if hasattr(agent, 'last_reasoning'):
-                    decision_context['thought_process'] = getattr(agent, 'last_reasoning', '')
-                if hasattr(agent, 'next_planned_action'):
-                    decision_context['next_step'] = getattr(agent, 'next_planned_action', '')
+                action = agent.act(agent_state)
             elif hasattr(agent, 'select_action'):
-                action_result = agent.select_action(agent_state)
-                # For neural agents, try to get planning info
-                if hasattr(agent, 'get_action_reasoning'):
-                    try:
-                        reasoning = agent.get_action_reasoning(agent_state)
-                        decision_context['thought_process'] = reasoning
-                    except:
-                        pass
+                action = agent.select_action(agent_state)
             elif hasattr(agent, 'get_action'):
-                action_result = agent.get_action(agent_state)
-                # Extract decision info if available
-                if isinstance(action_result, tuple) and len(action_result) > 1:
-                    decision_info = action_result[1]
-                    if isinstance(decision_info, dict):
-                        decision_context.update(decision_info)
+                action = agent.get_action(agent_state)
             else:
                 # Fallback action
-                return f"scan {self.target_ip}"
+                action = f"scan {self.target_ip}"
             
-            # Handle different return formats
-            final_action = ""
-            if isinstance(action_result, tuple) and len(action_result) > 0:
-                # get_action returns (action, decision_info)
-                action = action_result[0]
-                if len(action_result) > 1 and isinstance(action_result[1], dict):
-                    decision_context.update(action_result[1])
-                    
-                if isinstance(action, dict) and 'command' in action:
-                    final_action = action['command']
-                elif isinstance(action, str):
-                    final_action = action
-                else:
-                    final_action = str(action)
-            elif isinstance(action_result, dict):
-                # act methods return dict with 'command' or 'action'
-                if 'command' in action_result:
-                    final_action = action_result['command']
-                elif 'action' in action_result:
-                    final_action = action_result['action']
-                else:
-                    final_action = str(action_result)
-                # Store additional context
-                decision_context.update({k: v for k, v in action_result.items() 
-                                       if k not in ['command', 'action']})
-            elif isinstance(action_result, str):
-                # Direct string action
-                final_action = action_result
-            else:
-                # Convert to string
-                final_action = str(action_result)
-            
-            # Generate intelligent thought process if not provided
-            if 'thought_process' not in decision_context:
-                decision_context['thought_process'] = self._generate_thought_process(agent_name, final_action, agent_state)
-            
-            # Generate next step if not provided
-            if 'next_step' not in decision_context:
-                decision_context['next_step'] = self._generate_next_step(agent_name, final_action, agent_state)
-            
-            # Store decision context for dashboard update
-            if hasattr(agent, '_last_decision_context'):
-                agent._last_decision_context = decision_context
-            else:
-                setattr(agent, '_last_decision_context', decision_context)
-            
-            return final_action
+            return action
             
         except Exception as e:
             self.logger.error(f"Action generation failed for {agent_name}: {e}")
             return f"error_action_{agent_name}"
-
-    def _generate_thought_process(self, agent_name: str, action: str, state: Dict) -> str:
-        """Generate intelligent thought process for agents."""
-        phase = state.get('phase', 'unknown')
-        target = state.get('target', 'unknown')
-        
-        if agent_name == "RedAgent":
-            if "nmap" in action.lower():
-                return f"Initiating network reconnaissance on {target}. Need to identify open ports and services."
-            elif "exploit" in action.lower():
-                return f"Attempting exploitation based on discovered vulnerabilities. High-value target identified."
-            elif "scan" in action.lower():
-                return f"Conducting systematic scan of {target} to map attack surface."
-            else:
-                return f"Analyzing target {target} for optimal attack vector in {phase} phase."
-        elif agent_name == "BlueAgent":
-            return f"Monitoring defensive posture. Analyzing threats in {phase} phase and strengthening security."
-        elif agent_name == "OrionAgent":
-            return f"Coordinating team strategy for {phase}. Optimizing agent collaboration and resource allocation."
-        elif agent_name == "ScoutAgent":
-            return f"Gathering intelligence on {target}. Mapping environment for tactical advantage."
-        elif agent_name == "ShadowAgent":
-            return f"Operating in stealth mode during {phase}. Maintaining covert presence and avoiding detection."
-        else:
-            return f"Processing tactical decision for {action} in {phase} phase."
-
-    def _generate_next_step(self, agent_name: str, current_action: str, state: Dict) -> str:
-        """Generate next planned step for agents."""
-        phase = state.get('phase', 'unknown')
-        
-        if agent_name == "RedAgent":
-            if "nmap" in current_action.lower():
-                return "Analyze scan results and identify vulnerable services for targeted exploitation"
-            elif "scan" in current_action.lower():
-                return "Process scan data and select high-priority targets for deeper enumeration"
-            elif "exploit" in current_action.lower():
-                return "Establish persistence and escalate privileges if exploitation successful"
-            else:
-                return "Evaluate results and plan next attack vector based on discovered information"
-        elif agent_name == "BlueAgent":
-            return "Analyze security logs and implement countermeasures against detected threats"
-        elif agent_name == "OrionAgent":
-            return "Review team performance metrics and issue strategic directives for optimization"
-        elif agent_name == "ScoutAgent":
-            return "Compile intelligence report and identify new reconnaissance targets"
-        elif agent_name == "ShadowAgent":
-            return "Maintain operational security and prepare for covert operations"
-        else:
-            return f"Continue tactical operations in {phase} phase"
 
     def _execute_in_environment(self, action: str, agent_name: str) -> Dict[str, Any]:
         """Execute action in environment with fallback."""
         try:
             if self.environment and hasattr(self.environment, 'step'):
                 result = self.environment.step(action)
-                
-                # Handle different return formats from environment
-                if isinstance(result, tuple) and len(result) >= 4:
-                    # Standard gym format: (state, reward, done, info)
-                    state, reward, done, info = result
-                    return {
-                        'output': info.get('output', f"Executed: {action}") if isinstance(info, dict) else f"Executed: {action}",
-                        'success': reward > 0,  # Positive reward indicates success
-                        'target': self.target_ip,
-                        'execution_time': info.get('execution_time', 1.0) if isinstance(info, dict) else 1.0,
-                        'reward': reward,
-                        'done': done,
-                        'state': state
-                    }
-                elif isinstance(result, dict):
-                    # Already in correct format
-                    return result
-                else:
-                    # Fallback for unexpected formats
-                    return {
-                        'output': f"Executed: {action}",
-                        'success': True,
-                        'target': self.target_ip,
-                        'execution_time': 1.0
-                    }
+                return result
             else:
                 # Mock environment execution
                 success = random.random() > 0.3  # 70% success rate
@@ -740,108 +557,6 @@ class EnhancedUnifiedTrainingSystem:
                 'target': self.target_ip,
                 'execution_time': 0.0
             }
-
-    def _get_agent_decision_info(self, agent: Any, action: str, reward: float) -> Dict[str, Any]:
-        """Extract decision information from agent for dashboard display."""
-        try:
-            info = {
-                "reasoning": f"Executing action: {action}",
-                "epsilon": 0.0,
-                "confidence": 0.5,
-                "success_rate": 0.0,
-                "neural_state": {},
-                "gpt_calls": 0
-            }
-            
-            # Extract epsilon for neural agents
-            if hasattr(agent, 'epsilon'):
-                info["epsilon"] = float(getattr(agent, 'epsilon', 0.0))
-            
-            # Extract neural network state
-            if hasattr(agent, 'neural_trainer') and agent.neural_trainer:
-                neural_trainer = agent.neural_trainer
-                if hasattr(neural_trainer, 'current_loss'):
-                    info["neural_state"]["loss"] = float(getattr(neural_trainer, 'current_loss', 0.0))
-                if hasattr(neural_trainer, 'learning_rate'):
-                    info["neural_state"]["learning_rate"] = float(getattr(neural_trainer, 'learning_rate', 0.001))
-            
-            # Extract GPT call count
-            if hasattr(agent, 'gpt_manager') and hasattr(agent.gpt_manager, 'total_calls'):
-                info["gpt_calls"] = int(getattr(agent.gpt_manager, 'total_calls', 0))
-            
-            # Calculate confidence based on recent rewards
-            info["confidence"] = min(1.0, max(0.0, (reward + 1.0) / 2.0))
-            
-            # Extract reasoning from GPT decisions
-            if hasattr(agent, 'last_gpt_reasoning'):
-                info["reasoning"] = str(getattr(agent, 'last_gpt_reasoning', info["reasoning"]))
-            
-            return info
-            
-        except Exception as e:
-            self.logger.warning(f"Failed to extract agent decision info: {e}")
-            return {
-                "reasoning": f"Executing action: {action}",
-                "epsilon": 0.0,
-                "confidence": 0.5,
-                "success_rate": 0.0,
-                "neural_state": {},
-                "gpt_calls": 0
-            }
-
-    def _update_coordination_dashboard(self, episode: int):
-        """Update coordination status for OrionAgent oversight."""
-        try:
-            if not (self.dashboard_available and self.dashboard):
-                return
-                
-            # Calculate team metrics
-            total_agents = len(self.agents)
-            active_agents = total_agents  # All are active during training
-            
-            # Calculate team coherence based on action diversity
-            recent_actions = [action.command for action in self.action_history[-50:]]
-            unique_actions = len(set(recent_actions)) if recent_actions else 1
-            total_recent = len(recent_actions) if recent_actions else 1
-            coherence_score = min(1.0, unique_actions / total_recent)
-            
-            # Calculate team efficiency from recent rewards
-            recent_rewards = [action.reward for action in self.action_history[-20:]]
-            avg_reward = sum(recent_rewards) / len(recent_rewards) if recent_rewards else 0
-            team_efficiency = min(1.0, max(0.0, (avg_reward + 1.0) / 2.0))
-            
-            # Determine strategy based on phase
-            current_phase = "balanced"
-            if self.action_history:
-                last_phase = self.action_history[-1].phase
-                if last_phase in ["reconnaissance", "enumeration"]:
-                    current_phase = "stealth"
-                elif last_phase in ["exploitation", "privilege_escalation"]:
-                    current_phase = "aggressive"
-            
-            # Generate OrionAgent insights
-            insights = f"Episode {episode}: Team coordination optimal. "
-            if team_efficiency > 0.7:
-                insights += "High performance maintained."
-            elif team_efficiency > 0.4:
-                insights += "Performance stable, monitoring for improvements."
-            else:
-                insights += "Performance below target, adjusting strategy."
-            
-            self.dashboard.update_coordination_status({
-                "directives_active": min(5, len(self.agents)),
-                "global_strategy": current_phase,
-                "coherence_score": coherence_score,
-                "crisis_interventions": max(0, int((1.0 - team_efficiency) * 10)),
-                "orion_insights": insights,
-                "team_efficiency": team_efficiency
-            })
-            
-            # Update dashboard display
-            self.dashboard.update_display()
-            
-        except Exception as e:
-            self.logger.warning(f"Failed to update coordination dashboard: {e}")
 
     def _calculate_reward(self, action: str, env_result: Dict, agent_name: str) -> float:
         """Calculate reward for agent action."""
@@ -882,10 +597,10 @@ class EnhancedUnifiedTrainingSystem:
                 'total_episodes': self.episodes,
                 'avg_actions': avg_actions,
                 'avg_success_rate': (avg_success / max(avg_actions, 1)) * 100,
-                'runtime': time.time() - (self.start_time or time.time())
+                'runtime': time.time() - self.start_time
             }
             
-            if 'display_training_metrics' in globals() and not self.dashboard_available:
+            if 'display_training_metrics' in globals():
                 display_training_metrics(progress_data, self.session_id, progress_data['runtime'])
             else:
                 print(f"Progress: {episode}/{self.episodes} episodes, {avg_actions:.1f} avg actions, {progress_data['avg_success_rate']:.1f}% success")
@@ -982,82 +697,10 @@ def main():
         print(f"📊 Total Actions: {results.get('total_actions', 0)}")
         print(f"✅ Success Rate: {results.get('success_rate', 0):.1f}%")
         print(f"⏱️ Duration: {results.get('training_duration', 0):.1f}s")
-        print(f"🔧 Device: {results.get('device_used', 'unknown')}")
         return 0
     else:
-        print("❌ Training failed!")
-        return 1
-
-def test_dashboard():
-    """Test the dashboard functionality."""
-    print("🎮 Testing Enhanced Agent Dashboard...")
-    
-    try:
-        from core.ui.enhanced_agent_dashboard import EnhancedAgentDashboard
-        
-        # Initialize dashboard
-        dashboard = EnhancedAgentDashboard(update_interval=1.0)
-        dashboard.start_live_dashboard()
-        
-        # Simulate agent activity for testing
-        import time
-        import random
-        
-        agents = ['RedAgent', 'BlueAgent', 'ScoutAgent', 'ShadowAgent', 'OrionAgent']
-        actions = ['scan', 'exploit', 'enumerate', 'defend', 'infiltrate']
-        
-        print("📊 Running dashboard simulation for 30 seconds...")
-        
-        for i in range(30):
-            for agent in agents:
-                action = random.choice(actions)
-                reward = random.uniform(-0.5, 1.5)
-                success = reward > 0
-                
-                dashboard.update_agent_status(agent, {
-                    "action": f"{action} target_system",
-                    "reasoning": f"Strategic {action} based on current intelligence",
-                    "reward": reward,
-                    "epsilon": random.uniform(0.1, 0.9),
-                    "confidence": random.uniform(0.3, 0.95),
-                    "status": "ACTIVE",
-                    "phase": random.choice(["reconnaissance", "exploitation", "enumeration"]),
-                    "step_count": i + 1,
-                    "success_rate": random.uniform(0.4, 0.9),
-                    "neural_state": {
-                        "loss": random.uniform(0.01, 0.5),
-                        "learning_rate": 0.001
-                    },
-                    "gpt_calls": random.randint(0, 50),
-                    "success": success
-                })
-            
-            # Update coordination status
-            dashboard.update_coordination_status({
-                "directives_active": len(agents),
-                "global_strategy": random.choice(["stealth", "aggressive", "balanced"]),
-                "coherence_score": random.uniform(0.6, 0.95),
-                "crisis_interventions": random.randint(0, 3),
-                "orion_insights": f"Simulation step {i+1}: Team performance optimal",
-                "team_efficiency": random.uniform(0.5, 0.95)
-            })
-            
-            dashboard.update_display()
-            time.sleep(1)
-        
-        # Dashboard will be closed automatically
-        print("✅ Dashboard test completed successfully!")
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Dashboard test failed: {e}")
+        print("\n❌ Training failed!")
         return 1
 
 if __name__ == "__main__":
-    import sys
-    
-    # Add dashboard test option
-    if len(sys.argv) > 1 and sys.argv[1] == "--test-dashboard":
-        sys.exit(test_dashboard())
-    else:
-        sys.exit(main())
+    exit(main())
