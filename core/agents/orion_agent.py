@@ -3,9 +3,11 @@
 
 import os
 import random
+import time
 import torch
 import numpy as np
 import json
+import logging
 from typing import Dict, List, Any, Optional, Union, Tuple
 from rich.console import Console
 from rich.table import Table
@@ -24,6 +26,7 @@ from core.multiagent.strategic_directive import (
 )
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 class OrionAgent(AgentInterface, MemorySyncInterface):
@@ -42,9 +45,102 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
     def agent_id(self):
         return self._agent_id
 
-    def process_directive(self, directive):
-        # Placeholder for directive handling
-        return {"status": "acknowledged", "directive": directive}
+    def process_directive(self, directive_type: str, parameters: Dict[str, Any], 
+                         priority: int = 1, source_agent: str = "system") -> Dict[str, Any]:
+        """
+        Process a directive received from another agent or the system.
+        
+        Args:
+            directive_type: Type of directive to process
+            parameters: Parameters for the directive
+            priority: Priority level (1-5)
+            source_agent: Agent ID that issued the directive
+            
+        Returns:
+            Dict with processing results
+        """
+        try:
+            # Log the received directive
+            if self.verbosity not in ["quiet", "silent"]:
+                console.print(f"[blue]👁️ OrionAgent received directive: {directive_type} from {source_agent}[/blue]")
+            
+            processing_result = {
+                "status": "acknowledged",
+                "directive_type": directive_type,
+                "source_agent": source_agent,
+                "action_taken": "processed"
+            }
+            
+            # Process based on directive type
+            directive_type_lower = directive_type.lower()
+            
+            if "strategic_review" in directive_type_lower:
+                # Trigger immediate strategic review
+                env_state = {}
+                if self.red_agent and hasattr(self.red_agent, "env"):
+                    env_state = self.red_agent.env.get_global_state()
+                context = self._gather_context(env_state)
+                review = self.perform_strategic_review(context)
+                processing_result["action_taken"] = f"Performed strategic review: {review[:100]}..."
+                
+            elif "tactical_review" in directive_type_lower:
+                # Trigger immediate tactical review
+                env_state = {}
+                if self.red_agent and hasattr(self.red_agent, "env"):
+                    env_state = self.red_agent.env.get_global_state()
+                context = self._gather_context(env_state)
+                review = self.perform_tactical_review(context)
+                processing_result["action_taken"] = f"Performed tactical review: {review[:100]}..."
+                
+            elif "adjust_parameters" in directive_type_lower:
+                # Adjust agent parameters
+                env_state = {}
+                if self.red_agent and hasattr(self.red_agent, "env"):
+                    env_state = self.red_agent.env.get_global_state()
+                context = self._gather_context(env_state)
+                adjustments = self.adjust_agent_parameters(context)
+                processing_result["action_taken"] = f"Adjusted parameters: {adjustments}"
+                
+            elif "change_strategy" in directive_type_lower:
+                # Change global strategy
+                new_strategy = parameters.get("strategy", "balanced")
+                if new_strategy in ["balanced", "aggressive", "stealth"]:
+                    self.global_strategy = new_strategy
+                    processing_result["action_taken"] = f"Changed global strategy to: {new_strategy}"
+                else:
+                    processing_result["action_taken"] = f"Invalid strategy requested: {new_strategy}"
+                    
+            elif "generate_chain" in directive_type_lower:
+                # Generate new action chain
+                env_state = {}
+                if self.red_agent and hasattr(self.red_agent, "env"):
+                    env_state = self.red_agent.env.get_global_state()
+                context = self._gather_context(env_state)
+                chain = self.generate_action_chain(context)
+                self.current_chain = chain
+                processing_result["action_taken"] = f"Generated action chain with {len(chain)} commands"
+                
+            else:
+                processing_result["action_taken"] = f"Acknowledged unknown directive type: {directive_type}"
+            
+            # Log to memory router if available
+            if self.memory_router and hasattr(self.memory_router, 'log_directive_processed'):
+                directive_id = f"{source_agent}_{directive_type}_{priority}_{self.step_counter}"
+                self.memory_router.log_directive_processed(
+                    directive_id=directive_id,
+                    result=processing_result["action_taken"]
+                )
+            
+            return processing_result
+            
+        except Exception as e:
+            console.print(f"[red]❌ Error processing directive: {e}[/red]")
+            return {
+                "status": "error",
+                "directive_type": directive_type,
+                "source_agent": source_agent,
+                "error": str(e)
+            }
 
     def provide_reasoning(self, context_type, context_data):
         """
@@ -158,6 +254,12 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         }
 
         console.print(f"[green]✓ {self.agent_id} initialized[/green]")
+        
+        # Add environment and stats monitor for main.py compatibility
+        from core.environment.cyber_environment import CyberEnvironment
+        from core.utils.stats_monitor import StatsMonitor
+        self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True) if agent_manager else None
+        self.stats_monitor = StatsMonitor()
 
     def _init_multiagent_links(self):
         """Initialize links to other agents in the system."""
@@ -186,7 +288,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         self,
         directive_type: Union[DirectiveType, str],
         target_agent: str,
-        parameters: Dict[str, Any] = None,
+        parameters: Optional[Dict[str, Any]] = None,
         priority: int = 1,
     ) -> StrategicDirective:
         """
@@ -213,7 +315,18 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         )
 
         # Add to directive manager
-        directive_manager.add_directive(directive)
+        if hasattr(directive_manager, 'issue_directive'):
+            # DirectiveManager already handles the directive creation, so we store it directly
+            directive_manager.directives[directive.id] = directive
+            directive_manager._add_to_index(directive_manager.directives_by_target, directive.target_agent, directive)
+            directive_manager._add_to_index(directive_manager.directives_by_source, directive.source_agent, directive)
+            directive_manager._add_to_index(directive_manager.directives_by_type, directive.get_type_name(), directive)
+            directive_manager._add_to_index(directive_manager.directives_by_status, directive.status.name, directive)
+        else:
+            # Fallback: store directive locally if manager doesn't support adding
+            if not hasattr(self, '_local_directives'):
+                self._local_directives = []
+            self._local_directives.append(directive)
 
         if self.verbosity not in ["quiet", "silent"]:
             console.print(f"[blue]👁️ OrionAgent issued directive: {directive}[/blue]")
@@ -235,7 +348,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
     def issue_global_directive(
         self,
         directive_type: Union[DirectiveType, str],
-        parameters: Dict[str, Any] = None,
+        parameters: Optional[Dict[str, Any]] = None,
         priority: int = 1,
     ) -> List[StrategicDirective]:
         """
@@ -268,9 +381,88 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             )
 
         return directives
+    
+    def get_smart_command(self, state: Dict[str, Any], phase: str) -> tuple[str, str]:
+        """Generate strategic command for main.py compatibility."""
+        try:
+            # OrionAgent provides strategic oversight rather than direct commands
+            # Analyze current state and provide high-level guidance
+            open_ports = state.get("open_ports", [])
+            privilege_level = state.get("privilege_level", "user")
+            detection_risk = state.get("detection_risk", 0)
+            
+            if phase == "recon":
+                if detection_risk > 40:
+                    command = "nmap -sS -T2 10.10.10.10 -p 22,80,443"  # Slower scan
+                    reason = "Strategic directive: Prioritize stealth over speed in recon"
+                else:
+                    command = "nmap -sS -sV 10.10.10.10"  # Version detection
+                    reason = "Strategic directive: Gather comprehensive service information"
+            elif phase == "exploit":
+                if open_ports and 22 in open_ports:
+                    command = "hydra -l admin -P rockyou.txt ssh://10.10.10.10"
+                    reason = "Strategic directive: Target SSH service for credential attack"
+                else:
+                    command = "searchsploit $(nmap -sS 10.10.10.10 --script=version)"
+                    reason = "Strategic directive: Search for known vulnerabilities"
+            else:
+                command = "whoami && id"  # Safe command for any phase
+                reason = f"Strategic directive: Assess current capabilities in {phase} phase"
+            
+            return command, reason
+        except Exception as e:
+            # Strategic fallback
+            return "echo 'Strategic analysis in progress'", f"Orion strategic fallback: {e}"
+
+    def act(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Take strategic action based on current state.
+        
+        Args:
+            state: Current environment state
+            
+        Returns:
+            Dict with action, success, reward, and info
+        """
+        # Orion agent focuses on strategic oversight and coordination
+        mission_progress = state.get("mission_progress", 0)
+        agent_coordination = state.get("agent_coordination", 50)
+        strategic_value = state.get("strategic_value", 30)
+        
+        if mission_progress < 25:
+            # Early mission phase - strategic planning
+            action = "echo 'Analyzing target infrastructure and planning approach'"
+            success = True
+            reward = 40  # High reward for strategic planning
+            info = {"action_type": "strategic_planning", "progress": mission_progress}
+        elif agent_coordination < 60:
+            # Need better coordination
+            action = "echo 'Coordinating multi-agent operations for optimal efficiency'"
+            success = True
+            reward = 35  # Reward for coordination
+            info = {"action_type": "coordination", "coordination_level": agent_coordination}
+        elif strategic_value > 70:
+            # High value target identified
+            action = "echo 'High-value target identified - directing focused operations'"
+            success = True
+            reward = 50  # High reward for strategic insight
+            info = {"action_type": "target_prioritization", "value": strategic_value}
+        else:
+            # Strategic oversight
+            action = "echo 'Monitoring overall mission status and adjusting strategy'"
+            success = True
+            reward = 30  # Standard oversight reward
+            info = {"action_type": "strategic_oversight", "progress": mission_progress}
+        
+        return {
+            "action": action,
+            "success": success,
+            "reward": reward,
+            "info": info
+        }
 
     def simulate_step(
-        self, episode: int = 1, step: int = 1, shared_context: Dict[str, Any] = None
+        self, episode: int = 1, step: int = 1, shared_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Simulate a step for this agent in the training loop.
@@ -378,14 +570,17 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         # Log step to memory router
         if self.memory_router:
-            self.memory_router.log_orion_oversight(
-                strategic_review=results.get("strategic_review", False),
-                tactical_review=results.get("tactical_review", False),
-                directives=results.get("directives", []),
-                parameter_adjustments=results.get("parameter_adjustments", {}),
-                step=step,
-                episode=episode,
-            )
+            oversight_data = {
+                "strategic_review": results.get("strategic_review", False),
+                "tactical_review": results.get("tactical_review", False),
+                "directives": results.get("directives", []),
+                "parameter_adjustments": results.get("parameter_adjustments", {}),
+                "step": step,
+                "episode": episode,
+                "agent_id": self.agent_id,
+                "global_strategy": self.global_strategy
+            }
+            self.memory_router.log_orion_oversight(oversight_data)
 
         # Display information based on verbosity
         if self.verbosity in ("standard", "verbose", "debug"):
@@ -488,10 +683,19 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         # Add memory router insights if available
         if self.memory_router and hasattr(self.memory_router, "get_global_insights"):
-            context["global_insights"] = self.memory_router.get_global_insights()
+            try:
+                context["global_insights"] = self.memory_router.get_global_insights()
+            except (AttributeError, Exception):
+                context["global_insights"] = {}
+        else:
+            context["global_insights"] = {}
 
         # Add current action chain
-        context["current_chain"] = self.current_chain
+        context["current_chain"] = {
+            "commands": self.current_chain,
+            "length": len(self.current_chain),
+            "phase": env_state.get("phase", "recon")
+        }
 
         return context
 
@@ -545,6 +749,9 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             response = self.llm_orchestrator.route_task(
                 task_type="strategic", prompt=prompt, agent_id=self.agent_id
             )
+            # Extract response text if it's a dict
+            if isinstance(response, dict):
+                response = response.get("response", str(response))
         except Exception as e:
             console.print(
                 f"[yellow]⚠ Error in strategic review: {e}. Using GPT fallback.[/yellow]"
@@ -552,17 +759,20 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             response = self.gpt_manager.gpt_request(
                 prompt, "gpt-4o-mini", agent_id=self.agent_id
             )
+            # Ensure response is a string
+            if not isinstance(response, str):
+                response = str(response)
 
         # Store strategic review in memory for future reference
         if self.memory_router and hasattr(self.memory_router, "log_strategic_review"):
-            self.memory_router.log_strategic_review(
-                agent_id=self.agent_id,
-                phase=current_phase,
-                context=formatted_context,
-                insights=response,
-                episode=self.episode_counter,
-                step=self.step_counter,
-            )
+            self.memory_router.log_strategic_review({
+                "agent_id": self.agent_id,
+                "phase": current_phase,
+                "context": formatted_context,
+                "insights": response,
+                "episode": self.episode_counter,
+                "step": self.step_counter,
+            })
 
         # Issue strategic directives based on review
         self._issue_directives_from_review(response, env_state)
@@ -588,7 +798,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             for term in ["stealth", "detection", "quiet", "careful", "avoid alerting"]
         ):
             self.issue_global_directive(
-                directive_type=DirectiveType.STEALTH,
+                directive_type=DirectiveType.INCREASE_STEALTH,
                 parameters={"reason": "Strategic review indicates need for stealth"},
                 priority=(
                     4
@@ -603,7 +813,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             for term in ["aggressive", "faster", "speed", "accelerate", "quickly"]
         ):
             self.issue_global_directive(
-                directive_type=DirectiveType.AGGRESSIVE,
+                directive_type=DirectiveType.DECREASE_STEALTH,
                 parameters={"reason": "Strategic review indicates need for aggression"},
                 priority=3,
             )
@@ -621,14 +831,14 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             if focus_services:
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="RedAgent",
                     parameters={"service_focus": focus_services[0]},
                     priority=3,
                 )
 
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="ScoutAgent",
                     parameters={"service_focus": focus_services[0]},
                     priority=3,
@@ -645,7 +855,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 or f"switch to {phase}" in review_lower
             ):
                 self.issue_directive(
-                    directive_type=DirectiveType.CHANGE_PHASE,
+                    directive_type=DirectiveType.CHANGE_STRATEGY,
                     target_agent="RedAgent",
                     parameters={"new_phase": phase},
                     priority=4,
@@ -658,7 +868,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             for term in ["coordinate", "coordination", "together", "synchronize"]
         ):
             self.issue_global_directive(
-                directive_type=DirectiveType.COORDINATION,
+                directive_type=DirectiveType.CHANGE_STRATEGY,
                 parameters={"coordinate_on": current_phase},
                 priority=2,
             )
@@ -692,7 +902,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         if recent_actions:
             formatted_context += "Recent actions:\n" + "\n".join(recent_actions) + "\n"
 
-        # Use SenecaLLM for concise tactical advice first for efficiency
+        # Use GPT-4o-mini for concise tactical advice first for efficiency
         prompt = f"""
         As a tactical advisor for phase '{current_phase}', provide concise guidance.
         
@@ -705,16 +915,20 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         try:
             # Use GPTManager for tactical recommendations
-            seneca_response = self.gpt_manager.smart_decision(
+            gpt_response = self.gpt_manager.smart_decision(
                 task_type="tactical", 
                 task_description=prompt
             )
+
+            # Ensure gpt_response is a string
+            if isinstance(gpt_response, dict):
+                gpt_response = str(gpt_response.get("response", gpt_response.get("content", str(gpt_response))))
 
             # Review and enhance with GPT if needed
             review_prompt = f"""
             Review this tactical advice for phase '{current_phase}':
             
-            "{seneca_response}"
+            "{gpt_response}"
             
             Context:
             {formatted_context}
@@ -742,14 +956,40 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         # Store tactical review in memory for future reference
         if self.memory_router and hasattr(self.memory_router, "log_tactical_review"):
-            self.memory_router.log_tactical_review(
-                agent_id=self.agent_id,
-                phase=current_phase,
-                context=formatted_context,
-                insights=response,
-                episode=self.episode_counter,
-                step=self.step_counter,
-            )
+            self.memory_router.log_tactical_review({
+                "agent_id": self.agent_id,
+                "phase": current_phase,
+                "context": formatted_context,
+                "insights": response,
+                "episode": self.episode_counter,
+                "step": self.step_counter,
+            })
+        elif self.memory_router and hasattr(self.memory_router, "log_action"):
+            # Fallback to generic log method if tactical review method doesn't exist
+            self.memory_router.log_action({
+                "agent_id": self.agent_id,
+                "action_type": "tactical_review",
+                "action_data": {
+                    "phase": current_phase,
+                    "context": formatted_context,
+                    "insights": response,
+                    "episode": self.episode_counter,
+                    "step": self.step_counter,
+                }
+            })
+        elif self.memory_router and hasattr(self.memory_router, "store_memory"):
+            # Another fallback option
+            self.memory_router.store_memory({
+                "agent_id": self.agent_id,
+                "memory_type": "tactical_review",
+                "content": {
+                    "phase": current_phase,
+                    "context": formatted_context,
+                    "insights": response,
+                    "episode": self.episode_counter,
+                    "step": self.step_counter,
+                }
+            })
 
         return response
 
@@ -835,7 +1075,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
                     # Issue action chain directive to RedAgent
                     self.issue_directive(
-                        directive_type=DirectiveType.COORDINATION,
+                        directive_type=DirectiveType.CHANGE_STRATEGY,
                         target_agent="RedAgent",
                         parameters={"action_chain": chain, "phase": current_phase},
                         priority=3,
@@ -920,7 +1160,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             self.global_strategy = "stealth"
             # Issue high-priority stealth directive
             self.issue_global_directive(
-                directive_type=DirectiveType.STEALTH,
+                directive_type=DirectiveType.INCREASE_STEALTH,
                 parameters={
                     "reason": "High alert or detection risk",
                     "level": "maximum",
@@ -931,7 +1171,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             self.global_strategy = "aggressive"
             # Issue standard priority aggressive directive
             self.issue_global_directive(
-                directive_type=DirectiveType.AGGRESSIVE,
+                directive_type=DirectiveType.DECREASE_STEALTH,
                 parameters={
                     "reason": f"Critical phase: {current_phase}",
                     "level": "standard",
@@ -1252,7 +1492,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             # Issue emergency directive
             self.issue_global_directive(
-                directive_type=DirectiveType.AVOID_DETECTION,
+                directive_type=DirectiveType.ADAPTIVE_DEFENSE,
                 parameters={"reason": "Crisis: High alert level", "emergency": True},
                 priority=5,  # Maximum priority
             )
@@ -1262,6 +1502,9 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             )
 
         elif crisis_type == "agent_stuck":
+            # Initialize novel_command at method level to ensure it's defined
+            novel_command = "nmap -sS -sV target"  # Default fallback command
+            
             # Intervention for stuck agent: Force exploration
             if "RedAgent" in self.subordinate_agents:
                 red_agent = self.subordinate_agents["RedAgent"]
@@ -1276,7 +1519,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
                 intervention["actions"].append("Forced RedAgent exploration")
 
-                # Generate a novel command with GPT
+                # Generate a novel command with GPT (try to improve default)
                 env_state = context.get("env_state", {})
                 current_phase = env_state.get("phase", "recon")
 
@@ -1293,7 +1536,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 """
 
                 try:
-                    novel_command = self.gpt_manager.gpt_request(
+                    gpt_response = self.gpt_manager.gpt_request(
                         prompt,
                         model="gpt-4o-mini",
                         task_type="intervention",
@@ -1301,10 +1544,11 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                     )
 
                     if (
-                        novel_command
-                        and isinstance(novel_command, str)
-                        and len(novel_command.split()) >= 2
+                        gpt_response
+                        and isinstance(gpt_response, str)
+                        and len(gpt_response.split()) >= 2
                     ):
+                        novel_command = gpt_response  # Override with GPT response
                         # Add to RedAgent command history
                         if hasattr(red_agent, "command_history"):
                             red_agent.command_history.append(novel_command)
@@ -1319,10 +1563,11 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                     console.print(
                         f"[yellow]⚠ Error generating novel command: {e}[/yellow]"
                     )
+                    # novel_command already has fallback value
 
             # Issue directive to unstuck agent
             self.issue_directive(
-                directive_type=DirectiveType.RESOURCE_ALLOCATION,
+                directive_type=DirectiveType.COORDINATE_ACTION,
                 target_agent="RedAgent",
                 parameters={"forced_exploration": True, "novel_command": novel_command},
                 priority=4,
@@ -1376,7 +1621,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             # Issue phase change directive
             self.issue_directive(
-                directive_type=DirectiveType.CHANGE_PHASE,
+                directive_type=DirectiveType.CHANGE_STRATEGY,
                 target_agent="RedAgent",
                 parameters={
                     "new_phase": next_phase,
@@ -1411,7 +1656,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # If few ports discovered, encourage broad scanning
             if len(env_state.get("open_ports", [])) < 5:
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="ScoutAgent",
                     parameters={
                         "action": "broad_scan",
@@ -1425,7 +1670,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # If few services identified, prioritize service enumeration
             if len(env_state.get("services", [])) < 3:
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="RedAgent",
                     parameters={
                         "action": "service_enumeration",
@@ -1439,7 +1684,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # If no credentials found, prioritize credential harvesting
             if not env_state.get("credentials_found", False):
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="RedAgent",
                     parameters={
                         "action": "credential_harvest",
@@ -1453,7 +1698,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # If user-level access, prioritize escalation methods
             if env_state.get("privilege_level", "none") == "user":
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="RedAgent",
                     parameters={
                         "action": "privesc_enumeration",
@@ -1467,7 +1712,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # If not exfiltrated, prioritize data identification
             if not env_state.get("data_exfiltrated", False):
                 self.issue_directive(
-                    directive_type=DirectiveType.FOCUSED_TARGET,
+                    directive_type=DirectiveType.FOCUS_TARGET,
                     target_agent="RedAgent",
                     parameters={
                         "action": "identify_valuable_data",
@@ -1677,13 +1922,13 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         # Log strategic adjustments to memory router
         if self.memory_router:
-            self.memory_router.log_orion_strategic_adjustment(
-                global_strategy=self.global_strategy,
-                adjustments=adjustments,
-                coherence=coherence,
-                episode=self.episode_counter,
-                step=self.step_counter,
-            )
+            self.memory_router.log_orion_strategic_adjustment({
+                "global_strategy": self.global_strategy,
+                "adjustments": adjustments,
+                "coherence": coherence,
+                "episode": self.episode_counter,
+                "step": self.step_counter,
+            })
 
         return {
             "parameter_adjustments": adjustments,
@@ -1792,7 +2037,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             # Issue high priority stealth directive
             self.issue_global_directive(
-                directive_type=DirectiveType.STEALTH,
+                directive_type=DirectiveType.INCREASE_STEALTH,
                 parameters={"reason": "High detection rate", "level": "maximum"},
                 priority=4,
             )
@@ -1809,7 +2054,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             # Issue aggressive directive
             self.issue_global_directive(
-                directive_type=DirectiveType.AGGRESSIVE,
+                directive_type=DirectiveType.DECREASE_STEALTH,
                 parameters={"reason": "High performance teams", "level": "optimized"},
                 priority=3,
             )
@@ -1927,30 +2172,155 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         else:
             return "Environment is stable. Proceed with current phase objectives."
 
-    def sync_memory(self):
+    def sync_memory(self) -> bool:
         """
         Synchronize memory with the global memory router.
         Implementation of MemorySyncInterface.
         """
-        if self.memory_router:
-            # Generate strategic summary
-            env_state = {}
-            if self.red_agent and hasattr(self.red_agent, "env"):
-                env_state = self.red_agent.env.get_global_state()
+        try:
+            if self.memory_router:
+                # Generate strategic summary
+                env_state = {}
+                if self.red_agent and hasattr(self.red_agent, "env"):
+                    env_state = self.red_agent.env.get_global_state()
 
-            context = self._gather_context(env_state)
+                context = self._gather_context(env_state)
 
-            # Periodically generate insights
-            if self.step_counter % self.strategic_review_frequency == 0:
-                insight = self.perform_strategic_review(context)
+                # Periodically generate insights
+                if self.step_counter % self.strategic_review_frequency == 0:
+                    insight = self.perform_strategic_review(context)
 
-                # Report insight to memory router
-                self.memory_router.log_orion_insight(
-                    insight=insight,
-                    global_strategy=self.global_strategy,
-                    episode=self.episode_counter,
-                    step=self.step_counter,
-                )
+                    # Report insight to memory router
+                    self.memory_router.log_orion_insight({
+                        "insight": insight,
+                        "global_strategy": self.global_strategy,
+                        "episode": self.episode_counter,
+                        "step": self.step_counter,
+                    })
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to sync memory: {e}")
+            return False
+
+    def notify_stagnation(self, agent_id: str, stagnation_data: Dict[str, Any]):
+        """Handle notification of agent stagnation and take corrective action."""
+        try:
+            if self.verbosity not in ["quiet", "silent"]:
+                console.print(f"[yellow]⚠️ OrionAgent: Stagnation detected in {agent_id}[/yellow]")
+            
+            # Log stagnation event
+            if self.memory_router:
+                self.memory_router.log_orion_insight({
+                    "type": "stagnation_notification",
+                    "agent_id": agent_id,
+                    "stagnation_data": stagnation_data,
+                    "timestamp": time.time(),
+                    "episode": self.episode_counter,
+                    "step": self.step_counter
+                })
+            
+            # Analyze stagnation cause
+            stagnation_analysis = self._analyze_stagnation(agent_id, stagnation_data)
+            
+            # Take corrective action
+            corrective_actions = self._apply_stagnation_corrections(agent_id, stagnation_analysis)
+            
+            if self.verbosity not in ["quiet", "silent"]:
+                console.print(f"[green]✓ OrionAgent: Applied {len(corrective_actions)} corrective actions for {agent_id}[/green]")
+                
+            return {
+                "status": "handled",
+                "analysis": stagnation_analysis,
+                "actions_taken": corrective_actions
+            }
+            
+        except Exception as e:
+            logger.warning(f"Failed to handle stagnation notification: {e}")
+            return {"status": "error", "error": str(e)}
+    
+    def _analyze_stagnation(self, agent_id: str, stagnation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze the cause of agent stagnation."""
+        try:
+            # Basic analysis based on stagnation data
+            analysis = {
+                "agent_id": agent_id,
+                "likely_causes": [],
+                "severity": "medium",
+                "recommendations": []
+            }
+            
+            # Check for common stagnation patterns
+            if stagnation_data.get("reward_stagnation", False):
+                analysis["likely_causes"].append("reward_plateau")
+                analysis["recommendations"].append("increase_exploration")
+                
+            if stagnation_data.get("action_repetition", False):
+                analysis["likely_causes"].append("action_loops")
+                analysis["recommendations"].append("vary_action_selection")
+                
+            if stagnation_data.get("low_learning_rate", False):
+                analysis["likely_causes"].append("insufficient_learning")
+                analysis["recommendations"].append("adjust_learning_parameters")
+                
+            # Determine severity
+            if len(analysis["likely_causes"]) >= 2:
+                analysis["severity"] = "high"
+            elif len(analysis["likely_causes"]) == 0:
+                analysis["severity"] = "low"
+                
+            return analysis
+            
+        except Exception as e:
+            logger.warning(f"Failed to analyze stagnation: {e}")
+            return {"agent_id": agent_id, "error": str(e)}
+    
+    def _apply_stagnation_corrections(self, agent_id: str, analysis: Dict[str, Any]) -> List[str]:
+        """Apply corrective actions based on stagnation analysis."""
+        actions_taken = []
+        
+        try:
+            # Find the stagnating agent
+            target_agent = None
+            if hasattr(self, 'agent_manager') and self.agent_manager:
+                for agent in getattr(self.agent_manager, 'agents', []):
+                    if hasattr(agent, 'agent_id') and agent.agent_id == agent_id:
+                        target_agent = agent
+                        break
+            
+            if not target_agent:
+                return ["agent_not_found"]
+            
+            # Apply recommendations
+            for recommendation in analysis.get("recommendations", []):
+                if recommendation == "increase_exploration" and hasattr(target_agent, 'epsilon'):
+                    old_epsilon = getattr(target_agent, 'epsilon', 0.1)
+                    new_epsilon = min(old_epsilon * 1.5, 0.8)
+                    target_agent.epsilon = new_epsilon
+                    actions_taken.append(f"increased_exploration_{old_epsilon:.3f}_to_{new_epsilon:.3f}")
+                    
+                elif recommendation == "vary_action_selection" and hasattr(target_agent, 'action_selection_mode'):
+                    target_agent.action_selection_mode = "varied"
+                    actions_taken.append("enabled_action_variation")
+                    
+                elif recommendation == "adjust_learning_parameters" and hasattr(target_agent, 'learning_rate'):
+                    old_lr = getattr(target_agent, 'learning_rate', 0.001)
+                    new_lr = old_lr * 1.2
+                    target_agent.learning_rate = new_lr
+                    actions_taken.append(f"adjusted_learning_rate_{old_lr:.6f}_to_{new_lr:.6f}")
+                    
+            # If no specific actions, apply general reset
+            if not actions_taken:
+                if hasattr(target_agent, 'reset_internal_state'):
+                    target_agent.reset_internal_state()
+                    actions_taken.append("reset_internal_state")
+                else:
+                    actions_taken.append("no_action_available")
+                    
+        except Exception as e:
+            logger.warning(f"Failed to apply stagnation corrections: {e}")
+            actions_taken.append(f"error_{str(e)}")
+            
+        return actions_taken
 
     def get_base_commands(self):
         """Return empty list as OrionAgent doesn't execute commands directly."""

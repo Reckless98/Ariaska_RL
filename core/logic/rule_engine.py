@@ -174,7 +174,9 @@ def gpt_decision_suggest(
         return gpt_decision_cache[cache_key]
     if memory_router is None:
         return "echo 'No memory_router provided'"
-    cached = memory_router.check_gpt_cache(cache_key)
+    cached = None
+    if hasattr(memory_router, 'check_gpt_cache'):
+        cached = memory_router.check_gpt_cache(cache_key)
     if cached:
         return cached
 
@@ -216,14 +218,16 @@ def explain_command_reasoning(
         return gpt_reasoning_cache[cache_key]
     if memory_router is None:
         from core.multiagent.memory_router import MemoryRouter
-        memory_router = MemoryRouter([])
+        memory_router = MemoryRouter()
 
     cache_key = f"{agent_id}_reason_{cmd}"
-    cached = memory_router.check_gpt_cache(cache_key)
+    cached = None
+    if hasattr(memory_router, "check_gpt_cache"):
+        cached = memory_router.check_gpt_cache(cache_key)
     if cached:
         if isinstance(cached, dict) and "response" in cached:
-            return cached["response"]
-        return cached
+            return str(cached["response"])
+        return str(cached) if cached else ""
 
     prompt = f"""
 You are {agent_id}'s tactical analyst.
@@ -236,7 +240,8 @@ Explain in 2 sentences why the following command is optimal:
 Focus on stealth, efficiency, and strategic fit.
 """
     reasoning = gpt_manager.gpt_request(prompt, task_type="reasoning")
-    memory_router.store_gpt_response(cache_key, reasoning)
+    if hasattr(memory_router, "store_gpt_response"):
+        memory_router.store_gpt_response(cache_key, reasoning)
     gpt_reasoning_cache[cache_key] = reasoning
     return reasoning
 
@@ -311,7 +316,7 @@ if __name__ == "__main__":
 
     manager = AgentManager()
     agents = manager.all_agents()
-    memory_router = MemoryRouter(agents)
+    memory_router = MemoryRouter()
 
     for agent in agents:
         test_rule_engine(agent, memory_router)

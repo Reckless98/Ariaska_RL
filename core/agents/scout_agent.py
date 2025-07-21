@@ -88,6 +88,12 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         # Default target for simulation
         self.default_target = "10.10.10.10"
         
+        # Add environment and stats monitor for main.py compatibility
+        from core.environment.cyber_environment import CyberEnvironment
+        from core.utils.stats_monitor import StatsMonitor
+        self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True) if agent_manager else None
+        self.stats_monitor = StatsMonitor()
+        
         # Link to other agents (will be set in _init_multiagent_links)
         self.red_agent = None
         self.shadow_agent = None
@@ -140,13 +146,15 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             Dict with scan strategy recommendations
         """
         # Get strategy from LLM orchestrator
+        context_str = str(context) if isinstance(context, dict) else context
         result = self.llm_router.request_strategy(
-            context=context,
-            task_type="scan",
+            context=context_str,
+            objective="Generate optimal reconnaissance scanning strategy",
             agent_id=self.agent_id
         )
         
-        return result
+        # Return as dict for consistency
+        return {"strategy": result, "success": True}
     
     def advise_phase(self, state: Dict[str, Any], all_agents: Optional[List[Any]] = None) -> str:
         """
@@ -201,14 +209,20 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         )
         
         try:
-            response = self.llm_router.route_task(
+            response_dict = self.llm_router.route_task(
                 task_type="tactical",
                 prompt=phase_prompt,
                 agent_id=self.agent_id
             )
             
-            # Clean and validate response
-            response = response.strip().lower()
+            # Extract content from response dict
+            if isinstance(response_dict, dict) and "content" in response_dict:
+                response = str(response_dict["content"]).strip().lower()
+            elif isinstance(response_dict, str):
+                response = response_dict.strip().lower()
+            else:
+                response = str(response_dict).strip().lower()
+            
             valid_phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
             
             # Check if response contains a valid phase
@@ -227,7 +241,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             console.print(f"[yellow]⚠ Error in phase recommendation: {e}. Using current phase.[/yellow]")
             return self.current_phase
     
-    def plan_scan(self, target_ip: str, discovered_info: Dict[str, Any] = None) -> Dict[str, Any]:
+    def plan_scan(self, target_ip: str, discovered_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Plan a scanning strategy for a target based on current information.
         
@@ -271,7 +285,68 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         
         return scan_strategy
     
-    def simulate_step(self, episode: int = 1, step: int = 1, shared_context: Dict[str, Any] = None) -> Dict[str, Any]:
+    def get_smart_command(self, state: Dict[str, Any], phase: str) -> tuple[str, str]:
+        """Generate smart command using GPT for main.py compatibility."""
+        try:
+            # Use existing plan_scan method for recon
+            target_ip = state.get("target_ip", "10.10.10.10")
+            scan_plan = self.plan_scan(target_ip, state)
+            command = scan_plan.get("command", "nmap -sS 10.10.10.10")
+            reason = scan_plan.get("reasoning", "Reconnaissance scan")
+            return command, reason
+        except Exception as e:
+            # Fallback command
+            fallback_command = "nmap -sS 10.10.10.10 -p 22,80,443"
+            return fallback_command, f"Fallback scan due to error: {e}"
+    
+    def act(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Take reconnaissance action based on current state.
+        
+        Args:
+            state: Current environment state
+            
+        Returns:
+            Dict with action, success, reward, and info
+        """
+        # Scout agent focuses on reconnaissance and intelligence gathering
+        targets_discovered = state.get("targets_discovered", 0)
+        scan_intensity = state.get("scan_intensity", 30)
+        network_coverage = state.get("network_coverage", 10)
+        
+        if targets_discovered < 3:
+            # Need to discover more targets
+            action = "nmap -sn 10.10.10.0/24"
+            success = True
+            reward = 30  # High reward for target discovery
+            info = {"action_type": "network_discovery", "targets_found": targets_discovered}
+        elif network_coverage < 50:
+            # Expand network coverage
+            action = "masscan -p1-1000 10.10.10.1-254 --rate=1000"
+            success = True
+            reward = 25  # Reward for coverage expansion
+            info = {"action_type": "coverage_expansion", "coverage": network_coverage}
+        elif scan_intensity < 60:
+            # Perform detailed scans
+            action = "nmap -sS -sV -O 10.10.10.10"
+            success = True
+            reward = 35  # High reward for detailed intel
+            info = {"action_type": "detailed_scan", "intensity": scan_intensity}
+        else:
+            # Maintain reconnaissance
+            action = "nmap -sC 10.10.10.10 -p 80,443,22,21"
+            success = True
+            reward = 20  # Standard recon reward
+            info = {"action_type": "maintenance_scan", "targets": targets_discovered}
+        
+        return {
+            "action": action,
+            "success": success,
+            "reward": reward,
+            "info": info
+        }
+
+    def simulate_step(self, episode: int = 1, step: int = 1, shared_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Simulate a step for this agent in the training loop.
         
@@ -331,15 +406,34 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             scan_ports = scan_plan.get("ports", [])
             scan_type = scan_plan.get("scan_type", "tcp")
             
-            self.memory_router.log_scout_scan(
-                target=scan_target,
-                ports=scan_ports,
-                scan_type=scan_type,
-                command=command,
-                reasoning=scan_plan.get("reasoning", ""),
-                step=step,
-                episode=episode
-            )
+            # Check if method exists before calling
+            if hasattr(self.memory_router, 'log_scout_scan'):
+                self.memory_router.log_scout_scan(
+                    target=scan_target,
+                    ports=scan_ports,
+                    scan_type=scan_type,
+                    command=command,
+                    reasoning=scan_plan.get("reasoning", ""),
+                    step=step,
+                    episode=episode
+                )
+            else:
+                # Fallback to general logging if specific method doesn't exist
+                if hasattr(self.memory_router, 'log_transition'):
+                    self.memory_router.log_transition(
+                        agent_id=self.agent_id,
+                        state={"target": scan_target, "phase": "recon"},
+                        action=command,
+                        reward=0.0,
+                        next_state={"scan_executed": True, "target": scan_target},
+                        done=False,
+                        metadata={
+                            "ports": scan_ports,
+                            "scan_type": scan_type,
+                            "reasoning": scan_plan.get("reasoning", "")
+                        },
+                        phase="recon"
+                    )
         
         # Update replay buffer
         experience = {
@@ -398,18 +492,33 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             command = command.replace("nmap", f"nmap -T{timing_level}")
         return command
     
-    def sync_memory(self):
+    def sync_memory(self) -> bool:
         """
         Synchronize memory with the global memory router.
         Implementation of MemorySyncInterface.
+        
+        Returns:
+            bool: True if sync successful, False otherwise
         """
-        if self.memory_router:
-            # Share discovered hosts and services with global memory
-            self.memory_router.update_scout_discoveries(
-                self.agent_id,
-                self.discovered_hosts,
-                self.discovered_services
-            )
+        try:
+            if self.memory_router:
+                # Share discovered hosts and services with global memory
+                # Note: These methods need to be implemented in MemoryRouter
+                if hasattr(self.memory_router, 'update_scout_discoveries'):
+                    # Convert lists to dict format for memory router
+                    hosts_dict = {"hosts": self.discovered_hosts, "count": len(self.discovered_hosts)}
+                    services_dict = {"services": self.discovered_services, "count": len(self.discovered_services)}
+                    
+                    self.memory_router.update_scout_discoveries(
+                        self.agent_id,
+                        hosts_dict,
+                        services_dict
+                    )
+                return True
+            return False
+        except Exception as e:
+            console.print(f"[red]❌ Scout memory sync failed: {e}[/red]")
+            return False
     
     def get_port_priority(self, ports: List[int]) -> List[int]:
         """
@@ -457,6 +566,10 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         """Reset agent state for a new episode."""
         self.scan_history = []
         self.command_history = []
+    
+    def provide_reasoning(self, context_type: str, context_data: dict) -> str:
+        """Provide reasoning for a given context - only available in OrionAgent."""
+        return f"ScoutAgent does not provide strategic reasoning. Use OrionAgent for strategic insights."
 
 # Main execution for testing
 if __name__ == "__main__":

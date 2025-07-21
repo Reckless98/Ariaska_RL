@@ -18,6 +18,7 @@ import random
 import threading
 import sqlite3
 import numpy as np
+from datetime import datetime
 import logging
 from collections import defaultdict, deque
 from typing import Dict, List, Any, Tuple, Optional, Set, Union
@@ -165,7 +166,7 @@ class MemoryRouter:
         alpha: float = 0.6, 
         beta_start: float = 0.4, 
         beta_frames: int = 10000,
-        persistence_path: str = None,
+        persistence_path: Optional[str] = None,
         enable_sqlite: bool = True
     ):
         self.buffer_size = buffer_size
@@ -282,6 +283,14 @@ class MemoryRouter:
     def _get_agent_buffer(self, agent_id: str) -> SumTree:
         """Get or create a sum tree buffer for an agent"""
         if agent_id not in self.buffers:
+            # Debug output to understand the buffer_size issue
+            if not isinstance(self.buffer_size, int):
+                print(f"ERROR: buffer_size is not int! Type: {type(self.buffer_size)}, Value: {self.buffer_size}")
+                # Force to integer for safety
+                try:
+                    self.buffer_size = 10000 if isinstance(self.buffer_size, (list, tuple)) else int(self.buffer_size)
+                except:
+                    self.buffer_size = 10000
             self.buffers[agent_id] = SumTree(self.buffer_size)
         return self.buffers[agent_id]
     
@@ -294,9 +303,9 @@ class MemoryRouter:
         next_state: Dict[str, Any],
         done: bool = False,
         gpt_tokens: int = 0,
-        metadata: Dict[str, Any] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         phase: str = "unknown",
-        episode_id: str = None
+        episode_id: Optional[str] = None
     ) -> bool:
         """
         Add a transition to the memory router if it's significant enough.
@@ -402,6 +411,102 @@ class MemoryRouter:
         
         return True
     
+    def log_transition(
+        self,
+        agent_id: str,
+        state: Dict[str, Any],
+        action: Any,
+        reward: float,
+        next_state: Dict[str, Any],
+        done: bool = False,
+        priority: Optional[float] = None,
+        gpt_tokens: int = 0,
+        metadata: Optional[Dict[str, Any]] = None,
+        phase: str = "unknown",
+        episode_id: Optional[str] = None
+    ) -> bool:
+        """
+        Compatibility wrapper for add_transition method.
+        This method ensures backward compatibility with existing code.
+        """
+        if priority is None:
+            priority = abs(reward) + 0.01  # Default priority calculation
+            
+        return self.add_transition(
+            agent_id=agent_id,
+            state=state,
+            action=action,
+            reward=reward,
+            next_state=next_state,
+            done=done,
+            gpt_tokens=gpt_tokens,
+            metadata=metadata or {},
+            phase=phase,
+            episode_id=episode_id or "unknown"
+        )
+    
+    def log_scout_scan(
+        self,
+        target: str,
+        ports: List[int],
+        scan_type: str,
+        command: str,
+        reasoning: str = "",
+        step: int = 0,
+        episode: int = 0
+    ) -> bool:
+        """
+        Log a scout scan action for specialized tracking.
+        """
+        return self.log_transition(
+            agent_id="ScoutAgent",
+            state={"target": target, "phase": "recon"},
+            action=command,
+            reward=0.1,  # Small positive reward for reconnaissance
+            next_state={"scan_executed": True, "target": target},
+            done=False,
+            metadata={
+                "ports": ports,
+                "scan_type": scan_type,
+                "reasoning": reasoning,
+                "step": step,
+                "episode": episode
+            },
+            phase="recon"
+        )
+    
+    def update_scout_discoveries(
+        self,
+        agent_id: str,
+        discovered_hosts: Dict[str, Any],
+        discovered_services: Dict[str, Any]
+    ) -> bool:
+        """
+        Update global memory with scout discoveries.
+        """
+        try:
+            # Store discoveries in metadata
+            discovery_data = {
+                "discovered_hosts": discovered_hosts,
+                "discovered_services": discovered_services,
+                "timestamp": time.time()
+            }
+            
+            # Log as a transition for tracking
+            return self.log_transition(
+                agent_id=agent_id,
+                state={"phase": "discovery_sync"},
+                action="sync_discoveries",
+                reward=0.05,  # Small reward for sharing intelligence
+                next_state={"discoveries_synced": True},
+                done=False,
+                metadata=discovery_data,
+                phase="recon"
+            )
+        except Exception as e:
+            logger.error(f"Failed to update scout discoveries: {e}")
+            return False
+    
     def sample_transitions(
         self, 
         agent_id: str, 
@@ -432,11 +537,18 @@ class MemoryRouter:
             if uniform:
                 # Uniform sampling for baseline comparison
                 indices = np.random.randint(0, buffer.size, size=actual_batch_size)
-                samples = [buffer.data[idx] for idx in indices]
+                samples = [buffer.data[idx] for idx in indices if buffer.data[idx] is not None]
                 
-                # No weights needed for uniform sampling
-                weights = np.ones(len(samples))
-                return samples, weights, indices
+                # Ensure we return Transition objects
+                transition_samples = []
+                for sample in samples:
+                    if isinstance(sample, Transition):
+                        transition_samples.append(sample)
+                    elif sample is not None:
+                        # Handle case where sample might be stored differently
+                        logger.warning(f"Non-Transition sample found: {type(sample)}")
+                
+                return transition_samples
             
             # Prioritized sampling
             samples = []
@@ -468,7 +580,7 @@ class MemoryRouter:
             # Normalize weights to prevent large gradient updates
             weights = weights / np.max(weights)
             
-            return samples, weights, indices
+            return samples
     
     def update_priorities(
         self, 
@@ -495,7 +607,7 @@ class MemoryRouter:
                 priority = max(priority, 0.01) ** self.alpha
                 buffer.update(idx, priority)
     
-    def get_token_usage(self, agent_id: str = None) -> Dict[str, int]:
+    def get_token_usage(self, agent_id: Optional[str] = None) -> Dict[str, int]:
         """
         Get token usage statistics.
         
@@ -514,8 +626,8 @@ class MemoryRouter:
         self, 
         agent_id: str, 
         summary: Dict[str, Any], 
-        episode_id: str = None, 
-        phase: str = None
+        episode_id: Optional[str] = None, 
+        phase: Optional[str] = None
     ) -> str:
         """
         Add a summary for an episode or phase.
@@ -558,8 +670,8 @@ class MemoryRouter:
     def get_summary(
         self, 
         agent_id: str, 
-        episode_id: str = None, 
-        phase: str = None
+        episode_id: Optional[str] = None, 
+        phase: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get a summary for an episode or phase.
@@ -615,7 +727,7 @@ class MemoryRouter:
         self, 
         agent_id: str, 
         limit: int = 10, 
-        phase: str = None
+        phase: Optional[str] = None
     ) -> List[Transition]:
         """
         Get most recent transitions for an agent.
@@ -641,7 +753,7 @@ class MemoryRouter:
                 
             where_clause = " AND ".join(query_parts)
             query = f"SELECT data FROM transitions WHERE {where_clause} ORDER BY timestamp DESC LIMIT ?"
-            params.append(limit)
+            params.append(str(limit))
             
             cursor = self.conn.execute(query, params)
             rows = cursor.fetchall()
@@ -697,7 +809,7 @@ class MemoryRouter:
                 self.conn.execute("DELETE FROM token_usage WHERE agent_id = ?", (agent_id,))
                 self.conn.commit()
     
-    def get_stats(self, agent_id: str = None) -> Dict[str, Any]:
+    def get_stats(self, agent_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Get statistics about the memory router.
         
@@ -739,7 +851,7 @@ class MemoryRouter:
                 
         return stats
     
-    def snapshot(self, path: str = None) -> str:
+    def snapshot(self, path: Optional[str] = None) -> Optional[str]:
         """
         Create a snapshot of the memory state.
         
@@ -775,6 +887,22 @@ class MemoryRouter:
                 logger.info("Successfully closed SQLite connection")
             except Exception as e:
                 logger.error(f"Error closing SQLite connection: {e}")
+    
+    def snapshot_all_memories(self) -> str:
+        """Create snapshots of all agent memories"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        snapshot_dir = f"core/memories/snapshots_{timestamp}"
+        os.makedirs(snapshot_dir, exist_ok=True)
+        
+        for agent_id in self.buffers.keys():
+            try:
+                agent_snapshot_path = os.path.join(snapshot_dir, f"{agent_id}_memory.json")
+                self.snapshot(agent_snapshot_path)
+            except Exception as e:
+                logger.warning(f"Failed to snapshot {agent_id}: {e}")
+        
+        logger.info(f"All memories snapshotted to {snapshot_dir}")
+        return snapshot_dir
     
     def log_directive(
         self,
@@ -852,7 +980,7 @@ class MemoryRouter:
         self,
         directive_id: str,
         status: str,
-        result: Dict[str, Any] = None
+        result: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
         Update the status of a strategic directive.
@@ -1016,8 +1144,8 @@ class MemoryRouter:
     
     def get_latest_action_chain(
         self,
-        agent_id: str = None,
-        phase: str = None
+        agent_id: Optional[str] = None,
+        phase: Optional[str] = None
     ) -> Optional[List[str]]:
         """
         Get the most recent action chain.
@@ -1113,3 +1241,496 @@ class MemoryRouter:
                     stats[f"by_{table_field}"][row[0]] = row[1]
             
             return stats
+
+    def log_redagent_evolution(self, agent_id: str, episode: int, evolution_data: Dict[str, Any]):
+        """Log RedAgent evolution data for tracking learning progress"""
+        try:
+            entry = {
+                "agent_id": agent_id,
+                "episode": episode,
+                "timestamp": time.time(),
+                "evolution_data": evolution_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                # Try to create table if it doesn't exist
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS evolution_log (
+                            agent_id TEXT,
+                            episode INTEGER,
+                            timestamp REAL,
+                            evolution_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO evolution_log 
+                        (agent_id, episode, timestamp, evolution_data)
+                        VALUES (?, ?, ?, ?)
+                    """, (agent_id, episode, entry["timestamp"], json.dumps(evolution_data)))
+                    self.conn.commit()
+                except Exception:
+                    pass  # Table might not exist, fallback to in-memory
+            
+            # In-memory fallback
+            if not hasattr(self, '_evolution_log'):
+                self._evolution_log = []
+            self._evolution_log.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log evolution data: {e}")
+
+    def log_shadow_suggestion(self, agent_id: str, suggestion: str, metadata: Optional[Dict[str, Any]] = None):
+        """Log shadow agent suggestions for tracking stealth operations"""
+        try:
+            entry = {
+                "agent_id": agent_id,
+                "suggestion": suggestion,
+                "timestamp": time.time(),
+                "metadata": metadata or {}
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS shadow_log (
+                            agent_id TEXT,
+                            suggestion TEXT,
+                            timestamp REAL,
+                            metadata TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO shadow_log 
+                        (agent_id, suggestion, timestamp, metadata)
+                        VALUES (?, ?, ?, ?)
+                    """, (agent_id, suggestion, entry["timestamp"], json.dumps(entry["metadata"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_shadow_log'):
+                self._shadow_log = []
+            self._shadow_log.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log shadow suggestion: {e}")
+
+    def log_training_batch(self, agent_id: str, batch_info: Dict[str, Any]):
+        """Log training batch information for performance monitoring"""
+        try:
+            entry = {
+                "agent_id": agent_id,
+                "timestamp": time.time(),
+                "batch_info": batch_info
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS training_log (
+                            agent_id TEXT,
+                            timestamp REAL,
+                            batch_info TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO training_log 
+                        (agent_id, timestamp, batch_info)
+                        VALUES (?, ?, ?)
+                    """, (agent_id, entry["timestamp"], json.dumps(batch_info)))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_training_log'):
+                self._training_log = []
+            self._training_log.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log training batch: {e}")
+
+    def sync_global_insights(self):
+        """Sync global insights across agents"""
+        try:
+            # Implementation for syncing insights
+            insights = {
+                "timestamp": time.time(),
+                "agent_count": len(getattr(self, 'buffers', {})),
+                "total_transitions": sum(len(buffer.buffer) if hasattr(buffer, 'buffer') else 0 
+                                       for buffer in getattr(self, 'buffers', {}).values()),
+                "global_priorities": self.get_global_priorities()
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS global_insights (
+                            timestamp REAL,
+                            insights_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO global_insights 
+                        (timestamp, insights_data)
+                        VALUES (?, ?)
+                    """, (insights["timestamp"], json.dumps(insights)))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            return insights
+        except Exception as e:
+            logger.warning(f"Failed to sync global insights: {e}")
+            return {}
+
+    def log_directive_processed(self, directive_id: str, result: str, metadata: Optional[Dict[str, Any]] = None):
+        """Log that a strategic directive has been processed"""
+        try:
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                self.conn.execute("""
+                    UPDATE directives SET 
+                    status = 'processed',
+                    result = ?,
+                    processed_at = ?,
+                    metadata = ?
+                    WHERE directive_id = ?
+                """, (result, time.time(), json.dumps(metadata or {}), directive_id))
+                self.conn.commit()
+            else:
+                # In-memory fallback
+                for directive in getattr(self, 'directives', []):
+                    if hasattr(directive, 'directive_id') and directive.directive_id == directive_id:
+                        directive.status = "processed"
+                        directive.result = result
+                        if hasattr(directive, 'metadata'):
+                            directive.metadata.update(metadata or {})
+                        break
+                        
+        except Exception as e:
+            logger.warning(f"Failed to log directive processing: {e}")
+
+    def get_global_priorities(self) -> Dict[str, float]:
+        """Get global priority distribution across all agents"""
+        priorities = {}
+        try:
+            buffers = getattr(self, 'buffers', {})
+            for agent_id, buffer in buffers.items():
+                if hasattr(buffer, 'buffer') and hasattr(buffer, 'priorities'):
+                    agent_priorities = buffer.priorities[:len(buffer.buffer)]
+                    if agent_priorities:
+                        priorities[agent_id] = {
+                            "avg": float(np.mean(agent_priorities)),
+                            "max": float(np.max(agent_priorities)),
+                            "min": float(np.min(agent_priorities))
+                        }
+        except Exception as e:
+            logger.warning(f"Error getting global priorities: {e}")
+        return priorities
+
+    def log_orion_oversight(self, oversight_data: Dict[str, Any]):
+        """Log Orion agent oversight data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "oversight_data": oversight_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS orion_oversight (
+                            timestamp REAL,
+                            oversight_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO orion_oversight (timestamp, oversight_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["oversight_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_orion_oversight_log'):
+                self._orion_oversight_log = []
+            self._orion_oversight_log.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log orion oversight: {e}")
+
+    def get_global_insights(self) -> Dict[str, Any]:
+        """Get global insights from memory data"""
+        try:
+            # Get all transitions from buffers
+            all_transitions = []
+            for buffer in self.buffers.values():
+                all_transitions.extend(buffer.get_all_transitions())
+            
+            insights = {
+                "total_transitions": len(all_transitions),
+                "agent_count": len(self.buffers),
+                "avg_reward": sum(t.reward for t in all_transitions) / max(len(all_transitions), 1) if all_transitions else 0.0,
+                "high_priority_count": len([t for t in all_transitions if t.priority > 2.0])
+            }
+            return insights
+        except Exception as e:
+            logger.warning(f"Error getting global insights: {e}")
+            return {}
+
+    def log_strategic_review(self, review_data: Dict[str, Any]):
+        """Log strategic review data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "review_data": review_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS strategic_reviews (
+                            timestamp REAL,
+                            review_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO strategic_reviews (timestamp, review_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["review_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_strategic_reviews'):
+                self._strategic_reviews = []
+            self._strategic_reviews.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log strategic review: {e}")
+
+    def log_tactical_review(self, review_data: Dict[str, Any]):
+        """Log tactical review data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "review_data": review_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS tactical_reviews (
+                            timestamp REAL,
+                            review_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO tactical_reviews (timestamp, review_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["review_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_tactical_reviews'):
+                self._tactical_reviews = []
+            self._tactical_reviews.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log tactical review: {e}")
+
+    def log_action(self, action_data: Dict[str, Any]):
+        """Log action data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "action_data": action_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS actions (
+                            timestamp REAL,
+                            action_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO actions (timestamp, action_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["action_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_actions_log'):
+                self._actions_log = []
+            self._actions_log.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log action: {e}")
+
+    def store_memory(self, memory_data: Dict[str, Any]):
+        """Store memory data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "memory_data": memory_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS stored_memories (
+                            timestamp REAL,
+                            memory_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO stored_memories (timestamp, memory_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["memory_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_stored_memories'):
+                self._stored_memories = []
+            self._stored_memories.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to store memory: {e}")
+
+    def log_orion_strategic_adjustment(self, adjustment_data: Dict[str, Any]):
+        """Log Orion strategic adjustment data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "adjustment_data": adjustment_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS orion_adjustments (
+                            timestamp REAL,
+                            adjustment_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO orion_adjustments (timestamp, adjustment_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["adjustment_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_orion_adjustments'):
+                self._orion_adjustments = []
+            self._orion_adjustments.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log orion strategic adjustment: {e}")
+
+    def log_orion_insight(self, insight_data: Dict[str, Any]):
+        """Log Orion insight data"""
+        try:
+            entry = {
+                "timestamp": time.time(),
+                "insight_data": insight_data
+            }
+            
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS orion_insights (
+                            timestamp REAL,
+                            insight_data TEXT
+                        )
+                    """)
+                    self.conn.execute("""
+                        INSERT INTO orion_insights (timestamp, insight_data)
+                        VALUES (?, ?)
+                    """, (entry["timestamp"], json.dumps(entry["insight_data"])))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_orion_insights'):
+                self._orion_insights = []
+            self._orion_insights.append(entry)
+                
+        except Exception as e:
+            logger.warning(f"Failed to log orion insight: {e}")
+
+    def check_gpt_cache(self, cache_key: str) -> Optional[str]:
+        """Check if a GPT response is cached"""
+        try:
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    # Ensure table exists
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS gpt_cache (
+                            cache_key TEXT PRIMARY KEY,
+                            response TEXT,
+                            timestamp REAL
+                        )
+                    """)
+                    
+                    cursor = self.conn.execute("""
+                        SELECT response FROM gpt_cache WHERE cache_key = ?
+                    """, (cache_key,))
+                    result = cursor.fetchone()
+                    if result:
+                        return result[0]
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_gpt_cache'):
+                self._gpt_cache = {}
+            return self._gpt_cache.get(cache_key)
+                
+        except Exception as e:
+            logger.warning(f"Failed to check GPT cache: {e}")
+            return None
+
+    def store_gpt_response(self, cache_key: str, response: str):
+        """Store a GPT response in cache"""
+        try:
+            if hasattr(self, 'enable_sqlite') and self.enable_sqlite and hasattr(self, 'conn'):
+                try:
+                    # Ensure table exists
+                    self.conn.execute("""
+                        CREATE TABLE IF NOT EXISTS gpt_cache (
+                            cache_key TEXT PRIMARY KEY,
+                            response TEXT,
+                            timestamp REAL
+                        )
+                    """)
+                    
+                    self.conn.execute("""
+                        INSERT OR REPLACE INTO gpt_cache (cache_key, response, timestamp)
+                        VALUES (?, ?, ?)
+                    """, (cache_key, response, time.time()))
+                    self.conn.commit()
+                except Exception:
+                    pass
+            
+            # In-memory fallback
+            if not hasattr(self, '_gpt_cache'):
+                self._gpt_cache = {}
+            self._gpt_cache[cache_key] = response
+                
+        except Exception as e:
+            logger.warning(f"Failed to store GPT response: {e}")

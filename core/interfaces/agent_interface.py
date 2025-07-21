@@ -1,17 +1,9 @@
-# core/interfaces/agent_interface.py — ARIASKA Agent Interface v2.0 APEX
+# core/interfaces/agent_interface.py — ARIASKA Agent Interface v2.1 APEX
 # 🧠 Core Interface | 🔄 Multi-Agent Protocol | 📦 Base Requirements
 from typing import Dict, List, Any, Optional, Union, Tuple
 
 class AgentInterface:
-    """
-    Base interface for all ARIASKA agents.
-    
-    Defines core methods that all agents must implement:
-    - Basic agent functionality (act, learn, reset)
-    - Hierarchical directive processing
-    - Memory synchronization
-    - Simulation step handling
-    """
+    """Base interface for all ARIASKA agents."""
     
     @property
     def agent_id(self) -> str:
@@ -24,94 +16,66 @@ class AgentInterface:
         raise NotImplementedError("Agent must implement role property")
     
     def act(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Determine the next action based on current state.
-        
-        Args:
-            state: Current environment state
-            
-        Returns:
-            Dict with action information
-        """
+        """Determine the next action based on current state."""
         raise NotImplementedError("Agent must implement act method")
 
     def learn(self, state: Dict[str, Any], action: Dict[str, Any], 
              reward: float, next_state: Dict[str, Any], done: bool) -> float:
-        """
-        Update agent's knowledge based on experience.
-        
-        Args:
-            state: Previous state
-            action: Action taken
-            reward: Reward received
-            next_state: Resulting state
-            done: Whether episode is complete
-            
-        Returns:
-            Loss value from learning
-        """
+        """Update agent's knowledge based on experience."""
         raise NotImplementedError("Agent must implement learn method")
     
     def process_directive(self, directive_type: str, parameters: Dict[str, Any], 
                          priority: int = 1, source_agent: str = "OrionAgent") -> Dict[str, Any]:
-        """
-        Process a strategic directive from another agent (typically OrionAgent).
-        
-        Args:
-            directive_type: Type of directive (e.g., STEALTH, AGGRESSIVE)
-            parameters: Additional parameters for the directive
-            priority: Priority level (1-5, with 5 being highest)
-            source_agent: Agent that issued the directive
-            
-        Returns:
-            Dict with processing results
-        """
-        # Default implementation: Log directive but take no action
-        print(f"{self.agent_id} received directive {directive_type} from {source_agent} (priority {priority})")
+        """Process a strategic directive from another agent."""
+        agent_id = getattr(self, 'agent_id', 'Agent')
+        print(f"{agent_id} received directive {directive_type} from {source_agent} (priority {priority})")
         return {"processed": False, "reason": "Not implemented by this agent"}
 
     def sync_memory(self) -> bool:
-        """
-        Synchronize agent memory with central memory system.
-        
-        Returns:
-            True if synchronization was successful, False otherwise
-        """
-        return False  # Default implementation
-    
+        """Synchronize agent memory with central memory system."""
+        return False
+
     def reset(self) -> None:
         """Reset agent state for a new episode."""
-        pass  # Default implementation does nothing
+        pass
     
     def simulate_step(self, episode: int = 1, step: int = 1,
-                     shared_context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Simulate a step for this agent in the training loop.
-        
-        Args:
-            episode: Current episode number
-            step: Current step number
-            shared_context: Shared context from agent manager
-            
-        Returns:
-            Dict with step results
-        """
-        raise NotImplementedError("Agent must implement simulate_step method")
+                     shared_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Simulate a step for this agent in the training loop."""
+        return {
+            "agent_id": getattr(self, 'agent_id', 'Unknown'),
+            "episode": episode,
+            "step": step,
+            "command": "default_action",
+            "reward": 0.0,
+            "done": False
+        }
     
-    def get_base_commands(self) -> List[str]:
-        """
-        Get the list of base commands this agent can execute.
-        
-        Returns:
-            List of command strings
-        """
-        return []  # Default implementation returns empty list
+    def generate_hint(self) -> str:
+        """Generate a hint or suggestion for the current state."""
+        return f"{getattr(self, 'agent_id', 'Agent')} suggests analyzing the current environment"
     
-    def receive_global_context(self, context: Dict[str, Any]) -> None:
-        """
-        Receive global context information from the agent manager or environment.
-        
-        Args:
-            context: Global context information
-        """
-        pass  # Default implementation does nothing
+    def provide_strategic_insights(self) -> Dict[str, Any]:
+        """Provide strategic insights for other agents."""
+        return {
+            "agent_id": getattr(self, 'agent_id', 'Unknown'),
+            "insights": "Standard operation mode",
+            "recommendations": ["Continue current strategy"],
+            "confidence": 0.5
+        }
+    
+    def execute_command(self, command: str) -> tuple:
+        """Execute a command and return results."""
+        agent_id = getattr(self, 'agent_id', 'Agent')
+        return (command, f"{agent_id} executed: {command}", 0)
+    
+    def get_action(self, state: Dict[str, Any], **kwargs) -> str:
+        """Get the next action based on current state."""
+        return "analyze_environment"
+    
+    def share_knowledge(self, target_agent) -> bool:
+        """Share knowledge with another agent."""
+        agent_id = getattr(self, 'agent_id', 'Agent')
+        if hasattr(target_agent, 'agent_id'):
+            print(f"{agent_id} sharing knowledge with {target_agent.agent_id}")
+        return True

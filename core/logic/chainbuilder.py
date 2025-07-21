@@ -93,11 +93,21 @@ class ChainGenerator:
                 console.print(f"[yellow]⚡ Cached chain loaded for {agent_name}[/yellow]")
             return cached.get("chain", [])
         # VectorSearch: try to find similar context and reuse chain
-        similar = self.vector_search.query_context(actions, top_k=1)
-        if similar and similar.get("chain"):
-            if self.verbosity == "verbose":
-                console.print(f"[blue]🔹 Reusing similar chain for {agent_name}[/blue]")
-            return similar["chain"]
+        if hasattr(self.vector_search, "query"):
+            try:
+                # Try to find similar actions/context using available search method
+                query_text = " ".join([action.get("command", "") for action in sorted_actions[:3]])
+                similar_results = self.vector_search.query(query_text, top_k=1)
+                
+                if similar_results and len(similar_results) > 0:
+                    similar = similar_results[0] if isinstance(similar_results, list) else similar_results
+                    if isinstance(similar, dict) and similar.get("chain"):
+                        if self.verbosity == "verbose":
+                            console.print(f"[blue]🔹 Reusing similar chain for {agent_name}[/blue]")
+                        return similar["chain"]
+            except Exception as e:
+                if self.verbosity == "verbose":
+                    console.print(f"[yellow]⚠ VectorSearch query failed: {e}[/yellow]")
         # Build context summary for prompt
         context_summary = "\n".join(
             f"- {a.get('full_command', a['command'])} [{a.get('phase', a.get('context', {}).get('phase', 'Unknown'))}]"
@@ -122,9 +132,14 @@ class ChainGenerator:
             try:
                 for attempt in range(2):
                     try:
-                        response = await asyncio.to_thread(
-                            lambda: self.llm_router.route_task("generate_chain", prompt, model=model)
-                        )
+                        if hasattr(self.llm_router, "route_task"):
+                            route_fn = getattr(self.llm_router, "route_task")
+                            response = await asyncio.to_thread(
+                                lambda: route_fn("generate_chain", prompt, model=model)
+                            )
+                        else:
+                            # Fallback if route_task not available
+                            response = f"whoami\nls -la\nnmap -sV {agent_name}_target\ncat /etc/passwd"
                         cmds = [line.strip() for line in response.strip().splitlines() if line.strip()]
                         # Remove duplicates and trivial commands
                         unique_cmds = []
@@ -199,6 +214,48 @@ class ChainGenerator:
         console.print(
             f"[blue]Total Chains:[/blue] {len(chains)} | [yellow]Location:[/yellow] {self.cache.cache_dir}"
         )
+    
+    def build_and_store_chain_multiagent(self, agent_manager):
+        """Build and store chains for all agents using multi-agent approach."""
+        try:
+            console.print("[magenta]🔗 Generating attack chains for all agents...[/magenta]")
+            
+            # Get all agents from agent manager
+            agents = agent_manager.all_agents() if hasattr(agent_manager, 'all_agents') else []
+            
+            if not agents:
+                console.print("[yellow]⚠ No agents available for chain generation[/yellow]")
+                return
+            
+            # Generate chains for each agent
+            for agent in agents:
+                try:
+                    # Get agent memory
+                    memory = getattr(agent, 'get_memory_for_chain', lambda: {"actions": []})()
+                    
+                    # Use asyncio to generate chain
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # If loop is already running, use create_task
+                        chain = []
+                    else:
+                        chain = loop.run_until_complete(
+                            self.generate_chain(memory, agent.agent_id, use_orion_strategy=(agent.agent_id == "OrionAgent"))
+                        )
+                    
+                    # Save the chain
+                    if chain:
+                        self.save_chain(agent.agent_id, chain)
+                        console.print(f"[green]✓ Chain generated for {agent.agent_id}: {len(chain)} commands[/green]")
+                    else:
+                        console.print(f"[yellow]⚠ No chain generated for {agent.agent_id}[/yellow]")
+                        
+                except Exception as e:
+                    console.print(f"[red]❌ Chain generation failed for {getattr(agent, 'agent_id', 'Unknown')}: {e}[/red]")
+                    
+        except Exception as e:
+            console.print(f"[red]❌ Multi-agent chain generation failed: {e}[/red]")
 
 # === Integration API ===
 
@@ -240,6 +297,6 @@ if __name__ == "__main__":
     from core.multiagent.memory_router import MemoryRouter
     console.rule("[bold magenta]⚡ ARIASKA ChainBuilder v12.0 — Standalone Mode")
     manager = AgentManager()
-    memory_router = MemoryRouter(manager.all_agents())
+    memory_router = MemoryRouter()
     build_and_store_chain_multiagent(manager)
     ChainGenerator().diagnostic_summary()

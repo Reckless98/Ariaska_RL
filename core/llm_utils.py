@@ -1,105 +1,162 @@
 #!/usr/bin/env python3
-# llm_utils.py - Utility functions for GPT-4o-mini only components
-# This file provides centralized access to GPTManager (no local LLMs)
+# core/llm_utils.py — ARIASKA LLM Utilities v2.0 SIMPLIFIED  
+# This file provides centralized access to GPTManager (GPT-4o-mini only)
 
-import os
 import logging
-import importlib
-from typing import Any, Dict, Optional, Union, List, Tuple
+from typing import Optional, Dict, Any, Union
 from rich.console import Console
 
-console = Console()
 logger = logging.getLogger("ariaska.llm_utils")
+console = Console()
 
-# Singleton instances storage for lazy loading
-_instances = {}
+# Global GPT manager instance
+_gpt_manager = None
 
 def get_gpt_manager():
-    """Get singleton instance of GPTManager using lazy loading"""
-    if "gpt_manager" not in _instances:
+    """
+    Get the global GPTManager instance.
+    
+    Returns:
+        GPTManager: Initialized GPT manager using GPT-4o-mini
+    """
+    global _gpt_manager
+    if _gpt_manager is None:
         try:
             from core.gpt_manager import GPTManager
-            _instances["gpt_manager"] = GPTManager()
-            logger.info("GPT Manager loaded")
-        except ImportError as e:
-            logger.error(f"Failed to import GPTManager: {e}")
-            console.print(f"[red]❌ Failed to import GPTManager: {e}[/red]")
-            return None
-    return _instances.get("gpt_manager")
+            _gpt_manager = GPTManager()
+            logger.info("✅ GPTManager (GPT-4o-mini) initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize GPTManager: {e}")
+            _gpt_manager = None
+    return _gpt_manager
 
-def get_completion(prompt: str, task_type: str = "general", 
-                 agent_id: str = "unknown", max_tokens: int = 150) -> str:
+def get_llm_router():
     """
-    Get completion using GPT-4o-mini only
+    Get the LLM router instance.
+    
+    Returns:
+        LLMRouter: Simplified router for GPT-4o-mini
+    """
+    try:
+        from core.utils.llm_router import get_router
+        return get_router()
+    except Exception as e:
+        logger.error(f"Failed to get LLM router: {e}")
+        return None
+
+def gpt_request(
+    prompt: str,
+    task_type: str = "general",
+    agent_id: str = "system",
+    max_tokens: int = 500,
+    require_json: bool = False
+) -> str:
+    """
+    Convenience function for GPT requests.
     
     Args:
-        prompt: The prompt text
-        task_type: Type of task (tactical, defensive, reconnaissance, analysis, planning, general)
+        prompt: The prompt to send
+        task_type: Type of task (tactical, analysis, etc.)
         agent_id: ID of the requesting agent
-        max_tokens: Maximum tokens in response
+        max_tokens: Maximum tokens to generate
+        require_json: Whether response should be JSON
         
     Returns:
-        Response string from GPT-4o-mini
+        str: The GPT response
     """
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return "echo 'GPT Manager unavailable'"
+    gpt = get_gpt_manager()
+    if not gpt:
+        return "Error: GPT manager not available"
     
-    return gpt_manager.gpt_request(prompt, task_type, agent_id, max_tokens)
+    try:
+        return gpt.gpt_request(
+            prompt=prompt,
+            task_type=task_type,
+            agent_id=agent_id,
+            max_tokens=max_tokens
+        )
+    except Exception as e:
+        logger.error(f"GPT request failed: {e}")
+        return f"Error: {str(e)}"
 
-def get_learning_feedback(command: str, result: str, reward: float, agent_id: str) -> str:
-    """Get learning feedback for agents"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return "No feedback available"
+def generate_tactical_command(
+    task_description: str,
+    context: Optional[Dict[str, Any]] = None,
+    agent_id: str = "system"
+) -> str:
+    """
+    Generate a tactical cybersecurity command.
     
-    return gpt_manager.get_learning_feedback(command, result, reward, agent_id)
-
-def get_training_hint(phase: str, previous_commands: list, agent_id: str) -> str:
-    """Get training hints for agents"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return "echo 'No hints available'"
+    Args:
+        task_description: Description of what needs to be done
+        context: Optional context information
+        agent_id: ID of the requesting agent
+        
+    Returns:
+        str: Generated command
+    """
+    context_str = ""
+    if context:
+        context_str = f" Context: {context}"
     
-    return gpt_manager.get_training_hint(phase, previous_commands, agent_id)
-
-def get_strategic_insight(context: dict, agent_id: str) -> str:
-    """Get strategic insights for agents"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return "No strategic insight available"
+    prompt = f"Generate a cybersecurity command for: {task_description}{context_str}"
     
-    return gpt_manager.get_strategic_insight(context, agent_id)
+    return gpt_request(
+        prompt=prompt,
+        task_type="tactical",
+        agent_id=agent_id,
+        max_tokens=100
+    )
 
-def analyze_command_output(command: str, output: str, agent_id: str) -> str:
-    """Analyze command output"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return "No analysis available"
+def analyze_output(
+    command: str,
+    output: str,
+    agent_id: str = "system"
+) -> str:
+    """
+    Analyze command output using GPT.
     
-    return gpt_manager.analyze_command_output(command, output, agent_id)
-
-def test_gpt_connectivity() -> dict:
-    """Test GPT connectivity"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return {"status": "failed", "error": "GPT Manager unavailable"}
+    Args:
+        command: The command that was executed
+        output: The output from the command
+        agent_id: ID of the requesting agent
+        
+    Returns:
+        str: Analysis of the output
+    """
+    prompt = f"Analyze this cybersecurity command output:\nCommand: {command}\nOutput: {output}\nProvide insights:"
     
-    return gpt_manager.test_connectivity()
+    return gpt_request(
+        prompt=prompt,
+        task_type="analysis",
+        agent_id=agent_id,
+        max_tokens=300
+    )
 
-def get_gpt_stats() -> dict:
-    """Get GPT usage statistics"""
-    gpt_manager = get_gpt_manager()
-    if not gpt_manager:
-        return {"error": "GPT Manager unavailable"}
+def get_strategic_advice(
+    situation: str,
+    objective: str,
+    agent_id: str = "system"
+) -> str:
+    """
+    Get strategic advice for cybersecurity scenarios.
     
-    return gpt_manager.get_global_stats()
-
-def reset_episode_tokens():
-    """Reset token count for new episode"""
-    gpt_manager = get_gpt_manager()
-    if gpt_manager:
-        gpt_manager.reset_token_count()
+    Args:
+        situation: Current situation description
+        objective: What needs to be achieved
+        agent_id: ID of the requesting agent
+        
+    Returns:
+        str: Strategic advice
+    """
+    prompt = f"Situation: {situation}\nObjective: {objective}\nProvide strategic cybersecurity advice:"
+    
+    return gpt_request(
+        prompt=prompt,
+        task_type="strategic",
+        agent_id=agent_id,
+        max_tokens=400
+    )
 
 # For backwards compatibility - deprecated functions that previously used LocalLLM
 def get_local_llm_manager(model_name: Optional[str] = None):
@@ -107,69 +164,41 @@ def get_local_llm_manager(model_name: Optional[str] = None):
     logger.warning("get_local_llm_manager is deprecated. All LLM requests now use GPT-4o-mini.")
     return get_gpt_manager()
 
-def get_llm_orchestrator():
-    """DEPRECATED: Use get_gpt_manager() instead."""
-    logger.warning("get_llm_orchestrator is deprecated. Use get_gpt_manager() instead.")
-    return get_gpt_manager()
-    """
-    Get a completion from an LLM model with automatic fallback
+def query_lily_llm(prompt: str, **kwargs) -> str:
+    """DEPRECATED: Lily LLM removed. Redirected to GPT-4o-mini."""
+    logger.warning("query_lily_llm is deprecated. Using GPT-4o-mini instead.")
+    return gpt_request(prompt, task_type="tactical", **kwargs)
+
+def query_seneca_llm(prompt: str, **kwargs) -> str:
+    """DEPRECATED: Seneca LLM removed. Redirected to GPT-4o-mini."""
+    logger.warning("query_seneca_llm is deprecated. Using GPT-4o-mini instead.")
+    return gpt_request(prompt, task_type="tactical", **kwargs)
+
+# Test function
+def test_llm_utils():
+    """Test the LLM utilities."""
+    console.print("[bold cyan]Testing LLM Utils (GPT-4o-mini only)[/bold cyan]")
     
-    This function is the main entry point for all LLM completions in the system
-    and will use the LLMOrchestrator to get the response.
-    """
-    orchestrator = get_llm_orchestrator()
-    if orchestrator is None:
-        logger.error("LLM Orchestrator not available")
-        return {"text": "Error: LLM Orchestrator not available", "error": True}
-        
-    return orchestrator.get_completion(
-        prompt=prompt,
-        model=model,
-        role=role,
-        system_prompt=system_prompt,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        use_cache=use_cache,
-        use_fallback=use_fallback
-    )
-
-def get_best_model_for_task(task_description: str) -> str:
-    """
-    Get the best model for a given task description
-    """
-    orchestrator = get_llm_orchestrator()
-    if orchestrator is None:
-        logger.error("LLM Orchestrator not available")
-        return "fallback"
-        
-    return orchestrator.get_best_model_for_task(task_description)
-
-def clear_llm_cache():
-    """Clear all LLM caches in the system"""
-    orchestrator = get_llm_orchestrator()
-    if orchestrator:
-        orchestrator.clear_cache()
-        
+    # Test GPT manager
     gpt = get_gpt_manager()
     if gpt:
-        gpt.clear_cache()
+        console.print("[green]✓ GPT Manager initialized[/green]")
         
-    return {"status": "Cache cleared"}
+        # Test basic request
+        try:
+            response = gpt_request("Say hello", task_type="test")
+            console.print(f"[green]✓ GPT Response:[/green] {response[:100]}...")
+        except Exception as e:
+            console.print(f"[red]✗ GPT Request failed: {e}[/red]")
+    else:
+        console.print("[red]✗ GPT Manager failed to initialize[/red]")
+    
+    # Test router
+    router = get_llm_router()
+    if router:
+        console.print("[green]✓ LLM Router available[/green]")
+    else:
+        console.print("[red]✗ LLM Router unavailable[/red]")
 
-def get_server_health():
-    """Check LLM server health"""
-    orchestrator = get_llm_orchestrator()
-    if orchestrator:
-        return orchestrator.get_server_health(force_check=True)
-    return {"status": "Orchestrator not available"}
-
-def run_llm_health_check(detailed: bool = False):
-    """Run a comprehensive health check of all LLM components"""
-    orchestrator = get_llm_orchestrator()
-    if orchestrator:
-        return orchestrator.health_check(detailed=detailed)
-    return {"status": "critical", "error": "Orchestrator not available"}
-
-# Initialize singletons (can be commented out to use pure lazy loading)
-get_llm_orchestrator()
-get_gpt_manager()
+if __name__ == "__main__":
+    test_llm_utils()

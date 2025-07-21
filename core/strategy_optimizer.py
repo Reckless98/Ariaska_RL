@@ -260,7 +260,7 @@ if __name__ == "__main__":
     from core.multiagent.agent_manager import AgentManager
     from core.multiagent.memory_router import MemoryRouter
     agent_manager = AgentManager()
-    memory_router = MemoryRouter(agent_manager.all_agents())
+    memory_router = MemoryRouter()
     optimizer = StrategyOptimizer(agent_manager=agent_manager, memory_router=memory_router)
     # Test optimization
     results = optimizer.optimize_strategy(episode_num=5, force_gpt=True)

@@ -43,7 +43,7 @@ class AgentManager:
         self.agents = []
         
         # Create memory router first
-        self.memory_router = self._import_memory_router()([])
+        self.memory_router = self._import_memory_router()()
         
         # Initialize agents
         if self.verbosity not in ["quiet", "silent"]:
@@ -64,9 +64,9 @@ class AgentManager:
                 progress.update(task, advance=35, description="[bold blue]Creating agents...")
                 self._initialize_agents(agent_init_table)
                 
-                # Step 3: Initialize memory router with agents
+                # Step 3: Initialize memory router
                 progress.update(task, advance=25, description="[bold blue]Linking memory subsystems...")
-                self.memory_router = self._import_memory_router()(self.agents)
+                self.memory_router = self._import_memory_router()()
                 
                 # Step 4: Initialize agent links
                 progress.update(task, advance=15, description="[bold blue]Establishing agent connections...")
@@ -106,6 +106,15 @@ class AgentManager:
                     pass
                     
                 def log_transition(self, *args, **kwargs):
+                    pass
+                
+                def get_stats(self, *args, **kwargs):
+                    return {"placeholder": True}
+                
+                def snapshot_all_memories(self, *args, **kwargs):
+                    return "placeholder_snapshot"
+                
+                def close(self, *args, **kwargs):
                     pass
 
             return PlaceholderMemoryRouter
@@ -207,7 +216,7 @@ class AgentManager:
                 
             if self.blue_agent and not hasattr(self.blue_agent, "env"):
                 # Blue agent typically shares red agent's environment
-                if hasattr(self.red_agent, "env"):
+                if self.red_agent and hasattr(self.red_agent, "env"):
                     self.blue_agent.env = self.red_agent.env
                 else:
                     self.blue_agent.env = CyberEnvironment(agent_manager=self)
@@ -418,7 +427,7 @@ class AgentManager:
         red_action = next((e for e in turn_events if e.get("agent_id") == "RedAgent"), None)
         blue_action = next((e for e in turn_events if e.get("agent_id") == "BlueAgent"), None)
         # Apply RedAgent action
-        if red_action and hasattr(self.red_agent, "env"):
+        if red_action and self.red_agent and hasattr(self.red_agent, "env"):
             try:
                 state, reward, done, info = self.red_agent.env.step(red_action.get("command"))
                 env_events.append({
@@ -468,7 +477,7 @@ class AgentManager:
         This can include environment state, last actions, etc.
         """
         # For simplicity, use RedAgent's environment state as the canonical shared state
-        if hasattr(self.red_agent, "env"):
+        if self.red_agent and hasattr(self.red_agent, "env"):
             return self.red_agent.env.get_global_state()
         return {}
 
@@ -476,13 +485,9 @@ class AgentManager:
         """
         Serialize and atomically sync all agent memories after environment update.
         """
-        # Import MemorySyncInterface locally to avoid circular import issues
-        try:
-            from core.multiagent.memory_router import MemorySyncInterface
-        except ImportError:
-            MemorySyncInterface = type("MemorySyncInterface", (), {})
+        # Sync memory for all agents that have sync_memory method
         for agent in self.agents:
-            if isinstance(agent, MemorySyncInterface):
+            if hasattr(agent, "sync_memory"):
                 try:
                     agent.sync_memory()
                 except Exception as e:
@@ -579,7 +584,7 @@ class AgentManager:
         console.rule("[bold green]🧠 ARIASKA Multi-Agent System Ready[/bold green]")
         console.print(dashboard)
         # Phase data placeholder
-        phase_data = getattr(self.red_agent.env, "current_phase", None) if hasattr(self.red_agent, "env") else None
+        phase_data = getattr(self.red_agent.env, "current_phase", None) if self.red_agent and hasattr(self.red_agent, "env") else None
         if not phase_data or phase_data == "N/A":
             console.print("[yellow]ℹ️ Awaiting first agent action to generate phase data...[/yellow]")
 
@@ -622,6 +627,18 @@ class AgentManager:
             except Exception as e:
                 console.print(f"[yellow]⚠ Memory snapshot error: {e}[/yellow]")
                 
+    def get_primary_agent(self):
+        """Get the primary agent (RedAgent by default)."""
+        return self.red_agent or self.agents[0] if self.agents else None
+    
+    def train_all_batches(self, batches=1):
+        """Train all agents with batch updates - alias for batch_train_all."""
+        return self.batch_train_all(batches)
+    
+    def display_all_status(self):
+        """Display status of all agents - alias for display_full_status."""
+        return self.display_full_status()
+
     def display_full_status(self):
         """Display comprehensive status of all agents."""
         console.rule("[bold cyan]📊 ARIASKA Multi-Agent System Status[/bold cyan]")

@@ -5,6 +5,7 @@ import os
 import json
 import time
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
@@ -202,21 +203,19 @@ FORMAT YOUR RESPONSE AS VALID JSON with this structure:
             
             # Check if the response is valid JSON
             try:
-                import json
                 insight = json.loads(response)
                 self._log(f"Successfully generated insight using GPT-4o-mini", "success")
                 return insight
             except json.JSONDecodeError:
                 self._log(f"GPT response not valid JSON, attempting to extract", "warning")
                 # Try to extract JSON from the response
-                import re
                 json_match = re.search(r'\{.*\}', response, re.DOTALL)
                 if json_match:
                     insight = json.loads(json_match.group())
                     return insight
                 else:
                     self._log(f"Could not extract valid JSON from response", "error")
-                    return None
+                    return {"error": "Failed to parse GPT response", "raw_response": response}
         except Exception as e:
             self._log(f"Failed to generate insights: {e}", "error")
             # Provide a fallback insight structure
@@ -274,7 +273,8 @@ FORMAT YOUR RESPONSE AS VALID JSON with this structure:
             self.stats["total_insights_generated"] += 1
             
         # Save insights
-        return self._save_insights(insights, agent_id)
+        result = self._save_insights(insights, agent_id)
+        return str(result) if result else None
         
     def distill_all_agents(self):
         """Distill knowledge for all registered agents"""
@@ -305,7 +305,7 @@ FORMAT YOUR RESPONSE AS VALID JSON with this structure:
                 progress.advance(task)
         
         # Update timing stats
-        self.stats["distillation_time"] = time.time() - start_time
+        self.stats["distillation_time"] = int(time.time() - start_time)
         
         # Generate a summary report
         self._generate_summary_report()

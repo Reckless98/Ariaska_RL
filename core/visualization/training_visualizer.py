@@ -116,7 +116,8 @@ class TrainingVisualizer:
         if TrainingVisualizer._active_live_display is not None and TrainingVisualizer._active_live_display is not self.live_display:
             try:
                 # Try to gracefully stop the other instance's display
-                if hasattr(TrainingVisualizer._active_instance, 'stop_live_display'):
+                if (TrainingVisualizer._active_instance is not None and 
+                    hasattr(TrainingVisualizer._active_instance, 'stop_live_display')):
                     TrainingVisualizer._active_instance.stop_live_display()
                 else:
                     TrainingVisualizer._active_live_display.stop()
@@ -220,22 +221,23 @@ class TrainingVisualizer:
         self.env_states.append(env_state)
         
     def _generate_layout(self):
+        """Enhanced layout with better positioning and visibility"""
         layout = Layout()
         layout.split(
-            Layout(name="alerts", size=3),
-            Layout(name="header", size=6),
+            Layout(name="alerts", size=4),  # Increased for better visibility
+            Layout(name="header", size=8),  # More space for key metrics
             Layout(name="main", ratio=4),
-            Layout(name="insights", size=12),
+            Layout(name="insights", size=14),  # Larger insights section
         )
         layout["alerts"].update(self._generate_alert_panel())
-        layout["header"].update(self._generate_header())
+        layout["header"].update(self._generate_enhanced_header())  # Enhanced header
         layout["main"].split_row(
             Layout(self._generate_agent_panels(), name="agent_panels", ratio=3),
             Layout(self._generate_environment_panel(), name="environment", ratio=2)
         )
         layout["insights"].split_row(
             Layout(self._generate_gpt_insight_panel(), name="gpt"),
-            Layout(self._generate_coherence_panel(), name="coherence"),
+            Layout(self._generate_enhanced_metrics_panel(), name="metrics"),  # Enhanced metrics
             Layout(self._generate_token_usage_panel(), name="tokens"),
         )
         return layout
@@ -249,8 +251,8 @@ class TrainingVisualizer:
             panels.append(Panel(f"[{color}]{msg}[/{color}]", border_style=color))
         return Columns(panels)
             
-    def _generate_header(self):
-        """Generate header with summary metrics"""
+    def _generate_enhanced_header(self):
+        """Enhanced header with more comprehensive metrics and better visibility"""
         # Calculate summary statistics
         total_steps = sum(len(self.agent_history[a]["rewards"]) for a in self.agents)
         avg_rewards = {
@@ -258,21 +260,85 @@ class TrainingVisualizer:
             for a in self.agents
         }
         
-        # Create header table
-        table = Table.grid(expand=True)
-        table.add_column("Metric", style="cyan", no_wrap=True)
-        table.add_column("Value", style="green")
-        table.add_column("Progress", style="yellow", no_wrap=True)
-        table.add_column("Value", style="green")
+        # Calculate success metrics
+        successful_episodes = 0
+        total_episodes = 0
+        for agent in self.agents:
+            rewards = list(self.agent_history[agent]["rewards"])
+            if rewards:
+                total_episodes = len(rewards)
+                successful_episodes += sum(1 for r in rewards if r > 0)
         
-        # Add summary metrics
-        table.add_row("Total Steps", str(total_steps), "RedAgent Avg", f"{avg_rewards.get('RedAgent', 0):.2f}")
+        success_rate = (successful_episodes / max(total_episodes, 1)) * 100 if total_episodes > 0 else 0
+        
+        # Create enhanced header table with better metrics
+        table = Table.grid(expand=True)
+        table.add_column("Metric", style="cyan", no_wrap=True, width=15)
+        table.add_column("Value", style="green", width=12)
+        table.add_column("Metric", style="yellow", no_wrap=True, width=15)
+        table.add_column("Value", style="green", width=12)
+        table.add_column("Status", style="magenta", width=20)
+        
+        # Add comprehensive metrics
         table.add_row(
-            "Active Agents", str(len(self.agents)), 
-            "BlueAgent Avg", f"{avg_rewards.get('BlueAgent', 0):.2f}"
+            "Total Steps", str(total_steps), 
+            "Success Rate", f"{success_rate:.1f}%",
+            f"🎯 Training Status: {'🟢 Active' if self.is_active else '🔴 Inactive'}"
+        )
+        table.add_row(
+            "RedAgent Avg", f"{avg_rewards.get('RedAgent', 0):.2f}",
+            "BlueAgent Avg", f"{avg_rewards.get('BlueAgent', 0):.2f}",
+            f"⚡ Live Updates: Every {self.update_interval} steps"
+        )
+        table.add_row(
+            "Active Agents", str(len(self.agents)),
+            "Coherence", f"{self.coherence_score:.2f}/10",
+            f"🧠 GPT Insight: {'Available' if self.global_gpt_insight != 'Awaiting insight...' else 'Pending'}"
         )
         
-        return Panel(table, title="🚀 Training Progress", border_style="bright_blue")
+        return Panel(table, title="🚀 ARIASKA Training Dashboard", border_style="bright_blue")
+
+    def _generate_enhanced_metrics_panel(self):
+        """Enhanced metrics panel with training performance indicators"""
+        table = Table(title="📊 Performance Metrics", box=box.ROUNDED)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Recent Trend", style="green", width=12)
+        table.add_column("Phase Status", style="yellow")
+        table.add_column("Learning Rate", style="magenta")
+        table.add_column("Exploration", style="blue")
+        
+        for agent in self.agents:
+            rewards = list(self.agent_history[agent]["rewards"])
+            phases = list(self.agent_history[agent]["phases"])
+            
+            # Calculate trend
+            if len(rewards) >= 5:
+                recent_avg = sum(rewards[-5:]) / 5
+                older_avg = sum(rewards[-10:-5]) / 5 if len(rewards) >= 10 else recent_avg
+                trend = "📈 UP" if recent_avg > older_avg else "📉 DOWN" if recent_avg < older_avg else "➡️ FLAT"
+            else:
+                trend = "🔄 INIT"
+                
+            # Get phase status
+            current_phase = phases[-1] if phases else "unknown"
+            phase_status = f"🎯 {current_phase}"
+            
+            # Get epsilon/exploration rate if available
+            epsilon_history = list(self.epsilon_history.get(agent, []))
+            exploration = f"{epsilon_history[-1]:.3f}" if epsilon_history else "N/A"
+            
+            # Learning rate estimation (placeholder)
+            learning_rate = "1e-4"  # Default, could be dynamic
+            
+            table.add_row(
+                agent,
+                trend,
+                phase_status,
+                learning_rate,
+                exploration
+            )
+            
+        return Panel(table, title="🎯 Training Metrics", border_style="green")
         
     def _generate_agent_panels(self):
         """Show per-agent panels with advanced info, phase charts, and live epsilon/reward plots."""
@@ -563,7 +629,7 @@ class TrainingVisualizer:
             Layout(name="insights", size=12),
         )
         layout["alerts"].update(self._generate_alert_panel())
-        layout["header"].update(self._generate_header())
+        layout["header"].update(self._generate_enhanced_header())
         layout["main"].split_row(
             Layout(self._generate_agent_panels(), name="agent_panels", ratio=3),
             Layout(self._generate_environment_panel(), name="environment", ratio=2)

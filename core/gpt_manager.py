@@ -13,11 +13,29 @@ import hashlib
 import threading
 from pathlib import Path
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # If python-dotenv is not available, try to load manually
+    env_path = Path(__file__).parent.parent / '.env'
+    if env_path.exists():
+        with open(env_path, 'r') as f:
+            for line in f:
+                if '=' in line and not line.strip().startswith('#'):
+                    key, value = line.strip().split('=', 1)
+                    value = value.strip('"\'')
+                    os.environ[key] = value
+
 try:
     import openai
     from openai import OpenAI
     OPENAI_AVAILABLE = True
 except ImportError:
+    OpenAI = None
+    OPENAI_AVAILABLE = False
+    logging.warning("OpenAI library not available. Install with: pip install openai")
     OPENAI_AVAILABLE = False
 
 try:
@@ -133,7 +151,7 @@ class GPTManager:
     """Centralized GPT-4o-mini manager for all agents with cross-platform support and learning"""
     
     def __init__(self):
-        if not OPENAI_AVAILABLE:
+        if not OPENAI_AVAILABLE or OpenAI is None:
             raise ImportError("OpenAI library not available. Please install: pip install openai")
             
         self.api_key = os.getenv("OPENAI_API_KEY")
@@ -178,7 +196,7 @@ class GPTManager:
         logger.info(f"GPTManager initialized with model: {self.primary_model}")
         logger.info(f"Platform detected: {platform.system()}")
         if console:
-            console.print(f"[green]✓ GPTManager initialized with {self.primary_model}[/green]")
+            console.print(f"[green]GPTManager initialized with {self.primary_model}[/green]")
     
     def reset_token_count(self):
         """Reset token count for new episode"""
@@ -285,22 +303,61 @@ class GPTManager:
             
             system_prompt = system_prompts.get(task_type, system_prompts["general"])
             
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=max_tokens,
-                temperature=0.7 if task_type == "diversify" else 0.3,
-                timeout=30
-            )
+            # Use threading for cross-platform timeout handling with aggressive fallback
+            import concurrent.futures
+            import signal
+            
+            def make_gpt_request():
+                # Use existing client with shorter timeout
+                return self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=0.7 if task_type == "diversify" else 0.3,
+                    timeout=5.0  # 5 second client timeout
+                )
+            
+            # Execute with aggressive timeout using ThreadPoolExecutor
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(make_gpt_request)
+                    try:
+                        response = future.result(timeout=8)  # 8 second overall timeout
+                    except concurrent.futures.TimeoutError:
+                        logger.warning(f"GPT request timed out after 8 seconds for {agent_id}, using fallback")
+                        # Return immediate fallback command based on task type
+                        fallback_commands = {
+                            "tactical": "nmap -sV 10.10.10.10",
+                            "defensive": "netstat -an",
+                            "reconnaissance": "ping 10.10.10.10",
+                            "diversify": "nslookup 10.10.10.10",
+                            "general": "echo 'GPT timeout - using fallback'"
+                        }
+                        return fallback_commands.get(task_type, "echo 'GPT timeout'")
+            except Exception as e:
+                logger.warning(f"GPT request failed with exception: {e}, using immediate fallback")
+                # Immediate fallback for any network issues
+                fallback_commands = {
+                    "tactical": "nmap -sV 10.10.10.10",
+                    "defensive": "netstat -an", 
+                    "reconnaissance": "ping 10.10.10.10",
+                    "diversify": "nslookup 10.10.10.10",
+                    "general": "echo 'GPT error - using fallback'"
+                }
+                return fallback_commands.get(task_type, "echo 'GPT error'")
             
             self.last_request_time = time.time()
             self.stats["total_requests"] += 1
             
             if response.choices and len(response.choices) > 0:
-                content = response.choices[0].message.content.strip()
+                content = response.choices[0].message.content
+                if content:
+                    content = content.strip()
+                else:
+                    content = ""
                 
                 # Track tokens
                 if hasattr(response, 'usage') and response.usage:

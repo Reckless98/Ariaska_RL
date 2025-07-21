@@ -13,7 +13,6 @@ from core.models.layers import NoisyLinear, get_activation, get_phase_vector
 from core.models.gpt_context_encoder import GPTContextEncoder
 from rich.console import Console
 from core.gpt_manager import GPTManager
-from core.utils.local_llm_manager import LocalLLMManager
 
 console = Console()
 
@@ -260,7 +259,7 @@ Respond concisely in one insightful sentence.
 if __name__ == "__main__":
     vn = ValueNet()
     dummy_state = torch.randn(1, 512)
-    phase_vec = get_phase_vector("exploit", device=vn.device)
+    phase_vec = get_phase_vector("exploit", device=str(vn.device))
     context = "Simulating privilege escalation on Linux server."
 
     value, features = vn.forward(

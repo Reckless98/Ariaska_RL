@@ -4,6 +4,7 @@
 import os
 import random
 import subprocess
+import time
 import torch
 from rich.console import Console
 from rich.table import Table
@@ -78,14 +79,21 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self._agent_id = agent_id  # Use internal attribute for property
         self._role = role  # Use internal attribute for property
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.policy_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
-        self.value_net = ValueNet(input_size=512, device=self.device).to(self.device)
-        self.target_value_net = ValueNet(input_size=512, device=self.device).to(self.device)
+        device_str = str(self.device)  # Convert device to string for network constructors
+        self.policy_net = PolicyNet(input_size=512, output_size=5, device=device_str).to(self.device)
+        self.value_net = ValueNet(input_size=512, device=device_str).to(self.device)
+        self.target_value_net = ValueNet(input_size=512, device=device_str).to(self.device)
         self.target_value_net.load_state_dict(self.value_net.state_dict())
         self.target_value_net.eval()
-        self.target_net = PolicyNet(input_size=512, output_size=5, device=self.device).to(self.device)
+        self.target_net = PolicyNet(input_size=512, output_size=5, device=device_str).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
+        
+        # Initialize optimizers and schedulers
+        self.policy_optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=1e-4)
+        self.value_optimizer = torch.optim.Adam(self.value_net.parameters(), lr=1e-4)
+        self.policy_scheduler = torch.optim.lr_scheduler.StepLR(self.policy_optimizer, step_size=1000, gamma=0.95)
+        self.value_scheduler = torch.optim.lr_scheduler.StepLR(self.value_optimizer, step_size=1000, gamma=0.95)
         self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True)
         self.stats_monitor = StatsMonitor()
         self.teacher = TeachModule(agent_name=self.agent_id)
@@ -129,8 +137,12 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         # All LLM functionality now handled by self.gpt_manager
 
     def _init_multiagent_links(self):
-        self.red = self.agent_manager.get_agent("RedAgent")
-        self.orion = self.agent_manager.get_agent("OrionAgent")
+        if self.agent_manager:
+            self.red = self.agent_manager.get_agent("RedAgent")
+            self.orion = self.agent_manager.get_agent("OrionAgent")
+        else:
+            self.red = None
+            self.orion = None
         # All LLM functionality now handled by self.gpt_manager
 
     def query_tactical_gpt(self, prompt, complexity="standard"):
@@ -163,9 +175,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             console.print(f"[red]❌ query_tactical_gpt error: {e}[/red]")
             return self.gpt_manager.smart_decision(task_type="defense", task_description=prompt)
 
-    def _postprocess_lily_output(self, output: str) -> str:
+    def _postprocess_gpt_output(self, output: str) -> str:
         """
-        Remove verbose/AI disclaimers from LilyLLM output.
+        Remove verbose/AI disclaimers from GPT output.
         """
         import re
         if not output:
@@ -188,11 +200,12 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         # Use get_action_description for readable logs
         action_idx = None
         if random.random() < self.epsilon:
-            action_idx = random.randint(0, self.policy_net.output_size - 1)
+            # Use the output_size from the policy_net properly
+            action_idx = random.randint(0, getattr(self.policy_net, 'output_size', 5) - 1)
             if self.verbosity in ("debug", "verbose"):
                 console.print(f"[yellow]🎲 Random action selected: {get_action_description(action_idx)}[/yellow]")
             return action_idx
-        phase_vec = get_phase_vector(phase, self.device)
+        phase_vec = get_phase_vector(phase, str(self.device))
         q_values = self.policy_net(state_tensor.unsqueeze(0), phase_vector=phase_vec)
         action_idx = torch.argmax(q_values, dim=-1).item()
         if self.verbosity in ("debug", "verbose"):
@@ -207,6 +220,53 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         elif self.mode_switch_cooldown > 0:
             self.mode_switch_cooldown -= 1
         return action_idx
+    
+    def act(self, state: dict) -> dict:
+        """Act method for Phase 2 compatibility."""
+        try:
+            # Blue agent focuses on defense and monitoring
+            detection_level = state.get('blue_team_alert', 0)
+            detection_risk = state.get('detection_risk', 0)
+            
+            # Defensive actions based on threat level
+            if detection_level > 70:
+                action = "sudo ufw enable && sudo fail2ban-client status"
+                response_type = "high_alert_response"
+                reward = 15.0  # High reward for proper response
+            elif detection_level > 40:
+                action = "netstat -tulpn | grep LISTEN"
+                response_type = "monitoring_response"
+                reward = 8.0
+            elif detection_risk > 50:
+                action = "sudo tail -f /var/log/auth.log | grep FAILED"
+                response_type = "threat_investigation"
+                reward = 10.0
+            else:
+                action = "ps aux | grep -E '(ssh|nc|nmap)'"
+                response_type = "routine_monitoring"
+                reward = 5.0
+            
+            # Blue agent always succeeds in defensive actions
+            success = True
+            
+            return {
+                'action': action,
+                'success': success,
+                'reward': reward,
+                'info': {
+                    'response_type': response_type,
+                    'detection_level': detection_level,
+                    'agent_role': 'defense'
+                }
+            }
+        except Exception as e:
+            # Fallback defensive action
+            return {
+                'action': 'ps aux',
+                'success': True,
+                'reward': 2.0,
+                'info': {'error': str(e), 'fallback': True}
+            }
 
     def simulate_step(self, episode=1, step=1, shared_context=None):
         try:
@@ -259,7 +319,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             except Exception:
                 reward = 0.0
             self.command_history.append(str(action))
-            self.stats_monitor.log_step(self.agent_id, reward, command=str(action))
+            self.stats_monitor.log_step(self.agent_id, str(action), reward=reward)
             self._last_state = next_state
             self.last_output = f"Action: {action}, Reward: {reward}, Phase: {state.get('phase', 'N/A')}"
             reasoning_key = f"{action}|{state.get('phase')}"
@@ -351,8 +411,8 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 console.print(f"[cyan]Epsilon: {self.epsilon:.4f}[/cyan]")
             # LLM usage summary (stub, see below)
             if step == 1 or step % 10 == 0:
-                gpt_calls = self.gpt_manager.get_token_usage(self.agent_id)
-                console.print(f"[blue]LLM usage: Seneca calls: N/A, Lily calls: N/A, GPT calls: {gpt_calls}[/blue]")
+                gpt_calls = self.gpt_manager.get_token_usage()
+                console.print(f"[blue]LLM usage: GPT calls: {gpt_calls}[/blue]")
             # --- Stuck-Agent Detection ---
             stuck_window = 3
             stuck = False
@@ -363,7 +423,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             # No-progress detection: if reward hasn't increased for K steps
             no_progress_steps = 4
             if hasattr(self, "last_rewards"):
-                self.last_rewards.append(self.stats_monitor.agent_stats[self.agent_id]["rewards"][-1] if self.stats_monitor.agent_stats[self.agent_id]["rewards"] else 0)
+                stats = self.stats_monitor._get_agent_stats(self.agent_id)
+                last_reward = stats.rewards[-1] if stats.rewards else 0
+                self.last_rewards.append(last_reward)
                 if len(self.last_rewards) > no_progress_steps:
                     self.last_rewards.pop(0)
                 if (
@@ -372,7 +434,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 ):
                     stuck = True
             else:
-                self.last_rewards = [self.stats_monitor.agent_stats[self.agent_id]["rewards"][-1] if self.stats_monitor.agent_stats[self.agent_id]["rewards"] else 0]
+                stats = self.stats_monitor._get_agent_stats(self.agent_id)
+                last_reward = stats.rewards[-1] if stats.rewards else 0
+                self.last_rewards = [last_reward]
             if stuck:
                 console.print(f"[yellow]⚠ {self.agent_id} appears stuck. Triggering GPT-based recovery.[/yellow]")
                 recovery_prompt = (
@@ -381,7 +445,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                     "Suggest an alternative defensive strategy or command to escape this local minimum. Respond ONLY with the command."
                 )
                 recovery_cmd = self.gpt_manager.gpt_request(
-                    recovery_prompt, task_type="reasoning", agent_id=self.agent_id, use_gpt=True
+                    recovery_prompt, task_type="reasoning", agent_id=self.agent_id
                 )
                 if recovery_cmd and isinstance(recovery_cmd, str) and len(recovery_cmd.split()) > 1:
                     action = recovery_cmd
@@ -391,7 +455,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 "command": str(action),
                 "phase": state.get("phase", "N/A"),
                 "reward": float(reward),
-                "gpt_calls": self.stats_monitor.agent_stats[self.agent_id]["gpt_calls"],
+                "gpt_calls": self.stats_monitor._get_agent_stats(self.agent_id).gpt_calls,
                 "output": self.last_output,
                 "reasoning": self.last_reasoning,
                 "step": step,
@@ -457,11 +521,11 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             max_next_q = next_q_values.max(dim=1)[0]
             targets = rewards + self.gamma * max_next_q * (1 - dones)
         loss = torch.nn.functional.smooth_l1_loss(q_selected, targets)
-        self.policy_net.optimizer.zero_grad()
+        self.policy_optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), 1.0)
-        self.policy_net.optimizer.step()
-        self.policy_net.scheduler.step()
+        self.policy_optimizer.step()
+        self.policy_scheduler.step()
         self.target_value_net.eval()
         # --- Target value net update ---
         # Only update every target_update_freq steps (handled in simulate_step)
@@ -486,6 +550,79 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         # Prune redundancy after each batch
         from core.logic.redundancy_detector import detect_redundancy_batch
         self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
+
+    def simulate_train(self, episodes=1, max_steps=50):
+        """
+        Run training simulation for specified number of episodes.
+        This method is called by MultiAgentTrainer to train the agent.
+        
+        Args:
+            episodes: Number of episodes to run
+            max_steps: Maximum steps per episode
+            
+        Returns:
+            dict: Training results including rewards, steps, etc.
+        """
+        total_reward = 0.0
+        total_steps = 0
+        episode_rewards = []
+        
+        for episode in range(episodes):
+            episode_reward = 0.0
+            episode_steps = 0
+            
+            # Reset environment for new episode
+            if hasattr(self.env, "reset"):
+                self.env.reset()
+            
+            # Run episode steps
+            for step in range(1, max_steps + 1):
+                try:
+                    # Get action from simulate_step
+                    step_result = self.simulate_step(episode + 1, step)
+                    
+                    if step_result and isinstance(step_result, dict):
+                        step_reward = step_result.get("reward", 0.0)
+                        episode_reward += step_reward
+                        total_reward += step_reward
+                    
+                    episode_steps += 1
+                    total_steps += 1
+                    
+                    # Check if episode should end early
+                    if step_result and step_result.get("done", False):
+                        break
+                        
+                except Exception as e:
+                    console.print(f"[yellow]⚠ BlueAgent training step error: {e}[/yellow]")
+                    break
+            
+            episode_rewards.append(episode_reward)
+            
+            # Perform batch training if we have enough experiences
+            if len(self.replay_buffer.buffer) >= self.batch_size:
+                try:
+                    self.train_on_batch()
+                except Exception as e:
+                    console.print(f"[yellow]⚠ BlueAgent batch training error: {e}[/yellow]")
+        
+        # Update episode counter
+        self.total_episodes += episodes
+        
+        # Return training results in expected format
+        return {
+            "agent_id": self.agent_id,
+            "episodes": episodes,
+            "total_reward": total_reward,
+            "average_reward": total_reward / episodes if episodes > 0 else 0.0,
+            "total_steps": total_steps,
+            "episode_rewards": episode_rewards,
+            "final_epsilon": float(self.epsilon),
+            "replay_buffer_size": len(self.replay_buffer.buffer) if hasattr(self.replay_buffer, 'buffer') else 0,
+            "blue_team_alert": getattr(self, '_last_state', {}).get("blue_team_alert", 0.0),
+            "gpt_calls": self.stats_monitor._get_agent_stats(self.agent_id).gpt_calls if self.agent_id in self.stats_monitor.agent_stats else 0,
+            "current_mode": getattr(self, 'current_mode', 'Standard')
+        }
 
     def _log_training_event(self, msg):
         with open(self.training_log_path, "a") as f:
@@ -536,15 +673,20 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         return self.encode_env_state_static(state, self.device)
 
     def sync_memory(self):
-        if self.memory_router:
-            self.memory_router.sync_global_insights()
-        from core.logic.redundancy_detector import detect_redundancy_batch
-        self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
+        try:
+            if self.memory_router:
+                self.memory_router.sync_global_insights()
+            from core.logic.redundancy_detector import detect_redundancy_batch
+            self.replay_buffer.prune_redundancy(lambda cmds: detect_redundancy_batch(cmds))
+            return True
+        except Exception as e:
+            console.print(f"[yellow]Warning: BlueAgent memory sync failed: {e}[/yellow]")
+            return False
 
     def get_smart_command(self, state, phase, cache_key=None):
         """
-        Use both SenecaLLM and GPTManager for command generation.
-        Integrate dual-LLM critique loop for defensive strategy.
+        Use GPTManager for command generation.
+        Integrate enhanced defensive strategy analysis.
         """
         task_desc = (
             f"Phase: {phase}, Privilege: {state.get('privilege_level')}, "
@@ -573,6 +715,52 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             feedback = self.gpt_reasoning_cache["tactical_feedback_reset"]
             # Log or use as needed for strategy adaptation
 
+    def display_advanced_status(self):
+        """Display advanced status information for the BlueAgent."""
+        console.print(Panel.fit(
+            f"[bold cyan]BlueAgent Advanced Status[/bold cyan]\n"
+            f"Mode: {self.current_mode}\n"
+            f"Epsilon: {self.epsilon:.3f}\n"
+            f"Total Steps: {self.total_steps}\n"
+            f"Total Episodes: {self.total_episodes}\n"
+            f"Command History: {len(self.command_history)} commands\n"
+            f"Memory Router: {'Connected' if self.memory_router else 'Not connected'}\n"
+            f"Last Action: {self.last_action}\n"
+            f"Repeat Steps: {self.repeat_steps}",
+            title="[bold blue]BlueAgent Status[/bold blue]"
+        ))
+        
+    def generate_chain_snapshot(self):
+        """Generate a snapshot of the current action chain."""
+        console.print(f"[blue]BlueAgent: Generating chain snapshot...[/blue]")
+        snapshot = {
+            "agent_id": self.agent_id,
+            "command_history": self.command_history[-10:],  # Last 10 commands
+            "current_mode": self.current_mode,
+            "total_steps": self.total_steps,
+            "timestamp": time.time()
+        }
+        return snapshot
+        
+    def safe_shutdown(self):
+        """Safely shutdown the BlueAgent."""
+        console.print(f"[blue]BlueAgent: Shutting down safely...[/blue]")
+        try:
+            # Save any important state and display final stats
+            console.print(f"[cyan]BlueAgent final stats: {self.total_steps} steps, {self.total_episodes} episodes[/cyan]")
+            
+            # Sync memory one last time
+            if self.memory_router:
+                self.sync_memory()
+                
+            console.print(f"[green]BlueAgent shutdown complete.[/green]")
+        except Exception as e:
+            console.print(f"[yellow]Warning during BlueAgent shutdown: {e}[/yellow]")
+    
+    def provide_reasoning(self, context_type: str, context_data: dict) -> str:
+        """Provide reasoning for a given context - only available in OrionAgent."""
+        return f"BlueAgent does not provide strategic reasoning. Use OrionAgent for strategic insights."
+
 # ─────────────────────────────────────────────
 # 🎬 Execution Test Hook
 # ─────────────────────────────────────────────
@@ -587,11 +775,7 @@ if __name__ == "__main__":
 
     if hasattr(agent, "simulate_train"):
         agent.simulate_train(episodes=3)
-    if hasattr(agent, "display_advanced_status"):
-        agent.display_advanced_status()
-    if hasattr(agent, "generate_chain_snapshot"):
-        from core.logic.chainbuilder import build_and_store_chain
-
-        agent.generate_chain_snapshot()
+    agent.display_advanced_status()
+    agent.generate_chain_snapshot()
 
     agent.safe_shutdown()

@@ -234,3 +234,45 @@ class ReplayBuffer:
             for id_to_remove in ids[self.capacity :]:
                 self.conn.execute("DELETE FROM experiences WHERE id=?", (id_to_remove,))
             self.conn.commit()
+
+    def update_priorities(self, indices, td_errors):
+        """
+        Update priorities for given indices based on TD errors.
+        
+        Args:
+            indices: List of indices to update
+            td_errors: List of TD errors corresponding to indices
+        """
+        try:
+            if not indices or not td_errors:
+                return
+                
+            # Ensure we have equal length lists
+            min_len = min(len(indices), len(td_errors))
+            indices = indices[:min_len]
+            td_errors = td_errors[:min_len]
+            
+            if self.use_sqlite and hasattr(self, 'conn'):
+                # Update priorities in SQLite
+                for idx, td_error in zip(indices, td_errors):
+                    priority = abs(float(td_error)) + 1e-6  # Small epsilon to avoid zero priority
+                    self.conn.execute(
+                        "UPDATE experiences SET priority = ? WHERE id = ?",
+                        (priority, idx)
+                    )
+                self.conn.commit()
+            else:
+                # Update priorities in memory buffer
+                for idx, td_error in zip(indices, td_errors):
+                    if 0 <= idx < len(self.buffer):
+                        priority = abs(float(td_error)) + 1e-6
+                        # If buffer stores tuples with priority, update it
+                        if isinstance(self.buffer[idx], tuple) and len(self.buffer[idx]) > 1:
+                            # Assume priority is stored as last element
+                            self.buffer[idx] = self.buffer[idx][:-1] + (priority,)
+                        elif hasattr(self.buffer[idx], 'priority'):
+                            self.buffer[idx].priority = priority
+                            
+        except Exception as e:
+            # Silently handle errors to avoid breaking training
+            pass

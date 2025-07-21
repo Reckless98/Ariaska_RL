@@ -87,6 +87,12 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             db_path="core/memories/shadow_memory/replay_buffer.sqlite3"
         )
         
+        # Add environment and stats monitor for main.py compatibility
+        from core.environment.cyber_environment import CyberEnvironment
+        from core.utils.stats_monitor import StatsMonitor
+        self.env = CyberEnvironment(agent_manager=agent_manager, defer_reset=True) if agent_manager else None
+        self.stats_monitor = StatsMonitor()
+        
         # Link to other agents (will be set in _init_multiagent_links)
         self.red_agent = None
         self.scout_agent = None
@@ -251,7 +257,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
                     agent_id=self.agent_id
                 )
                 
-                if alternative and alternative.strip().upper() != "ORIGINAL":
+                if alternative and isinstance(alternative, str) and alternative.strip().upper() != "ORIGINAL":
                     if self.verbosity not in ["quiet", "silent"]:
                         console.print(f"[yellow]🔍 ShadowAgent LLM suggested quieter alternative: {alternative}[/yellow]")
                     return alternative
@@ -414,7 +420,85 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         # Return 2-3 random techniques
         return random.sample(techniques, min(3, len(techniques)))
     
-    def simulate_step(self, episode: int = 1, step: int = 1, shared_context: Dict[str, Any] = None) -> Dict[str, Any]:
+    def get_smart_command(self, state: Dict[str, Any], phase: str) -> tuple[str, str]:
+        """Generate stealth command for main.py compatibility."""
+        try:
+            # Check detection risk from state
+            detection_risk = state.get("detection_risk", 0)
+            blue_team_alert = state.get("blue_team_alert", 0)
+            
+            if detection_risk > 50 or blue_team_alert > 30:
+                # High risk - use very quiet commands
+                stealth_commands = [
+                    "nmap -sS -T1 10.10.10.10",  # Slow TCP SYN scan
+                    "nc -nz 10.10.10.10 22",      # Simple port check
+                    "dig 10.10.10.10",            # DNS lookup
+                ]
+                command = random.choice(stealth_commands)
+                reason = f"High detection risk ({detection_risk}%) - using stealth approach"
+            else:
+                # Lower risk - normal commands
+                normal_commands = [
+                    "nmap -sS 10.10.10.10 -p 22,80,443",
+                    "curl -I http://10.10.10.10",
+                    "ping -c 1 10.10.10.10"
+                ]
+                command = random.choice(normal_commands)
+                reason = f"Moderate stealth (detection: {detection_risk}%)"
+            
+            return command, reason
+        except Exception as e:
+            # Fallback stealth command
+            return "ping -c 1 10.10.10.10", f"Stealth fallback due to error: {e}"
+    
+    def act(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Take stealth action based on current state.
+        
+        Args:
+            state: Current environment state
+            
+        Returns:
+            Dict with action, success, reward, and info
+        """
+        # Shadow agent focuses on stealth and evasion
+        stealth_level = state.get("stealth_level", 50)
+        detection_risk = state.get("detection_risk", 30)
+        active_scans = state.get("active_scans", 0)
+        
+        if detection_risk > 60:
+            # High detection risk - go dark
+            action = "echo 'Going dark - waiting for better opportunity'"
+            success = True
+            reward = 10  # Reward for avoiding detection
+            info = {"action_type": "evasion", "risk_assessment": "high"}
+        elif stealth_level > 70:
+            # Good stealth - perform reconnaissance
+            action = "netstat -tulpn | grep LISTEN"
+            success = True  
+            reward = 20  # Reward for stealth recon
+            info = {"action_type": "stealth_recon", "stealth_level": stealth_level}
+        elif active_scans > 3:
+            # Too much activity - blend in
+            action = "ps aux | head -20"
+            success = True
+            reward = 15  # Reward for blending
+            info = {"action_type": "blending", "active_scans": active_scans}
+        else:
+            # Normal stealth operation
+            action = "lsof -i | grep ESTABLISHED"
+            success = True
+            reward = 25  # Standard stealth reward
+            info = {"action_type": "stealth_operation", "stealth_level": stealth_level}
+        
+        return {
+            "action": action,
+            "success": success,
+            "reward": reward,
+            "info": info
+        }
+
+    def simulate_step(self, episode: int = 1, step: int = 1, shared_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Simulate a step for this agent in the training loop.
         
@@ -461,14 +545,18 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         recommendations = self.get_stealth_recommendation()
         
         # Log to memory router    
-        if self.memory_router:
-            self.memory_router.log_shadow_alert(
-                alert_score=self.current_alert_score,
-                stealth_mode=self.stealth_mode,
-                recommendations=recommendations,
-                step=step,
-                episode=episode
-            )
+        if self.memory_router and hasattr(self.memory_router, 'log_shadow_alert'):
+            try:
+                self.memory_router.log_shadow_alert(  # type: ignore
+                    alert_score=self.current_alert_score,
+                    stealth_mode=self.stealth_mode,
+                    recommendations=recommendations,
+                    step=step,
+                    episode=episode
+                )
+            except AttributeError:
+                # Method doesn't exist, silently continue
+                pass
             
         # Display information based on verbosity
         if self.verbosity in ("standard", "verbose", "debug"):
@@ -503,19 +591,25 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             "episode": episode
         }
     
-    def sync_memory(self):
+    def sync_memory(self) -> bool:
         """
         Synchronize memory with the global memory router.
         Implementation of MemorySyncInterface.
         """
-        if self.memory_router:
-            # Share alert score and stealth recommendations with global memory
-            self.memory_router.update_shadow_status(
-                self.agent_id,
-                self.current_alert_score,
-                self.stealth_mode,
-                self.get_stealth_recommendation()
-            )
+        try:
+            if self.memory_router and hasattr(self.memory_router, 'update_shadow_status'):
+                # Share alert score and stealth recommendations with global memory
+                self.memory_router.update_shadow_status(  # type: ignore
+                    self.agent_id,
+                    self.current_alert_score,
+                    self.stealth_mode,
+                    self.get_stealth_recommendation()
+                )
+                return True
+            return False
+        except Exception as e:
+            console.print(f"[red]❌ ShadowAgent memory sync error: {e}[/red]")
+            return False
         
     def optimize_all_agents_memory(self, agents: List[Any]) -> None:
         """
@@ -558,6 +652,10 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         self.current_alert_score = 0.0
         self.stealth_mode = False
         self.scan_timestamps = []
+    
+    def provide_reasoning(self, context_type: str, context_data: dict) -> str:
+        """Provide reasoning for a given context - only available in OrionAgent."""
+        return f"ShadowAgent does not provide strategic reasoning. Use OrionAgent for strategic insights."
 
 # Main execution for testing
 if __name__ == "__main__":

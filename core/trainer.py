@@ -7,6 +7,7 @@ import time
 import torch
 import numpy as np
 import json
+from typing import TYPE_CHECKING, Any
 from rich.console import Console
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 from rich.table import Table
@@ -15,19 +16,26 @@ from rich.panel import Panel
 from core.environment.cyber_environment import CyberEnvironment
 from core.multiagent.agent_manager import AgentManager
 
-# Try to import memory router, if not available, create placeholder
-try:
+# Conditional imports
+if TYPE_CHECKING:
     from core.multiagent.memory_router import MemoryRouter
-except ImportError:
-    class MemoryRouter:
-        def __init__(self, *args, **kwargs):
-            pass
-        def sync_global_insights(self):
-            pass
-        def optimize_memories(self):
-            pass
-        def snapshot_all_memories(self):
-            pass
+else:
+    # Try to import memory router, if not available, create placeholder
+    try:
+        from core.multiagent.memory_router import MemoryRouter
+        MEMORY_ROUTER_AVAILABLE = True
+    except ImportError:
+        # Fallback MemoryRouter class when module not available
+        class MemoryRouter:  # type: ignore
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                pass
+            def sync_global_insights(self) -> None:
+                pass
+            def optimize_memories(self) -> None:
+                pass
+            def snapshot_all_memories(self) -> None:
+                pass
+        MEMORY_ROUTER_AVAILABLE = False
 
 console = Console()
 
@@ -172,8 +180,8 @@ class Trainer:
                 # Update progress bar
                 self.progress.update(self.task_id, advance=1)
                 
-                # Log episode results
-                self._log_episode_results(episode, episode_reward, steps_taken, phase_changes, len(unique_actions))
+                # Log episode results with enhanced positioning
+                self._log_episode_results_enhanced(episode, episode_reward, steps_taken, phase_changes, len(unique_actions))
                 
                 # Save model periodically or on significant improvements
                 if (episode % 10 == 0) or (
@@ -538,9 +546,84 @@ class Trainer:
             
         # Create visualization snapshot periodically
         if hasattr(self.visualizer, "save_visualization_snapshot") and episode % 10 == 0:
-            self.visualizer.save_visualization_snapshot(
+            if self.visualizer:
+                self.visualizer.save_visualization_snapshot(
                 os.path.join(self.log_dir, f"visualization_ep{episode}.txt")
             )
+
+    def _log_episode_results_enhanced(self, episode, reward, steps, phase_changes, unique_actions):
+        """
+        Enhanced episode logging with better positioning and clear command/output visibility.
+        """
+        # Skip detailed logging in quiet mode
+        if self.verbosity == "quiet":
+            if episode % 10 == 0:
+                console.print(f"[bold cyan]Episode {episode}/{self.episodes}[/bold cyan]: Reward={reward:.2f}, Steps={steps}")
+            return
+            
+        # Clear screen area for better visibility (optional)
+        if self.verbosity == "verbose":
+            console.print("\n" * 2)  # Add some space
+            
+        # Create enhanced episode summary with better positioning
+        table = Table(title=f"🎯 Episode {episode}/{self.episodes} Results", show_header=True, width=80)
+        table.add_column("Metric", style="cyan", width=20)
+        table.add_column("Current", style="green", width=15, justify="right")
+        table.add_column("Trend", style="yellow", width=15, justify="center")
+        table.add_column("Best/Avg", style="magenta", width=15, justify="right")
+        table.add_column("Status", style="blue", width=15, justify="center")
+        
+        # Calculate trends and comparisons
+        reward_trend = "📈" if episode > 1 and reward > self.episode_rewards[-2] else "📉" if episode > 1 and reward < self.episode_rewards[-2] else "➡️"
+        best_reward = max(self.episode_rewards) if self.episode_rewards else reward
+        avg_reward_5 = sum(self.episode_rewards[-5:]) / min(5, len(self.episode_rewards)) if self.episode_rewards else reward
+        
+        # Determine status
+        if reward > best_reward * 0.9:
+            status = "🟢 EXCELLENT"
+        elif reward > avg_reward_5:
+            status = "🟡 GOOD"
+        else:
+            status = "🔴 BELOW AVG"
+            
+        table.add_row("Reward", f"{reward:.2f}", reward_trend, f"Best: {best_reward:.2f}", status)
+        table.add_row("Steps", f"{steps}", "📊", f"Avg: {sum(self.episode_steps)/max(1,len(self.episode_steps)):.1f}" if self.episode_steps else f"{steps}", "⏱️")
+        table.add_row("Phase Changes", f"{phase_changes}", "🔄", f"Total: {sum(self.phase_transitions_per_episode)}" if self.phase_transitions_per_episode else f"{phase_changes}", "📋")
+        table.add_row("Unique Actions", f"{unique_actions}", "🎯", f"Avg: {sum(self.unique_actions_per_episode)/max(1,len(self.unique_actions_per_episode)):.1f}" if self.unique_actions_per_episode else f"{unique_actions}", "🔧")
+        
+        # Add success metrics if available
+        if episode >= 10:
+            success_rate = (self.successful_episodes / episode) * 100
+            success_status = "🟢 HIGH" if success_rate > 70 else "🟡 MED" if success_rate > 40 else "🔴 LOW"
+            table.add_row("Success Rate", f"{success_rate:.1f}%", "📈", f"Target: 70%", success_status)
+            
+        # Display with enhanced visibility
+        console.print(Panel(
+            table, 
+            title="[bold green]🏆 EPISODE PERFORMANCE REPORT[/bold green]",
+            border_style="bright_green",
+            padding=(1, 2)
+        ))
+        
+        # Add command visibility separator
+        if self.verbosity in ["verbose", "debug"]:
+            console.print("─" * 100, style="dim")
+            console.print(f"[bold blue]Ready for Episode {episode + 1} commands...[/bold blue]")
+            console.print("─" * 100, style="dim")
+        
+        # Enhanced file logging
+        log_entry = {
+            "timestamp": time.time(),
+            "episode": episode,
+            "reward": reward,
+            "steps": steps,
+            "phase_changes": phase_changes,
+            "unique_actions": unique_actions,
+            "best_reward": best_reward,
+            "avg_reward_5ep": avg_reward_5,
+            "success_rate": (self.successful_episodes / episode) * 100 if episode >= 10 else 0
+        }
+        self._log_event(f"episode_enhanced_{episode}", log_entry)
 
     def _save_model(self, episode):
         """
@@ -624,7 +707,7 @@ class Trainer:
                 
             # Perform memory optimization if available
             if hasattr(self.memory_router, "optimize_memories"):
-                self.memory_router.optimize_memories()
+                self.memory_router.optimize_memories()  # type: ignore
                 
             # Generate memory snapshot if needed
             if hasattr(self.memory_router, "snapshot_all_memories"):
@@ -663,12 +746,17 @@ class Trainer:
                     console.print(f"[yellow]⚠ Increased exploration to ε={self.agent.epsilon:.3f} due to phase stagnation[/yellow]")
                 
             # Signal OrionAgent if available
-            if self.agent_manager and hasattr(self.agent_manager, "orion_agent"):
+            if self.agent_manager and hasattr(self.agent_manager, "orion_agent") and self.agent_manager.orion_agent:
                 if hasattr(self.agent_manager.orion_agent, "notify_stagnation"):
+                    stagnation_data = {
+                        "agent_id": self.agent.agent_id if hasattr(self.agent, "agent_id") else "Agent",
+                        "type": "phase",
+                        "episode": episode,
+                        "phase_transitions": phase_transitions
+                    }
                     self.agent_manager.orion_agent.notify_stagnation(
-                        "phase", 
                         self.agent.agent_id if hasattr(self.agent, "agent_id") else "Agent",
-                        self.env.get_global_state() if hasattr(self.env, "get_global_state") else {}
+                        stagnation_data
                     )
         
         # Adjust learning rate if performance is poor over extended periods
@@ -706,7 +794,7 @@ class Trainer:
         Generate final training report with comprehensive statistics.
         """
         # Calculate training time
-        training_time = time.time() - self.train_start_time
+        training_time = time.time() - (self.train_start_time or 0)
         hours, remainder = divmod(training_time, 3600)
         minutes, seconds = divmod(remainder, 60)
         
@@ -733,7 +821,7 @@ class Trainer:
         console.print(Panel(table, border_style="green"))
         
         # Create final visualization
-        if hasattr(self.visualizer, "create_training_report"):
+        if self.visualizer and hasattr(self.visualizer, "create_training_report"):
             self.visualizer.create_training_report(self.episodes)
             
         # Save final training report
@@ -764,7 +852,12 @@ class Trainer:
         Plot comprehensive learning curves showing reward progression and other metrics.
         """
         try:
-            import matplotlib.pyplot as plt
+            import matplotlib  # type: ignore
+            matplotlib.use('Agg')  # Use non-interactive backend
+            import matplotlib.pyplot as plt  # type: ignore
+        except ImportError:
+            console.print("[yellow]⚠ matplotlib not available, skipping learning curve plot[/yellow]")
+            return
             
             # Create figure with multiple subplots
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 15))
@@ -868,12 +961,11 @@ if __name__ == "__main__":
     # Import necessary components
     from core.agents.red_agent import RedAgent
     from core.environment.cyber_environment import CyberEnvironment
-    from core.multiagent.memory_router import MemoryRouter
     from core.algorithms.replay_buffer import ReplayBuffer
     
     # Create agent and components
     replay_buffer = ReplayBuffer(capacity=10000, prioritized=True)
-    agent = RedAgent(device="cpu", replay_buffer=replay_buffer)
+    agent = RedAgent(device="cpu")
     env = CyberEnvironment()
     memory_router = MemoryRouter()
     

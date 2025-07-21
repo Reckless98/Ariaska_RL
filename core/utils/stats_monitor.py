@@ -1,51 +1,600 @@
-# core/utils/stats_monitor.py — ARIASKA StatsMonitor v12.0 APEX PRIME
+# core/utils/stats_monitor.py — ARIASKA StatsMonitor v14.0 ULTRA-SIMPLE
 """
-Unified StatsMonitor:
-• Live Rich Dashboard + Async Logging
-• Prioritized Metrics Tracking
-• Orion Insights & Alert System
-• Lightweight Fallback Mode
+Ultra-simple StatsMonitor with minimal dependencies
 """
-
 import os
 import time
 import json
 import logging
 import threading
-from collections import defaultdict, deque
+from collections import deque
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
-# Optional Rich Integration
+logger = logging.getLogger(__name__)
+
+# Try Rich import with graceful fallback
+RICH_AVAILABLE = False
+RichProgress = None
 try:
-    from rich.console import Console
+    from rich.console import Console as RichConsole
     from rich.table import Table
     from rich.panel import Panel
     from rich.layout import Layout
-    from rich.progress import (
-        Progress,
-        BarColumn,
-        TextColumn,
-        TimeElapsedColumn,
-        SpinnerColumn,
-    )
+    from rich.progress import Progress as RichProgress
     from rich.live import Live
-    from rich.errors import LiveError
-
     RICH_AVAILABLE = True
+    console = RichConsole()
 except ImportError:
-    RICH_AVAILABLE = False
+    # Simple fallback console
+    class FallbackConsole:
+        def print(self, *args, **kwargs):
+            print(*args)
+        def rule(self, *args, **kwargs):
+            print("=" * 50)
+    console = FallbackConsole()
 
-console = Console() if RICH_AVAILABLE else None
-logger = logging.getLogger(__name__)
+# Unified Progress class that works with or without Rich
+class Progress:
+    def __init__(self):
+        self._rich_progress = None
+        if RICH_AVAILABLE and RichProgress is not None:
+            try:
+                self._rich_progress = RichProgress()
+            except Exception:
+                pass
+    
+    def add_task(self, description, total=None):
+        if self._rich_progress:
+            try:
+                return self._rich_progress.add_task(description, total=total)
+            except Exception:
+                pass
+        return 0
+    
+    def start(self):
+        if self._rich_progress:
+            try:
+                self._rich_progress.start()
+            except Exception:
+                pass
+    
+    def update(self, task_id, completed=None):
+        if self._rich_progress:
+            try:
+                self._rich_progress.update(task_id, completed=completed)
+            except Exception:
+                pass
+    
+    def stop(self):
+        if self._rich_progress:
+            try:
+                self._rich_progress.stop()
+            except Exception:
+                pass
 
-# Global flag to track if a live display is active
-_LIVE_DISPLAY_ACTIVE = False
+class StatsDict:
+    """Type-safe stats dictionary"""
+    def __init__(self):
+        self.commands_executed: int = 0
+        self.successful_commands: int = 0
+        self.total_reward: float = 0.0
+        self.avg_reward: float = 0.0
+        self.last_action: str = 'None'
+        self.exploration_rate: float = 0.0
+        self.learning_rate: float = 0.001
+        self.rewards: List[float] = []
+        self.steps: int = 0
+        self.gpt_calls: int = 0
+        self.current_phase: str = 'recon'
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'commands_executed': self.commands_executed,
+            'successful_commands': self.successful_commands,
+            'total_reward': self.total_reward,
+            'avg_reward': self.avg_reward,
+            'last_action': self.last_action,
+            'exploration_rate': self.exploration_rate,
+            'learning_rate': self.learning_rate,
+            'rewards': self.rewards.copy(),
+            'steps': self.steps,
+            'gpt_calls': self.gpt_calls,
+            'current_phase': self.current_phase
+        }
+
+class StatsMonitor:
+    """Ultra-simple stats monitor with type safety."""
+    
+    def __init__(self, verbosity="standard", enable_live=True):
+        self.verbosity = verbosity
+        self.enable_live = enable_live and RICH_AVAILABLE
+        
+        # Core metrics with proper typing
+        self.agent_stats: Dict[str, StatsDict] = {}
+        
+        # Episode tracking
+        self.episode_rewards = deque(maxlen=100)
+        self.episode_lengths = deque(maxlen=100) 
+        self.current_episode = 0
+        self.current_step = 0
+        self.global_steps = 0
+        self.global_episodes = 0
+        
+        # Performance metrics
+        self.training_start_time = time.time()
+        self.alerts = []
+        self.orion_insight = None
+        
+        if RICH_AVAILABLE:
+            console.print(f"[green]✓ StatsMonitor initialized with Rich UI support[/green]")
+        else:
+            print("✓ StatsMonitor initialized with basic console output")
+    
+    def _get_agent_stats(self, agent_id: str) -> StatsDict:
+        """Get or create agent stats."""
+        if agent_id not in self.agent_stats:
+            self.agent_stats[agent_id] = StatsDict()
+        return self.agent_stats[agent_id]
+    
+    def log_step(self, agent_id: str, action: str = "unknown", reward: float = 0.0, success: bool = True, **kwargs):
+        """Log a training step."""
+        try:
+            stats = self._get_agent_stats(agent_id)
+            stats.commands_executed += 1
+            if success:
+                stats.successful_commands += 1
+            stats.total_reward += reward
+            if stats.commands_executed > 0:
+                stats.avg_reward = stats.total_reward / stats.commands_executed
+            stats.last_action = str(action)
+            stats.rewards.append(reward)
+            stats.steps += 1
+            
+            # Track additional info
+            if 'gpt_calls' in kwargs and isinstance(kwargs['gpt_calls'], int):
+                stats.gpt_calls += kwargs['gpt_calls']
+            if 'phase' in kwargs and isinstance(kwargs['phase'], str):
+                stats.current_phase = kwargs['phase']
+            
+            self.current_step += 1
+            self.global_steps += 1
+                    
+        except Exception as e:
+            logger.warning(f"Failed to log step: {e}")
+    
+    def record_step(self, agent_id, reward, command=None, phase=None, **kwargs):
+        """Record a training step (alias for log_step)."""
+        self.log_step(agent_id, command or "unknown", reward, True, phase=phase, **kwargs)
+    
+    def log_episode(self, episode_reward: float = 0.0, episode_length: int = 0):
+        """Log episode completion."""
+        try:
+            self.episode_rewards.append(episode_reward)
+            self.episode_lengths.append(episode_length)
+            self.current_episode += 1
+            self.global_episodes += 1
+            self.current_step = 0
+                    
+        except Exception as e:
+            logger.warning(f"Failed to log episode: {e}")
+    
+    def start_episode(self, episode_num):
+        """Start tracking a new episode."""
+        self.current_episode = episode_num
+        self.current_step = 0
+    
+    def end_episode(self):
+        """End the current episode."""
+        pass
+    
+    def add_alert(self, message: str):
+        """Add an alert."""
+        try:
+            self.alerts.append({
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "message": message
+            })
+            
+            # Keep only recent alerts
+            if len(self.alerts) > 10:
+                self.alerts = self.alerts[-10:]
+                
+        except Exception as e:
+            logger.warning(f"Failed to add alert: {e}")
+    
+    def set_orion_insight(self, insight: str):
+        """Set Orion insight."""
+        try:
+            self.orion_insight = insight
+        except Exception as e:
+            logger.warning(f"Failed to set Orion insight: {e}")
+    
+    def start(self):
+        """Start the monitor."""
+        pass
+    
+    def stop(self):
+        """Stop the monitor."""
+        pass
+    
+    def show(self):
+        """Show current stats."""
+        if RICH_AVAILABLE:
+            try:
+                from rich.table import Table
+                table = Table(title="📊 Training Stats")
+                table.add_column("Agent", style="cyan")
+                table.add_column("Steps", style="yellow")
+                table.add_column("Avg. Reward", style="green")
+                table.add_column("Commands", style="magenta")
+                
+                for agent_id, stats in self.agent_stats.items():
+                    table.add_row(
+                        agent_id,
+                        str(stats.steps),
+                        f"{stats.avg_reward:.2f}",
+                        str(stats.commands_executed)
+                    )
+                
+                console.print(table)
+            except Exception:
+                self._show_fallback()
+        else:
+            self._show_fallback()
+    
+    def _show_fallback(self):
+        """Fallback stats display."""
+        print(f"\n=== ARIASKA Stats ===")
+        print(f"Episode: {self.current_episode}, Step: {self.current_step}")
+        for agent_id, stats in self.agent_stats.items():
+            print(f"{agent_id}: {stats.commands_executed} commands, {stats.avg_reward:.2f} avg reward")
+    
+    def print_summary(self):
+        """Print comprehensive stats summary."""
+        if RICH_AVAILABLE:
+            try:
+                from rich.table import Table
+                table = Table(title="📊 Training Summary")
+                table.add_column("Agent", style="cyan")
+                table.add_column("Total Reward", style="green")
+                table.add_column("Avg Reward", style="yellow")
+                table.add_column("Episodes", style="magenta")
+                table.add_column("Commands", style="white")
+
+                for agent_id, stats in self.agent_stats.items():
+                    table.add_row(
+                        agent_id,
+                        f"{stats.total_reward:.2f}",
+                        f"{stats.avg_reward:.2f}",
+                        str(self.global_episodes),
+                        str(stats.commands_executed),
+                    )
+
+                console.print(table)
+            except Exception:
+                self._print_summary_fallback()
+        else:
+            self._print_summary_fallback()
+    
+    def _print_summary_fallback(self):
+        """Fallback summary display."""
+        print(f"=== Training Summary ===")
+        for agent_id, stats in self.agent_stats.items():
+            print(f"{agent_id}: Total: {stats.total_reward:.2f}, "
+                  f"Avg: {stats.avg_reward:.2f}, Commands: {stats.commands_executed}")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get current stats as dictionary."""
+        return {
+            "episode": self.current_episode,
+            "step": self.current_step,
+            "agent_stats": {aid: stats.to_dict() for aid, stats in self.agent_stats.items()},
+            "global_steps": self.global_steps,
+            "global_episodes": self.global_episodes
+        }
+    
+    def render_ascii_summary(self):
+        """Render ASCII summary of training statistics."""
+        try:
+            if RICH_AVAILABLE:
+                from rich.table import Table
+                table = Table(title="Training Summary")
+                table.add_column("Agent", style="cyan")
+                table.add_column("Commands", style="green")
+                table.add_column("Avg Reward", style="yellow")
+                table.add_column("Current Phase", style="magenta")
+                
+                for agent_id, stats in self.agent_stats.items():
+                    table.add_row(
+                        agent_id,
+                        str(stats.commands_executed),
+                        f"{stats.avg_reward:.2f}",
+                        stats.current_phase
+                    )
+                console.print(table)
+            else:
+                print("=== Training Summary ===")
+                for agent_id, stats in self.agent_stats.items():
+                    print(f"{agent_id}: Commands={stats.commands_executed}, Avg Reward={stats.avg_reward:.2f}")
+        except Exception as e:
+            print(f"Error rendering summary: {e}")
+    
+    def get_avg_reward(self, agent_id: Optional[str] = None) -> float:
+        """Get average reward for specific agent or global average."""
+        try:
+            if agent_id and agent_id in self.agent_stats:
+                return self.agent_stats[agent_id].avg_reward
+            elif self.agent_stats:
+                total_reward = sum(stats.total_reward for stats in self.agent_stats.values())
+                total_commands = sum(stats.commands_executed for stats in self.agent_stats.values())
+                return total_reward / total_commands if total_commands > 0 else 0.0
+            return 0.0
+        except Exception:
+            return 0.0
+    
+    @property
+    def total_steps(self) -> int:
+        """Get total steps across all agents."""
+        return self.global_steps
+    
+    def get_average_reward(self, agent_id: Optional[str] = None) -> float:
+        """Get average reward for agent or all agents."""
+        if agent_id:
+            stats = self._get_agent_stats(agent_id)
+            return stats.avg_reward
+        else:
+            if not self.episode_rewards:
+                return 0.0
+            return sum(self.episode_rewards) / len(self.episode_rewards)
+    
+    def get_metrics_history(self, agent_id=None):
+        """Retrieve detailed metrics for analysis."""
+        if agent_id:
+            stats = self._get_agent_stats(agent_id)
+            return stats.rewards.copy()
+        return {aid: stats.rewards.copy() for aid, stats in self.agent_stats.items()}
+    
+    def log_gpt_call(self, agent_id, tokens_used=0, model="gpt-4o-mini"):
+        """Log GPT API call for tracking usage."""
+        stats = self._get_agent_stats(agent_id)
+        stats.gpt_calls += 1
+    
+    def report_gpt_usage(self, agent_id, tokens):
+        """Report GPT usage."""
+        self.log_gpt_call(agent_id, tokens)
+    
+    def warn(self, message):
+        """Add warning alert."""
+        self.add_alert(f"WARNING: {message}")
+    
+    def error(self, message):
+        """Add error alert."""
+        self.add_alert(f"ERROR: {message}")
+    
+    def info(self, message):
+        """Add info alert."""
+        self.add_alert(f"INFO: {message}")
+    
+    def update(self, *args, **kwargs):
+        """Update method for compatibility."""
+        pass
+    
+    def reset(self):
+        """Reset stats for a fresh simulation cycle."""
+        self.global_steps = 0
+        self.global_episodes = 0
+        self.current_episode = 0
+        self.current_step = 0
+        self.agent_stats.clear()
+        self.episode_rewards.clear()
+        self.episode_lengths.clear()
+        self.alerts.clear()
+        
+        if RICH_AVAILABLE:
+            console.print("[yellow]🔄 StatsMonitor reset for new session.[/yellow]")
+        else:
+            print("🔄 StatsMonitor reset for new session.")
+    
+    def start_live(self):
+        """Activate live dashboard (placeholder)."""
+        pass
+    
+    def stop_live(self):
+        """Deactivate live dashboard (placeholder)."""
+        pass
+    
+    def flush_logs(self):
+        """Ensure logs are persisted."""
+        pass
+    
+    def record_autonomous_interaction(self, interaction: Dict[str, Any]):
+        """Record an autonomous agent interaction."""
+        try:
+            # Store interaction for later analysis
+            if not hasattr(self, 'autonomous_interactions'):
+                self.autonomous_interactions = []
+            self.autonomous_interactions.append(interaction)
+            
+            # Keep only recent interactions
+            if len(self.autonomous_interactions) > 100:
+                self.autonomous_interactions = self.autonomous_interactions[-100:]
+        except Exception as e:
+            logger.warning(f"Failed to record autonomous interaction: {e}")
+
+    def get_alert_rate(self) -> float:
+        """Get the current alert rate."""
+        try:
+            if not hasattr(self, 'alert_history'):
+                self.alert_history = []
+            
+            # Calculate alert rate from recent history
+            recent_alerts = [alert for alert in self.alert_history if time.time() - alert.get('timestamp', 0) < 300]
+            alert_rate = len(recent_alerts) / 300.0  # alerts per second over 5 minutes
+            return min(1.0, alert_rate * 100)  # Convert to percentage, cap at 100%
+        except Exception as e:
+            logger.warning(f"Failed to get alert rate: {e}")
+            return 0.0
+
+    def get_detection_rate(self) -> float:
+        """Get the current detection rate."""
+        try:
+            total_actions = sum(stats.commands_executed for stats in self.agent_stats.values())
+            if total_actions == 0:
+                return 0.0
+            
+            # Simple detection rate calculation based on failed commands
+            failed_actions = sum(stats.commands_executed - stats.successful_commands for stats in self.agent_stats.values())
+            detection_rate = failed_actions / total_actions
+            return min(1.0, detection_rate)
+        except Exception as e:
+            logger.warning(f"Failed to get detection rate: {e}")
+            return 0.0
+
+    def visualize_phase_distribution(self):
+        """Visualize the distribution of phases."""
+        try:
+            if RICH_AVAILABLE:
+                from rich.table import Table
+                table = Table(title="Phase Distribution")
+                table.add_column("Agent", style="cyan")
+                table.add_column("Current Phase", style="yellow")
+                table.add_column("Commands", style="green")
+                
+                for agent_id, stats in self.agent_stats.items():
+                    table.add_row(
+                        agent_id,
+                        stats.current_phase,
+                        str(stats.commands_executed)
+                    )
+                
+                console.print(table)
+            else:
+                print("=== Phase Distribution ===")
+                for agent_id, stats in self.agent_stats.items():
+                    print(f"{agent_id}: {stats.current_phase} ({stats.commands_executed} commands)")
+        except Exception as e:
+            logger.warning(f"Failed to visualize phase distribution: {e}")
 
 
-# ─────────────────────────────────────────────
-# 📈 Progress Tracker
-# ─────────────────────────────────────────────
+# Legacy compatibility functions
+def display_training_summary(agent_stats, total_episodes, total_steps):
+    """Display training summary with fallback."""
+    if RICH_AVAILABLE:
+        try:
+            from rich.table import Table
+            table = Table(title="📊 ARIASKA Training Summary", show_lines=True)
+            table.add_column("Agent", style="cyan")
+            table.add_column("Commands", justify="right")
+            table.add_column("Avg Reward", justify="right")
+
+            for agent_id, stats in agent_stats.items():
+                if isinstance(stats, StatsDict):
+                    avg_reward = stats.avg_reward
+                    commands = stats.commands_executed
+                else:
+                    avg_reward = stats.get("avg_reward", 0.0)
+                    commands = stats.get("commands_executed", 0)
+                table.add_row(agent_id, str(commands), f"{avg_reward:.2f}")
+
+            console.print(table)
+        except Exception:
+            _display_training_summary_fallback(agent_stats, total_episodes, total_steps)
+    else:
+        _display_training_summary_fallback(agent_stats, total_episodes, total_steps)
+
+
+def _display_training_summary_fallback(agent_stats, total_episodes, total_steps):
+    """Fallback training summary display."""
+    print("\n" + "="*60)
+    print("📊 ARIASKA TRAINING SUMMARY")
+    print("="*60)
+    print(f"Episodes: {total_episodes}, Steps: {total_steps}")
+    print("-"*60)
+    
+    for agent_id, stats in agent_stats.items():
+        if isinstance(stats, StatsDict):
+            avg_reward = stats.avg_reward
+            commands = stats.commands_executed
+        else:
+            avg_reward = stats.get("avg_reward", 0.0)
+            commands = stats.get("commands_executed", 0)
+        print(f"{agent_id}: {commands} commands, {avg_reward:.2f} avg reward")
+    print("="*60)
+
+
+def display_phase_distribution_table(phase_stats):
+    """Display phase distribution with fallback."""
+    if RICH_AVAILABLE:
+        try:
+            from rich.table import Table
+            table = Table(title="🎯 Phase Distribution")
+            table.add_column("Phase", style="cyan")
+            table.add_column("Count", style="green")
+            table.add_column("Percentage", style="yellow")
+
+            total = sum(phase_stats.values())
+            for phase, count in phase_stats.items():
+                percentage = (count / max(total, 1)) * 100
+                table.add_row(phase, str(count), f"{percentage:.1f}%")
+
+            console.print(table)
+        except Exception:
+            _display_phase_distribution_fallback(phase_stats)
+    else:
+        _display_phase_distribution_fallback(phase_stats)
+
+
+def _display_phase_distribution_fallback(phase_stats):
+    """Fallback phase distribution display."""
+    print("\n=== Phase Distribution ===")
+    total = sum(phase_stats.values())
+    for phase, count in phase_stats.items():
+        percentage = (count / max(total, 1)) * 100
+        print(f"{phase}: {count} ({percentage:.1f}%)")
+
+
+def display_training_stats_table(agent_stats):
+    """Display training stats with fallback."""
+    if RICH_AVAILABLE:
+        try:
+            from rich.table import Table
+            table = Table(title="📊 Training Stats")
+            table.add_column("Agent", style="cyan")
+            table.add_column("Commands", style="yellow")
+            table.add_column("Avg. Reward", style="green")
+            
+            for agent_id, stats in agent_stats.items():
+                if isinstance(stats, StatsDict):
+                    avg_reward = stats.avg_reward
+                    commands = stats.commands_executed
+                else:
+                    avg_reward = stats.get("avg_reward", 0.0)
+                    commands = stats.get("commands_executed", 0)
+                
+                table.add_row(agent_id, str(commands), f"{avg_reward:.2f}")
+            
+            console.print(table)
+        except Exception:
+            _display_training_stats_fallback(agent_stats)
+    else:
+        _display_training_stats_fallback(agent_stats)
+
+
+def _display_training_stats_fallback(agent_stats):
+    """Fallback training stats display."""
+    print("\n=== Training Stats ===")
+    for agent_id, stats in agent_stats.items():
+        if isinstance(stats, StatsDict):
+            avg_reward = stats.avg_reward
+            commands = stats.commands_executed
+        else:
+            avg_reward = stats.get("avg_reward", 0.0)
+            commands = stats.get("commands_executed", 0)
+        print(f"{agent_id}: {commands} commands, {avg_reward:.2f} avg reward")
+
+
+# Progress Tracker (Simplified)
 class ProgressTracker:
     def __init__(self, total_steps=100, total_episodes=10):
         self.total_steps = total_steps
@@ -53,526 +602,30 @@ class ProgressTracker:
         self.current_step = 0
         self.current_episode = 0
         self.progress = None
-        self.task = None
 
     def start(self):
-        if not RICH_AVAILABLE:
-            return
-        self.progress = Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[cyan]{task.completed}/{task.total}"),
-            TimeElapsedColumn(),
-            console=console,
-            transient=True,
-        )
-        self.task = self.progress.add_task(
-            "Training Progress", total=self.total_steps * self.total_episodes
-        )
-        self.progress.start()
+        if RICH_AVAILABLE:
+            try:
+                self.progress = Progress()
+                self.task = self.progress.add_task("Training Progress", total=self.total_steps * self.total_episodes)
+                self.progress.start()
+            except Exception:
+                print("Progress tracking (Rich error)")
+        else:
+            print("Progress tracking started")
 
     def update(self, step=1, episode=0):
         self.current_step = step
         self.current_episode = episode
-        if self.progress and self.task is not None:
-            self.progress.update(
-                self.task, completed=(episode * self.total_steps + step)
-            )
+        if self.progress and hasattr(self, 'task'):
+            try:
+                self.progress.update(self.task, completed=(episode * self.total_steps + step))
+            except Exception:
+                pass
 
     def stop(self):
         if self.progress:
-            self.progress.stop()
-            self.progress = None
-
-
-# ─────────────────────────────────────────────
-# 📝 Async Data Logger
-# ─────────────────────────────────────────────
-class DataLogger:
-    def __init__(self, log_dir="logs"):
-        self.log_dir = log_dir
-        os.makedirs(log_dir, exist_ok=True)
-        self.paths = {
-            "step": os.path.join(log_dir, "step_log.jsonl"),
-            "episode": os.path.join(log_dir, "episode_log.jsonl"),
-            "gpt": os.path.join(log_dir, "gpt_usage.jsonl"),
-            "alerts": os.path.join(log_dir, "alerts.jsonl"),
-        }
-        self.lock = threading.Lock()
-
-    def _write_async(self, path, entry):
-        def _write():
-            with self.lock:
-                with open(path, "a") as f:
-                    f.write(json.dumps(entry) + "\n")
-
-        threading.Thread(target=_write, daemon=True).start()
-
-    def log_step(self, agent_id, reward, **info):
-        entry = {
-            "agent_id": agent_id,
-            "reward": reward,
-            "timestamp": time.time(),
-            **info,
-        }
-        self._write_async(self.paths["step"], entry)
-
-    def log_episode(self, agent_id, total_reward, **info):
-        entry = {
-            "agent_id": agent_id,
-            "total_reward": total_reward,
-            "timestamp": time.time(),
-            **info,
-        }
-        self._write_async(self.paths["episode"], entry)
-
-    def log_gpt_usage(self, agent_id, tokens):
-        entry = {"agent_id": agent_id, "tokens": tokens, "timestamp": time.time()}
-        self._write_async(self.paths["gpt"], entry)
-
-    def log_alert(self, message, level="warning"):
-        entry = {"message": message, "level": level, "timestamp": time.time()}
-        self._write_async(self.paths["alerts"], entry)
-
-
-# ─────────────────────────────────────────────
-# 🖥️ Dashboard Renderer (Rich Hybrid)
-# ─────────────────────────────────────────────
-class DashboardRenderer:
-    _instance = None
-    _live_display_active = False
-
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(DashboardRenderer, cls).__new__(cls)
-        return cls._instance
-
-    def __init__(self, agents, max_history=100):
-        if not hasattr(self, "initialized"):  # Prevent reinitialization
-            self.agents = agents
-            self.stats = {
-                a: {"rewards": deque(maxlen=max_history), "gpt_calls": 0, "steps": 0}
-                for a in agents
-            }
-            self.alerts = deque(maxlen=5)
-            self.orion_insight = ""
-            self.last_update = 0
-            self.update_interval = 3
-            self.live = None  # Don't create Live object until start() is called
-            self.initialized = True
-
-    def start(self):
-        if not RICH_AVAILABLE:
-            return
-            
-        # Don't start a new live display if one is already active
-        if DashboardRenderer._live_display_active:
-            return
-            
-        try:
-            # Reset the terminal state before starting a new live display
-            console.clear_live()
-            
-            # Create a new Live object only when starting
-            self.live = Live(
-                self.render(),
-                console=console, 
-                refresh_per_second=2,
-                auto_refresh=False  # Manual refresh only
-            )
-            self.live.start()
-            DashboardRenderer._live_display_active = True
-        except Exception as e:
-            console.print(f"[yellow]⚠ Live display error: {e}[/yellow]")
-
-    def stop(self):
-        if self.live and DashboardRenderer._live_display_active:
             try:
-                self.live.stop()
-                
-                # Force a final refresh of the console to reset terminal state
-                console.clear_live()
-                console.print()  # Print an empty line to reset cursor
-                
-                self.live = None
-                DashboardRenderer._live_display_active = False
-            except Exception as e:
-                console.print(f"[yellow]⚠ Error stopping live display: {e}[/yellow]")
-
-    def update(self, force=False):
-        now = time.time()
-        if (force or now - self.last_update > self.update_interval) and self.live and DashboardRenderer._live_display_active:
-            try:
-                self.live.update(self.render())
-                self.last_update = now
-            except Exception as e:
-                console.print(f"[yellow]⚠ Live update error: {e}[/yellow]")
-                self.stop()  # Stop on error to prevent further issues
-
-    def render(self):
-        layout = Layout()
-        layout.split(
-            Layout(name="header", size=3),
-            Layout(name="main", ratio=2),
-            Layout(name="alerts", size=3),
-            Layout(name="orion", size=4),
-        )
-        layout["header"].update(self._render_header())
-        layout["main"].update(self._render_stats())
-        layout["alerts"].update(self._render_alerts())
-        layout["orion"].update(self._render_orion())
-        return layout
-
-    def _render_header(self):
-        table = Table.grid(expand=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Steps", style="magenta")
-        table.add_column("Avg Reward", style="green")
-        table.add_column("GPT Calls", style="yellow")
-        for agent in self.agents:
-            s = self.stats[agent]
-            avg_reward = sum(s["rewards"]) / max(1, len(s["rewards"]))
-            table.add_row(
-                agent, str(s["steps"]), f"{avg_reward:.2f}", str(s["gpt_calls"])
-            )
-        return Panel(table, title="Training Progress", border_style="bright_blue")
-
-    def _render_stats(self):
-        table = Table(title="Agent Stats", show_lines=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Last Reward", style="green")
-        table.add_column("Avg Reward", style="magenta")
-        table.add_column("GPT Calls", style="yellow")
-        for agent in self.agents:
-            s = self.stats[agent]
-            last_reward = s["rewards"][-1] if s["rewards"] else 0.0
-            avg_reward = sum(s["rewards"]) / max(1, len(s["rewards"]))
-            table.add_row(
-                agent, f"{last_reward:.2f}", f"{avg_reward:.2f}", str(s["gpt_calls"])
-            )
-        return Panel(table, border_style="green")
-
-    def _render_alerts(self):
-        if not self.alerts:
-            return Panel(
-                "[green]No alerts[/green]", title="Alerts", border_style="green"
-            )
-        table = Table(title="Alerts", show_lines=True)
-        table.add_column("Level", style="red")
-        table.add_column("Message", style="yellow")
-        for level, msg in self.alerts:
-            table.add_row(level, msg)
-        return Panel(table, border_style="red")
-
-    def _render_orion(self):
-        return Panel(
-            self.orion_insight or "[dim]Awaiting Orion Insight...[/dim]",
-            title="Orion GPT Oversight",
-            border_style="magenta",
-        )
-
-    def update_stats(self, agent_id, reward, gpt_calls=0):
-        s = self.stats[agent_id]
-        s["rewards"].append(reward)
-        s["steps"] += 1
-        s["gpt_calls"] = gpt_calls
-        self.update()
-
-    def log_alert(self, message, level="warning"):
-        self.alerts.appendleft((level, message))
-        self.update(force=True)
-
-    def set_orion_insight(self, insight):
-        self.orion_insight = insight
-        self.update(force=True)
-
-
-# ─────────────────────────────────────────────
-# 🚨 Alert System Wrapper
-# ─────────────────────────────────────────────
-class AlertSystem:
-    def __init__(self, dashboard: DashboardRenderer, datalogger: DataLogger):
-        self.dashboard = dashboard
-        self.datalogger = datalogger
-
-    def warn(self, message):
-        self.dashboard.log_alert(message, "warning")
-        self.datalogger.log_alert(message, "warning")
-
-    def error(self, message):
-        self.dashboard.log_alert(message, "error")
-        self.datalogger.log_alert(message, "error")
-
-    def info(self, message):
-        self.dashboard.log_alert(message, "info")
-        self.datalogger.log_alert(message, "info")
-
-
-# ─────────────────────────────────────────────
-# 🧠 StatsMonitor Core Initialization
-# ─────────────────────────────────────────────
-class StatsMonitor:
-    def __init__(self, agents=None, verbosity="standard", max_history=100):
-        self.agents = agents or [
-            "RedAgent",
-            "BlueAgent",
-            "ScoutAgent",
-            "ShadowAgent",
-            "OrionAgent",
-        ]
-        self.verbosity = verbosity
-        self.progress = None  # Placeholder if needed later
-        self.logger = DataLogger()
-        self.dashboard = DashboardRenderer(self.agents, max_history=max_history)
-        self.alerts = AlertSystem(self.dashboard, self.logger)
-        self.metrics = defaultdict(list)
-        self.global_steps = 0
-        self.global_episodes = 0
-        self.agent_stats = {agent: {"rewards": [], "steps": 0, "phases": {}, 
-                                   "avg_reward": 0.0, "total_reward": 0.0,
-                                   "commands": [], "current_phase": "recon"} 
-                           for agent in self.agents}
-        console.print(
-            f"[cyan]StatsMonitor initialized for agents: {', '.join(self.agents)}[/cyan]"
-        )
-        
-        # Start the dashboard if in verbose mode
-        if self.verbosity not in ["quiet", "silent"]:
-            self.dashboard.start()
-
-    def log_step(self, agent_id, reward, **info):
-        # Ensure agent exists in our tracking
-        if agent_id not in self.agents:
-            self.agents.append(agent_id)
-            self.dashboard.stats[agent_id] = {
-                "rewards": deque(maxlen=100),
-                "gpt_calls": 0,
-                "steps": 0,
-            }
-            self.agent_stats[agent_id] = {
-                "rewards": [], 
-                "steps": 0, 
-                "phases": {}, 
-                "avg_reward": 0.0,
-                "total_reward": 0.0,
-                "commands": [],
-                "current_phase": "recon"
-            }
-
-        self.global_steps += 1
-        
-        # Update dashboard stats
-        self.dashboard.update_stats(agent_id, reward, info.get("gpt_calls", 0))
-        
-        # Log to file
-        self.logger.log_step(agent_id, reward, **info)
-
-        # Track detailed metrics
-        self.metrics[agent_id].append({
-            "step": self.global_steps,
-            "reward": reward,
-            "gpt_calls": info.get("gpt_calls", 0),
-            "timestamp": time.time(),
-            "phase": info.get("phase", "unknown"),
-            "command": info.get("command", "")
-        })
-        
-        # Update agent's stats
-        if agent_id in self.agent_stats:
-            stats = self.agent_stats[agent_id]
-            stats["rewards"].append(reward)
-            stats["steps"] += 1
-            stats["total_reward"] += reward
-            
-            # Calculate rolling average reward
-            if len(stats["rewards"]) > 0:
-                stats["avg_reward"] = stats["total_reward"] / stats["steps"]
-                
-            # Track command history
-            if "command" in info and info["command"]:
-                stats["commands"].append(info["command"])
-                
-            # Track phases
-            if "phase" in info and info["phase"]:
-                phase = info["phase"]
-                stats["current_phase"] = phase
-                if phase not in stats["phases"]:
-                    stats["phases"][phase] = 0
-                stats["phases"][phase] += 1
-
-        # Update visualization if appropriate verbosity
-        if self.verbosity != "quiet":
-            self.dashboard.update()
-
-    def log_episode(self, agent_id, total_reward, **info):
-        self.global_episodes += 1
-        self.logger.log_episode(agent_id, total_reward, **info)
-        
-        # Reset episode-specific stats while preserving cumulative stats
-        if agent_id in self.agent_stats:
-            # Keep a history of rewards but reset other episode-specific data
-            self.agent_stats[agent_id]["total_reward"] = 0.0
-        
-        # Update visualization
-        if self.verbosity != "quiet":
-            self.dashboard.update(force=True)
-
-    def report_gpt_usage(self, agent_id, tokens):
-        self.dashboard.stats[agent_id]["gpt_calls"] += tokens
-        self.logger.log_gpt_usage(agent_id, tokens)
-
-    def set_orion_insight(self, insight):
-        self.dashboard.set_orion_insight(insight)
-
-    def warn(self, message):
-        self.alerts.warn(message)
-
-    def error(self, message):
-        self.alerts.error(message)
-
-    def info(self, message):
-        self.alerts.info(message)
-
-    def display_summary(self):
-        table = Table(title="📊 ARIASKA Episode Summary", show_lines=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Steps", justify="right")
-        table.add_column("Avg Reward", justify="right")
-        table.add_column("GPT Calls", justify="right")
-
-        for agent in self.agents:
-            stats = self.dashboard.stats[agent]
-            avg_reward = sum(stats["rewards"]) / max(1, len(stats["rewards"]))
-            table.add_row(
-                agent, str(stats["steps"]), f"{avg_reward:.2f}", str(stats["gpt_calls"])
-            )
-
-        console.print(table)
-
-    def reset(self):
-        """Reset stats for a fresh simulation cycle."""
-        self.global_steps = 0
-        self.global_episodes = 0
-        self.metrics.clear()
-        for agent in self.agents:
-            self.agent_stats[agent]["rewards"] = []
-            self.agent_stats[agent]["steps"] = 0
-            self.agent_stats[agent]["total_reward"] = 0.0
-            self.agent_stats[agent]["avg_reward"] = 0.0
-            self.agent_stats[agent]["commands"] = []
-            
-        console.print("[yellow]🔄 StatsMonitor reset for new session.[/yellow]")
-
-    def flush_logs(self):
-        """Ensure async logs are persisted."""
-        pass  # Handled by async logger
-
-    def start_live(self):
-        """Activate live dashboard."""
-        self.dashboard.start()
-
-    def stop_live(self):
-        """Deactivate live dashboard."""
-        self.dashboard.stop()
-
-    def get_metrics_history(self, agent_id=None):
-        """Retrieve detailed metrics for analysis."""
-        if agent_id:
-            return self.metrics.get(agent_id, [])
-        return dict(self.metrics)
-
-    def get_average_reward(self, agent_id=None):
-        """Get the average reward for a specific agent or all agents."""
-        if agent_id and agent_id in self.agent_stats:
-            stats = self.agent_stats[agent_id]
-            return stats["avg_reward"]
-        
-        # Fallback to dashboard stats if agent stats not available
-        if agent_id and agent_id in self.dashboard.stats:
-            rewards = self.dashboard.stats[agent_id]["rewards"]
-            return sum(rewards) / max(1, len(rewards))
-            
-        # Return average across all agents
-        all_rewards = []
-        for agent_id, stats in self.agent_stats.items():
-            all_rewards.extend(stats["rewards"])
-        
-        if not all_rewards:  # Check if all_rewards is empty
-            return 0.0
-            
-        return sum(all_rewards) / max(1, len(all_rewards))
-
-    def get_steps(self, agent_id=None):
-        """Get the number of steps taken by a specific agent."""
-        if agent_id and agent_id in self.agent_stats:
-            return self.agent_stats[agent_id]["steps"]
-        return 0
-        
-    def get_current_phase(self, agent_id=None):
-        """Get the current phase for a specific agent."""
-        if agent_id and agent_id in self.agent_stats:
-            return self.agent_stats[agent_id]["current_phase"]
-        return None
-
-    def get_detection_rate(self, agent_id=None):
-        """Get the detection rate for an agent (placeholder)."""
-        # This could be calculated from environment alerts
-        return 0.0
-
-    def get_redundancy_rate(self, agent_id=None):
-        """Get the command redundancy rate."""
-        # Placeholder for redundancy tracking
-        return 0.0
-
-    def show(self):
-        """Display a summary of current stats."""
-        if not RICH_AVAILABLE:
-            return
-            
-        table = Table(title="📊 Training Stats", box=True)
-        table.add_column("Agent", style="cyan")
-        table.add_column("Steps", style="yellow")
-        table.add_column("Avg. Reward", style="green")
-        table.add_column("Current Phase", style="magenta")
-        
-        for agent_id, stats in self.agent_stats.items():
-            avg_reward = stats["avg_reward"]
-            steps = stats["steps"]
-            phase = stats["current_phase"]
-            
-            table.add_row(
-                agent_id,
-                str(steps),
-                f"{avg_reward:.2f}",
-                phase
-            )
-        
-        console.print(table)
-        
-    @property
-    def total_steps(self):
-        """Get the total number of steps across all agents."""
-        return self.global_steps
-
-
-if __name__ == "__main__":
-    monitor = StatsMonitor()
-    monitor.start_live()
-    import random
-
-    for ep in range(1, 4):
-        monitor.start_episode(ep)
-        for step in range(30):
-            reward = random.uniform(-1, 2)
-            monitor.record_step(
-                agent_id="RedAgent",
-                reward=reward,
-                is_exploit=random.random() < 0.1,
-                is_alert=random.random() < 0.05,
-                gpt_tokens=random.randint(0, 40),
-            )
-            time.sleep(0.1)
-        monitor.end_episode()
-    monitor.print_summary()
-    monitor.stop_live()
+                self.progress.stop()
+            except Exception:
+                pass

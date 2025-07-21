@@ -27,15 +27,15 @@ from core.gpt_manager import GPTManager
 # Load environment variables first
 load_dotenv()
 
-# Setup logging
+# Setup logging with UTF-8 encoding for Windows
 logger = logging.getLogger("ariaska")
 logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     datefmt="[%X]",
     handlers=[
-        logging.FileHandler("logs/ariaska.log"),
-        logging.StreamHandler() if os.environ.get("DEBUG", "0") == "1" else logging.NullHandler()
+        logging.FileHandler("logs/ariaska.log", encoding='utf-8'),
+        logging.NullHandler()
     ]
 )
 
@@ -44,6 +44,10 @@ console = Console()
 session = create_prompt_session()
 stats_monitor = StatsMonitor()  # StatsMonitor will track and display agent stats
 gpt_manager = GPTManager()
+
+# Global state variables
+agent_manager = None
+primary_agent = None
 
 # Create necessary directories
 def setup_environment():
@@ -78,6 +82,7 @@ def setup_environment():
 
 # Initialize agent manager (should happen only once)
 def init_agent_manager():
+    global agent_manager, primary_agent
     verbosity = os.environ.get("VERBOSITY", "standard")
     try:
         agent_manager = AgentManager(verbosity=verbosity)
@@ -93,6 +98,8 @@ def init_agent_manager():
         console.print(f"[red]❌ Failed to initialize agent manager: {e}[/red]")
         import traceback
         console.print(traceback.format_exc())
+        agent_manager = None
+        primary_agent = None
         return None, None
 
 # ─────────────────────────────────────────────
@@ -209,13 +216,13 @@ def run_meta_learning_training(episodes=25):
                     console.print(f"[yellow]⚠ Meta insights generation failed: {e}[/yellow]")
             
             # Enhanced simulation with meta-learning feedback
-            if primary_agent and hasattr(primary_agent, 'env'):
+            if primary_agent and hasattr(primary_agent, 'env') and primary_agent.env:
                 try:
                     # Run enhanced episode with cross-agent learning
                     total_reward = 0
                     for step in range(50):  # 50 steps per episode
-                        action = primary_agent.get_action(primary_agent.env.get_state(), 
-                                                        meta_learning=True)
+                        env_state = primary_agent.env.get_state() if hasattr(primary_agent.env, 'get_state') else {}
+                        action = primary_agent.get_action(env_state, meta_learning=True)
                         result = primary_agent.env.step(action)
                         total_reward += result.get('reward', 0)
                         
@@ -294,7 +301,10 @@ def run_simulated_environment_training(episodes=50):
             agent_manager.simulate_all_agents(episodes=1, max_steps=40)
             
             # Update visualization if available
-            env_state = primary_agent.env.get_global_state() if hasattr(primary_agent, "env") else None
+            env_state = None
+            if primary_agent and hasattr(primary_agent, "env") and primary_agent.env and hasattr(primary_agent.env, "get_global_state"):
+                env_state = primary_agent.env.get_global_state()
+            
             if visualizer and env_state:
                 visualizer.update(env_state=env_state)
                 
@@ -505,7 +515,8 @@ async def main_loop():
                 console.print("[red]Exiting Ariaska RL. Until next battle.[/red]")
                 break
             elif cmd_lower.startswith("simulate-train"):
-                count = int(args[1]) if len(args) > 1 and args[1].isdigit() else 50
+                count = int(args[1]) if len(args) > 1 and args[1].isdigit() else 10
+                # Use standard simulation training
                 run_simulated_environment_training(episodes=count)
             elif cmd_lower.startswith("train-meta"):
                 count = int(args[1]) if len(args) > 1 and args[1].isdigit() else 25
@@ -579,7 +590,7 @@ async def main_loop():
                     # Show meaningful output
                     if not output or output == "output" or output == "Error executing command: ":
                         # Generate realistic output if the agent doesn't provide one
-                        if hasattr(primary_agent, "env") and hasattr(primary_agent.env, "generate_output"):
+                        if hasattr(primary_agent, "env") and primary_agent.env and hasattr(primary_agent.env, "generate_output"):
                             output = primary_agent.env.generate_output(command)
                         else:
                             output = f"Executed: {command}"
@@ -592,7 +603,7 @@ async def main_loop():
                         display_ai_hint_table(None, recommendations)
                     
                     # Update state visualization
-                    if hasattr(primary_agent, "env") and hasattr(primary_agent.env, "_visualize_environment_state"):
+                    if hasattr(primary_agent, "env") and primary_agent.env and hasattr(primary_agent.env, "_visualize_environment_state"):
                         primary_agent.env._visualize_environment_state()
                     
                 except asyncio.TimeoutError:

@@ -29,6 +29,10 @@ class PolicyNet(nn.Module):
         super().__init__()
         self.device = device
         self.dueling = dueling
+        self.input_size = input_size
+        self.output_size = output_size  # Add missing output_size attribute
+        self.hidden_size = hidden_size
+        
         self.feature = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
@@ -52,6 +56,10 @@ class PolicyNet(nn.Module):
                 nn.ReLU(),
                 nn.Linear(hidden_size, output_size)
             )
+        
+        # Initialize optimizer and scheduler
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1000, gamma=0.95)
 
     def forward(self, x):
         x = x.to(self.device)

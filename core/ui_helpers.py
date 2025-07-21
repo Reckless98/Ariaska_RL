@@ -60,6 +60,40 @@ def display_output(output, title="Output", style="cyan"):
 
     console.print(Panel(panel_content, title=title, border_style=style))
 
+def display_agent_activity(agents_data, episode=0, step=0):
+    """
+    Display clean, precise agent activity information.
+    
+    Args:
+        agents_data: Dict with agent info {agent_name: {action, target, reward, status, etc}}
+        episode: Current episode number
+        step: Current step number
+    """
+    from rich.table import Table
+    from rich.text import Text
+    
+    # Main activity table
+    table = Table(title=f"Agent Activity - Episode {episode}, Step {step}", 
+                  show_header=True, header_style="bold", box=box.SIMPLE)
+    table.add_column("Agent", width=12)
+    table.add_column("Action", width=25)
+    table.add_column("Target", width=15)
+    table.add_column("Status", width=8)
+    table.add_column("Reward", width=8)
+    table.add_column("Output", width=30)
+    
+    for agent_name, data in agents_data.items():
+        # Clean data extraction
+        action = str(data.get('action', 'No action'))[:24]
+        target = str(data.get('target', 'N/A'))[:14]
+        status = "✓" if data.get('success', False) else "✗"
+        reward = f"{data.get('reward', 0.0):.2f}"
+        output = str(data.get('output', ''))[:29]
+        
+        table.add_row(agent_name, action, target, status, reward, output)
+    
+    console.print(table)
+
 def display_ai_hint_table(phase=None, recommendations=None):
     """
     Display AI-suggested commands and recommendations in a Rich table.
@@ -73,23 +107,148 @@ def display_ai_hint_table(phase=None, recommendations=None):
     if not recommendations:
         return
 
-    table = Table(title=f"🧠 AI-Suggested Commands {f'for {phase}' if phase else ''}", box=box.ROUNDED)
-    table.add_column("Command", style="cyan")
-    table.add_column("Params", style="magenta")
-    table.add_column("Description", style="green")
+    table = Table(title=f"AI Commands {f'- {phase}' if phase else ''}", 
+                  box=box.SIMPLE, show_header=True, header_style="bold")
+    table.add_column("Command", width=20)
+    table.add_column("Params", width=15)
+    table.add_column("Description", width=35)
 
     for rec in recommendations:
         # Handle different recommendation formats
         if isinstance(rec, dict):
-            command = rec.get("command", "N/A")
-            params = rec.get("params", "")
-            desc = rec.get("why", "")
+            command = rec.get("command", "N/A")[:19]
+            params = rec.get("params", "")[:14]
+            desc = rec.get("why", "")[:34]
             table.add_row(command, params, desc)
         elif isinstance(rec, str):
             # Simple string recommendation
-            table.add_row(rec, "", "")
+            table.add_row(rec[:19], "", "")
 
     console.print(table)
+
+def display_detailed_agent_status(agents, episode=0, step=0):
+    """
+    Display detailed but clean agent status with all key information.
+    
+    Args:
+        agents: Dict of agent objects or agent data
+        episode: Current episode
+        step: Current step
+    """
+    from rich.table import Table
+    
+    # Agent status table
+    status_table = Table(title=f"Agent Status - Episode {episode}, Step {step}",
+                        show_header=True, header_style="bold", box=box.SIMPLE)
+    status_table.add_column("Agent", width=10)
+    status_table.add_column("Phase", width=12)
+    status_table.add_column("Last Action", width=25)
+    status_table.add_column("Success", width=7)
+    status_table.add_column("Reward", width=8)
+    status_table.add_column("Exploration", width=10)
+    status_table.add_column("Memory", width=8)
+    
+    for agent_name, agent in agents.items():
+        # Extract agent information safely
+        if hasattr(agent, 'current_phase'):
+            phase = str(agent.current_phase)[:11]
+        else:
+            phase = "Unknown"
+        
+        if hasattr(agent, 'last_action'):
+            last_action = str(agent.last_action)[:24]
+        else:
+            last_action = "None"
+        
+        if hasattr(agent, 'last_success'):
+            success = "✓" if agent.last_success else "✗"
+        else:
+            success = "?"
+        
+        if hasattr(agent, 'last_reward'):
+            reward = f"{agent.last_reward:.2f}"
+        else:
+            reward = "0.00"
+        
+        if hasattr(agent, 'epsilon'):
+            exploration = f"{agent.epsilon:.3f}"
+        else:
+            exploration = "N/A"
+        
+        if hasattr(agent, 'memory') and hasattr(agent.memory, '__len__'):
+            memory = str(len(agent.memory))
+        else:
+            memory = "0"
+        
+        status_table.add_row(agent_name, phase, last_action, success, reward, exploration, memory)
+    
+    console.print(status_table)
+
+def display_training_metrics(metrics, session_id="", runtime=0):
+    """
+    Display clean training metrics without excessive styling.
+    
+    Args:
+        metrics: Dict with training metrics
+        session_id: Training session identifier
+        runtime: Training runtime in seconds
+    """
+    from rich.table import Table
+    
+    metrics_table = Table(title=f"Training Metrics - {session_id}",
+                         show_header=True, header_style="bold", box=box.SIMPLE)
+    metrics_table.add_column("Metric", width=20)
+    metrics_table.add_column("Value", width=15)
+    metrics_table.add_column("Details", width=25)
+    
+    # Core metrics
+    metrics_table.add_row("Episodes", str(metrics.get('episodes_completed', 0)), f"of {metrics.get('total_episodes', 0)}")
+    metrics_table.add_row("Total Actions", str(metrics.get('total_actions', 0)), "All agents combined")
+    metrics_table.add_row("Success Rate", f"{metrics.get('success_rate', 0):.1f}%", "Successful actions")
+    metrics_table.add_row("Avg Reward", f"{metrics.get('avg_reward', 0):.3f}", "Per action")
+    metrics_table.add_row("Runtime", f"{runtime:.1f}s", f"{runtime/60:.1f} minutes")
+    
+    # Agent-specific metrics
+    if 'agent_metrics' in metrics:
+        for agent, agent_metrics in metrics['agent_metrics'].items():
+            actions = agent_metrics.get('actions', 0)
+            reward = agent_metrics.get('reward', 0)
+            metrics_table.add_row(f"{agent} Actions", str(actions), f"Reward: {reward:.2f}")
+    
+    console.print(metrics_table)
+
+def display_gpu_status(device, gpu_info=None):
+    """
+    Display GPU status and utilization information.
+    
+    Args:
+        device: PyTorch device object
+        gpu_info: Optional GPU information dict
+    """
+    from rich.table import Table
+    
+    gpu_table = Table(title="GPU Status", show_header=True, header_style="bold", box=box.SIMPLE)
+    gpu_table.add_column("Component", width=15)
+    gpu_table.add_column("Status", width=20)
+    gpu_table.add_column("Details", width=30)
+    
+    # Device status
+    gpu_table.add_row("Device", str(device), "Active compute device")
+    
+    if device.type == "cuda":
+        import torch
+        gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "Unknown"
+        memory_total = torch.cuda.get_device_properties(0).total_memory / 1e9 if torch.cuda.is_available() else 0
+        gpu_table.add_row("GPU", gpu_name, f"{memory_total:.1f} GB VRAM")
+        
+        if torch.cuda.is_available():
+            memory_used = torch.cuda.memory_allocated(0) / 1e9
+            memory_cached = torch.cuda.memory_reserved(0) / 1e9
+            gpu_table.add_row("Memory Used", f"{memory_used:.2f} GB", f"Cached: {memory_cached:.2f} GB")
+    else:
+        gpu_table.add_row("GPU", "Not Available", "Using CPU computation")
+    
+    console.print(gpu_table)
 
 def get_action_description(action_index):
     action_map = {
