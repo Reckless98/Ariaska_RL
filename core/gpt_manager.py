@@ -189,14 +189,9 @@ class GPTManager:
     FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
     
     def __init__(self):
-        if not OPENAI_AVAILABLE or OpenAI is None:
-            raise ImportError("OpenAI library not available. Please install: pip install openai")
-            
+        # Lazy init: don't require API key or openai package at construction
         self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-            
-        self.client = OpenAI(api_key=self.api_key)
+        self._client = None  # Lazy-initialized OpenAI client
         
         # Model configuration from environment or defaults
         self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5-mini")
@@ -242,8 +237,30 @@ class GPTManager:
         logger.info(f"GPTManager initialized with primary model: {self.primary_model}")
         logger.info(f"Fallback model: {self.fallback_model}")
         logger.info(f"Platform detected: {platform.system()}")
-        if console:
-            console.print(f"[green]GPTManager v5.0 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model}[/green]")
+        if self.is_configured():
+            if console:
+                console.print(f"[green]GPTManager v5.0 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model}[/green]")
+        else:
+            logger.warning("GPTManager: OPENAI_API_KEY not set. LLM calls disabled until configured.")
+    
+    def is_configured(self) -> bool:
+        """Check if API key is available for LLM calls."""
+        return bool(self.api_key)
+    
+    @property
+    def client(self):
+        """Lazy-initialize OpenAI client on first use."""
+        if self._client is None:
+            if not OPENAI_AVAILABLE or OpenAI is None:
+                raise RuntimeError(
+                    "OpenAI library not installed. Install with: pip install openai"
+                )
+            if not self.api_key:
+                raise RuntimeError(
+                    "OPENAI_API_KEY not set. Set the environment variable or use offline mode."
+                )
+            self._client = OpenAI(api_key=self.api_key)
+        return self._client
     
     def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
         """

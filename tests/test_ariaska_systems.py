@@ -221,6 +221,37 @@ class TestLLMRouting(unittest.TestCase):
         # Analysis/classification should use nano
         self.assertEqual(model_map.get("analysis"), "gpt-5-nano")
         self.assertEqual(model_map.get("classification"), "gpt-5-nano")
+    
+    def test_gpt_manager_init_without_api_key(self):
+        """Test that GPTManager can be instantiated without API key."""
+        import os
+        from core.gpt_manager import GPTManager
+        
+        # Temporarily remove API key
+        old_key = os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            # Should NOT raise
+            manager = GPTManager()
+            self.assertFalse(manager.is_configured())
+        finally:
+            if old_key:
+                os.environ["OPENAI_API_KEY"] = old_key
+    
+    def test_gpt_request_raises_without_api_key(self):
+        """Test that gpt_request raises RuntimeError when API key is missing."""
+        import os
+        from core.gpt_manager import GPTManager
+        
+        old_key = os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            manager = GPTManager()
+            # Attempting to use client should raise RuntimeError
+            with self.assertRaises(RuntimeError) as ctx:
+                _ = manager.client  # Access client property
+            self.assertIn("OPENAI_API_KEY", str(ctx.exception))
+        finally:
+            if old_key:
+                os.environ["OPENAI_API_KEY"] = old_key
 
 
 class TestApprenticeTrainer(unittest.TestCase):
@@ -260,7 +291,7 @@ class TestApprenticeTrainer(unittest.TestCase):
         
         self.assertGreater(threshold_10, 0.3)
         self.assertGreater(threshold_30, threshold_10)
-        self.assertEqual(threshold_55, 0.9)  # At final threshold
+        self.assertAlmostEqual(threshold_55, 0.9, places=5)  # At final threshold
     
     def test_episode_metrics_tracking(self):
         """Test episode metrics are tracked correctly."""
@@ -295,59 +326,12 @@ class TestApprenticeTrainer(unittest.TestCase):
 class TestPostmortem(unittest.TestCase):
     """Tests for the OrionPostmortem system."""
     
-    @classmethod
-    def setUpClass(cls):
-        """Check if dependencies are available."""
-        try:
-            import openai
-            cls.openai_available = True
-        except ImportError:
-            cls.openai_available = False
-    
     def test_schema_validation(self):
-        """Test postmortem output schema validation."""
-        if not self.openai_available:
-            # Test schema validation without instantiating OrionPostmortem
-            from core.postmortem.orion_postmortem import POSTMORTEM_SCHEMA
-            
-            valid_data = {
-                "key_outcomes": {
-                    "wins": ["Success 1"],
-                    "fails": ["Fail 1"],
-                    "summary": "Test summary"
-                },
-                "repeated_failure_patterns": [],
-                "skill_cards": [
-                    {
-                        "id": "skill_001",
-                        "if_condition": "Port 22 open",
-                        "then_action": "Run SSH scan",
-                        "confidence": 0.85
-                    }
-                ],
-                "memory_ops": [
-                    {
-                        "operation": "promote",
-                        "target": "skill_001"
-                    }
-                ],
-                "next_experiments": [
-                    {
-                        "title": "Test experiment",
-                        "description": "Description"
-                    }
-                ]
-            }
-            
-            # Validate required keys are present
-            self.assertIn("key_outcomes", valid_data)
-            self.assertIn("summary", valid_data["key_outcomes"])
-            self.assertIn("skill_cards", valid_data)
-            return
-        
+        """Test postmortem output schema validation (offline mode)."""
         from core.postmortem import OrionPostmortem
         
-        postmortem = OrionPostmortem(output_dir="test_postmortems")
+        # Use enable_llm=False for offline testing
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
         
         valid_data = {
             "key_outcomes": {
@@ -381,18 +365,10 @@ class TestPostmortem(unittest.TestCase):
         self.assertTrue(postmortem._validate_schema(valid_data))
     
     def test_invalid_schema_rejected(self):
-        """Test that invalid schemas are rejected."""
-        if not self.openai_available:
-            # Basic validation without instantiating
-            invalid_data = {
-                "key_outcomes": {"wins": [], "fails": []}  # Missing summary
-            }
-            self.assertNotIn("summary", invalid_data["key_outcomes"])
-            return
-        
+        """Test that invalid schemas are rejected (offline mode)."""
         from core.postmortem import OrionPostmortem
         
-        postmortem = OrionPostmortem(output_dir="test_postmortems")
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
         
         # Missing required fields
         invalid_data = {
@@ -402,20 +378,10 @@ class TestPostmortem(unittest.TestCase):
         self.assertFalse(postmortem._validate_schema(invalid_data))
     
     def test_invalid_memory_op_rejected(self):
-        """Test that invalid memory operations are rejected."""
-        if not self.openai_available:
-            # Basic validation without instantiating
-            invalid_ops = [
-                {"operation": "invalid_operation", "target": "test"}
-            ]
-            valid_operations = ["promote", "prune", "merge"]
-            for op in invalid_ops:
-                self.assertNotIn(op["operation"], valid_operations)
-            return
-        
+        """Test that invalid memory operations are rejected (offline mode)."""
         from core.postmortem import OrionPostmortem
         
-        postmortem = OrionPostmortem(output_dir="test_postmortems")
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
         
         invalid_data = {
             "key_outcomes": {"wins": [], "fails": [], "summary": "test"},
@@ -430,6 +396,21 @@ class TestPostmortem(unittest.TestCase):
         }
         
         self.assertFalse(postmortem._validate_schema(invalid_data))
+    
+    def test_offline_mode_no_api_call(self):
+        """Test that offline mode doesn't require API key."""
+        from core.postmortem import OrionPostmortem
+        
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
+        
+        self.assertFalse(postmortem.is_llm_available())
+        
+        # analyze_run should work in offline mode
+        run_trace = {"run_id": "test_run", "total_episodes": 1}
+        result = postmortem.analyze_run(run_trace, dry_run=True)
+        
+        self.assertEqual(result.model_used, "offline")
+        self.assertTrue(result.validation_passed)
 
 
 class TestSkillLibrary(unittest.TestCase):

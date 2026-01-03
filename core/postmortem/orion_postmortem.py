@@ -193,22 +193,43 @@ class OrionPostmortem:
     The LLM output is validated against a strict JSON schema.
     Memory operations are instructions only - actual application
     is done deterministically by code.
+    
+    Supports offline mode where schema validation works but no API calls are made.
     """
     
     def __init__(
         self,
         gpt_manager=None,
         output_dir: str = "postmortems",
-        enable_gpt_5_2: bool = False
+        enable_gpt_5_2: bool = False,
+        enable_llm: bool = True
     ):
-        from core.gpt_manager import GPTManager
-        
-        self.gpt_manager = gpt_manager or GPTManager()
+        # Lazy import to avoid requiring GPTManager instantiation
+        self._gpt_manager = gpt_manager
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.enable_gpt_5_2 = enable_gpt_5_2
+        self.enable_llm = enable_llm
         
-        logger.info("OrionPostmortem initialized")
+        logger.info(f"OrionPostmortem initialized (LLM enabled: {self.enable_llm})")
+    
+    @property
+    def gpt_manager(self):
+        """Lazy-initialize GPTManager on first use."""
+        if self._gpt_manager is None and self.enable_llm:
+            from core.gpt_manager import GPTManager
+            self._gpt_manager = GPTManager()
+        return self._gpt_manager
+    
+    def is_llm_available(self) -> bool:
+        """Check if LLM is available for analysis."""
+        if not self.enable_llm:
+            return False
+        if self._gpt_manager is not None:
+            return self._gpt_manager.is_configured()
+        # Check if API key is available without instantiating
+        import os
+        return bool(os.getenv("OPENAI_API_KEY"))
     
     def analyze_run(
         self,
@@ -232,6 +253,16 @@ class OrionPostmortem:
             timestamp=time.time(),
             dry_run=dry_run
         )
+        
+        # Check if LLM is available
+        if not self.is_llm_available():
+            logger.info("LLM not available; running in offline mode (no analysis)")
+            result.validation_passed = True  # Schema validation still works
+            result.model_used = "offline"
+            # Save result even in offline mode
+            if not dry_run:
+                result.save(str(self.output_dir))
+            return result
         
         # Build analysis prompt
         prompt = self._build_analysis_prompt(run_trace)

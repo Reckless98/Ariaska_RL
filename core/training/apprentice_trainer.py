@@ -17,13 +17,21 @@ import time
 import logging
 import random
 import numpy as np
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import torch
+# Lazy import for torch to avoid import errors when not needed
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger("ariaska.apprentice_trainer")
+
+
+def _get_torch():
+    """Lazy import torch."""
+    import torch
+    return torch
 
 
 @dataclass
@@ -256,6 +264,7 @@ class ApprenticeTrainer:
         # Get Q-values for logging if available
         q_values = None
         try:
+            torch = _get_torch()
             state_tensor = self.agent.encode_env_state_static(state, self.agent.device)
             if isinstance(state_tensor, np.ndarray):
                 state_tensor = torch.FloatTensor(state_tensor).to(self.agent.device)
