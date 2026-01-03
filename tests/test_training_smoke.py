@@ -41,11 +41,9 @@ class TestTrainingSmoke:
     
     def test_training_completes_without_exception(self):
         """Test that training completes without crashing (offline mode)."""
-        # Ensure no API key (offline mode)
-        os.environ.pop("OPENAI_API_KEY", None)
-        
         from core.training.ariaska_trainer import AriaskaTrainer, TrainingConfig
         
+        # Explicitly set offline=True for tests (new default requires API key)
         config = TrainingConfig(
             episodes=2,
             max_steps_per_episode=3,
@@ -56,7 +54,11 @@ class TestTrainingSmoke:
             postmortem_output_dir=self.postmortem_dir,
             checkpoint_dir=self.checkpoint_dir,
             skill_library_path=self.skill_library_path,
-            verbosity="quiet"
+            verbosity="quiet",
+            # IMPORTANT: Tests run in offline mode to avoid requiring API key
+            offline=True,
+            enable_llm=False,
+            require_llm=False
         )
         
         trainer = AriaskaTrainer(config=config)
@@ -69,8 +71,6 @@ class TestTrainingSmoke:
     
     def test_trace_files_created(self):
         """Test that trace files are created with correct structure."""
-        os.environ.pop("OPENAI_API_KEY", None)
-        
         from core.training.ariaska_trainer import AriaskaTrainer, TrainingConfig
         
         config = TrainingConfig(
@@ -81,7 +81,11 @@ class TestTrainingSmoke:
             trace_output_dir=self.trace_dir,
             checkpoint_dir=self.checkpoint_dir,
             skill_library_path=self.skill_library_path,
-            verbosity="quiet"
+            verbosity="quiet",
+            # Tests run in offline mode
+            offline=True,
+            enable_llm=False,
+            require_llm=False
         )
         
         trainer = AriaskaTrainer(config=config)
@@ -120,8 +124,6 @@ class TestTrainingSmoke:
     
     def test_deterministic_event_ids(self):
         """Test that event IDs follow deterministic format."""
-        os.environ.pop("OPENAI_API_KEY", None)
-        
         from core.training.ariaska_trainer import AriaskaTrainer, TrainingConfig
         
         config = TrainingConfig(
@@ -132,7 +134,11 @@ class TestTrainingSmoke:
             trace_output_dir=self.trace_dir,
             checkpoint_dir=self.checkpoint_dir,
             skill_library_path=self.skill_library_path,
-            verbosity="quiet"
+            verbosity="quiet",
+            # Tests run in offline mode
+            offline=True,
+            enable_llm=False,
+            require_llm=False
         )
         
         trainer = AriaskaTrainer(config=config)
@@ -157,8 +163,6 @@ class TestTrainingSmoke:
     
     def test_postmortem_offline_mode(self):
         """Test that postmortem runs in offline mode and creates output."""
-        os.environ.pop("OPENAI_API_KEY", None)
-        
         from core.training.ariaska_trainer import AriaskaTrainer, TrainingConfig
         
         config = TrainingConfig(
@@ -171,7 +175,11 @@ class TestTrainingSmoke:
             postmortem_output_dir=self.postmortem_dir,
             checkpoint_dir=self.checkpoint_dir,
             skill_library_path=self.skill_library_path,
-            verbosity="quiet"
+            verbosity="quiet",
+            # Tests run in offline mode
+            offline=True,
+            enable_llm=False,
+            require_llm=False
         )
         
         trainer = AriaskaTrainer(config=config)
@@ -195,8 +203,6 @@ class TestTrainingSmoke:
     
     def test_seed_reproducibility(self):
         """Test that same seed produces identical event_id sequences."""
-        os.environ.pop("OPENAI_API_KEY", None)
-        
         from core.training.ariaska_trainer import AriaskaTrainer, TrainingConfig
         
         event_id_lists = []
@@ -213,7 +219,11 @@ class TestTrainingSmoke:
                 trace_output_dir=run_trace_dir,
                 checkpoint_dir=os.path.join(self.temp_dir, f"ckpt_{run_idx}"),
                 skill_library_path=self.skill_library_path,
-                verbosity="quiet"
+                verbosity="quiet",
+                # Tests run in offline mode
+                offline=True,
+                enable_llm=False,
+                require_llm=False
             )
             
             trainer = AriaskaTrainer(config=config)

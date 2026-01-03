@@ -163,6 +163,7 @@ class GPTManager:
     - Response caching by state fingerprint
     - Token tracking and limits
     - Cross-platform command translation
+    - Strict mode: fail fast if API key missing
     """
     
     # Model configuration
@@ -188,10 +189,30 @@ class GPTManager:
     
     FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
     
-    def __init__(self):
+    def __init__(self, enable_llm: bool = True, require_llm: bool = False, 
+                 offline: bool = False):
+        """
+        Initialize GPTManager.
+        
+        Args:
+            enable_llm: Whether LLM calls are enabled at all
+            require_llm: If True and enable_llm, raise RuntimeError if no API key
+            offline: Force offline mode (no LLM calls, use placeholders)
+        """
+        self._enable_llm = enable_llm and not offline
+        self._require_llm = require_llm
+        self._offline = offline
+        
         # Lazy init: don't require API key or openai package at construction
         self.api_key = os.getenv("OPENAI_API_KEY")
         self._client = None  # Lazy-initialized OpenAI client
+        
+        # Strict mode validation
+        if self._enable_llm and self._require_llm and not self.api_key:
+            raise RuntimeError(
+                "GPTManager: require_llm=True but OPENAI_API_KEY not set. "
+                "Set the environment variable or use offline mode."
+            )
         
         # Model configuration from environment or defaults
         self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5-mini")
@@ -245,8 +266,87 @@ class GPTManager:
     
     def is_configured(self) -> bool:
         """Check if API key is available for LLM calls."""
-        return bool(self.api_key)
+        return bool(self.api_key) and self._enable_llm and not self._offline
     
+    def is_offline(self) -> bool:
+        """Check if running in offline mode."""
+        return self._offline or not self._enable_llm or not self.api_key
+    
+    def request(
+        self,
+        role: str,
+        task_type: str,
+        prompt: str,
+        schema: Optional[Dict[str, Any]] = None,
+        max_tokens: int = 150
+    ) -> Dict[str, Any]:
+        """
+        Unified request method with role-based routing.
+        
+        Args:
+            role: Agent role (e.g., "RedAgent", "OrionAgent", "ScoutAgent")
+            task_type: Type of task (e.g., "tactical", "reasoning", "postmortem")
+            prompt: The prompt to send
+            schema: Optional JSON schema for structured output (not yet implemented)
+            max_tokens: Maximum tokens in response
+            
+        Returns:
+            Dict with keys:
+                - success: bool
+                - response: str (the model's response)
+                - model_used: str
+                - offline: bool
+        """
+        # Offline mode returns placeholder
+        if self.is_offline():
+            return {
+                "success": True,
+                "response": self._get_offline_placeholder(task_type),
+                "model_used": "offline",
+                "offline": True
+            }
+        
+        # Determine model from role and task_type
+        model = self.get_model_for_role(agent_id=role, task_type=task_type)
+        
+        try:
+            response = self.gpt_request(
+                prompt=prompt,
+                task_type=task_type,
+                agent_id=role,
+                max_tokens=max_tokens,
+                model=model
+            )
+            return {
+                "success": True,
+                "response": response,
+                "model_used": model,
+                "offline": False
+            }
+        except Exception as e:
+            logger.error(f"GPT request failed: {e}")
+            return {
+                "success": False,
+                "response": self._get_offline_placeholder(task_type),
+                "model_used": "offline",
+                "offline": True,
+                "error": str(e)
+            }
+    
+    def _get_offline_placeholder(self, task_type: str) -> str:
+        """Get a deterministic placeholder response for offline mode."""
+        placeholders = {
+            "tactical": "nmap -sV 10.10.10.10",
+            "defensive": "netstat -an",
+            "reconnaissance": "ping 10.10.10.10",
+            "diversify": "nslookup 10.10.10.10",
+            "analysis": "Offline mode: analysis unavailable.",
+            "reasoning": "Offline mode: reasoning unavailable.",
+            "postmortem": "Offline mode: postmortem analysis unavailable.",
+            "general": "Offline mode: LLM unavailable."
+        }
+        return placeholders.get(task_type, placeholders["general"])
+
     @property
     def client(self):
         """Lazy-initialize OpenAI client on first use."""
@@ -428,6 +528,9 @@ class GPTManager:
         current_time = time.time()
         if current_time - self.last_request_time < self.min_request_interval:
             time.sleep(self.min_request_interval)
+        
+        # Log that we're making a real GPT call
+        logger.info(f"GPT API call | model={model} | agent={agent_id} | task={task_type}")
         
         try:
             # Enhanced system prompts based on task type

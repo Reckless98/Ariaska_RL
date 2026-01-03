@@ -41,6 +41,11 @@ class TrainingConfig:
     max_steps_per_episode: int = 50
     seed: Optional[int] = None
     
+    # LLM Configuration (online-first by default)
+    enable_llm: bool = True        # Whether to use LLM at all
+    require_llm: bool = True       # If True+enable_llm, fail fast if no API key (default: online-first)
+    offline: bool = False          # Force offline mode (no LLM calls) - only when explicitly requested
+    
     # Apprentice-to-Autonomy
     initial_confidence_threshold: float = 0.3
     final_confidence_threshold: float = 0.8
@@ -127,8 +132,17 @@ class AriaskaTrainer:
         from core.training.apprentice_trainer import ApprenticeTrainer, ApprenticeConfig
         from core.postmortem import OrionPostmortem, SkillLibrary
         
-        # GPT Manager
-        self.gpt_manager = GPTManager()
+        # GPT Manager - pass LLM config from TrainingConfig
+        self.gpt_manager = GPTManager(
+            enable_llm=self.config.enable_llm,
+            require_llm=self.config.require_llm,
+            offline=self.config.offline
+        )
+        
+        if not self.config.offline and self.config.enable_llm:
+            logger.info(f"GPTManager initialized in ONLINE mode | API key present: {self.gpt_manager.is_configured()}")
+        else:
+            logger.info("GPTManager initialized in OFFLINE mode (deterministic placeholders)")
         
         # Memory Router
         self.memory_router = EnhancedMemoryRouter()
@@ -482,7 +496,25 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Don't apply skill updates")
     parser.add_argument("--enable-gpt-5-2", action="store_true", help="Enable GPT-5.2 for postmortem")
     
+    # LLM mode arguments (online-first by default)
+    parser.add_argument("--offline", action="store_true",
+                        help="Force offline mode: no LLM calls, use deterministic placeholders")
+    parser.add_argument("--no-require-llm", action="store_true",
+                        help="Don't fail fast if key missing; fall back to offline gracefully")
+    
     args = parser.parse_args()
+    
+    # Determine LLM settings (online-first by default)
+    if args.offline:
+        # Explicit offline mode: disable all LLM requirements
+        enable_llm = False
+        require_llm = False
+        offline = True
+    else:
+        # Online mode (default): require LLM unless --no-require-llm
+        enable_llm = True
+        require_llm = not args.no_require_llm
+        offline = False
     
     config = TrainingConfig(
         episodes=args.episodes,
@@ -491,8 +523,23 @@ def main():
         verbosity=args.verbosity,
         enable_postmortem=not args.no_postmortem,
         apply_skill_updates=not args.dry_run,
-        enable_gpt_5_2_postmortem=args.enable_gpt_5_2
+        enable_gpt_5_2_postmortem=args.enable_gpt_5_2,
+        enable_llm=enable_llm,
+        require_llm=require_llm,
+        offline=offline
     )
+    
+    # Early validation: online-first means fail fast if no API key
+    if config.enable_llm and config.require_llm and not config.offline:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.error("OPENAI_API_KEY not set. Online mode requires API key.")
+            print("ERROR: OPENAI_API_KEY environment variable not set.")
+            print("       Options:")
+            print("         1. Set OPENAI_API_KEY environment variable")
+            print("         2. Run with --offline for offline mode")
+            print("         3. Run with --no-require-llm to gracefully degrade")
+            return 1
     
     trainer = AriaskaTrainer(config=config)
     results = trainer.train()
