@@ -234,7 +234,8 @@ class OrionPostmortem:
     def analyze_run(
         self,
         run_trace: Dict[str, Any],
-        dry_run: bool = False
+        dry_run: bool = False,
+        valid_event_ids: Optional[set] = None
     ) -> PostmortemResult:
         """
         Analyze a complete training run.
@@ -242,6 +243,7 @@ class OrionPostmortem:
         Args:
             run_trace: The run trace dictionary from TraceReader
             dry_run: If True, produce JSON but don't apply memory changes
+            valid_event_ids: Set of valid event IDs for evidence_refs validation
             
         Returns:
             PostmortemResult with analysis and instructions
@@ -256,9 +258,13 @@ class OrionPostmortem:
         
         # Check if LLM is available
         if not self.is_llm_available():
-            logger.info("LLM not available; running in offline mode (no analysis)")
-            result.validation_passed = True  # Schema validation still works
+            logger.info("LLM not available; running in offline mode (deterministic placeholders)")
+            result.validation_passed = True
             result.model_used = "offline"
+            
+            # Generate deterministic placeholder skill cards with valid evidence_refs
+            self._generate_offline_placeholders(result, run_trace, valid_event_ids)
+            
             # Save result even in offline mode
             if not dry_run:
                 result.save(str(self.output_dir))
@@ -483,6 +489,81 @@ IMPORTANT:
                 result.memory_ops.append(op)
             except Exception as e:
                 logger.warning(f"Failed to parse memory op: {e}")
+    
+    def _generate_offline_placeholders(
+        self,
+        result: PostmortemResult,
+        run_trace: Dict[str, Any],
+        valid_event_ids: Optional[set] = None
+    ):
+        """
+        Generate deterministic placeholder analysis for offline mode.
+        
+        Produces skill cards and patterns with valid evidence_refs.
+        """
+        run_id = run_trace.get("run_id", "unknown")
+        total_episodes = run_trace.get("total_episodes", 0)
+        total_reward = run_trace.get("total_reward", 0.0)
+        success_rate = run_trace.get("success_rate", 0.0)
+        
+        # Collect evidence refs from valid_event_ids (first N)
+        evidence_list = sorted(list(valid_event_ids or set()))[:5]
+        
+        result.key_outcomes = {
+            "wins": [f"Completed {total_episodes} episodes"],
+            "fails": ["No LLM analysis available (offline mode)"],
+            "summary": f"Offline postmortem for run {run_id}: {total_episodes} episodes, {total_reward:.2f} total reward, {success_rate:.2%} success"
+        }
+        
+        result.repeated_failure_patterns = []
+        
+        # Generate a deterministic placeholder skill card if we have evidence
+        if evidence_list:
+            result.skill_cards.append(
+                SkillCard(
+                    id=f"offline_skill_{run_id[:8]}",
+                    if_condition="Offline mode - no pattern detected",
+                    then_action="Manual review required",
+                    parameters_template={},
+                    confidence=0.0,
+                    evidence_refs=evidence_list[:2] if len(evidence_list) >= 2 else evidence_list
+                )
+            )
+        
+        result.next_experiments = [
+            {
+                "title": "Enable LLM Analysis",
+                "description": "Set OPENAI_API_KEY to enable full postmortem analysis",
+                "priority": "high"
+            }
+        ]
+    
+    def validate_evidence_refs(
+        self,
+        result: PostmortemResult,
+        valid_event_ids: set
+    ) -> List[str]:
+        """
+        Validate that all evidence_refs in the result point to valid event IDs.
+        
+        Returns list of invalid refs (empty if all valid).
+        """
+        invalid_refs = []
+        
+        # Check failure patterns
+        for pattern in result.repeated_failure_patterns:
+            if isinstance(pattern, dict):
+                for ref in pattern.get("evidence_refs", []):
+                    if ref not in valid_event_ids:
+                        invalid_refs.append(ref)
+        
+        # Check skill cards
+        for card in result.skill_cards:
+            for ref in card.evidence_refs:
+                if ref not in valid_event_ids:
+                    invalid_refs.append(ref)
+        
+        return invalid_refs
 
 
 # Factory function

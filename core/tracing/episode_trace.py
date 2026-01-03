@@ -43,51 +43,138 @@ class StepTrace:
     Trace of a single training step.
     
     Captures all relevant information for reproducibility and analysis.
+    
+    Canonical fields:
+    - event_id: Deterministic ID format: "{episode_id}:{step:04d}:{agent}"
+    - agent: Agent identifier (not agent_id)
+    - chosen_action: Final action taken (not action_final)
     """
     episode_id: str
     step: int
-    timestamp: float
-    agent_id: str
+    agent: str  # Canonical name (replaces agent_id)
     phase: str
     
     # Action information
-    action_proposed: str  # Agent's neural network proposal
-    action_final: str     # Final action taken (may differ if mentor overrides)
-    action_params: Optional[Dict[str, Any]] = None
-    command: Optional[str] = None  # Actual command if applicable
-    
-    # Observation and outcome
-    observation_summary: str = ""
-    output_summary: str = ""
-    reward: float = 0.0
-    done: bool = False
+    proposed_action: str  # Agent's neural network proposal
+    chosen_action: str    # Final action taken (may differ if mentor overrides)
     
     # Mentor/GPT information
     mentor_call: bool = False
-    mentor_model: Optional[str] = None  # "gpt-5-mini", "gpt-5-nano", etc.
-    mentor_response: Optional[str] = None
+    model_used: Optional[str] = None  # "gpt-5-mini", "gpt-5-nano", None if no mentor
     
-    # Learning metrics
+    # Outcome
+    reward: Optional[float] = None
+    done: bool = False
+    
+    # Optional fields (excluded from canonical trace if None)
+    action_params: Optional[Dict[str, Any]] = None
+    command: Optional[str] = None  # Actual command if applicable
+    observation_summary: str = ""
+    output_summary: str = ""
+    mentor_response: Optional[str] = None
     confidence: float = 0.5  # Agent's confidence in its proposal
     q_values: Optional[List[float]] = None
     epsilon: float = 1.0
-    
-    # Error tracking
     error_flag: bool = False
     error_message: Optional[str] = None
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+    # Timestamp stored separately (not part of deterministic trace)
+    _timestamp: Optional[float] = field(default=None, repr=False)
     
-    def to_json(self) -> str:
+    @property
+    def event_id(self) -> str:
+        """Deterministic event ID format: {episode_id}:{step:04d}:{agent}"""
+        return f"{self.episode_id}:{self.step:04d}:{self.agent}"
+    
+    @property
+    def timestamp(self) -> float:
+        """Get timestamp (or current time if not set)."""
+        return self._timestamp if self._timestamp is not None else time.time()
+    
+    @timestamp.setter
+    def timestamp(self, value: float):
+        self._timestamp = value
+    
+    def to_dict(self, include_timestamp: bool = True) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "event_id": self.event_id,
+            "episode_id": self.episode_id,
+            "step": self.step,
+            "agent": self.agent,
+            "phase": self.phase,
+            "proposed_action": self.proposed_action,
+            "chosen_action": self.chosen_action,
+            "mentor_call": self.mentor_call,
+            "model_used": self.model_used,
+            "reward": self.reward,
+            "done": self.done,
+        }
+        
+        # Add optional fields if present
+        if self.action_params:
+            result["action_params"] = self.action_params
+        if self.command:
+            result["command"] = self.command
+        if self.observation_summary:
+            result["observation_summary"] = self.observation_summary
+        if self.output_summary:
+            result["output_summary"] = self.output_summary
+        if self.mentor_response:
+            result["mentor_response"] = self.mentor_response
+        if self.confidence != 0.5:
+            result["confidence"] = self.confidence
+        if self.q_values:
+            result["q_values"] = self.q_values
+        if self.epsilon != 1.0:
+            result["epsilon"] = self.epsilon
+        if self.error_flag:
+            result["error_flag"] = self.error_flag
+            result["error_message"] = self.error_message
+        
+        # Timestamp is optional (for determinism)
+        if include_timestamp and self._timestamp is not None:
+            result["timestamp"] = self._timestamp
+        
+        return result
+    
+    def to_json(self, include_timestamp: bool = True) -> str:
         """Convert to JSON string (for JSONL)."""
-        return json.dumps(self.to_dict())
+        return json.dumps(self.to_dict(include_timestamp=include_timestamp))
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "StepTrace":
         """Create StepTrace from dictionary."""
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        # Handle field name migrations
+        agent = data.get("agent") or data.get("agent_id", "unknown")
+        chosen_action = data.get("chosen_action") or data.get("action_final", "")
+        proposed_action = data.get("proposed_action") or data.get("action_proposed", "")
+        model_used = data.get("model_used") or data.get("mentor_model")
+        
+        step = cls(
+            episode_id=data.get("episode_id", ""),
+            step=data.get("step", 0),
+            agent=agent,
+            phase=data.get("phase", "unknown"),
+            proposed_action=proposed_action,
+            chosen_action=chosen_action,
+            mentor_call=data.get("mentor_call", False),
+            model_used=model_used,
+            reward=data.get("reward"),
+            done=data.get("done", False),
+            action_params=data.get("action_params"),
+            command=data.get("command"),
+            observation_summary=data.get("observation_summary", ""),
+            output_summary=data.get("output_summary", ""),
+            mentor_response=data.get("mentor_response"),
+            confidence=data.get("confidence", 0.5),
+            q_values=data.get("q_values"),
+            epsilon=data.get("epsilon", 1.0),
+            error_flag=data.get("error_flag", False),
+            error_message=data.get("error_message"),
+        )
+        step._timestamp = data.get("timestamp")
+        return step
 
 
 @dataclass
@@ -120,16 +207,20 @@ class EpisodeTrace:
     # Steps (not serialized to JSONL - kept separate)
     steps: List[StepTrace] = field(default_factory=list)
     
+    # Event ID index for validation
+    event_ids: set = field(default_factory=set)
+    
     def add_step(self, step: StepTrace):
         """Add a step trace to this episode."""
         self.steps.append(step)
+        self.event_ids.add(step.event_id)
         self.total_steps += 1
-        self.total_reward += step.reward
+        self.total_reward += step.reward if step.reward else 0.0
         self.confidence_distribution.append(step.confidence)
         
         if step.mentor_call:
             self.mentor_calls += 1
-            model = step.mentor_model or "unknown"
+            model = step.model_used or "unknown"
             self.mentor_models_used[model] = self.mentor_models_used.get(model, 0) + 1
     
     def finalize(self, success: bool = False, final_phase: str = "unknown"):
@@ -210,6 +301,13 @@ class RunTrace:
         rate = episode.mentor_calls / max(episode.total_steps, 1)
         self.mentor_call_rate.append(rate)
         self.avg_confidence_history.append(episode.avg_confidence)
+    
+    def get_all_event_ids(self) -> set:
+        """Get all event IDs from all episodes in this run."""
+        all_ids = set()
+        for episode in self.episodes:
+            all_ids.update(episode.event_ids)
+        return all_ids
     
     def finalize(self):
         """Finalize the run trace."""
@@ -431,6 +529,11 @@ class TraceReader:
                         steps.append(step)
         return steps
     
+    def get_all_event_ids(self) -> set:
+        """Get all event IDs from the trace."""
+        steps = self.load_steps()
+        return {step.get("event_id") for step in steps if step.get("event_id")}
+    
     def get_mentor_call_stats(self) -> Dict[str, Any]:
         """Get statistics about mentor calls."""
         episodes = self.load_episodes()
@@ -474,10 +577,10 @@ def load_trace(trace_dir: str) -> TraceReader:
 
 # Schema validation
 STEP_TRACE_SCHEMA = {
-    "required": ["episode_id", "step", "timestamp", "agent_id", "phase", "action_proposed", "action_final"],
-    "optional": ["action_params", "command", "observation_summary", "output_summary", "reward", 
-                 "done", "mentor_call", "mentor_model", "mentor_response", "confidence", 
-                 "q_values", "epsilon", "error_flag", "error_message"]
+    "required": ["event_id", "episode_id", "step", "agent", "phase", "chosen_action", "mentor_call", "done"],
+    "optional": ["proposed_action", "model_used", "reward", "action_params", "command", 
+                 "observation_summary", "output_summary", "mentor_response", "confidence", 
+                 "q_values", "epsilon", "error_flag", "error_message", "timestamp"]
 }
 
 
@@ -488,6 +591,46 @@ def validate_step_trace(data: Dict[str, Any]) -> bool:
             logger.warning(f"Missing required field in step trace: {field}")
             return False
     return True
+
+
+def validate_event_id_format(event_id: str) -> bool:
+    """
+    Validate event_id format: {episode_id}:{step:04d}:{agent}
+    Returns True if valid.
+    """
+    import re
+    pattern = r'^.+:\d{4}:.+$'
+    return bool(re.match(pattern, event_id))
+
+
+def parse_event_id(event_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Parse an event_id into components.
+    Returns dict with episode_id, step, agent or None if invalid.
+    """
+    parts = event_id.rsplit(':', 2)
+    if len(parts) != 3:
+        return None
+    try:
+        return {
+            "episode_id": parts[0],
+            "step": int(parts[1]),
+            "agent": parts[2]
+        }
+    except ValueError:
+        return None
+
+
+def validate_evidence_refs(evidence_refs: List[str], valid_event_ids: set) -> List[str]:
+    """
+    Validate that evidence_refs exist in the trace.
+    Returns list of invalid refs (empty if all valid).
+    """
+    invalid = []
+    for ref in evidence_refs:
+        if ref not in valid_event_ids:
+            invalid.append(ref)
+    return invalid
 
 
 if __name__ == "__main__":
@@ -511,14 +654,13 @@ if __name__ == "__main__":
             writer.log_step(StepTrace(
                 episode_id=episode_id,
                 step=step,
-                timestamp=time.time(),
-                agent_id="RedAgent",
+                agent="RedAgent",
                 phase="recon",
-                action_proposed="nmap -sV 10.10.10.10",
-                action_final="nmap -sV 10.10.10.10",
+                proposed_action="nmap -sV 10.10.10.10",
+                chosen_action="nmap -sV 10.10.10.10",
                 reward=10.0 if step == 4 else 1.0,
                 mentor_call=step == 0,
-                mentor_model="gpt-5-mini" if step == 0 else None,
+                model_used="gpt-5-mini" if step == 0 else None,
                 confidence=0.5 + (step * 0.1)
             ))
         

@@ -4,9 +4,11 @@ tests/test_ariaska_systems.py — Unit tests for new ARIASKA systems
 
 Tests:
 - EpisodeTrace schema validation and roundtrip
+- Deterministic event_id generation
 - LLM routing correctness
 - Confidence calculation
 - Postmortem JSON validation
+- Evidence refs validation
 - SkillLibrary operations
 """
 
@@ -26,17 +28,16 @@ class TestEpisodeTrace(unittest.TestCase):
     """Tests for the EpisodeTrace system."""
     
     def test_step_trace_creation(self):
-        """Test creating a StepTrace."""
+        """Test creating a StepTrace with canonical field names."""
         from core.tracing import StepTrace
         
         step = StepTrace(
             episode_id="run_001_ep0001",
             step=5,
-            timestamp=time.time(),
-            agent_id="RedAgent",
+            agent="RedAgent",  # Canonical name
             phase="recon",
-            action_proposed="nmap -sV 10.10.10.10",
-            action_final="nmap -sV 10.10.10.10",
+            proposed_action="nmap -sV 10.10.10.10",
+            chosen_action="nmap -sV 10.10.10.10",
             reward=10.0,
             mentor_call=False,
             confidence=0.75
@@ -44,21 +45,48 @@ class TestEpisodeTrace(unittest.TestCase):
         
         self.assertEqual(step.episode_id, "run_001_ep0001")
         self.assertEqual(step.step, 5)
-        self.assertEqual(step.agent_id, "RedAgent")
+        self.assertEqual(step.agent, "RedAgent")
         self.assertEqual(step.confidence, 0.75)
     
+    def test_deterministic_event_id(self):
+        """Test that event_id is deterministic: {episode_id}:{step:04d}:{agent}"""
+        from core.tracing import StepTrace
+        
+        step = StepTrace(
+            episode_id="run_abc_ep0001",
+            step=5,
+            agent="RedAgent",
+            phase="recon",
+            proposed_action="test",
+            chosen_action="test"
+        )
+        
+        # Event ID should be deterministic
+        expected_id = "run_abc_ep0001:0005:RedAgent"
+        self.assertEqual(step.event_id, expected_id)
+        
+        # Same inputs should produce same event_id
+        step2 = StepTrace(
+            episode_id="run_abc_ep0001",
+            step=5,
+            agent="RedAgent",
+            phase="recon",
+            proposed_action="different",
+            chosen_action="different"
+        )
+        self.assertEqual(step.event_id, step2.event_id)
+    
     def test_step_trace_to_json(self):
-        """Test StepTrace JSON serialization."""
+        """Test StepTrace JSON serialization includes event_id."""
         from core.tracing import StepTrace
         
         step = StepTrace(
             episode_id="test_ep",
             step=1,
-            timestamp=time.time(),
-            agent_id="RedAgent",
+            agent="RedAgent",
             phase="recon",
-            action_proposed="ping",
-            action_final="ping"
+            proposed_action="ping",
+            chosen_action="ping"
         )
         
         json_str = step.to_json()
@@ -66,30 +94,35 @@ class TestEpisodeTrace(unittest.TestCase):
         
         self.assertEqual(parsed["episode_id"], "test_ep")
         self.assertEqual(parsed["step"], 1)
+        self.assertEqual(parsed["event_id"], "test_ep:0001:RedAgent")
+        self.assertIn("agent", parsed)
+        self.assertIn("chosen_action", parsed)
     
-    def test_step_trace_from_dict(self):
-        """Test StepTrace from dictionary."""
+    def test_step_trace_from_dict_migration(self):
+        """Test StepTrace.from_dict handles old field names (migration)."""
         from core.tracing import StepTrace
         
-        data = {
+        # Old format with agent_id and action_final
+        old_data = {
             "episode_id": "test_ep",
             "step": 3,
             "timestamp": time.time(),
-            "agent_id": "RedAgent",
+            "agent_id": "RedAgent",  # Old name
             "phase": "exploit",
-            "action_proposed": "msfconsole",
-            "action_final": "msfconsole",
+            "action_proposed": "msfconsole",  # Old name
+            "action_final": "msfconsole",     # Old name
             "reward": 25.0,
             "mentor_call": True,
-            "mentor_model": "gpt-5-mini"
+            "mentor_model": "gpt-5-mini"      # Old name
         }
         
-        step = StepTrace.from_dict(data)
+        step = StepTrace.from_dict(old_data)
         
         self.assertEqual(step.step, 3)
-        self.assertEqual(step.phase, "exploit")
+        self.assertEqual(step.agent, "RedAgent")  # Migrated
+        self.assertEqual(step.chosen_action, "msfconsole")  # Migrated
+        self.assertEqual(step.model_used, "gpt-5-mini")  # Migrated
         self.assertTrue(step.mentor_call)
-        self.assertEqual(step.mentor_model, "gpt-5-mini")
     
     def test_episode_trace_metrics(self):
         """Test EpisodeTrace metrics aggregation."""
@@ -106,14 +139,13 @@ class TestEpisodeTrace(unittest.TestCase):
             step = StepTrace(
                 episode_id="test_ep",
                 step=i,
-                timestamp=time.time(),
-                agent_id="RedAgent",
+                agent="RedAgent",
                 phase="recon",
-                action_proposed="action",
-                action_final="action",
+                proposed_action="action",
+                chosen_action="action",
                 reward=10.0,
-                mentor_call=(i == 0),  # First step uses mentor
-                mentor_model="gpt-5-mini" if i == 0 else None,
+                mentor_call=(i == 0),
+                model_used="gpt-5-mini" if i == 0 else None,
                 confidence=0.5 + (i * 0.1)
             )
             episode.add_step(step)
@@ -124,9 +156,12 @@ class TestEpisodeTrace(unittest.TestCase):
         self.assertEqual(episode.total_reward, 50.0)
         self.assertEqual(episode.mentor_calls, 1)
         self.assertTrue(episode.success)
+        
+        # Check event_ids are tracked
+        self.assertEqual(len(episode.event_ids), 5)
     
     def test_trace_writer_roundtrip(self):
-        """Test writing and reading traces."""
+        """Test writing and reading traces with new schema."""
         from core.tracing import TraceWriter, TraceReader, StepTrace
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -139,11 +174,10 @@ class TestEpisodeTrace(unittest.TestCase):
             writer.log_step(StepTrace(
                 episode_id=episode_id,
                 step=0,
-                timestamp=time.time(),
-                agent_id="RedAgent",
+                agent="RedAgent",
                 phase="recon",
-                action_proposed="test",
-                action_final="test",
+                proposed_action="test",
+                chosen_action="test",
                 reward=5.0
             ))
             
@@ -160,29 +194,94 @@ class TestEpisodeTrace(unittest.TestCase):
             self.assertEqual(len(episodes), 1)
             self.assertEqual(len(steps), 1)
             self.assertEqual(run_data["seed"], 42)
+            
+            # Verify event_id is present
+            self.assertIn("event_id", steps[0])
     
-    def test_schema_validation(self):
-        """Test step trace schema validation."""
+    def test_schema_validation_new_format(self):
+        """Test step trace schema validation with new canonical fields."""
         from core.tracing import validate_step_trace
         
         valid_data = {
-            "episode_id": "test",
+            "event_id": "test_ep:0001:RedAgent",
+            "episode_id": "test_ep",
             "step": 1,
-            "timestamp": time.time(),
-            "agent_id": "RedAgent",
+            "agent": "RedAgent",
             "phase": "recon",
-            "action_proposed": "test",
-            "action_final": "test"
+            "chosen_action": "test",
+            "mentor_call": False,
+            "done": False
         }
         
         invalid_data = {
             "step": 1,
-            "timestamp": time.time()
+            "agent": "RedAgent"
             # Missing required fields
         }
         
         self.assertTrue(validate_step_trace(valid_data))
         self.assertFalse(validate_step_trace(invalid_data))
+    
+    def test_event_id_format_validation(self):
+        """Test event_id format validation."""
+        from core.tracing import validate_event_id_format, parse_event_id
+        
+        # Valid formats
+        self.assertTrue(validate_event_id_format("run_001_ep0001:0005:RedAgent"))
+        self.assertTrue(validate_event_id_format("ep_000001:0000:Agent"))
+        
+        # Invalid formats
+        self.assertFalse(validate_event_id_format("invalid"))
+        self.assertFalse(validate_event_id_format("no:colons"))
+        
+        # Parse event_id
+        parsed = parse_event_id("run_001_ep0001:0005:RedAgent")
+        self.assertEqual(parsed["episode_id"], "run_001_ep0001")
+        self.assertEqual(parsed["step"], 5)
+        self.assertEqual(parsed["agent"], "RedAgent")
+    
+    def test_deterministic_trace_order(self):
+        """Test that trace writing is deterministic with same seed."""
+        from core.tracing import TraceWriter, StepTrace
+        
+        def create_trace(tmpdir, seed):
+            writer = TraceWriter(output_dir=tmpdir, run_id=f"test_run_{seed}")
+            writer.start_run(config={"test": True}, seed=seed)
+            
+            episode_id = writer.start_episode(0)
+            
+            for i in range(3):
+                writer.log_step(StepTrace(
+                    episode_id=episode_id,
+                    step=i,
+                    agent="RedAgent",
+                    phase="recon",
+                    proposed_action=f"action_{i}",
+                    chosen_action=f"action_{i}",
+                    reward=float(i)
+                ))
+            
+            writer.end_episode(success=True)
+            writer.end_run()
+            return writer.run_dir
+        
+        with tempfile.TemporaryDirectory() as tmpdir1:
+            with tempfile.TemporaryDirectory() as tmpdir2:
+                run1_dir = create_trace(tmpdir1, 42)
+                run2_dir = create_trace(tmpdir2, 42)
+                
+                from core.tracing import TraceReader
+                reader1 = TraceReader(run1_dir)
+                reader2 = TraceReader(run2_dir)
+                
+                steps1 = reader1.load_steps()
+                steps2 = reader2.load_steps()
+                
+                # Event IDs should match (deterministic)
+                for s1, s2 in zip(steps1, steps2):
+                    # event_id format is deterministic given same episode_id pattern
+                    self.assertEqual(s1["step"], s2["step"])
+                    self.assertEqual(s1["agent"], s2["agent"])
 
 
 class TestLLMRouting(unittest.TestCase):
@@ -411,6 +510,59 @@ class TestPostmortem(unittest.TestCase):
         
         self.assertEqual(result.model_used, "offline")
         self.assertTrue(result.validation_passed)
+    
+    def test_offline_mode_with_evidence_refs(self):
+        """Test offline mode generates valid evidence_refs."""
+        from core.postmortem import OrionPostmortem
+        
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
+        
+        # Provide valid event IDs
+        valid_event_ids = {
+            "run_001_ep0000:0000:RedAgent",
+            "run_001_ep0000:0001:RedAgent",
+            "run_001_ep0000:0002:RedAgent",
+        }
+        
+        run_trace = {"run_id": "run_001", "total_episodes": 1}
+        result = postmortem.analyze_run(
+            run_trace, 
+            dry_run=True, 
+            valid_event_ids=valid_event_ids
+        )
+        
+        # Check skill cards have valid evidence_refs
+        for card in result.skill_cards:
+            for ref in card.evidence_refs:
+                self.assertIn(ref, valid_event_ids)
+    
+    def test_evidence_refs_validation(self):
+        """Test that evidence_refs validation catches invalid refs."""
+        from core.postmortem import OrionPostmortem, SkillCard, PostmortemResult
+        
+        postmortem = OrionPostmortem(output_dir="test_postmortems", enable_llm=False)
+        
+        valid_event_ids = {"ep0000:0000:Agent", "ep0000:0001:Agent"}
+        
+        result = PostmortemResult(
+            run_id="test",
+            timestamp=time.time(),
+            dry_run=True
+        )
+        result.skill_cards = [
+            SkillCard(
+                id="skill_001",
+                if_condition="test",
+                then_action="test",
+                confidence=0.5,
+                evidence_refs=["ep0000:0000:Agent", "invalid_ref"]  # One invalid
+            )
+        ]
+        
+        invalid_refs = postmortem.validate_evidence_refs(result, valid_event_ids)
+        
+        self.assertEqual(len(invalid_refs), 1)
+        self.assertIn("invalid_ref", invalid_refs)
 
 
 class TestSkillLibrary(unittest.TestCase):

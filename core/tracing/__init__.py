@@ -14,6 +14,10 @@ from core.tracing.episode_trace import (
     create_trace_writer,
     load_trace,
     validate_step_trace,
+    validate_event_id_format,
+    parse_event_id,
+    validate_evidence_refs,
+    STEP_TRACE_SCHEMA,
 )
 
 __all__ = [
@@ -26,4 +30,8 @@ __all__ = [
     "create_trace_writer",
     "load_trace",
     "validate_step_trace",
+    "validate_event_id_format",
+    "parse_event_id",
+    "validate_evidence_refs",
+    "STEP_TRACE_SCHEMA",
 ]
