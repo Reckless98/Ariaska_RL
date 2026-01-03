@@ -189,16 +189,28 @@ class GPTManager:
     
     FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
     
-    def __init__(self, enable_llm: bool = True, require_llm: bool = False, 
-                 offline: bool = False):
+    def __init__(self, enable_llm: bool = None, require_llm: bool = None, 
+                 offline: bool = None):
         """
         Initialize GPTManager.
         
         Args:
-            enable_llm: Whether LLM calls are enabled at all
-            require_llm: If True and enable_llm, raise RuntimeError if no API key
-            offline: Force offline mode (no LLM calls, use placeholders)
+            enable_llm: Whether LLM calls are enabled at all (default from runtime_flags)
+            require_llm: If True and enable_llm, raise RuntimeError if no API key (default from runtime_flags)
+            offline: Force offline mode (no LLM calls, use placeholders) (default from runtime_flags)
         """
+        # Import runtime flags for defaults
+        from core.runtime_flags import get_runtime_flags
+        flags = get_runtime_flags()
+        
+        # Use explicit args if provided, otherwise fall back to runtime flags
+        if offline is None:
+            offline = flags.offline if flags.initialized else False
+        if enable_llm is None:
+            enable_llm = flags.enable_llm if flags.initialized else True
+        if require_llm is None:
+            require_llm = flags.require_llm if flags.initialized else False  # Default False for backwards compat
+        
         self._enable_llm = enable_llm and not offline
         self._require_llm = require_llm
         self._offline = offline
@@ -223,8 +235,12 @@ class GPTManager:
         # Feature flags
         self.enable_postmortem_5_2 = os.getenv("ENABLE_GPT_5_2_POSTMORTEM", "false").lower() == "true"
         
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "3000"))
+        # Token budgeting - per episode and per agent
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "8000"))
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "2500"))
         self.tokens_used = 0
+        self.tokens_by_agent: Dict[str, int] = {}
+        self.current_episode_id: Optional[str] = None
         
         # Rate limiting
         self.last_request_time = 0
@@ -281,7 +297,7 @@ class GPTManager:
         max_tokens: int = 150
     ) -> Dict[str, Any]:
         """
-        Unified request method with role-based routing.
+        Unified request method with role-based routing and token budget tracking.
         
         Args:
             role: Agent role (e.g., "RedAgent", "OrionAgent", "ScoutAgent")
@@ -296,20 +312,41 @@ class GPTManager:
                 - response: str (the model's response)
                 - model_used: str
                 - offline: bool
+                - tokens: int (estimated tokens used)
+                - error: str (if failed)
         """
-        # Offline mode returns placeholder
+        # Offline mode returns placeholder (no logging, no API access)
         if self.is_offline():
             return {
                 "success": True,
                 "response": self._get_offline_placeholder(task_type),
                 "model_used": "offline",
-                "offline": True
+                "offline": True,
+                "tokens": 0
+            }
+        
+        # Check budget before making request
+        if not self.can_make_request(agent_name=role):
+            budget = self.get_budget_status(agent_name=role)
+            error_msg = f"Token budget exceeded: total={budget['total_used']}/{budget['total_limit']}"
+            if role and budget.get("agent_over_budget"):
+                error_msg = f"Agent {role} token budget exceeded: {budget['agent_used']}/{budget['agent_limit']}"
+            logger.warning(error_msg)
+            return {
+                "success": False,
+                "response": self._get_offline_placeholder(task_type),
+                "model_used": "budget_exceeded",
+                "offline": True,
+                "tokens": 0,
+                "error": error_msg
             }
         
         # Determine model from role and task_type
         model = self.get_model_for_role(agent_id=role, task_type=task_type)
         
+        start_time = time.time()
         try:
+            # Call gpt_request which handles caching, rate limiting, and API call
             response = self.gpt_request(
                 prompt=prompt,
                 task_type=task_type,
@@ -317,11 +354,28 @@ class GPTManager:
                 max_tokens=max_tokens,
                 model=model
             )
+            
+            # Estimate tokens (rough: prompt words + response words) 
+            prompt_tokens = len(prompt.split()) + 50  # ~50 for system prompt
+            completion_tokens = len(response.split()) if response else 0
+            total_tokens = prompt_tokens + completion_tokens
+            
+            # Update token counters
+            self.tokens_used += total_tokens
+            if role:
+                self.tokens_by_agent[role] = self.tokens_by_agent.get(role, 0) + total_tokens
+            
+            latency_ms = int((time.time() - start_time) * 1000)
+            
             return {
                 "success": True,
                 "response": response,
                 "model_used": model,
-                "offline": False
+                "offline": False,
+                "tokens": total_tokens,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "latency_ms": latency_ms
             }
         except Exception as e:
             logger.error(f"GPT request failed: {e}")
@@ -330,6 +384,7 @@ class GPTManager:
                 "response": self._get_offline_placeholder(task_type),
                 "model_used": "offline",
                 "offline": True,
+                "tokens": 0,
                 "error": str(e)
             }
     
@@ -421,13 +476,75 @@ class GPTManager:
         
         return self.primary_model
     
-    def reset_token_count(self):
-        """Reset token count for new episode"""
-        self.tokens_used = 0
+    def get_model_for_task(self, task_type: str) -> str:
+        """
+        Get appropriate model for a task type.
+        Alias for get_model_for_role with task_type mapping.
+        
+        Args:
+            task_type: Type of task (e.g., "tactical", "reasoning", "postmortem")
+            
+        Returns:
+            str: Model name to use
+        """
+        return self.get_model_for_role(agent_id=None, task_type=task_type)
     
-    def can_make_request(self) -> bool:
-        """Check if we can make another request within token limits"""
-        return self.tokens_used < self.token_limit
+    def reset_episode(self, episode_id: Optional[int] = None, agent_name: Optional[str] = None) -> None:
+        """
+        Reset token counters for a new episode.
+        
+        Args:
+            episode_id: Episode identifier (for logging)
+            agent_name: If provided, reset only that agent's counter. Otherwise reset all.
+        """
+        if agent_name:
+            self.tokens_by_agent[agent_name] = 0
+            logger.debug(f"Reset token count for {agent_name} (episode {episode_id})")
+        else:
+            self.tokens_used = 0
+            self.tokens_by_agent = {}
+            self.current_episode_id = str(episode_id) if episode_id is not None else None
+            logger.debug(f"Reset all token counts for episode {episode_id}")
+    
+    def reset_token_count(self):
+        """Reset token count for new episode (legacy method, use reset_episode)"""
+        self.reset_episode()
+    
+    def can_make_request(self, agent_name: Optional[str] = None) -> bool:
+        """
+        Check if we can make another request within token limits.
+        
+        Args:
+            agent_name: If provided, check per-agent limit too.
+            
+        Returns:
+            bool: True if request is within budget.
+        """
+        if self.tokens_used >= self.token_limit:
+            return False
+        if agent_name and self.tokens_by_agent.get(agent_name, 0) >= self.token_limit_per_agent:
+            return False
+        return True
+    
+    def get_budget_status(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get current token budget status.
+        
+        Returns dict with:
+            total_used, total_limit, remaining, over_budget, agent_used, agent_limit
+        """
+        status = {
+            "total_used": self.tokens_used,
+            "total_limit": self.token_limit,
+            "remaining": max(0, self.token_limit - self.tokens_used),
+            "over_budget": self.tokens_used >= self.token_limit,
+        }
+        if agent_name:
+            agent_used = self.tokens_by_agent.get(agent_name, 0)
+            status["agent_used"] = agent_used
+            status["agent_limit"] = self.token_limit_per_agent
+            status["agent_over_budget"] = agent_used >= self.token_limit_per_agent
+        return status
     
     def _load_cache(self):
         """Load response cache from disk"""
@@ -503,6 +620,9 @@ class GPTManager:
         Returns:
             str: The model's response
         """
+        # CRITICAL: Check offline mode FIRST, before any logging or API access
+        if self.is_offline():
+            return self._get_offline_placeholder(task_type)
         
         if not self.can_make_request():
             logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit})")
@@ -529,7 +649,7 @@ class GPTManager:
         if current_time - self.last_request_time < self.min_request_interval:
             time.sleep(self.min_request_interval)
         
-        # Log that we're making a real GPT call
+        # Log that we're making a real GPT call (only reached if NOT offline)
         logger.info(f"GPT API call | model={model} | agent={agent_id} | task={task_type}")
         
         try:
@@ -550,18 +670,27 @@ class GPTManager:
             import concurrent.futures
             import signal
             
+            # Determine the correct token parameter for the model
+            # Newer models (gpt-5.x, o1, o3) use max_completion_tokens
+            # Older models (gpt-4, gpt-4o) use max_tokens
+            uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"])
+            token_param = "max_completion_tokens" if uses_new_api else "max_tokens"
+            
             def make_gpt_request():
                 # Use existing client with shorter timeout
-                return self.client.chat.completions.create(
-                    model=model,
-                    messages=[
+                request_params = {
+                    "model": model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
                     ],
-                    max_tokens=max_tokens,
-                    temperature=0.7 if task_type == "diversify" else 0.3,
-                    timeout=5.0  # 5 second client timeout
-                )
+                    token_param: max_tokens,
+                    "timeout": 5.0  # 5 second client timeout
+                }
+                # Only add temperature for models that support it (not gpt-5.x, o1, o3)
+                if not uses_new_api:
+                    request_params["temperature"] = 0.7 if task_type == "diversify" else 0.3
+                return self.client.chat.completions.create(**request_params)
             
             # Execute with aggressive timeout using ThreadPoolExecutor
             try:

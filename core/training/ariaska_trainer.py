@@ -21,6 +21,13 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not installed, rely on shell environment
+
 import numpy as np
 import torch
 
@@ -45,6 +52,21 @@ class TrainingConfig:
     enable_llm: bool = True        # Whether to use LLM at all
     require_llm: bool = True       # If True+enable_llm, fail fast if no API key (default: online-first)
     offline: bool = False          # Force offline mode (no LLM calls) - only when explicitly requested
+    
+    # Multi-agent mode (NEW)
+    multiagent: bool = True        # Use orchestrator with all 5 agents (default True)
+    legacy_single_agent: bool = False  # Force legacy single-agent mode
+    
+    # Dashboard (NEW)
+    watch: bool = True             # Enable live dashboard
+    watch_rate: float = 1.0        # Print every N steps (1.0 = every step)
+    ui_mode: str = "live"          # "off", "summary", "live"
+    
+    # Mentor policy (NEW)
+    mentor_mode: str = "anneal"    # "anneal", "threshold", "always", "never"
+    mentor_warmup_episodes: int = 1
+    mentor_min_rate: float = 0.15
+    mentor_max_rate: float = 1.0
     
     # Apprentice-to-Autonomy
     initial_confidence_threshold: float = 0.3
@@ -96,6 +118,15 @@ class AriaskaTrainer:
     
     def __init__(self, config: Optional[TrainingConfig] = None):
         self.config = config or TrainingConfig()
+        
+        # Set runtime flags BEFORE any component initialization
+        # This ensures all GPTManager instances inherit the correct mode
+        from core.runtime_flags import set_runtime_flags
+        set_runtime_flags(
+            offline=self.config.offline,
+            enable_llm=self.config.enable_llm,
+            require_llm=self.config.require_llm
+        )
         
         # Set seed for reproducibility
         if self.config.seed is not None:
@@ -196,7 +227,48 @@ class AriaskaTrainer:
             library_path=self.config.skill_library_path
         )
         
+        # Multi-agent orchestrator (NEW)
+        self.orchestrator = None
+        self.dashboard = None
+        if self.config.multiagent and not self.config.legacy_single_agent:
+            self._init_multiagent_mode()
+        
         logger.info("All components initialized successfully")
+    
+    def _init_multiagent_mode(self):
+        """Initialize multi-agent orchestrator and live dashboard."""
+        from core.orchestration import Orchestrator, OrchestratorConfig
+        from core.observability import LiveDashboard, DashboardConfig
+        
+        # Orchestrator config
+        orch_config = OrchestratorConfig(
+            mentor_mode=self.config.mentor_mode,
+            mentor_warmup_episodes=self.config.mentor_warmup_episodes,
+            mentor_min_rate=self.config.mentor_min_rate,
+            mentor_max_rate=self.config.mentor_max_rate,
+            max_steps_per_episode=self.config.max_steps_per_episode,
+        )
+        
+        self.orchestrator = Orchestrator(
+            env=self.environment,
+            gpt_manager=self.gpt_manager,
+            trace_writer=self.trace_writer,
+            skill_library=self.skill_library,
+            config=orch_config,
+            verbosity=self.config.verbosity,
+        )
+        
+        # Dashboard config
+        show_dashboard = self.config.watch and self.config.verbosity != "quiet"
+        dash_config = DashboardConfig(
+            enabled=show_dashboard and self.config.ui_mode != "off",
+            mode=self.config.ui_mode,
+            watch_rate=self.config.watch_rate,
+        )
+        
+        self.dashboard = LiveDashboard(config=dash_config)
+        
+        logger.info(f"Multi-agent orchestrator initialized with {len(self.orchestrator.agents)} agents")
     
     def train(self) -> Dict[str, Any]:
         """
@@ -213,27 +285,17 @@ class AriaskaTrainer:
                 config=self.config.to_dict(),
                 seed=self.config.seed
             )
+            # Set run dir for orchestrator mentor logs
+            if self.orchestrator:
+                self.orchestrator.set_run_dir(self.trace_writer.run_dir)
         
         try:
-            # Main training loop
-            for episode in range(self.config.episodes):
-                self.current_episode = episode
+            # Use multi-agent mode if orchestrator is available
+            if self.orchestrator:
+                return self._train_multiagent()
+            else:
+                return self._train_single_agent()
                 
-                episode_result = self._run_episode(episode)
-                
-                # Log progress
-                if episode % 10 == 0 or episode == self.config.episodes - 1:
-                    self._log_progress(episode, episode_result)
-                
-                # Checkpoint
-                if episode % self.config.checkpoint_interval == 0 and episode > 0:
-                    self._save_checkpoint(episode)
-            
-            # End training
-            training_summary = self._finalize_training()
-            
-            return training_summary
-            
         except KeyboardInterrupt:
             logger.info("Training interrupted by user")
             return self._finalize_training()
@@ -241,8 +303,86 @@ class AriaskaTrainer:
             logger.error(f"Training failed: {e}")
             raise
     
-    def _run_episode(self, episode: int) -> Dict[str, Any]:
-        """Run a single training episode."""
+    def _train_multiagent(self) -> Dict[str, Any]:
+        """Run multi-agent training with orchestrator."""
+        for episode in range(self.config.episodes):
+            self.current_episode = episode
+            
+            # Reset dashboard for episode
+            if self.dashboard:
+                self.dashboard.reset_episode()
+            
+            # Start episode in trace writer
+            episode_id = None
+            if self.trace_writer:
+                episode_id = self.trace_writer.start_episode(episode)
+            else:
+                episode_id = f"ep_{episode:06d}"
+            
+            # Run episode via orchestrator
+            episode_result = self.orchestrator.run_episode(
+                episode_id=episode_id,
+                episode_number=episode,
+                max_steps=self.config.max_steps_per_episode,
+            )
+            
+            # Update totals
+            self.total_steps += episode_result.get("total_steps", 0)
+            
+            # End episode in trace
+            if self.trace_writer:
+                self.trace_writer.end_episode(
+                    success=episode_result.get("done", False),
+                    final_phase="unknown"
+                )
+            
+            # Print dashboard summary
+            if self.dashboard:
+                self.dashboard.set_skill_library_size(len(self.skill_library.get_all_skills()))
+                self.dashboard.print_episode_summary(
+                    episode=episode,
+                    total_reward=episode_result.get("total_reward", 0),
+                    total_steps=episode_result.get("total_steps", 0),
+                    mentor_calls=episode_result.get("total_mentor_calls", 0),
+                )
+            
+            # Log progress
+            logger.info(
+                f"Episode {episode}/{self.config.episodes} | "
+                f"Reward: {episode_result.get('total_reward', 0):.2f} | "
+                f"Mentor calls: {episode_result.get('total_mentor_calls', 0)} | "
+                f"Steps: {episode_result.get('total_steps', 0)}"
+            )
+            
+            # Checkpoint
+            if self.config.checkpoint_interval > 0:
+                if episode % self.config.checkpoint_interval == 0 and episode > 0:
+                    self._save_checkpoint(episode)
+        
+        # Finalize
+        return self._finalize_training()
+    
+    def _train_single_agent(self) -> Dict[str, Any]:
+        """Run legacy single-agent training."""
+        # Main training loop
+        for episode in range(self.config.episodes):
+            self.current_episode = episode
+            
+            episode_result = self._run_episode_single(episode)
+            
+            # Log progress
+            if episode % 10 == 0 or episode == self.config.episodes - 1:
+                self._log_progress(episode, episode_result)
+            
+            # Checkpoint
+            if episode % self.config.checkpoint_interval == 0 and episode > 0:
+                self._save_checkpoint(episode)
+        
+        # End training
+        return self._finalize_training()
+    
+    def _run_episode_single(self, episode: int) -> Dict[str, Any]:
+        """Run a single training episode (legacy single-agent mode)."""
         
         # Reset environment
         state = self.environment.reset()
@@ -502,6 +642,16 @@ def main():
     parser.add_argument("--no-require-llm", action="store_true",
                         help="Don't fail fast if key missing; fall back to offline gracefully")
     
+    # Multi-agent and dashboard options (NEW)
+    parser.add_argument("--legacy-single-agent", action="store_true",
+                        help="Use legacy single-agent mode instead of orchestrator")
+    parser.add_argument("--no-watch", action="store_true",
+                        help="Disable live dashboard")
+    parser.add_argument("--watch-rate", type=float, default=1.0,
+                        help="Dashboard print rate (1.0 = every step, 0.5 = every 2 steps)")
+    parser.add_argument("--ui", choices=["off", "summary", "live"], default="live",
+                        help="UI mode: off (no output), summary (episode summaries only), live (step-by-step)")
+    
     args = parser.parse_args()
     
     # Determine LLM settings (online-first by default)
@@ -526,7 +676,12 @@ def main():
         enable_gpt_5_2_postmortem=args.enable_gpt_5_2,
         enable_llm=enable_llm,
         require_llm=require_llm,
-        offline=offline
+        offline=offline,
+        # Multi-agent options
+        legacy_single_agent=args.legacy_single_agent,
+        watch=not args.no_watch,
+        watch_rate=args.watch_rate,
+        ui_mode=args.ui,
     )
     
     # Early validation: online-first means fail fast if no API key

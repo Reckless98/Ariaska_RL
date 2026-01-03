@@ -1,0 +1,53 @@
+{
+  "run_id": "run_20260103_210024_7b4c04",
+  "start_time": 1767470424.8893375,
+  "end_time": 1767470425.9983225,
+  "config": {
+    "episodes": 2,
+    "max_steps_per_episode": 3,
+    "seed": 1337,
+    "enable_llm": false,
+    "require_llm": false,
+    "offline": true,
+    "initial_confidence_threshold": 0.3,
+    "final_confidence_threshold": 0.8,
+    "warmup_episodes": 10,
+    "threshold_schedule_episodes": 100,
+    "max_mentor_calls_per_episode": 10,
+    "trace_output_dir": "traces",
+    "enable_tracing": true,
+    "enable_postmortem": true,
+    "enable_gpt_5_2_postmortem": false,
+    "postmortem_output_dir": "postmortems",
+    "skill_library_path": "core/memory/skill_library.json",
+    "apply_skill_updates": true,
+    "target_update_freq": 1000,
+    "soft_update_tau": 0.005,
+    "verbosity": "quiet",
+    "checkpoint_dir": "checkpoints",
+    "checkpoint_interval": 10
+  },
+  "seed": 1337,
+  "total_episodes": 2,
+  "successful_episodes": 0,
+  "total_reward": 21.0,
+  "total_steps": 6,
+  "total_mentor_calls": 0,
+  "mentor_models_used": {},
+  "success_rate": 0.0,
+  "avg_reward_per_episode": 10.5,
+  "avg_mentor_calls_per_episode": 0.0,
+  "duration": 1.1089849472045898,
+  "reward_history": [
+    9.5,
+    11.5
+  ],
+  "mentor_call_rate": [
+    0.0,
+    0.0
+  ],
+  "avg_confidence_history": [
+    0.07466029127438863,
+    0.17804170648256937
+  ]
+}

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# scripts/aria — ARIASKA Quick Command Runner
+#
+# Usage:
+#   ./scripts/aria train       - Online training (default)
+#   ./scripts/aria train-offline - Offline training (no API key)
+#   ./scripts/aria watch       - Online run with live dashboard
+#   ./scripts/aria offline     - Offline run with dashboard  
+#   ./scripts/aria test        - Run pytest
+#   ./scripts/aria smoke       - Quick offline smoke test
+#   ./scripts/aria last        - Show last training run traces
+#   ./scripts/aria help        - Show this help
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+
+# Check if venv exists
+if [[ ! -f "$PYTHON" ]]; then
+    echo "Error: Virtual environment not found. Run 'make venv' first."
+    exit 1
+fi
+
+cd "$PROJECT_ROOT"
+
+case "${1:-help}" in
+    train)
+        echo "🎯 Starting online training..."
+        $PYTHON -m core.training.ariaska_trainer \
+            --episodes "${2:-5}" \
+            --max-steps "${3:-50}" \
+            --verbosity standard \
+            --ui live
+        ;;
+    train-offline)
+        echo "🔌 Starting offline training (no API key)..."
+        unset OPENAI_API_KEY
+        $PYTHON -m core.training.ariaska_trainer \
+            --offline \
+            --episodes "${2:-5}" \
+            --max-steps "${3:-20}" \
+            --verbosity standard \
+            --ui live
+        ;;
+    watch)
+        echo "👁️ Starting online training with live dashboard..."
+        $PYTHON -m core.training.ariaska_trainer \
+            --episodes "${2:-10}" \
+            --max-steps "${3:-50}" \
+            --verbosity standard \
+            --ui live
+        ;;
+    offline)
+        echo "🔌 Starting offline training with dashboard..."
+        unset OPENAI_API_KEY
+        $PYTHON -m core.training.ariaska_trainer \
+            --offline \
+            --episodes "${2:-5}" \
+            --max-steps "${3:-10}" \
+            --verbosity standard \
+            --ui live
+        ;;
+    test)
+        echo "🧪 Running tests..."
+        $PROJECT_ROOT/.venv/bin/pytest -q
+        ;;
+    smoke)
+        echo "💨 Running smoke test..."
+        unset OPENAI_API_KEY
+        $PYTHON -m core.training.ariaska_trainer \
+            --offline \
+            --episodes 2 \
+            --max-steps 3 \
+            --seed 1337 \
+            --verbosity standard \
+            --ui summary
+        ;;
+    last)
+        echo "📊 Showing last training run..."
+        LAST_RUN=$(ls -t traces/ 2>/dev/null | head -1)
+        if [[ -z "$LAST_RUN" ]]; then
+            echo "No training runs found in traces/"
+            exit 1
+        fi
+        echo "Run ID: $LAST_RUN"
+        echo ""
+        echo "=== Steps (last 20) ==="
+        tail -20 "traces/$LAST_RUN/steps.jsonl" 2>/dev/null || echo "(no steps.jsonl)"
+        echo ""
+        echo "=== Mentor Calls (last 10) ==="
+        tail -10 "traces/$LAST_RUN/mentor.jsonl" 2>/dev/null || echo "(no mentor.jsonl)"
+        ;;
+    traces)
+        echo "📁 Recent training runs:"
+        ls -lt traces/ | head -10
+        ;;
+    help|--help|-h|*)
+        echo "ARIASKA Quick Commands"
+        echo ""
+        echo "Usage: ./scripts/aria <command> [args...]"
+        echo ""
+        echo "Commands:"
+        echo "  train [eps] [steps]       - Online training (default 5 eps, 50 steps)"
+        echo "  train-offline [eps] [steps] - Offline training (no API key)"
+        echo "  watch [eps] [steps]       - Online training with live dashboard"
+        echo "  offline [eps] [steps]     - Offline training with dashboard"
+        echo "  test                      - Run pytest"
+        echo "  smoke                     - Quick offline smoke test"
+        echo "  last                      - Show last training run traces"
+        echo "  traces                    - List recent training runs"
+        echo "  help                      - Show this help"
+        echo ""
+        echo "Examples:"
+        echo "  ./scripts/aria train 10 50     # 10 episodes, 50 steps (online)"
+        echo "  ./scripts/aria train-offline 5 # 5 episodes (offline)"
+        echo "  ./scripts/aria watch 10        # Live dashboard, 10 episodes"
+        echo "  ./scripts/aria smoke           # Quick smoke test"
+        echo "  ./scripts/aria last            # View last run traces"
+        ;;
+esac

@@ -5,7 +5,7 @@ import math
 import json
 import subprocess
 import random
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from rich.console import Console
 from rich.table import Table
 
@@ -13,8 +13,29 @@ from core.teach.teach import TeachModule
 from core.gpt_manager import GPTManager
 
 console = Console()
-teach = TeachModule()
-gpt_manager = GPTManager()
+
+# Lazy TeachModule: initialized on first use to avoid import-time LLM init
+_teach_module: Optional[TeachModule] = None
+
+
+def get_teach_module() -> TeachModule:
+    """Lazy getter for TeachModule. Avoids import-time LLM initialization."""
+    global _teach_module
+    if _teach_module is None:
+        _teach_module = TeachModule()
+    return _teach_module
+
+
+# Lazy GPTManager: initialized on first use, respects runtime_flags
+_gpt_manager: Optional[GPTManager] = None
+
+
+def get_gpt_manager() -> GPTManager:
+    """Lazy getter for GPTManager. Ensures runtime_flags are set before init."""
+    global _gpt_manager
+    if _gpt_manager is None:
+        _gpt_manager = GPTManager()
+    return _gpt_manager
 
 # ─────────────────────────────────────────────
 # 🔢 Utility Scoring & Entropy Functions
@@ -156,8 +177,9 @@ Last Command: {state.get('history', [])[-1] if state.get('history') else 'N/A'}
 Suggest a novel, non-redundant command for phase '{state.get('phase')}'.
 Respond ONLY with the command.
 """
-    response = gpt_manager.gpt_request(prompt, task_type="reasoning", agent_id=agent_id)
-    return gpt_manager._sanitize_output(response)
+    gpt = get_gpt_manager()
+    response = gpt.gpt_request(prompt, task_type="reasoning", agent_id=agent_id)
+    return gpt._sanitize_output(response)
 
 
 # ─────────────────────────────────────────────
@@ -193,8 +215,9 @@ Mission Context:
 Suggest ONE optimal command for this phase. Be concise and effective.
 Respond ONLY with the command.
 """
-    decision = gpt_manager.gpt_request(prompt, task_type="decision", agent_id=agent_id)
-    decision = gpt_manager._sanitize_output(decision)
+    gpt = get_gpt_manager()
+    decision = gpt.gpt_request(prompt, task_type="decision", agent_id=agent_id)
+    decision = gpt._sanitize_output(decision)
     memory_router.store_gpt_response(cache_key, decision)
     gpt_decision_cache[cache_key] = decision
     return decision
@@ -239,7 +262,7 @@ Explain in 2 sentences why the following command is optimal:
 
 Focus on stealth, efficiency, and strategic fit.
 """
-    reasoning = gpt_manager.gpt_request(prompt, task_type="reasoning")
+    reasoning = get_gpt_manager().gpt_request(prompt, task_type="reasoning")
     if hasattr(memory_router, "store_gpt_response"):
         memory_router.store_gpt_response(cache_key, reasoning)
     gpt_reasoning_cache[cache_key] = reasoning

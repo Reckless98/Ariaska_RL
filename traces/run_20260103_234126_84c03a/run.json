@@ -1,0 +1,65 @@
+{
+  "run_id": "run_20260103_234126_84c03a",
+  "start_time": 1767480086.4340045,
+  "end_time": 1767480108.5550356,
+  "config": {
+    "episodes": 2,
+    "max_steps_per_episode": 10,
+    "seed": null,
+    "enable_llm": true,
+    "require_llm": true,
+    "offline": false,
+    "multiagent": true,
+    "legacy_single_agent": false,
+    "watch": true,
+    "watch_rate": 1.0,
+    "ui_mode": "live",
+    "mentor_mode": "anneal",
+    "mentor_warmup_episodes": 1,
+    "mentor_min_rate": 0.15,
+    "mentor_max_rate": 1.0,
+    "initial_confidence_threshold": 0.3,
+    "final_confidence_threshold": 0.8,
+    "warmup_episodes": 10,
+    "threshold_schedule_episodes": 100,
+    "max_mentor_calls_per_episode": 10,
+    "trace_output_dir": "traces",
+    "enable_tracing": true,
+    "enable_postmortem": true,
+    "enable_gpt_5_2_postmortem": false,
+    "postmortem_output_dir": "postmortems",
+    "skill_library_path": "core/memory/skill_library.json",
+    "apply_skill_updates": true,
+    "target_update_freq": 1000,
+    "soft_update_tau": 0.005,
+    "verbosity": "standard",
+    "checkpoint_dir": "checkpoints",
+    "checkpoint_interval": 10
+  },
+  "seed": null,
+  "total_episodes": 2,
+  "successful_episodes": 0,
+  "total_reward": -55.0,
+  "total_steps": 100,
+  "total_mentor_calls": 10,
+  "mentor_models_used": {
+    "gpt-5-nano": 6,
+    "gpt-5-mini": 4
+  },
+  "success_rate": 0.0,
+  "avg_reward_per_episode": -27.5,
+  "avg_mentor_calls_per_episode": 5.0,
+  "duration": 22.121031045913696,
+  "reward_history": [
+    -22.5,
+    -32.5
+  ],
+  "mentor_call_rate": [
+    0.1,
+    0.1
+  ],
+  "avg_confidence_history": [
+    0.252,
+    0.252
+  ]
+}

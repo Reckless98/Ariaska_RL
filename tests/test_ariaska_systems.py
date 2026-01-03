@@ -675,5 +675,83 @@ class TestSkillLibrary(unittest.TestCase):
         self.assertEqual(audit[1]["operation"], "prune")
 
 
+class TestRuntimeFlags(unittest.TestCase):
+    """Tests for runtime flags propagation and offline mode behavior."""
+    
+    def test_import_rule_engine_no_gpt_init(self):
+        """Test that importing rule_engine doesn't instantiate GPTManager."""
+        import sys
+        import importlib
+        
+        # Clear cached modules
+        modules_to_clear = [k for k in sys.modules.keys() if 'rule_engine' in k]
+        for mod in modules_to_clear:
+            del sys.modules[mod]
+        
+        # Track GPTManager instantiations
+        from core import gpt_manager as gpt_mod
+        original_init = gpt_mod.GPTManager.__init__
+        init_calls = []
+        
+        def tracking_init(self, *args, **kwargs):
+            init_calls.append(True)
+            return original_init(self, *args, **kwargs)
+        
+        gpt_mod.GPTManager.__init__ = tracking_init
+        
+        try:
+            # Clear and reimport rule_engine
+            if 'core.logic.rule_engine' in sys.modules:
+                del sys.modules['core.logic.rule_engine']
+            
+            # Count inits before import
+            init_count_before = len(init_calls)
+            
+            # Import should NOT trigger GPTManager init (lazy)
+            import core.logic.rule_engine
+            
+            # No new inits should have happened
+            init_count_after = len(init_calls)
+            self.assertEqual(init_count_before, init_count_after, 
+                           "GPTManager was instantiated at import time!")
+        finally:
+            gpt_mod.GPTManager.__init__ = original_init
+    
+    def test_offline_mode_gpt_request_returns_placeholder(self):
+        """Test that gpt_request returns placeholder in offline mode."""
+        import os
+        from core.runtime_flags import set_runtime_flags, get_runtime_flags
+        from core.gpt_manager import GPTManager
+        
+        # Set offline mode
+        set_runtime_flags(offline=True, enable_llm=True, require_llm=False)
+        
+        old_key = os.environ.pop("OPENAI_API_KEY", None)
+        try:
+            manager = GPTManager()
+            
+            # Should return placeholder, not make API call
+            result = manager.gpt_request("Test prompt", task_type="reasoning")
+            
+            self.assertIsNotNone(result)
+            # Placeholder contains "OFFLINE MODE" or similar
+            self.assertIn("OFFLINE", result.upper() if result else "")
+        finally:
+            if old_key:
+                os.environ["OPENAI_API_KEY"] = old_key
+    
+    def test_runtime_flags_initialization(self):
+        """Test runtime flags are set correctly."""
+        from core.runtime_flags import set_runtime_flags, get_runtime_flags, RuntimeFlags
+        
+        set_runtime_flags(offline=True, enable_llm=False, require_llm=False)
+        flags = get_runtime_flags()
+        
+        self.assertTrue(flags.offline)
+        self.assertFalse(flags.enable_llm)
+        self.assertFalse(flags.require_llm)
+        self.assertTrue(flags.initialized)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
