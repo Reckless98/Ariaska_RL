@@ -122,7 +122,7 @@ class AriaskaTrainer:
         from core.gpt_manager import GPTManager
         from core.environment.cyber_environment import CyberEnvironment
         from core.agents.red_agent import RedAgent
-        from core.memory.enhanced_memory_router import MemoryRouter
+        from core.memory.enhanced_memory_router import EnhancedMemoryRouter
         from core.tracing import TraceWriter, StepTrace
         from core.training.apprentice_trainer import ApprenticeTrainer, ApprenticeConfig
         from core.postmortem import OrionPostmortem, SkillLibrary
@@ -131,7 +131,7 @@ class AriaskaTrainer:
         self.gpt_manager = GPTManager()
         
         # Memory Router
-        self.memory_router = MemoryRouter()
+        self.memory_router = EnhancedMemoryRouter()
         
         # Environment
         self.environment = CyberEnvironment(defer_reset=True)
@@ -268,10 +268,19 @@ class AriaskaTrainer:
             # Execute action in environment
             try:
                 result = self.environment.step(action)
-                next_state = result.get("state", state)
-                reward = result.get("reward", 0.0)
-                done = result.get("done", False)
-                info = result.get("info", {})
+                # Handle both dict and tuple return formats
+                if isinstance(result, tuple):
+                    # Gym-style: (state, reward, done, info)
+                    next_state = result[0] if result[0] else state
+                    reward = result[1] if len(result) > 1 else 0.0
+                    done = result[2] if len(result) > 2 else False
+                    info = result[3] if len(result) > 3 else {}
+                else:
+                    # Dict-style
+                    next_state = result.get("state", state)
+                    reward = result.get("reward", 0.0)
+                    done = result.get("done", False)
+                    info = result.get("info", {})
             except Exception as e:
                 logger.warning(f"Environment step failed: {e}")
                 next_state = state
@@ -293,31 +302,42 @@ class AriaskaTrainer:
                 step_trace = StepTrace(
                     episode_id=episode_id,
                     step=step,
-                    timestamp=time.time(),
-                    agent_id=self.agent.agent_id,
+                    agent=self.agent.agent_id,
                     phase=phase,
-                    action_proposed=decision.agent_action,
-                    action_final=action,
+                    proposed_action=decision.agent_action,
+                    chosen_action=action,
                     reward=reward,
                     done=done,
                     mentor_call=decision.mentor_called,
-                    mentor_model=decision.mentor_feedback.model_used if decision.mentor_feedback else None,
+                    model_used=decision.mentor_feedback.model_used if decision.mentor_feedback else None,
                     confidence=decision.agent_confidence
                 )
+                # Store timestamp in private field (not part of deterministic trace)
+                step_trace._timestamp = time.time()
                 self.trace_writer.log_step(step_trace)
             
             # Store experience in replay buffer
-            self.agent.replay_buffer.push({
-                "state": self.agent.encode_env_state_static(state, self.agent.device),
+            # Convert tensors to lists for JSON serialization
+            state_encoded = self.agent.encode_env_state_static(state, self.agent.device)
+            next_state_encoded = self.agent.encode_env_state_static(next_state, self.agent.device)
+            
+            # Handle tensor conversion
+            if hasattr(state_encoded, 'tolist'):
+                state_encoded = state_encoded.tolist()
+            if hasattr(next_state_encoded, 'tolist'):
+                next_state_encoded = next_state_encoded.tolist()
+            
+            self.agent.replay_buffer.add({
+                "state": state_encoded,
                 "action": 0,  # Action index
                 "reward": modified_reward,
-                "next_state": self.agent.encode_env_state_static(next_state, self.agent.device),
+                "next_state": next_state_encoded,
                 "done": done,
                 "priority": abs(reward) + 0.1
             })
             
             # Train if enough experiences
-            if len(self.agent.replay_buffer) > self.agent.batch_size:
+            if len(self.agent.replay_buffer.buffer) > self.agent.batch_size:
                 self.agent.train_on_batch()
             
             # Target network update
@@ -394,21 +414,26 @@ class AriaskaTrainer:
         """Finalize training and run postmortem."""
         training_time = time.time() - self.training_start_time
         
-        # End trace run
-        run_trace = None
+        # End trace run (returns RunTrace object)
+        run_trace_obj = None
         if self.trace_writer:
-            run_trace = self.trace_writer.end_run()
+            run_trace_obj = self.trace_writer.end_run()
         
         # Get training summary
         summary = self.apprentice_trainer.get_training_summary()
         
         # Run postmortem analysis
         postmortem_result = None
-        if self.postmortem and run_trace:
+        if self.postmortem and run_trace_obj:
             logger.info("Running OrionPostmortem analysis...")
+            
+            # Extract valid event IDs from trace for evidence_refs validation
+            valid_event_ids = run_trace_obj.get_all_event_ids()
+            
             postmortem_result = self.postmortem.analyze_run(
-                run_trace=run_trace.to_dict(),
-                dry_run=not self.config.apply_skill_updates
+                run_trace=run_trace_obj.to_dict(),
+                dry_run=not self.config.apply_skill_updates,
+                valid_event_ids=valid_event_ids
             )
             
             if postmortem_result.validation_passed:

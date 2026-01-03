@@ -278,18 +278,35 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 state_tensor = torch.FloatTensor(state_tensor).to(self.device)
             
             with torch.no_grad():
-                q_values = self.policy_net(state_tensor.unsqueeze(0))
-                q_sorted, _ = torch.sort(q_values, descending=True)
+                output = self.policy_net(state_tensor.unsqueeze(0), action_type="discrete")
                 
-                # Q-gap: difference between best and second-best Q-value
-                q_gap = (q_sorted[0, 0] - q_sorted[0, 1]).item()
-                
-                # Normalize to 0-1 range using sigmoid
-                confidence = 1.0 / (1.0 + np.exp(-q_gap))
+                # Handle dict output from AdvancedPolicyNetwork
+                if isinstance(output, dict):
+                    # Use action probabilities or logits for confidence
+                    if "action_probs" in output:
+                        probs = output["action_probs"]
+                        probs_sorted, _ = torch.sort(probs, descending=True)
+                        # Confidence = gap between top two probabilities
+                        prob_gap = (probs_sorted[0, 0] - probs_sorted[0, 1]).item()
+                        confidence = min(1.0, max(0.0, prob_gap * 2))  # Scale to 0-1
+                    elif "action_logits" in output:
+                        logits = output["action_logits"]
+                        logits_sorted, _ = torch.sort(logits, descending=True)
+                        q_gap = (logits_sorted[0, 0] - logits_sorted[0, 1]).item()
+                        confidence = 1.0 / (1.0 + np.exp(-q_gap))
+                    else:
+                        confidence = 0.5
+                else:
+                    # Tensor output (legacy)
+                    q_values = output
+                    q_sorted, _ = torch.sort(q_values, descending=True)
+                    q_gap = (q_sorted[0, 0] - q_sorted[0, 1]).item()
+                    confidence = 1.0 / (1.0 + np.exp(-q_gap))
                 
             return confidence
         except Exception as e:
-            logger.warning(f"Confidence calculation failed: {e}")
+            if self.verbosity in ("debug", "verbose"):
+                console.print(f"[yellow]Confidence calculation failed: {e}[/yellow]")
             return 0.5  # Default medium confidence
 
     def _build_learning_context(self):
