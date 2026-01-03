@@ -1,5 +1,6 @@
-# core/gpt_manager.py — ARIASKA GPTManager v4.0 APEX (GPT-4o-mini Only)
-# Centralized GPT-4o-mini Gateway: No Local LLMs, Cross-Platform, Learning-Enhanced
+# core/gpt_manager.py — ARIASKA GPTManager v5.0 APEX (GPT-5-mini + Multi-Model Routing)
+# Centralized LLM Gateway: Role-Based Routing, Cross-Platform, Learning-Enhanced
+# Models: GPT-5-mini (primary), GPT-4o-mini (fallback), GPT-5-nano (lightweight), GPT-5.2 (postmortem)
 
 import os
 import logging
@@ -148,7 +149,44 @@ class PlatformUtils:
             return "", f"Execution error: {e}", 1
 
 class GPTManager:
-    """Centralized GPT-4o-mini manager for all agents with cross-platform support and learning"""
+    """
+    Centralized LLM manager for all agents with role-based model routing.
+    
+    Model Routing:
+    - GPT-5-mini: Primary model for Red/Orion agents (strategy/tactics)
+    - GPT-4o-mini: Fallback model when GPT-5-mini unavailable
+    - GPT-5-nano: Lightweight model for Scout/Shadow/Blue (classification/rewrites)
+    - GPT-5.2: Deep reasoning for end-of-run postmortem (feature-flagged)
+    
+    Features:
+    - Role-based automatic routing
+    - Response caching by state fingerprint
+    - Token tracking and limits
+    - Cross-platform command translation
+    """
+    
+    # Model configuration
+    MODEL_MAP = {
+        # Primary models by role
+        "red": "gpt-5-mini",
+        "orion": "gpt-5-mini", 
+        "scout": "gpt-5-nano",
+        "shadow": "gpt-5-nano",
+        "blue": "gpt-5-nano",
+        # Task-based routing
+        "tactical": "gpt-5-mini",
+        "strategic": "gpt-5-mini",
+        "reasoning": "gpt-5-mini",
+        "analysis": "gpt-5-nano",
+        "classification": "gpt-5-nano",
+        "embedding": "gpt-5-nano",
+        "postmortem": "gpt-5.2",  # Feature-flagged deep reasoning
+        # Fallbacks
+        "general": "gpt-5-mini",
+        "default": "gpt-5-mini",
+    }
+    
+    FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
     
     def __init__(self):
         if not OPENAI_AVAILABLE or OpenAI is None:
@@ -159,7 +197,15 @@ class GPTManager:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
             
         self.client = OpenAI(api_key=self.api_key)
-        self.primary_model = "gpt-4o-mini"  # Only use gpt-4o-mini
+        
+        # Model configuration from environment or defaults
+        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5-mini")
+        self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-4o-mini")
+        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5-nano")
+        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2")
+        
+        # Feature flags
+        self.enable_postmortem_5_2 = os.getenv("ENABLE_GPT_5_2_POSTMORTEM", "false").lower() == "true"
         
         self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "3000"))
         self.tokens_used = 0
@@ -193,10 +239,70 @@ class GPTManager:
         # Load existing cache
         self._load_cache()
         
-        logger.info(f"GPTManager initialized with model: {self.primary_model}")
+        logger.info(f"GPTManager initialized with primary model: {self.primary_model}")
+        logger.info(f"Fallback model: {self.fallback_model}")
         logger.info(f"Platform detected: {platform.system()}")
         if console:
-            console.print(f"[green]GPTManager initialized with {self.primary_model}[/green]")
+            console.print(f"[green]GPTManager v5.0 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model}[/green]")
+    
+    def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
+        """
+        Get appropriate model based on agent role and task type.
+        
+        Role-based routing:
+        - Red/Orion agents -> GPT-5-mini (tactical/strategic)
+        - Scout/Shadow/Blue -> GPT-5-nano (lightweight classification)
+        - Postmortem tasks -> GPT-5.2 (deep reasoning, if enabled)
+        
+        Args:
+            agent_id: Agent identifier (e.g., "RedAgent", "ScoutAgent")
+            task_type: Type of task (e.g., "tactical", "analysis", "postmortem")
+            
+        Returns:
+            str: Model name to use
+        """
+        # Extract role from agent_id
+        role = None
+        if agent_id:
+            agent_lower = agent_id.lower()
+            if "red" in agent_lower:
+                role = "red"
+            elif "orion" in agent_lower:
+                role = "orion"
+            elif "scout" in agent_lower:
+                role = "scout"
+            elif "shadow" in agent_lower:
+                role = "shadow"
+            elif "blue" in agent_lower:
+                role = "blue"
+        
+        # Special handling for postmortem
+        if task_type == "postmortem":
+            if self.enable_postmortem_5_2:
+                return self.postmortem_model
+            else:
+                return self.primary_model  # Fall back to primary
+        
+        # Role-based selection
+        if role:
+            model = self.MODEL_MAP.get(role, self.primary_model)
+            # Map to actual configured models
+            if model == "gpt-5-mini":
+                return self.primary_model
+            elif model == "gpt-5-nano":
+                return self.nano_model
+            elif model == "gpt-5.2":
+                return self.postmortem_model
+        
+        # Task-type based selection
+        if task_type:
+            model = self.MODEL_MAP.get(task_type, self.primary_model)
+            if model == "gpt-5-mini":
+                return self.primary_model
+            elif model == "gpt-5-nano":
+                return self.nano_model
+        
+        return self.primary_model
     
     def reset_token_count(self):
         """Reset token count for new episode"""
@@ -266,14 +372,31 @@ class GPTManager:
     def gpt_request(self, prompt: str, task_type: str = "general", 
                    agent_id: str = "unknown", max_tokens: int = 150,
                    model: Optional[str] = None, allow_fallback: bool = True) -> str:
-        """Make a request to GPT-4o-mini with proper error handling"""
+        """
+        Make a request to GPT with role-based model routing.
+        
+        Args:
+            prompt: The prompt to send
+            task_type: Type of task (tactical, analysis, postmortem, etc.)
+            agent_id: Agent making the request (used for model routing)
+            max_tokens: Maximum tokens in response
+            model: Optional explicit model override
+            allow_fallback: Whether to allow fallback to backup model
+            
+        Returns:
+            str: The model's response
+        """
         
         if not self.can_make_request():
             logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit})")
             return "echo 'Token limit reached'"
         
-        # Use provided model or default
-        model = model or self.primary_model
+        # Role-based model selection (unless explicitly overridden)
+        if model is None:
+            model = self.get_model_for_role(agent_id=agent_id, task_type=task_type)
+        
+        # Log model selection for debugging
+        logger.debug(f"Model selected: {model} for agent={agent_id}, task={task_type}")
         
         # Create cache key
         cache_key = self._create_cache_key(prompt, task_type, agent_id)

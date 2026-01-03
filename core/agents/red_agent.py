@@ -126,10 +126,21 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         
         # Use networks from parent class (EnhancedAgentBase creates them)
         self.policy_net = self.policy_network  # Alias for compatibility
-        self.target_net = self.policy_network  # TODO: Create proper target network  
         self.value_net = self.value_network    # Alias for compatibility
         
-        # Initialize neural trainer
+        # CRITICAL FIX: Create PROPER target network as a clone of policy network
+        # This is essential for stable Double DQN training - using same reference defeats the purpose
+        from core.models.advanced_networks import create_advanced_policy_network
+        self.target_net = create_advanced_policy_network(
+            state_dim=512,
+            action_dim=5,
+            hidden_dims=[512, 512, 256]
+        ).to(self.device)
+        # Copy weights from policy network to target network
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()  # Target network always in eval mode for stability
+        
+        # Initialize neural trainer with proper separate target network
         from core.learning.neural_trainer import NeuralTrainer
         self.neural_trainer = NeuralTrainer(
             policy_network=self.policy_net,
@@ -215,8 +226,71 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.learning_insights = []
         
         console.print(
-            f"[green]✔ {self.agent_id} initialized — GPT-4o-mini Enhanced Mode on {self.device}[/green]"
+            f"[green]✔ {self.agent_id} initialized — GPT-5-mini Enhanced Mode on {self.device}[/green]"
         )
+    
+    # ===================== TARGET NETWORK SYNC METHODS =====================
+    def sync_target_network(self, tau: float = 0.005):
+        """
+        Soft update target network: θ_target = τ*θ_policy + (1-τ)*θ_target
+        
+        This is critical for stable Double DQN training. The soft update
+        slowly moves the target network towards the policy network,
+        preventing rapid changes that destabilize learning.
+        
+        Args:
+            tau: Soft update coefficient (default 0.005, range 0.001-0.01)
+        """
+        for target_param, policy_param in zip(
+            self.target_net.parameters(), 
+            self.policy_net.parameters()
+        ):
+            target_param.data.copy_(
+                tau * policy_param.data + (1.0 - tau) * target_param.data
+            )
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[cyan]🔄 {self.agent_id}: Target network soft-synced (τ={tau})[/cyan]")
+    
+    def hard_sync_target_network(self):
+        """
+        Hard update: copy all policy weights to target network.
+        
+        Used less frequently than soft update (e.g., every 1000 steps).
+        Creates a complete copy of the policy network weights.
+        """
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        if self.verbosity in ("debug", "verbose"):
+            console.print(f"[cyan]🔄 {self.agent_id}: Target network hard-synced[/cyan]")
+    
+    def get_confidence_score(self, state: Dict[str, Any]) -> float:
+        """
+        Calculate confidence score for apprentice-to-autonomy policy.
+        
+        Uses Q-value gap between best and second-best action to estimate
+        how confident the agent is in its decision.
+        
+        Returns:
+            float: Confidence score between 0 and 1
+        """
+        try:
+            state_tensor = self.encode_env_state_static(state, self.device)
+            if isinstance(state_tensor, np.ndarray):
+                state_tensor = torch.FloatTensor(state_tensor).to(self.device)
+            
+            with torch.no_grad():
+                q_values = self.policy_net(state_tensor.unsqueeze(0))
+                q_sorted, _ = torch.sort(q_values, descending=True)
+                
+                # Q-gap: difference between best and second-best Q-value
+                q_gap = (q_sorted[0, 0] - q_sorted[0, 1]).item()
+                
+                # Normalize to 0-1 range using sigmoid
+                confidence = 1.0 / (1.0 + np.exp(-q_gap))
+                
+            return confidence
+        except Exception as e:
+            logger.warning(f"Confidence calculation failed: {e}")
+            return 0.5  # Default medium confidence
 
     def _build_learning_context(self):
         """Build learning context from agent's history and insights"""
