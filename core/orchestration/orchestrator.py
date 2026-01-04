@@ -357,14 +357,23 @@ class Orchestrator:
             is_stuck = self._check_if_stuck(agent_name)
             force_mentor = is_stuck and self.config.stuck_force_mentor
             
+            # Get agent's command history for anti-loop logic
+            agent_cmd_history = self.action_history.get(agent_name, [])
+            
+            # Inject command history into state so coach can see what was tried
+            enriched_state = dict(state) if isinstance(state, dict) else {}
+            enriched_state["command_history"] = agent_cmd_history[-15:]
+            if agent_cmd_history:
+                enriched_state["last_command"] = agent_cmd_history[-1]
+            
             # Build step context
             ctx = StepContext(
                 episode=self.current_episode,
                 step=step,
                 phase=phase,
-                state=state if isinstance(state, dict) else {},
+                state=enriched_state,
                 agent_name=agent_name,
-                history=history[-5:] if history else [],
+                history=agent_cmd_history[-5:],  # Use AGENT's history, not global
                 target_ip=target_ip,
                 open_ports=open_ports,
                 detection_risk=detection_risk,

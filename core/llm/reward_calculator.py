@@ -48,8 +48,8 @@ class RewardBreakdown:
     explanation: str = ""
     
     def calculate_total(self) -> float:
-        """Calculate the total reward from components."""
-        self.total = (
+        """Calculate the total reward from components - NO FLOOR to feel pain from loops."""
+        raw_total = (
             self.base_reward +
             self.novelty_bonus +
             self.progress_bonus +
@@ -59,6 +59,9 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
+        # NO FLOOR - Let agents feel the pain of being stuck in loops
+        # This teaches them to diversify. Exponential penalty does the work.
+        self.total = raw_total
         return self.total
     
     def to_dict(self) -> Dict[str, float]:
@@ -95,33 +98,55 @@ class SmartRewardCalculator:
         AttackPhase.EXFILTRATION: 75.0
     }
     
-    # Discovery type bonuses
+    # Discovery type bonuses (calibrated for +100-200 reward in short runs)
+    # Enhanced for simulation mode - bigger bonuses since discoveries are less frequent
     DISCOVERY_BONUSES = {
-        "open_port": 0.5,
-        "service": 1.0,
-        "version": 1.5,
-        "username": 2.0,
-        "password": 10.0,
-        "hash": 5.0,
-        "vulnerability": 3.0,
-        "shell": 20.0,
-        "root_shell": 50.0,
-        "flag": 100.0,
-        "credential": 8.0,
-        "directory": 0.3,
-        "file": 0.5,
-        "subdomain": 1.0,
-        "share": 1.5,
-        "domain_info": 2.0
+        # Port/Service discoveries
+        "open_port": 2.0,       # was 1.0 - ports are valuable in recon
+        "service": 4.0,         # was 2.0 - service identification is key
+        "version": 5.0,         # was 3.0 - version = exploit potential
+        
+        # User/Credential discoveries
+        "user": 6.0,            # NEW: user discovery
+        "username": 6.0,        # was 4.0 - users are high value
+        "password": 20.0,       # was 15.0 - passwords are gold
+        "hash": 12.0,           # was 8.0 - hashes can be cracked
+        "credential": 15.0,     # was 12.0 - any credential is valuable
+        
+        # Vulnerability discoveries
+        "vulnerability": 8.0,   # was 5.0 - vulns lead to exploitation
+        "cve": 10.0,            # NEW: specific CVE = exploit ready
+        
+        # Shell/Access discoveries
+        "shell": 40.0,          # was 30.0 - shell = major milestone
+        "root_shell": 100.0,    # was 75.0 - root = game over
+        "flag": 150.0,          # was 150.0 - CTF flag = ultimate goal
+        
+        # Web discoveries
+        "directory": 2.0,       # was 0.5 - directories need more weight
+        "web_path": 3.0,        # NEW: specific interesting paths
+        "file": 2.0,            # was 1.0 - files can be valuable
+        "sensitive_file": 8.0,  # NEW: sensitive files are high value
+        
+        # Network discoveries
+        "subdomain": 4.0,       # was 2.0 - subdomains expand attack surface
+        "share": 5.0,           # was 3.0 - shares can leak data
+        "smb_share": 5.0,       # NEW: SMB shares specifically
+        "domain_info": 5.0,     # was 4.0 - domain info helps lateral movement
+        
+        # Database discoveries
+        "database": 6.0,        # NEW: database identified
+        "db_name": 4.0,         # NEW: specific database names
     }
     
     def __init__(
         self,
-        novelty_weight: float = 1.0,
+        novelty_weight: float = 1.5,          # was 1.0 - encourages exploration
         redundancy_decay: float = 0.5,
-        max_redundancy_penalty: float = 5.0,
-        phase_advance_multiplier: float = 2.0,
-        efficiency_window: int = 10
+        max_redundancy_penalty: float = 0.5,   # Very low - don't punish too harshly
+        phase_advance_multiplier: float = 3.0, # was 2.0 - bigger phase bonuses
+        efficiency_window: int = 10,
+        progress_bonus_per_step: float = 1.0   # NEW: base progress for each step
     ):
         """
         Initialize the reward calculator.
@@ -132,12 +157,14 @@ class SmartRewardCalculator:
             max_redundancy_penalty: Maximum penalty for redundant commands
             phase_advance_multiplier: Multiplier for phase advancement bonus
             efficiency_window: Window for calculating efficiency
+            progress_bonus_per_step: Base bonus for making progress each step
         """
         self.novelty_weight = novelty_weight
         self.redundancy_decay = redundancy_decay
         self.max_redundancy_penalty = max_redundancy_penalty
         self.phase_advance_multiplier = phase_advance_multiplier
         self.efficiency_window = efficiency_window
+        self.progress_bonus_per_step = progress_bonus_per_step
         
         # Tracking state
         self.command_history: List[str] = []
@@ -191,39 +218,44 @@ class SmartRewardCalculator:
         # Get template info
         template = COMMAND_REGISTRY.get(template_name)
         
-        # 1. Base reward from template
+        # REWARD MULTIPLIER: Scale POSITIVE rewards, keep penalties real
+        # Industry standard: small base rewards, big rewards for achievements
+        REWARD_MULTIPLIER = 2.0  # Reduced from 4.0 - more honest scaling
+        
+        # 1. Base reward from template 
         if template:
-            breakdown.base_reward = template.typical_reward if success else 0.0
+            base = template.typical_reward if success else 0.0
+            breakdown.base_reward = base * REWARD_MULTIPLIER
             explanations.append(f"Base: {breakdown.base_reward:.1f}")
         
-        # 2. Novelty bonus - reward trying new commands
+        # 1b. Progress bonus - small reward for taking action (not guaranteed success)
+        breakdown.progress_bonus = self.progress_bonus_per_step  # Unscaled - just 1.0
+        explanations.append(f"Progress: +{breakdown.progress_bonus:.1f}")
+        
+        # 2. Novelty bonus - reward trying NEW commands (big bonus for exploration)
         if template_name not in self.template_usage:
-            breakdown.novelty_bonus = 2.0 * self.novelty_weight
-            explanations.append(f"Novelty (new command): +{breakdown.novelty_bonus:.1f}")
+            # First time using this command - big bonus!
+            breakdown.novelty_bonus = 8.0 * self.novelty_weight  # Strong exploration incentive
+            explanations.append(f"🆕 Novelty (first use): +{breakdown.novelty_bonus:.1f}")
         elif self.template_usage[template_name] < 3:
-            # Small bonus for infrequent commands
-            bonus = (3 - self.template_usage[template_name]) * 0.5 * self.novelty_weight
+            # Second or third use - smaller bonus
+            bonus = (3 - self.template_usage[template_name]) * 2.0 * self.novelty_weight
             breakdown.novelty_bonus = bonus
             explanations.append(f"Novelty (rare): +{bonus:.1f}")
         
-        # 3. Redundancy penalty - penalize repeating the same command
-        if command in self.command_history:
-            # Find how recently it was used
-            try:
-                last_use = len(self.command_history) - 1 - self.command_history[::-1].index(command)
-                recency = len(self.command_history) - last_use
-                
-                # More recent = higher penalty
-                penalty = min(
-                    self.max_redundancy_penalty,
-                    self.max_redundancy_penalty / (recency ** self.redundancy_decay)
-                )
-                breakdown.redundancy_penalty = penalty
+        # 3. EXPONENTIAL Redundancy penalty - HARD penalty for loops
+        # Industry standard: exponential backoff discourages stuck behavior
+        repeat_count = self.command_history.count(command)
+        if repeat_count > 0:
+            # Exponential: 1st repeat = -2, 2nd = -4, 3rd = -8, 4th = -16
+            penalty = 2.0 * (2 ** min(repeat_count - 1, 4))  # Cap at 32
+            breakdown.redundancy_penalty = penalty
+            if repeat_count >= 3:
+                explanations.append(f"🔁 STUCK LOOP: -{penalty:.1f} (repeat #{repeat_count})")
+            else:
                 explanations.append(f"Redundancy: -{penalty:.1f}")
-            except ValueError:
-                pass
         
-        # 4. Discovery bonuses
+        # 4. Discovery bonuses - these are the REAL rewards
         if new_discoveries:
             total_discovery_bonus = 0.0
             for discovery_type, values in new_discoveries.items():
@@ -281,6 +313,17 @@ class SmartRewardCalculator:
             breakdown.efficiency_bonus = efficiency_rate * 1.0
             if breakdown.efficiency_bonus > 0:
                 explanations.append(f"Efficiency: +{breakdown.efficiency_bonus:.1f}")
+        
+        # 7b. DIVERSITY BONUS - reward using different command prefixes
+        # Industry standard: encourage broad exploration across tool categories
+        cmd_prefix = command.strip().split()[0].lower() if command else ""
+        used_prefixes = set(c.strip().split()[0].lower() for c in self.command_history if c.strip())
+        if cmd_prefix and cmd_prefix not in used_prefixes:
+            # First time using this tool type - bonus based on total diversity
+            diversity_count = len(used_prefixes) + 1
+            diversity_bonus = min(3.0, diversity_count * 0.5)  # Up to +3 for diverse toolkit
+            breakdown.novelty_bonus += diversity_bonus
+            explanations.append(f"🛠️ New tool ({diversity_count} unique): +{diversity_bonus:.1f}")
         
         # 8. Failure penalty
         if not success:

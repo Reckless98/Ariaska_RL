@@ -296,20 +296,105 @@ Format: MEMORY: <what to store> | FLAG: <risk level>""",
         proposed_action: str,
         confidence: float,
     ) -> DecisionResult:
-        """Generate deterministic offline result."""
-        placeholder = self.OFFLINE_PLACEHOLDERS.get(
-            self.agent_name,
-            "ACTION: {proposed} | REASON: Offline mode"
-        ).format(
-            target_ip=step_ctx.target_ip,
-            proposed=proposed_action,
-        )
+        """Generate varied offline result using anti-loop logic."""
+        import random
         
-        # Parse placeholder to get action
-        if "ACTION:" in placeholder:
-            action_part = placeholder.split("ACTION:")[1].split("|")[0].strip()
+        # Get command history from step_ctx
+        history = step_ctx.history if step_ctx.history else []
+        # Also check state for command_history
+        state = step_ctx.state if hasattr(step_ctx, 'state') else {}
+        full_history = history + state.get("command_history", [])
+        
+        # Extract tried prefixes
+        tried_prefixes = set()
+        for cmd in full_history[-15:]:
+            if isinstance(cmd, str):
+                parts = cmd.strip().split()
+                if parts:
+                    tried_prefixes.add(parts[0].lower())
+        
+        target = step_ctx.target_ip
+        
+        # Agent-specific command pools - VARIED offline fallbacks
+        agent_commands = {
+            "ScoutAgent": [
+                (f"nmap -sV -T2 {target}", "nmap"),
+                (f"nmap -sT --top-ports 100 {target}", "nmap"),
+                (f"nmap -A {target}", "nmap"),
+                (f"masscan -p1-1000 --rate=500 {target}", "masscan"),
+                (f"rustscan -a {target} --ulimit 5000", "rustscan"),
+                (f"dig {target} ANY +noall +answer", "dig"),
+                (f"whois {target}", "whois"),
+                (f"whatweb http://{target}", "whatweb"),
+                (f"curl -sI http://{target}", "curl"),
+                (f"wafw00f http://{target}", "wafw00f"),
+            ],
+            "RedAgent": [
+                (f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt", "gobuster"),
+                (f"nikto -h http://{target}", "nikto"),
+                (f"sqlmap -u 'http://{target}/?id=1' --batch", "sqlmap"),
+                (f"nuclei -u http://{target} -t cves/", "nuclei"),
+                (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://{target} -t 4", "hydra"),
+                (f"crackmapexec smb {target} --shares", "crackmapexec"),
+                (f"searchsploit linux kernel 5", "searchsploit"),
+                (f"wpscan --url http://{target} --enumerate u", "wpscan"),
+                (f"ffuf -w /usr/share/wordlists/dirb/common.txt -u http://{target}/FUZZ", "ffuf"),
+                (f"feroxbuster -u http://{target}", "feroxbuster"),
+            ],
+            "BlueAgent": [
+                ("monitor_network", "monitor"),
+                ("check_logs", "check"),
+                ("analyze_traffic", "analyze"),
+                ("scan_malware", "scan"),
+                ("review_connections", "review"),
+            ],
+            "OrionAgent": [
+                ("GUIDANCE: Continue current strategy | PRIORITY: medium", "guidance"),
+                ("GUIDANCE: Shift to enumeration phase | PRIORITY: high", "guidance"),
+                ("GUIDANCE: Focus on discovered services | PRIORITY: medium", "guidance"),
+            ],
+            "ShadowAgent": [
+                ("MEMORY: Step recorded | FLAG: low", "memory"),
+                ("MEMORY: Notable finding logged | FLAG: medium", "memory"),
+                ("MEMORY: Pattern detected | FLAG: low", "memory"),
+            ],
+        }
+        
+        commands = agent_commands.get(self.agent_name, [])
+        
+        if commands:
+            # Filter out already-tried prefixes for action agents
+            if self.agent_name in ["ScoutAgent", "RedAgent", "BlueAgent"]:
+                untried = [(cmd, prefix) for cmd, prefix in commands if prefix.lower() not in tried_prefixes]
+                if untried:
+                    action_part, _ = random.choice(untried)
+                else:
+                    # All tried - pick random from full list
+                    action_part, _ = random.choice(commands)
+            else:
+                # OrionAgent, ShadowAgent - just rotate
+                action_part, _ = random.choice(commands)
+            
+            placeholder = f"ACTION: {action_part} | REASON: Offline mode varied"
         else:
+            placeholder = self.OFFLINE_PLACEHOLDERS.get(
+                self.agent_name,
+                "ACTION: {proposed} | REASON: Offline mode"
+            ).format(
+                target_ip=step_ctx.target_ip,
+                proposed=proposed_action,
+            )
             action_part = proposed_action
+        
+        # Parse action for actual commands
+        if self.agent_name in ["OrionAgent", "ShadowAgent"]:
+            # These don't use ACTION: format in the same way
+            if "GUIDANCE:" in action_part:
+                action_part = "analyze_environment"
+                placeholder = action_part  # Keep original format
+            elif "MEMORY:" in action_part:
+                action_part = "observe_quietly"
+                placeholder = action_part
         
         return DecisionResult(
             chosen_action=action_part,

@@ -164,6 +164,7 @@ class MentorResponse:
         next_phase_hint: Suggested next phase
         alternative_commands: Backup commands if this fails
         phase: Current attack phase
+        tokens_used: Tokens consumed by this mentor call
     """
     command: str
     template_name: str
@@ -173,6 +174,7 @@ class MentorResponse:
     next_phase_hint: Optional[str] = None
     alternative_commands: List[str] = field(default_factory=list)
     phase: AttackPhase = AttackPhase.RECON
+    tokens_used: int = 0
     
     @property
     def is_valid(self) -> bool:
@@ -225,11 +227,18 @@ Your role is to select the BEST next command for the current attack phase.
 
 CRITICAL RULES:
 1. ALWAYS select from the provided command list - never invent commands
-2. Consider the current phase and what discoveries have been made
-3. Don't repeat failed commands or commands that were just run
-4. Progress through phases: Recon → Enumeration → Exploitation → PrivEsc → Lateral → Post-Ex
-5. Be creative but realistic - use the right tool for the situation
-6. Provide clear reasoning for your command choice
+2. NEVER repeat a command from the "COMMANDS ALREADY TRIED" section!
+3. If you see a command was tried multiple times, it's STUCK - pick something completely different
+4. Consider the current phase and what discoveries have been made
+5. Progress through phases: Recon → Enumeration → Exploitation → PrivEsc → Lateral → Post-Ex
+6. Be creative but realistic - use the right tool for the situation
+7. Variety is key - try different approaches if current ones aren't working
+
+ANTI-LOOP BEHAVIOR:
+- If nmap was already used, try a different scanner (masscan, rustscan)
+- If one web tool failed, try another (gobuster → feroxbuster → dirb)
+- If SSH failed, try SMB or other services
+- NEVER select the same command twice in a row
 
 OUTPUT FORMAT (JSON only):
 {
@@ -252,6 +261,24 @@ OUTPUT FORMAT (JSON only):
         lines.append("=== CURRENT ATTACK STATE ===")
         lines.append(context.to_narrative())
         lines.append("")
+        
+        # === CRITICAL: Show what was ALREADY TRIED to prevent loops ===
+        if context.command_history:
+            lines.append("=== COMMANDS ALREADY TRIED (DO NOT REPEAT) ===")
+            # Show last 15 commands with count of how many times each was used
+            recent_commands = context.command_history[-15:]
+            from collections import Counter
+            cmd_counts = Counter(recent_commands)
+            for cmd, count in cmd_counts.most_common(10):
+                # Truncate long commands
+                cmd_display = cmd[:60] + "..." if len(cmd) > 60 else cmd
+                if count > 1:
+                    lines.append(f"  ❌ {cmd_display} (tried {count}x - AVOID!)")
+                else:
+                    lines.append(f"  ⚠️ {cmd_display} (already tried)")
+            lines.append("")
+            lines.append("⚠️ IMPORTANT: Choose a DIFFERENT command from the list below!")
+            lines.append("")
         
         # Available commands
         lines.append("=== AVAILABLE COMMANDS ===")
@@ -282,12 +309,24 @@ OUTPUT FORMAT (JSON only):
             
             lines.append("")
         
-        # Learned command suggestions
+        # Learned command suggestions (filtered by valid_commands if provided)
         learned_suggestions = self.learned_store.get_commands_for_prompt(
             phase=context.current_phase,
             preconditions=set(k for k, v in context.state_flags.items() if v),
-            limit=3
+            limit=5  # Get more, then filter
         )
+        
+        # Filter learned suggestions to only include commands in valid_commands
+        if learned_suggestions and valid_commands:
+            valid_names = {cmd.name.lower() for cmd in valid_commands}
+            filtered_suggestions = []
+            for suggestion in learned_suggestions:
+                # Extract command name from suggestion string (format: "• command_name: ...")
+                if "•" in suggestion:
+                    cmd_name = suggestion.split("•")[1].split(":")[0].strip().lower()
+                    if cmd_name in valid_names:
+                        filtered_suggestions.append(suggestion)
+            learned_suggestions = filtered_suggestions[:3]
         
         if learned_suggestions:
             lines.append("=== PROVEN SUCCESSFUL COMMANDS ===")
@@ -297,7 +336,8 @@ OUTPUT FORMAT (JSON only):
         
         # Instruction
         lines.append("=== YOUR TASK ===")
-        lines.append("Select the BEST next command from the available list.")
+        lines.append("Select the BEST next command from the AVAILABLE COMMANDS list above.")
+        lines.append("IMPORTANT: Only use commands from the list - do not invent or use other commands.")
         lines.append("Fill in all required parameters based on the target and context.")
         lines.append("Respond with ONLY valid JSON, no markdown or explanation outside JSON.")
         
@@ -404,37 +444,46 @@ OUTPUT FORMAT (JSON only):
     
     async def get_command_async(
         self,
-        context: AttackContext
+        context: AttackContext,
+        filtered_commands: Optional[List[CommandTemplate]] = None
     ) -> MentorResponse:
         """
         Get the next command asynchronously.
         
         Args:
             context: Current attack context
+            filtered_commands: Pre-filtered commands (by agent role). If None, uses global registry.
             
         Returns:
             MentorResponse with command and reasoning
         """
-        # Get valid commands for current state
-        valid_commands = get_valid_commands_for_state(
-            context.state_flags,
-            context.current_phase
-        )
-        
-        # If no valid commands for current phase, try all phases
-        if not valid_commands:
-            valid_commands = get_valid_commands_for_state(context.state_flags)
-        
-        # If still none, use recon commands (always valid)
-        if not valid_commands:
-            valid_commands = [
-                cmd for cmd in COMMAND_REGISTRY.values()
-                if cmd.phase == AttackPhase.RECON and not cmd.preconditions
-            ]
+        # Use pre-filtered commands if provided (role-aware), else fallback to global
+        if filtered_commands:
+            valid_commands = filtered_commands
+        else:
+            # Get valid commands for current state
+            valid_commands = get_valid_commands_for_state(
+                context.state_flags,
+                context.current_phase
+            )
+            
+            # If no valid commands for current phase, try all phases
+            if not valid_commands:
+                valid_commands = get_valid_commands_for_state(context.state_flags)
+            
+            # If still none, use recon commands (always valid)
+            if not valid_commands:
+                valid_commands = [
+                    cmd for cmd in COMMAND_REGISTRY.values()
+                    if cmd.phase == AttackPhase.RECON and not cmd.preconditions
+                ]
         
         # Build prompts
         system_prompt = self._build_system_prompt()
         user_prompt = self._build_user_prompt(context, valid_commands)
+        
+        # Track tokens for this call (accumulate across retries)
+        tokens_used = 0
         
         # Call LLM
         for attempt in range(self.max_retries + 1):
@@ -449,6 +498,10 @@ OUTPUT FORMAT (JSON only):
                     max_tokens=500
                 )
                 
+                # Capture token usage from API response (accumulate!)
+                if hasattr(response, 'usage') and response.usage:
+                    tokens_used += response.usage.total_tokens
+                
                 response_text = response.choices[0].message.content
                 
                 # Parse response
@@ -462,21 +515,32 @@ OUTPUT FORMAT (JSON only):
                 )
                 
                 if mentor_response:
+                    mentor_response.tokens_used = tokens_used
                     return mentor_response
                 
             except Exception as e:
                 if attempt == self.max_retries:
-                    # Return a safe default
-                    return self._get_fallback_command(context, valid_commands)
+                    # Return a safe default (with token count)
+                    fallback = self._get_fallback_command(context, valid_commands)
+                    fallback.tokens_used = tokens_used
+                    return fallback
         
-        return self._get_fallback_command(context, valid_commands)
+        # If all retries exhausted, return fallback with accumulated tokens
+        fallback = self._get_fallback_command(context, valid_commands)
+        fallback.tokens_used = tokens_used
+        return fallback
     
-    def get_command(self, context: AttackContext) -> MentorResponse:
+    def get_command(
+        self,
+        context: AttackContext,
+        filtered_commands: Optional[List[CommandTemplate]] = None
+    ) -> MentorResponse:
         """
         Get the next command synchronously.
         
         Args:
             context: Current attack context
+            filtered_commands: Pre-filtered commands (by agent role). If None, uses global registry.
             
         Returns:
             MentorResponse with command and reasoning
@@ -491,36 +555,79 @@ OUTPUT FORMAT (JSON only):
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     future = pool.submit(
                         asyncio.run,
-                        self.get_command_async(context)
+                        self.get_command_async(context, filtered_commands)
                     )
                     return future.result()
             else:
-                return loop.run_until_complete(self.get_command_async(context))
+                return loop.run_until_complete(self.get_command_async(context, filtered_commands))
         except RuntimeError:
             # No event loop, create one
-            return asyncio.run(self.get_command_async(context))
+            return asyncio.run(self.get_command_async(context, filtered_commands))
     
     def _get_fallback_command(
         self,
         context: AttackContext,
         valid_commands: List[CommandTemplate]
     ) -> MentorResponse:
-        """Get a safe fallback command when LLM fails."""
-        # Pick the first valid command with highest reward
+        """Get a safe fallback command when LLM fails - WITH ANTI-LOOP LOGIC."""
+        import random
+        
+        # Get commands that were ALREADY TRIED (from context history)
+        tried_commands = set()
+        if context.command_history:
+            # Extract base command names (first word) for matching
+            for cmd in context.command_history[-20:]:  # Last 20 commands
+                # Get the command prefix (e.g., "nmap", "gobuster", "nikto")
+                parts = cmd.strip().split()
+                if parts:
+                    tried_commands.add(parts[0].lower())
+        
         if not valid_commands:
-            # Ultimate fallback - basic nmap
+            # Ultimate fallback pool - VARIETY of commands to avoid loops
+            fallback_pool = [
+                (f"nmap -sT --top-ports 100 {context.target}", "nmap_top_ports", "Fast TCP scan"),
+                (f"nmap -sV {context.target}", "nmap_version", "Service version detection"),
+                (f"masscan -p1-1000 --rate=500 {context.target}", "masscan_fast", "Fast port scan"),
+                (f"nmap -sU --top-ports 20 {context.target}", "nmap_udp", "UDP scan"),
+                (f"curl -s -I http://{context.target}", "curl_headers", "HTTP headers"),
+                (f"dig {context.target} ANY +short", "dig_any", "DNS lookup"),
+                (f"whois {context.target} | head -30", "whois", "Domain info"),
+            ]
+            
+            # Filter out commands whose prefix was already tried
+            untried = [(c, t, r) for c, t, r in fallback_pool 
+                       if c.split()[0].lower() not in tried_commands]
+            
+            if untried:
+                cmd, template_name, reason = random.choice(untried)
+            else:
+                # All tried - pick a random one anyway (variety within same tools)
+                cmd, template_name, reason = random.choice(fallback_pool)
+            
             return MentorResponse(
-                command=f"nmap -sT --top-ports 100 {context.target}",
-                template_name="nmap_top_ports",
-                params={"target": context.target, "num_ports": "100"},
-                reasoning="Fallback: Basic port scan to discover services",
+                command=cmd,
+                template_name=template_name,
+                params={"target": context.target},
+                reasoning=f"🔄 Fallback: {reason}",
                 confidence=0.3,
                 phase=AttackPhase.RECON
             )
         
-        # Sort by reward and pick highest
-        sorted_cmds = sorted(valid_commands, key=lambda c: c.typical_reward, reverse=True)
-        template = sorted_cmds[0]
+        # Filter out commands that were already tried (by prefix matching)
+        untried_templates = [cmd for cmd in valid_commands 
+                            if cmd.name.lower().replace('_', '-').split('_')[0] not in tried_commands
+                            and cmd.name.lower().split('_')[0] not in tried_commands]
+        
+        if untried_templates:
+            # Shuffle and pick from untried commands (variety)
+            random.shuffle(untried_templates)
+            # Weight by reward but not too heavily
+            weights = [1.0 + cmd.typical_reward * 0.3 for cmd in untried_templates[:5]]
+            template = random.choices(untried_templates[:5], weights=weights[:5], k=1)[0]
+        else:
+            # All templates tried - just pick randomly for variety
+            random.shuffle(valid_commands)
+            template = random.choice(valid_commands[:5]) if len(valid_commands) >= 5 else valid_commands[0]
         
         # Try to fill params
         params = {}

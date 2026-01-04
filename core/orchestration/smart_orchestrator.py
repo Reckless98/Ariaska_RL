@@ -59,8 +59,8 @@ class SmartOrchestratorConfig:
     stuck_force_mentor: bool = True
     stuck_force_exploration: bool = True
     
-    # Execution - increased for more learning opportunities
-    max_steps_per_episode: int = 150
+    # Execution - reduced for faster feedback loops
+    max_steps_per_episode: int = 50
     
     # Logging
     mentor_log_dir: str = "traces"
@@ -437,6 +437,10 @@ class SmartOrchestrator:
             dashboard_results = []
             for result in step_agent_results:
                 total_mentor_calls += 1 if result.decision.mentor_call else 0
+                
+                # Get tokens from decision (now properly tracked)
+                tokens_for_step = getattr(result.decision, 'tokens_used', 0)
+                
                 dashboard_results.append({
                     "agent": result.agent_name,
                     "agent_name": result.agent_name,
@@ -448,7 +452,8 @@ class SmartOrchestrator:
                     "confidence": result.decision.confidence,
                     "mentor_delta": result.decision.mentor_delta,
                     "mentor_reasoning": result.decision.mentor_reasoning or "",  # Pass reasoning
-                    "tokens_used": 0,  # TODO: track from GPT manager
+                    "tokens_used": tokens_for_step,
+                    "command_output": result.decision.command_output or "",  # Simulated output
                 })
             
             # Get reward breakdown for display - include reasoning from each agent
@@ -607,6 +612,14 @@ class SmartOrchestrator:
             # Track action for stuck detection
             self._record_action(agent_name, decision.command)
             
+            # CRITICAL: Add command to attack_context.command_history IMMEDIATELY
+            # This enables the anti-repeat guard in SmartCoach to work properly
+            if ctx and decision.command:
+                ctx.command_history.append(decision.command)
+                # Keep history bounded
+                if len(ctx.command_history) > 100:
+                    ctx.command_history = ctx.command_history[-100:]
+            
             # Create result
             result = SmartStepResult(
                 agent_name=agent_name,
@@ -624,21 +637,44 @@ class SmartOrchestrator:
         env_result, new_state, done = self._execute_env_step(red_action, blue_action)
         env_reward = env_result.get("reward", 0.0) if isinstance(env_result, dict) else env_result
         
-        # Parse output and extract discoveries
-        output = env_result.get("output", "") if isinstance(env_result, dict) else ""
-        discoveries = self._parse_output_for_discoveries(output)
+        # Get output from environment (may be empty in simulation mode)
+        env_output = env_result.get("output", "") if isinstance(env_result, dict) else ""
         
-        # Record results and calculate smart rewards
+        # Generate simulated outputs for ALL agent commands
+        # These will be used for discovery parsing AND display
         for result in agent_results:
-            if result.agent_name == "RedAgent":
-                # Red agent's action was executed - record result
+            sim_output = self._generate_simulated_output(result.decision.command)
+            result.decision.command_output = sim_output  # Store output on decision
+        
+        # CRITICAL FIX: Parse SIMULATED outputs for discoveries in simulation mode
+        # This allows agents to get positive rewards even without a real target
+        smart_reward_total = 0.0
+        for result in agent_results:
+            # Use simulated output if env output is empty (simulation mode)
+            output_to_parse = env_output if env_output and not env_output.startswith("[SIM]") else result.decision.command_output
+            
+            # Parse discoveries from this agent's output
+            agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
+            
+            # Determine success based on simulated output quality
+            # Commands that produce meaningful output are considered successful
+            sim_success = bool(output_to_parse and not output_to_parse.startswith("[SIM]") and len(output_to_parse) > 20)
+            
+            # Record result with discoveries (for ALL agents, not just RedAgent)
+            if result.agent_name in self.coaches:
                 breakdown = self.coaches[result.agent_name].record_result(
                     decision=result.decision,
-                    success=env_reward >= 0,
-                    raw_output=output,
-                    new_discoveries=discoveries,
+                    success=sim_success or env_reward >= 0,
+                    raw_output=output_to_parse,
+                    new_discoveries=agent_discoveries,
                 )
                 result.reward_breakdown = breakdown
+                # Accumulate smart rewards from all agents
+                if breakdown:
+                    smart_reward_total += breakdown.total
+        
+        # Use smart reward if available, otherwise fall back to env reward
+        final_reward = smart_reward_total if smart_reward_total != 0 else env_reward
         
         # Log traces
         for result in agent_results:
@@ -646,11 +682,11 @@ class SmartOrchestrator:
                 episode_id=episode_id,
                 step=step,
                 result=result,
-                global_reward=env_reward,
+                global_reward=final_reward,
                 done=done,
             )
         
-        return agent_results, env_reward, new_state, done
+        return agent_results, final_reward, new_state, done
     
     def _update_context_from_state(self, state: Dict[str, Any]):
         """Update attack context from environment state."""
@@ -688,46 +724,133 @@ class SmartOrchestrator:
                 ctx.command_history.append(state["last_command"])
     
     def _parse_output_for_discoveries(self, output: str) -> Dict[str, Any]:
-        """Parse command output for new discoveries."""
+        """Parse command output for new discoveries - rewards good simulated actions."""
         discoveries = {}
         
-        if not output:
+        if not output or output.startswith("[SIM]") and len(output) < 30:
             return discoveries
         
         output_lower = output.lower()
         
-        # Port discovery patterns
         import re
-        port_pattern = r"(\d+)/(?:tcp|udp)\s+open"
-        ports = re.findall(port_pattern, output_lower)
-        if ports:
-            discoveries["open_port"] = [int(p) for p in ports]
         
-        # Service discovery
+        # Port discovery patterns (multiple formats)
+        port_patterns = [
+            r"(\d+)/(?:tcp|udp)\s+open",  # nmap format
+            r"open port (\d+)/",           # masscan format
+            r"Open \S+:(\d+)",             # rustscan format
+            r"\[(\d+)\]\[",                # hydra format
+            r":(\d+)\s+\(",                # netstat/ss format
+        ]
+        ports = set()
+        for pattern in port_patterns:
+            ports.update(re.findall(pattern, output_lower))
+        if ports:
+            discoveries["open_port"] = [int(p) for p in ports if p.isdigit()]
+        
+        # Service discovery (enhanced)
         service_patterns = {
-            "ssh": r"ssh|openssh",
-            "http": r"http|apache|nginx|iis",
-            "smb": r"smb|samba|microsoft-ds",
-            "ftp": r"ftp|vsftpd|proftpd",
-            "mysql": r"mysql|mariadb",
-            "mssql": r"ms-sql|mssql",
+            "ssh": r"ssh|openssh|sshd",
+            "http": r"http|apache|nginx|iis|web server",
+            "https": r"https|ssl|tls|443",
+            "smb": r"smb|samba|microsoft-ds|445/tcp",
+            "ftp": r"ftp|vsftpd|proftpd|21/tcp",
+            "mysql": r"mysql|mariadb|3306",
+            "mssql": r"ms-sql|mssql|1433",
+            "postgresql": r"postgresql|postgres|5432",
+            "rdp": r"rdp|3389|remote desktop",
+            "smtp": r"smtp|postfix|sendmail|25/tcp",
         }
         
         for svc, pattern in service_patterns.items():
             if re.search(pattern, output_lower):
                 if "service" not in discoveries:
                     discoveries["service"] = []
-                discoveries["service"].append(svc)
+                if svc not in discoveries.get("service", []):
+                    discoveries["service"].append(svc)
         
-        # Credential patterns
-        if "password" in output_lower and ("found" in output_lower or "valid" in output_lower):
-            discoveries["credential"] = "password_found"
+        # Credential patterns (enhanced)
+        cred_patterns = [
+            r"password[:\s]+\S+",
+            r"login:\s*\w+\s+password",
+            r"\(Pwn3d!\)",
+            r"NTLMv[12] Hash:",
+            r"valid credentials",
+            r"authentication successful",
+        ]
+        for pattern in cred_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["credential"] = "password_found"
+                break
+        
+        # User discovery
+        user_patterns = [
+            r"user:\[(\w+)\]",             # rpcclient
+            r"user found:\s*(\w+)",        # wpscan
+            r"Admin Email:\s*(\S+)",       # whois
+            r"login:\s*(\w+)",             # hydra
+        ]
+        users = []
+        for pattern in user_patterns:
+            users.extend(re.findall(pattern, output, re.IGNORECASE))
+        if users:
+            discoveries["user"] = list(set(users))
+        
+        # Vulnerability patterns
+        vuln_patterns = [
+            r"CVE-\d{4}-\d+",              # CVE IDs
+            r"vulnerable|vulnerability",
+            r"exploit|exploitable",
+            r"OSVDB-\d+",
+            r"Remote Code Execution",
+            r"Buffer Overflow",
+            r"SQL Injection",
+            r"Path Traversal",
+        ]
+        for pattern in vuln_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["vulnerability"] = True
+                # Extract CVE IDs
+                cves = re.findall(r"CVE-\d{4}-\d+", output, re.IGNORECASE)
+                if cves:
+                    discoveries["cve"] = list(set(cves))
+                break
+        
+        # Directory/path discovery (web)
+        if re.search(r"(?:Status:|CODE:)\s*200", output):
+            path_matches = re.findall(r"/([\w\-\.]+)(?:\s*\(Status:\s*200|\s*\[Status:\s*200|CODE:200)", output)
+            if path_matches:
+                discoveries["web_path"] = list(set(path_matches))
+                discoveries["directory"] = True
+        
+        # Share discovery (SMB)
+        share_matches = re.findall(r"(?:Disk|IPC):\s*(\w+)|\\\\[^\\]+\\(\w+)", output)
+        if share_matches:
+            shares = [s[0] or s[1] for s in share_matches if s[0] or s[1]]
+            if shares:
+                discoveries["smb_share"] = list(set(shares))
+        
+        # File discovery (sensitive files)
+        sensitive_patterns = [
+            r"\.ssh/id_rsa",
+            r"\.htaccess",
+            r"\.backup",
+            r"password",
+            r"\.env",
+            r"config\.",
+            r"wp-config",
+        ]
+        for pattern in sensitive_patterns:
+            if re.search(pattern, output_lower):
+                discoveries["sensitive_file"] = True
+                break
         
         # Shell indicators
         shell_patterns = [
             r"shell\s*session\s*\d+\s*opened",
             r"www-data@",
             r"root@",
+            r"meterpreter\s*>",
             r"\$\s*$",
             r"#\s*$",
             r"C:\\>",
@@ -737,13 +860,16 @@ class SmartOrchestrator:
         for pattern in shell_patterns:
             if re.search(pattern, output, re.MULTILINE):
                 discoveries["shell"] = True
-                if "root@" in output or "# " in output:
+                if "root@" in output or "# " in output or "UID=0" in output:
                     discoveries["root_shell"] = True
                 break
         
-        # Directory/file discovery
-        if "200" in output and ("Status:" in output or "Found:" in output):
-            discoveries["directory"] = True
+        # Database discovery
+        if re.search(r"database|DBMS|mysql|postgresql|mssql|mongodb", output_lower):
+            discoveries["database"] = True
+            db_names = re.findall(r"(?:database|schema):\s*(\w+)", output_lower)
+            if db_names:
+                discoveries["db_name"] = list(set(db_names))
         
         return discoveries
     
@@ -798,6 +924,76 @@ class SmartOrchestrator:
             logger.debug(f"Env step failed: {e}")
             return {"reward": 0.0}, {}, False
     
+    def _generate_simulated_output(self, command: str) -> str:
+        """Generate realistic simulated output for a command with discoverable patterns."""
+        if not command:
+            return ""
+        
+        import random
+        import hashlib
+        
+        target = self.attack_context.target if self.attack_context else "10.10.10.10"
+        cmd_lower = command.lower().split()[0] if command.split() else ""
+        
+        # Use command hash for deterministic but varied results
+        cmd_hash = int(hashlib.md5(command.encode()).hexdigest()[:8], 16)
+        random.seed(cmd_hash)
+        
+        # Variable ports and services for discovery variety
+        ports = random.sample([21, 22, 25, 80, 110, 139, 443, 445, 1433, 3306, 3389, 5432, 8080, 8443], k=random.randint(3, 6))
+        services = {21: "ftp", 22: "ssh", 25: "smtp", 80: "http", 110: "pop3", 139: "netbios", 
+                   443: "https", 445: "smb", 1433: "mssql", 3306: "mysql", 3389: "rdp", 
+                   5432: "postgresql", 8080: "http-alt", 8443: "https-alt"}
+        
+        # Enhanced simulated outputs with discoverable patterns
+        SIMULATED_OUTPUTS = {
+            "nmap": "\n".join([f"{p}/tcp open  {services.get(p, 'unknown')}" for p in sorted(ports)]) + f"\nNmap done: 1 IP ({target})",
+            "masscan": "\n".join([f"Discovered open port {p}/tcp on {target}" for p in ports[:4]]),
+            "rustscan": "\n".join([f"Open {target}:{p}" for p in ports]) + f"\n[~] Running nmap on {target}",
+            "enum4linux": f"[+] Target: {target}\n[+] RID cycling: administrator, guest, backup\n[+] Shares: IPC$, ADMIN$, C$\n[+] Password policy: MinLen=7",
+            "smbclient": f"\\\\{target}\\IPC$\nSharename  Type  Comment\nIPC$       IPC   Remote IPC\nADMIN$     Disk  Admin share\nbackup     Disk  Backup files",
+            "smbmap": f"[+] IP: {target}:445  Name: TARGET\n[+] Disk: backup (READ)\n[+] Disk: ADMIN$ (NO ACCESS)",
+            "rpcclient": "$> enumdomusers\nuser:[Administrator] rid:[0x1f4]\nuser:[Guest] rid:[0x1f5]\nuser:[backup_svc] rid:[0x3e8]",
+            "gobuster": f"/admin (Status: 200, Size: 3456)\n/login (Status: 200, Size: 1234)\n/backup (Status: 403)\n/api (Status: 200, Size: 567)",
+            "dirb": f"+ http://{target}/admin (CODE:200|SIZE:3456)\n+ http://{target}/robots.txt (CODE:200|SIZE:123)",
+            "feroxbuster": f"200  GET  /admin/\n200  GET  /login.php\n301  GET  /images/\n403  GET  /backup/",
+            "ffuf": "admin [Status: 200, Size: 3456]\nlogin [Status: 200, Size: 1234]\napi [Status: 200, Size: 567]",
+            "dirsearch": f"[200] http://{target}/admin/\n[200] http://{target}/login.php\n[403] http://{target}/.htaccess",
+            "nikto": f"+ Server: Apache/2.4.41\n+ /admin/: Admin page found\n+ X-Frame-Options header not set\n+ OSVDB-3092: /backup/: Backup dir found",
+            "nuclei": f"[CVE-2021-41773] Apache Path Traversal: {target}:80\n[info] Web server detected: Apache/2.4.41",
+            "curl": f"HTTP/1.1 200 OK\nServer: Apache/2.4.41 (Ubuntu)\nX-Powered-By: PHP/7.4.3\nSet-Cookie: PHPSESSID=abc123",
+            "whatweb": f"http://{target} [200 OK] Apache[2.4.41], PHP[7.4.3], Bootstrap, jQuery[3.5.1], PasswordField",
+            "wpscan": f"[+] WordPress version 5.7.2 identified\n[+] User found: admin\n[!] Vulnerable plugin: contact-form-7 (5.4.1)",
+            "hydra": f"[22][ssh] host: {target} login: admin password: admin123\n[22][ssh] host: {target} login: backup password: backup2024",
+            "crackmapexec": f"SMB  {target}  445  TARGET  [+] admin:Password123! (Pwn3d!)",
+            "searchsploit": "Apache 2.4.41 - Remote Code Execution | linux/remote/12345.py\nPHP 7.4 - Buffer Overflow | php/remote/54321.py",
+            "sqlmap": f"[INFO] the back-end DBMS is MySQL\n[INFO] fetching database names\navailable databases [2]: information_schema, webapp_db",
+            "netstat": "Proto Recv-Q Local Address  Foreign Address State  PID/Program\ntcp   0      0.0.0.0:22    0.0.0.0:*      LISTEN 789/sshd\ntcp   0      0.0.0.0:80    0.0.0.0:*      LISTEN 1234/apache2",
+            "ss": f"tcp  LISTEN 0 128 0.0.0.0:22  0.0.0.0:*  users:((\"sshd\",pid=789))\ntcp  LISTEN 0 128 0.0.0.0:80  0.0.0.0:*  users:((\"apache2\",pid=1234))",
+            "ps": "PID   USER  %CPU %MEM CMD\n1     root  0.0  0.1  /sbin/init\n789   root  0.1  0.2  /usr/sbin/sshd\n1234  www   1.2  0.5  /usr/sbin/apache2",
+            "last": f"admin  pts/0  192.168.1.10  Sat Jan  4 10:30   still logged in\nroot   tty1                  Sat Jan  4 08:00 - 09:30",
+            "who": f"admin    pts/0        2026-01-04 10:30 (192.168.1.10)\nroot     tty1         2026-01-04 08:00",
+            "lsof": f"sshd    789  root   3u  IPv4 12345  TCP *:22 (LISTEN)\napache2 1234 www    4u  IPv4 23456  TCP *:80 (LISTEN)",
+            "find": "/tmp/suspicious.sh\n/var/www/.backup.zip\n/home/admin/.ssh/id_rsa\n/opt/scripts/db_backup.sh",
+            "cat": "root:x:0:0:root:/root:/bin/bash\nadmin:x:1000:1000:Admin:/home/admin:/bin/bash\nbackup:x:1001:1001::/home/backup:/bin/sh",
+            "w": f"USER   TTY    FROM           LOGIN@  IDLE  WHAT\nadmin  pts/0  192.168.1.10  10:30   0.00s bash\nroot   tty1   -             08:00   2:30m -bash",
+            "crontab": "*/5 * * * * /usr/local/bin/backup.sh\n0 2 * * * /opt/scripts/db_backup.sh",
+            "systemctl": "apache2.service loaded active running Apache HTTP Server\nmysql.service  loaded active running MySQL Community Server",
+            "dig": f";; ANSWER SECTION:\n{target}. 300 IN A 10.10.10.10\n{target}. 300 IN MX 10 mail.{target}",
+            "whois": f"Domain Name: TARGET.COM\nRegistrar: Example Registrar\nAdmin Email: admin@target.com",
+            "ssh-audit": f"(gen) banner: SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.3\n(gen) compatibility: OpenSSH 7.4+\n(rec) Use of weak key exchange: diffie-hellman-group14-sha1",
+            "linpeas": "[+] Possible sudo/suid/caps binaries:\n/usr/bin/pkexec (CVE-2021-4034)\n/usr/bin/sudo\n[+] Writable /etc/passwd",
+            "pspy": "CMD: UID=0 PID=1234 /bin/bash /root/backup_cron.sh\nCMD: UID=0 PID=5678 /opt/scripts/check_services.sh",
+            "responder": f"[+] Listening for events...\n[HTTP] NTLMv2 Hash: admin::CORP:abc123def456",
+            "impacket": f"[*] SMBv3.0 dialect used\n[+] admin:Password123!@{target}:445",
+        }
+        
+        for prefix, output in SIMULATED_OUTPUTS.items():
+            if cmd_lower.startswith(prefix.lower()):
+                return output
+        
+        return f"[SIM] {command[:50]}... executed"
+    
     def _log_step_trace(
         self,
         episode_id: str,
@@ -806,11 +1002,28 @@ class SmartOrchestrator:
         global_reward: float,
         done: bool,
     ):
-        """Log step trace."""
+        """Log step trace with tokens and reward breakdown."""
         if not self.trace_writer:
             return
         
         from core.tracing import StepTrace
+        
+        # Build reward breakdown dict
+        rb_dict = None
+        if result.reward_breakdown:
+            rb_dict = {
+                "base_reward": result.reward_breakdown.base_reward,
+                "novelty_bonus": result.reward_breakdown.novelty_bonus,
+                "progress_bonus": result.reward_breakdown.progress_bonus,
+                "phase_advance_bonus": result.reward_breakdown.phase_advance_bonus,
+                "discovery_bonus": result.reward_breakdown.discovery_bonus,
+                "redundancy_penalty": result.reward_breakdown.redundancy_penalty,
+                "total": result.reward_breakdown.total,
+            }
+        
+        # Get token stats (cumulative)
+        tokens_step = result.decision.tokens_used
+        tokens_episode = self.gpt_manager.tokens_used if self.gpt_manager else 0
         
         trace = StepTrace(
             episode_id=episode_id,
@@ -825,6 +1038,9 @@ class SmartOrchestrator:
             done=done,
             mentor_response=result.decision.mentor_reasoning,
             confidence=result.decision.confidence,
+            tokens_used_step=tokens_step,
+            tokens_used_episode=tokens_episode,
+            reward_breakdown=rb_dict,
         )
         
         self.trace_writer.log_step(trace)

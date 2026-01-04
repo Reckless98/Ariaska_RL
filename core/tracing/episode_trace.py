@@ -78,6 +78,13 @@ class StepTrace:
     error_flag: bool = False
     error_message: Optional[str] = None
     
+    # Token tracking (NEW: for observability)
+    tokens_used_step: int = 0           # Tokens used in this step
+    tokens_used_episode: int = 0        # Cumulative tokens in episode
+    
+    # Reward breakdown (NEW: for observability)
+    reward_breakdown: Optional[Dict[str, float]] = None  # Detailed reward components
+    
     # Timestamp stored separately (not part of deterministic trace)
     _timestamp: Optional[float] = field(default=None, repr=False)
     
@@ -131,6 +138,16 @@ class StepTrace:
         if self.error_flag:
             result["error_flag"] = self.error_flag
             result["error_message"] = self.error_message
+        
+        # Token tracking (NEW: for observability)
+        if self.tokens_used_step > 0:
+            result["tokens_used_step"] = self.tokens_used_step
+        if self.tokens_used_episode > 0:
+            result["tokens_used_episode"] = self.tokens_used_episode
+        
+        # Reward breakdown (NEW: for observability)
+        if self.reward_breakdown:
+            result["reward_breakdown"] = self.reward_breakdown
         
         # Timestamp is optional (for determinism)
         if include_timestamp and self._timestamp is not None:

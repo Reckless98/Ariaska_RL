@@ -217,7 +217,8 @@ class GPTManager:
         
         # Lazy init: don't require API key or openai package at construction
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self._client = None  # Lazy-initialized OpenAI client
+        self._client = None  # Lazy-initialized OpenAI sync client
+        self._async_client = None  # Lazy-initialized OpenAI async client
         
         # Strict mode validation
         if self._enable_llm and self._require_llm and not self.api_key:
@@ -404,7 +405,7 @@ class GPTManager:
 
     @property
     def client(self):
-        """Lazy-initialize OpenAI client on first use."""
+        """Lazy-initialize OpenAI sync client on first use."""
         if self._client is None:
             if not OPENAI_AVAILABLE or OpenAI is None:
                 raise RuntimeError(
@@ -416,6 +417,22 @@ class GPTManager:
                 )
             self._client = OpenAI(api_key=self.api_key)
         return self._client
+
+    @property
+    def async_client(self):
+        """Lazy-initialize OpenAI async client on first use."""
+        if self._async_client is None:
+            if not OPENAI_AVAILABLE:
+                raise RuntimeError(
+                    "OpenAI library not installed. Install with: pip install openai"
+                )
+            if not self.api_key:
+                raise RuntimeError(
+                    "OPENAI_API_KEY not set. Set the environment variable or use offline mode."
+                )
+            from openai import AsyncOpenAI
+            self._async_client = AsyncOpenAI(api_key=self.api_key)
+        return self._async_client
     
     def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
         """
@@ -525,6 +542,29 @@ class GPTManager:
         if agent_name and self.tokens_by_agent.get(agent_name, 0) >= self.token_limit_per_agent:
             return False
         return True
+    
+    def get_token_stats(self) -> Dict[str, Any]:
+        """
+        Get comprehensive token usage statistics.
+        
+        Returns dict with:
+            total_used, total_limit, by_agent, stats
+        """
+        return {
+            "total_used": self.tokens_used,
+            "total_limit": self.token_limit,
+            "remaining": max(0, self.token_limit - self.tokens_used),
+            "by_agent": dict(self.tokens_by_agent),
+            "stats": {
+                "total_requests": self.stats.get("total_requests", 0),
+                "tokens_used_total": self.stats.get("tokens_used_total", 0),
+            }
+        }
+    
+    def reset_episode_tokens(self):
+        """Reset per-episode token counters (call at episode start)."""
+        self.tokens_used = 0
+        self.tokens_by_agent.clear()
     
     def get_budget_status(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
         """

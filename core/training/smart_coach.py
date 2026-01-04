@@ -73,6 +73,12 @@ class SmartDecisionResult:
     skill_cards: List[Dict[str, Any]] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
     
+    # Command output (simulated or real)
+    command_output: str = ""
+    
+    # Token tracking
+    tokens_used: int = 0
+    
     @property
     def chosen_action(self) -> str:
         """Alias for compatibility with existing code."""
@@ -122,7 +128,7 @@ class SmartCoach:
     """
     
     # ==========================================================================
-    # AGENT ROLE DEFINITIONS - Each agent has unique focus and commands
+    # AGENT ROLE DEFINITIONS - Each agent has UNIQUE focus and NON-OVERLAPPING commands
     # ==========================================================================
     AGENT_ROLES = {
         "ScoutAgent": {
@@ -130,39 +136,36 @@ class SmartCoach:
             "description": "🔍 Reconnaissance & Discovery - port scanning, service enumeration, OSINT",
             "primary_phases": [AttackPhase.RECON, AttackPhase.ENUMERATION],
             "preferred_commands": [
-                # Port scanning variety
-                "nmap_quick_scan", "nmap_top_ports", "nmap_full_tcp", "nmap_service_version",
-                "masscan_fast", "nmap_udp_scan", "nmap_os_detection",
-                # Service enumeration
-                "whatweb", "curl_headers", "dig_any", "whois_lookup", "dns_zone_transfer",
-                # SMB/Windows recon
-                "enum4linux", "smbclient_list", "rpcclient_enum",
-                # SNMP
-                "snmpwalk", "onesixtyone",
-                # Web discovery
-                "gobuster_dir", "ffuf_fuzz", "nuclei_scan",
+                # EXCLUSIVE to Scout - Network mapping and service detection
+                "nmap_quick_scan", "nmap_top_ports", "nmap_service_version", "nmap_os_detection",
+                "masscan_fast", "nmap_udp_scan", "rustscan",
+                # DNS/Domain - Scout ONLY
+                "dig_any", "whois_lookup", "dns_zone_transfer", "dnsrecon", "host_lookup",
+                # Initial web fingerprinting - Scout ONLY
+                "whatweb", "curl_headers", "wafw00f", "wappalyzer",
             ],
-            "command_tags": {"network", "discovery", "scanning", "dns", "recon", "enum", "web"},
-            "avoid_tags": {"exploit", "privesc", "persistence", "defense", "attack", "bruteforce"},
+            "command_tags": {"network", "discovery", "scanning", "dns", "recon"},
+            "avoid_tags": {"exploit", "privesc", "persistence", "defense", "attack", "bruteforce", "smb", "enum", "stealth"},
+            "exclusive_prefixes": ["nmap", "masscan", "dig", "whois", "dns", "rustscan", "host", "wafw00f"],  # Scout OWNS these
         },
         "RedAgent": {
             "role": "offensive",
-            "description": "⚔️ Offensive Operations - aggressive scanning, exploitation, brute force",
-            "primary_phases": [AttackPhase.RECON, AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION, AttackPhase.PRIVILEGE_ESCALATION],
+            "description": "⚔️ Offensive Operations - exploitation, brute force, active attacks",
+            "primary_phases": [AttackPhase.EXPLOITATION, AttackPhase.PRIVILEGE_ESCALATION],
             "preferred_commands": [
-                # Aggressive recon
-                "nmap_vuln_scan", "nmap_all_ports", "masscan_full", "nmap_scripts_all",
-                # Exploitation prep
-                "searchsploit", "nikto", "gobuster_dir", "wfuzz_dir",
-                # Brute force
-                "hydra_ssh", "hydra_ftp", "hydra_smb", "crackmapexec_smb",
-                # Exploitation
-                "sqlmap_get", "sqlmap_post", "impacket_psexec", "evil_winrm",
+                # EXCLUSIVE to Red - Exploitation and brute force
+                "searchsploit", "sqlmap_get", "sqlmap_post", "sqlmap_crawl",
+                "hydra_ssh", "hydra_ftp", "hydra_smb", "hydra_web",
+                "crackmapexec_smb", "crackmapexec_winrm", "crackmapexec_ldap",
+                "impacket_psexec", "impacket_smbexec", "impacket_wmiexec",
+                "evil_winrm", "msfconsole",
+                # Vulnerability scanning - Red ONLY
+                "nikto", "nuclei_scan", "wpscan", "joomscan",
             ],
             "command_tags": {"exploit", "attack", "offensive", "bruteforce", "vuln", "aggressive"},
-            "avoid_tags": {"defense", "monitoring", "passive"},
-            # Red can do recon but prefers aggressive versions
-            "aggressive_recon": True,
+            "avoid_tags": {"defense", "monitoring", "passive", "recon", "stealth", "scanning"},
+            "exclusive_prefixes": ["hydra", "sqlmap", "searchsploit", "crackmapexec", "impacket", "evil", "msf", "nikto", "nuclei", "wpscan", "joomscan"],
+            "aggressive_recon": False,  # Red should NOT use recon tools
         },
         "BlueAgent": {
             "role": "defensive",
@@ -172,42 +175,59 @@ class SmartCoach:
             "command_tags": {"defense", "monitoring", "analysis", "logs", "forensics"},
             "avoid_tags": {"exploit", "attack", "bruteforce"},
             "custom_commands": [
-                ("netstat -tlnp", "List listening TCP ports and processes"),
-                ("ss -tlnp", "Socket statistics - listening ports"),
-                ("ps aux --sort=-%mem | head -20", "Top 20 memory-consuming processes"),
-                ("last -n 15", "Recent login history"),
-                ("cat /var/log/auth.log 2>/dev/null | tail -30 || journalctl -u ssh --no-pager | tail -30", "Recent auth logs"),
-                ("who", "Currently logged in users"),
-                ("w", "Logged in users and their activity"),
-                ("lsof -i -P -n | head -30", "Open network connections"),
-                ("find /tmp -type f -mmin -30 2>/dev/null | head -20", "Recently modified files in /tmp"),
-                ("cat /etc/passwd | grep -v nologin | grep -v false", "Users with shell access"),
-                ("crontab -l 2>/dev/null || echo 'No crontab'", "Scheduled tasks"),
+                ("netstat -tlnp", "List listening TCP ports"),
+                ("ss -tlnp", "Socket statistics"),
+                ("ps aux --sort=-%mem | head -20", "Top memory processes"),
+                ("last -n 15", "Recent logins"),
+                ("cat /var/log/auth.log 2>/dev/null | tail -30", "Auth logs"),
+                ("who", "Logged in users"),
+                ("w", "User activity"),
+                ("lsof -i -P -n | head -30", "Network connections"),
+                ("find /tmp -type f -mmin -30 2>/dev/null | head -20", "Recent /tmp files"),
+                ("cat /etc/passwd | grep -v nologin", "Users with shells"),
+                ("crontab -l 2>/dev/null", "Scheduled tasks"),
                 ("systemctl list-units --type=service --state=running | head -20", "Running services"),
+                ("df -h", "Disk usage"),
+                ("free -m", "Memory usage"),
+                ("uptime", "System uptime"),
+                ("id", "Current user"),
+                ("env | head -20", "Environment variables"),
+                ("ls -la /home", "Home directories"),
             ],
+            "exclusive_prefixes": ["netstat", "ss ", "ps ", "last", "who", "lsof", "crontab", "systemctl", "df ", "free ", "uptime", "id", "env"],
         },
         "OrionAgent": {
             "role": "strategic",
-            "description": "🎯 Strategic Coordination - comprehensive analysis, attack planning",
-            "primary_phases": [AttackPhase.RECON, AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION],
+            "description": "🎯 Strategic Coordination - web scanning, comprehensive analysis",
+            "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION],
             "preferred_commands": [
-                "nmap_vuln_scan", "nikto", "enum4linux", "bloodhound_collection",
-                "ldapsearch_base", "snmpwalk", "rpcclient_enum", "smbclient_list",
+                # EXCLUSIVE to Orion - Web scanning and strategy
+                "gobuster_dir", "gobuster_vhost", "gobuster_dns",
+                "ffuf_fuzz", "ffuf_vhost", "wfuzz_dir", "dirb", "dirsearch",
+                "feroxbuster",
+                # LDAP/AD - Orion ONLY
+                "ldapsearch_base", "bloodhound_collection", "kerbrute", "windapsearch",
             ],
-            "command_tags": {"comprehensive", "enum", "analysis", "vuln"},
-            "avoid_tags": {"defense"},
-            "is_coordinator": True,  # Orion coordinates other agents
+            "command_tags": {"comprehensive", "web", "analysis", "directory", "ldap"},
+            "avoid_tags": {"defense", "smb", "recon", "stealth", "scanning"},
+            "exclusive_prefixes": ["gobuster", "ffuf", "wfuzz", "dirb", "dirsearch", "feroxbuster", "ldap", "bloodhound", "kerb", "burp", "windap"],
+            "is_coordinator": True,
         },
         "ShadowAgent": {
             "role": "stealth",
-            "description": "👤 Stealth Operations - passive recon, persistence, evasion",
+            "description": "👤 Stealth Operations - SMB/RPC enum, persistence, evasion",
             "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.POST_EXPLOITATION, AttackPhase.EXFILTRATION],
             "preferred_commands": [
-                "curl_headers", "wget_download", "nc_listener", "socat_tunnel",
-                "ssh_key_login", "chisel_client", "linpeas", "pspy",
+                # EXCLUSIVE to Shadow - SMB/RPC enumeration (stealthy)
+                "enum4linux", "enum4linux_ng", "smbclient_list", "smbmap", "rpcclient_enum",
+                # SSH/Tunneling - Shadow ONLY
+                "ssh_key_login", "chisel_client", "socat_tunnel", "nc_listener", "nc_connect",
+                # Post-exploit recon - Shadow ONLY
+                "linpeas", "pspy", "ssh_audit",
             ],
-            "command_tags": {"stealth", "evasion", "quiet", "passive", "persistence", "exfil"},
-            "avoid_tags": {"loud", "aggressive", "bruteforce", "scanning"},
+            "command_tags": {"stealth", "evasion", "quiet", "passive", "persistence", "exfil", "smb", "enum"},
+            "avoid_tags": {"loud", "aggressive", "bruteforce", "scanning", "web"},
+            "exclusive_prefixes": ["enum4linux", "smbclient", "smbmap", "rpcclient", "chisel", "socat", "linpeas", "pspy", "ssh-audit", "ssh_audit"],
             "stealth_mode": True,
         },
     }
@@ -269,13 +289,22 @@ class SmartCoach:
     def _init_smart_mentor(self):
         """Initialize the smart mentor with LLM client."""
         try:
-            if hasattr(self.gpt_manager, 'client') and self.gpt_manager.client:
+            # Use async_client for the mentor (needed for async API calls)
+            if hasattr(self.gpt_manager, 'async_client'):
+                self.smart_mentor = SmartMentor(
+                    llm_client=self.gpt_manager.async_client,
+                    learned_store=self.learned_store,
+                    model=self.model,
+                )
+                logger.debug(f"SmartMentor initialized for {self.agent_name}")
+            elif hasattr(self.gpt_manager, 'client') and self.gpt_manager.client:
+                # Fallback to sync client (SmartMentor handles conversion)
                 self.smart_mentor = SmartMentor(
                     llm_client=self.gpt_manager.client,
                     learned_store=self.learned_store,
                     model=self.model,
                 )
-                logger.debug(f"SmartMentor initialized for {self.agent_name}")
+                logger.debug(f"SmartMentor initialized with sync client for {self.agent_name}")
             else:
                 logger.debug(f"No LLM client available, SmartMentor disabled")
         except Exception as e:
@@ -389,9 +418,22 @@ class SmartCoach:
             elif "linux" in ctx.platform or "unix" in ctx.platform:
                 ctx.platform = "linux"
         
-        # Track command history
+        # Track command history - CRITICAL for anti-loop logic
+        # First, populate from full history if provided
+        if "command_history" in state:
+            history_from_state = state["command_history"]
+            if isinstance(history_from_state, list):
+                # Merge: keep existing ctx.command_history and add new ones
+                existing_set = set(ctx.command_history)
+                for cmd in history_from_state:
+                    if cmd and cmd not in existing_set:
+                        ctx.command_history.append(cmd)
+                        existing_set.add(cmd)
+        # Also append last_command if it's new
         if "last_command" in state:
-            ctx.command_history.append(state["last_command"])
+            last_cmd = state["last_command"]
+            if last_cmd and last_cmd not in ctx.command_history[-5:]:
+                ctx.command_history.append(last_cmd)
         
         # Update phase based on state
         ctx.current_phase = get_phase_from_state(ctx.state_flags)
@@ -466,16 +508,174 @@ class SmartCoach:
             and not self.gpt_manager.is_offline()
         )
         
+        # Pre-compute filtered commands for this agent's role
+        valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
+        if not valid_commands:
+            valid_commands = get_valid_commands_for_state(ctx.state_flags)
+        if not valid_commands:
+            valid_commands = [
+                cmd for cmd in COMMAND_REGISTRY.values()
+                if cmd.phase == AttackPhase.RECON and not cmd.preconditions
+            ]
+        filtered_commands = self._filter_commands_for_role(valid_commands)
+        
         # Make decision based on hybrid logic
         if should_call_gpt and gpt_available:
             logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
-            result = self._decide_with_mentor(step_ctx, proposed_action, confidence)
+            result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
             result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
         else:
             # Registry-first: efficient, no token usage
             result = self._decide_from_registry(step_ctx, proposed_action, confidence)
             if should_call_gpt and not gpt_available:
                 logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
+        
+        # =========================================================================
+        # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
+        # =========================================================================
+        is_valid_role = self._validate_command_for_role(result.command)
+        
+        # =========================================================================
+        # FINAL ANTI-REPEAT GUARD: Check ENTIRE episode history for repeats
+        # =========================================================================
+        all_cmds = ctx.command_history if ctx.command_history else []
+        result_prefix = result.command.split()[0].lower() if result.command else ""
+        result_cmd_norm = result.command.strip() if result.command else ""
+        
+        # Count in ENTIRE episode history (not just last 10)
+        exact_repeat_count = sum(1 for c in all_cmds if c.strip() == result_cmd_norm)
+        # Count prefix repetitions in entire episode
+        prefix_repeat_count = sum(1 for c in all_cmds 
+                                   if c.strip().split()[0].lower() == result_prefix)
+        
+        # STRICT BLOCK: NO exact repeats, max 3 same-prefix, OR role exclusivity violation
+        if exact_repeat_count >= 1 or prefix_repeat_count >= 3 or not is_valid_role:
+            reason = "role_violation" if not is_valid_role else f"repeat(exact={exact_repeat_count},prefix={prefix_repeat_count})"
+            logger.warning(
+                f"[{self.agent_name}] ANTI-REPEAT: Blocking '{result.command[:40]}...' ({reason})"
+            )
+            # Generate ALTERNATIVE command based on role - LARGE pool with random offset
+            role_name = self.agent_role.get("role", "generic")
+            step = step_ctx.step
+            target = ctx.target
+            import random
+            rand_offset = random.randint(0, 1000)
+            
+            alternative_commands = {
+                "recon": [
+                    f"masscan -p{(step*100+rand_offset)%65535}-{(step*100+1000+rand_offset)%65535} {target}",
+                    f"dig {target} TXT +short",
+                    f"curl -sI http://{target}:{8000 + step + rand_offset % 1000}",
+                    f"whatweb -v http://{target}:{80 + step}",
+                    f"host -t AAAA {target}",
+                    f"nslookup -type=mx {target}",
+                    f"traceroute -n {target}",
+                    f"whois {target} | head -30",
+                    f"nmap -sn {target}/24",
+                    f"arping -c 2 {target}",
+                    f"fping -g {target}/28 2>/dev/null | head -10",
+                    f"hping3 -S -p {80 + step*10} -c 2 {target}",
+                    f"nbtscan {target}",
+                    f"fierce --domain {target}",
+                    f"dnsrecon -d {target} -t std",
+                    f"theHarvester -d {target} -l 50 -b all 2>/dev/null | head -20",
+                    f"sublist3r -d {target} -t 3 | head -20",
+                    f"amass enum -d {target} -passive | head -20",
+                    f"netdiscover -r {target}/24 -P | head -10",
+                    f"unicornscan -mT {target}:{1000+step*100}-{1100+step*100}",
+                ],
+                "offensive": [
+                    f"searchsploit kernel {5 + step % 10}.{rand_offset % 5}",
+                    f"nikto -h http://{target}:{80 + step*10} -C all -Tuning {step % 10}",
+                    f"nuclei -u http://{target} -severity critical,high -t cves/",
+                    f"wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt http://{target}:{80+step}/FUZZ",
+                    f"hydra -l user{step} -P /usr/share/wordlists/rockyou.txt ssh://{target} -t 4",
+                    f"medusa -h {target} -u admin -P /usr/share/wordlists/rockyou.txt -M ssh -t 2",
+                    f"patator ssh_login host={target} user=root password=FILE0 0=/tmp/pass.txt -x ignore:mesg='Authentication failed'",
+                    f"ncrack -p {22 + step} --user root -P /usr/share/wordlists/fasttrack.txt {target}",
+                    f"crackmapexec ssh {target} -u admin -p /usr/share/wordlists/fasttrack.txt",
+                    f"responder -I eth0 -wrf 2>/dev/null &",
+                    f"msfvenom -p linux/x64/shell_reverse_tcp LHOST={target} LPORT={4444+step} -f elf",
+                    f"sqlmap -u 'http://{target}/page?id={step}' --batch --random-agent",
+                    f"commix -u 'http://{target}/cmd?exec=id' --batch",
+                    f"xsstrike -u 'http://{target}/search?q=test{step}'",
+                    f"dalfox url 'http://{target}/param?input=test' --skip-bav",
+                    f"tplmap -u 'http://{target}/page?name={{{{7*7}}}}'",
+                    f"jwt_tool <token> -X k -pk /tmp/pub.pem",
+                    f"ffuf -w /usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt -u http://{target}/page?file=FUZZ",
+                    f"wpscan --url http://{target} --plugins-detection aggressive --api-token <token>",
+                    f"droopescan scan drupal -u http://{target}",
+                ],
+                "stealth": [
+                    f"curl -s http://{target}/api/v{step}/status",
+                    f"nc -zv {target} {20 + step*10 + rand_offset % 100} 2>&1",
+                    f"wget -q --spider http://{target}/page{step+rand_offset%50}",
+                    f"dig {target} CNAME +short",
+                    f"smbclient -L //{target} -N -m SMB{2 + step%2} 2>/dev/null | head -10",
+                    f"ldapsearch -x -h {target} -b '' -s base '(objectClass=*)' 2>/dev/null | head -15",
+                    f"snmpwalk -v2c -c public {target} system 2>/dev/null | head -10",
+                    f"onesixtyone -c /usr/share/doc/onesixtyone/dict.txt {target}",
+                    f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
+                    f"finger @{target}",
+                    f"rpcinfo -p {target}",
+                    f"showmount -e {target}",
+                    f"ident-user-enum {target} {22 + step}",
+                    f"oscanner -s {target}",
+                    f"tnscmd10g version -h {target}",
+                    f"redis-cli -h {target} info 2>/dev/null | head -20",
+                    f"mongo --host {target} --eval 'db.version()' 2>/dev/null",
+                    f"psql -h {target} -U postgres -c '\\l' 2>/dev/null",
+                    f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+                    f"mssqlclient.py -port 1433 {target} -windows-auth",
+                ],
+                "strategic": [
+                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/big.txt -t {5 + step} -x php,html",
+                    f"ffuf -w /usr/share/seclists/Discovery/Web-Content/raft-medium-words.txt -u http://{target}/FUZZ -mc 200,301,302",
+                    f"dirsearch -u http://{target} -e php,html,js,txt -t {10 + step}",
+                    f"feroxbuster -u http://{target} -w /usr/share/wordlists/dirb/common.txt -d 2 -t {step+5}",
+                    f"wfuzz -c -z file,/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -H 'Host: FUZZ.{target}' http://{target}",
+                    f"aquatone -domains {target} -out /tmp/aquatone -scan-timeout 500",
+                    f"eyewitness --web -f /tmp/urls.txt -d /tmp/eyewitness --timeout 10",
+                    f"gospider -s http://{target} -d 2 -c 5",
+                    f"hakrawler -url http://{target} -depth 2 -plain",
+                    f"katana -u http://{target} -d 2 -jc",
+                    f"waybackurls {target} | head -50",
+                    f"gau {target} | head -50",
+                    f"arjun -u http://{target}/page -m GET",
+                    f"paramspider -d {target} | head -30",
+                    f"linkfinder -i http://{target}/app.js -o cli",
+                ],
+                "defensive": [
+                    f"ss -tlnp | grep LISTEN | head -{10 + step}",
+                    f"ps aux --sort=-%cpu | head -{10 + step}",
+                    f"last -n {5 + step*2}",
+                    f"journalctl -n {20 + step*5} --no-pager",
+                    f"netstat -tulpn 2>/dev/null | head -{15 + step}",
+                    f"lsof -i -P -n | head -{20 + step}",
+                    f"iptables -L -n -v | head -30",
+                    f"ufw status verbose",
+                    f"fail2ban-client status",
+                    f"ausearch -m avc -ts recent | head -20",
+                    f"chkrootkit 2>/dev/null | grep INFECTED",
+                    f"rkhunter --check --skip-keypress 2>/dev/null | tail -30",
+                    f"lynis audit system --quick 2>/dev/null | tail -50",
+                    f"osquery -A 'SELECT * FROM processes WHERE on_disk=0'",
+                    f"sysdig -c topprocs_cpu",
+                ],
+            }
+            
+            alts = alternative_commands.get(role_name, alternative_commands["recon"])
+            # Filter out commands already used in this episode
+            used_prefixes = set(c.strip().split()[0].lower() for c in all_cmds if c.strip())
+            available = [cmd for cmd in alts if cmd.split()[0].lower() not in used_prefixes]
+            if not available:
+                # If all prefixes used, just pick any from pool with random shuffle
+                available = alts.copy()
+                random.shuffle(available)
+            new_cmd = random.choice(available) if available else alts[step % len(alts)]
+            result.command = new_cmd
+            result.mentor_reasoning = f"[ANTI-REPEAT] {result.mentor_reasoning or 'Forced alternative'}"
+            result.confidence = 0.3
         
         # Record decision
         self.decisions.append(result)
@@ -488,21 +688,44 @@ class SmartCoach:
     
     def _filter_commands_for_role(self, commands: List[CommandTemplate]) -> List[CommandTemplate]:
         """
-        Filter commands based on agent's role.
+        Filter commands based on agent's role with EXCLUSIVE domain enforcement.
         
         Each agent has:
         - preferred_commands: Commands they should prioritize
         - command_tags: Tags they should look for
         - avoid_tags: Tags they should NOT use
+        - exclusive_prefixes: Prefixes ONLY this agent can use (others cannot)
         """
         role = self.agent_role
         preferred_names = set(role.get("preferred_commands", []))
         wanted_tags = role.get("command_tags", set())
         avoid_tags = role.get("avoid_tags", set())
         primary_phases = role.get("primary_phases", [])
+        my_exclusive = role.get("exclusive_prefixes", [])
+        
+        # Collect ALL exclusive prefixes from OTHER agents
+        other_exclusive_prefixes = []
+        for other_agent, other_role in self.AGENT_ROLES.items():
+            if other_agent != self.agent_name:
+                other_exclusive_prefixes.extend(other_role.get("exclusive_prefixes", []))
         
         filtered = []
         for cmd in commands:
+            cmd_lower = cmd.name.lower()
+            template_lower = cmd.template.lower() if hasattr(cmd, 'template') else ""
+            
+            # STRICT EXCLUSIVITY: Skip commands that belong to OTHER agents' exclusive domains
+            # Check BOTH the command name AND the template
+            belongs_to_other = False
+            for prefix in other_exclusive_prefixes:
+                prefix_lower = prefix.lower().strip()
+                if cmd_lower.startswith(prefix_lower) or template_lower.startswith(prefix_lower):
+                    belongs_to_other = True
+                    break
+            
+            if belongs_to_other:
+                continue  # This command belongs to another agent
+            
             # Skip commands with avoided tags
             if cmd.tags & avoid_tags:
                 continue
@@ -514,6 +737,9 @@ class SmartCoach:
             # Prioritize preferred commands
             if cmd.name in preferred_names:
                 filtered.insert(0, cmd)  # Add to front
+            # Prioritize our exclusive commands
+            elif any(cmd_lower.startswith(p.lower().strip()) for p in my_exclusive):
+                filtered.insert(0, cmd)  # Our exclusive domain - high priority
             # Or commands with matching tags
             elif cmd.tags & wanted_tags:
                 filtered.append(cmd)
@@ -664,36 +890,147 @@ class SmartCoach:
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
         if not filtered_commands:
-            # Fallback based on role with variety
+            # =========================================================
+            # SMART FALLBACK - Track FULL commands AND unique signatures
+            # =========================================================
             step = step_ctx.step
             
+            # Track FULL commands to avoid exact repeats + command signatures for variety
+            tried_commands = set()
+            tried_signatures = set()  # (prefix, key_flags) tuple for detecting similar commands
+            if ctx.command_history:
+                for cmd in ctx.command_history[-20:]:  # Look at more history
+                    tried_commands.add(cmd.strip())
+                    parts = cmd.strip().split()
+                    if parts:
+                        # Create signature from prefix + first 2-3 flags
+                        sig = parts[0].lower()
+                        if len(parts) > 1:
+                            sig += "_" + "_".join(p.lower() for p in parts[1:3] if p.startswith("-"))
+                        tried_signatures.add(sig)
+            
             if role_name == "recon":
+                # COMPREHENSIVE list with diverse tools (not just nmap)
                 recon_fallbacks = [
-                    f"nmap -sT --top-ports 100 {ctx.target}",
-                    f"nmap -sV {ctx.target}",
-                    f"masscan -p1-1000 --rate=500 {ctx.target}",
-                    f"nmap -sU --top-ports 20 {ctx.target}",
+                    # === NETWORK SCANNING (different approaches) ===
+                    (f"nmap -sT --top-ports 100 {ctx.target}", "nmap_-st_--top-ports", "🔍 TCP top-100 scan"),
+                    (f"nmap -sV -Pn {ctx.target}", "nmap_-sv_-pn", "🔍 Version detection no-ping"),
+                    (f"nmap -sU --top-ports 20 {ctx.target}", "nmap_-su_--top-ports", "🔍 UDP scan"),
+                    (f"nmap -A -T4 {ctx.target}", "nmap_-a_-t4", "🔍 Aggressive fast scan"),
+                    (f"nmap -sS -Pn {ctx.target}", "nmap_-ss_-pn", "🔍 SYN stealth no-ping"),
+                    (f"nmap --script discovery {ctx.target}", "nmap_--script_discovery", "🔍 Discovery scripts"),
+                    (f"nmap -sC -sV {ctx.target}", "nmap_-sc_-sv", "🔍 Default scripts + version"),
+                    (f"nmap -p- --min-rate 5000 {ctx.target}", "nmap_-p-_--min-rate", "🔍 All ports fast"),
+                    (f"nmap --script vuln {ctx.target}", "nmap_--script_vuln", "🔍 Vuln scripts"),
+                    (f"nmap -sV -sC -O {ctx.target}", "nmap_-sv_-sc", "🔍 Full OS detection"),
+                    # === ALTERNATIVE SCANNERS (PRIORITIZE variety) ===
+                    (f"masscan -p1-1000 --rate=500 {ctx.target}", "masscan_-p1-1000", "🔍 Fast masscan 1K"),
+                    (f"masscan -p1-65535 --rate=2000 {ctx.target}", "masscan_-p1-65535", "🔍 Full port masscan"),
+                    (f"masscan -p 21,22,80,443,445,3389 {ctx.target}", "masscan_-p_21", "🔍 Masscan common ports"),
+                    (f"rustscan -a {ctx.target} --ulimit 5000 -- -sC", "rustscan_-a", "🔍 Rustscan fast"),
+                    # === DNS/OSINT (different queries) ===
+                    (f"dig {ctx.target} ANY +noall +answer", "dig_any", "🔍 DNS ANY query"),
+                    (f"dig {ctx.target} MX +short", "dig_mx", "🔍 DNS MX records"),
+                    (f"dig {ctx.target} NS +short", "dig_ns", "🔍 DNS nameservers"),
+                    (f"dig {ctx.target} TXT +short", "dig_txt", "🔍 DNS TXT records"),
+                    (f"dig -x {ctx.target} +short", "dig_-x", "🔍 Reverse DNS"),
+                    (f"whois {ctx.target}", "whois", "🔍 WHOIS lookup"),
+                    (f"host -t A {ctx.target}", "host_-t", "🔍 Host lookup"),
+                    # === WEB FINGERPRINTING ===
+                    (f"whatweb -a 3 http://{ctx.target}", "whatweb_-a", "🔍 Web fingerprint aggressive"),
+                    (f"whatweb http://{ctx.target}:8080", "whatweb_8080", "🔍 Web fingerprint alt port"),
+                    (f"curl -sI http://{ctx.target}", "curl_-si", "🔍 HTTP headers"),
+                    (f"curl -sI https://{ctx.target} -k", "curl_-si_https", "🔍 HTTPS headers"),
+                    (f"wafw00f http://{ctx.target}", "wafw00f", "🔍 WAF detection"),
+                    # === PASSIVE/LIGHT PROBES ===
+                    (f"ping -c 2 {ctx.target}", "ping_-c", "🔍 Host alive check"),
+                    (f"traceroute -n {ctx.target} 2>/dev/null | head -10", "traceroute_-n", "🔍 Network path"),
+                    (f"arping -c 2 {ctx.target} 2>/dev/null", "arping_-c", "🔍 ARP probe"),
                 ]
+                # Filter out commands with matching signatures (NOT just prefixes)
+                untried = [(c, sig, r) for c, sig, r in recon_fallbacks 
+                           if sig not in tried_signatures and c not in tried_commands]
+                
+                if untried:
+                    cmd, _, reason = random.choice(untried)
+                else:
+                    # ALL fallbacks exhausted - use STEP-BASED rotation through NON-NMAP tools
+                    diverse_rotation = [
+                        (f"masscan -p{1000 + step*500}-{1500 + step*500} {ctx.target}", "🔍 Masscan port range"),
+                        (f"dig {ctx.target} AAAA +short", "🔍 DNS IPv6"),
+                        (f"curl -sI http://{ctx.target}:{80 + step*10}", "🔍 HTTP alt port"),
+                        (f"whatweb -v http://{ctx.target}", "🔍 Whatweb verbose"),
+                        (f"nmap -sV --top-ports {50 + step*25} {ctx.target}", "🔍 Top ports scaled"),
+                        (f"host {ctx.target}", "🔍 Host basic"),
+                        (f"nslookup {ctx.target}", "🔍 NS lookup"),
+                    ]
+                    cmd, reason = diverse_rotation[step % len(diverse_rotation)]
+                    logger.warning(f"[{self.agent_name}] All fallbacks used - rotating: {cmd[:40]}...")
+                
                 return SmartDecisionResult(
-                    command=recon_fallbacks[step % len(recon_fallbacks)],
+                    command=cmd,
                     template_name="nmap_top_ports",
                     params={"target": ctx.target},
                     mentor_call=False,
-                    mentor_reasoning="🔍 Scout fallback: port scanning",
+                    mentor_reasoning=f"{reason}",
                     confidence=0.4,
                     phase=AttackPhase.RECON,
                 )
             elif role_name == "offensive":
-                # Red agent aggressive fallbacks - changes each step
+                # Red agent aggressive fallbacks - EXTENSIVE list with SIGNATURES for dedup
                 red_fallbacks = [
-                    (f"nmap --script=vuln {ctx.target}", "⚔️ Vuln scan for exploits"),
-                    (f"nikto -h http://{ctx.target} 2>/dev/null || echo 'No HTTP'", "⚔️ Web vuln scan"),
-                    (f"searchsploit linux kernel 5", "⚔️ Kernel exploit search"),
-                    (f"gobuster dir -u http://{ctx.target} -w /usr/share/wordlists/dirb/common.txt -q 2>/dev/null || echo 'No HTTP'", "⚔️ Directory brute force"),
-                    (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt -t 4 ssh://{ctx.target} 2>/dev/null || echo 'SSH attack'", "⚔️ SSH credential attack"),
-                    (f"crackmapexec smb {ctx.target} --shares 2>/dev/null || echo 'No SMB'", "⚔️ SMB share enum"),
+                    # Web vulnerability scanning
+                    (f"nikto -h http://{ctx.target}", "nikto_-h", "⚔️ Web vuln scan"),
+                    (f"nikto -h http://{ctx.target} -Tuning x", "nikto_-tuning", "⚔️ Nikto extended"),
+                    (f"nikto -h http://{ctx.target} -C all", "nikto_-c", "⚔️ Nikto all CGI"),
+                    # Exploitation frameworks
+                    (f"searchsploit linux kernel 5", "searchsploit_linux", "⚔️ Kernel exploit search"),
+                    (f"searchsploit apache 2.4", "searchsploit_apache", "⚔️ Apache exploits"),
+                    (f"searchsploit ssh", "searchsploit_ssh", "⚔️ SSH exploits"),
+                    (f"searchsploit smb", "searchsploit_smb", "⚔️ SMB exploits"),
+                    (f"searchsploit wordpress", "searchsploit_wordpress", "⚔️ WP exploits"),
+                    (f"searchsploit mysql", "searchsploit_mysql", "⚔️ MySQL exploits"),
+                    (f"msfconsole -q -x 'search type:exploit platform:linux; exit'", "msf_linux", "⚔️ MSF linux exploits"),
+                    (f"msfconsole -q -x 'search type:exploit platform:windows; exit'", "msf_windows", "⚔️ MSF windows exploits"),
+                    # Brute force (different targets)
+                    (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt -t 4 ssh://{ctx.target}", "hydra_ssh", "⚔️ SSH brute"),
+                    (f"hydra -l root -P /usr/share/wordlists/rockyou.txt -t 4 ftp://{ctx.target}", "hydra_ftp", "⚔️ FTP brute"),
+                    (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt http-get://{ctx.target}", "hydra_http", "⚔️ HTTP brute"),
+                    (f"hydra -l sa -P /usr/share/wordlists/rockyou.txt mssql://{ctx.target}", "hydra_mssql", "⚔️ MSSQL brute"),
+                    # SMB/Network attacks
+                    (f"crackmapexec smb {ctx.target} --shares", "cme_shares", "⚔️ SMB share enum"),
+                    (f"crackmapexec smb {ctx.target} --users", "cme_users", "⚔️ SMB users"),
+                    (f"crackmapexec smb {ctx.target} --pass-pol", "cme_passpol", "⚔️ SMB password policy"),
+                    (f"crackmapexec smb {ctx.target} --groups", "cme_groups", "⚔️ SMB groups"),
+                    # SQL injection (different endpoints)
+                    (f"sqlmap -u 'http://{ctx.target}/?id=1' --batch", "sqlmap_id", "⚔️ SQL injection test"),
+                    (f"sqlmap -u 'http://{ctx.target}/login.php' --forms --batch", "sqlmap_forms", "⚔️ SQLi form test"),
+                    (f"sqlmap -u 'http://{ctx.target}/search?q=1' --batch", "sqlmap_search", "⚔️ SQLi search test"),
+                    # Vuln scanning (different templates)
+                    (f"nuclei -u http://{ctx.target} -t cves/ -severity critical", "nuclei_cve", "⚔️ CVE scan"),
+                    (f"nuclei -u http://{ctx.target} -t vulnerabilities/", "nuclei_vuln", "⚔️ Vuln templates"),
+                    (f"nuclei -u http://{ctx.target} -t exposed-panels/", "nuclei_panels", "⚔️ Exposed panels"),
+                    (f"nuclei -u http://{ctx.target} -t misconfigurations/", "nuclei_misconfig", "⚔️ Misconfigs"),
+                    # CMS specific
+                    (f"wpscan --url http://{ctx.target} --enumerate u", "wpscan_users", "⚔️ WP user enum"),
+                    (f"wpscan --url http://{ctx.target} --enumerate vp", "wpscan_plugins", "⚔️ WP vuln plugins"),
+                    (f"wpscan --url http://{ctx.target} --enumerate t", "wpscan_themes", "⚔️ WP themes"),
                 ]
-                cmd, reason = red_fallbacks[step % len(red_fallbacks)]
+                # Filter by signature (not just prefix)
+                untried = [(c, sig, r) for c, sig, r in red_fallbacks 
+                           if sig not in tried_signatures and c not in tried_commands]
+                if untried:
+                    cmd, _, reason = random.choice(untried)
+                else:
+                    # Rotation with step-based variety
+                    diverse_red = [
+                        (f"searchsploit kernel {3 + step % 5}", "⚔️ Kernel search var"),
+                        (f"nikto -h http://{ctx.target}:{80 + step*10}", "⚔️ Nikto alt port"),
+                        (f"nuclei -u http://{ctx.target} -severity high", "⚔️ Nuclei high sev"),
+                        (f"wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt http://{ctx.target}/FUZZ", "⚔️ Wfuzz"),
+                    ]
+                    cmd, reason = diverse_red[step % len(diverse_red)]
+                    logger.warning(f"[{self.agent_name}] Red fallbacks exhausted - rotating")
                 return SmartDecisionResult(
                     command=cmd,
                     template_name="red_offensive",
@@ -704,13 +1041,62 @@ class SmartCoach:
                     phase=AttackPhase.EXPLOITATION,
                 )
             elif role_name == "stealth":
+                # Shadow agent quiet fallbacks - EXTENSIVE list with SIGNATURES
                 stealth_fallbacks = [
-                    (f"curl -s -I http://{ctx.target} 2>/dev/null | head -20", "👤 Passive HTTP headers"),
-                    (f"dig {ctx.target} ANY +noall +answer", "👤 DNS record query"),
-                    (f"wget -q --spider http://{ctx.target}", "👤 Quiet web check"),
-                    (f"nc -zv {ctx.target} 22 2>&1 | head -1", "👤 Quiet SSH probe"),
+                    # HTTP/Web (quiet) - unique signatures
+                    (f"curl -s -I http://{ctx.target} | head -20", "curl_-i", "👤 HTTP headers"),
+                    (f"curl -s http://{ctx.target}/robots.txt", "curl_robots", "👤 Robots.txt"),
+                    (f"curl -s http://{ctx.target}/sitemap.xml | head -50", "curl_sitemap", "👤 Sitemap"),
+                    (f"curl -sL http://{ctx.target}/.well-known/security.txt", "curl_security", "👤 Security.txt"),
+                    (f"curl -s http://{ctx.target}/.git/config 2>/dev/null", "curl_git", "👤 Git config leak"),
+                    (f"wget -q --spider http://{ctx.target}", "wget_spider", "👤 Web check"),
+                    (f"wget -q -O- http://{ctx.target}/ | head -100", "wget_page", "👤 Page preview"),
+                    # DNS (passive) - unique queries
+                    (f"dig {ctx.target} ANY +noall +answer", "dig_any", "👤 DNS query"),
+                    (f"dig {ctx.target} TXT +short", "dig_txt", "👤 DNS TXT records"),
+                    (f"dig {ctx.target} MX +short", "dig_mx", "👤 DNS MX"),
+                    (f"dig {ctx.target} AXFR +noall +answer 2>/dev/null | head -20", "dig_axfr", "👤 Zone transfer"),
+                    # Network probes (quiet) - different ports
+                    (f"nc -zv {ctx.target} 22 2>&1 | head -1", "nc_22", "👤 SSH probe"),
+                    (f"nc -zv {ctx.target} 80 2>&1 | head -1", "nc_80", "👤 HTTP probe"),
+                    (f"nc -zv {ctx.target} 443 2>&1 | head -1", "nc_443", "👤 HTTPS probe"),
+                    (f"nc -zv {ctx.target} 21 2>&1 | head -1", "nc_21", "👤 FTP probe"),
+                    (f"nc -zv {ctx.target} 3389 2>&1 | head -1", "nc_3389", "👤 RDP probe"),
+                    (f"nc -zv {ctx.target} 445 2>&1 | head -1", "nc_445", "👤 SMB probe"),
+                    # SMB/Windows (quiet) - unique operations
+                    (f"smbclient -L //{ctx.target} -N 2>/dev/null | head -20", "smbclient_-l", "👤 SMB shares"),
+                    (f"smbclient //{ctx.target}/C$ -N -c 'ls' 2>/dev/null | head -10", "smbclient_c$", "👤 SMB C$ check"),
+                    (f"smbclient //{ctx.target}/IPC$ -N -c 'ls' 2>/dev/null | head -10", "smbclient_ipc", "👤 SMB IPC$ check"),
+                    # User enumeration (quiet) - unique flags
+                    (f"enum4linux -U {ctx.target} 2>/dev/null", "enum4linux_-u", "👤 User enum"),
+                    (f"enum4linux -S {ctx.target} 2>/dev/null", "enum4linux_-s", "👤 Share enum"),
+                    (f"enum4linux -P {ctx.target} 2>/dev/null", "enum4linux_-p", "👤 Password policy"),
+                    (f"enum4linux -G {ctx.target} 2>/dev/null", "enum4linux_-g", "👤 Group enum"),
+                    (f"rpcclient -U '' -N {ctx.target} -c 'enumdomusers' 2>/dev/null", "rpcclient_users", "👤 RPC user enum"),
+                    (f"rpcclient -U '' -N {ctx.target} -c 'querydominfo' 2>/dev/null", "rpcclient_domain", "👤 RPC domain info"),
+                    (f"rpcclient -U '' -N {ctx.target} -c 'enumdomgroups' 2>/dev/null", "rpcclient_groups", "👤 RPC groups"),
+                    # LDAP/AD
+                    (f"ldapsearch -x -h {ctx.target} -b '' -s base 2>/dev/null | head -30", "ldapsearch_base", "👤 LDAP base"),
+                    # SNMP
+                    (f"snmpwalk -v2c -c public {ctx.target} 2>/dev/null | head -30", "snmpwalk_public", "👤 SNMP walk"),
+                    # SSH banner
+                    (f"ssh -o BatchMode=yes -o ConnectTimeout=3 {ctx.target} 2>&1 | head -5", "ssh_banner", "👤 SSH banner"),
                 ]
-                cmd, reason = stealth_fallbacks[step % len(stealth_fallbacks)]
+                # Filter by signature (not just prefix)
+                untried = [(c, sig, r) for c, sig, r in stealth_fallbacks 
+                           if sig not in tried_signatures and c not in tried_commands]
+                if untried:
+                    cmd, _, reason = random.choice(untried)
+                else:
+                    # Rotation with step-based variety
+                    diverse_stealth = [
+                        (f"curl -s http://{ctx.target}/api/v{step % 5}", "👤 API probe"),
+                        (f"nc -zv {ctx.target} {100 + step*50} 2>&1", "👤 Port probe"),
+                        (f"dig {ctx.target} CNAME +short", "👤 DNS CNAME"),
+                        (f"wget -q -O- http://{ctx.target}/page{step}", "👤 Page probe"),
+                    ]
+                    cmd, reason = diverse_stealth[step % len(diverse_stealth)]
+                    logger.warning(f"[{self.agent_name}] Stealth fallbacks exhausted - rotating")
                 return SmartDecisionResult(
                     command=cmd,
                     template_name="curl_headers",
@@ -721,8 +1107,19 @@ class SmartCoach:
                     phase=AttackPhase.ENUMERATION,
                 )
             else:
+                # Generic fallback - use step-based variety to avoid loops
+                generic_fallbacks = [
+                    f"ping -c 2 {ctx.target}",
+                    f"host {ctx.target}",
+                    f"dig {ctx.target} A +short",
+                    f"nslookup {ctx.target}",
+                    f"traceroute -n {ctx.target} 2>/dev/null | head -5",
+                    f"curl -sI http://{ctx.target} | head -5",
+                    f"nc -zv {ctx.target} 80 2>&1",
+                ]
+                cmd = generic_fallbacks[step % len(generic_fallbacks)]
                 return SmartDecisionResult(
-                    command=f"nmap -sT {ctx.target}",
+                    command=cmd,
                     template_name="nmap_quick",
                     params={"target": ctx.target},
                     mentor_call=False,
@@ -845,8 +1242,16 @@ class SmartCoach:
         try:
             command = render_command(template, params)
         except ValueError as e:
-            # Missing required param, use fallback
-            command = f"nmap -sT {ctx.target}"
+            # Missing required param - use step-based variety
+            step = getattr(self, '_current_step', 0)
+            fallbacks = [
+                f"masscan -p1-1000 {ctx.target}",
+                f"dig {ctx.target} ANY +short",
+                f"whatweb http://{ctx.target}",
+                f"curl -sI http://{ctx.target}",
+                f"host {ctx.target}",
+            ]
+            command = fallbacks[step % len(fallbacks)]
             template = COMMAND_REGISTRY.get("nmap_top_ports", list(COMMAND_REGISTRY.values())[0])
             params = {"target": ctx.target, "num_ports": "100"}
         
@@ -880,21 +1285,70 @@ class SmartCoach:
         step_ctx: SmartStepContext,
         proposed_action: Optional[str],
         confidence: float,
+        filtered_commands: Optional[List[CommandTemplate]] = None,
     ) -> SmartDecisionResult:
         """
         Make decision using the smart mentor (LLM).
+        Validates that mentor's command respects role exclusivity AND anti-loop rules.
+        
+        Args:
+            step_ctx: Current step context
+            proposed_action: Proposed action from rule-based system
+            confidence: Confidence in proposed action
+            filtered_commands: Pre-filtered commands for this agent's role
         """
         ctx = step_ctx.attack_context
         
         try:
-            # Get command from smart mentor
-            mentor_response = self.smart_mentor.get_command(ctx)
+            # Get command from smart mentor WITH filtered commands for role
+            mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+            
+            # VALIDATE: Check if mentor's command violates role exclusivity (belt & suspenders)
+            mentor_cmd = mentor_response.command.lower()
+            is_valid_for_role = self._validate_command_for_role(mentor_cmd)
+            
+            if not is_valid_for_role:
+                # Mentor suggested a command that belongs to another agent's domain
+                logger.debug(f"[{self.agent_name}] Mentor suggested '{mentor_response.command}' but it violates role exclusivity, falling back to registry")
+                return self._decide_from_registry(step_ctx, proposed_action, confidence)
+            
+            # =================================================================
+            # CRITICAL: ANTI-LOOP CHECK - LLM often ignores "do not repeat"
+            # =================================================================
+            mentor_prefix = mentor_cmd.split()[0] if mentor_cmd.split() else ""
+            
+            # Count how many times this command prefix was used recently
+            recent_prefixes = []
+            for cmd in ctx.command_history[-10:]:
+                parts = cmd.lower().split()
+                if parts:
+                    recent_prefixes.append(parts[0])
+            
+            prefix_repeat_count = recent_prefixes.count(mentor_prefix)
+            
+            # If this prefix was used 2+ times recently, REJECT and use registry fallback
+            if prefix_repeat_count >= 2:
+                logger.warning(f"[{self.agent_name}] LLM suggested '{mentor_prefix}' but it was used {prefix_repeat_count}x recently - forcing registry fallback")
+                # Mark this as a stuck situation for the fallback to handle
+                return self._decide_from_registry(step_ctx, proposed_action, confidence)
+            
+            # Also check if exact command was used before
+            if mentor_response.command in ctx.command_history[-5:]:
+                logger.warning(f"[{self.agent_name}] LLM suggested exact repeat command - forcing registry fallback")
+                return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # Track command in history
             ctx.command_history.append(mentor_response.command)
             
             # Determine if mentor changed the action
             delta = "changed" if proposed_action and mentor_response.command != proposed_action else "kept"
+            
+            # Get tokens used (from mentor response if available)
+            tokens_used = getattr(mentor_response, 'tokens_used', 0)
+            
+            # Validate token tracking: warn if mentor was called but tokens=0
+            if tokens_used == 0:
+                logger.debug(f"[TOKEN_WARN] {self.agent_name} mentor call but tokens=0 - may be cached or estimate missing")
             
             return SmartDecisionResult(
                 command=mentor_response.command,
@@ -906,11 +1360,50 @@ class SmartCoach:
                 mentor_delta=delta,
                 confidence=mentor_response.confidence,
                 phase=mentor_response.phase,
+                tokens_used=tokens_used,
             )
             
         except Exception as e:
             logger.warning(f"Smart mentor failed: {e}, falling back to registry")
             return self._decide_from_registry(step_ctx, proposed_action, confidence)
+    
+    def _validate_command_for_role(self, command: str) -> bool:
+        """
+        Check if a command is valid for this agent's role.
+        Returns False if the command starts with another agent's exclusive prefix.
+        
+        Args:
+            command: The command string to validate
+            
+        Returns:
+            True if valid for this role, False if it belongs to another agent
+        """
+        cmd_lower = command.lower().strip()
+        # Also check with underscores replaced by hyphens and vice versa
+        cmd_alt = cmd_lower.replace('-', '_')
+        cmd_alt2 = cmd_lower.replace('_', '-')
+        
+        # Check against OTHER agents' exclusive prefixes
+        for other_agent, other_role in self.AGENT_ROLES.items():
+            if other_agent == self.agent_name:
+                continue  # Skip self
+            
+            other_prefixes = other_role.get("exclusive_prefixes", [])
+            for prefix in other_prefixes:
+                prefix_lower = prefix.lower().strip()
+                prefix_alt = prefix_lower.replace('-', '_')
+                prefix_alt2 = prefix_lower.replace('_', '-')
+                
+                # Check all variations
+                if (cmd_lower.startswith(prefix_lower) or 
+                    cmd_lower.startswith(prefix_alt) or
+                    cmd_lower.startswith(prefix_alt2) or
+                    cmd_alt.startswith(prefix_lower) or
+                    cmd_alt2.startswith(prefix_lower)):
+                    logger.debug(f"[{self.agent_name}] Command '{command[:40]}' belongs to {other_agent}'s domain (prefix: {prefix})")
+                    return False
+        
+        return True
     
     def record_result(
         self,

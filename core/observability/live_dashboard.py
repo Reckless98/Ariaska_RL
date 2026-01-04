@@ -106,7 +106,8 @@ class StepRecord:
     tokens_used: int = 0
     done: bool = False
     delta: str = "kept"
-    mentor_reasoning: str = ""  # Added: Why agent chose this action
+    mentor_reasoning: str = ""  # Why agent chose this action
+    command_output: str = ""    # Simulated/real output from command
 
 
 class LiveDashboard:
@@ -217,6 +218,7 @@ class LiveDashboard:
             tokens = result.get("tokens_used", 0)
             mentor_success = result.get("mentor_success", result.get("mentor_call", False))
             mentor_reasoning = result.get("mentor_reasoning", "")
+            command_output = result.get("command_output", "")  # Get simulated output
             
             record = StepRecord(
                 step=step,
@@ -234,6 +236,7 @@ class LiveDashboard:
                 done=done,
                 delta=result.get("mentor_delta", "kept"),
                 mentor_reasoning=mentor_reasoning,
+                command_output=self._truncate(command_output, 60),  # Truncate output
             )
             self.steps.append(record)
             
@@ -356,38 +359,120 @@ class LiveDashboard:
             if rb.reason:
                 console.print(f"  [dim]↳ {rb.reason}[/dim]")
         
+        # Print command outputs (simulated)
+        self._print_command_outputs(step_records)
+        
         self.last_print_step = step
+        
+        # Print per-agent snapshot
+        self.print_agent_snapshot()
         
         # Print recent events if any new ones
         self._print_recent_events()
     
+    def _print_command_outputs(self, step_records: List[StepRecord]):
+        """Print simulated command outputs for each agent."""
+        outputs = [(r.agent, r.command_output) for r in step_records if r.command_output]
+        if not outputs:
+            return
+        
+        console.print("[dim]─── Command Outputs ───[/dim]")
+        for agent, output in outputs:
+            # Get first line of output, truncated
+            first_line = output.split('\n')[0][:70]
+            if len(output.split('\n')) > 1:
+                first_line += "..."
+            console.print(f"  [bold]{agent}[/bold]: [dim]{first_line}[/dim]")
+    
+    def print_agent_snapshot(self):
+        """Print per-agent snapshot showing state of each agent."""
+        if not self.agent_stats:
+            return
+        
+        table = Table(
+            title="Per-Agent Snapshot",
+            show_header=True,
+            header_style="bold magenta",
+            border_style="dim",
+            box=box.SIMPLE,
+        )
+        
+        table.add_column("Agent", style="bold", width=12)
+        table.add_column("Phase", width=10)
+        table.add_column("Last Action", width=30)
+        table.add_column("Reward", width=8, justify="right")
+        table.add_column("Ep Reward", width=10, justify="right")
+        table.add_column("Tokens", width=8, justify="right")
+        table.add_column("Mentor", width=8, justify="center")
+        table.add_column("Conf", width=6, justify="right")
+        
+        for agent_name, stats in sorted(self.agent_stats.items()):
+            # Style reward
+            last_reward = stats.get("last_reward", 0.0)
+            if last_reward < 0:
+                reward_text = Text(f"{last_reward:+.2f}", style="red")
+            elif last_reward > 0:
+                reward_text = Text(f"{last_reward:+.2f}", style="green")
+            else:
+                reward_text = Text(f"{last_reward:+.2f}", style="dim")
+            
+            ep_reward = stats.get("episode_reward", 0.0)
+            if ep_reward < 0:
+                ep_reward_text = Text(f"{ep_reward:+.1f}", style="red")
+            elif ep_reward > 0:
+                ep_reward_text = Text(f"{ep_reward:+.1f}", style="green")
+            else:
+                ep_reward_text = Text(f"{ep_reward:+.1f}", style="dim")
+            
+            mentor_calls = stats.get("episode_mentor_calls", 0)
+            mentor_text = f"📡 {mentor_calls}" if mentor_calls > 0 else "-"
+            
+            conf = stats.get("confidence", 0.5)
+            if conf > 0.7:
+                conf_text = Text(f"{conf:.2f}", style="green")
+            elif conf < 0.3:
+                conf_text = Text(f"{conf:.2f}", style="red")
+            else:
+                conf_text = Text(f"{conf:.2f}", style="yellow")
+            
+            table.add_row(
+                agent_name,
+                stats.get("phase", "?")[:10],
+                self._truncate(stats.get("last_action", "?"), 30),
+                reward_text,
+                ep_reward_text,
+                str(stats.get("episode_tokens", 0)),
+                mentor_text,
+                conf_text,
+            )
+        
+        console.print(table)
+    
     def _print_recent_events(self):
-        """Print recent events (warnings, failures)."""
+        """Print recent events with severity icons."""
         if not self.events:
             return
         
-        recent = list(self.events)[-3:]
+        # Event type → (icon, style, severity)
+        EVENT_STYLES = {
+            "stuck": ("🔴", "bold red", "CRITICAL"),
+            "mentor_fail": ("❌", "red", "ERROR"),
+            "parse_fail": ("❌", "red", "ERROR"),
+            "neg_streak": ("🟡", "yellow", "WARN"),
+            "repeat_warn": ("🔁", "yellow", "WARN"),
+            "budget_warn": ("⚠️", "yellow", "WARN"),
+            "phase_change": ("🔵", "blue", "INFO"),
+            "new_discovery": ("🟢", "green", "INFO"),
+            "mentor_call": ("📡", "cyan", "DEBUG"),
+        }
+        
+        recent = list(self.events)[-5:]  # Show 5 recent events
         for event in recent:
-            style = "dim"
-            icon = "ℹ"
-            if event.event_type == "mentor_fail":
-                style = "red"
-                icon = "⚠"
-            elif event.event_type == "repeat_warn":
-                style = "yellow"
-                icon = "🔁"
-            elif event.event_type == "budget_warn":
-                style = "yellow"
-                icon = "💰"
-            elif event.event_type == "stuck":
-                style = "red"
-                icon = "🔒"
-            elif event.event_type == "phase_change":
-                style = "green"
-                icon = "📍"
-            
+            icon, style, severity = EVENT_STYLES.get(
+                event.event_type, ("ℹ️", "dim", "DEBUG")
+            )
             agent_prefix = f"[{event.agent}] " if event.agent else ""
-            console.print(f"  [{style}]{icon} {agent_prefix}{event.message}[/{style}]")
+            console.print(f"  [{style}]{icon} {severity}: {agent_prefix}{event.message}[/{style}]")
     
     def print_episode_summary(
         self,
