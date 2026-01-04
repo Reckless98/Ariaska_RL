@@ -106,6 +106,7 @@ class StepRecord:
     tokens_used: int = 0
     done: bool = False
     delta: str = "kept"
+    mentor_reasoning: str = ""  # Added: Why agent chose this action
 
 
 class LiveDashboard:
@@ -215,6 +216,7 @@ class LiveDashboard:
             proposed = result.get("proposed_action", "?")
             tokens = result.get("tokens_used", 0)
             mentor_success = result.get("mentor_success", result.get("mentor_call", False))
+            mentor_reasoning = result.get("mentor_reasoning", "")
             
             record = StepRecord(
                 step=step,
@@ -231,6 +233,7 @@ class LiveDashboard:
                 tokens_used=tokens,
                 done=done,
                 delta=result.get("mentor_delta", "kept"),
+                mentor_reasoning=mentor_reasoning,
             )
             self.steps.append(record)
             
@@ -307,42 +310,42 @@ class LiveDashboard:
         )
         
         table.add_column("Agent", style="bold", width=12)
-        table.add_column("Phase", width=8)
+        table.add_column("Role", width=10)
         table.add_column("Action", width=self.config.max_action_width)
-        table.add_column("Mentor", width=8, justify="center")
-        table.add_column("Conf", width=6, justify="right")
-        table.add_column("Reward", width=10, justify="right")
-        table.add_column("Tokens", width=6, justify="right")
+        table.add_column("Why", width=35)  # Reasoning column
+        table.add_column("Reward", width=8, justify="right")
+        
+        # Agent role emojis
+        role_display = {
+            "ScoutAgent": "🔍 Recon",
+            "RedAgent": "⚔️ Attack",
+            "BlueAgent": "🛡️ Defense",
+            "OrionAgent": "🎯 Strategy",
+            "ShadowAgent": "👤 Stealth",
+        }
         
         for r in step_records:
-            # Mentor indicator with success status
-            if r.mentor:
-                if r.mentor_success:
-                    mentor_text = Text("✓", style=self.config.mentor_color)
-                else:
-                    mentor_text = Text("✗", style=self.config.warning_color)
-            else:
-                mentor_text = Text("", style="dim")
-            
-            # Action styling based on delta
-            if r.delta == "changed":
-                action_style = self.config.changed_color
-            else:
-                action_style = self.config.kept_color if not r.mentor else ""
+            # Role display
+            role = role_display.get(r.agent, "🤖 Agent")
             
             # Reward with styling for negative
             reward_text = f"{r.reward:+.2f}"
             if r.reward < 0:
                 reward_text = Text(f"{r.reward:+.2f}", style="red")
+            elif r.reward > 0:
+                reward_text = Text(f"{r.reward:+.2f}", style="green")
+            
+            # Get reasoning - prefer mentor_reasoning from decision
+            reasoning = r.mentor_reasoning[:35] if r.mentor_reasoning else ""
+            if not reasoning and r.reward_breakdown and r.reward_breakdown.reason:
+                reasoning = r.reward_breakdown.reason[:35]
             
             table.add_row(
                 r.agent,
-                r.phase,
-                Text(r.chosen, style=action_style),
-                mentor_text,
-                f"{r.confidence:.2f}",
+                role,
+                Text(r.chosen[:self.config.max_action_width], style="cyan"),
+                reasoning,
                 reward_text if isinstance(reward_text, Text) else str(reward_text),
-                str(r.tokens_used) if r.tokens_used else "",
             )
         
         console.print(table)

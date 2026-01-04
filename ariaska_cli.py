@@ -113,13 +113,26 @@ console = Console()
 def show_help():
     """Display help information"""
     help_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
-    help_table.add_column("Command", style="cyan", width=20)
-    help_table.add_column("Description", style="white", width=50)
-    help_table.add_column("Example", style="green", width=30)
+    help_table.add_column("Command", style="cyan", width=40)
+    help_table.add_column("Description", style="white", width=40)
+    help_table.add_column("Example", style="green", width=35)
     
     help_table.add_row(
+        "smart-train <episodes> [env]",
+        "🧠 Smart training with 109 pentesting commands\n"
+        "Environments: --sim, --msf, --htb, <ip>",
+        "ariaska smart-train 50\n"
+        "ariaska smart-train 20 --msf\n"
+        "ariaska smart-train 10 10.10.10.5"
+    )
+    help_table.add_row(
+        "smart-train --help",
+        "Show all environment options",
+        "ariaska smart-train --help"
+    )
+    help_table.add_row(
         "simulate-train <episodes> [target_ip]",
-        "Run enhanced multi-agent training with advanced UI dashboard, command tracking, and learning analytics",
+        "Run enhanced multi-agent training with advanced UI dashboard",
         "ariaska simulate-train 100 192.168.1.50"
     )
     help_table.add_row(
@@ -141,21 +154,6 @@ def show_help():
         "ui",
         "Launch Streamlit web interface",
         "ariaska ui"
-    )
-    help_table.add_row(
-        "test",
-        "Run system tests and diagnostics",
-        "ariaska test"
-    )
-    help_table.add_row(
-        "status",
-        "Show system status and agent memories",
-        "ariaska status"
-    )
-    help_table.add_row(
-        "help",
-        "Show this help message",
-        "ariaska help"
     )
     
     console.print(Panel(
@@ -313,6 +311,199 @@ def main():
         if command in ["help", "-h", "--help"]:
             show_help()
         
+        elif command == "smart-train":
+            # =========================================================
+            # 🧠 SMART TRAINING - Uses SmartOrchestrator with 109 commands
+            # =========================================================
+            
+            # Parse arguments - supports presets or custom targets
+            # Usage: smart-train <episodes> [--sim|--msf|--htb|<custom_ip>]
+            episodes = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+            
+            # Environment presets
+            ENV_PRESETS = {
+                "--sim": {
+                    "name": "Simulated",
+                    "target_ip": "10.10.10.10",
+                    "mode": "simulated",
+                    "platform": "linux",
+                    "difficulty": "medium",
+                    "description": "🎮 Safe simulated environment (no real network traffic)"
+                },
+                "--msf": {
+                    "name": "Metasploitable 2",
+                    "target_ip": os.environ.get("ARIASKA_MSF_IP", "192.168.56.101"),
+                    "mode": "live",
+                    "platform": "linux",
+                    "difficulty": "easy",
+                    "description": "🔥 Metasploitable 2 VM (intentionally vulnerable)"
+                },
+                "--msf3": {
+                    "name": "Metasploitable 3",
+                    "target_ip": os.environ.get("ARIASKA_MSF3_IP", "192.168.56.102"),
+                    "mode": "live",
+                    "platform": "windows",
+                    "difficulty": "medium",
+                    "description": "🔥 Metasploitable 3 Windows VM"
+                },
+                "--htb": {
+                    "name": "HackTheBox",
+                    "target_ip": os.environ.get("ARIASKA_HTB_IP", "10.10.10.x"),
+                    "mode": "live",
+                    "platform": "unknown",
+                    "difficulty": "hard",
+                    "description": "🎯 HackTheBox machine (set ARIASKA_HTB_IP env var)"
+                },
+            }
+            
+            # Determine target mode
+            target_arg = sys.argv[3] if len(sys.argv) > 3 else "--sim"
+            
+            if target_arg in ENV_PRESETS:
+                preset = ENV_PRESETS[target_arg]
+                target_ip = preset["target_ip"]
+                mode = preset["mode"]
+                platform = preset["platform"]
+                difficulty = preset["difficulty"]
+                env_name = preset["name"]
+                env_desc = preset["description"]
+            elif target_arg.replace(".", "").isdigit() or "." in target_arg:
+                # Custom IP provided
+                target_ip = target_arg
+                mode = "live"
+                platform = "unknown"
+                difficulty = "medium"
+                env_name = "Custom Target"
+                env_desc = f"🎯 Custom target: {target_ip}"
+            else:
+                # Default to simulated
+                preset = ENV_PRESETS["--sim"]
+                target_ip = preset["target_ip"]
+                mode = preset["mode"]
+                platform = preset["platform"]
+                difficulty = preset["difficulty"]
+                env_name = preset["name"]
+                env_desc = preset["description"]
+            
+            # Show environment options on first run or with --help
+            if len(sys.argv) > 3 and sys.argv[3] == "--help":
+                console.print(Panel(
+                    "[bold cyan]🧠 Smart Training - Environment Options[/bold cyan]\n\n"
+                    "[bold]Usage:[/bold]\n"
+                    "  ariaska smart-train <episodes> [environment]\n\n"
+                    "[bold]Environments:[/bold]\n"
+                    "  --sim      🎮 Simulated (default) - Safe, no real network traffic\n"
+                    "  --msf      🔥 Metasploitable 2 - Intentionally vulnerable VM\n"
+                    "  --msf3     🔥 Metasploitable 3 - Windows vulnerable VM\n"
+                    "  --htb      🎯 HackTheBox - Set ARIASKA_HTB_IP first\n"
+                    "  <ip>       🌐 Custom IP - Any reachable target\n\n"
+                    "[bold]Examples:[/bold]\n"
+                    "  ariaska smart-train 50           # 50 episodes, simulated\n"
+                    "  ariaska smart-train 100 --sim    # 100 episodes, simulated\n"
+                    "  ariaska smart-train 20 --msf     # 20 episodes, Metasploitable 2\n"
+                    "  ariaska smart-train 10 10.10.10.5  # 10 episodes, custom HTB box\n\n"
+                    "[bold]Environment Variables:[/bold]\n"
+                    "  ARIASKA_MSF_IP    - Metasploitable 2 IP (default: 192.168.56.101)\n"
+                    "  ARIASKA_MSF3_IP   - Metasploitable 3 IP (default: 192.168.56.102)\n"
+                    "  ARIASKA_HTB_IP    - HackTheBox target IP",
+                    title="🚀 Smart Training Help",
+                    border_style="blue"
+                ))
+                return 0
+            
+            console.print(Panel(
+                f"🧠 ARIASKA Smart Training System v3.0\n\n"
+                f"Episodes: {episodes}\n"
+                f"Environment: {env_name}\n"
+                f"{env_desc}\n"
+                f"Target: {target_ip}\n"
+                f"Mode: {mode.upper()}\n"
+                f"Platform: {platform}\n"
+                f"Difficulty: {difficulty}\n\n"
+                f"System: SmartOrchestrator with 109 pentesting commands\n"
+                f"Features:\n"
+                f"  • Command Registry (nmap, impacket, bloodhound, etc.)\n"
+                f"  • Hybrid GPT Mode (registry-first, GPT for strategy)\n"
+                f"  • Phase-Aware Rewards (RECON → EXFILTRATION)\n"
+                f"  • Real-time LiveDashboard\n"
+                f"  • Learned Command Store",
+                title="🚀 Smart Training Initialization",
+                border_style="cyan"
+            ))
+            
+            # Set environment mode
+            os.environ["ARIASKA_MODE"] = mode
+            if mode == "live":
+                os.environ["ARIASKA_LIVE_MODE"] = "true"
+                os.environ["ARIASKA_TARGET_IP"] = target_ip
+            
+            try:
+                from core.orchestration.smart_orchestrator import SmartOrchestrator, SmartOrchestratorConfig
+                from core.environment.cyber_environment import CyberEnvironment
+                from core.gpt_manager import GPTManager
+                
+                console.print("✅ Loading SmartOrchestrator...")
+                
+                # Initialize components
+                env = CyberEnvironment(defer_reset=False)
+                env.mode = mode
+                env.target_ip = target_ip
+                if mode == "live":
+                    env.live_mode = True
+                    env.live_target_ip = target_ip
+                
+                gpt = GPTManager()
+                
+                config = SmartOrchestratorConfig(
+                    model="gpt-4o-mini",
+                    mentor_mode="adaptive",  # NEW: Adaptive mentor calling
+                    mentor_warmup_episodes=2,
+                    mentor_min_rate=0.1,
+                    mentor_max_rate=0.5,
+                    max_steps_per_episode=150,  # Increased for more learning
+                    default_target=target_ip,
+                    dashboard_enabled=True,
+                    dashboard_mode="live",
+                )
+                
+                orchestrator = SmartOrchestrator(
+                    env=env,
+                    gpt_manager=gpt,
+                    config=config,
+                    verbosity="standard",
+                )
+                
+                console.print(f"✅ Initialized {len(orchestrator.agents)} agents with SmartCoach")
+                console.print(f"✅ Command registry: 109 pentesting commands")
+                console.print(f"✅ Environment: {env_name} ({mode})")
+                console.print(f"✅ Starting smart training...")
+                console.print()
+                
+                # Run smart training
+                results = orchestrator.run_training(
+                    episodes=episodes,
+                    target_ip=target_ip,
+                    difficulty=difficulty,
+                    platform=platform,
+                )
+                
+                console.print(Panel(
+                    f"✅ Smart Training Complete!\n\n"
+                    f"📊 Episodes: {results['episodes_completed']}\n"
+                    f"⏱️ Duration: {results['total_training_time']:.1f}s\n"
+                    f"🎯 Avg Reward: {results['final_metrics']['avg_reward']:.2f}\n"
+                    f"📈 Highest Phase: {results['final_metrics']['highest_phase']}\n"
+                    f"📁 Session: {results['session_id']}",
+                    title="🏆 Smart Training Complete",
+                    border_style="green"
+                ))
+                
+            except Exception as e:
+                console.print(f"[red]❌ Smart training failed: {e}[/red]")
+                import traceback
+                console.print(f"[dim]{traceback.format_exc()}[/dim]")
+                return 1
+        
         elif command == "simulate-train":
             episodes = int(sys.argv[2]) if len(sys.argv) > 2 else 50
             target_ip = sys.argv[3] if len(sys.argv) > 3 else "192.168.1.100"
@@ -322,7 +513,8 @@ def main():
                 f"Episodes: {episodes}\n"
                 f"Target: {target_ip}\n"
                 f"System: Enhanced Multi-Agent with Advanced UI\n"
-                f"Features: Real-time Dashboard, Command Tracking, Learning Analytics",
+                f"Features: Real-time Dashboard, Command Tracking, Learning Analytics\n\n"
+                f"💡 TIP: Try 'ariaska smart-train' for the new SmartOrchestrator!",
                 title="Enhanced Training Initialization",
                 border_style="green"
             ))

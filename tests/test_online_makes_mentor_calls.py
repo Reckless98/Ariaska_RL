@@ -140,12 +140,20 @@ def test_mentor_calls_logged_correctly(project_root):
     with open(mentor_file) as f:
         mentor_entries = [json.loads(line) for line in f if line.strip()]
     
-    # Verify required fields are present
-    required_fields = ["agent", "episode", "step", "timestamp"]
+    # Verify required fields are present (agent and timestamp are core)
+    # episode/step may be in event_id format like "0:0000:AgentName"
+    required_fields = ["agent", "timestamp"]
     
     for entry in mentor_entries:
         for field in required_fields:
             assert field in entry, f"Missing required field '{field}' in mentor entry: {entry}"
+        
+        # Check that we have some identification (either episode/step or event_id)
+        has_identification = (
+            ("episode" in entry and "step" in entry) or
+            "event_id" in entry
+        )
+        assert has_identification, f"Entry missing identification (episode/step or event_id): {entry}"
 
 
 def test_offline_flag_documented(project_root):

@@ -512,6 +512,23 @@ class CyberEnvironment:
         return self.get_global_state()
 
     def get_global_state(self):
+        # Build state_flags for SmartCoach compatibility
+        state_flags = {
+            "ports_discovered": len(self.open_ports) > 0,
+            "services_enumerated": len(self.services) > 0,
+            "ssh_service_found": "ssh" in self.services or any("ssh" in str(s).lower() for s in self.services),
+            "http_service_found": "http" in self.services or any("http" in str(s).lower() for s in self.services),
+            "smb_service_found": "smb" in self.services or any("smb" in str(s).lower() for s in self.services),
+            "ftp_service_found": "ftp" in self.services or any("ftp" in str(s).lower() for s in self.services),
+            "mysql_service_found": "mysql" in self.services or any("mysql" in str(s).lower() for s in self.services),
+            "vulnerability_found": len(self.discovered_vulnerabilities) > 0,
+            "credentials_known": self.credentials_found,
+            "shell_obtained": self.privilege_level in ("user", "root"),
+            "linux_shell_obtained": self.privilege_level in ("user", "root"),  # Assume linux for now
+            "root_shell_obtained": self.privilege_level == "root",
+            "admin_credentials_known": self.privilege_level == "root",
+        }
+        
         return {
             "phase": self.current_phase,
             "open_ports": self.open_ports,
@@ -532,7 +549,8 @@ class CyberEnvironment:
             "honeypots": self.honeypots,
             "done": self.done,
             "phase_progress": self.phase_progress,
-            "live_mode": self.live_mode
+            "live_mode": self.live_mode,
+            "state_flags": state_flags,  # For SmartCoach compatibility
         }
 
     # ─────────────────────────────────────────────

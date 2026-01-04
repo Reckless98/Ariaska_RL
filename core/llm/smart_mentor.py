@@ -1,0 +1,609 @@
+"""
+Smart Mentor - Structured GPT prompting for intelligent command generation.
+
+This module provides rich context to the LLM for generating high-quality
+pentesting commands based on current attack state, phase, and history.
+"""
+
+import json
+import re
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Set, Tuple
+from enum import Enum
+
+from ..commands.command_registry import (
+    AttackPhase,
+    CommandTemplate,
+    CommandChoice,
+    COMMAND_REGISTRY,
+    get_valid_commands_for_state,
+    get_phase_from_state,
+    render_command,
+    get_command_names_for_prompt
+)
+from ..commands.learned_commands import (
+    LearnedCommandStore,
+    get_learned_store
+)
+
+
+@dataclass
+class AttackContext:
+    """
+    Rich context about the current attack state for LLM prompting.
+    
+    Attributes:
+        target: Target IP or hostname
+        current_phase: Current phase in attack chain
+        state_flags: Dictionary of discovered facts
+        command_history: Recent commands executed
+        discoveries: Important findings (open ports, users, etc.)
+        failed_attempts: Commands that didn't work
+        time_budget: Remaining time or tokens
+        difficulty: Target difficulty (easy, medium, hard, insane)
+        platform: Target platform (linux, windows, unknown)
+        services_found: Discovered services
+    """
+    target: str
+    current_phase: AttackPhase = AttackPhase.RECON
+    state_flags: Dict[str, bool] = field(default_factory=dict)
+    command_history: List[str] = field(default_factory=list)
+    discoveries: Dict[str, Any] = field(default_factory=dict)
+    failed_attempts: List[str] = field(default_factory=list)
+    time_budget: Optional[int] = None
+    difficulty: str = "unknown"
+    platform: str = "unknown"
+    services_found: List[str] = field(default_factory=list)
+    
+    def to_narrative(self) -> str:
+        """Convert context to human-readable narrative for LLM."""
+        lines = []
+        
+        # Target info
+        lines.append(f"TARGET: {self.target}")
+        lines.append(f"PHASE: {self.current_phase.name}")
+        lines.append(f"PLATFORM: {self.platform}")
+        if self.difficulty != "unknown":
+            lines.append(f"DIFFICULTY: {self.difficulty}")
+        
+        # Services
+        if self.services_found:
+            lines.append(f"\nDISCOVERED SERVICES:")
+            for svc in self.services_found:
+                lines.append(f"  • {svc}")
+        
+        # Key discoveries
+        if self.discoveries:
+            lines.append(f"\nKEY DISCOVERIES:")
+            for key, value in self.discoveries.items():
+                if isinstance(value, list):
+                    lines.append(f"  • {key}: {', '.join(str(v) for v in value[:5])}")
+                else:
+                    lines.append(f"  • {key}: {value}")
+        
+        # Recent commands (last 5)
+        if self.command_history:
+            lines.append(f"\nRECENT COMMANDS (last 5):")
+            for cmd in self.command_history[-5:]:
+                lines.append(f"  > {cmd[:80]}...")
+        
+        # Failed attempts (to avoid)
+        if self.failed_attempts:
+            lines.append(f"\nFAILED ATTEMPTS (avoid these):")
+            for cmd in self.failed_attempts[-3:]:
+                lines.append(f"  ✗ {cmd[:60]}...")
+        
+        # Current state flags summary
+        active_flags = [k for k, v in self.state_flags.items() if v]
+        if active_flags:
+            lines.append(f"\nCURRENT STATE:")
+            for flag in active_flags[:10]:
+                lines.append(f"  ✓ {flag}")
+        
+        return "\n".join(lines)
+    
+    def add_discovery(self, key: str, value: Any) -> None:
+        """Add a discovery to the context."""
+        if key in self.discoveries:
+            if isinstance(self.discoveries[key], list):
+                if isinstance(value, list):
+                    self.discoveries[key].extend(value)
+                else:
+                    self.discoveries[key].append(value)
+            else:
+                self.discoveries[key] = [self.discoveries[key], value]
+        else:
+            self.discoveries[key] = value
+    
+    def set_state_flag(self, flag: str, value: bool = True) -> None:
+        """Set a state flag."""
+        self.state_flags[flag] = value
+        
+        # Auto-detect phase advancement
+        self.current_phase = get_phase_from_state(self.state_flags)
+    
+    def add_service(self, service: str, port: Optional[int] = None) -> None:
+        """Add a discovered service."""
+        svc_str = f"{service}:{port}" if port else service
+        if svc_str not in self.services_found:
+            self.services_found.append(svc_str)
+        
+        # Set appropriate state flag
+        service_lower = service.lower()
+        if "http" in service_lower or "web" in service_lower:
+            self.set_state_flag("http_service_found")
+        elif "ssh" in service_lower:
+            self.set_state_flag("ssh_service_found")
+        elif "smb" in service_lower or "445" in str(port):
+            self.set_state_flag("smb_service_found")
+        elif "ftp" in service_lower:
+            self.set_state_flag("ftp_service_found")
+        elif "ldap" in service_lower:
+            self.set_state_flag("ldap_service_found")
+        elif "dns" in service_lower:
+            self.set_state_flag("dns_service_found")
+        elif "snmp" in service_lower:
+            self.set_state_flag("snmp_service_found")
+        elif "winrm" in service_lower or "5985" in str(port):
+            self.set_state_flag("winrm_service_found")
+        elif "kerberos" in service_lower or "88" in str(port):
+            self.set_state_flag("kerberos_service_found")
+
+
+@dataclass
+class MentorResponse:
+    """
+    Structured response from the smart mentor.
+    
+    Attributes:
+        command: The actual command to execute
+        template_name: Name of the CommandTemplate used
+        params: Parameters used
+        reasoning: Why this command was chosen
+        confidence: Confidence in this choice (0-1)
+        next_phase_hint: Suggested next phase
+        alternative_commands: Backup commands if this fails
+        phase: Current attack phase
+    """
+    command: str
+    template_name: str
+    params: Dict[str, str]
+    reasoning: str
+    confidence: float
+    next_phase_hint: Optional[str] = None
+    alternative_commands: List[str] = field(default_factory=list)
+    phase: AttackPhase = AttackPhase.RECON
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if this is a valid response."""
+        return bool(self.command and self.template_name)
+
+
+class SmartMentor:
+    """
+    Intelligent mentor that generates pentesting commands using LLM.
+    
+    Provides structured prompts with rich context and validates
+    output against the command registry.
+    """
+    
+    def __init__(
+        self,
+        llm_client: Any,
+        learned_store: Optional[LearnedCommandStore] = None,
+        model: str = "gpt-4o-mini",
+        temperature: float = 0.7,
+        max_retries: int = 2
+    ):
+        """
+        Initialize the smart mentor.
+        
+        Args:
+            llm_client: LLM client with chat completion capability
+            learned_store: Store for learned commands
+            model: Model to use
+            temperature: Sampling temperature
+            max_retries: Max retries for failed parses
+        """
+        self.llm_client = llm_client
+        self.learned_store = learned_store or get_learned_store()
+        self.model = model
+        self.temperature = temperature
+        self.max_retries = max_retries
+    
+    def _build_system_prompt(self) -> str:
+        """Build the system prompt for the mentor."""
+        return """You are an expert penetration tester and red team operator with deep knowledge of:
+- Network reconnaissance and enumeration
+- Web application security testing
+- Active Directory attacks and lateral movement
+- Linux and Windows privilege escalation
+- Advanced techniques like port knocking, tunneling, and evasion
+
+Your role is to select the BEST next command for the current attack phase.
+
+CRITICAL RULES:
+1. ALWAYS select from the provided command list - never invent commands
+2. Consider the current phase and what discoveries have been made
+3. Don't repeat failed commands or commands that were just run
+4. Progress through phases: Recon → Enumeration → Exploitation → PrivEsc → Lateral → Post-Ex
+5. Be creative but realistic - use the right tool for the situation
+6. Provide clear reasoning for your command choice
+
+OUTPUT FORMAT (JSON only):
+{
+    "selected_command": "template_name from the list",
+    "parameters": {"param1": "value1", "param2": "value2"},
+    "reasoning": "Brief explanation of why this command",
+    "confidence": 0.8,
+    "next_phase_hint": "what to try if this works"
+}"""
+    
+    def _build_user_prompt(
+        self,
+        context: AttackContext,
+        valid_commands: List[CommandTemplate]
+    ) -> str:
+        """Build the user prompt with context and available commands."""
+        lines = []
+        
+        # Attack context narrative
+        lines.append("=== CURRENT ATTACK STATE ===")
+        lines.append(context.to_narrative())
+        lines.append("")
+        
+        # Available commands
+        lines.append("=== AVAILABLE COMMANDS ===")
+        lines.append(f"(Phase: {context.current_phase.name})")
+        lines.append("")
+        
+        for cmd in valid_commands[:25]:  # Limit to avoid token overflow
+            params = ", ".join(cmd.required_params) if cmd.required_params else "none"
+            optional = ", ".join(f"{k}={v}" for k, v in list(cmd.optional_params.items())[:3])
+            
+            lines.append(f"• {cmd.name}")
+            lines.append(f"  Required params: {params}")
+            if optional:
+                lines.append(f"  Optional: {optional}")
+            lines.append(f"  Description: {cmd.description}")
+            
+            # Include WHY/WHEN context for smarter decisions
+            if hasattr(cmd, 'why') and cmd.why:
+                lines.append(f"  WHY: {cmd.why}")
+            if hasattr(cmd, 'when') and cmd.when:
+                lines.append(f"  WHEN: {cmd.when}")
+            if hasattr(cmd, 'not_when') and cmd.not_when:
+                lines.append(f"  AVOID: {cmd.not_when}")
+            if hasattr(cmd, 'follows_after') and cmd.follows_after:
+                lines.append(f"  FOLLOWS: {', '.join(cmd.follows_after[:3])}")
+            if hasattr(cmd, 'enables') and cmd.enables:
+                lines.append(f"  ENABLES: {', '.join(cmd.enables[:3])}")
+            
+            lines.append("")
+        
+        # Learned command suggestions
+        learned_suggestions = self.learned_store.get_commands_for_prompt(
+            phase=context.current_phase,
+            preconditions=set(k for k, v in context.state_flags.items() if v),
+            limit=3
+        )
+        
+        if learned_suggestions:
+            lines.append("=== PROVEN SUCCESSFUL COMMANDS ===")
+            for suggestion in learned_suggestions:
+                lines.append(suggestion)
+            lines.append("")
+        
+        # Instruction
+        lines.append("=== YOUR TASK ===")
+        lines.append("Select the BEST next command from the available list.")
+        lines.append("Fill in all required parameters based on the target and context.")
+        lines.append("Respond with ONLY valid JSON, no markdown or explanation outside JSON.")
+        
+        return "\n".join(lines)
+    
+    def _parse_response(self, response_text: str) -> Optional[Dict[str, Any]]:
+        """Parse LLM response into structured format."""
+        # Try to extract JSON from response
+        text = response_text.strip()
+        
+        # Remove markdown code blocks if present
+        if text.startswith("```"):
+            # Find the end
+            lines = text.split("\n")
+            json_lines = []
+            in_json = False
+            for line in lines:
+                if line.startswith("```") and not in_json:
+                    in_json = True
+                    continue
+                elif line.startswith("```") and in_json:
+                    break
+                elif in_json:
+                    json_lines.append(line)
+            text = "\n".join(json_lines)
+        
+        # Try to find JSON object
+        json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
+        if json_match:
+            text = json_match.group()
+        
+        try:
+            data = json.loads(text)
+            return data
+        except json.JSONDecodeError:
+            return None
+    
+    def _validate_and_build_response(
+        self,
+        parsed: Dict[str, Any],
+        context: AttackContext,
+        valid_commands: List[CommandTemplate]
+    ) -> Optional[MentorResponse]:
+        """Validate parsed response and build MentorResponse."""
+        template_name = parsed.get("selected_command", "")
+        params = parsed.get("parameters", {})
+        reasoning = parsed.get("reasoning", "")
+        confidence = float(parsed.get("confidence", 0.5))
+        next_hint = parsed.get("next_phase_hint", "")
+        
+        # Find the template
+        template = COMMAND_REGISTRY.get(template_name)
+        if not template:
+            # Try fuzzy match
+            for name, cmd in COMMAND_REGISTRY.items():
+                if template_name.lower() in name.lower() or name.lower() in template_name.lower():
+                    template = cmd
+                    template_name = name
+                    break
+        
+        if not template:
+            return None
+        
+        # Ensure required params are filled
+        for req_param in template.required_params:
+            if req_param not in params or not params[req_param]:
+                # Try to fill from context
+                if req_param == "target":
+                    params[req_param] = context.target
+                elif req_param == "url" and context.target:
+                    # Construct URL from target
+                    port = 80
+                    for svc in context.services_found:
+                        if "http" in svc.lower():
+                            parts = svc.split(":")
+                            if len(parts) > 1:
+                                try:
+                                    port = int(parts[1])
+                                except ValueError:
+                                    pass
+                    proto = "https" if port == 443 else "http"
+                    params[req_param] = f"{proto}://{context.target}:{port}"
+                elif req_param == "ports" and "open_ports" in context.discoveries:
+                    params[req_param] = ",".join(str(p) for p in context.discoveries["open_ports"][:10])
+                else:
+                    # Still missing required param
+                    return None
+        
+        # Render the command
+        try:
+            command = render_command(template, params)
+        except ValueError as e:
+            return None
+        
+        return MentorResponse(
+            command=command,
+            template_name=template_name,
+            params=params,
+            reasoning=reasoning,
+            confidence=confidence,
+            next_phase_hint=next_hint,
+            phase=template.phase
+        )
+    
+    async def get_command_async(
+        self,
+        context: AttackContext
+    ) -> MentorResponse:
+        """
+        Get the next command asynchronously.
+        
+        Args:
+            context: Current attack context
+            
+        Returns:
+            MentorResponse with command and reasoning
+        """
+        # Get valid commands for current state
+        valid_commands = get_valid_commands_for_state(
+            context.state_flags,
+            context.current_phase
+        )
+        
+        # If no valid commands for current phase, try all phases
+        if not valid_commands:
+            valid_commands = get_valid_commands_for_state(context.state_flags)
+        
+        # If still none, use recon commands (always valid)
+        if not valid_commands:
+            valid_commands = [
+                cmd for cmd in COMMAND_REGISTRY.values()
+                if cmd.phase == AttackPhase.RECON and not cmd.preconditions
+            ]
+        
+        # Build prompts
+        system_prompt = self._build_system_prompt()
+        user_prompt = self._build_user_prompt(context, valid_commands)
+        
+        # Call LLM
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = await self.llm_client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=self.temperature,
+                    max_tokens=500
+                )
+                
+                response_text = response.choices[0].message.content
+                
+                # Parse response
+                parsed = self._parse_response(response_text)
+                if not parsed:
+                    continue
+                
+                # Validate and build response
+                mentor_response = self._validate_and_build_response(
+                    parsed, context, valid_commands
+                )
+                
+                if mentor_response:
+                    return mentor_response
+                
+            except Exception as e:
+                if attempt == self.max_retries:
+                    # Return a safe default
+                    return self._get_fallback_command(context, valid_commands)
+        
+        return self._get_fallback_command(context, valid_commands)
+    
+    def get_command(self, context: AttackContext) -> MentorResponse:
+        """
+        Get the next command synchronously.
+        
+        Args:
+            context: Current attack context
+            
+        Returns:
+            MentorResponse with command and reasoning
+        """
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context, create a new task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(
+                        asyncio.run,
+                        self.get_command_async(context)
+                    )
+                    return future.result()
+            else:
+                return loop.run_until_complete(self.get_command_async(context))
+        except RuntimeError:
+            # No event loop, create one
+            return asyncio.run(self.get_command_async(context))
+    
+    def _get_fallback_command(
+        self,
+        context: AttackContext,
+        valid_commands: List[CommandTemplate]
+    ) -> MentorResponse:
+        """Get a safe fallback command when LLM fails."""
+        # Pick the first valid command with highest reward
+        if not valid_commands:
+            # Ultimate fallback - basic nmap
+            return MentorResponse(
+                command=f"nmap -sT --top-ports 100 {context.target}",
+                template_name="nmap_top_ports",
+                params={"target": context.target, "num_ports": "100"},
+                reasoning="Fallback: Basic port scan to discover services",
+                confidence=0.3,
+                phase=AttackPhase.RECON
+            )
+        
+        # Sort by reward and pick highest
+        sorted_cmds = sorted(valid_commands, key=lambda c: c.typical_reward, reverse=True)
+        template = sorted_cmds[0]
+        
+        # Try to fill params
+        params = {}
+        for p in template.required_params:
+            if p == "target":
+                params[p] = context.target
+            elif p == "url":
+                params[p] = f"http://{context.target}"
+            elif p == "ports" and "open_ports" in context.discoveries:
+                params[p] = ",".join(str(p) for p in context.discoveries["open_ports"][:10])
+            else:
+                params[p] = "{" + p + "}"  # Placeholder
+        
+        # Add optional defaults
+        params.update(template.optional_params)
+        
+        try:
+            command = render_command(template, params)
+        except ValueError:
+            command = template.template.format_map(params)
+        
+        return MentorResponse(
+            command=command,
+            template_name=template.name,
+            params=params,
+            reasoning=f"Fallback: {template.description}",
+            confidence=0.3,
+            phase=template.phase
+        )
+    
+    def record_result(
+        self,
+        response: MentorResponse,
+        success: bool,
+        reward: float,
+        context: AttackContext
+    ) -> None:
+        """
+        Record the result of a command for learning.
+        
+        Args:
+            response: The MentorResponse that was executed
+            success: Whether it succeeded
+            reward: Reward received
+            context: Attack context when executed
+        """
+        context_tags = {context.platform, context.difficulty}
+        preconditions = set(k for k, v in context.state_flags.items() if v)
+        
+        if success:
+            self.learned_store.record_success(
+                template_name=response.template_name,
+                params=response.params,
+                reward=reward,
+                context_tags=context_tags,
+                preconditions_met=preconditions,
+                phase=response.phase
+            )
+        else:
+            self.learned_store.record_failure(
+                template_name=response.template_name,
+                params=response.params
+            )
+
+
+def create_smart_mentor(
+    llm_client: Any,
+    model: str = "gpt-4o-mini",
+    temperature: float = 0.7
+) -> SmartMentor:
+    """
+    Factory function to create a SmartMentor.
+    
+    Args:
+        llm_client: LLM client with chat completion capability
+        model: Model to use
+        temperature: Sampling temperature
+        
+    Returns:
+        Configured SmartMentor instance
+    """
+    return SmartMentor(
+        llm_client=llm_client,
+        model=model,
+        temperature=temperature
+    )
