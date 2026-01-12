@@ -220,6 +220,18 @@ class GPTManager:
         self._client = None  # Lazy-initialized OpenAI sync client
         self._async_client = None  # Lazy-initialized OpenAI async client
         
+        # Venice AI integration
+        self.venice_api_key = os.getenv("VENICE_API_KEY")
+        self.venice_base_url = "https://api.venice.ai/api/v1"
+        self._venice_client = None  # Lazy-initialized Venice sync client
+        self._venice_async_client = None  # Lazy-initialized Venice async client
+        self.venice_model = os.getenv("VENICE_MODEL", "venice-uncensored")
+        
+        # Dual-mentor strategy settings
+        self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
+        self.mentor_strategy = os.getenv("MENTOR_STRATEGY", "gpt_first")  # gpt_first, venice_first, round_robin, parallel
+        self._mentor_call_count = 0  # For round-robin
+        
         # Strict mode validation
         if self._enable_llm and self._require_llm and not self.api_key:
             raise RuntimeError(
@@ -235,6 +247,15 @@ class GPTManager:
         
         # Feature flags
         self.enable_postmortem_5_2 = os.getenv("ENABLE_GPT_5_2_POSTMORTEM", "false").lower() == "true"
+        
+        # Venice integration stats
+        self.venice_enabled = bool(self.venice_api_key) and self.enable_dual_mentor
+        self.stats_venice = {
+            "total_requests": 0,
+            "successes": 0,
+            "failures": 0,
+            "tokens_used": 0
+        }
         
         # Token budgeting - per episode and per agent
         self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "8000"))
@@ -276,8 +297,10 @@ class GPTManager:
         logger.info(f"Fallback model: {self.fallback_model}")
         logger.info(f"Platform detected: {platform.system()}")
         if self.is_configured():
+            venice_status = f"[cyan]Venice: {self.venice_model}[/cyan]" if self.venice_enabled else "[dim]Venice: disabled[/dim]"
             if console:
-                console.print(f"[green]GPTManager v5.0 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model}[/green]")
+                console.print(f"[green]GPTManager v5.1 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model} | {venice_status}[/green]")
+            logger.info(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
         else:
             logger.warning("GPTManager: OPENAI_API_KEY not set. LLM calls disabled until configured.")
     
@@ -433,6 +456,112 @@ class GPTManager:
             from openai import AsyncOpenAI
             self._async_client = AsyncOpenAI(api_key=self.api_key)
         return self._async_client
+
+    @property
+    def venice_client(self):
+        """Lazy-initialize Venice AI sync client on first use."""
+        if self._venice_client is None:
+            if not OPENAI_AVAILABLE or OpenAI is None:
+                raise RuntimeError(
+                    "OpenAI library not installed. Venice uses OpenAI-compatible API. Install with: pip install openai"
+                )
+            if not self.venice_api_key:
+                raise RuntimeError(
+                    "VENICE_API_KEY not set. Set the environment variable to use Venice AI."
+                )
+            self._venice_client = OpenAI(
+                api_key=self.venice_api_key,
+                base_url=self.venice_base_url
+            )
+            logger.info(f"Venice AI client initialized | Model: {self.venice_model}")
+        return self._venice_client
+
+    @property
+    def venice_async_client(self):
+        """Lazy-initialize Venice AI async client on first use."""
+        if self._venice_async_client is None:
+            if not OPENAI_AVAILABLE:
+                raise RuntimeError(
+                    "OpenAI library not installed. Venice uses OpenAI-compatible API. Install with: pip install openai"
+                )
+            if not self.venice_api_key:
+                raise RuntimeError(
+                    "VENICE_API_KEY not set. Set the environment variable to use Venice AI."
+                )
+            from openai import AsyncOpenAI
+            self._venice_async_client = AsyncOpenAI(
+                api_key=self.venice_api_key,
+                base_url=self.venice_base_url
+            )
+            logger.info(f"Venice AI async client initialized | Model: {self.venice_model}")
+        return self._venice_async_client
+
+    def has_venice(self) -> bool:
+        """Check if Venice AI is available."""
+        return bool(self.venice_api_key) and self.venice_enabled
+
+    def get_next_mentor_provider(self) -> str:
+        """
+        Get the next mentor provider based on strategy.
+        
+        Strategies:
+        - gpt_first: Always GPT, Venice as fallback
+        - venice_first: Always Venice, GPT as fallback
+        - round_robin: Alternate between GPT and Venice
+        - parallel: Use both (caller handles)
+        
+        Returns:
+            str: "gpt" or "venice"
+        """
+        if not self.has_venice():
+            return "gpt"
+        
+        if self.mentor_strategy == "venice_first":
+            return "venice"
+        elif self.mentor_strategy == "round_robin":
+            self._mentor_call_count += 1
+            return "venice" if self._mentor_call_count % 2 == 0 else "gpt"
+        elif self.mentor_strategy == "parallel":
+            return "both"
+        else:  # gpt_first (default)
+            return "gpt"
+
+    def get_mentor_clients(self) -> Dict[str, Any]:
+        """
+        Get mentor clients based on availability.
+        
+        Returns:
+            Dict with 'primary', 'secondary', and their async variants
+        """
+        result = {
+            "primary": None,
+            "primary_async": None,
+            "primary_model": None,
+            "secondary": None,
+            "secondary_async": None,
+            "secondary_model": None,
+            "strategy": self.mentor_strategy
+        }
+        
+        # Primary is always GPT (if available)
+        if self.api_key and self._enable_llm:
+            try:
+                result["primary"] = self.client
+                result["primary_async"] = self.async_client
+                result["primary_model"] = self.primary_model
+            except RuntimeError:
+                pass
+        
+        # Secondary is Venice (if available)
+        if self.has_venice():
+            try:
+                result["secondary"] = self.venice_client
+                result["secondary_async"] = self.venice_async_client
+                result["secondary_model"] = self.venice_model
+            except RuntimeError:
+                pass
+        
+        return result
     
     def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
         """

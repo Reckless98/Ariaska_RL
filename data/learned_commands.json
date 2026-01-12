@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-04T22:38:30.589168",
-  "total_commands": 73,
+  "updated_at": "2026-01-12T20:50:26.979808",
+  "total_commands": 78,
   "commands": {
     "nmap_top_ports::num_ports=100|target=10.10.10.10": {
       "template_name": "nmap_top_ports",
@@ -11,24 +11,25 @@
       },
       "context_tags": [
         "unknown",
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 25,
-      "total_attempts": 48,
-      "avg_reward": 10.19406081397042,
+      "success_count": 88,
+      "total_attempts": 111,
+      "avg_reward": 8.276721822150684,
       "discovered_at": "2026-01-04T01:14:50.004054",
-      "last_used": "2026-01-04T17:25:23.589473",
+      "last_used": "2026-01-12T20:44:08.098017",
       "notes": "",
       "phase": "RECON",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "dig_axfr::domain={domain}|target=10.10.10.10": {
@@ -38,9 +39,9 @@
         "domain": "{domain}"
       },
       "context_tags": [
+        "linux",
         "unknown",
-        "medium",
-        "linux"
+        "medium"
       ],
       "success_count": 17,
       "total_attempts": 107,
@@ -50,13 +51,13 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "ftp_service_found"
       ]
     },
     "snmpwalk::community=public|target=10.10.10.10|version=2c": {
@@ -67,25 +68,25 @@
         "version": "2c"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 89,
-      "total_attempts": 107,
-      "avg_reward": 8.248354371309471,
+      "success_count": 90,
+      "total_attempts": 108,
+      "avg_reward": 9.017817100517144,
       "discovered_at": "2026-01-04T01:27:01.871081",
-      "last_used": "2026-01-04T22:38:30.584810",
+      "last_used": "2026-01-11T03:45:09.505963",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
-        "vulnerability_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "enum4linux_full::target=10.10.10.10": {
@@ -94,25 +95,25 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 8,
-      "total_attempts": 61,
-      "avg_reward": 16.73194660112501,
+      "success_count": 58,
+      "total_attempts": 111,
+      "avg_reward": 10.468199531189658,
       "discovered_at": "2026-01-04T02:39:47.663114",
-      "last_used": "2026-01-04T22:36:51.332423",
+      "last_used": "2026-01-12T20:49:59.536405",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
-        "vulnerability_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "enum4linux_ng::target=10.10.10.10": {
@@ -121,23 +122,25 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 11,
-      "total_attempts": 23,
-      "avg_reward": 7.262890399774428,
+      "success_count": 65,
+      "total_attempts": 77,
+      "avg_reward": 8.916796836884904,
       "discovered_at": "2026-01-04T02:39:47.677786",
-      "last_used": "2026-01-04T15:33:45.308040",
+      "last_used": "2026-01-12T20:50:26.979783",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "onesixtyone::target=10.10.10.10|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -147,8 +150,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
       "success_count": 33,
       "total_attempts": 42,
@@ -158,13 +161,13 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "vulnerability_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found"
       ]
     },
     "nikto_scan::url=http://10.10.10.10": {
@@ -173,24 +176,25 @@
         "url": "http://10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 35,
-      "total_attempts": 117,
-      "avg_reward": 7.422467641830651,
+      "success_count": 115,
+      "total_attempts": 197,
+      "avg_reward": 7.510316238818024,
       "discovered_at": "2026-01-04T02:54:48.083472",
-      "last_used": "2026-01-04T22:37:58.006135",
+      "last_used": "2026-01-12T20:50:26.978473",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "vulnerability_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://10.10.10.10": {
@@ -201,23 +205,24 @@
         "threads": "50"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 10,
-      "total_attempts": 23,
-      "avg_reward": 14.64587585476807,
+      "success_count": 20,
+      "total_attempts": 33,
+      "avg_reward": 11.457937927384034,
       "discovered_at": "2026-01-04T04:09:38.134133",
-      "last_used": "2026-01-04T22:37:47.137415",
+      "last_used": "2026-01-12T20:49:46.855739",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "vulnerability_found",
         "http_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "ldapsearch_users::base_dn={base_dn}|target=10.10.10.10": {
@@ -227,9 +232,9 @@
         "base_dn": "{base_dn}"
       },
       "context_tags": [
+        "linux",
         "unknown",
-        "medium",
-        "linux"
+        "medium"
       ],
       "success_count": 3,
       "total_attempts": 4,
@@ -239,9 +244,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "smb_service_found",
         "ldap_service_found",
-        "ftp_service_found",
-        "smb_service_found"
+        "ftp_service_found"
       ]
     },
     "smbmap_shares::password=|target=10.10.10.10|username=guest": {
@@ -252,23 +257,25 @@
         "password": ""
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 8,
-      "total_attempts": 12,
-      "avg_reward": 10.178750848489496,
+      "success_count": 51,
+      "total_attempts": 55,
+      "avg_reward": 8.27509817231208,
       "discovered_at": "2026-01-04T04:41:26.558118",
-      "last_used": "2026-01-04T15:47:35.197007",
+      "last_used": "2026-01-12T20:48:23.690739",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "rpcclient_null::target=10.10.10.10": {
@@ -277,23 +284,25 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 8,
-      "total_attempts": 15,
-      "avg_reward": 13.162883856720915,
+      "success_count": 50,
+      "total_attempts": 57,
+      "avg_reward": 10.668061417075348,
       "discovered_at": "2026-01-04T04:41:26.563017",
-      "last_used": "2026-01-04T15:47:35.172815",
+      "last_used": "2026-01-12T20:48:39.661744",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
         "http_service_found",
+        "snmp_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "smbclient_list::target=10.10.10.10": {
@@ -302,22 +311,25 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 6,
-      "total_attempts": 14,
-      "avg_reward": 8.7939886704167,
+      "success_count": 43,
+      "total_attempts": 51,
+      "avg_reward": 7.23171934936047,
       "discovered_at": "2026-01-04T04:41:26.580133",
-      "last_used": "2026-01-04T15:33:45.188175",
+      "last_used": "2026-01-12T20:47:36.481406",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
         "http_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "dns_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "ssh_audit::target=10.10.10.10": {
@@ -326,9 +338,9 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
+        "linux",
         "unknown",
-        "medium",
-        "linux"
+        "medium"
       ],
       "success_count": 8,
       "total_attempts": 128,
@@ -338,12 +350,12 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
         "http_service_found",
-        "dns_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "dns_service_found"
       ]
     },
     "ftp_anonymous::target=10.10.10.10": {
@@ -352,22 +364,24 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 2,
-      "total_attempts": 2,
-      "avg_reward": 52.75,
+      "success_count": 127,
+      "total_attempts": 127,
+      "avg_reward": 8.307874015748034,
       "discovered_at": "2026-01-04T15:49:30.728716",
-      "last_used": "2026-01-04T22:36:51.325789",
+      "last_used": "2026-01-12T20:49:46.852848",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
+        "http_service_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "red_offensive::": {
@@ -375,23 +389,23 @@
       "params": {},
       "context_tags": [
         "unknown",
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 55,
-      "total_attempts": 430,
-      "avg_reward": 7.051581635068296,
+      "success_count": 195,
+      "total_attempts": 570,
+      "avg_reward": 5.014035845788489,
       "discovered_at": "2026-01-04T15:49:30.747242",
-      "last_used": "2026-01-04T22:36:51.327235",
+      "last_used": "2026-01-12T20:44:08.100413",
       "notes": "",
       "phase": "EXPLOITATION",
       "preconditions_met": [
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
-        "vulnerability_found",
+        "smb_service_found",
         "dns_service_found",
-        "smb_service_found"
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "onesixtyone::target=2.128.7.247|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -401,8 +415,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 5,
@@ -412,8 +426,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "http_service_found"
       ]
     },
     "snmpwalk::community=public|target=2.128.7.247|version=2c": {
@@ -424,8 +438,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 4,
@@ -435,8 +449,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "http_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://2.128.7.247": {
@@ -447,8 +461,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 5,
@@ -458,8 +472,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "http_service_found"
       ]
     },
     "nikto_scan::url=http://2.128.7.247": {
@@ -468,8 +482,8 @@
         "url": "http://2.128.7.247"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 6,
       "total_attempts": 9,
@@ -479,9 +493,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "nmap_top_ports::num_ports=100|target=41.25.27.198": {
@@ -491,8 +505,8 @@
         "num_ports": "100"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 3,
@@ -514,8 +528,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 5,
@@ -535,8 +549,8 @@
         "url": "http://41.25.27.198"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 1,
@@ -558,8 +572,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 9,
@@ -578,8 +592,8 @@
         "url": "http://116.131.237.35"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 7,
       "total_attempts": 9,
@@ -600,8 +614,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 5,
@@ -611,8 +625,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "dns_service_found"
+        "dns_service_found",
+        "http_service_found"
       ]
     },
     "onesixtyone::target=212.31.235.167|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -622,8 +636,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 8,
@@ -633,9 +647,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "nmap_top_ports::num_ports=100|target=212.31.235.167": {
@@ -645,8 +659,8 @@
         "num_ports": "100"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 6,
@@ -656,9 +670,9 @@
       "notes": "",
       "phase": "RECON",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "snmpwalk::community=public|target=212.31.235.167|version=2c": {
@@ -669,8 +683,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 10,
@@ -680,9 +694,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "windapsearch::domain={domain}|target=212.31.235.167": {
@@ -692,8 +706,8 @@
         "domain": "{domain}"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 1,
@@ -703,9 +717,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://205.48.22.148": {
@@ -716,8 +730,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 6,
@@ -727,9 +741,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
         "ftp_service_found",
-        "smb_service_found"
+        "smb_service_found",
+        "http_service_found"
       ]
     },
     "nikto_scan::url=http://205.48.22.148": {
@@ -738,8 +752,8 @@
         "url": "http://205.48.22.148"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 5,
       "total_attempts": 6,
@@ -749,9 +763,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
         "ftp_service_found",
-        "smb_service_found"
+        "smb_service_found",
+        "http_service_found"
       ]
     },
     "ftp_anonymous::target=205.48.22.148": {
@@ -760,8 +774,8 @@
         "target": "205.48.22.148"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 4,
@@ -771,9 +785,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
         "ftp_service_found",
-        "smb_service_found"
+        "smb_service_found",
+        "http_service_found"
       ]
     },
     "ftp_anonymous::target=31.172.247.202": {
@@ -782,8 +796,8 @@
         "target": "31.172.247.202"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 16,
@@ -793,9 +807,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "nmap_top_ports::num_ports=100|target=31.172.247.202": {
@@ -805,8 +819,8 @@
         "num_ports": "100"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 5,
@@ -816,9 +830,9 @@
       "notes": "",
       "phase": "RECON",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "windapsearch::domain={domain}|target=31.172.247.202": {
@@ -828,8 +842,8 @@
         "domain": "{domain}"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 4,
@@ -839,9 +853,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://90.209.255.122": {
@@ -852,8 +866,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 5,
@@ -863,12 +877,12 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
         "ssh_service_found",
-        "ftp_service_found",
         "http_service_found",
-        "dns_service_found"
+        "snmp_service_found",
+        "dns_service_found",
+        "ftp_service_found"
       ]
     },
     "nmap_top_ports::num_ports=100|target=90.209.255.122": {
@@ -878,8 +892,8 @@
         "num_ports": "100"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 3,
@@ -889,10 +903,10 @@
       "notes": "",
       "phase": "RECON",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
         "http_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "ftp_anonymous::target=90.209.255.122": {
@@ -901,8 +915,8 @@
         "target": "90.209.255.122"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 5,
@@ -912,10 +926,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
         "http_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "nikto_scan::url=http://90.209.255.122": {
@@ -924,8 +938,8 @@
         "url": "http://90.209.255.122"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 3,
@@ -935,10 +949,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
         "http_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "windapsearch::domain={domain}|target=90.209.255.122": {
@@ -948,8 +962,8 @@
         "domain": "{domain}"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 2,
@@ -959,10 +973,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "ldap_service_found",
         "http_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "ftp_anonymous::target=141.143.190.222": {
@@ -971,8 +985,8 @@
         "target": "141.143.190.222"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 20,
@@ -982,9 +996,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "ftp_service_found",
         "dns_service_found",
-        "ftp_service_found"
+        "ssh_service_found"
       ]
     },
     "snmpwalk::community=public|target=133.139.21.27|version=2c": {
@@ -995,8 +1009,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 16,
@@ -1006,9 +1020,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "onesixtyone::target=133.139.21.27|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -1018,8 +1032,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 9,
@@ -1029,9 +1043,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "onesixtyone::target=84.201.240.28|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -1041,8 +1055,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 4,
@@ -1052,10 +1066,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "snmpwalk::community=public|target=84.201.240.28|version=2c": {
@@ -1066,8 +1080,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 3,
@@ -1077,10 +1091,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "nikto_scan::url=http://84.201.240.28": {
@@ -1089,8 +1103,8 @@
         "url": "http://84.201.240.28"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 3,
@@ -1100,10 +1114,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "windapsearch::domain={domain}|target=84.201.240.28": {
@@ -1113,8 +1127,8 @@
         "domain": "{domain}"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 2,
@@ -1124,10 +1138,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://84.201.240.28": {
@@ -1138,8 +1152,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 3,
@@ -1149,10 +1163,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "ldap_service_found",
-        "http_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "onesixtyone::target=92.144.123.198|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -1162,8 +1176,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 8,
@@ -1173,10 +1187,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "snmpwalk::community=public|target=92.144.123.198|version=2c": {
@@ -1187,8 +1201,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 10,
@@ -1198,10 +1212,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "nmap_top_ports::num_ports=100|target=92.144.123.198": {
@@ -1211,8 +1225,8 @@
         "num_ports": "100"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 4,
@@ -1222,10 +1236,10 @@
       "notes": "",
       "phase": "RECON",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "windapsearch::domain={domain}|target=92.144.123.198": {
@@ -1235,8 +1249,8 @@
         "domain": "{domain}"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 3,
@@ -1246,10 +1260,10 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
+        "snmp_service_found",
         "ldap_service_found",
         "dns_service_found",
-        "snmp_service_found"
+        "ssh_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://203.74.215.171": {
@@ -1260,8 +1274,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 6,
@@ -1271,8 +1285,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "ftp_service_found"
+        "ftp_service_found",
+        "http_service_found"
       ]
     },
     "ftp_anonymous::target=203.74.215.171": {
@@ -1281,8 +1295,8 @@
         "target": "203.74.215.171"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 6,
@@ -1292,8 +1306,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "ftp_service_found"
+        "ftp_service_found",
+        "http_service_found"
       ]
     },
     "nikto_scan::url=http://203.74.215.171": {
@@ -1302,8 +1316,8 @@
         "url": "http://203.74.215.171"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 5,
       "total_attempts": 5,
@@ -1313,8 +1327,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "ftp_service_found"
+        "ftp_service_found",
+        "http_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old|threads=50|url=http://211.109.44.196": {
@@ -1325,8 +1339,8 @@
         "threads": "50"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 8,
@@ -1336,8 +1350,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
-        "http_service_found"
+        "http_service_found",
+        "ssh_service_found"
       ]
     },
     "nikto_scan::url=http://211.109.44.196": {
@@ -1346,8 +1360,8 @@
         "url": "http://211.109.44.196"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 5,
       "total_attempts": 9,
@@ -1357,8 +1371,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
-        "http_service_found"
+        "http_service_found",
+        "ssh_service_found"
       ]
     },
     "ftp_anonymous::target=78.212.55.0": {
@@ -1367,8 +1381,8 @@
         "target": "78.212.55.0"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 3,
       "total_attempts": 3,
@@ -1378,8 +1392,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ftp_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "ftp_service_found"
       ]
     },
     "onesixtyone::target=78.212.55.0|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -1389,8 +1403,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 18,
@@ -1400,8 +1414,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ftp_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "ftp_service_found"
       ]
     },
     "snmpwalk::community=public|target=78.212.55.0|version=2c": {
@@ -1412,8 +1426,8 @@
         "version": "2c"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 4,
@@ -1423,8 +1437,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ftp_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "ftp_service_found"
       ]
     },
     "onesixtyone::target=135.235.98.232|wordlist=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt": {
@@ -1434,8 +1448,8 @@
         "wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"
       },
       "context_tags": [
-        "unknown",
-        "medium"
+        "medium",
+        "unknown"
       ],
       "success_count": 2,
       "total_attempts": 25,
@@ -1445,8 +1459,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "ssh_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "ssh_service_found"
       ]
     },
     "nmap_udp_scan::num_ports=50|target=10.10.10.10": {
@@ -1456,8 +1470,8 @@
         "num_ports": "50"
       },
       "context_tags": [
-        "unknown",
-        "linux"
+        "linux",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 1,
@@ -1475,8 +1489,8 @@
         "rate": "5000"
       },
       "context_tags": [
-        "unknown",
-        "linux"
+        "linux",
+        "unknown"
       ],
       "success_count": 1,
       "total_attempts": 1,
@@ -1493,17 +1507,23 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
+        "linux",
         "unknown",
-        "linux"
+        "medium"
       ],
-      "success_count": 11,
-      "total_attempts": 11,
-      "avg_reward": 2.890909090909091,
+      "success_count": 172,
+      "total_attempts": 172,
+      "avg_reward": 4.855813953488371,
       "discovered_at": "2026-01-04T17:25:23.591633",
-      "last_used": "2026-01-04T17:25:23.617648",
+      "last_used": "2026-01-11T03:44:14.816799",
       "notes": "",
       "phase": "RECON",
-      "preconditions_met": []
+      "preconditions_met": [
+        "smb_service_found",
+        "ldap_service_found",
+        "vulnerability_found",
+        "http_service_found"
+      ]
     },
     "curl_headers::target=10.10.10.10": {
       "template_name": "curl_headers",
@@ -1511,21 +1531,24 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
+        "linux",
         "unknown",
-        "medium",
-        "linux"
+        "medium"
       ],
-      "success_count": 76,
-      "total_attempts": 76,
-      "avg_reward": 4.57631578947368,
+      "success_count": 204,
+      "total_attempts": 204,
+      "avg_reward": 5.051960784313725,
       "discovered_at": "2026-01-04T17:25:23.621412",
-      "last_used": "2026-01-04T22:38:02.624709",
+      "last_used": "2026-01-11T03:45:09.509120",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "ldap_service_found",
+        "http_service_found",
         "snmp_service_found",
+        "dns_service_found",
         "vulnerability_found",
-        "http_service_found"
+        "ftp_service_found"
       ]
     },
     "nuclei_scan::severity=medium,high,critical|templates=cves/|url=http://10.10.10.10": {
@@ -1536,21 +1559,24 @@
         "severity": "medium,high,critical"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 26,
-      "total_attempts": 46,
-      "avg_reward": 9.669230769230772,
+      "success_count": 153,
+      "total_attempts": 173,
+      "avg_reward": 10.06405228758171,
       "discovered_at": "2026-01-04T22:25:59.532212",
-      "last_used": "2026-01-04T22:38:30.589051",
+      "last_used": "2026-01-12T20:49:05.366804",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
-        "vulnerability_found",
+        "ldap_service_found",
+        "ssh_service_found",
         "http_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "nuclei_scan::url=http://10.10.10.10": {
@@ -1559,8 +1585,8 @@
         "url": "http://10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
       "success_count": 1,
       "total_attempts": 20,
@@ -1570,8 +1596,8 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "http_service_found",
-        "smb_service_found"
+        "smb_service_found",
+        "http_service_found"
       ]
     },
     "orion_strategic::target=10.10.10.10": {
@@ -1580,46 +1606,50 @@
         "target": "10.10.10.10"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 38,
-      "total_attempts": 38,
-      "avg_reward": 6.376315789473688,
+      "success_count": 218,
+      "total_attempts": 218,
+      "avg_reward": 5.970642201834865,
       "discovered_at": "2026-01-04T22:36:51.334451",
-      "last_used": "2026-01-04T22:37:35.921314",
+      "last_used": "2026-01-12T20:46:48.133542",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
-        "ftp_service_found",
-        "vulnerability_found",
+        "ssh_service_found",
         "http_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "dns_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "blue_defensive::": {
       "template_name": "blue_defensive",
       "params": {},
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 62,
-      "total_attempts": 62,
-      "avg_reward": 5.138709677419353,
+      "success_count": 361,
+      "total_attempts": 361,
+      "avg_reward": 4.9318559556786745,
       "discovered_at": "2026-01-04T22:36:51.336274",
-      "last_used": "2026-01-04T22:38:26.368270",
+      "last_used": "2026-01-12T20:47:58.499605",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "snmp_service_found",
         "ldap_service_found",
-        "ftp_service_found",
-        "vulnerability_found",
+        "ssh_service_found",
         "http_service_found",
-        "smb_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "dns_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
       ]
     },
     "feroxbuster::depth=3|url=http://10.10.10.10|wordlist=/usr/share/wordlists/dirb/common.txt": {
@@ -1630,20 +1660,21 @@
         "depth": 3
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 1,
-      "total_attempts": 1,
-      "avg_reward": 18.1,
+      "success_count": 2,
+      "total_attempts": 2,
+      "avg_reward": 17.950000000000003,
       "discovered_at": "2026-01-04T22:37:22.737706",
-      "last_used": "2026-01-04T22:37:22.737715",
+      "last_used": "2026-01-05T03:23:49.636997",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
+        "ldap_service_found",
         "vulnerability_found",
-        "http_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "dirsearch::extensions=php,html,txt,bak,old, threads=50|url=http://10.10.10.10": {
@@ -1653,8 +1684,8 @@
         "extensions": "php,html,txt,bak,old, threads=50"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
       "success_count": 1,
       "total_attempts": 1,
@@ -1664,9 +1695,9 @@
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "snmp_service_found",
         "vulnerability_found",
-        "http_service_found",
-        "snmp_service_found"
+        "http_service_found"
       ]
     },
     "feroxbuster::depth=3|extensions=php,html,txt|url=http://10.10.10.10|wordlist=/usr/share/wordlists/dirb/common.txt": {
@@ -1678,20 +1709,24 @@
         "depth": 3
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 2,
-      "total_attempts": 2,
-      "avg_reward": 6.3500000000000005,
+      "success_count": 9,
+      "total_attempts": 9,
+      "avg_reward": 7.266666666666666,
       "discovered_at": "2026-01-04T22:37:30.916538",
-      "last_used": "2026-01-04T22:37:35.711457",
+      "last_used": "2026-01-12T20:47:07.922256",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
+        "ldap_service_found",
+        "ssh_service_found",
+        "http_service_found",
         "snmp_service_found",
+        "smb_service_found",
         "vulnerability_found",
-        "http_service_found"
+        "ftp_service_found"
       ]
     },
     "ffuf_fuzz::match_codes=200,301,302,401,403|threads=50|url=http://10.10.10.10|wordlist=/usr/share/wordlists/dirb/common.txt": {
@@ -1703,20 +1738,145 @@
         "threads": "50"
       },
       "context_tags": [
-        "medium",
-        "linux"
+        "linux",
+        "medium"
       ],
-      "success_count": 1,
-      "total_attempts": 1,
-      "avg_reward": 1.8000000000000007,
+      "success_count": 2,
+      "total_attempts": 2,
+      "avg_reward": 6.25,
       "discovered_at": "2026-01-04T22:38:26.364544",
-      "last_used": "2026-01-04T22:38:26.364551",
+      "last_used": "2026-01-12T20:47:33.519188",
       "notes": "",
       "phase": "ENUMERATION",
       "preconditions_met": [
-        "vulnerability_found",
+        "ssh_service_found",
         "http_service_found",
-        "snmp_service_found"
+        "snmp_service_found",
+        "smb_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
+      ]
+    },
+    "dirsearch::url=http://10.10.10.10": {
+      "template_name": "dirsearch",
+      "params": {
+        "url": "http://10.10.10.10"
+      },
+      "context_tags": [
+        "linux",
+        "medium"
+      ],
+      "success_count": 4,
+      "total_attempts": 4,
+      "avg_reward": 6.325,
+      "discovered_at": "2026-01-05T03:24:06.331351",
+      "last_used": "2026-01-12T20:47:52.155878",
+      "notes": "",
+      "phase": "ENUMERATION",
+      "preconditions_met": [
+        "ldap_service_found",
+        "ssh_service_found",
+        "http_service_found",
+        "smb_service_found",
+        "vulnerability_found",
+        "ftp_service_found"
+      ]
+    },
+    "ldapsearch_users::base_dn=dc=example,dc=com|target=10.10.10.10": {
+      "template_name": "ldapsearch_users",
+      "params": {
+        "target": "10.10.10.10",
+        "base_dn": "dc=example,dc=com"
+      },
+      "context_tags": [
+        "linux",
+        "medium"
+      ],
+      "success_count": 29,
+      "total_attempts": 29,
+      "avg_reward": 6.32758620689655,
+      "discovered_at": "2026-01-05T03:24:18.829659",
+      "last_used": "2026-01-11T03:43:07.532103",
+      "notes": "",
+      "phase": "ENUMERATION",
+      "preconditions_met": [
+        "ldap_service_found",
+        "http_service_found",
+        "smb_service_found",
+        "dns_service_found",
+        "vulnerability_found"
+      ]
+    },
+    "ldapsearch_base::base_dn=dc=example,dc=com|target=10.10.10.10": {
+      "template_name": "ldapsearch_base",
+      "params": {
+        "target": "10.10.10.10",
+        "base_dn": "dc=example,dc=com"
+      },
+      "context_tags": [
+        "linux",
+        "medium"
+      ],
+      "success_count": 1,
+      "total_attempts": 1,
+      "avg_reward": 18.3,
+      "discovered_at": "2026-01-05T03:33:14.742624",
+      "last_used": "2026-01-05T03:33:14.742637",
+      "notes": "",
+      "phase": "ENUMERATION",
+      "preconditions_met": [
+        "smb_service_found",
+        "ldap_service_found",
+        "dns_service_found",
+        "vulnerability_found"
+      ]
+    },
+    "dnsrecon::domain=example.com|target=10.10.10.10": {
+      "template_name": "dnsrecon",
+      "params": {
+        "domain": "example.com",
+        "target": "10.10.10.10"
+      },
+      "context_tags": [
+        "linux",
+        "medium"
+      ],
+      "success_count": 3,
+      "total_attempts": 3,
+      "avg_reward": 9.566666666666665,
+      "discovered_at": "2026-01-05T03:33:22.066610",
+      "last_used": "2026-01-05T03:34:17.869684",
+      "notes": "",
+      "phase": "ENUMERATION",
+      "preconditions_met": [
+        "smb_service_found",
+        "ldap_service_found",
+        "dns_service_found",
+        "vulnerability_found"
+      ]
+    },
+    "dig_axfr::domain=example.com|target=10.10.10.10": {
+      "template_name": "dig_axfr",
+      "params": {
+        "target": "10.10.10.10",
+        "domain": "example.com"
+      },
+      "context_tags": [
+        "linux",
+        "medium"
+      ],
+      "success_count": 1,
+      "total_attempts": 1,
+      "avg_reward": 14.399999999999999,
+      "discovered_at": "2026-01-05T03:34:27.497936",
+      "last_used": "2026-01-05T03:34:27.497945",
+      "notes": "",
+      "phase": "ENUMERATION",
+      "preconditions_met": [
+        "smb_service_found",
+        "ldap_service_found",
+        "dns_service_found",
+        "vulnerability_found"
       ]
     }
   }

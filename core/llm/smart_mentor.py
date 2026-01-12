@@ -693,6 +693,341 @@ OUTPUT FORMAT (JSON only):
             )
 
 
+@dataclass
+class DualMentorResponse:
+    """
+    Response from dual-mentor system with responses from both providers.
+    
+    Attributes:
+        primary: Response from primary mentor (GPT)
+        secondary: Response from secondary mentor (Venice)
+        chosen: The chosen response to use
+        strategy: Strategy used for selection
+        provider_used: Which provider's response was used
+    """
+    primary: Optional[MentorResponse] = None
+    secondary: Optional[MentorResponse] = None
+    chosen: Optional[MentorResponse] = None
+    strategy: str = "gpt_first"
+    provider_used: str = "gpt"
+    tokens_total: int = 0
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if we have a valid chosen response."""
+        return self.chosen is not None and self.chosen.is_valid
+
+
+class DualMentor:
+    """
+    Dual-mentor system that leverages both GPT and Venice AI for command generation.
+    
+    Strategies:
+    - gpt_first: Use GPT, fallback to Venice on error
+    - venice_first: Use Venice, fallback to GPT on error
+    - round_robin: Alternate between GPT and Venice
+    - parallel: Query both, choose best by confidence
+    - consensus: Query both, require agreement or escalate
+    
+    Having two mentors enables:
+    - Higher mentor call frequency (double the budget)
+    - Fallback resilience
+    - Different perspectives on attack strategies
+    - Uncensored Venice for aggressive tactics
+    """
+    
+    def __init__(
+        self,
+        gpt_client: Any,
+        venice_client: Optional[Any] = None,
+        gpt_model: str = "gpt-4o-mini",
+        venice_model: str = "venice-uncensored",
+        learned_store: Optional[LearnedCommandStore] = None,
+        strategy: str = "gpt_first",
+        temperature: float = 0.7,
+        max_retries: int = 2
+    ):
+        """
+        Initialize the dual-mentor system.
+        
+        Args:
+            gpt_client: OpenAI client for GPT
+            venice_client: OpenAI-compatible client for Venice
+            gpt_model: GPT model to use
+            venice_model: Venice model to use
+            learned_store: Store for learned commands
+            strategy: Mentor selection strategy
+            temperature: Sampling temperature
+            max_retries: Max retries for failed parses
+        """
+        self.learned_store = learned_store or get_learned_store()
+        self.strategy = strategy
+        self._call_count = 0
+        
+        # Initialize GPT mentor
+        self.gpt_mentor = SmartMentor(
+            llm_client=gpt_client,
+            learned_store=self.learned_store,
+            model=gpt_model,
+            temperature=temperature,
+            max_retries=max_retries
+        ) if gpt_client else None
+        
+        # Initialize Venice mentor
+        self.venice_mentor = SmartMentor(
+            llm_client=venice_client,
+            learned_store=self.learned_store,
+            model=venice_model,
+            temperature=temperature + 0.1,  # Venice slightly more creative
+            max_retries=max_retries
+        ) if venice_client else None
+        
+        self._has_both = self.gpt_mentor is not None and self.venice_mentor is not None
+        
+        import logging
+        self.logger = logging.getLogger("ariaska.dual_mentor")
+        self.logger.info(
+            f"DualMentor initialized | Strategy: {strategy} | "
+            f"GPT: {'✓' if self.gpt_mentor else '✗'} | "
+            f"Venice: {'✓' if self.venice_mentor else '✗'}"
+        )
+    
+    def has_dual_capability(self) -> bool:
+        """Check if both mentors are available."""
+        return self._has_both
+    
+    def _get_provider_for_call(self) -> str:
+        """Determine which provider to use for this call."""
+        if not self._has_both:
+            return "gpt" if self.gpt_mentor else "venice"
+        
+        if self.strategy == "venice_first":
+            return "venice"
+        elif self.strategy == "round_robin":
+            self._call_count += 1
+            return "venice" if self._call_count % 2 == 0 else "gpt"
+        elif self.strategy in ("parallel", "consensus"):
+            return "both"
+        else:  # gpt_first (default)
+            return "gpt"
+    
+    async def get_command_async(
+        self,
+        context: AttackContext,
+        filtered_commands: Optional[List[CommandTemplate]] = None,
+        force_provider: Optional[str] = None
+    ) -> DualMentorResponse:
+        """
+        Get next command using dual-mentor system asynchronously.
+        
+        Args:
+            context: Current attack context
+            filtered_commands: Pre-filtered commands
+            force_provider: Force specific provider ("gpt", "venice", "both")
+            
+        Returns:
+            DualMentorResponse with chosen command
+        """
+        import asyncio
+        
+        result = DualMentorResponse(strategy=self.strategy)
+        provider = force_provider or self._get_provider_for_call()
+        
+        # === PARALLEL / CONSENSUS: Query both ===
+        if provider == "both" and self._has_both:
+            try:
+                # Run both in parallel
+                gpt_task = asyncio.create_task(
+                    self.gpt_mentor.get_command_async(context, filtered_commands)  # type: ignore
+                )
+                venice_task = asyncio.create_task(
+                    self.venice_mentor.get_command_async(context, filtered_commands)  # type: ignore
+                )
+                
+                results = await asyncio.gather(
+                    gpt_task, venice_task, return_exceptions=True
+                )
+                
+                # Handle exceptions - safely cast to MentorResponse or None
+                gpt_resp: Optional[MentorResponse] = None
+                venice_resp: Optional[MentorResponse] = None
+                
+                if isinstance(results[0], MentorResponse):
+                    gpt_resp = results[0]
+                elif isinstance(results[0], Exception):
+                    self.logger.warning(f"GPT mentor error: {results[0]}")
+                
+                if isinstance(results[1], MentorResponse):
+                    venice_resp = results[1]
+                elif isinstance(results[1], Exception):
+                    self.logger.warning(f"Venice mentor error: {results[1]}")
+                
+                result.primary = gpt_resp
+                result.secondary = venice_resp
+                result.tokens_total = (
+                    (gpt_resp.tokens_used if gpt_resp else 0) +
+                    (venice_resp.tokens_used if venice_resp else 0)
+                )
+                
+                # Choose best response
+                if self.strategy == "consensus":
+                    result.chosen, result.provider_used = self._consensus_choice(
+                        gpt_resp, venice_resp, context
+                    )
+                else:  # parallel - choose by confidence
+                    result.chosen, result.provider_used = self._confidence_choice(
+                        gpt_resp, venice_resp
+                    )
+                
+                return result
+                
+            except Exception as e:
+                self.logger.error(f"Parallel query failed: {e}")
+                # Fall through to sequential
+                provider = "gpt"
+        
+        # === SEQUENTIAL: Primary then fallback ===
+        primary_mentor = self.gpt_mentor if provider == "gpt" else self.venice_mentor
+        fallback_mentor = self.venice_mentor if provider == "gpt" else self.gpt_mentor
+        
+        # Try primary
+        if primary_mentor:
+            try:
+                primary_resp = await primary_mentor.get_command_async(context, filtered_commands)
+                result.primary = primary_resp
+                result.chosen = primary_resp
+                result.provider_used = provider
+                result.tokens_total = primary_resp.tokens_used
+                
+                if primary_resp.is_valid:
+                    return result
+                    
+            except Exception as e:
+                self.logger.warning(f"Primary mentor ({provider}) failed: {e}")
+        
+        # Try fallback
+        if fallback_mentor:
+            fallback_provider = "venice" if provider == "gpt" else "gpt"
+            try:
+                fallback_resp = await fallback_mentor.get_command_async(context, filtered_commands)
+                result.secondary = fallback_resp
+                result.chosen = fallback_resp
+                result.provider_used = fallback_provider
+                result.tokens_total += fallback_resp.tokens_used
+                
+                self.logger.info(f"Used fallback mentor: {fallback_provider}")
+                return result
+                
+            except Exception as e:
+                self.logger.error(f"Fallback mentor ({fallback_provider}) also failed: {e}")
+        
+        # Ultimate fallback - return empty response
+        return result
+    
+    def get_command(
+        self,
+        context: AttackContext,
+        filtered_commands: Optional[List[CommandTemplate]] = None,
+        force_provider: Optional[str] = None
+    ) -> DualMentorResponse:
+        """
+        Get next command using dual-mentor system synchronously.
+        
+        Args:
+            context: Current attack context
+            filtered_commands: Pre-filtered commands
+            force_provider: Force specific provider
+            
+        Returns:
+            DualMentorResponse with chosen command
+        """
+        import asyncio
+        
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(
+                        asyncio.run,
+                        self.get_command_async(context, filtered_commands, force_provider)
+                    )
+                    return future.result()
+            else:
+                return loop.run_until_complete(
+                    self.get_command_async(context, filtered_commands, force_provider)
+                )
+        except RuntimeError:
+            return asyncio.run(
+                self.get_command_async(context, filtered_commands, force_provider)
+            )
+    
+    def _confidence_choice(
+        self,
+        gpt_resp: Optional[MentorResponse],
+        venice_resp: Optional[MentorResponse]
+    ) -> Tuple[Optional[MentorResponse], str]:
+        """Choose response with higher confidence."""
+        if not gpt_resp and not venice_resp:
+            return None, "none"
+        if not gpt_resp:
+            return venice_resp, "venice"
+        if not venice_resp:
+            return gpt_resp, "gpt"
+        
+        # Both available - choose by confidence
+        if venice_resp.confidence > gpt_resp.confidence + 0.1:  # Venice needs 0.1 edge
+            return venice_resp, "venice"
+        else:
+            return gpt_resp, "gpt"
+    
+    def _consensus_choice(
+        self,
+        gpt_resp: Optional[MentorResponse],
+        venice_resp: Optional[MentorResponse],
+        context: AttackContext
+    ) -> Tuple[Optional[MentorResponse], str]:
+        """Choose based on consensus between mentors."""
+        if not gpt_resp and not venice_resp:
+            return None, "none"
+        if not gpt_resp:
+            return venice_resp, "venice"
+        if not venice_resp:
+            return gpt_resp, "gpt"
+        
+        # Check if both chose same template
+        if gpt_resp.template_name == venice_resp.template_name:
+            # Consensus! Use higher confidence
+            if venice_resp.confidence > gpt_resp.confidence:
+                return venice_resp, "venice_consensus"
+            return gpt_resp, "gpt_consensus"
+        
+        # No consensus - check if commands target same phase
+        if gpt_resp.phase == venice_resp.phase:
+            # Same phase, use GPT (more conservative)
+            return gpt_resp, "gpt_phase_match"
+        
+        # Different phases - use the one matching context
+        if gpt_resp.phase == context.current_phase:
+            return gpt_resp, "gpt_phase_aligned"
+        if venice_resp.phase == context.current_phase:
+            return venice_resp, "venice_phase_aligned"
+        
+        # Default to GPT (primary)
+        return gpt_resp, "gpt_default"
+    
+    def record_result(
+        self,
+        response: MentorResponse,
+        success: bool,
+        reward: float,
+        context: AttackContext
+    ) -> None:
+        """Record result to learned store (shared between mentors)."""
+        if self.gpt_mentor:
+            self.gpt_mentor.record_result(response, success, reward, context)
+
+
 def create_smart_mentor(
     llm_client: Any,
     model: str = "gpt-4o-mini",
@@ -712,5 +1047,37 @@ def create_smart_mentor(
     return SmartMentor(
         llm_client=llm_client,
         model=model,
+        temperature=temperature
+    )
+
+
+def create_dual_mentor(
+    gpt_client: Any,
+    venice_client: Optional[Any] = None,
+    gpt_model: str = "gpt-4o-mini",
+    venice_model: str = "venice-uncensored",
+    strategy: str = "gpt_first",
+    temperature: float = 0.7
+) -> DualMentor:
+    """
+    Factory function to create a DualMentor.
+    
+    Args:
+        gpt_client: OpenAI client for GPT
+        venice_client: OpenAI-compatible client for Venice (optional)
+        gpt_model: GPT model to use
+        venice_model: Venice model to use
+        strategy: Mentor selection strategy (gpt_first, venice_first, round_robin, parallel, consensus)
+        temperature: Sampling temperature
+        
+    Returns:
+        Configured DualMentor instance
+    """
+    return DualMentor(
+        gpt_client=gpt_client,
+        venice_client=venice_client,
+        gpt_model=gpt_model,
+        venice_model=venice_model,
+        strategy=strategy,
         temperature=temperature
     )

@@ -16,12 +16,22 @@ import hashlib
 from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
+from enum import Enum
 from core.commands.command_registry import (
     AttackPhase,
     get_phase_from_state,
     COMMAND_REGISTRY,
 )
 from core.llm.smart_mentor import AttackContext
+
+
+class TerminationReason(Enum):
+    """Reasons for episode termination - Phase 0.1."""
+    MAX_STEPS = "max_steps"
+    GOAL_REACHED = "goal_reached"
+    STUCK_ABORT = "stuck_abort"  # Too many forced-novel failures
+    ENV_DONE = "env_done"
+    ERROR = "error"
 from core.llm.reward_calculator import SmartRewardCalculator, RewardBreakdown
 from core.training.smart_coach import SmartCoach, SmartDecisionResult, SmartStepContext
 from core.observability import LiveDashboard, DashboardConfig
@@ -53,11 +63,17 @@ class SmartOrchestratorConfig:
     mentor_min_rate: float = 0.15
     mentor_max_rate: float = 1.0
     
-    # Stuck detection (enhanced)
+    # Stuck detection (legacy)
     stuck_threshold: int = 3
     stuck_negative_streak: int = 5
     stuck_force_mentor: bool = True
     stuck_force_exploration: bool = True
+    
+    # Phase 0.1: Enhanced stuck-escape config knobs
+    stuck_repeat_threshold: int = 5  # Consecutive repeats before forcing novel action
+    stuck_history_k: int = 15  # Look back K actions for tag overlap calculation
+    stuck_tag_overlap_threshold: float = 0.8  # Mask actions with >= this tag overlap
+    stuck_forced_abort_threshold: int = 10  # Terminate episode after N forced-novel failures
     
     # Execution - reduced for faster feedback loops
     max_steps_per_episode: int = 50
@@ -201,6 +217,14 @@ class SmartOrchestrator:
         # Enhanced stuck detection
         self.action_history: Dict[str, List[str]] = {}
         self.stuck_agents: set = set()
+        
+        # Phase 0.1: Per-agent stuck tracking
+        self.repeat_stuck_count: Dict[str, int] = {}  # Consecutive repeats per agent
+        self.deep_stuck_count: Dict[str, int] = {}  # Forced-novel failures per agent
+        self.forced_novel_count: Dict[str, int] = {}  # Successful forced-novel actions per agent
+        self.phase_progressed_this_episode: bool = False  # True if phase advanced
+        self.episode_termination_reason: TerminationReason = TerminationReason.MAX_STEPS
+        self.previous_discoveries: Dict[str, Any] = {}  # For discoveries_delta calculation
         
         # Initialize LiveDashboard for real-time visibility
         self.dashboard = self._init_dashboard()
@@ -387,6 +411,15 @@ class SmartOrchestrator:
         self.action_history.clear()
         self.stuck_agents.clear()
         
+        # Phase 0.1: Reset per-agent stuck tracking
+        self.repeat_stuck_count = {agent: 0 for agent in self.agents}
+        self.deep_stuck_count = {agent: 0 for agent in self.agents}
+        self.forced_novel_count = {agent: 0 for agent in self.agents}
+        self._steps_without_discoveries = {agent: 0 for agent in self.agents}  # Stagnation counter
+        self.phase_progressed_this_episode = False
+        self.episode_termination_reason = TerminationReason.MAX_STEPS
+        self.previous_discoveries = {}
+        
         # Reset dashboard for new episode
         self.dashboard.reset_episode()
         self.dashboard.current_episode = episode_number
@@ -512,6 +545,7 @@ class SmartOrchestrator:
             current_phase = self.attack_context.current_phase.name
             if current_phase != phase_progression[-1]:
                 phase_progression.append(current_phase)
+                self.phase_progressed_this_episode = True  # Phase 0.1
                 logger.info(f"Phase advanced: {phase_progression[-2]} → {current_phase}")
                 self.dashboard.add_event(
                     "phase_change",
@@ -519,8 +553,32 @@ class SmartOrchestrator:
                     agent="system"
                 )
             
+            # =========================================================================
+            # PHASE 0.1: CHECK STUCK_ABORT TERMINATION
+            # =========================================================================
+            total_deep_stuck = sum(self.deep_stuck_count.values())
+            if total_deep_stuck >= self.config.stuck_forced_abort_threshold:
+                self.episode_termination_reason = TerminationReason.STUCK_ABORT
+                logger.warning(
+                    f"[STUCK_ABORT] Episode terminated: "
+                    f"deep_stuck_count={self.deep_stuck_count} "
+                    f"threshold={self.config.stuck_forced_abort_threshold}"
+                )
+                self.dashboard.add_event(
+                    "stuck_abort",
+                    f"Episode aborted: too many stuck failures",
+                    agent="system"
+                )
+                done = True
+            
             if done:
+                if self.episode_termination_reason == TerminationReason.MAX_STEPS:
+                    self.episode_termination_reason = TerminationReason.ENV_DONE
                 break
+        
+        # Set termination reason if loop exhausted
+        if not done:
+            self.episode_termination_reason = TerminationReason.MAX_STEPS
         
         # Print episode summary
         self.dashboard.print_episode_summary(
@@ -582,9 +640,27 @@ class SmartOrchestrator:
             if hasattr(coach, 'step_used_commands'):
                 coach.step_used_commands = step_used_commands
             
-            # Check if stuck and force exploration
-            is_stuck = self._check_if_stuck(agent_name)
-            force_mentor = is_stuck and self.config.stuck_force_mentor
+            # =========================================================================
+            # PHASE 0.1: ENHANCED STUCK DETECTION
+            # =========================================================================
+            
+            # Check legacy stuck (for backward compat)
+            is_legacy_stuck = self._check_if_stuck(agent_name)
+            
+            # Check repeat-stuck (Phase 0.1: consecutive same actions OR stagnation)
+            is_repeat_stuck, repeat_count = self._check_repeat_stuck(agent_name)
+            
+            # Check deep-stuck (too many forced-novel failures)
+            is_deep_stuck = self._check_deep_stuck(agent_name)
+            
+            # Debug log for stuck detection (every 10 steps, DEBUG level)
+            if step % 10 == 0:
+                stagnation = self._steps_without_discoveries.get(agent_name, 0)
+                logger.debug(
+                    f"[STUCK-CHECK][{agent_name}] step={step} "
+                    f"repeat_stuck={is_repeat_stuck} repeat_count={repeat_count} "
+                    f"stagnation={stagnation}/{self.config.stuck_repeat_threshold}"
+                )
             
             # Build smart step context
             step_ctx = SmartStepContext(
@@ -595,15 +671,63 @@ class SmartOrchestrator:
                 state=state if isinstance(state, dict) else {},
             )
             
-            # Get agent's proposed action (for comparison)
-            proposed_action, confidence = self._get_agent_proposal(agent, state)
+            # =========================================================================
+            # PHASE 0.1: STUCK-ESCAPE LOGIC
+            # =========================================================================
+            decision = None
             
-            # Force low confidence if stuck
-            if force_mentor:
-                confidence = 0.1
-            
-            # Get smart decision (role-aware)
-            decision = coach.decide(step_ctx, proposed_action, confidence)
+            if is_repeat_stuck:
+                # Update repeat stuck counter
+                self.repeat_stuck_count[agent_name] = self.repeat_stuck_count.get(agent_name, 0) + 1
+                
+                # Force novel action with tag-based masking
+                decision = coach._force_novel_action(
+                    step_ctx,
+                    thresholds=[
+                        self.config.stuck_tag_overlap_threshold,
+                        0.6,
+                        0.4,
+                        0.0,
+                    ],
+                )
+                
+                # Check if forced action is same as last (deep stuck)
+                last_action = self.action_history.get(agent_name, [""])[-1] if self.action_history.get(agent_name) else ""
+                if decision.command == last_action:
+                    self.deep_stuck_count[agent_name] = self.deep_stuck_count.get(agent_name, 0) + 1
+                    logger.warning(
+                        f"[DEEP-STUCK][{agent_name}] forced-novel returned same action "
+                        f"count={self.deep_stuck_count[agent_name]}/{self.config.stuck_forced_abort_threshold}"
+                    )
+                else:
+                    # Successful novel action
+                    self.forced_novel_count[agent_name] = self.forced_novel_count.get(agent_name, 0) + 1
+                    self.repeat_stuck_count[agent_name] = 0  # Reset repeat counter
+                    
+                    logger.info(
+                        f"[FORCED-NOVEL][{agent_name}] "
+                        f"prev={last_action[:30]}... → new={decision.command[:30]}... "
+                        f"tags_recent={{...}} excluded={decision.excluded_count}"
+                    )
+                    
+                    self.dashboard.add_event(
+                        "forced_novel",
+                        f"Forced: {decision.template_name}",
+                        agent_name
+                    )
+            else:
+                # Normal decision flow
+                # Get agent's proposed action (for comparison)
+                proposed_action, confidence = self._get_agent_proposal(agent, state)
+                
+                # Force low confidence if legacy stuck
+                force_mentor = is_legacy_stuck and self.config.stuck_force_mentor
+                if force_mentor:
+                    confidence = 0.1
+                
+                # Get smart decision (role-aware)
+                decision = coach.decide(step_ctx, proposed_action, confidence)
+                decision.source = "mentor" if decision.mentor_call else "registry"
             
             # Track this command as used for deduplication
             step_used_commands.add(decision.template_name)
@@ -672,6 +796,14 @@ class SmartOrchestrator:
                 # Accumulate smart rewards from all agents
                 if breakdown:
                     smart_reward_total += breakdown.total
+                
+                # Phase 0.1: Update stagnation counter
+                if agent_discoveries:
+                    self._steps_without_discoveries[result.agent_name] = 0  # Reset on discovery
+                else:
+                    self._steps_without_discoveries[result.agent_name] = (
+                        self._steps_without_discoveries.get(result.agent_name, 0) + 1
+                    )
         
         # Use smart reward if available, otherwise fall back to env reward
         final_reward = smart_reward_total if smart_reward_total != 0 else env_reward
@@ -1142,6 +1274,92 @@ class SmartOrchestrator:
         
         self.stuck_agents.discard(agent_name)
         return False
+    
+    # =========================================================================
+    # PHASE 0.1: STUCK-ESCAPE METHODS
+    # =========================================================================
+    
+    def _compute_discoveries_delta(self) -> Dict[str, Any]:
+        """
+        Compute the difference in discoveries since last call.
+        
+        Phase 0.1: Used for per-step reward decomposition.
+        
+        Returns:
+            Dictionary of new discoveries this step
+        """
+        if not self.attack_context:
+            return {}
+        
+        current = dict(self.attack_context.discoveries)
+        delta = {}
+        
+        for key, value in current.items():
+            prev_value = self.previous_discoveries.get(key)
+            
+            if prev_value is None:
+                # New discovery type
+                delta[key] = value
+            elif isinstance(value, list) and isinstance(prev_value, list):
+                # List discovery - find new items
+                new_items = [v for v in value if v not in prev_value]
+                if new_items:
+                    delta[key] = new_items
+            elif value != prev_value:
+                # Changed value
+                delta[key] = value
+        
+        # Update previous for next call
+        self.previous_discoveries = current.copy()
+        
+        return delta
+    
+    def _check_repeat_stuck(self, agent_name: str) -> Tuple[bool, int]:
+        """
+        Phase 0.1: Check if agent is repeat-stuck.
+        
+        Triggers on:
+        1. Consecutive identical actions (>= threshold)
+        2. OR: No discovery progress for K steps (stagnation)
+        
+        Returns:
+            (is_stuck, repeat_count)
+        """
+        if agent_name not in self.action_history:
+            return False, 0
+        
+        recent = self.action_history[agent_name]
+        if len(recent) < 2:
+            return False, 0
+        
+        # Check 1: Count consecutive repeats from the end
+        last_action = recent[-1]
+        repeat_count = 1
+        for i in range(len(recent) - 2, -1, -1):
+            if recent[i] == last_action:
+                repeat_count += 1
+            else:
+                break
+        
+        is_exact_stuck = repeat_count >= self.config.stuck_repeat_threshold
+        
+        # Check 2: Stagnation check - no discoveries in last K steps
+        # (triggers after stuck_repeat_threshold steps of zero progress)
+        stagnation_window = self.config.stuck_repeat_threshold
+        steps_without_progress = getattr(self, '_steps_without_discoveries', {}).get(agent_name, 0)
+        is_stagnant = steps_without_progress >= stagnation_window
+        
+        is_stuck = is_exact_stuck or is_stagnant
+        return is_stuck, max(repeat_count, steps_without_progress)
+    
+    def _check_deep_stuck(self, agent_name: str) -> bool:
+        """
+        Phase 0.1: Check if agent is deep-stuck (too many forced-novel failures).
+        
+        Returns:
+            True if should abort episode for this agent
+        """
+        return self.deep_stuck_count.get(agent_name, 0) >= self.config.stuck_forced_abort_threshold
     
     def get_attack_summary(self) -> Dict[str, Any]:
         """Get summary of current attack state."""

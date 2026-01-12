@@ -11,7 +11,7 @@ This module provides a SmartCoach class that integrates:
 import time
 import logging
 import hashlib
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Any, List, Set, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 from core.commands.command_registry import (
@@ -31,6 +31,8 @@ from core.llm.smart_mentor import (
     SmartMentor,
     AttackContext,
     MentorResponse,
+    DualMentor,
+    DualMentorResponse,
 )
 from core.llm.reward_calculator import (
     SmartRewardCalculator,
@@ -60,6 +62,7 @@ class SmartDecisionResult:
     model_used: Optional[str] = None
     mentor_reasoning: Optional[str] = None
     mentor_delta: str = "kept"
+    mentor_provider: str = "gpt"  # "gpt", "venice", "gpt_consensus", "venice_consensus", etc.
     
     # Phase info
     phase: AttackPhase = AttackPhase.RECON
@@ -79,10 +82,22 @@ class SmartDecisionResult:
     # Token tracking
     tokens_used: int = 0
     
+    # Phase 0.1: Decision source tracking
+    source: str = "unknown"  # "mentor", "policy", "forced", "fallback", "registry"
+    forced: bool = False  # True if this was a forced-novel action
+    forced_reason: str = ""  # Why it was forced: "repeat_stuck", "deep_stuck", etc.
+    excluded_count: int = 0  # Number of actions masked/excluded
+    tag_info: str = ""  # Tag overlap debug info
+    
     @property
     def chosen_action(self) -> str:
         """Alias for compatibility with existing code."""
         return self.command
+    
+    @property
+    def is_dual_mentor(self) -> bool:
+        """Check if this decision used dual mentor."""
+        return self.mentor_provider not in ("gpt", "offline", "none")
 
 
 @dataclass
@@ -266,6 +281,7 @@ class SmartCoach:
         self.learned_store = learned_store or get_learned_store()
         self.reward_calculator = reward_calculator or SmartRewardCalculator()
         self.smart_mentor: Optional[SmartMentor] = None
+        self.dual_mentor: Optional[DualMentor] = None  # GPT + Venice dual mentor
         
         # Initialize smart mentor if GPT manager has async client
         self._init_smart_mentor()
@@ -287,9 +303,44 @@ class SmartCoach:
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
     
     def _init_smart_mentor(self):
-        """Initialize the smart mentor with LLM client."""
+        """Initialize the smart mentor (DualMentor if Venice available, else SmartMentor)."""
         try:
-            # Use async_client for the mentor (needed for async API calls)
+            # Check if GPTManager has Venice capability
+            has_venice = (
+                hasattr(self.gpt_manager, 'has_venice') and 
+                self.gpt_manager.has_venice()
+            )
+            
+            # Get mentor configuration from GPTManager
+            mentor_strategy = getattr(self.gpt_manager, 'mentor_strategy', 'gpt_first')
+            venice_model = getattr(self.gpt_manager, 'venice_model', 'venice-uncensored')
+            
+            # === DUAL MENTOR: GPT + Venice ===
+            if has_venice:
+                try:
+                    gpt_client = self.gpt_manager.async_client
+                    venice_client = self.gpt_manager.venice_async_client
+                    
+                    self.dual_mentor = DualMentor(
+                        gpt_client=gpt_client,
+                        venice_client=venice_client,
+                        gpt_model=self.model,
+                        venice_model=venice_model,
+                        learned_store=self.learned_store,
+                        strategy=mentor_strategy,
+                    )
+                    self.smart_mentor = self.dual_mentor.gpt_mentor  # Fallback reference
+                    logger.info(
+                        f"🚀 DualMentor initialized for {self.agent_name} | "
+                        f"Strategy: {mentor_strategy} | GPT: {self.model} | Venice: {venice_model}"
+                    )
+                    return
+                except Exception as e:
+                    logger.warning(f"DualMentor init failed, falling back to single mentor: {e}")
+            
+            # === SINGLE MENTOR: GPT only ===
+            self.dual_mentor = None  # Explicitly set to None
+            
             if hasattr(self.gpt_manager, 'async_client'):
                 self.smart_mentor = SmartMentor(
                     llm_client=self.gpt_manager.async_client,
@@ -309,6 +360,10 @@ class SmartCoach:
                 logger.debug(f"No LLM client available, SmartMentor disabled")
         except Exception as e:
             logger.warning(f"Failed to init SmartMentor: {e}")
+    
+    def has_dual_mentor(self) -> bool:
+        """Check if dual mentor (GPT + Venice) is available."""
+        return hasattr(self, 'dual_mentor') and self.dual_mentor is not None
     
     def init_attack_context(
         self,
@@ -439,6 +494,245 @@ class SmartCoach:
         ctx.current_phase = get_phase_from_state(ctx.state_flags)
         
         return ctx
+    
+    # =========================================================================
+    # PHASE 0.1: STUCK-ESCAPE METHODS
+    # =========================================================================
+    
+    def _get_recent_action_tags(self, k: int = 15) -> Set[str]:
+        """
+        Get union of tags from the last K actions in command_history.
+        
+        Phase 0.1: Used for tag-based action masking.
+        
+        Args:
+            k: Number of recent actions to consider
+            
+        Returns:
+            Set of all tags from recent commands
+        """
+        if not self.attack_context:
+            return set()
+        
+        recent_cmds = self.attack_context.command_history[-k:]
+        all_tags = set()
+        
+        for cmd in recent_cmds:
+            # Find the template for this command
+            cmd_prefix = cmd.split()[0].lower() if cmd else ""
+            
+            for template in COMMAND_REGISTRY.values():
+                # Match by prefix or template name
+                template_prefix = template.template.split()[0].lower()
+                if cmd_prefix == template_prefix or template.name.lower() in cmd.lower():
+                    all_tags.update(template.tags)
+                    break
+        
+        return all_tags
+    
+    def _compute_tag_overlap(self, template: "CommandTemplate", recent_tags: Set[str]) -> float:
+        """
+        Compute Jaccard-like overlap between template tags and recent tags.
+        
+        Phase 0.1: Used to determine which actions to mask.
+        
+        Args:
+            template: The command template to check
+            recent_tags: Tags from recent commands
+            
+        Returns:
+            Overlap ratio (0.0 to 1.0)
+        """
+        if not template.tags or not recent_tags:
+            return 0.0
+        
+        intersection = len(template.tags & recent_tags)
+        union = len(template.tags | recent_tags)
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def _get_masked_actions_for_stuck(
+        self,
+        overlap_threshold: float = 0.8,
+        history_k: int = 15,
+    ) -> Tuple[List["CommandTemplate"], int, str]:
+        """
+        Get valid actions after masking those with high tag overlap.
+        
+        Phase 0.1: Core stuck-escape logic.
+        
+        Args:
+            overlap_threshold: Mask actions with >= this tag overlap
+            history_k: Look back K actions for tag calculation
+            
+        Returns:
+            Tuple of (filtered_commands, excluded_count, tag_info_str)
+        """
+        if not self.attack_context:
+            return [], 0, "no_context"
+        
+        ctx = self.attack_context
+        
+        # Get recent tags
+        recent_tags = self._get_recent_action_tags(history_k)
+        
+        # Get all valid commands for current state
+        valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
+        if not valid_commands:
+            valid_commands = get_valid_commands_for_state(ctx.state_flags)
+        if not valid_commands:
+            valid_commands = [
+                cmd for cmd in COMMAND_REGISTRY.values()
+                if cmd.phase == AttackPhase.RECON and not cmd.preconditions
+            ]
+        
+        # Filter for agent role
+        role_filtered = self._filter_commands_for_role(valid_commands)
+        
+        # Also exclude commands already in history (exact match)
+        history_set = set(ctx.command_history[-history_k:])
+        
+        # Apply tag overlap masking
+        masked = []
+        excluded_count = 0
+        excluded_tags = []
+        
+        for template in role_filtered:
+            overlap = self._compute_tag_overlap(template, recent_tags)
+            
+            # Check exact history match
+            test_cmd = template.template.replace("{target}", ctx.target)
+            in_history = any(test_cmd[:40] in h for h in history_set)
+            
+            if overlap >= overlap_threshold or in_history:
+                excluded_count += 1
+                excluded_tags.append(f"{template.name}:{overlap:.2f}")
+            else:
+                masked.append(template)
+        
+        tag_info = f"recent_tags={list(recent_tags)[:5]} excluded={excluded_tags[:5]}"
+        
+        return masked, excluded_count, tag_info
+    
+    def _force_novel_action(
+        self,
+        step_ctx: "SmartStepContext",
+        thresholds: List[float] = [0.8, 0.6, 0.4, 0.0],
+    ) -> "SmartDecisionResult":
+        """
+        Force a novel action using fallback ladder of decreasing thresholds.
+        
+        Phase 0.1: Called when agent is repeat-stuck.
+        
+        Fallback ladder:
+        1. threshold=0.8 → mask high-overlap actions
+        2. threshold=0.6 → more permissive
+        3. threshold=0.4 → even more permissive
+        4. threshold=0.0 → history-only exclusion
+        5. random from all valid → last resort
+        
+        Args:
+            step_ctx: Current step context
+            thresholds: List of overlap thresholds to try
+            
+        Returns:
+            SmartDecisionResult with forced=True
+        """
+        ctx = step_ctx.attack_context
+        history_k = 15  # Could come from config
+        
+        # Try each threshold in the fallback ladder
+        for threshold in thresholds:
+            candidates, excluded, tag_info = self._get_masked_actions_for_stuck(
+                overlap_threshold=threshold,
+                history_k=history_k,
+            )
+            
+            if candidates:
+                # Pick randomly from candidates
+                import random
+                template = random.choice(candidates)
+                
+                # Render the command
+                params = {"target": ctx.target}
+                for param in template.required_params:
+                    if param not in params:
+                        params[param] = self._get_default_param(param, ctx)
+                
+                rendered = render_command(template, params)
+                
+                logger.info(
+                    f"[FORCED-NOVEL][{self.agent_name}] "
+                    f"threshold={threshold} "
+                    f"selected={template.name} "
+                    f"excluded={excluded} "
+                    f"tag_info={tag_info[:80]}"
+                )
+                
+                return SmartDecisionResult(
+                    command=rendered,
+                    template_name=template.name,
+                    params=params,
+                    mentor_call=False,
+                    phase=ctx.current_phase,
+                    confidence=0.6,
+                    source="forced",
+                    forced=True,
+                    forced_reason=f"repeat_stuck_threshold_{threshold}",
+                    excluded_count=excluded,
+                    tag_info=tag_info,
+                )
+        
+        # Last resort: random from ALL role-valid commands (ignore history)
+        logger.warning(f"[FORCED-NOVEL][{self.agent_name}] All thresholds exhausted, picking random")
+        
+        valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
+        if not valid_commands:
+            valid_commands = list(COMMAND_REGISTRY.values())[:20]
+        
+        role_filtered = self._filter_commands_for_role(valid_commands)
+        if not role_filtered:
+            role_filtered = valid_commands[:10]
+        
+        import random
+        template = random.choice(role_filtered) if role_filtered else list(COMMAND_REGISTRY.values())[0]
+        
+        params = {"target": ctx.target}
+        for param in template.required_params:
+            if param not in params:
+                params[param] = self._get_default_param(param, ctx)
+        
+        rendered = render_command(template, params)
+        
+        return SmartDecisionResult(
+            command=rendered,
+            template_name=template.name,
+            params=params,
+            mentor_call=False,
+            phase=ctx.current_phase,
+            confidence=0.3,
+            source="forced",
+            forced=True,
+            forced_reason="random_fallback",
+            excluded_count=0,
+            tag_info="random_fallback",
+        )
+    
+    def _get_default_param(self, param: str, ctx: "AttackContext") -> str:
+        """Get default value for a required parameter."""
+        defaults = {
+            "target": ctx.target,
+            "ip": ctx.target,
+            "host": ctx.target,
+            "url": f"http://{ctx.target}",
+            "port": "80",
+            "wordlist": "/usr/share/wordlists/dirb/common.txt",
+            "user": "admin",
+            "username": "admin",
+            "password": "password",
+            "domain": ctx.target,
+        }
+        return defaults.get(param, ctx.target)
     
     def decide(
         self,
@@ -1289,6 +1583,7 @@ class SmartCoach:
     ) -> SmartDecisionResult:
         """
         Make decision using the smart mentor (LLM).
+        Uses DualMentor (GPT + Venice) if available, otherwise single SmartMentor.
         Validates that mentor's command respects role exclusivity AND anti-loop rules.
         
         Args:
@@ -1300,8 +1595,23 @@ class SmartCoach:
         ctx = step_ctx.attack_context
         
         try:
-            # Get command from smart mentor WITH filtered commands for role
-            mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+            # === USE DUAL MENTOR IF AVAILABLE ===
+            if self.has_dual_mentor():
+                dual_response = self.dual_mentor.get_command(ctx, filtered_commands)
+                mentor_response = dual_response.chosen
+                provider_used = dual_response.provider_used
+                tokens_used = dual_response.tokens_total
+                
+                if not mentor_response or not mentor_response.is_valid:
+                    logger.warning(f"[{self.agent_name}] DualMentor returned invalid response, falling back to registry")
+                    return self._decide_from_registry(step_ctx, proposed_action, confidence)
+                
+                logger.debug(f"[{self.agent_name}] DualMentor chose: {mentor_response.template_name} via {provider_used}")
+            else:
+                # === SINGLE MENTOR FALLBACK ===
+                mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+                provider_used = "gpt"
+                tokens_used = getattr(mentor_response, 'tokens_used', 0)
             
             # VALIDATE: Check if mentor's command violates role exclusivity (belt & suspenders)
             mentor_cmd = mentor_response.command.lower()
@@ -1343,24 +1653,26 @@ class SmartCoach:
             # Determine if mentor changed the action
             delta = "changed" if proposed_action and mentor_response.command != proposed_action else "kept"
             
-            # Get tokens used (from mentor response if available)
-            tokens_used = getattr(mentor_response, 'tokens_used', 0)
-            
             # Validate token tracking: warn if mentor was called but tokens=0
             if tokens_used == 0:
                 logger.debug(f"[TOKEN_WARN] {self.agent_name} mentor call but tokens=0 - may be cached or estimate missing")
+            
+            # Add provider info to model_used
+            model_display = f"{self.model}|{provider_used}" if self.has_dual_mentor() else self.model
             
             return SmartDecisionResult(
                 command=mentor_response.command,
                 template_name=mentor_response.template_name,
                 params=mentor_response.params,
                 mentor_call=True,
-                model_used=self.model,
+                model_used=model_display,
                 mentor_reasoning=mentor_response.reasoning,
                 mentor_delta=delta,
+                mentor_provider=provider_used,  # Track which provider was used
                 confidence=mentor_response.confidence,
                 phase=mentor_response.phase,
                 tokens_used=tokens_used,
+                source="mentor",  # Phase 0.1 tracking
             )
             
         except Exception as e:
