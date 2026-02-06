@@ -58,12 +58,45 @@ class CyberEnvironment:
         
         # Define cyber kill chain phases
         self.phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+        
+        # PHASE 2A: Configurable phase transition thresholds
+        # Can be overridden via set_phase_thresholds() for different target profiles
         self.phase_transitions = {
-            "recon": {"threshold": 10, "next": "enumeration"},  # After 10 successful port discoveries
-            "enumeration": {"threshold": 8, "next": "exploit"},  # After 8 service identifications
-            "exploit": {"threshold": 3, "next": "privesc"},      # After 3 successful exploits
-            "privesc": {"threshold": 1, "next": "exfiltrate"},   # After 1 successful privilege escalation
-            "exfiltrate": {"threshold": 1, "next": "complete"}   # End after successful exfiltration
+            "recon": {"threshold": 10, "next": "enumeration"},
+            "enumeration": {"threshold": 8, "next": "exploit"},
+            "exploit": {"threshold": 3, "next": "privesc"},
+            "privesc": {"threshold": 1, "next": "exfiltrate"},
+            "exfiltrate": {"threshold": 1, "next": "complete"}
+        }
+        
+        # Predefined target profiles for phase thresholds
+        self.TARGET_PROFILES = {
+            "default": {
+                "recon": 10, "enumeration": 8, "exploit": 3,
+                "privesc": 1, "exfiltrate": 1,
+            },
+            "metasploitable2": {
+                "recon": 5,       # M2 has ~20 open ports, 5 is quick enough
+                "enumeration": 4, # M2 has many services, 4 identified = ready
+                "exploit": 2,     # M2 has easy vulns, 2 exploits = move on
+                "privesc": 1,     # 1 privesc = move to exfil
+                "exfiltrate": 1,
+            },
+            "metasploitable3": {
+                "recon": 6,
+                "enumeration": 5,
+                "exploit": 2,
+                "privesc": 1,
+                "exfiltrate": 1,
+            },
+            "htb_easy": {
+                "recon": 4, "enumeration": 3, "exploit": 2,
+                "privesc": 1, "exfiltrate": 1,
+            },
+            "htb_hard": {
+                "recon": 8, "enumeration": 6, "exploit": 3,
+                "privesc": 2, "exfiltrate": 1,
+            },
         }
 
         # Initialize all required attributes with default values
@@ -127,6 +160,36 @@ class CyberEnvironment:
         # Only call reset_environment if not deferring
         if not defer_reset:
             self.reset_environment()
+
+    def set_target_profile(self, profile_name: str) -> None:
+        """
+        Set phase transition thresholds from a predefined target profile.
+        
+        Args:
+            profile_name: One of 'default', 'metasploitable2', 'metasploitable3',
+                         'htb_easy', 'htb_hard'
+        """
+        if profile_name not in self.TARGET_PROFILES:
+            raise ValueError(
+                f"Unknown profile '{profile_name}'. "
+                f"Available: {list(self.TARGET_PROFILES.keys())}"
+            )
+        thresholds = self.TARGET_PROFILES[profile_name]
+        for phase, threshold in thresholds.items():
+            if phase in self.phase_transitions:
+                self.phase_transitions[phase]["threshold"] = threshold
+    
+    def set_phase_thresholds(self, thresholds: dict) -> None:
+        """
+        Set custom phase transition thresholds.
+        
+        Args:
+            thresholds: Dict mapping phase name to threshold value.
+                       e.g. {"recon": 5, "enumeration": 4}
+        """
+        for phase, threshold in thresholds.items():
+            if phase in self.phase_transitions:
+                self.phase_transitions[phase]["threshold"] = int(threshold)
 
     def initialize_dynamic_parameters(self):
         # Delay the import of AgentManager to avoid circular imports
@@ -1528,12 +1591,15 @@ class CyberEnvironment:
         """
         Update the blue team alertness level based on the impact of an action.
         
+        PHASE 0 FIX: Normalized to 0-100 scale (was incorrectly using 0-10).
+        
         Args:
             action_impact (float): The stealth impact of the action (higher = more noisy)
         """
         # Calculate the new alertness level
         # Scale the impact by the current difficulty
-        scaled_impact = action_impact * (self.difficulty_level / 5.0)
+        # Multiply by 10 to convert from old 0-10 scale to 0-100 scale
+        scaled_impact = action_impact * (self.difficulty_level / 5.0) * 10.0
         
         # Apply a damping factor based on agent skill level
         if hasattr(self, "agent_stealth_skill"):
@@ -1541,25 +1607,31 @@ class CyberEnvironment:
             scaled_impact *= damping
         
         # Update the alertness level with some randomness
+        # Cap at 100 (not 10) - PHASE 0 FIX
         random_factor = random.uniform(0.8, 1.2)
-        self.blue_team_alert = min(10.0, self.blue_team_alert + (scaled_impact * random_factor))
+        self.blue_team_alert = min(100.0, self.blue_team_alert + (scaled_impact * random_factor))
         
-        # Log the change for monitoring
+        # Log the change for monitoring (now shows /100.0)
         if self.verbose:
-            print(f"[Blue Team] Alertness increased to {self.blue_team_alert:.2f}/10.0 (action impact: {action_impact})")
+            print(f"[Blue Team] Alertness increased to {self.blue_team_alert:.2f}/100.0 (action impact: {action_impact})")
             
         # Check if we've triggered a security incident
-        if self.blue_team_alert >= 8.0:
+        # Threshold is 80 on 0-100 scale (was 8 on 0-10 scale) - PHASE 0 FIX
+        if self.blue_team_alert >= 80.0:
             self._trigger_blue_team_response()
             
     def _decay_blue_team_alertness(self):
-        """Decay the blue team alertness level over time."""
+        """Decay the blue team alertness level over time.
+        
+        PHASE 0 FIX: Normalized to 0-100 scale.
+        """
         # Blue team alertness decays slower at higher difficulty levels
-        decay_rate = 0.2 * (1.0 - (self.difficulty_level / 10.0))
-        self.blue_team_alert = max(1.0, self.blue_team_alert - decay_rate)
+        # Multiply decay rate by 10 for 0-100 scale
+        decay_rate = 2.0 * (1.0 - (self.difficulty_level / 10.0))
+        self.blue_team_alert = max(0.0, self.blue_team_alert - decay_rate)  # Allow decay to 0
         
         if self.verbose and self.steps_taken % 5 == 0:
-            print(f"[Blue Team] Alertness decayed to {self.blue_team_alert:.2f}/10.0")
+            print(f"[Blue Team] Alertness decayed to {self.blue_team_alert:.2f}/100.0")
             
     def _trigger_blue_team_response(self):
         """Trigger a blue team response when alertness reaches a critical level."""
@@ -1574,7 +1646,7 @@ class CyberEnvironment:
             # Apply countermeasures based on incident count
             if self.incident_count == 1:
                 print("[Blue Team] 🛡️ Increased monitoring deployed")
-                self.detection_rate *= 1.5
+                self.detection_risk = min(self.detection_risk * 1.5, 10.0)
             elif self.incident_count == 2:
                 print("[Blue Team] 🛡️ Active defense measures deployed")
                 # Remove some random compromised hosts
@@ -1586,8 +1658,8 @@ class CyberEnvironment:
                 print("[Blue Team] 🛡️ Full lockdown initiated - mission failure")
                 self.terminated = True
                 
-            # Apply a major score penalty
-            self.score -= 50 * self.incident_count
+            # Apply penalty via increased detection risk (score attribute doesn't exist)
+            self.detection_risk = min(self.detection_risk + 2.0, 10.0)
         else:
             # In live mode, just log and be more careful
             print("[Warning] High detection rate in live environment - reducing activity temporarily")
@@ -1597,32 +1669,35 @@ class CyberEnvironment:
         """
         Get a detailed report on the current stealth status.
         
+        PHASE 0 FIX: Updated to use 0-100 scale for blue_team_alert.
+        
         Returns:
             dict: Report containing stealth metrics
         """
-        stealth_score = 10 - self.blue_team_alert
+        # Stealth score is inverse of alert (0-100 scale)
+        stealth_score = 100 - self.blue_team_alert
         
         # Calculate detection risk for the next action based on current alertness
         detection_risk = {
-            "low_impact_action": self.blue_team_alert * 0.1,
-            "medium_impact_action": self.blue_team_alert * 0.2,
-            "high_impact_action": self.blue_team_alert * 0.3
+            "low_impact_action": self.blue_team_alert * 0.01,  # Scaled for 0-100
+            "medium_impact_action": self.blue_team_alert * 0.02,
+            "high_impact_action": self.blue_team_alert * 0.03
         }
         
-        # Classify the current stealth status
-        if stealth_score >= 8:
+        # Classify the current stealth status (thresholds scaled for 0-100)
+        if stealth_score >= 80:
             status = "Excellent - Ghost mode"
-        elif stealth_score >= 6:
+        elif stealth_score >= 60:
             status = "Good - Low profile"
-        elif stealth_score >= 4:
+        elif stealth_score >= 40:
             status = "Moderate - Some traces detected"
-        elif stealth_score >= 2:
+        elif stealth_score >= 20:
             status = "Poor - Significant traces detected"
         else:
             status = "Critical - Nearly compromised"
             
         # Formulate recommendations based on current status
-        if stealth_score < 5:
+        if stealth_score < 50:
             recommendations = [
                 "Consider a cooldown period to let alertness decay",
                 "Use more stealthy techniques for your next actions",

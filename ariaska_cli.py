@@ -6,6 +6,7 @@ Main entry point for all ARIASKA_RL operations
 
 import sys
 import os
+import random
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -19,6 +20,38 @@ sys.path.insert(0, str(project_root))
 
 # Load environment variables
 load_dotenv()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 0 FIX: Deterministic Mode Configuration
+# Set random seeds BEFORE any agent/environment instantiation for reproducibility
+# ─────────────────────────────────────────────────────────────────────────────
+def _init_deterministic_mode():
+    """Initialize deterministic mode if enabled via environment variable."""
+    if os.environ.get("ARIASKA_DETERMINISTIC", "").lower() == "true":
+        import numpy as np
+        import torch
+        
+        seed = int(os.environ.get("ARIASKA_SEED", "42"))
+        
+        # Set all random seeds for reproducibility
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            # Enable deterministic algorithms
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        
+        console = Console()
+        console.print(f"[green]🔒 Deterministic mode enabled (seed={seed})[/green]")
+        return True
+    return False
+
+# Initialize deterministic mode early
+_deterministic_mode = _init_deterministic_mode()
 
 def show_system_status():
     """Show system status and diagnostics"""

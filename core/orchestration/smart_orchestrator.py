@@ -223,6 +223,7 @@ class SmartOrchestrator:
         self.deep_stuck_count: Dict[str, int] = {}  # Forced-novel failures per agent
         self.forced_novel_count: Dict[str, int] = {}  # Successful forced-novel actions per agent
         self.phase_progressed_this_episode: bool = False  # True if phase advanced
+        self._phase_start_step: Dict[str, int] = {}  # Track when each phase started
         self.episode_termination_reason: TerminationReason = TerminationReason.MAX_STEPS
         self.previous_discoveries: Dict[str, Any] = {}  # For discoveries_delta calculation
         
@@ -230,6 +231,64 @@ class SmartOrchestrator:
         self.dashboard = self._init_dashboard()
         
         logger.info(f"SmartOrchestrator initialized with {len(self.agents)} agents")
+    
+    # =========================================================================
+    # PHASE 2A: Smart Agent Activation Schedule
+    # =========================================================================
+    # Not all agents need to run every step. Phase-based activation saves
+    # API calls by only activating agents when they're useful.
+    # Value = run every Nth step. 1 = every step, 2 = every other step.
+    # Red always runs (core attacker). Blue/Shadow now run more often
+    # to ensure proper token usage and defensive coverage.
+    AGENT_ACTIVATION_SCHEDULE = {
+        # RECON: Scout leads, Red every step, Blue/Shadow observe every 2 steps
+        "RECON": {
+            "ScoutAgent": 1, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 2,
+        },
+        "ENUMERATION": {
+            "ScoutAgent": 2, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 2,
+        },
+        "EXPLOITATION": {
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 2, "BlueAgent": 1,
+        },
+        "PRIVILEGE_ESCALATION": {
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 1,
+        },
+        "LATERAL_MOVEMENT": {
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 1,
+        },
+        "POST_EXPLOITATION": {
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 1,
+        },
+        "EXFILTRATION": {
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
+            "OrionAgent": 3, "BlueAgent": 1,
+        },
+    }
+    
+    def _should_activate(self, agent_name: str, step: int, phase: str) -> bool:
+        """
+        Determine if an agent should be activated this step based on phase.
+        
+        Args:
+            agent_name: Name of the agent
+            step: Current step number (0-indexed from orchestrator)
+            phase: Current attack phase (e.g. "RECON", "EXPLOITATION")
+            
+        Returns:
+            True if agent should run this step
+        """
+        phase_upper = phase.upper().replace(" ", "_")
+        schedule = self.AGENT_ACTIVATION_SCHEDULE.get(phase_upper, {})
+        frequency = schedule.get(agent_name, 1)  # Default: every step
+        # Use (step + 1) so step 0 behaves like step 1 (not always-activate)
+        return (step + 1) % frequency == 0
     
     def _init_dashboard(self) -> LiveDashboard:
         """Initialize the live dashboard for training visibility."""
@@ -402,6 +461,11 @@ class SmartOrchestrator:
         if self.gpt_manager:
             self.gpt_manager.reset_episode(episode_id=episode_number)
         
+        # PHASE 2A: Reset per-agent GPT call counters
+        for agent in self.agents.values():
+            if hasattr(agent, 'gpt_calls_this_episode'):
+                agent.gpt_calls_this_episode = 0
+        
         # Reset coaches and reward calculator
         for coach in self.coaches.values():
             coach.reset_episode(episode_number)
@@ -417,6 +481,7 @@ class SmartOrchestrator:
         self.forced_novel_count = {agent: 0 for agent in self.agents}
         self._steps_without_discoveries = {agent: 0 for agent in self.agents}  # Stagnation counter
         self.phase_progressed_this_episode = False
+        self._phase_start_step = {"RECON": 0}  # Reset phase timing
         self.episode_termination_reason = TerminationReason.MAX_STEPS
         self.previous_discoveries = {}
         
@@ -553,6 +618,33 @@ class SmartOrchestrator:
                     agent="system"
                 )
             
+            # =================================================================
+            # PHASE 2A: TIME-BASED PHASE ADVANCEMENT FALLBACK
+            # If stuck in a phase for too many steps, auto-advance by setting
+            # the required state flags. This prevents infinite stagnation.
+            # =================================================================
+            steps_in_phase = step - self._phase_start_step.get(current_phase, 0)
+            if current_phase == "ENUMERATION" and steps_in_phase >= 40:
+                if not self.attack_context.state_flags.get("credentials_known"):
+                    self.attack_context.set_state_flag("credentials_known")
+                    logger.info(f"[TIME-ADVANCE] Auto-set credentials_known after {steps_in_phase} steps in ENUMERATION")
+                    self.dashboard.add_event("phase_change", "Time-based: credentials_known", agent="system")
+            elif current_phase == "EXPLOITATION" and steps_in_phase >= 30:
+                if not self.attack_context.state_flags.get("shell_obtained"):
+                    self.attack_context.set_state_flag("shell_obtained")
+                    logger.info(f"[TIME-ADVANCE] Auto-set shell_obtained after {steps_in_phase} steps in EXPLOITATION")
+                    self.dashboard.add_event("phase_change", "Time-based: shell_obtained", agent="system")
+            elif current_phase == "PRIVILEGE_ESCALATION" and steps_in_phase >= 25:
+                if not self.attack_context.state_flags.get("admin_access_obtained"):
+                    self.attack_context.set_state_flag("admin_access_obtained")
+                    logger.info(f"[TIME-ADVANCE] Auto-set admin_access_obtained after {steps_in_phase} steps in PRIVESC")
+                    self.dashboard.add_event("phase_change", "Time-based: admin_access", agent="system")
+            
+            # Track phase start steps
+            new_phase = self.attack_context.current_phase.name
+            if new_phase != current_phase:
+                self._phase_start_step[new_phase] = step
+            
             # =========================================================================
             # PHASE 0.1: CHECK STUCK_ABORT TERMINATION
             # =========================================================================
@@ -631,6 +723,10 @@ class SmartOrchestrator:
         
         for agent_name in agent_order:
             if agent_name not in self.agents or agent_name not in self.coaches:
+                continue
+            
+            # PHASE 2A: Smart activation — skip agents that don't need to run this step
+            if not self._should_activate(agent_name, step, current_phase):
                 continue
             
             agent = self.agents[agent_name]
@@ -779,6 +875,78 @@ class SmartOrchestrator:
             
             # Parse discoveries from this agent's output
             agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
+            
+            # =====================================================================
+            # PHASE 2A: DISCOVERY → STATE FLAG BRIDGE
+            # Map parsed discoveries to AttackContext state_flags so phase can
+            # advance through RECON → ENUMERATION → EXPLOITATION → PRIVESC → POST
+            # =====================================================================
+            if agent_discoveries and self.attack_context:
+                ctx = self.attack_context
+                
+                # Service discoveries → set_state_flag (triggers phase auto-advance)
+                for svc in agent_discoveries.get("service", []):
+                    ctx.add_service(svc)  # add_service already calls set_state_flag
+                
+                # Port discoveries → add to context
+                for port in agent_discoveries.get("open_port", []):
+                    ctx.add_discovery("open_port", port)
+                
+                # Credential discovery → advance to EXPLOITATION
+                if "credential" in agent_discoveries:
+                    ctx.set_state_flag("credentials_known")
+                    logger.info(f"[PHASE-ADVANCE] credentials_known set by {result.agent_name}")
+                
+                # Vulnerability/SQLi discovery → advance to EXPLOITATION
+                if agent_discoveries.get("vulnerability"):
+                    ctx.set_state_flag("vulnerability_found")
+                    cves = agent_discoveries.get("cve", [])
+                    if cves:
+                        ctx.add_discovery("cve", cves)
+                    # Check for specific vuln types that advance phase further
+                    output_lower = (output_to_parse or "").lower()
+                    if "sql injection" in output_lower or "sqli" in output_lower:
+                        ctx.set_state_flag("sqli_confirmed")
+                        logger.info(f"[PHASE-ADVANCE] sqli_confirmed set by {result.agent_name}")
+                
+                # Shell discovery → advance to PRIVILEGE_ESCALATION
+                if agent_discoveries.get("shell"):
+                    ctx.set_state_flag("shell_obtained")
+                    logger.info(f"[PHASE-ADVANCE] shell_obtained set by {result.agent_name}")
+                    if agent_discoveries.get("root_shell"):
+                        ctx.set_state_flag("root_shell_obtained")
+                        ctx.set_state_flag("admin_access_obtained")
+                        logger.info(f"[PHASE-ADVANCE] root_shell_obtained set by {result.agent_name}")
+                
+                # User discoveries
+                for user in agent_discoveries.get("user", []):
+                    ctx.add_discovery("user", user)
+                
+                # SMB shares
+                for share in agent_discoveries.get("smb_share", []):
+                    ctx.add_discovery("smb_share", share)
+                    ctx.set_state_flag("smb_service_found")
+                
+                # Web paths → mark services as enumerated
+                if agent_discoveries.get("web_path"):
+                    ctx.set_state_flag("services_enumerated")
+                    for path in agent_discoveries["web_path"]:
+                        ctx.add_discovery("web_path", path)
+                
+                # Database discovery
+                if agent_discoveries.get("database"):
+                    ctx.set_state_flag("database_found")
+                    for db in agent_discoveries.get("db_name", []):
+                        ctx.add_discovery("database", db)
+                
+                # Sensitive file discovery
+                if agent_discoveries.get("sensitive_file"):
+                    ctx.add_discovery("sensitive_file", True)
+                    ctx.set_state_flag("services_enumerated")
+                
+                # Hash discovery → lateral movement
+                if "hash" in str(agent_discoveries).lower():
+                    ctx.set_state_flag("hash_known")
             
             # Determine success based on simulated output quality
             # Commands that produce meaningful output are considered successful
@@ -1118,11 +1286,33 @@ class SmartOrchestrator:
             "pspy": "CMD: UID=0 PID=1234 /bin/bash /root/backup_cron.sh\nCMD: UID=0 PID=5678 /opt/scripts/check_services.sh",
             "responder": f"[+] Listening for events...\n[HTTP] NTLMv2 Hash: admin::CORP:abc123def456",
             "impacket": f"[*] SMBv3.0 dialect used\n[+] admin:Password123!@{target}:445",
+            "msfconsole": f"msf6 exploit(multi/handler) > exploit\n[*] Started reverse handler\n[*] Meterpreter session 1 opened ({target}:4444 -> 10.10.14.2:4444)\nmeterpreter > getuid\nServer username: www-data",
+            "exploit": f"[*] Exploiting target {target}\n[+] shell session 1 opened ({target}:4444 -> 10.10.14.2:8080)\nwww-data@target:/var/www$",
+            "python": f"Listening on 0.0.0.0:4444\nConnection from {target} on port 4444\n$ id\nuid=33(www-data) gid=33(www-data) groups=33(www-data)",
+            "nc": f"listening on [any] 4444 ...\nconnect to [{target}] from (UNKNOWN) [{target}]\n$ id\nuid=33(www-data) gid=33(www-data)",
+            "sudo": "User admin may run the following commands on target:\n    (ALL) NOPASSWD: /usr/bin/vim\n    (ALL) NOPASSWD: /usr/bin/python3",
+            "scp": f"admin@{target}'s password:\n100% 4096KB 3.5MB/s 00:01",
+            "john": "admin:admin123\nbackup:backup2024\nroot:toor\n3 password hashes cracked, 0 left",
+            "hashcat": "Hash.Mode: 1000 (NTLM)\nadmin:Password123!\nbackup:Backup2024!\nStatus: Cracked",
+            "metasploit": f"[*] Meterpreter session 1 opened ({target}:4444 -> 10.10.14.2:4444)\nmeterpreter > sysinfo\nComputer: TARGET\nOS: Linux 5.4.0 (Ubuntu 20.04)",
+            "pkexec": f"[+] CVE-2021-4034 exploit successful\nroot@target:/# id\nuid=0(root) gid=0(root) groups=0(root)",
+            "wget": "Saving to: 'linpeas.sh'\n100%[============>] 776,423 1.83MB/s in 0.4s\n2026-01-04 10:30:01 (1.83 MB/s) - saved [776423/776423]",
+            "chmod": "",
+            "cp": "",
+            "mv": "",
+            "arping": f"ARPING {target}\n60 bytes from {target}: index=0 time=1.234 msec\n60 bytes from {target}: index=1 time=0.876 msec",
+            "waybackurls": f"http://{target}/admin\nhttp://{target}/login.php\nhttp://{target}/backup/",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():
             if cmd_lower.startswith(prefix.lower()):
                 return output
+        
+        # Fallback: try matching command keywords for exploit-like commands
+        if "exploit" in cmd_lower or "meterpreter" in cmd_lower:
+            return f"[*] Exploiting target {target}\n[+] shell session 1 opened ({target}:4444 -> 10.10.14.2:8080)\nwww-data@target:/var/www$"
+        if "shell" in cmd_lower or "reverse" in cmd_lower:
+            return f"[+] Reverse shell received\nwww-data@target:/tmp$ id\nuid=33(www-data) gid=33(www-data)"
         
         return f"[SIM] {command[:50]}... executed"
     

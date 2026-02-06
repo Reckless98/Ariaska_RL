@@ -75,6 +75,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         memory_router=None,
         memory_manager=None,
         verbosity="standard",
+        gpt_manager=None,  # PHASE 0 FIX: Accept injected GPTManager
     ):
         self._agent_id = agent_id  # Use internal attribute for property
         self._role = role  # Use internal attribute for property
@@ -122,7 +123,9 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.repeat_steps = 0
         self.gpt_calls_this_episode = 0
         self.gpt_call_limit = 10
-        self.gpt_manager = GPTManager()
+        # PHASE 0 FIX: Use injected GPTManager or create one if not provided
+        # AgentManager will override this with the shared instance via _sync_gpt_context
+        self.gpt_manager = gpt_manager if gpt_manager is not None else GPTManager()
         self.replay_buffer = ReplayBuffer(
             capacity=self.replay_memory_size,
             alpha=0.6,
@@ -144,6 +147,97 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             self.red = None
             self.orion = None
         # All LLM functionality now handled by self.gpt_manager
+
+    def react_to_action(self, red_action: str) -> dict:
+        """
+        PHASE 0 FIX: React to RedAgent's action with defensive measures.
+        
+        This method analyzes the Red action and returns a structured defense dict
+        that will be processed by env._process_blue_defense() WITHOUT calling env.step().
+        
+        Args:
+            red_action: The command executed by RedAgent
+            
+        Returns:
+            dict with keys:
+                - honeypots_deployed: list of honeypot names to deploy
+                - credentials_reset: bool, whether to reset credentials
+                - alert_increase: float, amount to increase alert level
+        """
+        defense_result = {
+            "honeypots_deployed": [],
+            "credentials_reset": False,
+            "alert_increase": 0.0
+        }
+        
+        try:
+            # Get current state from shared environment
+            state = self.env.get_global_state() if hasattr(self, "env") and self.env else {}
+            alert_level = state.get("blue_team_alert", 0)
+            detection_risk = state.get("detection_risk", 0)
+            
+            # Analyze Red's action for threat level
+            red_action_lower = red_action.lower() if red_action else ""
+            
+            # High-risk offensive actions trigger immediate response
+            if any(kw in red_action_lower for kw in ["exploit", "metasploit", "msfconsole", "payload"]):
+                defense_result["alert_increase"] = 15.0
+                defense_result["honeypots_deployed"].append("exploit_honeypot")
+                if self.verbosity in ("debug", "verbose"):
+                    console.print(f"[blue]🛡️ BlueAgent: Detected exploit attempt, deploying honeypot[/blue]")
+                    
+            elif any(kw in red_action_lower for kw in ["privesc", "sudo", "su ", "linpeas", "winpeas"]):
+                defense_result["alert_increase"] = 20.0
+                defense_result["credentials_reset"] = True  # Reset to block privesc
+                if self.verbosity in ("debug", "verbose"):
+                    console.print(f"[blue]🔐 BlueAgent: Privesc detected, resetting credentials[/blue]")
+                    
+            elif any(kw in red_action_lower for kw in ["nmap", "masscan", "rustscan"]):
+                defense_result["alert_increase"] = 5.0
+                if alert_level > 50:
+                    defense_result["honeypots_deployed"].append("scan_decoy")
+                    
+            elif any(kw in red_action_lower for kw in ["gobuster", "dirsearch", "ffuf", "feroxbuster"]):
+                defense_result["alert_increase"] = 8.0
+                defense_result["honeypots_deployed"].append("web_honeypot")
+                
+            elif any(kw in red_action_lower for kw in ["scp", "exfil", "wget", "curl", "nc "]):
+                defense_result["alert_increase"] = 25.0
+                defense_result["credentials_reset"] = True
+                if self.verbosity in ("debug", "verbose"):
+                    console.print(f"[red]🚨 BlueAgent: Exfiltration attempt detected![/red]")
+            
+            # High alert mode triggers additional defenses
+            if alert_level > 70:
+                self.current_mode = "Defensive"
+                if not defense_result["honeypots_deployed"]:
+                    defense_result["honeypots_deployed"].append("high_alert_honeypot")
+                    
+            # GPT-enhanced defense for complex situations
+            if alert_level > 60 or detection_risk > 5.0:
+                if self.gpt_calls_this_episode < self.gpt_call_limit:
+                    try:
+                        defense_prompt = (
+                            f"RedAgent action: {red_action}. Alert: {alert_level}. Risk: {detection_risk}. "
+                            "Should we deploy honeypot, reset credentials, or both? Reply: honeypot/reset/both/none"
+                        )
+                        gpt_response = self.query_tactical_gpt(defense_prompt)
+                        gpt_response_lower = gpt_response.lower() if gpt_response else ""
+                        
+                        if "honeypot" in gpt_response_lower or "both" in gpt_response_lower:
+                            defense_result["honeypots_deployed"].append("gpt_suggested_honeypot")
+                        if "reset" in gpt_response_lower or "both" in gpt_response_lower:
+                            defense_result["credentials_reset"] = True
+                            
+                        self.gpt_calls_this_episode += 1
+                    except Exception as e:
+                        if self.verbosity in ("debug", "verbose"):
+                            console.print(f"[yellow]⚠ GPT defense query failed: {e}[/yellow]")
+                            
+        except Exception as e:
+            console.print(f"[yellow]⚠ BlueAgent react_to_action error: {e}[/yellow]")
+            
+        return defense_result
 
     def query_tactical_gpt(self, prompt, complexity="standard"):
         """
@@ -210,15 +304,8 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         action_idx = torch.argmax(q_values, dim=-1).item()
         if self.verbosity in ("debug", "verbose"):
             console.print(f"[cyan]🎯 PolicyNet action selected: {get_action_description(action_idx)}[/cyan]")
-        if self.current_mode != "Defensive" and self.mode_switch_cooldown == 0:
-            mode_switch_prompt = f"Current mode: {self.current_mode}. Should BlueAgent switch to a more defensive posture based on the current threat level?"
-            mode_switch_decision = self.query_tactical_gpt(mode_switch_prompt)
-            if "yes" in mode_switch_decision.lower():
-                self.current_mode = "Defensive"
-                console.print(f"[magenta]🚨 Mode switched to Defensive.[/magenta]")
-            self.mode_switch_cooldown = 5
-        elif self.mode_switch_cooldown > 0:
-            self.mode_switch_cooldown -= 1
+        # PHASE 2A FIX: Removed GPT mode-switch call from select_action.
+        # Mode switching is now handled by alert_level checks in simulate_step.
         return action_idx
     
     def act(self, state: dict) -> dict:
@@ -269,19 +356,29 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             }
 
     def simulate_step(self, episode=1, step=1, shared_context=None):
+        """
+        PHASE 0 REFACTOR: BlueAgent simulate_step now does NOT call env.step().
+        
+        Instead, Blue monitors the environment state and decides on defensive actions.
+        The actual defense is applied via react_to_action() called by AgentManager.
+        Blue's reward is computed based on detection success, not env.step() return.
+        """
         try:
-            state = (
-                self.env.reset()
-                if step == 1
-                else getattr(self, "_last_state", self.env.get_global_state())
-            )
+            # Get current state from shared environment (don't reset - Red controls that)
+            if step == 1:
+                # On first step, just get state without resetting
+                state = self.env.get_global_state() if hasattr(self, "env") and self.env else {}
+            else:
+                state = getattr(self, "_last_state", self.env.get_global_state() if self.env else {})
+                
             # Inject ScoutAgent_phase if available
+            # PHASE 2A FIX: Use shared_context phase, don't call scout.advise_phase()
             if shared_context and "ScoutAgent_phase" in shared_context:
                 state["phase"] = shared_context["ScoutAgent_phase"]
-            if hasattr(self, "agent_manager") and self.agent_manager:
-                scout = getattr(self.agent_manager, "scout_agent", None)
-                if scout and hasattr(scout, "advise_phase"):
-                    state["phase"] = scout.advise_phase(state, self.agent_manager.all_agents())
+            elif shared_context and "phase" in shared_context:
+                state["phase"] = shared_context["phase"]
+            else:
+                state["phase"] = state.get("phase", "recon")
             try:
                 state_tensor = self.encode_env_state(state)
             except Exception:
@@ -293,7 +390,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             if not isinstance(action, str):
                 action = str(action)
             if not action or action == "N/A":
-                action = "nmap -p- -sC -sV TARGET"
+                action = "defensive_monitoring"
                 console.print(f"[yellow]⚠ BlueAgent fallback to default action: {action}[/yellow]")
             self.repetition_count.setdefault(action, 0)
             if self.last_action == action:
@@ -310,14 +407,28 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 action = str(random.randint(0, self.policy_net.output_size - 1))
                 self.repetition_count[action] = 0
                 self.repeat_steps = 0
-            next_state, reward, done, _ = self.env.step(action)
-            try:
-                if isinstance(reward, dict):
-                    reward = float(reward.get("reward", 0.0))
-                else:
-                    reward = float(reward)
-            except Exception:
-                reward = 0.0
+            
+            # PHASE 0 FIX: Do NOT call env.step() here!
+            # Blue's reward is based on detection success, not environment transition
+            # The AgentManager will call react_to_action() to apply Blue's defense
+            
+            # Calculate Blue's reward based on defensive metrics
+            alert_level = state.get("blue_team_alert", 0)
+            detection_risk = state.get("detection_risk", 0)
+            
+            # Blue reward: positive for high detection, negative for Red success
+            if alert_level > 70:
+                reward = 10.0  # High alert = Blue detected Red
+            elif alert_level > 40:
+                reward = 5.0   # Moderate detection
+            elif detection_risk > 5.0:
+                reward = -5.0  # Red is being stealthy, bad for Blue
+            else:
+                reward = 2.0   # Baseline monitoring reward
+                
+            # next_state is just current state (no env transition)
+            next_state = state
+            
             self.command_history.append(str(action))
             self.stats_monitor.log_step(self.agent_id, str(action), reward=reward)
             self._last_state = next_state
@@ -326,16 +437,22 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             if reasoning_key in self.gpt_reasoning_cache:
                 self.last_reasoning = self.gpt_reasoning_cache[reasoning_key]
             else:
-                self.last_reasoning = self.gpt_handler.query(
-                    f"Explain why action {action} is optimal for phase {state.get('phase')}.",
-                    model="gpt-4o-mini",
-                )
-                self.gpt_reasoning_cache[reasoning_key] = self.last_reasoning
+                # PHASE 2A FIX: Only call GPT for reasoning if under call limit
+                if self.gpt_calls_this_episode < self.gpt_call_limit:
+                    self.last_reasoning = self.gpt_handler.query(
+                        f"Explain why action {action} is optimal for phase {state.get('phase')}.",
+                        model="gpt-4o-mini",
+                    )
+                    self.gpt_reasoning_cache[reasoning_key] = self.last_reasoning
+                    self.gpt_calls_this_episode += 1
+                else:
+                    self.last_reasoning = f"Action {action} selected for phase {state.get('phase', 'N/A')} (GPT budget reached)"
             display_status_bar(self.agent_id, episode, step)
             self._log_training_step(episode, step, str(action), state, self.last_output)
-            console.print(
-                f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]"
-            )
+            if self.verbosity in ("debug", "verbose"):
+                console.print(
+                    f"[dim]Replay buffer: {len(self.prioritized_experiences)} | Epsilon: {self.epsilon:.3f} | Entropy: {self.entropy_beta:.3f}[/dim]"
+                )
             if self.agent_manager and hasattr(self.agent_manager, "broadcast"):
                 self.agent_manager.broadcast(
                     f"{self.agent_id}_phase",
@@ -344,45 +461,54 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 )
             if state.get("blue_team_alert", 0) > 60:
                 self.current_mode = "Defensive"
-                console.print(
-                    "[red]🚨 BlueAgent: Alert level high, activating countermeasures![/red]"
-                )
+                if self.verbosity in ("debug", "verbose"):
+                    console.print(
+                        "[red]🚨 BlueAgent: Alert level high, activating countermeasures![/red]"
+                    )
                 if hasattr(self.env, "honeypots"):
                     self.env.honeypots.append("fake_ssh")
-            red_agent = getattr(self.agent_manager, "red_agent", None)
+            
+            # PHASE 2A FIX: Consolidated GPT defense — ONE call max for defense
+            # Only query GPT once for defense when needed, instead of 2-3 separate calls
+            red_agent = getattr(self.agent_manager, "red_agent", None) if self.agent_manager else None
             red_command = None
+            needs_gpt_defense = False
+            
             if red_agent and hasattr(red_agent, "command_history") and red_agent.command_history:
                 red_command = red_agent.command_history[-1]
-                if "exploit" in red_command or "privesc" in red_command:
-                    anomaly_prompt = (
-                        f"RedAgent issued: {red_command}. "
-                        f"Blue team alert: {state.get('blue_team_alert', 0)}. "
-                        "Is this a high-risk offensive action? Suggest a defensive countermeasure."
-                    )
-                    gpt_defense = self.query_tactical_gpt(anomaly_prompt)
-                    if "honeypot" in gpt_defense.lower():
-                        if hasattr(self.env, "honeypots"):
-                            self.env.honeypots.append("auto_gpt_honeypot")
-                        console.print(f"[blue]🛡️ BlueAgent: Deployed GPT-suggested honeypot.[/blue]")
-                    if "reset" in gpt_defense.lower():
-                        console.print(f"[blue]🔐 BlueAgent: Resetting credentials per GPT defense.[/blue]")
-                    console.print(f"[yellow]🧠 GPT-4o-mini Defense: {gpt_defense}[/yellow]")
+                if "exploit" in str(red_command) or "privesc" in str(red_command):
+                    needs_gpt_defense = True
+                    
             if state.get("blue_team_alert", 0) > 60 or state.get("detection_risk", 0) > 5.0:
-                defense_prompt = (
-                    f"Alert: {state.get('blue_team_alert', 0)}, Risk: {state.get('detection_risk', 0)}. "
-                    "Suggest immediate defensive action."
+                needs_gpt_defense = True
+            
+            if needs_gpt_defense and self.gpt_calls_this_episode < self.gpt_call_limit:
+                try:
+                    consolidated_prompt = (
+                        f"Alert: {alert_level}, Risk: {detection_risk}. "
+                    )
+                    if red_command:
+                        consolidated_prompt += f"RedAgent action: {red_command}. "
+                    consolidated_prompt += (
+                        "Provide one-line defensive recommendation: honeypot/reset/lockdown/monitor."
+                    )
+                    gpt_defense = self.query_tactical_gpt(consolidated_prompt)
+                    self.gpt_calls_this_episode += 1
+                    gpt_defense_lower = gpt_defense.lower() if gpt_defense else ""
+                    
+                    if "honeypot" in gpt_defense_lower and hasattr(self.env, "honeypots"):
+                        self.env.honeypots.append("gpt_defense_honeypot")
+                    if "lockdown" in gpt_defense_lower:
+                        self.current_mode = "Defensive"
+                    if self.verbosity in ("debug", "verbose"):
+                        console.print(f"[cyan]🛡️ GPT Defense: {gpt_defense}[/cyan]")
+                except Exception:
+                    pass
+            
+            if self.verbosity != "silent":
+                console.print(
+                    f"[dim][BlueAgent] Step {step} | Action: {action} | Phase: {state.get('phase', 'N/A')} | Reward: {reward:.2f} | Mode: {self.current_mode}[/dim]"
                 )
-                gpt_action = self.query_tactical_gpt(defense_prompt)
-                console.print(f"[cyan]🛡️ Adaptive Defense Triggered: {gpt_action}[/cyan]")
-                if "honeypot" in gpt_action.lower():
-                    if hasattr(self.env, "honeypots"):
-                        self.env.honeypots.append("adaptive_gpt_honeypot")
-                if "lockdown" in gpt_action.lower():
-                    console.print("[red]🔒 BlueAgent: Initiating system lockdown![/red]")
-                self.current_mode = "Defensive"
-            console.print(
-                f"[dim][BlueAgent] Step {step} | Action: {action} | Phase: {state.get('phase', 'N/A')} | Reward: {reward:.2f} | Mode: {self.current_mode}[/dim]"
-            )
             gpt_tokens = self.gpt_manager.get_token_usage() if hasattr(self.gpt_manager, 'get_token_usage') else 0
             experience = {
                 'state': state_tensor.cpu().tolist(),

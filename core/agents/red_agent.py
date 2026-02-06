@@ -103,6 +103,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         memory_router=None,
         memory_manager=None,
         verbosity="standard",
+        gpt_manager=None,  # PHASE 0 FIX: Accept injected GPTManager
     ):
         # Create AgentConfig for EnhancedAgentBase
         agent_config = AgentConfig(
@@ -118,6 +119,9 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             use_enhanced_training=True,
             sync_interval=5.0
         )
+        
+        # Store injected gpt_manager for later assignment
+        self._injected_gpt_manager = gpt_manager
         
         # Initialize BaseAgent with enhanced capabilities
         super().__init__(config=agent_config, memory_sync=memory_router)
@@ -209,7 +213,9 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.gpt_tokens_used = 0
         self.gpt_token_limit = self.GPT_TOKEN_LIMIT
         self.gpt_response_cache = {}
-        self.gpt_manager = GPTManager()
+        # PHASE 0 FIX: Use injected GPTManager or create one if not provided
+        # AgentManager will override this with the shared instance via _sync_gpt_context
+        self.gpt_manager = self._injected_gpt_manager if self._injected_gpt_manager is not None else GPTManager()
         self.redagent_brain = RedAgentBrain()
         self.total_reward = 0.0  # Add missing total_reward attribute
         self.replay_buffer = ReplayBuffer(
@@ -602,47 +608,21 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 if step == 1
                 else getattr(self, "_last_state", self.env.get_global_state())
             )
-            try:
-                if self.scout and self.agent_manager:
-                    state["phase"] = self.scout.advise_phase(
-                        state, self.agent_manager.all_agents()
-                    ) or state.get("phase", "recon")
-                    if (
-                        isinstance(state["phase"], dict)
-                        and "response" in state["phase"]
-                    ):
-                        state["phase"] = state["phase"]["response"]
-                else:
-                    state["phase"] = state.get("phase", "recon")
-            except Exception as e:
-                console.print(
-                    f"[yellow]⚠ Scout phase advice failed: {e}, using current phase[/yellow]"
-                )
+            # PHASE 2A FIX: Use shared_context phase instead of calling advise_phase()
+            # multiple times. The orchestrator already sets the phase via ScoutAgent.
+            if shared_context and "ScoutAgent_phase" in shared_context:
+                state["phase"] = shared_context["ScoutAgent_phase"]
+            elif shared_context and "phase" in shared_context:
+                state["phase"] = shared_context["phase"]
+            else:
                 state["phase"] = state.get("phase", "recon")
             # Use tensor-safe code
             state_tensor = self.encode_env_state(state)
-            # Use shared context for phase coordination if available
-            if (shared_context and "ScoutAgent_phase" in shared_context):
-                state["phase"] = shared_context["ScoutAgent_phase"]
             # Curriculum-driven exploration: occasionally randomize phase
             if random.random() < 0.05:
                 state["phase"] = random.choice(
                     ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
                 )
-            # Validate GPT phase response
-            if self.scout and self.agent_manager:
-                phase_suggestion = self.scout.advise_phase(
-                    state, self.agent_manager.all_agents()
-                )
-                if phase_suggestion not in [
-                    "recon",
-                    "enumeration",
-                    "exploit",
-                    "privesc",
-                    "exfiltrate",
-                ]:
-                    phase_suggestion = state.get("phase", "recon")
-                state["phase"] = phase_suggestion
             # Accept OrionAgent's strategic chain at episode start
             if step == 1 and self.agent_manager and hasattr(self.agent_manager, "orion_agent"):
                 orion_agent = getattr(self.agent_manager, "orion_agent", None)
@@ -751,6 +731,10 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             self.last_action = command
             
             # --- Defensive: ensure shaped_reward is always set before use ---
+            # PHASE 2A FIX: Red does NOT call env.step() here.
+            # The orchestrator (SmartOrchestrator._execute_env_step or
+            # AgentManager._apply_actions_to_environment) is the SINGLE stepper.
+            # Red extracts simulated output and computes shaped reward locally.
             try:
                 output = self.extract_output(command)
                 if not isinstance(output, str):
@@ -766,13 +750,11 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 }
                 if self.blue:
                     self.blue.react_to_action(command, parsed)
-                next_state, env_reward, done, info = self.env.step(command)
-                try:
-                    if isinstance(env_reward, dict):
-                        env_reward = env_reward.get("reward", 0.0)
-                    env_reward = float(env_reward)
-                except Exception:
-                    env_reward = 0.0
+                # Use current env state as next_state (orchestrator will step env)
+                next_state = self.env.get_global_state() if hasattr(self.env, 'get_global_state') else state
+                env_reward = 0.0  # Base reward; orchestrator provides env reward
+                done = False
+                info = {}
                 shaped_reward = self.calculate_reward(
                     env_reward, parsed, command, None, detect_redundancy
                 )

