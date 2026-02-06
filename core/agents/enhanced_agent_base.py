@@ -13,7 +13,6 @@ import torch
 import numpy as np
 
 from core.gpt_manager import GPTManager
-from config.training_config import TRAINING_CONFIG
 from core.models.advanced_networks import create_advanced_policy_network, create_advanced_value_network
 from core.memory.enhanced_memory_sync import EnhancedMemorySync, MemoryInsight
 

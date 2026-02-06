@@ -1,17 +1,19 @@
-# ARIASKA_RL Makefile — Quick Commands for Training and Development
-# 
+# ARIASKA_RL Makefile — Phase 5
+#
+# Unified entry point: ariaska_cli.py smart-train
+#
 # Usage:
 #   make venv          - Create/upgrade .venv, install dependencies
 #   make test          - Run pytest
-#   make train         - Online training (5 eps, 50 steps)
-#   make train-offline - Offline training (no API key)
-#   make watch         - Online run with live dashboard
-#   make watch-offline - Offline run with live dashboard
-#   make smoke         - Quick smoke test
+#   make train         - Training (100 eps, 120 steps, simulated)
+#   make train-quick   - Quick training (10 eps, 120 steps)
+#   make train-msf     - Live Metasploitable 2 training
+#   make smoke         - Quick smoke test (3 eps, 10 steps)
 #   make last          - View last training run
+#   make status        - System diagnostics
 #   make clean         - Clean temporary files
 
-.PHONY: venv test train train-offline run run-offline watch watch-offline smoke last clean help
+.PHONY: venv test train train-quick train-msf smoke last status clean help
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -19,15 +21,16 @@ PYTEST := .venv/bin/pytest
 
 # Default target
 help:
-	@echo "ARIASKA_RL — Available Commands:"
-	@echo "  make venv          - Create/upgrade .venv, install dependencies"
+	@echo "ARIASKA_RL v5.0 — Metasploitable 2 Ready"
+	@echo ""
+	@echo "  make venv          - Create/upgrade .venv, install deps"
 	@echo "  make test          - Run pytest"
-	@echo "  make train         - Online training (5 eps, 50 steps)"
-	@echo "  make train-offline - Offline training (5 eps, no API key)"
-	@echo "  make watch         - Online run with live dashboard (10 eps)"
-	@echo "  make watch-offline - Offline run with live dashboard"
-	@echo "  make smoke         - Quick offline smoke test (2 eps, 3 steps)"
+	@echo "  make train         - Full training (100 eps, 120 steps)"
+	@echo "  make train-quick   - Quick training (10 eps, 120 steps)"
+	@echo "  make train-msf     - Live Metasploitable 2 training"
+	@echo "  make smoke         - Smoke test (3 eps, 10 steps)"
 	@echo "  make last          - View last training run traces"
+	@echo "  make status        - System diagnostics"
 	@echo "  make clean         - Clean temporary files"
 
 # Create/upgrade virtual environment and install dependencies
@@ -43,33 +46,21 @@ venv:
 test:
 	$(PYTEST) -q
 
-# Online training (default)
+# Full simulated training (100 episodes, 120 steps)
 train:
-	$(PYTHON) -m core.training.ariaska_trainer --episodes 5 --max-steps 50 --verbosity standard --ui live
+	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 120 --seed 42 --verbosity standard
 
-# Offline training (no API key)
-train-offline:
-	unset OPENAI_API_KEY && $(PYTHON) -m core.training.ariaska_trainer --offline --episodes 5 --max-steps 20 --verbosity standard --ui live
+# Quick simulated training (10 episodes)
+train-quick:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 120 --seed 42 --verbosity verbose
 
-# Online run (legacy alias)
-run:
-	$(PYTHON) -m core.training.ariaska_trainer --episodes 1 --max-steps 50 --verbosity standard
+# Live Metasploitable 2 training
+train-msf:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 120 --env msf --verbosity verbose
 
-# Offline run (legacy alias)
-run-offline:
-	$(PYTHON) -m core.training.ariaska_trainer --offline --episodes 2 --max-steps 10 --verbosity standard
-
-# Online run with live dashboard
-watch:
-	$(PYTHON) -m core.training.ariaska_trainer --episodes 10 --max-steps 50 --verbosity standard --ui live
-
-# Offline run with live dashboard
-watch-offline:
-	$(PYTHON) -m core.training.ariaska_trainer --offline --episodes 5 --max-steps 10 --verbosity standard --ui live
-
-# Quick smoke test (acceptance criteria A)
+# Quick smoke test
 smoke:
-	unset OPENAI_API_KEY && $(PYTHON) -m core.training.ariaska_trainer --offline --episodes 2 --max-steps 3 --seed 1337 --verbosity standard --ui summary
+	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 10 --seed 1337 --verbosity standard
 
 # View last training run
 last:
@@ -82,6 +73,10 @@ last:
 	echo ""; \
 	echo "=== Mentor Calls (last 10) ==="; \
 	tail -10 traces/$$LAST_RUN/mentor.jsonl 2>/dev/null || echo "(no mentor.jsonl)"
+
+# System diagnostics
+status:
+	$(PYTHON) ariaska_cli.py status
 
 # Clean temporary files
 clean:

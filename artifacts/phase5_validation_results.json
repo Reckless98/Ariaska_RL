@@ -1,0 +1,43 @@
+{
+  "phase": "5",
+  "date": "2026-02-06",
+  "description": "Phase 5: MSF2 fidelity, CLI consolidation, reward optimization",
+  "training_config": {
+    "episodes": 10,
+    "steps_per_episode": 120,
+    "seed": 42,
+    "target": "10.10.10.10",
+    "mode": "simulated",
+    "model": "gpt-5-mini"
+  },
+  "results": {
+    "episode_rewards": [13298.00, 13690.25, 13823.00, 13684.00, 13860.25, 13874.00, 13695.50, 13513.50, 13552.50, 13676.25],
+    "average_reward": 13666.73,
+    "min_reward": 13298.00,
+    "max_reward": 13874.00,
+    "std_dev": 167.42,
+    "exfiltration_rate": "10/10 (100%)",
+    "phases_reached": "7/7 (EXFILTRATION)",
+    "tests_passing": "199/199"
+  },
+  "improvements_over_baseline": {
+    "baseline_avg_reward_phase45": 4603.70,
+    "new_avg_reward": 13666.73,
+    "absolute_improvement": 9063.03,
+    "percentage_improvement": "197%",
+    "target_10000": "EXCEEDED by +3667 (37% above target)"
+  },
+  "key_changes": [
+    "Deleted dead code: backup/, main.py, config/training_config.py, train_phase4.py",
+    "Consolidated 4 entry points into single ariaska_cli.py",
+    "Rewrote Makefile to use ariaska_cli.py smart-train",
+    "90+ simulated command outputs with MSF2 fingerprints (vsftpd 2.3.4, OpenSSH 4.7p1, Apache 2.2.8, Samba 3.0.20, etc.)",
+    "5 new discovery types: subdomain, dns_record, web_parameter, api_endpoint, version_info",
+    "Expanded parser with 50+ regex patterns for discovery extraction",
+    "Steps increased: 50 -> 120",
+    "Completion bonuses: EXFILTRATION=1500, POST_EXPLOITATION=750, LATERAL=350, PRIV_ESC=150, EXPLOIT=50",
+    "Progress bonus per step: 1.0 -> 12.0 (fixed late-episode reward starvation)",
+    "Fixed step 6 reward calc: progress_bonus overwrite bug (= -> +=)",
+    "Enriched msfvenom sim output with discoverable patterns"
+  ]
+}

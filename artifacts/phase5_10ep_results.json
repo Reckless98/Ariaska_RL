@@ -1,0 +1,185 @@
+{
+  "timestamp": "2026-02-06T22:23:27.273707",
+  "episodes": 10,
+  "max_steps": 120,
+  "seed": 42,
+  "target_ip": "10.10.10.10",
+  "mode": "simulated",
+  "duration_s": 600.3359792232513,
+  "avg_reward": 15166.725,
+  "last10_avg": 15166.725,
+  "max_reward": 15374.0,
+  "min_reward": 14798.0,
+  "exfil_pct": 100.0,
+  "phase_distribution": {
+    "EXFILTRATION": 10
+  },
+  "decision_sources": {
+    "ppo": 704,
+    "playbook": 34,
+    "registry": 566,
+    "anti_repeat": 3072
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 14798.0,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.23121251579787994,
+      "value_loss": 126596.57248263889,
+      "entropy": 3.6529030799865723,
+      "sources": {
+        "ppo": 73,
+        "playbook": 2,
+        "registry": 62,
+        "anti_repeat": 297
+      }
+    },
+    {
+      "episode": 2,
+      "reward": 15190.25,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.24433942708290282,
+      "value_loss": 115565.6898871528,
+      "entropy": 3.652907927831014,
+      "sources": {
+        "ppo": 68,
+        "playbook": 3,
+        "registry": 56,
+        "anti_repeat": 313
+      }
+    },
+    {
+      "episode": 3,
+      "reward": 15323.0,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.20677578532033494,
+      "value_loss": 149463.10785590278,
+      "entropy": 3.6529022057851157,
+      "sources": {
+        "ppo": 74,
+        "playbook": 3,
+        "registry": 56,
+        "anti_repeat": 309
+      }
+    },
+    {
+      "episode": 4,
+      "reward": 15184.0,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.20141967510183653,
+      "value_loss": 127361.587890625,
+      "entropy": 3.652903894583384,
+      "sources": {
+        "ppo": 65,
+        "playbook": 6,
+        "registry": 58,
+        "anti_repeat": 305
+      }
+    },
+    {
+      "episode": 5,
+      "reward": 15360.25,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.16456809784803125,
+      "value_loss": 140615.4453125,
+      "entropy": 3.652903358141581,
+      "sources": {
+        "ppo": 75,
+        "playbook": 2,
+        "registry": 55,
+        "anti_repeat": 308
+      }
+    },
+    {
+      "episode": 6,
+      "reward": 15374.0,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.30854442550076383,
+      "value_loss": 110658.07622612845,
+      "entropy": 3.652901179260678,
+      "sources": {
+        "ppo": 70,
+        "playbook": 4,
+        "registry": 56,
+        "anti_repeat": 308
+      }
+    },
+    {
+      "episode": 7,
+      "reward": 15195.5,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.22738682517471412,
+      "value_loss": 131552.9140625,
+      "entropy": 3.652897914250692,
+      "sources": {
+        "ppo": 73,
+        "playbook": 4,
+        "registry": 52,
+        "anti_repeat": 309
+      }
+    },
+    {
+      "episode": 8,
+      "reward": 15013.5,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.2174176232268413,
+      "value_loss": 121160.0835503472,
+      "entropy": 3.6528938147756786,
+      "sources": {
+        "ppo": 68,
+        "playbook": 3,
+        "registry": 57,
+        "anti_repeat": 309
+      }
+    },
+    {
+      "episode": 9,
+      "reward": 15052.5,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.16050583662258255,
+      "value_loss": 125798.89561631944,
+      "entropy": 3.652891437212626,
+      "sources": {
+        "ppo": 69,
+        "playbook": 3,
+        "registry": 55,
+        "anti_repeat": 313
+      }
+    },
+    {
+      "episode": 10,
+      "reward": 15176.25,
+      "highest_phase": "EXFILTRATION",
+      "steps": 120,
+      "ppo_updates": 3,
+      "policy_loss": 0.29190885544651085,
+      "value_loss": 113246.38457573783,
+      "entropy": 3.6528832250171237,
+      "sources": {
+        "ppo": 69,
+        "playbook": 4,
+        "registry": 59,
+        "anti_repeat": 301
+      }
+    }
+  ]
+}

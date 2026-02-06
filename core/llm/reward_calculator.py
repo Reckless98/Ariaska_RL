@@ -141,6 +141,12 @@ class SmartRewardCalculator:
         # Database discoveries
         "database": 6.0,        # NEW: database identified
         "db_name": 4.0,         # NEW: specific database names
+        
+        # Phase 5: Additional discovery types
+        "dns_record": 3.0,      # DNS records expand recon knowledge
+        "web_parameter": 4.0,   # Injectable parameters are high value
+        "api_endpoint": 5.0,    # API endpoints reveal attack surface
+        "version_info": 3.5,    # Version info = exploit matching
     }
     
     def __init__(
@@ -150,7 +156,7 @@ class SmartRewardCalculator:
         max_redundancy_penalty: float = 0.5,   # Very low - don't punish too harshly
         phase_advance_multiplier: float = 3.0, # was 2.0 - bigger phase bonuses
         efficiency_window: int = 10,
-        progress_bonus_per_step: float = 1.0   # NEW: base progress for each step
+        progress_bonus_per_step: float = 12.0   # Phase 5: 1→12, rewards sustained action
     ):
         """
         Initialize the reward calculator.
@@ -161,7 +167,7 @@ class SmartRewardCalculator:
             max_redundancy_penalty: Maximum penalty for redundant commands
             phase_advance_multiplier: Multiplier for phase advancement bonus
             efficiency_window: Window for calculating efficiency
-            progress_bonus_per_step: Base bonus for making progress each step
+            progress_bonus_per_step: Base bonus for making progress each step (Phase 5: 12.0)
         """
         self.novelty_weight = novelty_weight
         self.redundancy_decay = redundancy_decay
@@ -298,11 +304,11 @@ class SmartRewardCalculator:
             
             self.highest_phase = new_phase
         
-        # 6. Progress bonus - reward commands that change state
+        # 6. Progress bonus - reward commands that change state (ADD to base, don't overwrite)
         new_flags = sum(1 for k, v in state_flags.items() if v and k not in self.discoveries)
         if new_flags > 0:
-            breakdown.progress_bonus = new_flags * 0.5
-            explanations.append(f"Progress ({new_flags} new flags): +{breakdown.progress_bonus:.1f}")
+            breakdown.progress_bonus += new_flags * 0.5
+            explanations.append(f"Progress ({new_flags} new flags): +{new_flags * 0.5:.1f}")
         
         # 7. Efficiency bonus - reward useful commands
         if success and (breakdown.discovery_bonus > 0 or breakdown.progress_bonus > 0):

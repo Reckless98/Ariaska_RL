@@ -76,8 +76,8 @@ class SmartOrchestratorConfig:
     stuck_tag_overlap_threshold: float = 0.8  # Mask actions with >= this tag overlap
     stuck_forced_abort_threshold: int = 10  # Terminate episode after N forced-novel failures
     
-    # Execution - reduced for faster feedback loops
-    max_steps_per_episode: int = 50
+    # Execution - 120 steps for full kill-chain exploration (Phase 5)
+    max_steps_per_episode: int = 120
     
     # Logging
     mentor_log_dir: str = "traces"
@@ -1253,7 +1253,11 @@ class SmartOrchestrator:
                 ctx.command_history.append(state["last_command"])
     
     def _parse_output_for_discoveries(self, output: str) -> Dict[str, Any]:
-        """Parse command output for new discoveries - rewards good simulated actions."""
+        """Parse command output for new discoveries - rewards good simulated actions.
+
+        Phase 5: Expanded with subdomain, dns_record, web_parameter,
+        api_endpoint, version_info discovery types for deeper reward signal.
+        """
         discoveries = {}
         
         if not output or output.startswith("[SIM]") and len(output) < 30:
@@ -1270,6 +1274,7 @@ class SmartOrchestrator:
             r"Open \S+:(\d+)",             # rustscan format
             r"\[(\d+)\]\[",                # hydra format
             r":(\d+)\s+\(",                # netstat/ss format
+            r"TCP open \S+:(\d+)",         # unicornscan format
         ]
         ports = set()
         for pattern in port_patterns:
@@ -1277,7 +1282,7 @@ class SmartOrchestrator:
         if ports:
             discoveries["open_port"] = [int(p) for p in ports if p.isdigit()]
         
-        # Service discovery (enhanced)
+        # Service discovery (enhanced with version info)
         service_patterns = {
             "ssh": r"ssh|openssh|sshd",
             "http": r"http|apache|nginx|iis|web server",
@@ -1289,6 +1294,14 @@ class SmartOrchestrator:
             "postgresql": r"postgresql|postgres|5432",
             "rdp": r"rdp|3389|remote desktop",
             "smtp": r"smtp|postfix|sendmail|25/tcp",
+            "telnet": r"telnet|23/tcp",
+            "dns": r"domain|bind|53/tcp",
+            "irc": r"irc|unrealircd|6667",
+            "vnc": r"vnc|5900",
+            "rmi": r"java-rmi|rmi|1099",
+            "distcc": r"distccd|distcc|3632",
+            "nfs": r"nfs|2049",
+            "tomcat": r"tomcat|8180|8009|ajp",
         }
         
         for svc, pattern in service_patterns.items():
@@ -1298,6 +1311,19 @@ class SmartOrchestrator:
                 if svc not in discoveries.get("service", []):
                     discoveries["service"].append(svc)
         
+        # ─── Phase 5: Version info discovery ─────────────────────────
+        version_patterns = [
+            r"(?:vsftpd|openssh|apache|samba|mysql|postgresql|tomcat|unrealircd|distccd|bind|php|ruby|python)\s*[\d\.]+[^\s]*",
+            r"(?:Server|banner):\s*\S+[\s/][\d\.]+",
+            r"(?:version|ver):\s*[\d\.]+",
+        ]
+        versions_found = []
+        for pattern in version_patterns:
+            matches = re.findall(pattern, output, re.IGNORECASE)
+            versions_found.extend(matches)
+        if versions_found:
+            discoveries["version_info"] = list(set(v.strip() for v in versions_found[:5]))
+        
         # Credential patterns (enhanced)
         cred_patterns = [
             r"password[:\s]+\S+",
@@ -1306,6 +1332,9 @@ class SmartOrchestrator:
             r"NTLMv[12] Hash:",
             r"valid credentials",
             r"authentication successful",
+            r"Login successful",
+            r"password hashes cracked",
+            r"Key found:",
         ]
         for pattern in cred_patterns:
             if re.search(pattern, output, re.IGNORECASE):
@@ -1318,6 +1347,9 @@ class SmartOrchestrator:
             r"user found:\s*(\w+)",        # wpscan
             r"Admin Email:\s*(\S+)",       # whois
             r"login:\s*(\w+)",             # hydra
+            r"VALID USERNAME:\s*(\w+)",    # kerbrute
+            r"User:\s*(\w+)\s+Password",  # patator/medusa
+            r"VRFY\s+(\w+)\s+\(250",      # smtp-user-enum
         ]
         users = []
         for pattern in user_patterns:
@@ -1335,6 +1367,10 @@ class SmartOrchestrator:
             r"Buffer Overflow",
             r"SQL Injection",
             r"Path Traversal",
+            r"Backdoor",
+            r"Command Execution",
+            r"command injection",
+            r"XSS vulnerability",
         ]
         for pattern in vuln_patterns:
             if re.search(pattern, output, re.IGNORECASE):
@@ -1351,6 +1387,66 @@ class SmartOrchestrator:
             if path_matches:
                 discoveries["web_path"] = list(set(path_matches))
                 discoveries["directory"] = True
+        # Also catch feroxbuster/dirsearch format
+        ferox_paths = re.findall(r"(?:200\s+GET\s+|^\[200\]\s*http://\S+?)((?:/[\w\-\.]+)+)", output, re.MULTILINE)
+        if ferox_paths:
+            discoveries["web_path"] = list(set(discoveries.get("web_path", []) + [p.strip("/").split("/")[-1] for p in ferox_paths]))
+            discoveries["directory"] = True
+        
+        # ─── Phase 5: Subdomain discovery ────────────────────────────
+        subdomain_patterns = [
+            r"([\w\-]+\.[\w\-]+\.[\w\-]+)\s*(?:->|→|-->)\s*\d+\.\d+",  # fierce/amass
+            r"([\w\-]+\.[\w\-]+\.[\w\-]+)\s*$",                          # sublist3r
+            r"\[?\*?\]?\s*A\s+([\w\-]+\.[\w\-]+\.[\w\-]+)\s+\d+",       # dnsrecon
+            r"([\w\-]+\.[\w\-]+\.[\w\-]+):\d+\.\d+\.\d+\.\d+",         # theHarvester
+        ]
+        subdomains = set()
+        for pattern in subdomain_patterns:
+            subdomains.update(re.findall(pattern, output, re.MULTILINE | re.IGNORECASE))
+        if subdomains:
+            discoveries["subdomain"] = list(subdomains)[:10]
+        
+        # ─── Phase 5: DNS record discovery ───────────────────────────
+        dns_records = []
+        dns_patterns = [
+            r"(\S+)\.\s+\d+\s+IN\s+(A|AAAA|MX|NS|TXT|CNAME|SOA)\s+(.+?)$",
+            r"\[?\*?\]?\s*(MX|NS|TXT|CNAME|A|AAAA)\s+(\S+)\s+(\S+)",
+        ]
+        for pattern in dns_patterns:
+            matches = re.findall(pattern, output, re.MULTILINE | re.IGNORECASE)
+            for m in matches:
+                dns_records.append({"type": m[1] if len(m) > 1 else m[0], "value": m[-1]})
+        if dns_records:
+            discoveries["dns_record"] = dns_records[:8]
+        
+        # ─── Phase 5: Web parameter discovery ────────────────────────
+        param_patterns = [
+            r"(?:parameter|param)s?\s*(?:found|discovered)?:?\s*([\w,\s]+)",
+            r"\?(\w+)=(?:FUZZ|test|id)",
+            r"Valid parameters found:\s*(.+?)$",
+        ]
+        params = set()
+        for pattern in param_patterns:
+            matches = re.findall(pattern, output, re.IGNORECASE | re.MULTILINE)
+            for m in matches:
+                for p in re.split(r"[,\s]+", m):
+                    p = p.strip()
+                    if p and len(p) > 1 and p.isalnum():
+                        params.add(p)
+        if params:
+            discoveries["web_parameter"] = list(params)[:10]
+        
+        # ─── Phase 5: API endpoint discovery ─────────────────────────
+        api_patterns = [
+            r"((?:/api/[\w/\-]+)+)",
+            r"\[(?:url|linkfinder)\]\s*(http\S*/api\S*)",
+        ]
+        endpoints = set()
+        for pattern in api_patterns:
+            matches = re.findall(pattern, output, re.IGNORECASE)
+            endpoints.update(matches)
+        if endpoints:
+            discoveries["api_endpoint"] = list(endpoints)[:8]
         
         # Share discovery (SMB)
         share_matches = re.findall(r"(?:Disk|IPC):\s*(\w+)|\\\\[^\\]+\\(\w+)", output)
@@ -1368,6 +1464,8 @@ class SmartOrchestrator:
             r"\.env",
             r"config\.",
             r"wp-config",
+            r"db_dump",
+            r"\.sql",
         ]
         for pattern in sensitive_patterns:
             if re.search(pattern, output_lower):
@@ -1380,18 +1478,20 @@ class SmartOrchestrator:
             r"www-data@",
             r"root@",
             r"meterpreter\s*>",
+            r"msfadmin@",
             r"\$\s*$",
             r"#\s*$",
             r"C:\\>",
             r"PS\s+C:\\",
             r"nt authority\\system",
             r"uid=0\(root\)",
+            r"Backdoor.*spawned",
         ]
         
         for pattern in shell_patterns:
             if re.search(pattern, output, re.MULTILINE):
                 discoveries["shell"] = True
-                if re.search(r"root@|uid=0|nt authority\\system|domain admin", output, re.IGNORECASE):
+                if re.search(r"root@|uid=0|nt authority\\system|domain admin|meterpreter.*root", output, re.IGNORECASE):
                     discoveries["root_shell"] = True
                 break
         
@@ -1445,6 +1545,7 @@ class SmartOrchestrator:
             r"backdoor.*installed|implant.*deployed",
             r"ssh.*authorized_keys|\.ssh/authorized_keys",
             r"scheduled\s*task\s*created",
+            r"backdoor user",
         ]
         for pattern in persistence_patterns:
             if re.search(pattern, output, re.IGNORECASE):
@@ -1468,7 +1569,9 @@ class SmartOrchestrator:
         # Database discovery
         if re.search(r"database|DBMS|mysql|postgresql|mssql|mongodb", output_lower):
             discoveries["database"] = True
-            db_names = re.findall(r"(?:database|schema):\s*(\w+)", output_lower)
+            db_names = re.findall(r"(?:database|schema|Database)[\s:]+(\w+)", output, re.IGNORECASE)
+            if not db_names:
+                db_names = re.findall(r"^\|\s*(\w+)\s*\|", output, re.MULTILINE)
             if db_names:
                 discoveries["db_name"] = list(set(db_names))
         
@@ -1526,7 +1629,13 @@ class SmartOrchestrator:
             return {"reward": 0.0}, {}, False
     
     def _generate_simulated_output(self, command: str) -> str:
-        """Generate realistic simulated output for a command with discoverable patterns."""
+        """Generate realistic simulated output for a command with discoverable patterns.
+
+        Phase 5: Comprehensive coverage of ALL anti-repeat pool tools plus
+        Metasploitable 2 realistic service fingerprints.  Every command in
+        the SmartCoach alternative_commands pools has at least one matching
+        prefix here so that anti-repeat decisions still earn discoveries.
+        """
         if not command:
             return ""
         
@@ -1540,123 +1649,258 @@ class SmartOrchestrator:
         cmd_hash = int(hashlib.md5(command.encode()).hexdigest()[:8], 16)
         random.seed(cmd_hash)
         
-        # Variable ports and services for discovery variety
-        ports = random.sample([21, 22, 25, 80, 110, 139, 443, 445, 1433, 3306, 3389, 5432, 8080, 8443], k=random.randint(3, 6))
-        services = {21: "ftp", 22: "ssh", 25: "smtp", 80: "http", 110: "pop3", 139: "netbios", 
-                   443: "https", 445: "smb", 1433: "mssql", 3306: "mysql", 3389: "rdp", 
+        # ─── Metasploitable 2 realistic service fingerprints ─────────
+        MSF2_PORTS = random.sample([
+            21, 22, 23, 25, 53, 80, 111, 139, 445, 512, 513, 514,
+            1099, 1524, 2049, 2121, 3306, 3632, 5432, 5900, 6000,
+            6667, 6697, 8009, 8180, 8787,
+        ], k=random.randint(6, 12))
+        
+        MSF2_SERVICES = {
+            21: ("ftp", "vsftpd 2.3.4"),
+            22: ("ssh", "OpenSSH 4.7p1 Debian 8ubuntu1"),
+            23: ("telnet", "Linux telnetd"),
+            25: ("smtp", "Postfix smtpd"),
+            53: ("domain", "ISC BIND 9.4.2"),
+            80: ("http", "Apache httpd 2.2.8 (Ubuntu) DAV/2"),
+            111: ("rpcbind", "2 (RPC #100000)"),
+            139: ("netbios-ssn", "Samba smbd 3.X - 4.X"),
+            445: ("microsoft-ds", "Samba smbd 3.0.20-Debian"),
+            512: ("exec", "netkit-rsh rexecd"),
+            513: ("login", "OpenBSD or Solaris rlogind"),
+            514: ("shell", "Netkit rshd"),
+            1099: ("java-rmi", "GNU Classpath grmiregistry"),
+            1524: ("bindshell", "Metasploitable root shell"),
+            2049: ("nfs", "2-4 (RPC #100003)"),
+            2121: ("ftp", "ProFTPD 1.3.1"),
+            3306: ("mysql", "MySQL 5.0.51a-3ubuntu5"),
+            3632: ("distccd", "distccd v1 ((GNU) 4.2.4)"),
+            5432: ("postgresql", "PostgreSQL DB 8.3.0-8.3.7"),
+            5900: ("vnc", "VNC (protocol 3.3)"),
+            6000: ("X11", "(access denied)"),
+            6667: ("irc", "UnrealIRCd"),
+            6697: ("irc", "UnrealIRCd (SSL)"),
+            8009: ("ajp13", "Apache Jserv (Protocol v1.3)"),
+            8180: ("http", "Apache Tomcat/Coyote JSP engine 1.1"),
+            8787: ("drb", "Ruby DRb RMI (Ruby 1.8)"),
+        }
+        
+        # Realistic service lines for nmap-style output
+        def _nmap_line(port):
+            svc, ver = MSF2_SERVICES.get(port, ("unknown", ""))
+            return f"{port}/tcp open  {svc:16s} {ver}"
+        
+        # Variable ports for non-MSF2 variety
+        generic_ports = random.sample([21, 22, 25, 80, 110, 139, 443, 445, 1433, 3306, 3389, 5432, 8080, 8443], k=random.randint(3, 6))
+        services_generic = {21: "ftp", 22: "ssh", 25: "smtp", 80: "http", 110: "pop3", 139: "netbios",
+                   443: "https", 445: "smb", 1433: "mssql", 3306: "mysql", 3389: "rdp",
                    5432: "postgresql", 8080: "http-alt", 8443: "https-alt"}
         
-        # Enhanced simulated outputs with discoverable patterns
+        # Random hosts for network scans
+        subnet_hosts = [f"10.10.10.{random.randint(1, 254)}" for _ in range(random.randint(3, 8))]
+        
+        # Random subdomains
+        subdomains = random.sample([
+            f"dev.{target}", f"staging.{target}", f"api.{target}", f"admin.{target}",
+            f"mail.{target}", f"vpn.{target}", f"cdn.{target}", f"git.{target}",
+            f"ci.{target}", f"portal.{target}", f"app.{target}", f"test.{target}",
+        ], k=random.randint(3, 6))
+        
+        # ─── Comprehensive simulated outputs ─────────────────────────
         SIMULATED_OUTPUTS = {
-            "nmap": "\n".join([f"{p}/tcp open  {services.get(p, 'unknown')}" for p in sorted(ports)]) + f"\nNmap done: 1 IP ({target})",
-            "masscan": "\n".join([f"Discovered open port {p}/tcp on {target}" for p in ports[:4]]),
-            "rustscan": "\n".join([f"Open {target}:{p}" for p in ports]) + f"\n[~] Running nmap on {target}",
-            "enum4linux": f"[+] Target: {target}\n[+] RID cycling: administrator, guest, backup\n[+] Shares: IPC$, ADMIN$, C$\n[+] Password policy: MinLen=7",
-            "smbclient": f"\\\\{target}\\IPC$\nSharename  Type  Comment\nIPC$       IPC   Remote IPC\nADMIN$     Disk  Admin share\nbackup     Disk  Backup files",
-            "smbmap": f"[+] IP: {target}:445  Name: TARGET\n[+] Disk: backup (READ)\n[+] Disk: ADMIN$ (NO ACCESS)",
-            "rpcclient": "$> enumdomusers\nuser:[Administrator] rid:[0x1f4]\nuser:[Guest] rid:[0x1f5]\nuser:[backup_svc] rid:[0x3e8]",
-            "gobuster": f"/admin (Status: 200, Size: 3456)\n/login (Status: 200, Size: 1234)\n/backup (Status: 403)\n/api (Status: 200, Size: 567)",
-            "dirb": f"+ http://{target}/admin (CODE:200|SIZE:3456)\n+ http://{target}/robots.txt (CODE:200|SIZE:123)",
-            "feroxbuster": f"200  GET  /admin/\n200  GET  /login.php\n301  GET  /images/\n403  GET  /backup/",
-            "ffuf": "admin [Status: 200, Size: 3456]\nlogin [Status: 200, Size: 1234]\napi [Status: 200, Size: 567]",
-            "dirsearch": f"[200] http://{target}/admin/\n[200] http://{target}/login.php\n[403] http://{target}/.htaccess",
-            "nikto": f"+ Server: Apache/2.4.41\n+ /admin/: Admin page found\n+ X-Frame-Options header not set\n+ OSVDB-3092: /backup/: Backup dir found",
-            "nuclei": f"[CVE-2021-41773] Apache Path Traversal: {target}:80\n[info] Web server detected: Apache/2.4.41",
-            "curl": f"HTTP/1.1 200 OK\nServer: Apache/2.4.41 (Ubuntu)\nX-Powered-By: PHP/7.4.3\nSet-Cookie: PHPSESSID=abc123",
-            "whatweb": f"http://{target} [200 OK] Apache[2.4.41], PHP[7.4.3], Bootstrap, jQuery[3.5.1], PasswordField",
-            "wpscan": f"[+] WordPress version 5.7.2 identified\n[+] User found: admin\n[!] Vulnerable plugin: contact-form-7 (5.4.1)",
-            "hydra": f"[22][ssh] host: {target} login: admin password: admin123\n[22][ssh] host: {target} login: backup password: backup2024",
-            "crackmapexec": f"SMB  {target}  445  TARGET  [+] admin:Password123! (Pwn3d!)",
-            "searchsploit": "Apache 2.4.41 - Remote Code Execution | linux/remote/12345.py\nPHP 7.4 - Buffer Overflow | php/remote/54321.py",
-            "sqlmap": f"[INFO] the back-end DBMS is MySQL\n[INFO] fetching database names\navailable databases [2]: information_schema, webapp_db",
-            "netstat": "Proto Recv-Q Local Address  Foreign Address State  PID/Program\ntcp   0      0.0.0.0:22    0.0.0.0:*      LISTEN 789/sshd\ntcp   0      0.0.0.0:80    0.0.0.0:*      LISTEN 1234/apache2",
-            "ss": f"tcp  LISTEN 0 128 0.0.0.0:22  0.0.0.0:*  users:((\"sshd\",pid=789))\ntcp  LISTEN 0 128 0.0.0.0:80  0.0.0.0:*  users:((\"apache2\",pid=1234))",
-            "ps": "PID   USER  %CPU %MEM CMD\n1     root  0.0  0.1  /sbin/init\n789   root  0.1  0.2  /usr/sbin/sshd\n1234  www   1.2  0.5  /usr/sbin/apache2",
-            "last": f"admin  pts/0  192.168.1.10  Sat Jan  4 10:30   still logged in\nroot   tty1                  Sat Jan  4 08:00 - 09:30",
-            "who": f"admin    pts/0        2026-01-04 10:30 (192.168.1.10)\nroot     tty1         2026-01-04 08:00",
-            "lsof": f"sshd    789  root   3u  IPv4 12345  TCP *:22 (LISTEN)\napache2 1234 www    4u  IPv4 23456  TCP *:80 (LISTEN)",
-            "find": "/tmp/suspicious.sh\n/var/www/.backup.zip\n/home/admin/.ssh/id_rsa\n/opt/scripts/db_backup.sh",
-            "cat": "root:x:0:0:root:/root:/bin/bash\nadmin:x:1000:1000:Admin:/home/admin:/bin/bash\nbackup:x:1001:1001::/home/backup:/bin/sh",
-            "w": f"USER   TTY    FROM           LOGIN@  IDLE  WHAT\nadmin  pts/0  192.168.1.10  10:30   0.00s bash\nroot   tty1   -             08:00   2:30m -bash",
-            "crontab": "*/5 * * * * /usr/local/bin/backup.sh\n0 2 * * * /opt/scripts/db_backup.sh",
-            "systemctl": "apache2.service loaded active running Apache HTTP Server\nmysql.service  loaded active running MySQL Community Server",
-            "dig": f";; ANSWER SECTION:\n{target}. 300 IN A 10.10.10.10\n{target}. 300 IN MX 10 mail.{target}",
-            "whois": f"Domain Name: TARGET.COM\nRegistrar: Example Registrar\nAdmin Email: admin@target.com",
-            "ssh-audit": f"(gen) banner: SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.3\n(gen) compatibility: OpenSSH 7.4+\n(rec) Use of weak key exchange: diffie-hellman-group14-sha1",
-            "linpeas": "[+] Possible sudo/suid/caps binaries:\n/usr/bin/pkexec (CVE-2021-4034)\n/usr/bin/sudo\n[+] Writable /etc/passwd",
-            "pspy": "CMD: UID=0 PID=1234 /bin/bash /root/backup_cron.sh\nCMD: UID=0 PID=5678 /opt/scripts/check_services.sh",
-            "responder": f"[+] Listening for events...\n[HTTP] NTLMv2 Hash: admin::CORP:abc123def456",
-            "impacket": f"[*] SMBv3.0 dialect used\n[+] admin:Password123!@{target}:445",
-            "msfconsole": f"msf6 exploit(multi/handler) > exploit\n[*] Started reverse handler\n[*] Meterpreter session 1 opened ({target}:4444 -> 10.10.14.2:4444)\nmeterpreter > getuid\nServer username: www-data",
-            "exploit": f"[*] Exploiting target {target}\n[+] shell session 1 opened ({target}:4444 -> 10.10.14.2:8080)\nwww-data@target:/var/www$",
-            "python": f"Listening on 0.0.0.0:4444\nConnection from {target} on port 4444\n$ id\nuid=33(www-data) gid=33(www-data) groups=33(www-data)",
-            "nc": f"listening on [any] 4444 ...\nconnect to [{target}] from (UNKNOWN) [{target}]\n$ id\nuid=33(www-data) gid=33(www-data)",
-            "sudo": "User admin may run the following commands on target:\n    (ALL) NOPASSWD: /usr/bin/vim\n    (ALL) NOPASSWD: /usr/bin/python3",
-            "scp": f"admin@{target}'s password:\n100% 4096KB 3.5MB/s 00:01",
-            "john": "admin:admin123\nbackup:backup2024\nroot:toor\n3 password hashes cracked, 0 left",
-            "hashcat": "Hash.Mode: 1000 (NTLM)\nadmin:Password123!\nbackup:Backup2024!\nStatus: Cracked",
-            "metasploit": f"[*] Meterpreter session 1 opened ({target}:4444 -> 10.10.14.2:4444)\nmeterpreter > sysinfo\nComputer: TARGET\nOS: Linux 5.4.0 (Ubuntu 20.04)",
-            "pkexec": f"[+] CVE-2021-4034 exploit successful\nroot@target:/# id\nuid=0(root) gid=0(root) groups=0(root)",
+            # ─── Core scanning tools ─────────────────────────────────
+            "nmap": "\n".join([_nmap_line(p) for p in sorted(MSF2_PORTS)]) +
+                    f"\nOS details: Linux 2.6.9 - 2.6.33\nNmap done: 1 IP ({target})",
+            "masscan": "\n".join([f"Discovered open port {p}/tcp on {target}" for p in MSF2_PORTS[:8]]),
+            "rustscan": "\n".join([f"Open {target}:{p}" for p in MSF2_PORTS]) + f"\n[~] Running nmap on {target}",
+            
+            # ─── DNS / Subdomain tools (anti-repeat: recon) ─────────
+            "dig": f";; ANSWER SECTION:\n{target}. 300 IN A 10.10.10.10\n{target}. 300 IN MX 10 mail.{target}\n{target}. 300 IN TXT \"v=spf1 include:_spf.{target} ~all\"\n{target}. 300 IN AAAA ::1\n{target}. 300 IN NS ns1.{target}",
+            "host": f"{target} has address 10.10.10.10\n{target} has IPv6 address ::1\n{target} mail is handled by 10 mail.{target}",
+            "nslookup": f"Server:  8.8.8.8\nAddress: 8.8.8.8#53\n\nNon-authoritative answer:\n{target}\tcanonical name = {target}.\nName:\t{target}\nAddress: 10.10.10.10",
+            "fierce": f"DNS Servers for {target}:\n  ns1.{target}\n  ns2.{target}\n\nSubdomains found:\n" + "\n".join([f"  {s} -> 10.10.10.{random.randint(1,254)}" for s in subdomains]),
+            "dnsrecon": f"[*] Performing General Enumeration of Domain: {target}\n" +
+                        "\n".join([f"[*] A {s} 10.10.10.{random.randint(1,254)}" for s in subdomains]) +
+                        f"\n[*] MX mail.{target} 10.10.10.25\n[*] NS ns1.{target} 10.10.10.53\n[*] TXT v=spf1 include:_spf.{target}",
+            "theHarvester": f"[*] Target: {target}\n[*] Sources: baidu, bing, google, linkedin\n\nEmails found:\n  admin@{target}\n  info@{target}\n  hr@{target}\n\nHosts found:\n" +
+                           "\n".join([f"  {s}:10.10.10.{random.randint(1,254)}" for s in subdomains[:4]]),
+            "sublist3r": f"[-] Enumerating subdomains for {target}\n" + "\n".join([f"  {s}" for s in subdomains]),
+            "amass": f"[INFO] Enumeration started for {target}\n" + "\n".join([f"{s} (FQDN) --> 10.10.10.{random.randint(1,254)}" for s in subdomains]),
+            "whois": f"Domain Name: {target.upper()}\nRegistrar: Example Registrar\nAdmin Email: admin@{target}\nCreation Date: 2020-01-01",
+            "traceroute": f"traceroute to {target}, 30 hops max\n 1  gateway  1.234 ms\n 2  10.10.10.1  5.678 ms\n 3  {target}  12.345 ms",
+            
+            # ─── Network discovery (anti-repeat: recon) ──────────────
+            "fping": "\n".join([f"{h} is alive" for h in subnet_hosts]) + f"\n{target} is alive",
+            "hping3": f"HPING {target} (eth0 {target}): S set, 40 headers + 0 data bytes\nlen=46 ip={target} ttl=64 DF id=0 sport=80 flags=SA seq=0 win=29200\n--- {target} hping statistic ---\n2 packets transmitted, 2 packets received, 0% packet loss",
+            "arping": f"ARPING {target}\n60 bytes from {target}: index=0 time=1.234 msec\n60 bytes from {target}: index=1 time=0.876 msec",
+            "netdiscover": "\n".join([f" {h}     00:0c:29:{random.randint(10,99)}:{random.randint(10,99)}:{random.randint(10,99)}  1  60  Unknown vendor" for h in subnet_hosts]),
+            "nbtscan": f"IP Address    NetBIOS Name  Server  User        MAC Address\n{target}      METASPLOITABLE <server>  <unknown>   00:0c:29:ab:cd:ef\n10.10.10.1    GATEWAY       <server>  <unknown>   00:50:56:c0:00:08",
+            "unicornscan": "\n".join([f"TCP open {target}:{p}" for p in MSF2_PORTS[:6]]) + "\nCompleted 1 targets in 2.5 seconds",
+            
+            # ─── Web enumeration ─────────────────────────────────────
+            "gobuster": f"/admin (Status: 200, Size: 3456)\n/login (Status: 200, Size: 1234)\n/backup (Status: 403)\n/api (Status: 200, Size: 567)\n/uploads (Status: 301, Size: 234)\n/phpMyAdmin (Status: 200, Size: 8901)\n/tikiwiki (Status: 200, Size: 5678)\n/twiki (Status: 200, Size: 4567)",
+            "dirb": f"+ http://{target}/admin (CODE:200|SIZE:3456)\n+ http://{target}/robots.txt (CODE:200|SIZE:123)\n+ http://{target}/phpMyAdmin (CODE:200|SIZE:8901)\n+ http://{target}/tikiwiki (CODE:200|SIZE:5678)",
+            "feroxbuster": f"200  GET  /admin/\n200  GET  /login.php\n301  GET  /images/\n403  GET  /backup/\n200  GET  /phpMyAdmin/\n200  GET  /tikiwiki/",
+            "ffuf": "admin [Status: 200, Size: 3456]\nlogin [Status: 200, Size: 1234]\napi [Status: 200, Size: 567]\nphpMyAdmin [Status: 200, Size: 8901]\nuploads [Status: 301, Size: 234]",
+            "dirsearch": f"[200] http://{target}/admin/\n[200] http://{target}/login.php\n[403] http://{target}/.htaccess\n[200] http://{target}/phpMyAdmin/\n[200] http://{target}/dav/",
+            "nikto": f"+ Server: Apache/2.2.8 (Ubuntu) DAV/2\n+ /admin/: Admin page found\n+ OSVDB-3092: /phpMyAdmin/: phpMyAdmin found\n+ OSVDB-3268: /tikiwiki/: Directory indexing found\n+ X-Frame-Options header not set\n+ Apache/2.2.8 appears outdated (current: 2.4.58)",
+            "nuclei": f"[CVE-2021-41773] Apache Path Traversal: {target}:80\n[CVE-2007-2447] Samba 3.0.20 usermap_script: {target}:139\n[info] Web server detected: Apache/2.2.8",
+            "wfuzz": f"000000001:  200  95 L  251 W  3456 Ch  \"admin\"\n000000015:  200  30 L   89 W  1234 Ch  \"login\"\n000000042:  200  45 L  123 W  8901 Ch  \"phpMyAdmin\"\n000000088:  301  0  L    0 W   234 Ch  \"uploads\"",
+            "curl": f"HTTP/1.1 200 OK\nServer: Apache/2.2.8 (Ubuntu) DAV/2\nX-Powered-By: PHP/5.2.4-2ubuntu5.10\nSet-Cookie: PHPSESSID=abc123\n\n<html><head><title>Metasploitable2 - Linux</title></head>",
+            "whatweb": f"http://{target} [200 OK] Apache[2.2.8], PHP[5.2.4], DAV, Country[US], HTTPServer[Ubuntu Linux][Apache/2.2.8 (Ubuntu) DAV/2], PasswordField, Title[Metasploitable2 - Linux]",
             "wget": "Saving to: 'linpeas.sh'\n100%[============>] 776,423 1.83MB/s in 0.4s\n2026-01-04 10:30:01 (1.83 MB/s) - saved [776423/776423]",
+            
+            # ─── Web crawling / parameter discovery (anti-repeat: strategic) ──
+            "gospider": f"[url] http://{target}/admin\n[url] http://{target}/api/v1\n[url] http://{target}/phpMyAdmin\n[form] http://{target}/login\n[javascript] http://{target}/js/app.js\n[linkfinder] http://{target}/api/v1/users",
+            "katana": f"http://{target}/admin/\nhttp://{target}/api/v1/users\nhttp://{target}/login.php\nhttp://{target}/phpMyAdmin/\nhttp://{target}/tikiwiki/tiki-index.php",
+            "hakrawler": f"http://{target}/admin\nhttp://{target}/login.php\nhttp://{target}/api/v1\nhttp://{target}/phpMyAdmin\nhttp://{target}/dav/",
+            "waybackurls": f"http://{target}/admin\nhttp://{target}/login.php\nhttp://{target}/backup/\nhttp://{target}/phpMyAdmin/\nhttp://{target}/tikiwiki/",
+            "gau": f"http://{target}/admin\nhttp://{target}/api/v1/users\nhttp://{target}/phpMyAdmin/\nhttp://{target}/backup/db_dump.sql\nhttp://{target}/.env",
+            "arjun": f"[*] Testing http://{target}/page\n[+] Valid parameters found: id, name, page, action, debug, token\n[+] 6 parameters discovered",
+            "paramspider": f"[+] http://{target}/page?id=FUZZ\n[+] http://{target}/search?q=FUZZ\n[+] http://{target}/api?action=FUZZ\n[+] http://{target}/login?redirect=FUZZ",
+            "linkfinder": f"[+] http://{target}/api/v1/users\n[+] http://{target}/api/v1/auth\n[+] http://{target}/api/v1/admin\n[+] /static/js/secret_key_abc123",
+            "aquatone": f"[*] Targets loaded: 1\n[*] Probing targets\nhttp://{target}:80 - Apache/2.2.8\nhttp://{target}:8180 - Apache Tomcat/5.5\n[*] Screenshots saved to /tmp/aquatone/screenshots/",
+            "eyewitness": f"[*] Attempting to screenshot http://{target}\n[+] Screenshot saved: {target}_80.png\n[+] Web Header: Apache/2.2.8 (Ubuntu) DAV/2\n[+] Title: Metasploitable2 - Linux",
+            
+            # ─── Vulnerability scanning / exploitation (anti-repeat: offensive) ──
+            "wpscan": f"[+] WordPress version 5.7.2 identified\n[+] User found: admin\n[!] Vulnerable plugin: contact-form-7 (5.4.1)",
+            "searchsploit": "vsftpd 2.3.4 - Backdoor Command Execution | unix/remote/17491.rb\nSamba 3.0.20 - Remote Code Execution | unix/remote/16320.rb\nApache 2.2 - mod_negotiation Filename Brute | apache/remote/12345.py\nUnrealIRCd 3.2.8.1 - Backdoor | linux/remote/16922.rb\ndistccd - Remote Code Execution | linux/remote/9915.rb",
+            "sqlmap": f"[INFO] the back-end DBMS is MySQL 5.0.51a\n[INFO] fetching database names\navailable databases [5]: information_schema, dvwa, mutillidae, owasp10, tikiwiki",
+            "hydra": f"[22][ssh] host: {target} login: msfadmin password: msfadmin\n[21][ftp] host: {target} login: user password: user\n[23][telnet] host: {target} login: msfadmin password: msfadmin",
+            "medusa": f"ACCOUNT FOUND: [ssh] Host: {target} User: msfadmin Password: msfadmin [SUCCESS]\nACCOUNT FOUND: [ftp] Host: {target} User: user Password: user [SUCCESS]",
+            "patator": f"22/tcp  ssh  | msfadmin  | msfadmin    | 0  | SSH-2.0-OpenSSH_4.7p1\n21/tcp  ftp  | user      | user        | 0  | 230 Login successful",
+            "ncrack": f"Discovered credentials on {target} 22/tcp:\n22/tcp ssh: 'msfadmin' 'msfadmin'\n23/tcp telnet: 'msfadmin' 'msfadmin'",
+            "crackmapexec": f"SMB  {target}  445  METASPLOITABLE  [+] msfadmin:msfadmin (Pwn3d!)\nSMB  {target}  445  METASPLOITABLE  [+] Samba 3.0.20-Debian",
+            "tplmap": f"[+] Tplmap 0.5\n[+] Testing if GET parameter 'name' is injectable\n[+] Smarty plugin has confirmed injection\n[+] OS Shell command execution available\nuid=33(www-data) gid=33(www-data)",
+            "commix": f"[+] The GET parameter 'cmd' is vulnerable to OS command injection\n[+] Target OS: Linux 2.6.24\n$ id\nuid=33(www-data) gid=33(www-data)",
+            "dalfox": f"[POC][R][GET] http://{target}/page?q=<script>alert(1)</script>\n[*] Found 1 XSS vulnerability\n[*] Parameter: q",
+            "xsstrike": f"[~] Checking for DOM vulnerabilities\n[+] Vulnerable parameter: q\n[+] Payload: <img src=x onerror=alert(1)>",
+            "jwt_tool": f"[+] JWT Header: {{\"alg\":\"HS256\",\"typ\":\"JWT\"}}\n[+] JWT Payload: {{\"sub\":\"admin\",\"iat\":1704400000}}\n[+] Key found: secret123\n[+] Forged admin token generated",
+            "droopescan": f"[+] Site: http://{target}\n[+] Drupal version: 7.x\n[+] Interesting URLs: /CHANGELOG.txt, /user/login\n[+] Possible version: 7.22 (vulnerable)",
+            "msfvenom": f"[-] No platform was selected, choosing MsfPayload::Linux::X64::ShellReverseTcp from the payload\n[*] Targeting vsftpd 2.3.4 Backdoor Command Execution on {target}:21/tcp open\nPayload size: 119 bytes\nSaved as: /tmp/shell.elf\n[+] Payload tested against {target} - vulnerability confirmed",
+            "responder": f"[+] Listening for events...\n[HTTP] NTLMv2 Hash: msfadmin::WORKGROUP:abc123def456\n[SMB] NTLMv2 Hash: admin::WORKGROUP:def789abc012",
+            
+            # ─── SMB/RPC enumeration ─────────────────────────────────
+            "enum4linux": f"[+] Target: {target}\n[+] OS: Unix (Samba 3.0.20-Debian)\n[+] RID cycling: msfadmin, user, service, nobody\n[+] Shares: IPC$, tmp, opt, print$\n[+] Password policy: MinLen=0\n[+] Users: msfadmin, user, service, postgres, klog",
+            "smbclient": f"\\\\{target}\\IPC$\nSharename  Type  Comment\ntmp        Disk  oh nance!\nopt        Disk  \nIPC$       IPC   IPC Service (metasploitable server)\nprint$     Disk  Printer Drivers",
+            "smbmap": f"[+] IP: {target}:445  Name: METASPLOITABLE\n[+] Disk: tmp (READ, WRITE)\n[+] Disk: opt (READ)\n[+] Disk: IPC$ (NO ACCESS)\n[+] Disk: print$ (NO ACCESS)",
+            "rpcclient": "$> enumdomusers\nuser:[msfadmin] rid:[0x3e8]\nuser:[user] rid:[0x3e9]\nuser:[service] rid:[0x3ea]\nuser:[postgres] rid:[0x3eb]",
+            "rpcinfo": f"program vers  proto   port  service\n 100000    2   tcp    111  portmapper\n 100000    2   udp    111  portmapper\n 100003    2   tcp   2049  nfs\n 100005    1   tcp  36987  mountd\n 100024    1   tcp  49423  status",
+            "showmount": f"Export list for {target}:\n/ *(rw,root_squash)",
+            
+            # ─── Service-specific enumeration (anti-repeat: stealth) ──
+            "snmpwalk": f"SNMPv2-MIB::sysDescr.0 = STRING: Linux metasploitable 2.6.24-16-server #1 SMP\nSNMPv2-MIB::sysContact.0 = STRING: msfdev@metasploitable.localdomain\nSNMPv2-MIB::sysName.0 = STRING: metasploitable\nSNMPv2-MIB::sysLocation.0 = STRING: Metasploitable Lab",
+            "onesixtyone": f"[*] {target} [public] Linux metasploitable 2.6.24-16-server\n[*] {target} [private] TIMEOUT",
+            "smtp-user-enum": f"[+] {target}:25 - VRFY msfadmin (250 2.1.5)\n[+] {target}:25 - VRFY user (250 2.1.5)\n[+] {target}:25 - VRFY root (250 2.1.5)\n[+] 3 valid users found",
+            "finger": f"Login    Name         Tty   Idle  Login Time\nmsfadmin msfadmin     pts/0       Jan  4 10:30\nuser     user         pts/1  2:30 Jan  4 08:00",
+            "ident-user-enum": f"{target}:22\tmsfadmin (via identd)\n{target}:80\twww-data (via identd)",
+            "oscanner": f"[+] Oracle SID found: XE\n[+] Oracle version: 10.2.0.1.0\n[+] Valid credentials: scott/tiger",
+            "tnscmd10g": f"VERSION_BANNER: Oracle Database 10g Express Edition Release 10.2.0.1.0",
+            "redis-cli": f"# Server\nredis_version:6.0.9\nos:Linux 2.6.24-16-server x86_64\ntcp_port:6379\nconnected_clients:1\nused_memory:1000000\ndb0:keys=5,expires=0",
+            "mongo": f"MongoDB shell version: 4.0.28\nconnecting to: mongodb://{target}:27017/test\ndb.version(): 4.0.28\nshow dbs: admin, local, test",
+            "psql": f"                List of databases\n  Name        | Owner    | Encoding\n--------------+----------+----------\n metasploit   | postgres | UTF8\n template0    | postgres | UTF8\n template1    | postgres | UTF8",
+            "mysql": f"Welcome to the MySQL monitor.  5.0.51a-3ubuntu5\n+--------------------+\n| Database           |\n+--------------------+\n| dvwa               |\n| mutillidae         |\n| owasp10            |\n| tikiwiki           |\n+--------------------+\n5 rows in set",
+            "mssqlclient": f"Impacket v0.10.0 - MSSQLClient\n[*] Logged in to {target}:1433\nSQL> SELECT name FROM sysdatabases\nadmin_db\nmaster",
+            "ldapsearch": f"# METASPLOITABLE\ndn: DC=metasploitable,DC=local\n# msfadmin, Users\ndn: CN=msfadmin,CN=Users,DC=metasploitable,DC=local\nmemberOf: CN=Domain Admins",
+            
+            # ─── SSH audit ───────────────────────────────────────────
+            "ssh-audit": f"(gen) banner: SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1\n(gen) compatibility: OpenSSH 4.3-6.6\n(rec) Use of weak key exchange: diffie-hellman-group1-sha1\n(rec) Use of weak cipher: aes128-cbc\n[!] OpenSSH 4.7p1 has known vulnerabilities",
+            
+            # ─── Credential cracking ─────────────────────────────────
+            "john": "msfadmin:msfadmin\nuser:user\npostgres:postgres\nservice:service\nroot:toor\n5 password hashes cracked, 0 left",
+            "hashcat": "Hash.Mode: 1000 (NTLM)\nmsfadmin:msfadmin\nuser:user123\nStatus: Cracked",
+            
+            # ─── Exploitation / shell ────────────────────────────────
+            "msfconsole": f"msf6 exploit(unix/ftp/vsftpd_234_backdoor) > exploit\n[*] {target}:21 - Banner: 220 (vsFTPd 2.3.4)\n[*] {target}:21 - USER: 331 Please specify the password.\n[+] {target}:21 - Backdoor service has been spawned\n[+] {target}:6200 - uid=0(root) gid=0(root)\n[*] Command shell session 1 opened ({target}:6200 -> 10.10.14.2:4444)",
+            "metasploit": f"[*] Meterpreter session 1 opened ({target}:4444 -> 10.10.14.2:4444)\nmeterpreter > sysinfo\nComputer: metasploitable\nOS: Linux 2.6.24-16-server (i686)\nmeterpreter > getuid\nServer username: root",
+            "exploit": f"[*] Exploiting target {target}\n[+] Backdoor triggered on vsftpd 2.3.4\n[+] shell session 1 opened ({target}:6200 -> 10.10.14.2:8080)\nroot@metasploitable:/#",
+            "python": f"Listening on 0.0.0.0:4444\nConnection from {target} on port 4444\n$ id\nuid=0(root) gid=0(root) groups=0(root)",
+            "nc": f"listening on [any] 4444 ...\nconnect to [{target}] from (UNKNOWN) [{target}]\n$ id\nuid=0(root) gid=0(root) groups=0(root)",
+            "ssh": f"msfadmin@{target}'s password:\nLinux metasploitable 2.6.24-16-server #1 SMP\nmsfadmin@metasploitable:~$ id\nuid=1000(msfadmin) gid=1000(msfadmin) groups=4(adm),24(cdrom),27(sudo)",
+            
+            # ─── Post-exploitation / privesc ─────────────────────────
+            "sudo": "User msfadmin may run the following commands on metasploitable:\n    (ALL) ALL\n    (ALL) NOPASSWD: /usr/bin/vim\n    (ALL) NOPASSWD: /usr/bin/nmap --interactive",
+            "linpeas": "[+] Possible sudo/suid/caps binaries:\n/usr/bin/nmap (nmap --interactive -> !sh)\n/usr/bin/vim (sudo vim -c ':!sh')\n[+] Writable /etc/passwd\n[+] CVE-2009-1185 udev < 1.4.1\n[+] Kernel 2.6.24 - multiple exploits available",
+            "pspy": "CMD: UID=0 PID=1234 /bin/bash /root/backup_cron.sh\nCMD: UID=0 PID=5678 /opt/scripts/check_services.sh\nCMD: UID=0 PID=9012 /usr/sbin/cron -f",
+            "find": "/tmp/suspicious.sh\n/var/www/.backup.zip\n/home/msfadmin/.ssh/id_rsa\n/opt/scripts/db_backup.sh\n/etc/passwd (writable!)\n/usr/bin/nmap (SUID)",
+            "cat": "root:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash\nuser:x:1001:1001:just a user:/home/user:/bin/bash\npostgres:x:108:117:PostgreSQL admin:/var/lib/postgresql:/bin/bash\nservice:x:1002:1002::/home/service:/bin/bash",
+            "pkexec": f"[+] CVE-2021-4034 exploit successful\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)",
+            
+            # ─── Impacket suite ──────────────────────────────────────
+            "impacket": f"[*] SMBv1 dialect used\n[+] msfadmin:msfadmin@{target}:445",
+            "secretsdump": f"Impacket - Dumping password hashes\n[*] Target: {target}\nmsfadmin:1000:aad3b435b51404eeaad3b435b51404ee:5f4dcc3b5aa765d61d8327deb882cf99:::\nuser:1001:aad3b435b51404eeaad3b435b51404ee:ee11cbb19052e40b07aac5ae55e01834:::\n[+] Hash dumped: 5 accounts",
+            "mimikatz": f"  .#####.   mimikatz 2.2.0\n * Username : msfadmin\n * NTLM     : 5f4dcc3b5aa765d61d8327deb882cf99\n * SHA1     : da39a3ee5e6b4b0d3255bfef95601890afd80709",
+            "bloodhound": f"[+] Collecting domain data\n[+] Users: 8 | Groups: 4 | Computers: 1\n[+] Domain Admin found: msfadmin@metasploitable\n[+] Kerberoastable users: service",
+            "psexec": f"Impacket v0.10.0 - PsExec\n[*] Requesting shares on {target}\n[*] Found writable share tmp\n[*] Uploading shell\nroot@metasploitable:/# whoami\nroot",
+            "wmiexec": f"Impacket v0.10.0 - WmiExec\nC:\\> whoami\nroot",
+            "smbexec": f"Impacket v0.10.0 - SmbExec\n[*] msfadmin@{target}\nroot@metasploitable:/# whoami\nroot",
+            "getTGT": f"Impacket - getTGT\n[*] Saving ticket in msfadmin.ccache\n[+] Kerberos TGT obtained for msfadmin@METASPLOITABLE",
+            "GetUserSPNs": f"ServicePrincipalName  Name     MemberOf\nHTTP/web.metasploitable  service  Users\n$krb5tgs$23$*service$METASPLOITABLE*$hash",
+            "GetNPUsers": f"[-] User msfadmin does not require preauth\n$krb5asrep$23$msfadmin@METASPLOITABLE:hash_value",
+            
+            # ─── Lateral movement / tunneling ────────────────────────
+            "chisel": f"server: session#1: tun pair: 127.0.0.1:8080 → {target}:80\n[+] Tunnel established",
+            "socat": f"listening on 0.0.0.0:4444\nconnection from {target}\n$ id\nuid=0(root) gid=0(root)",
+            "proxychains": f"[proxychains] Strict chain ... 127.0.0.1:1080 ... {target}:445 ... OK",
+            "kerbrute": f"2026/01/04 10:30:01 >  [+] VALID USERNAME: msfadmin@{target}\n2026/01/04 10:30:02 >  [+] VALID USERNAME: user@{target}",
+            "evil-winrm": f"Evil-WinRM shell v3.4\n*Evil-WinRM* PS > whoami\nroot",
+            "xfreerdp": f"[INFO] Connected to {target}:3389\n[INFO] Authentication successful",
+            
+            # ─── System info / monitoring ────────────────────────────
+            "netstat": "Proto  Local Address  Foreign Address  State     PID/Program\ntcp    0.0.0.0:21     0.0.0.0:*        LISTEN    1234/vsftpd\ntcp    0.0.0.0:22     0.0.0.0:*        LISTEN    5678/sshd\ntcp    0.0.0.0:80     0.0.0.0:*        LISTEN    9012/apache2\ntcp    0.0.0.0:3306   0.0.0.0:*        LISTEN    3456/mysqld",
+            "ss": f"tcp  LISTEN 0 128 0.0.0.0:22  0.0.0.0:*  users:((\"sshd\",pid=789))\ntcp  LISTEN 0 128 0.0.0.0:80  0.0.0.0:*  users:((\"apache2\",pid=1234))\ntcp  LISTEN 0 50  0.0.0.0:3306 0.0.0.0:* users:((\"mysqld\",pid=3456))",
+            "ps": "PID   USER  %CPU %MEM CMD\n1     root  0.0  0.1  /sbin/init\n789   root  0.1  0.2  /usr/sbin/sshd\n1234  www   1.2  0.5  /usr/sbin/apache2\n5678  mysql 0.5  2.0  /usr/sbin/mysqld",
+            "last": f"msfadmin  pts/0  192.168.1.10  Sat Jan  4 10:30   still logged in\nroot      tty1                  Sat Jan  4 08:00 - 09:30",
+            "who": f"msfadmin pts/0        2026-01-04 10:30 (192.168.1.10)\nroot     tty1         2026-01-04 08:00",
+            "w": f"USER     TTY    FROM           LOGIN@  IDLE  WHAT\nmsfadmin pts/0  192.168.1.10  10:30   0.00s bash\nroot     tty1   -             08:00   2:30m -bash",
+            "lsof": f"sshd    789  root   3u  IPv4 12345  TCP *:22 (LISTEN)\napache2 1234 www    4u  IPv4 23456  TCP *:80 (LISTEN)\nmysqld  3456 mysql  12u IPv4 34567  TCP *:3306 (LISTEN)",
+            "crontab": "*/5 * * * * /usr/local/bin/backup.sh\n0 2 * * * /opt/scripts/db_backup.sh\n[+] Persistence cron added",
+            "systemctl": "apache2.service loaded active running Apache HTTP Server\nmysql.service  loaded active running MySQL Community Server\nsshd.service   loaded active running OpenSSH Server",
+            
+            # ─── Defensive / blue team (anti-repeat: defensive) ──────
+            "iptables": "Chain INPUT (policy ACCEPT)\ntarget  prot  source    destination\nACCEPT  tcp   0.0.0.0/0  0.0.0.0/0  tcp dpt:22\nACCEPT  tcp   0.0.0.0/0  0.0.0.0/0  tcp dpt:80\nDROP    all   0.0.0.0/0  0.0.0.0/0",
+            "ufw": "Status: inactive",
+            "fail2ban-client": "Status\n|- Number of jail:      0\n`- Jail list:           (none)",
+            "ausearch": "No audit events found",
+            "chkrootkit": "ROOTDIR is `/'\nChecking `amd'... not found\nChecking `basename'... not infected\nChecking `biff'... not found\nChecking `chfn'... not infected",
+            "rkhunter": "[12:00:00] Rootkit checks...\n[12:00:00] Checking for known rootkit files and directories\n[12:00:00]   Performing check of known rootkit files: [ None found ]",
+            "lynis": "[+] Hardening index: 48 [#########...........]\n[+] Tests performed: 234\n[+] Warning: No firewall active\n[+] Warning: Default passwords found\n[+] Warning: Multiple services with known vulnerabilities",
+            "osquery": "+---------+-------+\n| name    | pid   |\n+---------+-------+\n| apache2 | 1234  |\n| sshd    | 789   |\n| mysqld  | 3456  |\n+---------+-------+",
+            "sysdig": "CPU% Process\n5.2% apache2\n2.1% mysqld\n1.0% sshd",
+            "journalctl": "-- Logs begin at Sat 2026-01-04 08:00:00 UTC --\nJan 04 10:30:01 metasploitable sshd[789]: Accepted password for msfadmin\nJan 04 10:31:05 metasploitable apache2[1234]: GET /admin HTTP/1.1 200",
+            
+            # ─── Persistence / exfiltration ──────────────────────────
+            "scp": f"msfadmin@{target}'s password:\n100% 4096KB 3.5MB/s 00:01",
+            "tar": f"tar: creating archive /tmp/loot.tar.gz\n[+] Data extracted: /etc/shadow, /etc/passwd, /home/msfadmin/.ssh/\n[+] Archive uploaded to 10.10.14.2 via nc\n[+] Data exfiltrated successfully",
+            "base64": "[+] File encoded to base64 and sent\n[+] Exfiltration complete: data transferred via DNS",
+            "exfiltrate": "[+] Exfiltrating sensitive data\n[+] /etc/shadow: 42 entries\n[+] SSH keys: 3 found\n[+] Database dumps: dvwa, mutillidae\n[+] Data exfiltrated to C2",
+            "useradd": "[+] User 'svc_backup' added to system\n[+] Added to sudoers with NOPASSWD\n[+] Persistence established via backdoor user",
+            "reg": "[+] Registry key added\n[+] Persistence established via registry",
+            "schtasks": "[+] Scheduled task created\n[+] Persistence established via scheduled task",
+            
+            # ─── No-output commands ──────────────────────────────────
             "chmod": "",
             "cp": "",
             "mv": "",
-            "arping": f"ARPING {target}\n60 bytes from {target}: index=0 time=1.234 msec\n60 bytes from {target}: index=1 time=0.876 msec",
-            "waybackurls": f"http://{target}/admin\nhttp://{target}/login.php\nhttp://{target}/backup/",
-            # Privilege escalation outputs
-            "secretsdump": f"Impacket - Dumping LSA secrets\n[*] Target: {target}\nAdministrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\nNTLMv2 Hash: admin::CORP:abc123def456\n[+] Hash dumped: 3 accounts",
-            "mimikatz": f"  .#####.   mimikatz 2.2.0\n * Username : admin\n * Domain   : CORP\n * NTLM     : 31d6cfe0d16ae931b73c59d7e0c089c0\n * SHA1     : da39a3ee5e6b4b0d3255bfef95601890afd80709\nAuthentication Id: admin (S-1-5-21-CORP)",
-            "bloodhound": "[+] Collecting domain data\n[+] Users: 45 | Groups: 12 | Computers: 8\n[+] Domain Admin found: admin@CORP.LOCAL\n[+] Lateral target: DC01.CORP.LOCAL (10.10.10.100)\n[+] Kerberoastable users: svc_backup",
-            "kerbrute": f"2026/01/04 10:30:01 >  [+] VALID USERNAME:	admin@{target}\n2026/01/04 10:30:02 >  [+] VALID USERNAME:	svc_backup@{target}",
-            "chisel": f"server: session#1: tun pair: 127.0.0.1:8080 → {target}:80\n[+] Tunnel established",
-            "socat": f"listening on 0.0.0.0:4444\nconnection from {target}\n$ id\nuid=0(root) gid=0(root)",
-            "ncrack": f"Discovered credentials on {target} 22/tcp:\n22/tcp ssh: 'admin' 'Password123!'",
-            "medusa": f"ACCOUNT FOUND: [ssh] Host: {target} User: admin Password: admin123 [SUCCESS]",
-            "wfuzz": f"000000001:  200  95 L  251 W  3456 Ch  \"admin\"\n000000015:  200  30 L   89 W  1234 Ch  \"login\"",
-            "tplmap": f"[+] Tplmap 0.5\n[+] Testing if GET parameter 'name' is injectable\n[+] Smarty plugin has confirmed injection\n[+] OS Shell command execution available",
-            "commix": f"[+] The GET parameter 'cmd' is vulnerable to OS command injection\n[+] Target OS: Linux\n$ id\nuid=33(www-data) gid=33(www-data)",
-            "dalfox": f"[POC][R][GET] http://{target}/page?q=<script>alert(1)</script>\n[*] Found 1 XSS vulnerability",
-            "xsstrike": f"[~] Checking for DOM vulnerabilities\n[+] Vulnerable parameter: q\n[+] Payload: <img src=x onerror=alert(1)>",
-            "gospider": f"[url] http://{target}/admin\n[url] http://{target}/api/v1\n[form] http://{target}/login",
-            "katana": f"http://{target}/admin/\nhttp://{target}/api/v1/users\nhttp://{target}/login.php",
-            "ldapsearch": f"# CORP.LOCAL\ndn: DC=corp,DC=local\n# admin, Users, corp.local\ndn: CN=admin,CN=Users,DC=corp,DC=local\nmemberOf: CN=Domain Admins",
-            "evil-winrm": f"Evil-WinRM shell v3.4\nInfo: Establishing connection to remote endpoint\n*Evil-WinRM* PS C:\\Users\\admin> whoami\ncorp\\admin",
-            "psexec": f"Impacket v0.10.0 - PsExec\n[*] Requesting shares on {target}\n[*] Found writable share ADMIN$\n[*] Uploading shell\nMicrosoft Windows [Version 10.0.19041]\nC:\\WINDOWS\\system32> whoami\nnt authority\\system",
-            "wmiexec": f"Impacket v0.10.0 - WmiExec\n[*] SMBv3.0 dialect used\nC:\\> whoami\ncorp\\admin",
-            "smbexec": f"Impacket v0.10.0 - SmbExec\n[*] admin@{target}\nC:\\WINDOWS\\system32> whoami\nnt authority\\system",
-            "atexec": f"Impacket v0.10.0 - AtExec\n[*] Creating task\n[*] Running task\nnt authority\\system",
-            "dcomexec": f"Impacket v0.10.0 - DcomExec\n[*] {target} - admin authenticated\nC:\\> whoami\ncorp\\admin",
-            "getTGT": f"Impacket - getTGT\n[*] Saving ticket in admin.ccache\n[+] Kerberos TGT obtained for admin@CORP.LOCAL",
-            "getST": f"Impacket - getST\n[*] Getting service ticket for admin@CORP.LOCAL\n[+] Service ticket saved to admin_svc.ccache",
-            "GetUserSPNs": f"ServicePrincipalName  Name     MemberOf\nHTTP/web.corp.local   svc_web  Domain Users\n$krb5tgs$23$*svc_web$CORP.LOCAL*$hash",
-            "GetNPUsers": f"[-] User admin does not require preauth\n$krb5asrep$23$admin@CORP.LOCAL:hash_value",
-            "mssqlclient": f"Impacket v0.10.0 - MSSQLClient\n[*] Logged in to {target}:1433\nSQL> SELECT * FROM users\nadmin  | Password123!\nbackup | Backup2024!",
-            "xfreerdp": f"[INFO] Connected to {target}:3389\n[INFO] Domain: CORP\n[INFO] Authentication successful",
-            "proxychains": f"[proxychains] Strict chain ... 127.0.0.1:1080 ... {target}:445 ... OK",
-            "ssh": f"admin@{target}'s password:\nWelcome to Ubuntu 20.04.3 LTS\nadmin@target:~$ id\nuid=1000(admin) gid=1000(admin) groups=1000(admin),27(sudo)",
-            # Post-exploitation / persistence
-            "crontab": "*/5 * * * * /usr/local/bin/backup.sh\n0 2 * * * /opt/scripts/db_backup.sh\n[+] Persistence cron added",
-            # Exfiltration / persistence outputs
-            "tar": f"tar: creating archive /tmp/loot.tar.gz\n[+] Data extracted: /etc/shadow, /etc/passwd, /home/admin/.ssh/\n[+] Archive uploaded to 10.10.14.2 via nc\n[+] Data exfiltrated successfully",
-            "base64": "[+] File encoded to base64 and sent\n[+] Exfiltration complete: data transferred via DNS",
-            "exfiltrate": "[+] Exfiltrating sensitive data\n[+] /etc/shadow: 42 entries\n[+] SSH keys: 3 found\n[+] Data exfiltrated to C2",
-            "systemctl": "[+] Created systemd service: /etc/systemd/system/backup.service\n[+] Service enabled and started\n[+] Persistence established via systemd",
-            "reg": "[+] Registry key added: HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater\n[+] Persistence established via registry",
-            "schtasks": "[+] Scheduled task created: \\Microsoft\\Windows\\Maintenance\\Backup\n[+] Persistence established via scheduled task",
-            "useradd": "[+] User 'svc_backup' added to system\n[+] Added to sudoers with NOPASSWD\n[+] Persistence established via backdoor user",
+            "cd": "",
+            "mkdir": "",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():
             if cmd_lower.startswith(prefix.lower()):
                 return output
         
-        # Fallback: try matching command keywords for exploit-like commands
+        # Fallback: try matching command keywords
         if "exploit" in cmd_lower or "meterpreter" in cmd_lower:
-            return f"[*] Exploiting target {target}\n[+] shell session 1 opened ({target}:4444 -> 10.10.14.2:8080)\nwww-data@target:/var/www$"
+            return f"[*] Exploiting target {target}\n[+] Backdoor triggered\n[+] shell session 1 opened ({target}:6200 -> 10.10.14.2:8080)\nroot@metasploitable:/#"
         if "shell" in cmd_lower or "reverse" in cmd_lower:
-            return f"[+] Reverse shell received\nwww-data@target:/tmp$ id\nuid=33(www-data) gid=33(www-data)"
+            return f"[+] Reverse shell received\nroot@metasploitable:/# id\nuid=0(root) gid=0(root)"
+        if "scan" in cmd_lower:
+            return "\n".join([f"Discovered open port {p}/tcp on {target}" for p in MSF2_PORTS[:5]])
+        if "enum" in cmd_lower:
+            return f"[+] Enumerating {target}\n[+] Found users: msfadmin, user, service, postgres\n[+] Found shares: tmp, opt"
         
-        return f"[SIM] {command[:50]}... executed"
+        return f"[SIM] {command[:80]}... executed"
     
     def _log_step_trace(
         self,
@@ -1716,13 +1960,28 @@ class SmartOrchestrator:
         done: bool,
         phase_progression: List[str],
     ) -> Dict[str, Any]:
-        """Compute detailed episode metrics."""
+        """Compute detailed episode metrics with Phase 5 completion bonus."""
+        
+        # ─── Phase 5: Episode completion bonus ───────────────────────
+        # Reward reaching high phases with a flat bonus
+        highest_phase = phase_progression[-1] if phase_progression else "RECON"
+        COMPLETION_BONUSES = {
+            "EXFILTRATION": 1500.0,
+            "POST_EXPLOITATION": 750.0,
+            "LATERAL_MOVEMENT": 350.0,
+            "PRIVILEGE_ESCALATION": 150.0,
+            "EXPLOITATION": 50.0,
+        }
+        completion_bonus = COMPLETION_BONUSES.get(highest_phase, 0.0)
+        total_reward += completion_bonus
+        
         metrics = {
             "total_steps": len(step_results),
             "total_reward": total_reward,
+            "completion_bonus": completion_bonus,
             "done": done,
             "phase_progression": phase_progression,
-            "highest_phase": phase_progression[-1] if phase_progression else "RECON",
+            "highest_phase": highest_phase,
             "phases_reached": len(set(phase_progression)),
             "agents": {},
         }
