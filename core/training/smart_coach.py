@@ -47,6 +47,29 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ariaska.smart_coach")
 
+# Phase 4: Lazy imports to avoid circular deps
+_ppo_agent_cls = None
+_ppo_config_cls = None
+_mapper_cls = None
+_encode_state_fn = None
+
+
+def _lazy_ppo():
+    """Lazy-load PPO and mapper to avoid import loops."""
+    global _ppo_agent_cls, _ppo_config_cls, _mapper_cls, _encode_state_fn
+    if _ppo_agent_cls is None:
+        try:
+            from core.algorithms.ppo_agent import PPOAgent as _pa, PPOConfig as _pc
+            from core.algorithms.command_action_mapper import CommandActionMapper as _cm
+            from core.models.state_encoder import encode_state as _es
+            _ppo_agent_cls = _pa
+            _ppo_config_cls = _pc
+            _mapper_cls = _cm
+            _encode_state_fn = _es
+        except ImportError as e:
+            logger.warning(f"PPO/mapper not available: {e}")
+    return _ppo_agent_cls, _ppo_config_cls, _mapper_cls, _encode_state_fn
+
 
 @dataclass
 class SmartDecisionResult:
@@ -301,6 +324,38 @@ class SmartCoach:
         self.command_repeat_count: Dict[str, int] = {}  # Count repeats
         
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
+
+        # =====================================================================
+        # PHASE 4: Per-role PPO agent + CommandActionMapper
+        # PPO drives command selection within each role's action pool.
+        # =====================================================================
+        self.action_mapper = None
+        self.ppo_agent = None
+        self._ppo_trajectory: List[Dict[str, Any]] = []
+        self._ppo_pending: Optional[Dict[str, Any]] = None  # awaiting reward
+        self._ppo_step_count = 0
+        try:
+            PPOAgent, PPOConfig, Mapper, _ = _lazy_ppo()
+            if Mapper and PPOAgent and PPOConfig:
+                self.action_mapper = Mapper(agent_name)
+                if self.action_mapper.action_dim > 0:
+                    config = PPOConfig(
+                        state_dim=512,
+                        action_dim=self.action_mapper.action_dim,
+                        hidden_dims=[256, 256, 128],
+                        learning_rate=3e-4,
+                        epochs_per_update=3,
+                        minibatch_size=8,   # Low: each coach gets ~5-10 PPO transitions/ep
+                        rollout_size=32,    # Frequent updates with sparse per-coach data
+                        entropy_coef=0.02,  # Higher entropy for exploration
+                    )
+                    self.ppo_agent = PPOAgent(config=config, device="cpu")
+                    logger.info(
+                        f"[PPO] {agent_name}: action_dim={self.action_mapper.action_dim} "
+                        f"network params={sum(p.numel() for p in self.ppo_agent.network.parameters())}"
+                    )
+        except Exception as e:
+            logger.warning(f"PPO init failed for {agent_name}: {e}")
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor (DualMentor if Venice available, else SmartMentor)."""
@@ -764,6 +819,14 @@ class SmartCoach:
         confidence = confidence if confidence is not None else 0.5
         ctx = step_ctx.attack_context
         
+        # ─── PHASE 4: Playbook curriculum (annealing) ────────────────
+        # Early episodes: follow proven playbooks. Later: let PPO/registry drive.
+        playbook_result = self._playbook_suggest(step_ctx)
+        if playbook_result is not None:
+            # Still apply anti-repeat guard below
+            # but return playbook suggestion as primary choice
+            pass  # Will be checked below after anti-repeat
+        
         # Track previous phase for transition detection
         prev_phase = getattr(self, '_last_phase', None)
         current_phase = ctx.current_phase
@@ -814,7 +877,10 @@ class SmartCoach:
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
         # Make decision based on hybrid logic
-        if should_call_gpt and gpt_available:
+        # Phase 4: Playbook gets priority if available (early episodes)
+        if playbook_result is not None:
+            result = playbook_result
+        elif should_call_gpt and gpt_available:
             logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
             result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
             result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
@@ -970,6 +1036,11 @@ class SmartCoach:
             result.command = new_cmd
             result.mentor_reasoning = f"[ANTI-REPEAT] {result.mentor_reasoning or 'Forced alternative'}"
             result.confidence = 0.3
+            result.source = "anti_repeat"
+            # Clear PPO pending to prevent misattributed reward
+            # (PPO chose action A, but anti-repeat replaced with B)
+            if self._ppo_pending is not None:
+                self._ppo_pending = None
         
         # Record decision
         self.decisions.append(result)
@@ -1183,6 +1254,16 @@ class SmartCoach:
         # Apply role-based filtering
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
+        # =====================================================================
+        # PHASE 4: PPO-DRIVEN SELECTION (BEFORE fallback)
+        # PPO has its own action mapper per role, can pick even when registry
+        # filtering leaves nothing. Moved here so PPO gets first shot.
+        # =====================================================================
+        if self.ppo_agent and self.action_mapper:
+            ppo_result = self._ppo_select_command(step_ctx, filtered_commands if filtered_commands else valid_commands)
+            if ppo_result is not None:
+                return ppo_result
+
         if not filtered_commands:
             # =========================================================
             # SMART FALLBACK - Track FULL commands AND unique signatures
@@ -1467,7 +1548,8 @@ class SmartCoach:
                     pass
         
         # =====================================================================
-        # RANDOMIZED SELECTION FROM TOP CANDIDATES (avoid determinism)
+        # FALLBACK: RANDOMIZED SELECTION FROM TOP CANDIDATES
+        # (PPO already tried earlier in _decide_from_registry, before fallbacks)
         # =====================================================================
         
         # Penalize recently used commands (agent's own history - last 10 decisions)
@@ -1573,6 +1655,308 @@ class SmartCoach:
     def clear_step_commands(self):
         """Clear used commands at start of new step (called by orchestrator)."""
         self.step_used_commands.clear()
+
+    # =====================================================================
+    # PHASE 4: PLAYBOOK-GUIDED COMMAND SELECTION
+    # =====================================================================
+
+    def _playbook_suggest(
+        self,
+        step_ctx: "SmartStepContext",
+    ) -> Optional["SmartDecisionResult"]:
+        """Suggest next command from pentesting playbooks with annealing.
+
+        Early episodes follow playbooks closely (70%); later episodes
+        rely more on PPO/registry (10%). This provides curriculum-based
+        exploration bootstrapping.
+
+        Args:
+            step_ctx: Current step context.
+
+        Returns:
+            SmartDecisionResult if playbook has a suggestion, else None.
+        """
+        try:
+            from core.knowledge.pentesting_playbooks import (
+                get_playbooks_for_target,
+                get_next_playbook_command,
+            )
+        except ImportError:
+            return None
+
+        ctx = step_ctx.attack_context
+        episode = self.current_episode
+
+        # Annealing: playbook usage decreases over episodes
+        # Episode 0: 60%, Episode 25: 30%, Episode 50+: 10%
+        playbook_prob = max(0.10, 0.60 - episode * 0.01)
+        if random.random() > playbook_prob:
+            return None
+
+        # Get playbooks for target profile
+        target_profile = getattr(ctx, 'difficulty', 'generic') or 'generic'
+        playbooks = get_playbooks_for_target(target_profile)
+        if not playbooks:
+            playbooks = get_playbooks_for_target("generic")
+        if not playbooks:
+            return None
+
+        # Filter playbooks relevant to this role's phases
+        role_phases = [p.name.lower() for p in self.agent_role.get("primary_phases", [])]
+
+        # Try each playbook for a matching next step
+        completed = [d.template_name for d in self.decisions]
+        for pb in playbooks:
+            # Check if playbook covers any of this role's phases
+            if not any(rp in pb.phases_covered for rp in role_phases):
+                continue
+
+            next_step = get_next_playbook_command(pb.name, completed)
+            if next_step is None:
+                continue
+
+            # Check if this command belongs to this role's mapper
+            if self.action_mapper:
+                idx = self.action_mapper.command_to_action(next_step.command)
+                if idx < 0:
+                    continue  # Command not in this role's pool
+
+            template = COMMAND_REGISTRY.get(next_step.command)
+            if not template:
+                continue
+
+            # Render command
+            params = {}
+            for p in template.required_params:
+                params[p] = self._get_default_param(p, ctx)
+            params.update(template.optional_params)
+
+            try:
+                command = render_command(template, params)
+            except ValueError:
+                continue
+
+            logger.debug(
+                f"[PLAYBOOK][{self.agent_name}] {pb.name} → {next_step.command} "
+                f"(prob={playbook_prob:.0%}, ep={episode})"
+            )
+
+            return SmartDecisionResult(
+                command=command,
+                template_name=template.name,
+                params=params,
+                mentor_call=False,
+                mentor_reasoning=f"📚 Playbook[{pb.name}] → {next_step.description[:40]}",
+                confidence=0.75,
+                phase=template.phase,
+                source="playbook",
+            )
+
+        return None
+
+    # =====================================================================
+    # PHASE 4: PPO-DRIVEN COMMAND SELECTION
+    # =====================================================================
+
+    def _ppo_select_command(
+        self,
+        step_ctx: "SmartStepContext",
+        filtered_commands: List[CommandTemplate],
+    ) -> Optional["SmartDecisionResult"]:
+        """Use per-role PPO to select a command from filtered candidates.
+
+        Encodes state, computes action mask (intersection of role pool
+        and filtered_commands), samples from PPO with mask, and stores
+        the pending trajectory entry for later reward pairing.
+
+        Args:
+            step_ctx: Current step context with attack state.
+            filtered_commands: Role-filtered valid commands from registry.
+
+        Returns:
+            SmartDecisionResult if PPO picked a valid command, else None.
+        """
+        if not self.ppo_agent or not self.action_mapper:
+            return None
+
+        _, _, _, encode_state = _lazy_ppo()
+        if encode_state is None:
+            return None
+
+        ctx = step_ctx.attack_context
+        try:
+            import torch
+            device = self.ppo_agent.device
+
+            # Build state dict for encoder
+            state_dict = step_ctx.state if step_ctx.state else {}
+            if not state_dict:
+                state_dict = {
+                    "state_flags": dict(ctx.state_flags),
+                    "open_ports": list(ctx.discoveries.get("open_port", set())),
+                    "target_ip": ctx.target,
+                }
+
+            state_tensor = encode_state(
+                state_dict, device,
+                current_step=step_ctx.step,
+                max_steps=250,
+                steps_in_phase=0,
+                phase_transitions=0,
+            )
+
+            # Build mask: only commands in filtered_commands AND in mapper
+            filtered_names = {c.name for c in filtered_commands}
+            mask = torch.zeros(self.action_mapper.action_dim, dtype=torch.bool)
+            for idx, (name, _template) in enumerate(self.action_mapper.commands):
+                if name in filtered_names:
+                    mask[idx] = True
+
+            # Also apply precondition mask from mapper
+            precond_mask = self.action_mapper.get_action_mask_with_counts(
+                ctx.state_flags,
+                self.command_repeat_count,
+                max_repeats=1,  # Match anti-repeat guard: block ANY exact repeat
+            )
+            mask = mask & precond_mask
+            
+            # Also block commands whose PREFIX has been used 3+ times
+            # (matches the anti-repeat guard's prefix check)
+            all_cmds = ctx.command_history if ctx.command_history else []
+            from collections import Counter
+            prefix_counts = Counter(
+                c.strip().split()[0].lower() for c in all_cmds if c.strip()
+            )
+            for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                if tpl and mask[idx]:
+                    # Get the command prefix from template
+                    cmd_prefix = tpl.template.split()[0].lower() if tpl.template else name.split("_")[0].lower()
+                    if prefix_counts.get(cmd_prefix, 0) >= 3:
+                        mask[idx] = False
+
+            if not mask.any():
+                # Relax: allow all mapper commands with valid preconditions
+                mask = precond_mask
+            if not mask.any():
+                mask[:] = True
+
+            # PPO selects
+            action_idx, log_prob, value = self.ppo_agent.select_action(
+                state_tensor, training=True, action_mask=mask,
+            )
+
+            template_name = self.action_mapper.action_to_name(action_idx)
+            if template_name is None:
+                return None
+
+            # Handle Blue agent custom commands
+            if self.agent_name == "BlueAgent":
+                blue_cmd = self.action_mapper.get_blue_command(action_idx)
+                if blue_cmd:
+                    cmd_str, desc = blue_cmd
+                    self._ppo_pending = {
+                        "state": state_tensor, "action": action_idx,
+                        "log_prob": log_prob, "value": value,
+                    }
+                    return SmartDecisionResult(
+                        command=cmd_str,
+                        template_name=template_name,
+                        params={},
+                        mentor_call=False,
+                        mentor_reasoning=f"🧠 PPO → {desc}",
+                        confidence=0.7,
+                        phase=ctx.current_phase,
+                        source="ppo",
+                    )
+
+            template = COMMAND_REGISTRY.get(template_name)
+            if not template:
+                return None
+
+            # Render command with params
+            params = {}
+            for p in template.required_params:
+                params[p] = self._get_default_param(p, ctx)
+            params.update(template.optional_params)
+
+            try:
+                command = render_command(template, params)
+            except ValueError:
+                return None
+
+            # Store pending trajectory entry (reward paired later in record_result)
+            self._ppo_pending = {
+                "state": state_tensor, "action": action_idx,
+                "log_prob": log_prob, "value": value,
+            }
+
+            self.step_used_commands.add(template.name)
+            self.episode_used_commands.add(template.name)
+            self.command_repeat_count[template.name] = (
+                self.command_repeat_count.get(template.name, 0) + 1
+            )
+
+            return SmartDecisionResult(
+                command=command,
+                template_name=template.name,
+                params=params,
+                mentor_call=False,
+                mentor_reasoning=f"🧠 PPO[{action_idx}] → {template.description[:40]}",
+                confidence=0.7,
+                phase=template.phase,
+                source="ppo",
+            )
+        except Exception as e:
+            logger.debug(f"PPO select failed for {self.agent_name}: {e}")
+            return None
+
+    def end_episode_ppo(self, done: bool = True) -> Optional[Dict[str, float]]:
+        """Feed collected trajectory to PPO and run update.
+
+        Called by SmartOrchestrator at the end of each episode.
+
+        Args:
+            done: Whether the episode terminated.
+
+        Returns:
+            PPO training metrics dict, or None if no update was needed.
+        """
+        if not self.ppo_agent or not self._ppo_trajectory:
+            self._ppo_trajectory.clear()
+            self._ppo_pending = None
+            return None
+
+        try:
+            for t in self._ppo_trajectory:
+                self.ppo_agent.store_transition(
+                    state=t["state"],
+                    action=t["action"],
+                    log_prob=t["log_prob"],
+                    reward=t["reward"],
+                    value=t["value"],
+                    done=t["done"],
+                )
+
+            # Bootstrap value
+            last_value = 0.0
+            if self._ppo_trajectory and not self._ppo_trajectory[-1]["done"]:
+                last_value = self._ppo_trajectory[-1]["value"]
+
+            metrics = self.ppo_agent.update(last_value=last_value)
+            if metrics:
+                logger.info(
+                    f"[PPO][{self.agent_name}] Update #{self.ppo_agent.updates_done}: "
+                    f"π={metrics.get('policy_loss', 0):.4f} "
+                    f"v={metrics.get('value_loss', 0):.4f} "
+                    f"H={metrics.get('entropy', 0):.4f}"
+                )
+            return metrics
+        except Exception as e:
+            logger.warning(f"PPO update error for {self.agent_name}: {e}")
+            return None
+        finally:
+            self._ppo_trajectory.clear()
+            self._ppo_pending = None
     
     def _decide_with_mentor(
         self,
@@ -1723,6 +2107,7 @@ class SmartCoach:
         success: bool,
         raw_output: str,
         new_discoveries: Optional[Dict[str, Any]] = None,
+        done: bool = False,
     ) -> RewardBreakdown:
         """
         Record the result of a command execution and calculate reward.
@@ -1798,6 +2183,18 @@ class SmartCoach:
             reward=breakdown.total,
             used_mentor=decision.mentor_call,
         )
+
+        # ─── PHASE 4: Pair PPO trajectory entry with reward ─────────
+        if self._ppo_pending is not None:
+            self._ppo_trajectory.append({
+                "state": self._ppo_pending["state"],
+                "action": self._ppo_pending["action"],
+                "log_prob": self._ppo_pending["log_prob"],
+                "value": self._ppo_pending["value"],
+                "reward": breakdown.total,
+                "done": done,
+            })
+            self._ppo_pending = None
         
         return breakdown
     
@@ -1811,6 +2208,10 @@ class SmartCoach:
         self.episode_used_commands.clear()
         self.command_repeat_count.clear()
         self.decisions.clear()  # Clear decision history for fresh episode
+        
+        # Phase 4: Reset PPO trajectory
+        self._ppo_trajectory.clear()
+        self._ppo_pending = None
         
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode

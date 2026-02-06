@@ -61,10 +61,12 @@ class CyberEnvironment:
         
         # PHASE 2A: Configurable phase transition thresholds
         # Can be overridden via set_phase_thresholds() for different target profiles
+        # PHASE 3: Lowered defaults for simulation training — agents must learn
+        # to advance through phases quickly in sim before tackling real targets
         self.phase_transitions = {
-            "recon": {"threshold": 10, "next": "enumeration"},
-            "enumeration": {"threshold": 8, "next": "exploit"},
-            "exploit": {"threshold": 3, "next": "privesc"},
+            "recon": {"threshold": 5, "next": "enumeration"},
+            "enumeration": {"threshold": 4, "next": "exploit"},
+            "exploit": {"threshold": 2, "next": "privesc"},
             "privesc": {"threshold": 1, "next": "exfiltrate"},
             "exfiltrate": {"threshold": 1, "next": "complete"}
         }
@@ -72,7 +74,11 @@ class CyberEnvironment:
         # Predefined target profiles for phase thresholds
         self.TARGET_PROFILES = {
             "default": {
-                "recon": 10, "enumeration": 8, "exploit": 3,
+                "recon": 5, "enumeration": 4, "exploit": 2,
+                "privesc": 1, "exfiltrate": 1,
+            },
+            "simulation": {
+                "recon": 3, "enumeration": 3, "exploit": 2,
                 "privesc": 1, "exfiltrate": 1,
             },
             "metasploitable2": {
@@ -1181,8 +1187,10 @@ class CyberEnvironment:
             self._increase_detection(0.5)
             return reward, info
             
-        if self.current_phase not in ["exploit", "privesc", "exfiltrate"]:
-            info["message"] = "Premature exploitation attempt. Complete enumeration phase first."
+        # PHASE 3: Allow exploits if services enumerated, even from enumeration phase
+        # This enables agents to exploit as soon as they find vulnerabilities
+        if self.current_phase not in ["exploit", "privesc", "exfiltrate", "enumeration"]:
+            info["message"] = "Premature exploitation attempt. Discover services first."
             reward = -1.0
             self._increase_detection(0.4)
             return reward, info
@@ -1192,7 +1200,8 @@ class CyberEnvironment:
         
         if "metasploit" in command or "msfconsole" in command:
             vuln_count = len(self.discovered_vulnerabilities)
-            success_chance = min(0.8, 0.3 + (vuln_count * 0.1))
+            # PHASE 3: Boosted base from 0.3→0.5 for sim training reliability
+            success_chance = min(0.85, 0.5 + (vuln_count * 0.1))
             
             exploit_match = re.search(r'(exploit/\S+)', command)
             if exploit_match:
@@ -1217,7 +1226,8 @@ class CyberEnvironment:
                     break
                     
             if web_found:
-                success_chance = 0.6
+                # PHASE 3: Boosted from 0.6→0.7 for sim training
+                success_chance = 0.7
                 
                 if "--level" in command or "--risk" in command:
                     success_chance += 0.1
@@ -1240,7 +1250,8 @@ class CyberEnvironment:
                     break
                     
             if target_valid:
-                success_chance = 0.5
+                # PHASE 3: Boosted from 0.5→0.65 for sim training
+                success_chance = 0.65
                 
                 if "-P" in command or "wordlist" in command:
                     success_chance += 0.2
@@ -1253,7 +1264,8 @@ class CyberEnvironment:
                 return reward, info
                 
         else:
-            success_chance = min(0.5, len(self.discovered_vulnerabilities) * 0.1)
+            # PHASE 3: Boosted from 0.1/vuln → 0.15/vuln, cap 0.6
+            success_chance = min(0.6, len(self.discovered_vulnerabilities) * 0.15 + 0.1)
             
             self._increase_detection(0.5)
             
@@ -1310,7 +1322,8 @@ class CyberEnvironment:
             
         if "sudo" in command or "su" in command:
             if self.credentials_found:
-                success_chance = 0.7
+                # PHASE 3: Boosted from 0.7→0.8 for sim training
+                success_chance = 0.8
                 
                 if random.random() < success_chance:
                     self.privilege_level = "root"
@@ -1358,7 +1371,8 @@ class CyberEnvironment:
             has_vector = any(item.startswith("privesc_") for item in self.discovered_info)
             
             if has_vector:
-                success_chance = 0.6
+                # PHASE 3: Boosted from 0.6→0.7 with vectors
+                success_chance = 0.7
                 
                 if random.random() < success_chance:
                     self.privilege_level = "root"

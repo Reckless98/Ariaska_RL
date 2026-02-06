@@ -527,56 +527,29 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             return "nmap -sS -sV 10.10.10.10", f"Fallback: GPT unavailable."
 
     @staticmethod
-    def encode_env_state_static(state, device):
-        # Flatten environment dict into a numeric vector for RL input
-        # This is a simple, robust encoding for RL state
-        import numpy as np
+    def encode_env_state_static(state, device, **kwargs):
+        """Encode environment state into a rich 512-dim feature vector.
+        
+        Phase 3: Uses the shared state_encoder module with 90+ meaningful
+        dimensions instead of the legacy 19-dim encoding.
+        """
+        from core.models.state_encoder import encode_state
+        return encode_state(state, device, **kwargs)
 
-        vec = []
-        # Example: encode some common fields, pad to 512
-        vec.append(
-            float(
-                state.get("phase", 0)
-                in ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
-            )
-        )
-        # Add phase one-hot vector (5 dims)
-        phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
-        phase_vec = [1.0 if state.get("phase") == p else 0.0 for p in phases]
-        vec.extend(phase_vec)
-        # Add last action index (if available)
-        last_action_idx = 0
-        if "last_action" in state:
-            try:
-                last_action_idx = int(state["last_action"])
-            except Exception:
-                last_action_idx = 0
-        vec.append(float(last_action_idx))
-        # LLM context features: last reasoning reward, chain updated flag
-        llm_reward = state.get("llm_last_reward", 0.0)
-        chain_updated = 1.0 if state.get("chain_updated", False) else 0.0
-        vec.append(float(llm_reward))
-        vec.append(float(chain_updated))
-        # Pad with zeros for future LLM/context features
-        vec.extend([0.0, 0.0])
-        # Add other environment features
-        vec.append(float(state.get("privilege_level", "none") == "root"))
-        vec.append(float(state.get("detection_risk", 0)))
-        vec.append(float(state.get("blue_team_alert", 0)))
-        vec.append(float(state.get("difficulty", 1)))
-        vec.append(float(state.get("data_exfiltrated", False)))
-        vec.append(float(state.get("credentials_found", False)))
-        vec.append(float(state.get("done", False)))
-        # Encode open_ports and services as counts
-        vec.append(float(len(state.get("open_ports", []))))
-        vec.append(float(len(state.get("services", []))))
-        # Pad to 512
-        while len(vec) < 512:
-            vec.append(0.0)
-        return torch.tensor(vec, dtype=torch.float32, device=device)
-
-    def encode_env_state(self, state):
-        return self.encode_env_state_static(state, self.device)
+    def encode_env_state(self, state, **kwargs):
+        """Instance method for state encoding with agent context."""
+        # Inject agent-specific context into encoding
+        action_history = []
+        if hasattr(self, 'command_history') and self.command_history:
+            # Map command strings to action indices (simplified)
+            action_history = list(range(min(len(self.command_history), 20)))
+        encoding_kwargs = {
+            "action_history": action_history,
+            "current_step": getattr(self, 'total_steps', 0) % 100,
+            "max_steps": 100,
+        }
+        encoding_kwargs.update(kwargs)
+        return self.encode_env_state_static(state, self.device, **encoding_kwargs)
 
     def log_transition(self, state, action, reward, next_state, priority=None, gpt_tokens=0):
         """

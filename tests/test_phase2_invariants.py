@@ -430,12 +430,12 @@ class TestAdaptivePhaseThresholds:
     """Test configurable phase transition thresholds."""
 
     def test_default_thresholds(self):
-        """Default thresholds are set correctly."""
+        """Default thresholds are set correctly (Phase 3: lowered for sim training)."""
         from core.environment.cyber_environment import CyberEnvironment
 
         env = CyberEnvironment(defer_reset=True)
-        assert env.phase_transitions["recon"]["threshold"] == 10
-        assert env.phase_transitions["enumeration"]["threshold"] == 8
+        assert env.phase_transitions["recon"]["threshold"] == 5
+        assert env.phase_transitions["enumeration"]["threshold"] == 4
 
     def test_set_target_profile_metasploitable2(self):
         """Metasploitable 2 profile sets appropriate thresholds."""
@@ -457,8 +457,8 @@ class TestAdaptivePhaseThresholds:
 
         assert env.phase_transitions["recon"]["threshold"] == 3
         assert env.phase_transitions["exploit"]["threshold"] == 1
-        # Unchanged phase should keep default
-        assert env.phase_transitions["enumeration"]["threshold"] == 8
+        # Unchanged phase should keep default (Phase 3: lowered to 4)
+        assert env.phase_transitions["enumeration"]["threshold"] == 4
 
     def test_invalid_profile_raises(self):
         """Invalid profile name raises ValueError."""
@@ -473,7 +473,7 @@ class TestAdaptivePhaseThresholds:
         from core.environment.cyber_environment import CyberEnvironment
 
         env = CyberEnvironment(defer_reset=True)
-        expected = {"default", "metasploitable2", "metasploitable3", "htb_easy", "htb_hard"}
+        expected = {"default", "simulation", "metasploitable2", "metasploitable3", "htb_easy", "htb_hard"}
         assert expected.issubset(set(env.TARGET_PROFILES.keys()))
 
 

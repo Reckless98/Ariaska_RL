@@ -48,7 +48,12 @@ class RewardBreakdown:
     explanation: str = ""
     
     def calculate_total(self) -> float:
-        """Calculate the total reward from components - NO FLOOR to feel pain from loops."""
+        """Calculate the total reward from components with a per-step floor.
+
+        Industry standard: a floor prevents catastrophic negative spirals
+        that make PPO's value function diverge.  The agent still feels
+        pain from redundancy, but not unbounded pain.
+        """
         raw_total = (
             self.base_reward +
             self.novelty_bonus +
@@ -59,9 +64,8 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
-        # NO FLOOR - Let agents feel the pain of being stuck in loops
-        # This teaches them to diversify. Exponential penalty does the work.
-        self.total = raw_total
+        # PHASE 4: Floor at -5.0 per step to keep value estimates stable
+        self.total = max(raw_total, -5.0)
         return self.total
     
     def to_dict(self) -> Dict[str, float]:
@@ -232,23 +236,24 @@ class SmartRewardCalculator:
         breakdown.progress_bonus = self.progress_bonus_per_step  # Unscaled - just 1.0
         explanations.append(f"Progress: +{breakdown.progress_bonus:.1f}")
         
-        # 2. Novelty bonus - reward trying NEW commands (big bonus for exploration)
+        # 2. Novelty bonus - reward trying NEW commands (calibrated for PPO)
+        # Phase 4: Reduced from 8→5 to prevent novelty-seeking over objective progress
         if template_name not in self.template_usage:
-            # First time using this command - big bonus!
-            breakdown.novelty_bonus = 8.0 * self.novelty_weight  # Strong exploration incentive
+            # First time using this command
+            breakdown.novelty_bonus = 5.0 * self.novelty_weight
             explanations.append(f"🆕 Novelty (first use): +{breakdown.novelty_bonus:.1f}")
         elif self.template_usage[template_name] < 3:
             # Second or third use - smaller bonus
-            bonus = (3 - self.template_usage[template_name]) * 2.0 * self.novelty_weight
+            bonus = (3 - self.template_usage[template_name]) * 1.5 * self.novelty_weight
             breakdown.novelty_bonus = bonus
             explanations.append(f"Novelty (rare): +{bonus:.1f}")
         
-        # 3. EXPONENTIAL Redundancy penalty - HARD penalty for loops
-        # Industry standard: exponential backoff discourages stuck behavior
+        # 3. CAPPED Redundancy penalty - discourages loops without crushing episodes
+        # Phase 4: Capped at 8.0 (was 32). Still exponential but bounded.
         repeat_count = self.command_history.count(command)
         if repeat_count > 0:
-            # Exponential: 1st repeat = -2, 2nd = -4, 3rd = -8, 4th = -16
-            penalty = 2.0 * (2 ** min(repeat_count - 1, 4))  # Cap at 32
+            # Exponential with lower cap: 1st repeat = -2, 2nd = -4, 3rd+ = -8 max
+            penalty = min(2.0 * (2 ** min(repeat_count - 1, 2)), 8.0)
             breakdown.redundancy_penalty = penalty
             if repeat_count >= 3:
                 explanations.append(f"🔁 STUCK LOOP: -{penalty:.1f} (repeat #{repeat_count})")

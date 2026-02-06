@@ -13,6 +13,7 @@ import os
 import time
 import logging
 import hashlib
+import torch
 from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
@@ -227,8 +228,53 @@ class SmartOrchestrator:
         self.episode_termination_reason: TerminationReason = TerminationReason.MAX_STEPS
         self.previous_discoveries: Dict[str, Any] = {}  # For discoveries_delta calculation
         
+        # ─── PHASE 4: Cross-Agent Discovery Board ────────────────────
+        # Shared state that all agents can read. Populated after each
+        # agent step so that later agents benefit from earlier agents'
+        # discoveries within the same step.
+        self.discovery_board: Dict[str, Any] = {
+            "ports": set(),
+            "services": set(),
+            "credentials": set(),
+            "vulns": set(),
+            "shells": set(),
+            "users": set(),
+            "web_paths": set(),
+            "phase": "RECON",
+            "flags_set": set(),
+        }
+        # Stagnation tracking per agent
+        self._steps_without_discoveries: Dict[str, int] = {}
+        
         # Initialize LiveDashboard for real-time visibility
         self.dashboard = self._init_dashboard()
+        
+        # ─── PHASE 3: PPO Agent Integration ──────────────────────────
+        # Creates a PPO actor-critic that runs alongside the existing
+        # SmartCoach pipeline. Collects trajectories during episodes
+        # and updates after each episode.
+        self.ppo_agent = None
+        self._ppo_trajectory: List[Dict] = []  # Per-episode trajectory
+        try:
+            from core.algorithms.ppo_agent import PPOAgent, PPOConfig
+            ppo_config = PPOConfig(
+                state_dim=512,
+                action_dim=5,  # recon, enumeration, exploit, privesc, exfiltrate
+                hidden_dims=[512, 512, 256],
+                clip_epsilon=0.2,
+                gamma=0.99,
+                gae_lambda=0.95,
+                learning_rate=3e-4,
+                epochs_per_update=3,
+                minibatch_size=8,
+                entropy_coef=0.01,
+                rollout_size=32,
+            )
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.ppo_agent = PPOAgent(config=ppo_config, device=device)
+            logger.info("PHASE 3: PPO Actor-Critic initialized for Red agent")
+        except Exception as e:
+            logger.warning(f"PHASE 3: PPO init failed (falling back to DQN): {e}")
         
         logger.info(f"SmartOrchestrator initialized with {len(self.agents)} agents")
     
@@ -471,6 +517,16 @@ class SmartOrchestrator:
             coach.reset_episode(episode_number)
         self.global_reward_calc.reset()
         
+        # PHASE 3: Clear PPO trajectory for new episode
+        self._ppo_trajectory = []
+        
+        # Phase 4: Reset discovery board
+        self.discovery_board = {
+            "ports": set(), "services": set(), "credentials": set(),
+            "vulns": set(), "shells": set(), "users": set(),
+            "web_paths": set(), "phase": "RECON", "flags_set": set(),
+        }
+        
         # Reset stuck detection
         self.action_history.clear()
         self.stuck_agents.clear()
@@ -619,26 +675,13 @@ class SmartOrchestrator:
                 )
             
             # =================================================================
-            # PHASE 2A: TIME-BASED PHASE ADVANCEMENT FALLBACK
-            # If stuck in a phase for too many steps, auto-advance by setting
-            # the required state flags. This prevents infinite stagnation.
+            # PHASE 4: TIME-BASED AUTO-ADVANCEMENT REMOVED
+            # Previously auto-set credentials_known/shell_obtained/admin_access
+            # after N steps in each phase. This defeated learning — the agent
+            # never needed to EARN phase transitions through actual commands.
+            # Now the agent must discover or exploit its way forward.
             # =================================================================
-            steps_in_phase = step - self._phase_start_step.get(current_phase, 0)
-            if current_phase == "ENUMERATION" and steps_in_phase >= 40:
-                if not self.attack_context.state_flags.get("credentials_known"):
-                    self.attack_context.set_state_flag("credentials_known")
-                    logger.info(f"[TIME-ADVANCE] Auto-set credentials_known after {steps_in_phase} steps in ENUMERATION")
-                    self.dashboard.add_event("phase_change", "Time-based: credentials_known", agent="system")
-            elif current_phase == "EXPLOITATION" and steps_in_phase >= 30:
-                if not self.attack_context.state_flags.get("shell_obtained"):
-                    self.attack_context.set_state_flag("shell_obtained")
-                    logger.info(f"[TIME-ADVANCE] Auto-set shell_obtained after {steps_in_phase} steps in EXPLOITATION")
-                    self.dashboard.add_event("phase_change", "Time-based: shell_obtained", agent="system")
-            elif current_phase == "PRIVILEGE_ESCALATION" and steps_in_phase >= 25:
-                if not self.attack_context.state_flags.get("admin_access_obtained"):
-                    self.attack_context.set_state_flag("admin_access_obtained")
-                    logger.info(f"[TIME-ADVANCE] Auto-set admin_access_obtained after {steps_in_phase} steps in PRIVESC")
-                    self.dashboard.add_event("phase_change", "Time-based: admin_access", agent="system")
+            # (Phase 2A code removed — agent must earn advancement through discoveries)
             
             # Track phase start steps
             new_phase = self.attack_context.current_phase.name
@@ -685,7 +728,121 @@ class SmartOrchestrator:
             step_results, episode_reward, done, phase_progression
         )
         
+        # ─── PHASE 4: Per-Coach PPO Updates ─────────────────────────
+        # Each SmartCoach has its own PPOAgent; trigger update at end of episode
+        ppo_updates_fired = 0
+        ppo_total_policy_loss = 0.0
+        ppo_total_value_loss = 0.0
+        ppo_total_entropy = 0.0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'end_episode_ppo'):
+                try:
+                    ppo_metrics = coach.end_episode_ppo(done=done)
+                    if ppo_metrics:
+                        ppo_updates_fired += 1
+                        ppo_total_policy_loss += ppo_metrics.get("policy_loss", 0.0)
+                        ppo_total_value_loss += ppo_metrics.get("value_loss", 0.0)
+                        ppo_total_entropy += ppo_metrics.get("entropy", 0.0)
+                        metrics[f"ppo_{coach_name}_policy_loss"] = ppo_metrics.get("policy_loss", 0.0)
+                        metrics[f"ppo_{coach_name}_value_loss"] = ppo_metrics.get("value_loss", 0.0)
+                        metrics[f"ppo_{coach_name}_entropy"] = ppo_metrics.get("entropy", 0.0)
+                except Exception as e:
+                    logger.warning(f"PPO update error for {coach_name}: {e}")
+
+        # Aggregate PPO metrics
+        metrics["ppo_updates_fired"] = ppo_updates_fired
+        if ppo_updates_fired > 0:
+            metrics["ppo_avg_policy_loss"] = ppo_total_policy_loss / ppo_updates_fired
+            metrics["ppo_avg_value_loss"] = ppo_total_value_loss / ppo_updates_fired
+            metrics["ppo_avg_entropy"] = ppo_total_entropy / ppo_updates_fired
+        
+        # Count decision sources across all step results
+        source_counts = {"ppo": 0, "playbook": 0, "registry": 0, "anti_repeat": 0, "other": 0}
+        for sr in step_results:
+            for ar in sr:
+                src = getattr(ar.decision, "source", "unknown") if ar.decision else "unknown"
+                # Map "unknown" → "registry" (default path)
+                if src == "unknown":
+                    src = "registry"
+                if src in source_counts:
+                    source_counts[src] += 1
+                else:
+                    source_counts["other"] += 1
+        metrics["decisions_ppo"] = source_counts["ppo"]
+        metrics["decisions_playbook"] = source_counts["playbook"]
+        metrics["decisions_registry"] = source_counts["registry"]
+        metrics["decisions_anti_repeat"] = source_counts["anti_repeat"]
+
+        # Legacy global PPO (kept for backward compat, no-op if trajectory empty)
+        if self.ppo_agent and self._ppo_trajectory:
+            try:
+                for t in self._ppo_trajectory:
+                    self.ppo_agent.store_transition(
+                        state=t["state"],
+                        action=t["action"],
+                        log_prob=t["log_prob"],
+                        reward=t["reward"],
+                        value=t["value"],
+                        done=t["done"],
+                    )
+                last_value = self._ppo_trajectory[-1]["value"] if self._ppo_trajectory[-1]["done"] else 0.0
+                ppo_metrics = self.ppo_agent.update(last_value=last_value)
+                if ppo_metrics:
+                    metrics["ppo_policy_loss"] = ppo_metrics.get("policy_loss", 0.0)
+                    metrics["ppo_value_loss"] = ppo_metrics.get("value_loss", 0.0)
+            except Exception as e:
+                logger.warning(f"Legacy PPO update error: {e}")
+            finally:
+                self._ppo_trajectory.clear()
+        
         return metrics
+    
+    # =========================================================================
+    # PPO Checkpoint Persistence
+    # =========================================================================
+    
+    def save_ppo_checkpoints(self, directory: str = "models/ppo_checkpoints"):
+        """Save all per-coach PPO checkpoints for persistence across runs.
+        
+        Args:
+            directory: Directory to save checkpoints into.
+        """
+        import os
+        os.makedirs(directory, exist_ok=True)
+        saved = 0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
+                path = os.path.join(directory, f"ppo_{coach_name}.pt")
+                try:
+                    coach.ppo_agent.save(path)
+                    saved += 1
+                    logger.info(f"Saved PPO checkpoint: {path}")
+                except Exception as e:
+                    logger.warning(f"Failed to save PPO for {coach_name}: {e}")
+        logger.info(f"Saved {saved} PPO checkpoints to {directory}")
+    
+    def load_ppo_checkpoints(self, directory: str = "models/ppo_checkpoints"):
+        """Load per-coach PPO checkpoints from a previous run.
+        
+        Args:
+            directory: Directory to load checkpoints from.
+        """
+        import os
+        if not os.path.isdir(directory):
+            logger.info(f"No PPO checkpoint directory found: {directory}")
+            return
+        loaded = 0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
+                path = os.path.join(directory, f"ppo_{coach_name}.pt")
+                if os.path.isfile(path):
+                    try:
+                        coach.ppo_agent.load(path)
+                        loaded += 1
+                        logger.info(f"Loaded PPO checkpoint: {path} (updates={coach.ppo_agent.updates_done})")
+                    except Exception as e:
+                        logger.warning(f"Failed to load PPO for {coach_name}: {e}")
+        logger.info(f"Loaded {loaded} PPO checkpoints from {directory}")
     
     def _run_step(
         self,
@@ -759,12 +916,18 @@ class SmartOrchestrator:
                 )
             
             # Build smart step context
+            # Phase 4: Inject discovery board into state for cross-agent awareness
+            enriched_state = dict(state) if isinstance(state, dict) else {}
+            enriched_state["discovery_board"] = {
+                k: list(v) if isinstance(v, set) else v
+                for k, v in self.discovery_board.items()
+            }
             step_ctx = SmartStepContext(
                 episode=self.current_episode,
                 step=step,
                 agent_name=agent_name,
                 attack_context=ctx,
-                state=state if isinstance(state, dict) else {},
+                state=enriched_state,
             )
             
             # =========================================================================
@@ -823,7 +986,10 @@ class SmartOrchestrator:
                 
                 # Get smart decision (role-aware)
                 decision = coach.decide(step_ctx, proposed_action, confidence)
-                decision.source = "mentor" if decision.mentor_call else "registry"
+                # Only set source if coach didn't already set a specific one
+                # Coach may have set: "ppo", "playbook", "anti_repeat", etc.
+                if decision.source == "unknown":
+                    decision.source = "mentor" if decision.mentor_call else "registry"
             
             # Track this command as used for deduplication
             step_used_commands.add(decision.template_name)
@@ -869,9 +1035,22 @@ class SmartOrchestrator:
         # CRITICAL FIX: Parse SIMULATED outputs for discoveries in simulation mode
         # This allows agents to get positive rewards even without a real target
         smart_reward_total = 0.0
+        
+        # Detect real terminal output vs stringified state dict
+        # Real output has newlines and doesn't look like a Python dict repr
+        env_has_real_output = (
+            env_output
+            and not env_output.startswith("[SIM]")
+            and not env_output.startswith("{")
+            and not env_output.startswith("(")
+            and "\n" in env_output
+            and len(env_output) > 40
+        )
+        
         for result in agent_results:
-            # Use simulated output if env output is empty (simulation mode)
-            output_to_parse = env_output if env_output and not env_output.startswith("[SIM]") else result.decision.command_output
+            # Use per-agent simulated output for discovery parsing unless
+            # env returned real terminal output (live mode with real target)
+            output_to_parse = env_output if env_has_real_output else result.decision.command_output
             
             # Parse discoveries from this agent's output
             agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
@@ -945,8 +1124,50 @@ class SmartOrchestrator:
                     ctx.set_state_flag("services_enumerated")
                 
                 # Hash discovery → lateral movement
-                if "hash" in str(agent_discoveries).lower():
+                if agent_discoveries.get("hash_dump"):
                     ctx.set_state_flag("hash_known")
+                    logger.info(f"[PHASE-ADVANCE] hash_known set by {result.agent_name}")
+                
+                # Lateral target → lateral movement
+                if agent_discoveries.get("lateral_target"):
+                    ctx.set_state_flag("lateral_target_found")
+                    logger.info(f"[PHASE-ADVANCE] lateral_target_found set by {result.agent_name}")
+                
+                # Domain admin → post-exploitation
+                if agent_discoveries.get("domain_admin"):
+                    ctx.set_state_flag("domain_admin_obtained")
+                    ctx.set_state_flag("admin_access_obtained")
+                    logger.info(f"[PHASE-ADVANCE] domain_admin_obtained set by {result.agent_name}")
+
+                # Persistence → exfiltration
+                if agent_discoveries.get("persistence"):
+                    ctx.set_state_flag("persistence_established")
+                    logger.info(f"[PHASE-ADVANCE] persistence_established set by {result.agent_name}")
+                
+                # Data exfiltration → exfiltration phase
+                if agent_discoveries.get("data_exfiltrated"):
+                    ctx.set_state_flag("data_exfiltrated")
+                    logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
+
+                # ─── PHASE 4: Update discovery board for cross-agent sharing ─
+                for port in agent_discoveries.get("open_port", []):
+                    self.discovery_board["ports"].add(port)
+                for svc in agent_discoveries.get("service", []):
+                    self.discovery_board["services"].add(svc)
+                for user in agent_discoveries.get("user", []):
+                    self.discovery_board["users"].add(user)
+                if agent_discoveries.get("credential"):
+                    self.discovery_board["credentials"].add("found")
+                if agent_discoveries.get("shell"):
+                    self.discovery_board["shells"].add(result.agent_name)
+                if agent_discoveries.get("vulnerability"):
+                    self.discovery_board["vulns"].add("found")
+                for path in agent_discoveries.get("web_path", []):
+                    self.discovery_board["web_paths"].add(str(path))
+                self.discovery_board["phase"] = ctx.current_phase.name
+                self.discovery_board["flags_set"] = set(
+                    k for k, v in ctx.state_flags.items() if v
+                )
             
             # Determine success based on simulated output quality
             # Commands that produce meaningful output are considered successful
@@ -959,6 +1180,7 @@ class SmartOrchestrator:
                     success=sim_success or env_reward >= 0,
                     raw_output=output_to_parse,
                     new_discoveries=agent_discoveries,
+                    done=done,  # Phase 4: pass done for PPO trajectory
                 )
                 result.reward_breakdown = breakdown
                 # Accumulate smart rewards from all agents
@@ -975,6 +1197,13 @@ class SmartOrchestrator:
         
         # Use smart reward if available, otherwise fall back to env reward
         final_reward = smart_reward_total if smart_reward_total != 0 else env_reward
+        
+        # ─── PHASE 4: PPO trajectory now collected per-coach in SmartCoach ──
+        # The old global PPO trajectory collection was disconnected:
+        # PPO.select_action() returned a different action than SmartCoach chose,
+        # creating incoherent training signal. Now each SmartCoach has its own
+        # PPOAgent and records trajectory in record_result().
+        # (Global PPO kept for backward compat but no longer collects trajectory)
         
         # Log traces
         for result in agent_results:
@@ -1155,13 +1384,85 @@ class SmartOrchestrator:
             r"#\s*$",
             r"C:\\>",
             r"PS\s+C:\\",
+            r"nt authority\\system",
+            r"uid=0\(root\)",
         ]
         
         for pattern in shell_patterns:
             if re.search(pattern, output, re.MULTILINE):
                 discoveries["shell"] = True
-                if "root@" in output or "# " in output or "UID=0" in output:
+                if re.search(r"root@|uid=0|nt authority\\system|domain admin", output, re.IGNORECASE):
                     discoveries["root_shell"] = True
+                break
+        
+        # Hash/credential dump patterns → triggers LATERAL_MOVEMENT
+        hash_patterns = [
+            r"NTLMv[12]\s*Hash",
+            r"[a-f0-9]{32}:{3}",               # NT hash format
+            r"\$krb5tgs\$",                      # Kerberoast
+            r"\$krb5asrep\$",                    # AS-REP roast
+            r"Hash\s*dumped",
+            r"secretsdump|hashdump",
+            r"mimikatz.*NTLM",
+        ]
+        for pattern in hash_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["hash_dump"] = True
+                break
+        
+        # Lateral movement indicators → triggers LATERAL_MOVEMENT
+        lateral_patterns = [
+            r"Lateral target:\s*\S+",
+            r"Domain Admin found",
+            r"PsExec|WmiExec|SmbExec|AtExec|DcomExec",
+            r"Evil-WinRM shell",
+            r"proxychains.*OK",
+            r"Tunnel established",
+            r"session#\d+:\s*tun pair",
+        ]
+        for pattern in lateral_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["lateral_target"] = True
+                break
+        
+        # Domain admin indicators → triggers POST_EXPLOITATION
+        domain_admin_patterns = [
+            r"Domain\s*Admin",
+            r"nt authority\\system",
+            r"Enterprise\s*Admin",
+            r"memberOf.*Domain Admins",
+        ]
+        for pattern in domain_admin_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["domain_admin"] = True
+                break
+        
+        # Persistence indicators → triggers EXFILTRATION
+        persistence_patterns = [
+            r"Persistence\s*(cron|added|established|installed)",
+            r"crontab.*backup|systemd.*service\s*enabled",
+            r"Registry\s*key\s*(added|set)",
+            r"backdoor.*installed|implant.*deployed",
+            r"ssh.*authorized_keys|\.ssh/authorized_keys",
+            r"scheduled\s*task\s*created",
+        ]
+        for pattern in persistence_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["persistence"] = True
+                break
+        
+        # Data exfiltration indicators → triggers EXFILTRATION
+        exfil_patterns = [
+            r"exfiltrat(ed|ion|ing)",
+            r"data\s*(extracted|downloaded|stolen|copied|transferred)",
+            r"(file|archive|dump)\s*(uploaded|sent|exfil)",
+            r"curl.*-F|wget.*--post-file|nc.*<\s*\S+",
+            r"scp\s+\S+\s+\S+@",
+            r"base64.*encoded.*sent",
+        ]
+        for pattern in exfil_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["data_exfiltrated"] = True
                 break
         
         # Database discovery
@@ -1302,6 +1603,47 @@ class SmartOrchestrator:
             "mv": "",
             "arping": f"ARPING {target}\n60 bytes from {target}: index=0 time=1.234 msec\n60 bytes from {target}: index=1 time=0.876 msec",
             "waybackurls": f"http://{target}/admin\nhttp://{target}/login.php\nhttp://{target}/backup/",
+            # Privilege escalation outputs
+            "secretsdump": f"Impacket - Dumping LSA secrets\n[*] Target: {target}\nAdministrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\nNTLMv2 Hash: admin::CORP:abc123def456\n[+] Hash dumped: 3 accounts",
+            "mimikatz": f"  .#####.   mimikatz 2.2.0\n * Username : admin\n * Domain   : CORP\n * NTLM     : 31d6cfe0d16ae931b73c59d7e0c089c0\n * SHA1     : da39a3ee5e6b4b0d3255bfef95601890afd80709\nAuthentication Id: admin (S-1-5-21-CORP)",
+            "bloodhound": "[+] Collecting domain data\n[+] Users: 45 | Groups: 12 | Computers: 8\n[+] Domain Admin found: admin@CORP.LOCAL\n[+] Lateral target: DC01.CORP.LOCAL (10.10.10.100)\n[+] Kerberoastable users: svc_backup",
+            "kerbrute": f"2026/01/04 10:30:01 >  [+] VALID USERNAME:	admin@{target}\n2026/01/04 10:30:02 >  [+] VALID USERNAME:	svc_backup@{target}",
+            "chisel": f"server: session#1: tun pair: 127.0.0.1:8080 → {target}:80\n[+] Tunnel established",
+            "socat": f"listening on 0.0.0.0:4444\nconnection from {target}\n$ id\nuid=0(root) gid=0(root)",
+            "ncrack": f"Discovered credentials on {target} 22/tcp:\n22/tcp ssh: 'admin' 'Password123!'",
+            "medusa": f"ACCOUNT FOUND: [ssh] Host: {target} User: admin Password: admin123 [SUCCESS]",
+            "wfuzz": f"000000001:  200  95 L  251 W  3456 Ch  \"admin\"\n000000015:  200  30 L   89 W  1234 Ch  \"login\"",
+            "tplmap": f"[+] Tplmap 0.5\n[+] Testing if GET parameter 'name' is injectable\n[+] Smarty plugin has confirmed injection\n[+] OS Shell command execution available",
+            "commix": f"[+] The GET parameter 'cmd' is vulnerable to OS command injection\n[+] Target OS: Linux\n$ id\nuid=33(www-data) gid=33(www-data)",
+            "dalfox": f"[POC][R][GET] http://{target}/page?q=<script>alert(1)</script>\n[*] Found 1 XSS vulnerability",
+            "xsstrike": f"[~] Checking for DOM vulnerabilities\n[+] Vulnerable parameter: q\n[+] Payload: <img src=x onerror=alert(1)>",
+            "gospider": f"[url] http://{target}/admin\n[url] http://{target}/api/v1\n[form] http://{target}/login",
+            "katana": f"http://{target}/admin/\nhttp://{target}/api/v1/users\nhttp://{target}/login.php",
+            "ldapsearch": f"# CORP.LOCAL\ndn: DC=corp,DC=local\n# admin, Users, corp.local\ndn: CN=admin,CN=Users,DC=corp,DC=local\nmemberOf: CN=Domain Admins",
+            "evil-winrm": f"Evil-WinRM shell v3.4\nInfo: Establishing connection to remote endpoint\n*Evil-WinRM* PS C:\\Users\\admin> whoami\ncorp\\admin",
+            "psexec": f"Impacket v0.10.0 - PsExec\n[*] Requesting shares on {target}\n[*] Found writable share ADMIN$\n[*] Uploading shell\nMicrosoft Windows [Version 10.0.19041]\nC:\\WINDOWS\\system32> whoami\nnt authority\\system",
+            "wmiexec": f"Impacket v0.10.0 - WmiExec\n[*] SMBv3.0 dialect used\nC:\\> whoami\ncorp\\admin",
+            "smbexec": f"Impacket v0.10.0 - SmbExec\n[*] admin@{target}\nC:\\WINDOWS\\system32> whoami\nnt authority\\system",
+            "atexec": f"Impacket v0.10.0 - AtExec\n[*] Creating task\n[*] Running task\nnt authority\\system",
+            "dcomexec": f"Impacket v0.10.0 - DcomExec\n[*] {target} - admin authenticated\nC:\\> whoami\ncorp\\admin",
+            "getTGT": f"Impacket - getTGT\n[*] Saving ticket in admin.ccache\n[+] Kerberos TGT obtained for admin@CORP.LOCAL",
+            "getST": f"Impacket - getST\n[*] Getting service ticket for admin@CORP.LOCAL\n[+] Service ticket saved to admin_svc.ccache",
+            "GetUserSPNs": f"ServicePrincipalName  Name     MemberOf\nHTTP/web.corp.local   svc_web  Domain Users\n$krb5tgs$23$*svc_web$CORP.LOCAL*$hash",
+            "GetNPUsers": f"[-] User admin does not require preauth\n$krb5asrep$23$admin@CORP.LOCAL:hash_value",
+            "mssqlclient": f"Impacket v0.10.0 - MSSQLClient\n[*] Logged in to {target}:1433\nSQL> SELECT * FROM users\nadmin  | Password123!\nbackup | Backup2024!",
+            "xfreerdp": f"[INFO] Connected to {target}:3389\n[INFO] Domain: CORP\n[INFO] Authentication successful",
+            "proxychains": f"[proxychains] Strict chain ... 127.0.0.1:1080 ... {target}:445 ... OK",
+            "ssh": f"admin@{target}'s password:\nWelcome to Ubuntu 20.04.3 LTS\nadmin@target:~$ id\nuid=1000(admin) gid=1000(admin) groups=1000(admin),27(sudo)",
+            # Post-exploitation / persistence
+            "crontab": "*/5 * * * * /usr/local/bin/backup.sh\n0 2 * * * /opt/scripts/db_backup.sh\n[+] Persistence cron added",
+            # Exfiltration / persistence outputs
+            "tar": f"tar: creating archive /tmp/loot.tar.gz\n[+] Data extracted: /etc/shadow, /etc/passwd, /home/admin/.ssh/\n[+] Archive uploaded to 10.10.14.2 via nc\n[+] Data exfiltrated successfully",
+            "base64": "[+] File encoded to base64 and sent\n[+] Exfiltration complete: data transferred via DNS",
+            "exfiltrate": "[+] Exfiltrating sensitive data\n[+] /etc/shadow: 42 entries\n[+] SSH keys: 3 found\n[+] Data exfiltrated to C2",
+            "systemctl": "[+] Created systemd service: /etc/systemd/system/backup.service\n[+] Service enabled and started\n[+] Persistence established via systemd",
+            "reg": "[+] Registry key added: HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Updater\n[+] Persistence established via registry",
+            "schtasks": "[+] Scheduled task created: \\Microsoft\\Windows\\Maintenance\\Backup\n[+] Persistence established via scheduled task",
+            "useradd": "[+] User 'svc_backup' added to system\n[+] Added to sudoers with NOPASSWD\n[+] Persistence established via backdoor user",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():
