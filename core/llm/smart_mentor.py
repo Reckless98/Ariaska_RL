@@ -368,6 +368,20 @@ OUTPUT FORMAT (JSON only):
                 lines.append(suggestion)
             lines.append("")
         
+        # RAG: Query knowledge base for relevant context
+        try:
+            from core.knowledge.knowledge_query import build_rag_context
+            rag_context = build_rag_context(
+                phase=context.current_phase.name if context.current_phase else "RECON",
+                discoveries=context.discoveries,
+                target=context.target,
+                max_snippets=3,
+            )
+            if rag_context:
+                lines.append(rag_context)
+        except Exception:
+            pass  # RAG is optional — graceful degradation
+        
         # Instruction
         lines.append("=== YOUR TASK ===")
         lines.append("Select the BEST next command from the AVAILABLE COMMANDS list above.")

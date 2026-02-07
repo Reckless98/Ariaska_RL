@@ -193,7 +193,7 @@ class TestRichStateEncoder:
 
     def test_service_presence_encoding(self, device):
         """Service types should be encoded as binary features."""
-        from core.models.state_encoder import encode_state, SERVICE_TYPES
+        from core.models.state_encoder import encode_state, SERVICE_TYPES, COMMON_PORTS
         state = {
             "phase": "enumeration",
             "open_ports": [],
@@ -202,7 +202,7 @@ class TestRichStateEncoder:
             "phase_progress": {},
         }
         tensor = encode_state(state, device)
-        svc_start = 47
+        svc_start = 27 + len(COMMON_PORTS)  # Dynamic: adjusts with port list size
         for i, svc in enumerate(SERVICE_TYPES):
             expected = 1.0 if svc in ["ssh", "http", "mysql"] else 0.0
             actual = tensor[svc_start + i].item()
@@ -221,8 +221,10 @@ class TestRichStateEncoder:
                 "phase_progress": {},
             }
             tensor = encode_state(state, device)
-            # Privilege ordinal is at dim 59
-            actual = tensor[59].item()
+            # Privilege ordinal is first dim of Section 5 (after phases+flags+ports+services)
+            from core.models.state_encoder import COMMON_PORTS as CP, SERVICE_TYPES as ST
+            priv_dim = 27 + len(CP) + len(ST)  # Dynamic: adjusts with list sizes
+            actual = tensor[priv_dim].item()
             assert abs(actual - expected) < 1e-6, (
                 f"Privilege '{priv}': expected {expected}, got {actual}"
             )

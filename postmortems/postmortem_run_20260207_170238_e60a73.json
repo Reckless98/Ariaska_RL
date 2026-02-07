@@ -1,0 +1,41 @@
+{
+  "run_id": "run_20260207_170238_e60a73",
+  "timestamp": 1770480158.861917,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episodes"
+    ],
+    "fails": [
+      "No LLM analysis available (offline mode)"
+    ],
+    "summary": "Offline postmortem for run run_20260207_170238_e60a73: 1 episodes, 7.50 total reward, 0.00% success"
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "offline_skill_run_2026",
+      "if_condition": "Offline mode - no pattern detected",
+      "then_action": "Manual review required",
+      "parameters_template": {},
+      "confidence": 0.0,
+      "evidence_refs": [
+        "run_20260207_170238_e60a73_ep0000:0000:BlueAgent",
+        "run_20260207_170238_e60a73_ep0000:0000:OrionAgent"
+      ],
+      "created_at": 1770480158.8619463,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [],
+  "next_experiments": [
+    {
+      "title": "Enable LLM Analysis",
+      "description": "Set OPENAI_API_KEY to enable full postmortem analysis",
+      "priority": "high"
+    }
+  ],
+  "model_used": "offline",
+  "dry_run": false,
+  "validation_passed": true
+}

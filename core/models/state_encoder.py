@@ -8,16 +8,19 @@ vector where ~90 dimensions carry meaningful signal about the environment,
 attack progress, agent state, and temporal dynamics.
 
 Architecture:
-    Section 1: Phase Information         [0-11]   12 dims
-    Section 2: State Flags               [12-26]  15 dims
-    Section 3: Port Presence             [27-46]  20 dims
-    Section 4: Service Type Presence     [47-58]  12 dims
-    Section 5: Numeric Features          [59-70]  12 dims
-    Section 6: Action History            [71-80]  10 dims
-    Section 7: LLM/Mentor Features       [81-85]   5 dims
-    Section 8: Temporal Features         [86-90]   5 dims
-    ─────────────────────────────────────────────
-    Total meaningful dims: ~91 / 512
+    Section 1: Phase Information         [0-11]    12 dims
+    Section 2: State Flags               [12-26]   15 dims
+    Section 3: Port Presence             [27-54]   28 dims  (MS2-expanded)
+    Section 4: Service Type Presence     [55-72]   18 dims  (MS2-expanded)
+    Section 5: Numeric Features          [73-84]   12 dims
+    Section 6: Action History            [85-94]   10 dims
+    Section 7: LLM/Mentor Features       [95-99]    5 dims
+    Section 8: Temporal Features         [100-104]  5 dims
+    Section 9: Agent Role Encoding       [105-109]  5 dims  (Phase 5.2+)
+    Section 10: Target Profile           [110-114]  5 dims  (Phase 5.2+)
+    Section 11: Discovery Breakdown      [115-122]  8 dims  (Phase 5.2+)
+    ──────────────────────────────────────────────────────────
+    Total meaningful dims: ~123 / 512
 """
 
 import torch
@@ -34,17 +37,19 @@ PHASES = [
 ]
 PHASE_INDEX = {p: i for i, p in enumerate(PHASES)}
 
-# Top 20 ports most relevant to pentesting (Metasploitable 2, HTB, etc.)
+# Top 28 ports most relevant to pentesting (Metasploitable 2, HTB, etc.)
 COMMON_PORTS = [
     21, 22, 23, 25, 53, 80, 110, 111, 135, 139,
-    143, 443, 445, 993, 995, 1433, 3306, 3389, 5432, 8080,
+    143, 443, 445, 512, 993, 995, 1099, 1433, 1524,
+    2049, 3306, 3389, 3632, 5432, 5900, 6667, 8080, 8180,
 ]
 PORT_SET = set(COMMON_PORTS)
 
-# Common service types to encode individually
+# Common service types to encode individually (18 types, MS2-expanded)
 SERVICE_TYPES = [
     "ssh", "http", "https", "ftp", "smb", "telnet",
     "mysql", "postgresql", "rdp", "dns", "smtp", "vnc",
+    "irc", "nfs", "java_rmi", "tomcat", "rexec", "distcc",
 ]
 
 # State flag keys (from CyberEnvironment.get_global_state())
@@ -58,6 +63,18 @@ STATE_FLAG_KEYS = [
 ]
 
 PRIVILEGE_MAP = {"none": 0.0, "user": 0.5, "root": 1.0}
+
+# Agent role encoding (5 roles → 5-dim one-hot)
+AGENT_ROLE_INDEX = {
+    "recon": 0, "offensive": 1, "defensive": 2, "strategic": 3, "stealth": 4,
+}
+
+# Target profile indicators for state-aware encoding
+TARGET_PROFILES = {
+    "metasploitable2": {"ms2": True, "linux": True, "difficulty": 0.3},
+    "metasploitable3": {"ms2": False, "linux": True, "difficulty": 0.6},
+    "generic": {"ms2": False, "linux": False, "difficulty": 0.5},
+}
 
 
 def encode_state(
@@ -73,6 +90,8 @@ def encode_state(
     max_steps: int = 100,
     steps_in_phase: int = 0,
     phase_transitions: int = 0,
+    agent_role: str = "",
+    target_profile: str = "",
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -125,7 +144,7 @@ def encode_state(
     vec[idx] = 1.0 if state.get("done", False) else 0.0
     idx += 1  # 27
 
-    # ─── Section 3: Port Presence (20 dims) ──────────────────────────
+    # ─── Section 3: Port Presence (28 dims, MS2-expanded) ────────────
     open_ports = state.get("open_ports", [])
     open_port_set = set()
     for p in open_ports:
@@ -136,18 +155,18 @@ def encode_state(
 
     for port in COMMON_PORTS:
         vec[idx] = 1.0 if port in open_port_set else 0.0
-        idx += 1  # 47
+        idx += 1  # 55 after loop (28 ports)
 
-    # ─── Section 4: Service Type Presence (12 dims) ──────────────────
+    # ─── Section 4: Service Type Presence (18 dims, MS2-expanded) ────
     services = state.get("services", [])
     services_lower = {str(s).lower() for s in services}
 
     for svc in SERVICE_TYPES:
         found = any(svc in s for s in services_lower)
         vec[idx] = 1.0 if found else 0.0
-        idx += 1  # 59
+        idx += 1  # 73 after loop (18 services)
 
-    # ─── Section 5: Numeric Features (12 dims) ──────────────────────
+    # ─── Section 5: Numeric Features (12 dims) [73-84] ──────────────
     # Privilege ordinal
     priv = state.get("privilege_level", "none")
     vec[idx] = PRIVILEGE_MAP.get(priv, 0.0)
@@ -194,9 +213,9 @@ def encode_state(
 
     # Credentials found (binary, but we might also get a count later)
     vec[idx] = 1.0 if state.get("credentials_found", False) else 0.0
-    idx += 1  # 71
+    idx += 1  # 85
 
-    # ─── Section 6: Action History (10 dims) ─────────────────────────
+    # ─── Section 6: Action History (10 dims) [85-94] ────────────────
     history = action_history or []
 
     # Last action normalised
@@ -225,9 +244,9 @@ def encode_state(
     if len(last10) >= 2:
         repeats = sum(1 for i in range(1, len(last10)) if last10[i] == last10[i - 1])
         vec[idx] = repeats / (len(last10) - 1)
-    idx += 1  # 81
+    idx += 1  # 95
 
-    # ─── Section 7: LLM / Mentor Features (5 dims) ──────────────────
+    # ─── Section 7: LLM / Mentor Features (5 dims) [95-99] ──────────
     vec[idx] = float(state.get("llm_last_reward", 0.0))
     idx += 1
     vec[idx] = 1.0 if state.get("chain_updated", False) else 0.0
@@ -237,9 +256,9 @@ def encode_state(
     vec[idx] = float(gpt_calls_remaining) / max(gpt_calls_max, 1)
     idx += 1
     vec[idx] = 1.0 if mentor_active else 0.0
-    idx += 1  # 86
+    idx += 1  # 100
 
-    # ─── Section 8: Temporal Features (5 dims) ───────────────────────
+    # ─── Section 8: Temporal Features (5 dims) [100-104] ─────────────
     vec[idx] = float(current_step) / max(max_steps, 1)
     idx += 1
     vec[idx] = min(float(steps_in_phase) / 50.0, 1.0)
@@ -252,10 +271,42 @@ def encode_state(
     # Phase momentum (higher = advancing faster)
     if current_step > 0:
         vec[idx] = min(float(phase_transitions) / (float(current_step) / 20.0 + 1.0), 1.0)
-    idx += 1  # 91
+    idx += 1  # 105
 
-    # ─── Remaining dims [91-511] are zero-padded ─────────────────────
-    # Future expansion: command embeddings, graph features, etc.
+    # ─── Section 9: Agent Role Encoding (5 dims) [105-109] ──────────
+    role_idx = AGENT_ROLE_INDEX.get(agent_role, -1)
+    if role_idx >= 0:
+        vec[idx + role_idx] = 1.0
+    idx += len(AGENT_ROLE_INDEX)  # 110
+
+    # ─── Section 10: Target Profile (5 dims) [110-114] ──────────────
+    profile = TARGET_PROFILES.get(target_profile, {})
+    vec[idx] = 1.0 if profile.get("ms2", False) else 0.0
+    idx += 1
+    vec[idx] = float(profile.get("difficulty", 0.0))
+    idx += 1
+    vec[idx] = 1.0 if profile.get("linux", False) else 0.0
+    idx += 1
+    # Services richness: ratio of discovered services to ports
+    n_services = len(services)
+    n_ports = len(open_ports)
+    vec[idx] = min(float(n_services) / max(float(n_ports), 1.0), 1.0)
+    idx += 1
+    # Port density: ratio of open ports to total common ports
+    vec[idx] = min(float(n_ports) / float(len(COMMON_PORTS)), 1.0)
+    idx += 1  # 115
+
+    # ─── Section 11: Discovery Breakdown (8 dims) [115-122] ─────────
+    discovery_board = state.get("discovery_board", {})
+    for disc_key in ["ports", "services", "credentials", "shells",
+                     "vulns", "web_paths", "users", "flags_set"]:
+        disc_set = discovery_board.get(disc_key, set())
+        if isinstance(disc_set, (set, list)):
+            vec[idx] = min(len(disc_set) / 10.0, 1.0)
+        idx += 1  # 123 after loop
+
+    # ─── Remaining dims [123-511] are zero-padded ────────────────────
+    # ~123 meaningful dims / 512 total
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

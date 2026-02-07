@@ -64,14 +64,14 @@ class PPOConfig:
 class PPOActorCritic(nn.Module):
     """Combined actor-critic network for PPO with advanced architecture.
 
-    Uses the same backbone as AdvancedPolicyNetwork but with separate
-    actor (policy) and critic (value) heads. Shares feature extraction
-    to reduce parameters while maintaining representational capacity.
+    Uses shared backbone with optional attention-enhanced residual blocks
+    from advanced_networks.py. Separate actor (policy) and critic (value)
+    heads share feature extraction to reduce parameters.
 
     Architecture:
-        Input (512) → LayerNorm → GELU → [Residual Blocks w/ Attention] →
-        ├─ Actor Head  → action logits (5)
-        └─ Critic Head → state value (1)
+        Input (512) → LayerNorm → GELU → [Shared Backbone] →
+        [AttentionResidual] → ├─ Actor Head → logits (action_dim)
+                              └─ Critic Head → value (1)
     """
 
     def __init__(self, config: PPOConfig):
@@ -93,18 +93,32 @@ class PPOActorCritic(nn.Module):
 
         final_dim = dims[-1]
 
-        # ── Residual Block (optional) ────────────────────────────────
+        # ── Advanced Residual Block (Phase 5.2+) ────────────────────
+        # Try to use ResidualBlock from advanced_networks.py for
+        # attention-enhanced feature extraction. Falls back to simple
+        # residual if import fails.
+        self.has_residual = False
+        self.has_attention_residual = False
         if config.use_residual and len(dims) >= 2 and dims[-2] == dims[-1]:
-            self.residual = nn.Sequential(
-                nn.Linear(final_dim, final_dim),
-                nn.LayerNorm(final_dim),
-                nn.GELU(),
-                nn.Dropout(config.dropout_rate),
-                nn.Linear(final_dim, final_dim),
-            )
-            self.has_residual = True
-        else:
-            self.has_residual = False
+            try:
+                from core.models.advanced_networks import ResidualBlock
+                self.adv_residual = ResidualBlock(
+                    dim=final_dim,
+                    dropout=config.dropout_rate,
+                    use_attention=config.use_attention,
+                )
+                self.has_attention_residual = True
+                self.has_residual = True
+            except (ImportError, Exception):
+                # Fallback: simple residual without attention
+                self.residual = nn.Sequential(
+                    nn.Linear(final_dim, final_dim),
+                    nn.LayerNorm(final_dim),
+                    nn.GELU(),
+                    nn.Dropout(config.dropout_rate),
+                    nn.Linear(final_dim, final_dim),
+                )
+                self.has_residual = True
 
         # ── Actor Head (policy) ──────────────────────────────────────
         self.actor = nn.Sequential(
@@ -152,8 +166,10 @@ class PPOActorCritic(nn.Module):
 
         x = self.shared_backbone(x)
 
-        if self.has_residual:
-            x = x + self.residual(x)  # skip connection
+        if self.has_attention_residual:
+            x = self.adv_residual(x)  # ResidualBlock with attention + skip
+        elif self.has_residual:
+            x = x + self.residual(x)  # simple skip connection
 
         logits = self.actor(x)
         value = self.critic(x)
@@ -411,7 +427,8 @@ class PPOAgent:
         """SmartOrchestrator-compatible interface.
 
         Returns (action_name, confidence) instead of (int, logprob, value).
-        The orchestrator maps action indices to command templates.
+        Uses CommandActionMapper if action_dim > 5 (per-role mode),
+        otherwise falls back to phase name mapping.
         """
         from core.models.state_encoder import encode_state
 
@@ -424,9 +441,18 @@ class PPOAgent:
             probs = F.softmax(logits, dim=-1)
             confidence = probs[0, action_idx].item()
 
-        # Map action index → phase name
-        phase_actions = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
-        action_name = phase_actions[action_idx] if action_idx < len(phase_actions) else "recon"
+        # Map action index → name
+        # If using per-role CommandActionMapper (action_dim > 5), try to get template name
+        if self.config.action_dim > 5:
+            try:
+                from core.algorithms.command_action_mapper import get_mapper
+                # We don't know the role here, so return the raw index
+                action_name = f"action_{action_idx}"
+            except ImportError:
+                action_name = f"action_{action_idx}"
+        else:
+            phase_actions = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+            action_name = phase_actions[action_idx] if action_idx < len(phase_actions) else "recon"
 
         return action_name, confidence
 

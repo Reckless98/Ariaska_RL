@@ -323,6 +323,12 @@ class SmartCoach:
         self.episode_used_commands: set = set()  # Across entire episode
         self.command_repeat_count: Dict[str, int] = {}  # Count repeats
         
+        # Phase 5.2+: Adaptive curriculum tracking
+        self._episode_rewards: List[float] = []  # Recent episode total rewards
+        self._episode_discovery_counts: List[int] = []  # Recent episode discoveries
+        self._episode_diversity_ratios: List[float] = []  # Recent diversity ratios
+        self._adaptive_history_window = 10  # Look back N episodes
+        
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
         # =====================================================================
@@ -819,6 +825,10 @@ class SmartCoach:
         confidence = confidence if confidence is not None else 0.5
         ctx = step_ctx.attack_context
         
+        # ─── PHASE 5.2+: Skill Library query ────────────────────────
+        # Before main pipeline, check if skill library has a high-confidence match
+        skill_result = self._query_skill_library(step_ctx)
+        
         # ─── PHASE 4: Playbook curriculum (annealing) ────────────────
         # Early episodes: follow proven playbooks. Later: let PPO/registry drive.
         playbook_result = self._playbook_suggest(step_ctx)
@@ -877,8 +887,10 @@ class SmartCoach:
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
         # Make decision based on hybrid logic
-        # Phase 4: Playbook gets priority if available (early episodes)
-        if playbook_result is not None:
+        # Priority: Skill Library → Playbook → PPO/GPT → Registry
+        if skill_result is not None:
+            result = skill_result
+        elif playbook_result is not None:
             result = playbook_result
         elif should_call_gpt and gpt_available:
             logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
@@ -1676,6 +1688,91 @@ class SmartCoach:
     # PHASE 4: PLAYBOOK-GUIDED COMMAND SELECTION
     # =====================================================================
 
+    # =====================================================================
+    # PHASE 5.2+: SKILL LIBRARY INTEGRATION
+    # =====================================================================
+
+    def _query_skill_library(
+        self,
+        step_ctx: "SmartStepContext",
+    ) -> Optional["SmartDecisionResult"]:
+        """Query skill library for a high-confidence match.
+
+        Checks learned skills (from postmortem analysis) for the current
+        phase and state. Only returns a result if confidence ≥ 0.75.
+
+        Args:
+            step_ctx: Current step context.
+
+        Returns:
+            SmartDecisionResult if a matching skill is found, else None.
+        """
+        if not self.skill_library:
+            return None
+
+        try:
+            ctx = step_ctx.attack_context
+            phase_name = ctx.current_phase.name.lower() if ctx.current_phase else "recon"
+
+            # Build keywords from current state
+            keywords = [phase_name]
+            for flag, active in ctx.state_flags.items():
+                if active:
+                    keywords.append(flag.replace("_", " "))
+
+            # Add discovery context
+            for disc_type, values in ctx.discoveries.items():
+                if values:
+                    keywords.append(disc_type)
+
+            skills = self.skill_library.get_skills_for_condition(keywords)
+            if not skills:
+                return None
+
+            # Take best skill with confidence ≥ 0.75
+            best = skills[0]
+            if best.confidence < 0.75:
+                return None
+
+            # Try to match skill's action to a registry command
+            action_lower = best.then_action.lower()
+            for template in COMMAND_REGISTRY.values():
+                if template.name.lower() in action_lower or action_lower.startswith(template.template.split()[0].lower()):
+                    # Validate role
+                    if self.action_mapper and self.action_mapper.command_to_action(template.name) < 0:
+                        continue  # Not in this role's pool
+
+                    params = {}
+                    for p in template.required_params:
+                        params[p] = self._get_default_param(p, ctx)
+                    params.update(template.optional_params)
+
+                    try:
+                        command = render_command(template, params)
+                    except ValueError:
+                        continue
+
+                    logger.debug(
+                        f"[SKILL][{self.agent_name}] Skill '{best.id}' "
+                        f"(conf={best.confidence:.2f}) → {template.name}"
+                    )
+
+                    return SmartDecisionResult(
+                        command=command,
+                        template_name=template.name,
+                        params=params,
+                        mentor_call=False,
+                        mentor_reasoning=f"🎓 Skill[{best.id}] → {best.then_action[:40]}",
+                        confidence=best.confidence,
+                        phase=template.phase,
+                        source="skill_library",
+                    )
+
+        except Exception as e:
+            logger.debug(f"Skill library query failed: {e}")
+
+        return None
+
     def _playbook_suggest(
         self,
         step_ctx: "SmartStepContext",
@@ -1703,9 +1800,18 @@ class SmartCoach:
         ctx = step_ctx.attack_context
         episode = self.current_episode
 
-        # Annealing: playbook usage decreases over episodes
-        # Episode 0: 60%, Episode 25: 30%, Episode 50+: 10%
-        playbook_prob = max(0.10, 0.60 - episode * 0.01)
+        # Adaptive Curriculum: performance-based annealing
+        # Base rate decays with time; performance modulates it
+        base_prob = max(0.10, 0.60 - episode * 0.01)
+        perf = self._get_curriculum_performance()
+        if perf > 0.7:
+            # Agent doing well — anneal faster, less hand-holding
+            playbook_prob = max(0.05, base_prob * 0.5)
+        elif perf < 0.3:
+            # Agent struggling — keep guidance higher
+            playbook_prob = min(0.80, base_prob * 1.5)
+        else:
+            playbook_prob = base_prob
         if random.random() > playbook_prob:
             return None
 
@@ -1819,6 +1925,7 @@ class SmartCoach:
                 max_steps=250,
                 steps_in_phase=0,
                 phase_transitions=0,
+                agent_role=self.agent_role.get("role", ""),
             )
 
             # Build mask: only commands in filtered_commands AND in mapper
@@ -2238,6 +2345,68 @@ class SmartCoach:
         
         return breakdown
     
+    # =====================================================================
+    # PHASE 5.2+: ADAPTIVE CURRICULUM HELPERS
+    # =====================================================================
+
+    def _get_curriculum_performance(self) -> float:
+        """Compute adaptive curriculum performance score (0-1).
+
+        Combines recent discovery rate, diversity, and reward trend.
+        Higher score → agent is learning well → less playbook guidance needed.
+        """
+        if not self._episode_rewards:
+            return 0.5  # Neutral: no history yet
+
+        window = self._adaptive_history_window
+        recent_rewards = self._episode_rewards[-window:]
+        recent_discoveries = self._episode_discovery_counts[-window:]
+        recent_diversity = self._episode_diversity_ratios[-window:]
+
+        scores = []
+
+        # Discovery rate (0-1): avg discoveries per episode, capped at 15
+        if recent_discoveries:
+            avg_disc = sum(recent_discoveries) / len(recent_discoveries)
+            scores.append(min(avg_disc / 15.0, 1.0))
+
+        # Diversity ratio (0-1): already in range
+        if recent_diversity:
+            scores.append(sum(recent_diversity) / len(recent_diversity))
+
+        # Reward trend (0-1): positive trend = doing well
+        if len(recent_rewards) >= 3:
+            first_half = sum(recent_rewards[: len(recent_rewards) // 2])
+            second_half = sum(recent_rewards[len(recent_rewards) // 2 :])
+            if first_half > 0:
+                trend = min(max(second_half / first_half, 0.0), 2.0) / 2.0
+            else:
+                trend = 0.5 if second_half >= 0 else 0.2
+            scores.append(trend)
+
+        return sum(scores) / len(scores) if scores else 0.5
+
+    def record_episode_performance(
+        self,
+        total_reward: float,
+        discovery_count: int,
+        diversity_ratio: float,
+    ):
+        """Record episode-level metrics for adaptive curriculum.
+
+        Called by SmartOrchestrator at the end of each episode.
+        """
+        self._episode_rewards.append(total_reward)
+        self._episode_discovery_counts.append(discovery_count)
+        self._episode_diversity_ratios.append(diversity_ratio)
+
+        # Keep bounded history
+        cap = self._adaptive_history_window * 3
+        if len(self._episode_rewards) > cap:
+            self._episode_rewards = self._episode_rewards[-cap:]
+            self._episode_discovery_counts = self._episode_discovery_counts[-cap:]
+            self._episode_diversity_ratios = self._episode_diversity_ratios[-cap:]
+
     def reset_episode(self, episode: int):
         """Reset for new episode."""
         self.current_episode = episode

@@ -58,6 +58,19 @@ train-quick:
 train-msf:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 120 --env msf --verbosity verbose
 
+# MS2 Docker lab setup
+ms2-setup:
+	@bash scripts/setup_ms2.sh setup
+
+ms2-status:
+	@bash scripts/setup_ms2.sh status
+
+ms2-health:
+	@bash scripts/setup_ms2.sh health
+
+ms2-stop:
+	@bash scripts/setup_ms2.sh stop
+
 # Quick smoke test
 smoke:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 10 --seed 1337 --verbosity standard
