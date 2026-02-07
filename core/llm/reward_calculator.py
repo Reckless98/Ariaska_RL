@@ -64,11 +64,12 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
-        # PHASE 5.2: Floor at -5.0, ceiling at 100.0 per step
-        # Floor prevents catastrophic negative spirals in PPO value function
-        # Ceiling prevents extreme outlier rewards (e.g. flag+root_shell+phase_advance ~655)
-        # from destabilizing the value function via asymmetric targets
-        self.total = max(min(raw_total, 100.0), -5.0)
+        # PHASE 6: Floor at -5.0, ceiling at 50.0 per step
+        # Tighter ceiling (was 100.0) prevents extreme outlier rewards
+        # from destabilizing PPO value function. Max single-step now ~50
+        # instead of ~655, bringing the reward range closer to value
+        # function capacity.
+        self.total = max(min(raw_total, 50.0), -5.0)
         return self.total
     
     def to_dict(self) -> Dict[str, float]:
@@ -124,10 +125,10 @@ class SmartRewardCalculator:
         "vulnerability": 10.0,  # vulns lead to exploitation
         "cve": 13.0,            # specific CVE = exploit ready
         
-        # Shell/Access discoveries
-        "shell": 50.0,          # shell = major milestone
-        "root_shell": 130.0,    # root = game over
-        "flag": 200.0,          # CTF flag = ultimate goal
+        # Shell/Access discoveries — Phase 6: reduced to fit 50.0 ceiling
+        "shell": 25.0,          # shell = major milestone (was 50)
+        "root_shell": 45.0,     # root = game over (was 130)
+        "flag": 50.0,           # CTF flag = ultimate goal (was 200)
         
         # Web discoveries
         "directory": 2.5,       # directories expand attack surface
@@ -208,7 +209,8 @@ class SmartRewardCalculator:
         raw_output: str,
         current_phase: AttackPhase,
         state_flags: Dict[str, bool],
-        new_discoveries: Optional[Dict[str, Any]] = None
+        new_discoveries: Optional[Dict[str, Any]] = None,
+        shared_discoveries: Optional[Set[str]] = None,
     ) -> RewardBreakdown:
         """
         Calculate reward for a command execution.
@@ -221,6 +223,8 @@ class SmartRewardCalculator:
             current_phase: Current attack phase
             state_flags: Current state flags
             new_discoveries: New things discovered
+            shared_discoveries: Shared set across all agents for dedup.
+                If provided, novelty is tracked globally (not per-agent).
             
         Returns:
             RewardBreakdown with detailed reward components
@@ -228,12 +232,16 @@ class SmartRewardCalculator:
         breakdown = RewardBreakdown()
         explanations = []
         
+        # Use shared discoveries if provided (Phase 6: cross-agent dedup)
+        disc_tracker = shared_discoveries if shared_discoveries is not None else self.discoveries
+        
         # Get template info
         template = COMMAND_REGISTRY.get(template_name)
         
         # REWARD MULTIPLIER: Scale POSITIVE rewards, keep penalties real
-        # Phase 5.1: 2.5 (was 4.0 pre-Phase5, reduced to 2.0, now balanced)
-        REWARD_MULTIPLIER = 2.5
+        # Phase 6: Reduced 2.5 → 1.5 to prevent reward inflation
+        # Combined with tighter ceiling (50.0), keeps value function stable
+        REWARD_MULTIPLIER = 1.5
         
         # 1. Base reward from template 
         if template:
@@ -274,16 +282,18 @@ class SmartRewardCalculator:
             total_discovery_bonus = 0.0
             for discovery_type, values in new_discoveries.items():
                 if discovery_type in self.DISCOVERY_BONUSES:
-                    # Count new discoveries
+                    # Count new discoveries — use shared tracker for cross-agent dedup
                     if isinstance(values, list):
                         for v in values:
                             key = f"{discovery_type}:{v}"
-                            if key not in self.discoveries:
-                                self.discoveries.add(key)
+                            if key not in disc_tracker:
+                                disc_tracker.add(key)
+                                self.discoveries.add(key)  # Also track locally
                                 total_discovery_bonus += self.DISCOVERY_BONUSES[discovery_type]
                     else:
                         key = f"{discovery_type}:{values}"
-                        if key not in self.discoveries:
+                        if key not in disc_tracker:
+                            disc_tracker.add(key)
                             self.discoveries.add(key)
                             total_discovery_bonus += self.DISCOVERY_BONUSES[discovery_type]
             

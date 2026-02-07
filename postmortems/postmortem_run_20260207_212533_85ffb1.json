@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260207_212533_85ffb1",
+  "timestamp": 1770495944.7851686,
+  "key_outcomes": {
+    "wins": [
+      "Consistently achieved a reward of 60 despite repeated mentor interventions, showing stable policy execution under guidance.",
+      "Engaged proactively with 10 mentor calls, ensuring continued feedback loops for future improvement."
+    ],
+    "fails": [
+      "0% success rate: the agent failed to complete the primary objective despite completing a single episode.",
+      "Over-reliance on mentor cues prevented autonomous decision-making, indicating insufficient internal strategy shifts."
+    ],
+    "summary": "The run demonstrated consistent reward accumulation but lacked objective completion and autonomy; focus should be on translating mentor guidance into independent actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent consistently failed to translate reconnaissance into follow-on exploitation, stopping after enumeration without pivoting to the target service.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts to gather service details",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timeout": "3s"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1770495951.8452625,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns 200 and /robots.txt accessible",
+      "then_action": "Fetch robots.txt, then queue a directory brute force with wordlist to identify hidden endpoints",
+      "parameters_template": {
+        "url": "http://{{target_ip}}/robots.txt",
+        "wordlist": "common_dirs.txt",
+        "threads": 20
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step11"
+      ],
+      "created_at": 1770495951.8452759,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials are captured from enum and privilege escalation candidate located",
+      "then_action": "Attempt credential reuse across accessible services and flag successful elevations",
+      "parameters_template": {
+        "credential_source": "enum_cache",
+        "services": [
+          "ssh",
+          "web"
+        ],
+        "max_attempts": 5
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1770495951.8452864,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration strategy reliably produced recon data used in later stages."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate credential pivoting",
+      "description": "After enumeration, automatically reuse captured credentials against adjacent services to test escalation without mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-enum exploitation planning",
+      "description": "Introduce decision logic that mandates exploitation attempts when high-confidence vulnerabilities are detected to reduce passive behavior.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

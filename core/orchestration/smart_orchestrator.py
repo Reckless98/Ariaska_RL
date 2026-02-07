@@ -99,6 +99,7 @@ class SmartStepResult:
     agent_name: str
     decision: SmartDecisionResult
     reward_breakdown: Optional[RewardBreakdown] = None
+    live_result: Optional[Any] = None  # LiveCommandResult in LIVE mode, None in SIM
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -276,7 +277,31 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"PHASE 3: PPO init failed (falling back to DQN): {e}")
         
-        logger.info(f"SmartOrchestrator initialized with {len(self.agents)} agents")
+        # ─── PHASE 6.1: Live Command Executor ────────────────────────
+        # In LIVE mode, all agent commands are executed via subprocess
+        # against the real target. In SIM mode, this stays None and
+        # _generate_simulated_output() is used instead.
+        # These two paths NEVER mix.
+        self.live_executor = None
+        self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
+        if self._is_live_mode:
+            try:
+                from core.execution.live_executor import LiveCommandExecutor
+                target = getattr(env, 'live_target_ip', None) or self.config.default_target
+                dry_run = os.environ.get("ARIASKA_DRY_RUN", "0") == "1"
+                self.live_executor = LiveCommandExecutor(
+                    target_ip=target,
+                    dry_run=dry_run,
+                )
+                logger.info(f"PHASE 6.1: LiveCommandExecutor initialized for target={target}")
+            except Exception as e:
+                logger.error(f"PHASE 6.1: LiveCommandExecutor init failed: {e}")
+                self._is_live_mode = False  # Fall back to sim
+        
+        logger.info(
+            f"SmartOrchestrator initialized with {len(self.agents)} agents "
+            f"(mode={'LIVE' if self._is_live_mode else 'SIM'})"
+        )
     
     # =========================================================================
     # PHASE 2A: Smart Agent Activation Schedule
@@ -530,6 +555,10 @@ class SmartOrchestrator:
         # Phase 5.2: Cross-agent discovery deduplication
         # Prevents 5 agents from each getting reward for the same port/service/credential
         self._episode_shared_discoveries: set = set()
+        
+        # Phase 6.1: Reset live executor per-episode tracking
+        if self.live_executor:
+            self.live_executor.reset_episode()
         
         # Reset stuck detection
         self.action_history.clear()
@@ -1034,31 +1063,37 @@ class SmartOrchestrator:
         # Get output from environment (may be empty in simulation mode)
         env_output = env_result.get("output", "") if isinstance(env_result, dict) else ""
         
-        # Generate simulated outputs for ALL agent commands
-        # These will be used for discovery parsing AND display
-        for result in agent_results:
-            sim_output = self._generate_simulated_output(result.decision.command)
-            result.decision.command_output = sim_output  # Store output on decision
+        # =====================================================================
+        # PHASE 6.1: HARD SIM/LIVE SEPARATION
+        # In LIVE mode: execute EVERY agent's command via LiveCommandExecutor
+        #               against the real target. No simulated output ever.
+        # In SIM mode:  use _generate_simulated_output() as before.
+        # These paths NEVER mix.
+        # =====================================================================
+        if self._is_live_mode and self.live_executor:
+            # ── LIVE MODE: Real command execution per agent ──────────
+            for result in agent_results:
+                live_result = self.live_executor.execute(
+                    result.decision.command,
+                    result.agent_name,
+                )
+                result.decision.command_output = live_result.output
+                # Store structured output channels on the result
+                result.live_result = live_result
+        else:
+            # ── SIM MODE: Generate simulated output per agent ───────
+            for result in agent_results:
+                sim_output = self._generate_simulated_output(result.decision.command)
+                result.decision.command_output = sim_output
         
-        # CRITICAL FIX: Parse SIMULATED outputs for discoveries in simulation mode
-        # This allows agents to get positive rewards even without a real target
+        # Parse outputs for discoveries
         smart_reward_total = 0.0
         
-        # Detect real terminal output vs stringified state dict
-        # Real output has newlines and doesn't look like a Python dict repr
-        env_has_real_output = (
-            env_output
-            and not env_output.startswith("[SIM]")
-            and not env_output.startswith("{")
-            and not env_output.startswith("(")
-            and "\n" in env_output
-            and len(env_output) > 40
-        )
-        
         for result in agent_results:
-            # Use per-agent simulated output for discovery parsing unless
-            # env returned real terminal output (live mode with real target)
-            output_to_parse = env_output if env_has_real_output else result.decision.command_output
+            # PHASE 6.1: Always parse the command_output (which is either
+            # real output from LiveCommandExecutor or simulated output,
+            # depending on mode — never both).
+            output_to_parse = result.decision.command_output or ""
             
             # Parse discoveries from this agent's output
             agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
@@ -1214,6 +1249,7 @@ class SmartOrchestrator:
                     raw_output=output_to_parse,
                     new_discoveries=deduped_discoveries,
                     done=done,  # Phase 4: pass done for PPO trajectory
+                    shared_discoveries=self._episode_shared_discoveries,  # Phase 6: cross-agent dedup
                 )
                 result.reward_breakdown = breakdown
                 # Accumulate smart rewards from all agents
@@ -1230,6 +1266,10 @@ class SmartOrchestrator:
         
         # Use smart reward if available, otherwise fall back to env reward
         final_reward = smart_reward_total if smart_reward_total != 0 else env_reward
+        
+        # ─── PHASE 6.1: Terminal UI — Per-step display ───────────────
+        if self.verbosity in ("standard", "verbose"):
+            self._display_step_results(step, agent_results, final_reward, done)
         
         # ─── PHASE 4: PPO trajectory now collected per-coach in SmartCoach ──
         # The old global PPO trajectory collection was disconnected:
@@ -1671,10 +1711,12 @@ class SmartOrchestrator:
     def _generate_simulated_output(self, command: str) -> str:
         """Generate realistic simulated output for a command with discoverable patterns.
 
-        Phase 5: Comprehensive coverage of ALL anti-repeat pool tools plus
-        Metasploitable 2 realistic service fingerprints.  Every command in
-        the SmartCoach alternative_commands pools has at least one matching
-        prefix here so that anti-repeat decisions still earn discoveries.
+        Phase 6: PROBABILISTIC SUCCESS — Commands can now fail based on:
+        1. Base success rate per command category (40-80%)
+        2. Phase-gating: credentials only after RECON, shells only after creds
+        3. Tool-specific failure modes (timeouts, connection refused, etc.)
+        
+        This teaches PPO that not every command works, and planning matters.
         """
         if not command:
             return ""
@@ -1688,6 +1730,117 @@ class SmartOrchestrator:
         # Use command hash for deterministic but varied results
         cmd_hash = int(hashlib.md5(command.encode()).hexdigest()[:8], 16)
         random.seed(cmd_hash)
+        
+        # ─── PHASE 6: Phase-gating and probabilistic success ─────────
+        # Skip probabilistic failure in test/deterministic mode
+        sim_deterministic = getattr(self, '_sim_deterministic', False)
+        
+        # Check what the agent has discovered so far to gate advanced outputs
+        current_phase = "RECON"
+        has_ports = False
+        has_creds = False
+        has_shell = False
+        if self.attack_context:
+            current_phase = self.attack_context.current_phase.name if hasattr(self.attack_context.current_phase, 'name') else str(self.attack_context.current_phase)
+            has_ports = self.attack_context.state_flags.get("ports_discovered", False)
+            has_creds = self.attack_context.state_flags.get("credentials_known", False)
+            has_shell = self.attack_context.state_flags.get("shell_obtained", False)
+        
+        # Base success rates by command category
+        # These are checked AFTER the output lookup — if the roll fails, return a failure message
+        CATEGORY_SUCCESS_RATES = {
+            "recon": 0.80,       # Scanning usually works
+            "enum": 0.65,        # Enumeration depends on state
+            "brute": 0.35,       # Brute force rarely works first try
+            "exploit": 0.40,     # Exploits need right conditions
+            "web": 0.60,         # Web scanning moderate success
+            "post_exploit": 0.50, # Post-exploit depends on access level
+            "shell": 0.30,       # Getting shells is hard
+            "default": 0.55,     # Generic commands
+        }
+        
+        # Categorize the command for success rate
+        def _get_command_category(cmd: str) -> str:
+            cmd_l = cmd.lower()
+            if any(t in cmd_l for t in ["nmap", "masscan", "rustscan", "ping", "traceroute", "dig", "host", "whois", "finger", "rpcinfo", "showmount", "nbtscan"]):
+                return "recon"
+            if any(t in cmd_l for t in ["gobuster", "dirb", "nikto", "ferox", "ffuf", "dirsearch", "wfuzz", "nuclei"]):
+                return "web"
+            if any(t in cmd_l for t in ["hydra", "medusa", "ncrack", "patator", "crackmapexec", "brute"]):
+                return "brute"
+            if any(t in cmd_l for t in ["exploit", "msfconsole", "metasploit", "msfvenom"]):
+                return "exploit"
+            if any(t in cmd_l for t in ["shell", "reverse", "nc -e", "bash -i"]):
+                return "shell"
+            if any(t in cmd_l for t in ["enum", "smtp-user", "snmp", "ldap"]):
+                return "enum"
+            if any(t in cmd_l for t in ["cat /etc", "whoami", "id", "sudo", "chmod", "wget", "curl -s http"]):
+                return "post_exploit"
+            return "default"
+        
+        category = _get_command_category(command)
+        base_rate = CATEGORY_SUCCESS_RATES.get(category, 0.55)
+        
+        # Phase-gating modifiers — reduce success for premature actions
+        if category in ("brute", "exploit", "shell") and not has_ports:
+            base_rate *= 0.3  # Can't exploit what you haven't found
+        if category == "shell" and not has_creds:
+            base_rate *= 0.4  # Shells usually need creds or exploits
+        if category == "post_exploit" and not has_shell:
+            base_rate *= 0.2  # Can't post-exploit without access
+        
+        # Roll for success
+        success_roll = random.random()
+        command_fails = success_roll > base_rate
+        
+        # Failure messages by category
+        FAILURE_MESSAGES = {
+            "recon": [
+                f"[SIM] Connection timed out to {target}",
+                f"[SIM] Host {target} seems down or filtered",
+                f"[SIM] No response from {target} (retries exhausted)",
+            ],
+            "enum": [
+                f"[SIM] Access denied - authentication required",
+                f"[SIM] Connection refused to {target}",
+                f"[SIM] Service not responding on {target}",
+            ],
+            "brute": [
+                f"[SIM] 0 valid passwords found (0 of 100 completed)",
+                f"[SIM] Authentication failed for all attempts",
+                f"[SIM] Account lockout detected after 5 attempts",
+                f"[SIM] Connection rate limited by target",
+            ],
+            "exploit": [
+                f"[SIM] Exploit failed - target not vulnerable",
+                f"[SIM] Exploit completed but no session created",
+                f"[SIM] Target patched against this vulnerability",
+                f"[SIM] Service crashed - exploit unreliable",
+            ],
+            "web": [
+                f"[SIM] 0 results found",
+                f"[SIM] Connection refused to {target}:80",
+                f"[SIM] 403 Forbidden - WAF blocking requests",
+            ],
+            "shell": [
+                f"[SIM] Connection refused",
+                f"[SIM] No route to host",
+                f"[SIM] Shell session closed immediately",
+            ],
+            "post_exploit": [
+                f"[SIM] Permission denied",
+                f"[SIM] No such file or directory",
+                f"[SIM] Operation not permitted",
+            ],
+            "default": [
+                f"[SIM] Command failed: {command[:40]}",
+                f"[SIM] Error executing command",
+            ],
+        }
+        
+        if command_fails and not sim_deterministic:
+            failures = FAILURE_MESSAGES.get(category, FAILURE_MESSAGES["default"])
+            return random.choice(failures)
         
         # ─── Metasploitable 2 realistic service fingerprints ─────────
         MSF2_PORTS = random.sample([
@@ -1950,6 +2103,73 @@ class SmartOrchestrator:
             return f"[+] Enumerating {target}\n[+] Found users: msfadmin, user, service, postgres\n[+] Found shares: tmp, opt"
         
         return f"[SIM] {command[:80]}... executed"
+    
+    def _display_step_results(
+        self,
+        step: int,
+        agent_results: List[SmartStepResult],
+        final_reward: float,
+        done: bool,
+    ):
+        """
+        Phase 6.1: Rich terminal UI for per-step observability.
+        
+        Shows each agent's command, output snippet, reward, and source.
+        """
+        from rich.console import Console
+        from rich.text import Text
+        
+        console = Console()
+        
+        phase = self.attack_context.current_phase.name if self.attack_context else "?"
+        mode_tag = "[LIVE]" if self._is_live_mode else "[SIM]"
+        
+        # Step header (compact)
+        header = Text()
+        header.append(f"  ┌─ Step {step:3d} ", style="bold cyan")
+        header.append(f"│ {mode_tag} ", style="bold yellow" if self._is_live_mode else "dim")
+        header.append(f"│ Phase: {phase} ", style="bold green")
+        header.append(f"│ Reward: {final_reward:+.1f} ", 
+                      style="bold green" if final_reward > 0 else "bold red")
+        if done:
+            header.append("│ DONE", style="bold magenta")
+        console.print(header)
+        
+        # Per-agent results (compact, one line each)
+        for result in agent_results:
+            line = Text()
+            line.append(f"  │  ", style="dim")
+            
+            # Agent name (fixed width)
+            agent_short = result.agent_name.replace("Agent", "")[:6].ljust(6)
+            line.append(f"{agent_short} ", style="bold")
+            
+            # Source tag
+            source = result.decision.source[:8].ljust(8)
+            source_style = {
+                "ppo": "green", "mentor": "yellow", "playbook": "cyan",
+                "registry": "blue", "anti_repe": "red", "skill": "magenta",
+            }.get(source.strip()[:8], "dim")
+            line.append(f"[{source}] ", style=source_style)
+            
+            # Command (truncated)
+            cmd = result.decision.command[:50] if result.decision.command else "(none)"
+            line.append(f"{cmd}", style="white")
+            
+            # Reward for this agent
+            if result.reward_breakdown:
+                r = result.reward_breakdown.total
+                line.append(f"  → {r:+.1f}", style="green" if r > 0 else "red")
+            
+            # Output snippet (only in verbose mode, and only first line)
+            if self.verbosity == "verbose" and result.decision.command_output:
+                snippet = result.decision.command_output.strip().split("\n")[0][:60]
+                line.append(f"\n  │         ↳ {snippet}", style="dim")
+            
+            console.print(line)
+        
+        # Step footer
+        console.print(f"  └{'─' * 70}", style="dim")
     
     def _log_step_trace(
         self,

@@ -1,0 +1,97 @@
+{
+  "run_id": "run_20260207_211947_fbf45b",
+  "timestamp": 1770495613.6590052,
+  "key_outcomes": {
+    "wins": [
+      "Completed episode with 80 reward despite zero success rate, indicating consistent interactions"
+    ],
+    "fails": [
+      "No successful completion (0% success rate) despite multiple attempts"
+    ],
+    "summary": "Run yielded stable reward but failed to reach success, highlighting opportunity to address recurring failure patterns with targeted actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to achieve mission objective despite receiving mentor guidance, suggesting breakdown in execution phase",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step50"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open and login banner detected",
+      "then_action": "Run comprehensive nmap scripts to enumerate SSH configuration and supported ciphers",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step16"
+      ],
+      "created_at": 1770495618.435749,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When default web ports (80/443) respond with HTTP service",
+      "then_action": "Launch web service fingerprints and directory brute force with active depth",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tool": "gobuster",
+        "options": "-w /usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step27"
+      ],
+      "created_at": 1770495618.4357622,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When vulnerability scan identifies outdated packages",
+      "then_action": "Document CVEs and prioritize patch verification tasks",
+      "parameters_template": {
+        "severity_threshold": "medium",
+        "review_team": "patch_management"
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step35",
+        "ep001_step40"
+      ],
+      "created_at": 1770495618.4357693,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focused SSH enumeration and exploitation",
+      "description": "Concentrate efforts on exploiting SSH after detailed enumeration of banners and cipher suites to convert reconnaissance into success",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

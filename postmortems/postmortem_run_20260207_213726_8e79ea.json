@@ -1,0 +1,122 @@
+{
+  "run_id": "run_20260207_213726_8e79ea",
+  "timestamp": 1770496673.9385898,
+  "key_outcomes": {
+    "wins": [
+      "Consistent completion of episode within reward budget indicating basic task structure handled correctly",
+      "Persistent mentor engagement (10 calls) provided opportunities for iterative guidance"
+    ],
+    "fails": [
+      "Zero percent success rate despite reward accumulation suggests failure to reach final objective",
+      "High reliance on mentor calls indicates lack of autonomous decision-making in key phases",
+      "Reward plateaued at 70 with no improvement trend, showing stagnation in adapting strategies"
+    ],
+    "summary": "The agent repeatedly reached intermediate stages but failed to close the objective, pointing to gaps in autonomous follow-through despite structured guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Final exploitation step aborted after reconnaissance despite visible weaknesses",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and collect host key fingerprints",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1770496681.641885,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_prioritization",
+      "if_condition": "When multiple credentials available but no clear priority",
+      "then_action": "Rank credentials by recent password age and reuse likelihood before attempting login",
+      "parameters_template": {
+        "credentials": [
+          "userA:pass1",
+          "userB:pass2"
+        ],
+        "criteria": "password_age"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1770496681.6418939,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_pipe_output_check",
+      "if_condition": "When command output yields potential hidden channels",
+      "then_action": "Pipe output through grep for keywords before moving to next stage",
+      "parameters_template": {
+        "keywords": [
+          "root",
+          "success"
+        ],
+        "command": "last"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1770496681.6418993,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success in identifying SSH targets early in episode"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_cred_prioritization",
+      "skill_card_id": "skill_cred_prioritization",
+      "reason": "Cred prioritization resolved repeated login delays"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate final exploitation follow-up",
+      "description": "After credential verification, trigger scripted exploit workflow to reduce manual hesitation before objective completion",
+      "priority": "high"
+    },
+    {
+      "title": "Confidence weighting for mentor calls",
+      "description": "Log decision confidence thresholds and only request mentor support when below defined level to encourage autonomy",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-recon hindsight checks",
+      "description": "Insert verification step after reconnaissance to confirm paths for exploitation rather than immediately seeking mentor guidance",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

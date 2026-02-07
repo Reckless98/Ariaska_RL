@@ -372,6 +372,16 @@ class PPOAgent:
             "explained_variance": [],
         }
 
+        # ── Phase 6: Running reward normalization ────────────────────
+        # Welford online algorithm for reward mean/variance tracking
+        # This stabilizes PPO value function by normalizing returns
+        self._reward_mean = 0.0
+        self._reward_var = 1.0
+        self._reward_count = 0
+        self._return_mean = 0.0
+        self._return_var = 1.0
+        self._return_count = 0
+
     # ── Action Selection ─────────────────────────────────────────────
 
     @torch.no_grad()
@@ -458,6 +468,33 @@ class PPOAgent:
 
     # ── Transition Storage ───────────────────────────────────────────
 
+    def _update_reward_stats(self, reward: float):
+        """Online Welford update for running reward mean/variance."""
+        self._reward_count += 1
+        delta = reward - self._reward_mean
+        self._reward_mean += delta / self._reward_count
+        delta2 = reward - self._reward_mean
+        self._reward_var += (delta * delta2 - self._reward_var) / max(self._reward_count, 2)
+
+    def _update_return_stats(self, ret: float):
+        """Online Welford update for running return mean/variance."""
+        self._return_count += 1
+        delta = ret - self._return_mean
+        self._return_mean += delta / self._return_count
+        delta2 = ret - self._return_mean
+        self._return_var += (delta * delta2 - self._return_var) / max(self._return_count, 2)
+
+    def normalize_reward(self, reward: float) -> float:
+        """Normalize reward using running statistics.
+
+        Maps rewards to roughly zero-mean unit-variance, which is critical
+        for PPO value function convergence. Without this, value loss
+        scales with reward magnitude (we saw ~20,000 value loss).
+        """
+        self._update_reward_stats(reward)
+        std = max(math.sqrt(abs(self._reward_var)), 1e-4)
+        return (reward - self._reward_mean) / std
+
     def store_transition(
         self,
         state: torch.Tensor,
@@ -467,8 +504,14 @@ class PPOAgent:
         value: float,
         done: bool,
     ):
-        """Store a single transition in the rollout buffer."""
-        self.buffer.add(state, action, log_prob, reward, value, done)
+        """Store a single transition in the rollout buffer.
+
+        Phase 6: Rewards are normalized using running statistics before
+        storage, which stabilizes the value function and prevents the
+        ~20,000 value loss we saw with raw rewards.
+        """
+        normalized_reward = self.normalize_reward(reward)
+        self.buffer.add(state, action, log_prob, normalized_reward, value, done)
         self.total_steps += 1
 
     # ── PPO Update ───────────────────────────────────────────────────
@@ -494,6 +537,10 @@ class PPOAgent:
             gamma=self.config.gamma,
             gae_lambda=self.config.gae_lambda,
         )
+
+        # Track return statistics for monitoring
+        for r in returns.numpy():
+            self._update_return_stats(float(r))
 
         # Normalise advantages (critical for PPO stability)
         adv_std = advantages.std()
@@ -541,8 +588,10 @@ class PPOAgent:
                     ratio * batch["advantages"], clip_adv
                 ).mean()
 
-                # ── Value Loss (clipped) ─────────────────────────────
-                value_loss = F.mse_loss(new_values, batch["returns"])
+                # ── Value Loss (Huber for outlier robustness) ─────────
+                # Phase 6: Huber loss is less sensitive to reward outliers
+                # than MSE, preventing value function divergence
+                value_loss = F.huber_loss(new_values, batch["returns"], delta=10.0)
 
                 # ── Entropy Bonus ────────────────────────────────────
                 entropy_loss = entropy.mean()
@@ -635,6 +684,15 @@ class PPOAgent:
                 "entropy_coef": self.entropy_coef,
                 "config": self.config,
                 "training_metrics": self.training_metrics,
+                # Phase 6: reward normalization stats for continuity
+                "reward_norm": {
+                    "mean": self._reward_mean,
+                    "var": self._reward_var,
+                    "count": self._reward_count,
+                    "return_mean": self._return_mean,
+                    "return_var": self._return_var,
+                    "return_count": self._return_count,
+                },
             },
             path,
         )
@@ -649,6 +707,15 @@ class PPOAgent:
         self.total_steps = ckpt.get("total_steps", 0)
         self.updates_done = ckpt.get("updates_done", 0)
         self.entropy_coef = ckpt.get("entropy_coef", self.config.entropy_coef)
+        # Phase 6: Restore reward normalization stats
+        if "reward_norm" in ckpt:
+            rn = ckpt["reward_norm"]
+            self._reward_mean = rn.get("mean", 0.0)
+            self._reward_var = rn.get("var", 1.0)
+            self._reward_count = rn.get("count", 0)
+            self._return_mean = rn.get("return_mean", 0.0)
+            self._return_var = rn.get("return_var", 1.0)
+            self._return_count = rn.get("return_count", 0)
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -661,6 +728,11 @@ class PPOAgent:
             "learning_rate": lr,
             "entropy_coef": self.entropy_coef,
             "buffer_size": len(self.buffer),
+            "reward_norm": {
+                "mean": round(self._reward_mean, 4),
+                "std": round(math.sqrt(abs(self._reward_var)), 4),
+                "count": self._reward_count,
+            },
             "latest_metrics": {
                 k: v[-1] if v else None for k, v in self.training_metrics.items()
             },

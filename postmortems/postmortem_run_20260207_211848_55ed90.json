@@ -1,0 +1,124 @@
+{
+  "run_id": "run_20260207_211848_55ed90",
+  "timestamp": 1770495557.4502602,
+  "key_outcomes": {
+    "wins": [
+      "Completed full reconnaissance sweep within time budget, yielding clear port and service inventory for the target.",
+      "Consistently gathered high-confidence attack surface data, enabling informed follow-up actions despite no final success.",
+      "Mentor calls were effectively used to validate decision points before executing potentially noisy actions."
+    ],
+    "fails": [
+      "Unable to achieve mission success despite full reconnaissance; exploration stopped before critical exploitation phase could complete.",
+      "No successful post-exploitation was recorded, indicating a gap in privilege escalation preparation or execution.",
+      "High number of mentor calls (15) suggests repeated uncertainty in action selection and limited automation confidence."
+    ],
+    "summary": "Reconnaissance phase executed reliably, but follow-up exploitation and escalation capability need targeted improvement to convert data into mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently aborted after identifying outdated service banners, preventing payload deployment.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 443 responds with a valid SSL/TLS handshake",
+      "then_action": "Run ssl-enum-ciphers and check for weak suites before launching web-specific exploits",
+      "parameters_template": {
+        "port": 443,
+        "scripts": [
+          "ssl-enum-ciphers",
+          "http-title"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1770495564.8170605,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns a custom header indicating outdated software",
+      "then_action": "Capture the banner and match against known CVEs, then prioritize exploit chaining",
+      "parameters_template": {
+        "header": "Server",
+        "threshold_age_months": 24
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1770495564.8170726,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Nmap scan reveals open SMB ports with anonymous login allowed",
+      "then_action": "Enumerate shares and run smb-os-discovery scripts before considering lateral movement",
+      "parameters_template": {
+        "ports": [
+          139,
+          445
+        ],
+        "scripts": [
+          "smb-enum-shares",
+          "smb-os-discovery"
+        ]
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1770495564.8170822,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in early SSL-based reconnaissance and strong signal for prioritizing safe certificate enumeration."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Reliable SMB enumeration provided concrete next steps for exploitation pipeline."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit chaining for outdated HTTP component",
+      "description": "Use identified outdated HTTP server header to match specific CVEs, then craft a targeted exploit to progress into exploitation phase.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation follow-up",
+      "description": "After capturing banner data, attempt controlled privilege escalation using vetted modules for the detected services and maintain logging for failure points.",
+      "priority": "medium"
+    },
+    {
+      "title": "Streamlined decision policy",
+      "description": "Reduce mentor calls by codifying decision criteria from successful reconnaissance steps into quicker heuristics for action selection.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

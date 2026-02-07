@@ -410,12 +410,13 @@ def main():
     train_p.add_argument("--steps", "-s", type=int, default=120, help="Max steps per episode")
     train_p.add_argument("--seed", type=int, default=42, help="Random seed")
     train_p.add_argument("--target", type=str, default=None, help="Target IP")
-    train_p.add_argument("--env", type=str, default="sim",
-                         choices=["sim", "msf", "msf3", "htb"],
-                         help="Environment preset")
+    train_p.add_argument("--env", type=str, default="msf",
+                         choices=["sim", "msf", "ms2", "msf3", "ms3", "htb"],
+                         help="Environment preset (default: msf/ms2 = live Metasploitable 2)")
     train_p.add_argument("--verbosity", "-v", type=str, default="standard",
                          choices=["quiet", "standard", "verbose"])
-    train_p.add_argument("--checkpoint", type=str, default="models/enhanced/ppo_checkpoint.pt")
+    train_p.add_argument("--checkpoint", type=str, default=None,
+                         help="PPO checkpoint path (auto-selected per mode if omitted)")
 
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
@@ -437,9 +438,17 @@ def main():
     if args.command == "smart-train":
         ENV_PRESETS = {
             "sim": {"target_ip": "10.10.10.10", "mode": "simulated", "platform": "linux", "difficulty": "medium"},
-            "msf": {"target_ip": os.environ.get("ARIASKA_MSF_IP", "192.168.56.101"), "mode": "live", "platform": "linux", "difficulty": "easy"},
+            "msf": {"target_ip": os.environ.get("ARIASKA_MSF_IP", "172.28.0.10"), "mode": "live", "platform": "linux", "difficulty": "easy"},
+            "ms2": {"target_ip": os.environ.get("ARIASKA_MSF_IP", "172.28.0.10"), "mode": "live", "platform": "linux", "difficulty": "easy"},
             "msf3": {"target_ip": os.environ.get("ARIASKA_MSF3_IP", "192.168.56.102"), "mode": "live", "platform": "windows", "difficulty": "medium"},
+            "ms3": {"target_ip": os.environ.get("ARIASKA_MSF3_IP", "192.168.56.102"), "mode": "live", "platform": "windows", "difficulty": "medium"},
             "htb": {"target_ip": os.environ.get("ARIASKA_HTB_IP", "10.10.10.x"), "mode": "live", "platform": "unknown", "difficulty": "hard"},
+        }
+
+        # Per-mode checkpoint paths
+        CHECKPOINT_PATHS = {
+            "simulated": "models/enhanced/ppo_sim_checkpoint.pt",
+            "live": "models/enhanced/ppo_live_checkpoint.pt",
         }
 
         episodes = args.pos_episodes or args.episodes
@@ -451,10 +460,13 @@ def main():
                     ENV_PRESETS["custom"] = {"target_ip": env_key, "mode": "live", "platform": "unknown", "difficulty": "medium"}
                     env_key = "custom"
                 else:
-                    env_key = "sim"
+                    env_key = "msf"  # Default to MS2 live
 
-        preset = ENV_PRESETS.get(env_key, ENV_PRESETS["sim"])
+        preset = ENV_PRESETS.get(env_key, ENV_PRESETS["msf"])
         target_ip = args.target or preset["target_ip"]
+        
+        # Auto-select checkpoint path based on mode if not explicitly provided
+        checkpoint_path = args.checkpoint or CHECKPOINT_PATHS.get(preset["mode"], "models/enhanced/ppo_checkpoint.pt")
 
         os.environ["ARIASKA_MODE"] = preset["mode"]
         if preset["mode"] == "live":
@@ -471,7 +483,7 @@ def main():
                 platform=preset["platform"],
                 difficulty=preset["difficulty"],
                 verbosity=args.verbosity,
-                checkpoint_path=args.checkpoint,
+                checkpoint_path=checkpoint_path,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

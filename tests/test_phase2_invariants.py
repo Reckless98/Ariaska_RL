@@ -667,6 +667,7 @@ class TestDiscoveryToStateFlagBridge:
         gpt = GPTManager()
         orch = SmartOrchestrator(env=env, gpt_manager=gpt, verbosity="silent")
         orch.init_attack("10.10.10.10")
+        orch._sim_deterministic = True  # Phase 6: bypass probabilistic failure for test
 
         # hydra output should contain login/password patterns
         hydra_out = orch._generate_simulated_output("hydra -l admin -P /tmp/pass.txt ssh://10.10.10.10")
@@ -683,6 +684,7 @@ class TestDiscoveryToStateFlagBridge:
         gpt = GPTManager()
         orch = SmartOrchestrator(env=env, gpt_manager=gpt, verbosity="silent")
         orch.init_attack("10.10.10.10")
+        orch._sim_deterministic = True  # Phase 6: bypass probabilistic failure for test
 
         msf_out = orch._generate_simulated_output("msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor'")
         discoveries = orch._parse_output_for_discoveries(msf_out)

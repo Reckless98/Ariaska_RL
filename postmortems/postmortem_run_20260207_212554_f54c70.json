@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260207_212554_f54c70",
+  "timestamp": 1770495964.8525374,
+  "key_outcomes": {
+    "wins": [
+      "Consistently earned total reward of 40.00, indicating partial progress despite not achieving final success.",
+      "Maintained full episode focus, using all allocated steps without premature termination."
+    ],
+    "fails": [
+      "Succeeded in neither final objective nor core mission goal, resulting in 0.00% success rate across the single episode.",
+      "Required guidance from mentor in every call (10 total), signaling repeated missteps on tactics or timing."
+    ],
+    "summary": "Despite accumulating reward from intermediate actions, the agent failed to reach mission success, pointing to recurring tactical errors that prevented task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Decision chain stalled before privilege escalation, repeatedly calling mentor for next move and never attempting second-stage action.",
+      "frequency": 10,
+      "evidence_refs": [
+        "run_20260207_212554_f54c70_ep001_step04",
+        "run_20260207_212554_f54c70_ep001_step07",
+        "run_20260207_212554_f54c70_ep001_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum_01",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and capture banner details",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260207_212554_f54c70_ep001_step03",
+        "run_20260207_212554_f54c70_ep001_step05"
+      ],
+      "created_at": 1770495972.9368463,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_enum_01",
+      "if_condition": "When HTTP/HTTPS ports respond with 200 and default index",
+      "then_action": "Launch dirbuster-style enumeration and analyze response headers for backend clues",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "medium"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260207_212554_f54c70_ep001_step02",
+        "run_20260207_212554_f54c70_ep001_step06"
+      ],
+      "created_at": 1770495972.9368563,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_version_01",
+      "if_condition": "When nmap reveals multiple services with default versions",
+      "then_action": "Prioritize service fingerprinting and map to known exploits",
+      "parameters_template": {
+        "nmap_flags": "-sV --version-all"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "run_20260207_212554_f54c70_ep001_step01",
+        "run_20260207_212554_f54c70_ep001_step08"
+      ],
+      "created_at": 1770495972.9368618,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum_01",
+      "skill_card_id": "skill_ssh_enum_01",
+      "reason": "High reward contribution despite limited overall success; reliable reconnaissance action."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate automated privilege escalation checks",
+      "description": "After initial enumeration, systematically attempt safe privilege escalation techniques to move beyond reconnaissance.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency with branching decision trees",
+      "description": "Introduce heuristics that select the next action based on previous results to minimize mentor calls.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

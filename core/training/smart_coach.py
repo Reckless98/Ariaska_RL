@@ -112,6 +112,9 @@ class SmartDecisionResult:
     excluded_count: int = 0  # Number of actions masked/excluded
     tag_info: str = ""  # Tag overlap debug info
     
+    # Phase 6: Mentor imitation learning
+    _mentor_suggestion: Optional[str] = None  # Template name mentor suggested (for imitation bonus)
+    
     @property
     def chosen_action(self) -> str:
         """Alias for compatibility with existing code."""
@@ -842,31 +845,36 @@ class SmartCoach:
         current_phase = ctx.current_phase
         self._last_phase = current_phase
         
-        # HYBRID MODE: Determine if we need GPT
+        # =====================================================================
+        # PHASE 6.1: STRICT MENTOR GATING — ≤15% call rate
+        # Mentor is ONLY called for:
+        #   A) Phase transition (need strategic replanning)
+        #   B) Hard stagnation (>5 steps with no new discoveries AND stuck)
+        #   C) No valid registry commands AND PPO unavailable
+        # Removed: low_confidence trigger, dynamic PPO consultation
+        # =====================================================================
         should_call_gpt = False
         gpt_reason = None
         
-        # Condition A: Force mentor (e.g., stuck agent)
-        if force_mentor or confidence < 0.15:
-            should_call_gpt = True
-            gpt_reason = "forced_mentor" if force_mentor else "low_confidence"
+        # Track stagnation steps (incremented when no new discoveries)
+        stagnation_steps = getattr(self, '_stagnation_steps', 0)
         
-        # Condition B: Phase transition - need strategic planning
-        elif prev_phase is not None and current_phase != prev_phase:
+        # Condition A: Phase transition — strategic replanning
+        if prev_phase is not None and current_phase != prev_phase:
             should_call_gpt = True
             gpt_reason = f"phase_transition:{prev_phase.name}->{current_phase.name}"
+            self._stagnation_steps = 0  # Reset on phase advance
         
-        # Condition C: Check if we're stuck (recent rewards negative)
-        elif self.reward_calculator.is_stuck():
+        # Condition B: Hard stagnation — >5 steps with no progress AND is_stuck
+        elif stagnation_steps > 5 and self.reward_calculator.is_stuck():
             should_call_gpt = True
-            gpt_reason = "stuck_low_rewards"
+            gpt_reason = f"hard_stagnation(steps={stagnation_steps})"
+            self._stagnation_steps = 0  # Reset after mentor call
         
-        # Condition D: No valid registry commands for current state
-        else:
-            valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
-            if not valid_commands:
-                should_call_gpt = True
-                gpt_reason = "no_registry_match"
+        # Condition C: Force mentor (only if explicitly requested by orchestrator)
+        elif force_mentor:
+            should_call_gpt = True
+            gpt_reason = "forced_mentor"
         
         # Check if GPT is available
         gpt_available = (
@@ -887,20 +895,36 @@ class SmartCoach:
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
         # Make decision based on hybrid logic
-        # Priority: Skill Library → Playbook → PPO/GPT → Registry
+        # PHASE 6: Priority: Skill Library → Playbook → PPO (with dynamic mentor) → Registry
+        # PPO is now the PRIMARY decision-maker after curriculum annealing.
+        # Mentor is called DYNAMICALLY based on PPO confidence, not as a separate branch.
         if skill_result is not None:
             result = skill_result
         elif playbook_result is not None:
             result = playbook_result
-        elif should_call_gpt and gpt_available:
-            logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
-            result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
-            result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
         else:
-            # Registry-first: efficient, no token usage
-            result = self._decide_from_registry(step_ctx, proposed_action, confidence)
-            if should_call_gpt and not gpt_available:
-                logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
+            # PHASE 6: PPO-first with dynamic mentor escalation
+            ppo_result = None
+            if self.ppo_agent and self.action_mapper:
+                ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
+            
+            if ppo_result is not None:
+                result = ppo_result
+                # PHASE 6.1: Mentor is NOT consulted dynamically per PPO decision.
+                # PPO must learn from its own rewards, not from mentor imitation.
+                # Mentor is only called via the strict gating above (phase transition,
+                # hard stagnation, forced). If mentor IS triggered, it's used as
+                # the primary decision — not as a PPO consultation.
+            elif should_call_gpt and gpt_available:
+                # PPO unavailable, use mentor directly
+                logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
+                result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
+                result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
+            else:
+                # Registry-first: efficient, no token usage
+                result = self._decide_from_registry(step_ctx, proposed_action, confidence)
+                if should_call_gpt and not gpt_available:
+                    logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
         
         # =========================================================================
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
@@ -908,167 +932,82 @@ class SmartCoach:
         is_valid_role = self._validate_command_for_role(result.command)
         
         # =========================================================================
-        # FINAL ANTI-REPEAT GUARD: Check ENTIRE episode history for repeats
+        # PHASE 6: PPO decisions BYPASS post-selection anti-repeat guard.
+        # PPO already has comprehensive pre-selection masking in _decide_ppo():
+        #   1. Filtered to role-valid commands only
+        #   2. Precondition mask from get_action_mask_with_counts(max_repeats=1)
+        #   3. Prefix count blocking (≥3 same prefix)
+        # If PPO selected it through all those masks, TRUST IT. The old system
+        # overrode ~58.8% of PPO decisions via post-selection anti-repeat,
+        # destroying credit assignment. PPO must own its decisions to learn.
+        #
+        # Non-PPO decisions (playbook, registry, mentor, skill) still go through
+        # the anti-repeat guard as before.
+        # =========================================================================
+        ppo_bypass = (result.source == "ppo" and is_valid_role)
+        
+        # =========================================================================
+        # PHASE 6.1: FAMILY-BASED ANTI-REPEAT WITH GRADED PENALTIES
+        # 
+        # Instead of hard-blocking any repeated command, we now:
+        # 1. Classify commands into ACTION FAMILIES
+        # 2. Track per-family usage counts
+        # 3. Apply graded penalties: 1st repeat → small, 2nd → larger, 3rd → replace
+        # 4. Role violations still get hard-replaced
+        #
+        # PPO decisions are still exempt (they have pre-selection masking).
         # =========================================================================
         all_cmds = ctx.command_history if ctx.command_history else []
         result_prefix = result.command.split()[0].lower() if result.command else ""
         result_cmd_norm = result.command.strip() if result.command else ""
         
-        # Count in ENTIRE episode history (not just last 10)
+        # Count in ENTIRE episode history
         exact_repeat_count = sum(1 for c in all_cmds if c.strip() == result_cmd_norm)
-        # Count prefix repetitions in entire episode
         prefix_repeat_count = sum(1 for c in all_cmds 
                                    if c.strip().split()[0].lower() == result_prefix)
         
-        # STRICT BLOCK: NO exact repeats, max 3 same-prefix, OR role exclusivity violation
-        if exact_repeat_count >= 1 or prefix_repeat_count >= 3 or not is_valid_role:
-            reason = "role_violation" if not is_valid_role else f"repeat(exact={exact_repeat_count},prefix={prefix_repeat_count})"
-            logger.warning(
-                f"[{self.agent_name}] ANTI-REPEAT: Blocking '{result.command[:40]}...' ({reason})"
-            )
-            # Generate ALTERNATIVE command based on role - LARGE pool with random offset
-            role_name = self.agent_role.get("role", "generic")
-            step = step_ctx.step
-            target = ctx.target
-            import random
-            rand_offset = random.randint(0, 1000)
-            
-            alternative_commands = {
-                "recon": [
-                    # ── MS2-targeted reconnaissance ──
-                    f"nmap -sV -p 21,22,23,25,80,139,445,1524,3306,5432,5900,6667,8180 {target}",
-                    f"nmap -sC -p 512,513,514,1099,2049,3632,6697,8009,8787 {target}",
-                    f"nmap --script vuln -p 21,139,445,6667 {target}",
-                    f"nmap -sU -p 69,111,161,2049 {target}",
-                    f"rpcinfo -p {target}",
-                    f"showmount -e {target}",
-                    f"finger @{target}",
-                    f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
-                    # ── Generic reconnaissance ──
-                    f"masscan -p{(step*100+rand_offset)%65535}-{(step*100+1000+rand_offset)%65535} {target}",
-                    f"dig {target} TXT +short",
-                    f"curl -sI http://{target}:{8000 + step + rand_offset % 1000}",
-                    f"whatweb -v http://{target}:{80 + step}",
-                    f"host -t AAAA {target}",
-                    f"nslookup -type=mx {target}",
-                    f"traceroute -n {target}",
-                    f"whois {target} | head -30",
-                    f"nmap -sn {target}/24",
-                    f"nbtscan {target}",
-                    f"fierce --domain {target}",
-                    f"dnsrecon -d {target} -t std",
-                    f"theHarvester -d {target} -l 50 -b all 2>/dev/null | head -20",
-                    f"netdiscover -r {target}/24 -P | head -10",
-                    f"unicornscan -mT {target}:{1000+step*100}-{1100+step*100}",
-                ],
-                "offensive": [
-                    f"searchsploit kernel {5 + step % 10}.{rand_offset % 5}",
-                    f"nikto -h http://{target}:{80 + step*10} -C all -Tuning {step % 10}",
-                    f"nuclei -u http://{target} -severity critical,high -t cves/",
-                    f"wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt http://{target}:{80+step}/FUZZ",
-                    f"hydra -l user{step} -P /usr/share/wordlists/rockyou.txt ssh://{target} -t 4",
-                    f"medusa -h {target} -u admin -P /usr/share/wordlists/rockyou.txt -M ssh -t 2",
-                    f"patator ssh_login host={target} user=root password=FILE0 0=/tmp/pass.txt -x ignore:mesg='Authentication failed'",
-                    f"ncrack -p {22 + step} --user root -P /usr/share/wordlists/fasttrack.txt {target}",
-                    f"crackmapexec ssh {target} -u admin -p /usr/share/wordlists/fasttrack.txt",
-                    f"responder -I eth0 -wrf 2>/dev/null &",
-                    f"msfvenom -p linux/x64/shell_reverse_tcp LHOST={target} LPORT={4444+step} -f elf",
-                    f"sqlmap -u 'http://{target}/page?id={step}' --batch --random-agent",
-                    f"commix -u 'http://{target}/cmd?exec=id' --batch",
-                    f"xsstrike -u 'http://{target}/search?q=test{step}'",
-                    f"dalfox url 'http://{target}/param?input=test' --skip-bav",
-                    f"tplmap -u 'http://{target}/page?name={{{{7*7}}}}'",
-                    f"jwt_tool <token> -X k -pk /tmp/pub.pem",
-                    f"ffuf -w /usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt -u http://{target}/page?file=FUZZ",
-                    f"wpscan --url http://{target} --plugins-detection aggressive --api-token <token>",
-                    f"droopescan scan drupal -u http://{target}",
-                ],
-                "stealth": [
-                    # ── MS2 low-noise service probing ──
-                    f"nc -zv {target} 1524 2>&1",
-                    f"nc -zv {target} 6667 2>&1",
-                    f"nc -zv {target} 1099 2>&1",
-                    f"nc -zv {target} 512 2>&1",
-                    f"nc -zv {target} 5900 2>&1",
-                    f"nc -zv {target} 8180 2>&1",
-                    f"nc -zv {target} 3632 2>&1",
-                    f"curl -s http://{target}:8180/manager/html 2>&1 | head -5",
-                    # ── Generic stealth probing ──
-                    f"curl -s http://{target}/api/v{step}/status",
-                    f"nc -zv {target} {20 + step*10 + rand_offset % 100} 2>&1",
-                    f"wget -q --spider http://{target}/page{step+rand_offset%50}",
-                    f"dig {target} CNAME +short",
-                    f"smbclient -L //{target} -N -m SMB{2 + step%2} 2>/dev/null | head -10",
-                    f"snmpwalk -v2c -c public {target} system 2>/dev/null | head -10",
-                    f"rpcinfo -p {target}",
-                    f"showmount -e {target}",
-                    f"finger @{target}",
-                    f"psql -h {target} -U postgres -c '\\l' 2>/dev/null",
-                    f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
-                    f"redis-cli -h {target} info 2>/dev/null | head -20",
-                ],
-                "strategic": [
-                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/big.txt -t {5 + step} -x php,html",
-                    f"ffuf -w /usr/share/seclists/Discovery/Web-Content/raft-medium-words.txt -u http://{target}/FUZZ -mc 200,301,302",
-                    f"dirsearch -u http://{target} -e php,html,js,txt -t {10 + step}",
-                    f"feroxbuster -u http://{target} -w /usr/share/wordlists/dirb/common.txt -d 2 -t {step+5}",
-                    f"wfuzz -c -z file,/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -H 'Host: FUZZ.{target}' http://{target}",
-                    f"aquatone -domains {target} -out /tmp/aquatone -scan-timeout 500",
-                    f"eyewitness --web -f /tmp/urls.txt -d /tmp/eyewitness --timeout 10",
-                    f"gospider -s http://{target} -d 2 -c 5",
-                    f"hakrawler -url http://{target} -depth 2 -plain",
-                    f"katana -u http://{target} -d 2 -jc",
-                    f"waybackurls {target} | head -50",
-                    f"gau {target} | head -50",
-                    f"arjun -u http://{target}/page -m GET",
-                    f"paramspider -d {target} | head -30",
-                    f"linkfinder -i http://{target}/app.js -o cli",
-                ],
-                "defensive": [
-                    f"ss -tlnp | grep LISTEN | head -{10 + step}",
-                    f"ps aux --sort=-%cpu | head -{10 + step}",
-                    f"last -n {5 + step*2}",
-                    f"journalctl -n {20 + step*5} --no-pager",
-                    f"netstat -tulpn 2>/dev/null | head -{15 + step}",
-                    f"lsof -i -P -n | head -{20 + step}",
-                    f"iptables -L -n -v | head -30",
-                    f"ufw status verbose",
-                    f"fail2ban-client status",
-                    f"ausearch -m avc -ts recent | head -20",
-                    f"chkrootkit 2>/dev/null | grep INFECTED",
-                    f"rkhunter --check --skip-keypress 2>/dev/null | tail -30",
-                    f"lynis audit system --quick 2>/dev/null | tail -50",
-                    f"osquery -A 'SELECT * FROM processes WHERE on_disk=0'",
-                    f"sysdig -c topprocs_cpu",
-                ],
-            }
-            
-            alts = alternative_commands.get(role_name, alternative_commands["recon"])
-            # Filter out commands already used in this episode
-            used_prefixes = set(c.strip().split()[0].lower() for c in all_cmds if c.strip())
-            available = [cmd for cmd in alts if cmd.split()[0].lower() not in used_prefixes]
-            if not available:
-                # If all prefixes used, just pick any from pool with random shuffle
-                available = alts.copy()
-                random.shuffle(available)
-            new_cmd = random.choice(available) if available else alts[step % len(alts)]
-            result.command = new_cmd
-            result.mentor_reasoning = f"[ANTI-REPEAT] {result.mentor_reasoning or 'Forced alternative'}"
-            result.confidence = 0.3
-            result.source = "anti_repeat"
-            # PHASE 5.2 FIX: Store PPO trajectory with NEGATIVE reward instead of
-            # silently discarding. This teaches PPO to stop proposing repeated commands.
-            # Previously: _ppo_pending = None (PPO never learned from anti-repeat)
-            if self._ppo_pending is not None:
-                self._ppo_trajectory.append({
-                    "state": self._ppo_pending["state"],
-                    "action": self._ppo_pending["action"],
-                    "log_prob": self._ppo_pending["log_prob"],
-                    "value": self._ppo_pending["value"],
-                    "reward": -5.0,  # Negative feedback for proposing a repeat
-                    "done": False,
-                })
-                self._ppo_pending = None
+        # Determine action family for this command
+        family = self._get_action_family(result_prefix)
+        family_count = sum(
+            1 for c in all_cmds
+            if self._get_action_family(c.strip().split()[0].lower() if c.strip() else "") == family
+        )
+        
+        # Graded penalty tracking (stored on result for reward calculator)
+        repeat_penalty = 0.0
+        
+        if not ppo_bypass:
+            # Role violation → hard replace (always)
+            if not is_valid_role:
+                result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds, "role_violation")
+            # Exact repeat → hard replace (3rd+ time) or penalty (1st-2nd)
+            elif exact_repeat_count >= 3:
+                result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds, 
+                    f"exact_repeat_x{exact_repeat_count}")
+            elif exact_repeat_count >= 1:
+                # Graded: penalize but allow
+                repeat_penalty = -2.0 * exact_repeat_count
+                result.mentor_reasoning = (
+                    f"[REPEAT-PENALTY:{repeat_penalty:.1f}] "
+                    f"{result.mentor_reasoning or ''}"
+                )
+            # Family cooldown: if same family used >8 times, replace
+            elif family_count >= 8:
+                result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds,
+                    f"family_cooldown({family}={family_count})")
+            # Prefix repeat → penalize but allow up to 5, then replace
+            elif prefix_repeat_count >= 5:
+                result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds,
+                    f"prefix_repeat_x{prefix_repeat_count}")
+            elif prefix_repeat_count >= 2:
+                repeat_penalty = -1.0 * (prefix_repeat_count - 1)
+                result.mentor_reasoning = (
+                    f"[PREFIX-PENALTY:{repeat_penalty:.1f}] "
+                    f"{result.mentor_reasoning or ''}"
+                )
+        
+        # Store repeat penalty for reward calculation
+        result._repeat_penalty = repeat_penalty
         
         # Record decision
         self.decisions.append(result)
@@ -1076,6 +1015,143 @@ class SmartCoach:
         # Log mentor call if applicable
         if result.mentor_call and self.mentor_log_path:
             self._log_mentor_call(step_ctx, proposed_action, result)
+        
+        return result
+    
+    # ─── ACTION FAMILY CLASSIFICATION ────────────────────────────────────
+    ACTION_FAMILIES = {
+        "recon": {"nmap", "masscan", "ping", "traceroute", "netdiscover", "arp-scan",
+                  "unicornscan", "nbtscan", "fierce", "dnsrecon", "dig", "host",
+                  "nslookup", "whois"},
+        "enum": {"gobuster", "dirb", "dirsearch", "feroxbuster", "ffuf", "wfuzz",
+                 "nikto", "whatweb", "enum4linux", "smbclient", "rpcclient",
+                 "showmount", "rpcinfo", "finger", "smtp-user-enum", "snmpwalk",
+                 "ldapsearch", "onesixtyone"},
+        "access": {"hydra", "medusa", "ncrack", "patator", "crackmapexec",
+                   "ssh", "telnet", "ftp", "mysql", "psql", "nc", "msfconsole",
+                   "searchsploit", "sqlmap", "commix", "curl", "wget"},
+        "web": {"xsstrike", "dalfox", "tplmap", "wpscan", "droopescan",
+                "arjun", "paramspider", "linkfinder", "gospider", "hakrawler",
+                "katana", "nuclei"},
+        "lateral": {"smbclient", "psexec", "wmiexec", "evil-winrm", "impacket",
+                    "chisel", "ligolo", "socat", "proxychains"},
+        "exfil": {"scp", "rsync", "base64", "xxd", "tar", "zip"},
+        "persist": {"crontab", "systemctl", "chmod", "chown", "useradd",
+                    "passwd", "ssh-keygen"},
+        "defense": {"ss", "ps", "last", "journalctl", "netstat", "lsof",
+                    "iptables", "ufw", "fail2ban-client", "chkrootkit",
+                    "rkhunter", "lynis", "osquery"},
+    }
+    
+    def _get_action_family(self, cmd_prefix: str) -> str:
+        """Classify a command prefix into an action family."""
+        for family, tools in self.ACTION_FAMILIES.items():
+            if cmd_prefix in tools:
+                return family
+        return "other"
+    
+    def _replace_with_alternative(
+        self,
+        result: SmartDecisionResult,
+        step_ctx: SmartStepContext,
+        ctx: Any,
+        all_cmds: List[str],
+        reason: str,
+    ) -> SmartDecisionResult:
+        """Replace a blocked command with an alternative from the role pool."""
+        import random
+        
+        logger.warning(
+            f"[{self.agent_name}] ANTI-REPEAT: Replacing '{result.command[:40]}...' ({reason})"
+        )
+        
+        role_name = self.agent_role.get("role", "generic")
+        step = step_ctx.step
+        target = ctx.target
+        rand_offset = random.randint(0, 1000)
+        
+        alternative_commands = {
+            "recon": [
+                f"nmap -sV -p 21,22,23,25,80,139,445,1524,3306,5432,5900,6667,8180 {target}",
+                f"nmap -sC -p 512,513,514,1099,2049,3632,6697,8009,8787 {target}",
+                f"nmap --script vuln -p 21,139,445,6667 {target}",
+                f"nmap -sU -p 69,111,161,2049 {target}",
+                f"rpcinfo -p {target}",
+                f"showmount -e {target}",
+                f"finger @{target}",
+                f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
+                f"masscan -p{(step*100+rand_offset)%65535}-{(step*100+1000+rand_offset)%65535} {target}",
+                f"dig {target} TXT +short",
+                f"whatweb -v http://{target}",
+                f"nbtscan {target}",
+            ],
+            "offensive": [
+                f"searchsploit kernel {5 + step % 10}.{rand_offset % 5}",
+                f"nikto -h http://{target} -C all -Tuning {step % 10}",
+                f"nuclei -u http://{target} -severity critical,high -t cves/",
+                f"hydra -l user{step} -P /usr/share/wordlists/rockyou.txt ssh://{target} -t 4",
+                f"sqlmap -u 'http://{target}/page?id={step}' --batch --random-agent",
+                f"commix -u 'http://{target}/cmd?exec=id' --batch",
+                f"ffuf -w /usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt -u http://{target}/page?file=FUZZ",
+                f"wpscan --url http://{target} --plugins-detection aggressive",
+                f"curl -s http://{target}:8180/manager/html",
+                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+            ],
+            "stealth": [
+                f"nc -zv {target} 1524 2>&1",
+                f"nc -zv {target} 6667 2>&1",
+                f"nc -zv {target} 1099 2>&1",
+                f"nc -zv {target} 512 2>&1",
+                f"nc -zv {target} 5900 2>&1",
+                f"curl -s http://{target}:8180/manager/html 2>&1 | head -5",
+                f"smbclient -L //{target} -N 2>/dev/null | head -10",
+                f"snmpwalk -v2c -c public {target} system 2>/dev/null | head -10",
+                f"psql -h {target} -U postgres -c '\\l' 2>/dev/null",
+                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+            ],
+            "strategic": [
+                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/big.txt -t {5 + step} -x php,html",
+                f"ffuf -w /usr/share/seclists/Discovery/Web-Content/raft-medium-words.txt -u http://{target}/FUZZ -mc 200,301,302",
+                f"dirsearch -u http://{target} -e php,html,js,txt -t {10 + step}",
+                f"gospider -s http://{target} -d 2 -c 5",
+                f"katana -u http://{target} -d 2 -jc",
+                f"arjun -u http://{target}/page -m GET",
+            ],
+            "defensive": [
+                f"ss -tlnp | grep LISTEN | head -{10 + step}",
+                f"ps aux --sort=-%cpu | head -{10 + step}",
+                f"last -n {5 + step*2}",
+                f"netstat -tulpn 2>/dev/null | head -{15 + step}",
+                f"lsof -i -P -n | head -{20 + step}",
+                f"iptables -L -n -v | head -30",
+            ],
+        }
+        
+        alts = alternative_commands.get(role_name, alternative_commands["recon"])
+        used_prefixes = set(c.strip().split()[0].lower() for c in all_cmds if c.strip())
+        available = [cmd for cmd in alts if cmd.split()[0].lower() not in used_prefixes]
+        if not available:
+            available = alts.copy()
+            random.shuffle(available)
+        new_cmd = random.choice(available) if available else alts[step % len(alts)]
+        
+        result.command = new_cmd
+        result.mentor_reasoning = f"[ANTI-REPEAT:{reason}] {result.mentor_reasoning or 'Forced alternative'}"
+        result.confidence = 0.3
+        result.source = "anti_repeat"
+        result._repeat_penalty = -5.0
+        
+        # Store PPO trajectory with negative reward for the repeat proposal
+        if self._ppo_pending is not None:
+            self._ppo_trajectory.append({
+                "state": self._ppo_pending["state"],
+                "action": self._ppo_pending["action"],
+                "log_prob": self._ppo_pending["log_prob"],
+                "value": self._ppo_pending["value"],
+                "reward": -5.0,
+                "done": False,
+            })
+            self._ppo_pending = None
         
         return result
     
@@ -2033,13 +2109,15 @@ class SmartCoach:
             logger.debug(f"PPO select failed for {self.agent_name}: {e}")
             return None
 
-    # Phase 5.1: Terminal reward mapping so PPO gradient sees phase-advance signal
+    # Phase 6: Terminal reward mapping — reduced to match tighter reward scale
+    # Old values (50/25/15/10/5) were outsized relative to per-step rewards.
+    # New values proportional to 50.0 ceiling per step.
     PPO_TERMINAL_REWARDS = {
-        "EXFILTRATION": 50.0,
-        "POST_EXPLOITATION": 25.0,
-        "LATERAL_MOVEMENT": 15.0,
-        "PRIVILEGE_ESCALATION": 10.0,
-        "EXPLOITATION": 5.0,
+        "EXFILTRATION": 20.0,
+        "POST_EXPLOITATION": 12.0,
+        "LATERAL_MOVEMENT": 8.0,
+        "PRIVILEGE_ESCALATION": 5.0,
+        "EXPLOITATION": 3.0,
     }
 
     def end_episode_ppo(
@@ -2255,6 +2333,7 @@ class SmartCoach:
         raw_output: str,
         new_discoveries: Optional[Dict[str, Any]] = None,
         done: bool = False,
+        shared_discoveries: Optional[Set[str]] = None,
     ) -> RewardBreakdown:
         """
         Record the result of a command execution and calculate reward.
@@ -2264,6 +2343,7 @@ class SmartCoach:
             success: Whether command succeeded
             raw_output: Raw output from command
             new_discoveries: New things discovered
+            shared_discoveries: Cross-agent shared discovery set for dedup (Phase 6)
             
         Returns:
             RewardBreakdown with detailed reward calculation
@@ -2280,6 +2360,7 @@ class SmartCoach:
             current_phase=decision.phase,
             state_flags=self.attack_context.state_flags,
             new_discoveries=new_discoveries,
+            shared_discoveries=shared_discoveries,
         )
         
         # Record with learned store
@@ -2319,6 +2400,11 @@ class SmartCoach:
                     self.attack_context.set_state_flag("hash_known")
                 elif key == "vulnerability":
                     self.attack_context.set_state_flag("vulnerability_found")
+            # Phase 6.1: Reset stagnation on new discoveries
+            self._stagnation_steps = 0
+        else:
+            # Phase 6.1: Increment stagnation counter
+            self._stagnation_steps = getattr(self, '_stagnation_steps', 0) + 1
         
         # Add failed command to context if failed
         if not success:
@@ -2333,12 +2419,26 @@ class SmartCoach:
 
         # ─── PHASE 4: Pair PPO trajectory entry with reward ─────────
         if self._ppo_pending is not None:
+            ppo_reward = breakdown.total
+            
+            # PHASE 6: Mentor imitation bonus — when mentor was consulted and
+            # PPO independently chose the same template, add conformity bonus.
+            # This bridges supervised learning (mentor) with RL (PPO).
+            mentor_suggestion = getattr(decision, '_mentor_suggestion', None)
+            if mentor_suggestion and decision.source == "ppo":
+                if decision.template_name == mentor_suggestion:
+                    ppo_reward += 3.0  # Conformity bonus: PPO agrees with expert
+                    logger.debug(
+                        f"[PPO][{self.agent_name}] Mentor conformity bonus +3.0 "
+                        f"(both chose {decision.template_name})"
+                    )
+            
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
                 "action": self._ppo_pending["action"],
                 "log_prob": self._ppo_pending["log_prob"],
                 "value": self._ppo_pending["value"],
-                "reward": breakdown.total,
+                "reward": ppo_reward,
                 "done": done,
             })
             self._ppo_pending = None
@@ -2421,6 +2521,10 @@ class SmartCoach:
         # Phase 4: Reset PPO trajectory
         self._ppo_trajectory.clear()
         self._ppo_pending = None
+        
+        # Phase 6.1: Reset stagnation counter
+        self._stagnation_steps = 0
+        self._last_phase = None
         
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode
