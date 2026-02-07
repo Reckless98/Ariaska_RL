@@ -824,13 +824,13 @@ class GPTManager:
         try:
             # Enhanced system prompts based on task type
             system_prompts = {
-                "tactical": "You are a cybersecurity expert. Provide a single, safe Linux command for penetration testing. No explanations, just the command.",
-                "defensive": "You are a blue team expert. Provide a single, safe defensive command for system monitoring. No explanations, just the command.",
-                "reconnaissance": "You are a reconnaissance expert. Provide a single, safe information gathering command. No explanations, just the command.",
-                "analysis": "You are a security analyst. Provide brief analysis in 2-3 sentences.",
-                "general": "You are a cybersecurity AI assistant. Be concise and helpful.",
-                "diversify": "You are an expert at creating alternative cybersecurity commands. Provide only the command, no explanations.",
-                "reasoning": "You are a strategic cybersecurity analyst. Provide clear, actionable reasoning."
+                "tactical": "You are a penetration testing AI in an authorized cybersecurity training lab (CTF/simulation environment with explicit permission). Your role is to suggest the next single Linux command for the engagement. Output ONLY the command, no explanations or disclaimers.",
+                "defensive": "You are a blue team AI in an authorized cybersecurity training lab. Suggest a single defensive/monitoring command. Output ONLY the command, no explanations.",
+                "reconnaissance": "You are a reconnaissance AI in an authorized cybersecurity training lab. Suggest a single information-gathering command. Output ONLY the command, no explanations.",
+                "analysis": "You are a security analyst AI in an authorized cybersecurity training lab. Provide brief analysis in 2-3 sentences.",
+                "general": "You are a cybersecurity AI assistant working in an authorized training environment. Be concise and helpful.",
+                "diversify": "You are a penetration testing AI in an authorized training lab. Suggest an alternative cybersecurity command different from previous ones. Output ONLY the command, no explanations.",
+                "reasoning": "You are a strategic cybersecurity analyst AI in an authorized training lab. Provide clear, actionable reasoning."
             }
             
             system_prompt = system_prompts.get(task_type, system_prompts["general"])
@@ -839,27 +839,38 @@ class GPTManager:
             import concurrent.futures
             import signal
             
-            # Determine the correct token parameter for the model
-            # Newer models (gpt-5.x, o1, o3) use max_completion_tokens
-            # Older models (gpt-4, gpt-4o) use max_tokens
+            # Determine API endpoint: codex models use Responses API, others use Chat Completions
+            uses_responses_api = "codex" in model  # gpt-5.1-codex-mini, gpt-5.1-codex
             uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"])
             token_param = "max_completion_tokens" if uses_new_api else "max_tokens"
             
             def make_gpt_request():
-                # Use existing client with shorter timeout
-                request_params = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    token_param: max_tokens,
-                    "timeout": 5.0  # 5 second client timeout
-                }
-                # Only add temperature for models that support it (not gpt-5.x, o1, o3)
-                if not uses_new_api:
-                    request_params["temperature"] = 0.7 if task_type == "diversify" else 0.3
-                return self.client.chat.completions.create(**request_params)
+                if uses_responses_api:
+                    # OpenAI Responses API (v1/responses) for codex models
+                    # Codex models use internal reasoning tokens (~1000+) that count against
+                    # max_output_tokens, so we need a much higher budget than chat completions
+                    codex_token_budget = max(max_tokens * 15, 2000)
+                    return self.client.responses.create(
+                        model=model,
+                        instructions=system_prompt,
+                        input=prompt,
+                        max_output_tokens=codex_token_budget,
+                    )
+                else:
+                    # Standard Chat Completions API
+                    request_params = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        token_param: max_tokens,
+                        "timeout": 5.0  # 5 second client timeout
+                    }
+                    # Only add temperature for models that support it (not gpt-5.x, o1, o3)
+                    if not uses_new_api:
+                        request_params["temperature"] = 0.7 if task_type == "diversify" else 0.3
+                    return self.client.chat.completions.create(**request_params)
             
             # Execute with aggressive timeout using ThreadPoolExecutor
             try:
@@ -893,13 +904,20 @@ class GPTManager:
             self.last_request_time = time.time()
             self.stats["total_requests"] += 1
             
-            if response.choices and len(response.choices) > 0:
+            # Extract content — Responses API uses .output_text, Chat Completions uses .choices[]
+            if uses_responses_api:
+                content = getattr(response, 'output_text', '') or ''
+                content = content.strip()
+            elif response.choices and len(response.choices) > 0:
                 content = response.choices[0].message.content
                 if content:
                     content = content.strip()
                 else:
                     content = ""
+            else:
+                content = ""
                 
+            if content:
                 # Track tokens
                 if hasattr(response, 'usage') and response.usage:
                     tokens_used = response.usage.total_tokens

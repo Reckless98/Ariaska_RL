@@ -533,34 +533,56 @@ OUTPUT FORMAT (JSON only):
         # Track tokens for this call (accumulate across retries)
         tokens_used = 0
         
-        # Detect API compatibility: gpt-5.x, o1, o3 use max_completion_tokens (not max_tokens)
-        # and do NOT support the temperature parameter
+        # Detect API compatibility
+        uses_responses_api = "codex" in self.model  # gpt-5.1-codex-mini, gpt-5.1-codex
         uses_new_api = any(x in self.model for x in ["gpt-5", "o1-", "o3-"])
         
         # Call LLM
         for attempt in range(self.max_retries + 1):
             try:
-                request_params = {
-                    "model": self.model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                }
-                # Use correct token parameter for the model generation
-                if uses_new_api:
-                    request_params["max_completion_tokens"] = 500
+                if uses_responses_api:
+                    # OpenAI Responses API (v1/responses) for codex models
+                    # Codex models use internal reasoning tokens (~1000+) that count against
+                    # max_output_tokens, so we need a much higher budget
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    sync_client = getattr(self.llm_client, '_sync_client', None)
+                    if sync_client is None:
+                        # Create sync client from async client's API key
+                        import openai
+                        sync_client = openai.OpenAI()
+                    response = await loop.run_in_executor(None, lambda: sync_client.responses.create(
+                        model=self.model,
+                        instructions=system_prompt,
+                        input=user_prompt,
+                        max_output_tokens=4000,
+                    ))
                 else:
-                    request_params["max_tokens"] = 500
-                    request_params["temperature"] = self.temperature
-                
-                response = await self.llm_client.chat.completions.create(**request_params)
+                    request_params = {
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                    }
+                    # Use correct token parameter for the model generation
+                    if uses_new_api:
+                        request_params["max_completion_tokens"] = 500
+                    else:
+                        request_params["max_tokens"] = 500
+                        request_params["temperature"] = self.temperature
+                    
+                    response = await self.llm_client.chat.completions.create(**request_params)
                 
                 # Capture token usage from API response (accumulate!)
                 if hasattr(response, 'usage') and response.usage:
                     tokens_used += response.usage.total_tokens
                 
-                response_text = response.choices[0].message.content
+                # Extract text — Responses API uses .output_text, Chat uses .choices[]
+                if uses_responses_api:
+                    response_text = getattr(response, 'output_text', '') or ''
+                else:
+                    response_text = response.choices[0].message.content
                 
                 # Parse response
                 parsed = self._parse_response(response_text)

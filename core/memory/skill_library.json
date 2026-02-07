@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "last_updated": 1770492809.019566,
+  "skill_count": 2,
+  "skills": {
+    "skill_001": {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1770492809.0169702,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_002": {
+      "id": "skill_002",
+      "if_condition": "When HTTP 80/443 responds with Apache or nginx banner",
+      "then_action": "Launch directory brute force with gobuster and parse 200/403 paths",
+      "parameters_template": {
+        "url": "http://target",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step9"
+      ],
+      "created_at": 1770492809.0169835,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  }
+}
