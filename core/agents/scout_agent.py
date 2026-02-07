@@ -333,8 +333,8 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             reward = 35  # High reward for detailed intel
             info = {"action_type": "detailed_scan", "intensity": scan_intensity}
         else:
-            # Maintain reconnaissance
-            action = "nmap -sC 10.10.10.10 -p 80,443,22,21"
+            # Maintain reconnaissance — scan MS2 high-value ports
+            action = "nmap -sC -sV 10.10.10.10 -p 21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,3632,5432,5900,6667,8180"
             success = True
             reward = 20  # Standard recon reward
             info = {"action_type": "maintenance_scan", "targets": targets_discovered}
@@ -531,8 +531,13 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             Sorted list of ports by priority
         """
         # Common vulnerable services and their ports
-        high_priority = [22, 21, 80, 443, 8080, 8443, 3389, 5985, 5986]  # SSH, FTP, HTTP, RDP, WinRM
-        medium_priority = [25, 110, 143, 445, 1433, 3306, 5432]  # Mail, SMB, SQL
+        # MS2 high-value ports: backdoors, instant shells, default creds
+        high_priority = [
+            1524, 6667, 21, 22, 23, 80, 139, 445,  # MS2: ingreslock, IRC backdoor, FTP/SSH/Telnet, HTTP, SMB
+            512, 513, 514, 1099, 2049, 3306, 5432,  # MS2: r-services, Java RMI, NFS, MySQL, PostgreSQL
+            5900, 8180, 3632, 8080, 443, 8443,       # MS2: VNC, Tomcat, distccd, alt-HTTP
+        ]
+        medium_priority = [25, 110, 143, 3389, 5985, 5986, 1433, 6697, 8009, 8787]  # Mail, RDP, WinRM, MSSQL, IRC-SSL, AJP, DRb
         
         # Sort ports by priority
         result = []
@@ -559,7 +564,12 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             "smbclient",
             "wpscan",
             "ffuf",
-            "dirb"
+            "dirb",
+            # MS2-specific recon tools
+            "rpcinfo",
+            "showmount",
+            "finger",
+            "smtp-user-enum",
         ]
     
     def reset(self):

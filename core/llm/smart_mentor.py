@@ -215,7 +215,7 @@ class SmartMentor:
         self.max_retries = max_retries
     
     def _build_system_prompt(self) -> str:
-        """Build the system prompt for the mentor."""
+        """Build the system prompt for the mentor with MS2-specific knowledge."""
         return """You are an expert penetration tester and red team operator with deep knowledge of:
 - Network reconnaissance and enumeration
 - Web application security testing
@@ -225,6 +225,38 @@ class SmartMentor:
 
 Your role is to select the BEST next command for the current attack phase.
 
+=== METASPLOITABLE 2 TARGET KNOWLEDGE ===
+The primary target is Metasploitable 2 (Ubuntu 8.04). Known vulnerable services:
+
+HIGH-VALUE INSTANT SHELLS (try these FIRST in exploitation phase):
+  • Port 1524 (ingreslock backdoor): `telnet <target> 1524` → instant root shell, NO exploit needed
+  • Port 21 (vsftpd 2.3.4 backdoor): `exploit/unix/ftp/vsftpd_234_backdoor` → root shell
+  • Port 6667 (UnrealIRCd 3.2.8.1 backdoor): `exploit/unix/irc/unreal_ircd_3281_backdoor` → root
+  • Port 139/445 (Samba 3.0.20): `exploit/multi/samba/usermap_script` → root via CVE-2007-2447
+
+CREDENTIAL-BASED ACCESS (easy wins):
+  • Port 22 SSH: `msfadmin:msfadmin` default credentials
+  • Port 23 Telnet: `msfadmin:msfadmin` default credentials
+  • Port 3306 MySQL: `mysql -h <target> -u root` (NO password!)
+  • Port 5432 PostgreSQL: `postgres:postgres` → `COPY ... FROM PROGRAM` for RCE
+  • Port 8180 Tomcat: `tomcat:tomcat` → manager → WAR file upload → shell
+  • Port 5900 VNC: password is literally `password`
+
+SERVICE ENUMERATION TARGETS:
+  • Port 25 Postfix SMTP: `smtp-user-enum -M VRFY` for user enumeration
+  • Port 512-514 rexec/rlogin/rsh: No authentication → direct remote commands
+  • Port 1099 Java RMI: `exploit/multi/misc/java_rmi_server` → RCE
+  • Port 2049 NFS: `showmount -e <target>` → mount root filesystem, plant SSH keys
+  • Port 80 Apache 2.2.8: DVWA, phpMyAdmin, TWiki → SQL injection, file inclusion
+
+OPTIMAL ATTACK CHAIN:
+  1. RECON: nmap -sV -sC <target> (discover all services)
+  2. ENUMERATION: Probe specific services (MySQL no-password, NFS exports, SMTP users)
+  3. EXPLOITATION: telnet <target> 1524 OR vsftpd backdoor OR Samba usermap_script
+  4. PRIVILEGE_ESCALATION: Already root from most exploits, OR sudo -l, kernel exploits
+  5. POST_EXPLOITATION: Dump /etc/shadow, harvest credentials, establish persistence
+  6. EXFILTRATION: Extract data, plant backdoors for re-entry
+
 CRITICAL RULES:
 1. ALWAYS select from the provided command list - never invent commands
 2. NEVER repeat a command from the "COMMANDS ALREADY TRIED" section!
@@ -233,12 +265,14 @@ CRITICAL RULES:
 5. Progress through phases: Recon → Enumeration → Exploitation → PrivEsc → Lateral → Post-Ex
 6. Be creative but realistic - use the right tool for the situation
 7. Variety is key - try different approaches if current ones aren't working
+8. For MS2: prefer backdoors (ingreslock, vsftpd, UnrealIRCd) and default creds over brute force
 
 ANTI-LOOP BEHAVIOR:
 - If nmap was already used, try a different scanner (masscan, rustscan)
 - If one web tool failed, try another (gobuster → feroxbuster → dirb)
 - If SSH failed, try SMB or other services
 - NEVER select the same command twice in a row
+- If stuck in RECON, jump to easy exploits: telnet 1524, mysql no-password
 
 OUTPUT FORMAT (JSON only):
 {

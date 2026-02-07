@@ -64,8 +64,11 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
-        # PHASE 4: Floor at -5.0 per step to keep value estimates stable
-        self.total = max(raw_total, -5.0)
+        # PHASE 5.2: Floor at -5.0, ceiling at 100.0 per step
+        # Floor prevents catastrophic negative spirals in PPO value function
+        # Ceiling prevents extreme outlier rewards (e.g. flag+root_shell+phase_advance ~655)
+        # from destabilizing the value function via asymmetric targets
+        self.total = max(min(raw_total, 100.0), -5.0)
         return self.total
     
     def to_dict(self) -> Dict[str, float]:

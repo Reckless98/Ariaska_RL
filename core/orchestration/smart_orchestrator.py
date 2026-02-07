@@ -527,6 +527,10 @@ class SmartOrchestrator:
             "web_paths": set(), "phase": "RECON", "flags_set": set(),
         }
         
+        # Phase 5.2: Cross-agent discovery deduplication
+        # Prevents 5 agents from each getting reward for the same port/service/credential
+        self._episode_shared_discoveries: set = set()
+        
         # Reset stuck detection
         self.action_history.clear()
         self.stuck_agents.clear()
@@ -1177,13 +1181,38 @@ class SmartOrchestrator:
             # Commands that produce meaningful output are considered successful
             sim_success = bool(output_to_parse and not output_to_parse.startswith("[SIM]") and len(output_to_parse) > 20)
             
-            # Record result with discoveries (for ALL agents, not just RedAgent)
+            # Phase 5.2: Cross-agent discovery deduplication
+            # Only pass genuinely NEW discoveries to record_result for reward
+            deduped_discoveries = {}
+            if agent_discoveries:
+                for disc_type, disc_values in agent_discoveries.items():
+                    if isinstance(disc_values, list):
+                        new_vals = []
+                        for v in disc_values:
+                            key = f"{disc_type}:{v}"
+                            if key not in self._episode_shared_discoveries:
+                                self._episode_shared_discoveries.add(key)
+                                new_vals.append(v)
+                        if new_vals:
+                            deduped_discoveries[disc_type] = new_vals
+                    elif isinstance(disc_values, bool) and disc_values:
+                        key = f"{disc_type}:found"
+                        if key not in self._episode_shared_discoveries:
+                            self._episode_shared_discoveries.add(key)
+                            deduped_discoveries[disc_type] = disc_values
+                    else:
+                        key = f"{disc_type}:{disc_values}"
+                        if key not in self._episode_shared_discoveries:
+                            self._episode_shared_discoveries.add(key)
+                            deduped_discoveries[disc_type] = disc_values
+            
+            # Record result with DEDUPED discoveries (for ALL agents, not just RedAgent)
             if result.agent_name in self.coaches:
                 breakdown = self.coaches[result.agent_name].record_result(
                     decision=result.decision,
                     success=sim_success or env_reward >= 0,
                     raw_output=output_to_parse,
-                    new_discoveries=agent_discoveries,
+                    new_discoveries=deduped_discoveries,
                     done=done,  # Phase 4: pass done for PPO trajectory
                 )
                 result.reward_breakdown = breakdown
@@ -1264,7 +1293,14 @@ class SmartOrchestrator:
         """
         discoveries = {}
         
-        if not output or output.startswith("[SIM]") and len(output) < 30:
+        if not output or (output.startswith("[SIM]") and len(output) < 30):
+            return discoveries
+        
+        # Phase 5.2: Reject outputs dominated by error messages
+        output_lines = output.strip().split('\n')
+        error_lines = sum(1 for line in output_lines 
+                         if any(e in line.lower() for e in ['error', 'failed', 'denied', 'refused', 'timeout', 'not found']))
+        if len(output_lines) > 3 and error_lines / len(output_lines) > 0.7:
             return discoveries
         
         output_lower = output.lower()
@@ -1888,6 +1924,15 @@ class SmartOrchestrator:
             "mv": "",
             "cd": "",
             "mkdir": "",
+            
+            # ─── MS2-specific exploitation tools ─────────────────────
+            "telnet": f"Trying {target}...\nConnected to {target}.\nEscape character is '^]'.\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:/# whoami\nroot",
+            "rsh": f"root@metasploitable:~# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:~# uname -a\nLinux metasploitable 2.6.24-16-server #1 SMP",
+            "rlogin": f"Last login: Sat Jan  4 10:30:00 from 10.10.14.2\nroot@metasploitable:~# id\nuid=0(root) gid=0(root) groups=0(root)",
+            "rexec": f"uid=0(root) gid=0(root) groups=0(root)\nLinux metasploitable 2.6.24-16-server",
+            "vncviewer": f"Connected to RFB server, using protocol version 3.3\nPerforming standard VNC authentication\nAuthentication successful\nDesktop name \"metasploitable:0\"\nVNC server running on {target}:5900\n[+] VNC session opened - password: password",
+            "mount": f"mount: mounting {target}:/ on /tmp/nfs_mount\n[+] NFS share mounted successfully\nroot@metasploitable:/# ls /tmp/nfs_mount/\nbin  boot  dev  etc  home  lib  lost+found  media  mnt  opt  proc  root  sbin  srv  sys  tmp  usr  var",
+            "distcc": f"[+] distccd v1 ({target}:3632)\n[+] Remote code execution successful\nuid=1(daemon) gid=1(daemon)\n$ id\nuid=1(daemon) gid=1(daemon)",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():

