@@ -113,7 +113,7 @@ class TestEpisodeTrace(unittest.TestCase):
             "action_final": "msfconsole",     # Old name
             "reward": 25.0,
             "mentor_call": True,
-            "mentor_model": "gpt-5-mini"      # Old name
+            "mentor_model": "gpt-5.1-codex-mini"      # Old name
         }
         
         step = StepTrace.from_dict(old_data)
@@ -121,7 +121,7 @@ class TestEpisodeTrace(unittest.TestCase):
         self.assertEqual(step.step, 3)
         self.assertEqual(step.agent, "RedAgent")  # Migrated
         self.assertEqual(step.chosen_action, "msfconsole")  # Migrated
-        self.assertEqual(step.model_used, "gpt-5-mini")  # Migrated
+        self.assertEqual(step.model_used, "gpt-5.1-codex-mini")  # Migrated
         self.assertTrue(step.mentor_call)
     
     def test_episode_trace_metrics(self):
@@ -145,7 +145,7 @@ class TestEpisodeTrace(unittest.TestCase):
                 chosen_action="action",
                 reward=10.0,
                 mentor_call=(i == 0),
-                model_used="gpt-5-mini" if i == 0 else None,
+                model_used="gpt-5.1-codex-mini" if i == 0 else None,
                 confidence=0.5 + (i * 0.1)
             )
             episode.add_step(step)
@@ -296,16 +296,16 @@ class TestLLMRouting(unittest.TestCase):
         model_map = GPTManager.MODEL_MAP
         
         # Red/Orion should use mini
-        self.assertEqual(model_map.get("red"), "gpt-5-mini")
-        self.assertEqual(model_map.get("orion"), "gpt-5-mini")
+        self.assertEqual(model_map.get("red"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("orion"), "gpt-5.1-codex-mini")
         
         # Scout/Shadow/Blue should use nano
-        self.assertEqual(model_map.get("scout"), "gpt-5-nano")
-        self.assertEqual(model_map.get("shadow"), "gpt-5-nano")
-        self.assertEqual(model_map.get("blue"), "gpt-5-nano")
+        self.assertEqual(model_map.get("scout"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("shadow"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("blue"), "gpt-5.1-codex-mini")
         
         # Postmortem should use 5.2
-        self.assertEqual(model_map.get("postmortem"), "gpt-5.2")
+        self.assertEqual(model_map.get("postmortem"), "gpt-5.1-codex")
     
     def test_task_type_routing(self):
         """Test model selection by task type."""
@@ -314,12 +314,12 @@ class TestLLMRouting(unittest.TestCase):
         model_map = GPTManager.MODEL_MAP
         
         # Tactical/strategic should use mini
-        self.assertEqual(model_map.get("tactical"), "gpt-5-mini")
-        self.assertEqual(model_map.get("strategic"), "gpt-5-mini")
+        self.assertEqual(model_map.get("tactical"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("strategic"), "gpt-5.1-codex-mini")
         
         # Analysis/classification should use nano
-        self.assertEqual(model_map.get("analysis"), "gpt-5-nano")
-        self.assertEqual(model_map.get("classification"), "gpt-5-nano")
+        self.assertEqual(model_map.get("analysis"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("classification"), "gpt-5.1-codex-mini")
     
     def test_gpt_manager_init_without_api_key(self):
         """Test that GPTManager can be instantiated without API key."""

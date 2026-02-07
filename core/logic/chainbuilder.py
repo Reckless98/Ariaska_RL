@@ -113,7 +113,7 @@ class ChainGenerator:
             f"- {a.get('full_command', a['command'])} [{a.get('phase', a.get('context', {}).get('phase', 'Unknown'))}]"
             for a in sorted_actions
         )
-        model = "gpt-4.1" if use_orion_strategy or agent_name == "OrionAgent" else "gpt-5-mini"
+        model = "gpt-4.1" if use_orion_strategy or agent_name == "OrionAgent" else "gpt-5.1-codex-mini"
         prompt = (
             f"You are ARIASKA's Cyber Warfare Strategist (role: aria).\n"
             f"Behave as a highly efficient, non-redundant, phase-aware, and creative AI.\n"

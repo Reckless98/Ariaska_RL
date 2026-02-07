@@ -58,7 +58,7 @@ class SmartOrchestratorConfig:
     enable_shadow: bool = True
     
     # Smart mentor settings
-    model: str = "gpt-5-mini"
+    model: str = "gpt-5.1-codex-mini"
     mentor_mode: str = "anneal"
     mentor_warmup_episodes: int = 1
     mentor_min_rate: float = 0.15

@@ -169,22 +169,22 @@ class GPTManager:
     # Model configuration
     MODEL_MAP = {
         # Primary models by role
-        "red": "gpt-5-mini",
-        "orion": "gpt-5-mini", 
-        "scout": "gpt-5-nano",
-        "shadow": "gpt-5-nano",
-        "blue": "gpt-5-nano",
+        "red": "gpt-5.1-codex-mini",
+        "orion": "gpt-5.1-codex-mini", 
+        "scout": "gpt-5.1-codex-mini",
+        "shadow": "gpt-5.1-codex-mini",
+        "blue": "gpt-5.1-codex-mini",
         # Task-based routing
-        "tactical": "gpt-5-mini",
-        "strategic": "gpt-5-mini",
-        "reasoning": "gpt-5-mini",
-        "analysis": "gpt-5-nano",
-        "classification": "gpt-5-nano",
-        "embedding": "gpt-5-nano",
-        "postmortem": "gpt-5.2",  # Feature-flagged deep reasoning
+        "tactical": "gpt-5.1-codex-mini",
+        "strategic": "gpt-5.1-codex-mini",
+        "reasoning": "gpt-5.1-codex-mini",
+        "analysis": "gpt-5.1-codex-mini",
+        "classification": "gpt-5.1-codex-mini",
+        "embedding": "gpt-5.1-codex-mini",
+        "postmortem": "gpt-5.1-codex",  # Feature-flagged deep reasoning
         # Fallbacks
-        "general": "gpt-5-mini",
-        "default": "gpt-5-mini",
+        "general": "gpt-5.1-codex-mini",
+        "default": "gpt-5.1-codex-mini",
     }
     
     FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
@@ -240,10 +240,10 @@ class GPTManager:
             )
         
         # Model configuration from environment or defaults
-        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5-mini")
+        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5.1-codex-mini")
         self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-4o-mini")
-        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5-nano")
-        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2")
+        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5.1-codex-mini")
+        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.1-codex")
         
         # Feature flags
         self.enable_postmortem_5_2 = os.getenv("ENABLE_GPT_5_2_POSTMORTEM", "false").lower() == "true"
@@ -605,19 +605,19 @@ class GPTManager:
         if role:
             model = self.MODEL_MAP.get(role, self.primary_model)
             # Map to actual configured models
-            if model == "gpt-5-mini":
+            if model == "gpt-5.1-codex-mini":
                 return self.primary_model
-            elif model == "gpt-5-nano":
+            elif model == "gpt-5.1-codex-mini":
                 return self.nano_model
-            elif model == "gpt-5.2":
+            elif model == "gpt-5.1-codex":
                 return self.postmortem_model
         
         # Task-type based selection
         if task_type:
             model = self.MODEL_MAP.get(task_type, self.primary_model)
-            if model == "gpt-5-mini":
+            if model == "gpt-5.1-codex-mini":
                 return self.primary_model
-            elif model == "gpt-5-nano":
+            elif model == "gpt-5.1-codex-mini":
                 return self.nano_model
         
         return self.primary_model

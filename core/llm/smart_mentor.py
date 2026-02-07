@@ -194,7 +194,7 @@ class SmartMentor:
         self,
         llm_client: Any,
         learned_store: Optional[LearnedCommandStore] = None,
-        model: str = "gpt-5-mini",
+        model: str = "gpt-5.1-codex-mini",
         temperature: float = 0.7,
         max_retries: int = 2
     ):
@@ -533,18 +533,28 @@ OUTPUT FORMAT (JSON only):
         # Track tokens for this call (accumulate across retries)
         tokens_used = 0
         
+        # Detect API compatibility: gpt-5.x, o1, o3 use max_completion_tokens (not max_tokens)
+        # and do NOT support the temperature parameter
+        uses_new_api = any(x in self.model for x in ["gpt-5", "o1-", "o3-"])
+        
         # Call LLM
         for attempt in range(self.max_retries + 1):
             try:
-                response = await self.llm_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
+                request_params = {
+                    "model": self.model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    temperature=self.temperature,
-                    max_tokens=500
-                )
+                }
+                # Use correct token parameter for the model generation
+                if uses_new_api:
+                    request_params["max_completion_tokens"] = 500
+                else:
+                    request_params["max_tokens"] = 500
+                    request_params["temperature"] = self.temperature
+                
+                response = await self.llm_client.chat.completions.create(**request_params)
                 
                 # Capture token usage from API response (accumulate!)
                 if hasattr(response, 'usage') and response.usage:
@@ -788,7 +798,7 @@ class DualMentor:
         self,
         gpt_client: Any,
         venice_client: Optional[Any] = None,
-        gpt_model: str = "gpt-5-mini",
+        gpt_model: str = "gpt-5.1-codex-mini",
         venice_model: str = "venice-uncensored",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
@@ -1078,7 +1088,7 @@ class DualMentor:
 
 def create_smart_mentor(
     llm_client: Any,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5.1-codex-mini",
     temperature: float = 0.7
 ) -> SmartMentor:
     """
@@ -1102,7 +1112,7 @@ def create_smart_mentor(
 def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
-    gpt_model: str = "gpt-5-mini",
+    gpt_model: str = "gpt-5.1-codex-mini",
     venice_model: str = "venice-uncensored",
     strategy: str = "gpt_first",
     temperature: float = 0.7

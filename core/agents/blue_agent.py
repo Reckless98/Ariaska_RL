@@ -441,7 +441,7 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
                 if self.gpt_calls_this_episode < self.gpt_call_limit:
                     self.last_reasoning = self.gpt_handler.query(
                         f"Explain why action {action} is optimal for phase {state.get('phase')}.",
-                        model="gpt-5-mini",
+                        model="gpt-5.1-codex-mini",
                     )
                     self.gpt_reasoning_cache[reasoning_key] = self.last_reasoning
                     self.gpt_calls_this_episode += 1

@@ -280,7 +280,7 @@ class SmartCoach:
         learned_store: Optional[LearnedCommandStore] = None,
         reward_calculator: Optional[SmartRewardCalculator] = None,
         mentor_log_path: Optional[str] = None,
-        model: str = "gpt-5-mini",
+        model: str = "gpt-5.1-codex-mini",
     ):
         self.agent_name = agent_name
         self.gpt_manager = gpt_manager
@@ -2493,7 +2493,7 @@ def create_smart_coach(
     agent_name: str,
     gpt_manager: "GPTManager",
     mentor_policy: Optional[MentorPolicy] = None,
-    model: str = "gpt-5-mini",
+    model: str = "gpt-5.1-codex-mini",
 ) -> SmartCoach:
     """
     Factory function to create a SmartCoach.

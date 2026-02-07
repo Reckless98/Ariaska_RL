@@ -1,17 +1,17 @@
 {
   "fallback_chains": {
     "tactical": [
-      "gpt-5-nano",
-      "gpt-5-mini",
+      "gpt-5.1-codex-mini",
+      "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ],
     "strategic": [
-      "gpt-5-mini",
+      "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ],
     "advanced": [
-      "gpt-5.2",
-      "gpt-5-mini",
+      "gpt-5.1-codex",
+      "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ]
   },

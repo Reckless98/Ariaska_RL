@@ -104,13 +104,13 @@ class TestFakeGPTManager:
         """Should route to correct models based on role."""
         gpt = FakeGPTManager()
         
-        # RedAgent -> gpt-5-mini
+        # RedAgent -> gpt-5.1-codex-mini
         result = gpt.request("RedAgent", "tactical", "Test")
-        assert result["model_used"] == "gpt-5-mini"
+        assert result["model_used"] == "gpt-5.1-codex-mini"
         
-        # Scout -> gpt-5-nano
+        # Scout -> gpt-5.1-codex-mini
         result = gpt.request("Scout", "reconnaissance", "Test")
-        assert result["model_used"] == "gpt-5-nano"
+        assert result["model_used"] == "gpt-5.1-codex-mini"
     
     def test_token_tracking(self):
         """Should track token usage."""

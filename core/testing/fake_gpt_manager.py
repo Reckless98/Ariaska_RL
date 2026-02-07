@@ -87,16 +87,16 @@ class FakeGPTManager:
     
     # Model routing (mirrors real GPTManager)
     MODEL_MAP = {
-        "red": "gpt-5-mini",
-        "orion": "gpt-5-mini",
-        "scout": "gpt-5-nano",
-        "shadow": "gpt-5-nano",
-        "blue": "gpt-5-nano",
-        "tactical": "gpt-5-mini",
-        "strategic": "gpt-5-mini",
-        "reasoning": "gpt-5-mini",
-        "analysis": "gpt-5-nano",
-        "postmortem": "gpt-5.2",
+        "red": "gpt-5.1-codex-mini",
+        "orion": "gpt-5.1-codex-mini",
+        "scout": "gpt-5.1-codex-mini",
+        "shadow": "gpt-5.1-codex-mini",
+        "blue": "gpt-5.1-codex-mini",
+        "tactical": "gpt-5.1-codex-mini",
+        "strategic": "gpt-5.1-codex-mini",
+        "reasoning": "gpt-5.1-codex-mini",
+        "analysis": "gpt-5.1-codex-mini",
+        "postmortem": "gpt-5.1-codex",
     }
     
     def __init__(self, seed: int = 42):
@@ -111,10 +111,10 @@ class FakeGPTManager:
         self._requests: List[Dict[str, Any]] = []
         
         # Mimic real GPTManager interface
-        self.primary_model = "gpt-5-mini"
+        self.primary_model = "gpt-5.1-codex-mini"
         self.fallback_model = "gpt-4o-mini"
-        self.nano_model = "gpt-5-nano"
-        self.postmortem_model = "gpt-5.2"
+        self.nano_model = "gpt-5.1-codex-mini"
+        self.postmortem_model = "gpt-5.1-codex"
         self.tokens_used = 0
         self.token_limit = 3000
         

@@ -257,7 +257,7 @@ Format your response as a JSON object with these fields:
                 response = gpt.gpt_request(
                     prompt=prompt,
                     system="You are an expert cybersecurity AI assistant that creates concise summaries of agent activities.",
-                    model="gpt-5-mini",  # Use token-efficient model
+                    model="gpt-5.1-codex-mini",  # Use token-efficient model
                     max_tokens=500
                 )
                 
