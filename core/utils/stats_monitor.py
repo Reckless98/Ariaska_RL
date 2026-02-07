@@ -355,7 +355,7 @@ class StatsMonitor:
             return stats.rewards.copy()
         return {aid: stats.rewards.copy() for aid, stats in self.agent_stats.items()}
     
-    def log_gpt_call(self, agent_id, tokens_used=0, model="gpt-4o-mini"):
+    def log_gpt_call(self, agent_id, tokens_used=0, model="gpt-5-mini"):
         """Log GPT API call for tracking usage."""
         stats = self._get_agent_stats(agent_id)
         stats.gpt_calls += 1

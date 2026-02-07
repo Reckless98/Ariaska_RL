@@ -193,7 +193,7 @@ def suggest_alternative(command_history: List[str], redundant_command: str) -> s
         
         try:
             result = subprocess.run(
-                ["sgpt", "--model", "gpt-4o-mini", "--temperature", "0.2", "--role", "aria", prompt],
+                ["sgpt", "--model", "gpt-5-mini", "--temperature", "0.2", "--role", "aria", prompt],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, text=True
             )
             suggestion = result.stdout.strip()

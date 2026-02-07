@@ -194,7 +194,7 @@ class SmartMentor:
         self,
         llm_client: Any,
         learned_store: Optional[LearnedCommandStore] = None,
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-5-mini",
         temperature: float = 0.7,
         max_retries: int = 2
     ):
@@ -740,7 +740,7 @@ class DualMentor:
         self,
         gpt_client: Any,
         venice_client: Optional[Any] = None,
-        gpt_model: str = "gpt-4o-mini",
+        gpt_model: str = "gpt-5-mini",
         venice_model: str = "venice-uncensored",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
@@ -1030,7 +1030,7 @@ class DualMentor:
 
 def create_smart_mentor(
     llm_client: Any,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-mini",
     temperature: float = 0.7
 ) -> SmartMentor:
     """
@@ -1054,7 +1054,7 @@ def create_smart_mentor(
 def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
-    gpt_model: str = "gpt-4o-mini",
+    gpt_model: str = "gpt-5-mini",
     venice_model: str = "venice-uncensored",
     strategy: str = "gpt_first",
     temperature: float = 0.7

@@ -198,7 +198,7 @@ FORMAT YOUR RESPONSE AS VALID JSON with this structure:
             response = self.gpt_manager.gpt_request(
                 prompt, 
                 task_type="analysis", 
-                model="gpt-4o-mini"
+                model="gpt-5-mini"
             )
             
             # Check if the response is valid JSON

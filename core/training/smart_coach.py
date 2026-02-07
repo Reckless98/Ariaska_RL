@@ -280,7 +280,7 @@ class SmartCoach:
         learned_store: Optional[LearnedCommandStore] = None,
         reward_calculator: Optional[SmartRewardCalculator] = None,
         mentor_log_path: Optional[str] = None,
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-5-mini",
     ):
         self.agent_name = agent_name
         self.gpt_manager = gpt_manager
@@ -1910,13 +1910,27 @@ class SmartCoach:
             logger.debug(f"PPO select failed for {self.agent_name}: {e}")
             return None
 
-    def end_episode_ppo(self, done: bool = True) -> Optional[Dict[str, float]]:
+    # Phase 5.1: Terminal reward mapping so PPO gradient sees phase-advance signal
+    PPO_TERMINAL_REWARDS = {
+        "EXFILTRATION": 50.0,
+        "POST_EXPLOITATION": 25.0,
+        "LATERAL_MOVEMENT": 15.0,
+        "PRIVILEGE_ESCALATION": 10.0,
+        "EXPLOITATION": 5.0,
+    }
+
+    def end_episode_ppo(
+        self, done: bool = True, highest_phase: str = ""
+    ) -> Optional[Dict[str, float]]:
         """Feed collected trajectory to PPO and run update.
 
         Called by SmartOrchestrator at the end of each episode.
+        Phase 5.1: injects terminal reward into last trajectory entry
+        so PPO gradient path sees phase-completion incentive.
 
         Args:
             done: Whether the episode terminated.
+            highest_phase: Name of highest attack phase reached (e.g. "EXFILTRATION").
 
         Returns:
             PPO training metrics dict, or None if no update was needed.
@@ -1927,6 +1941,16 @@ class SmartCoach:
             return None
 
         try:
+            # Phase 5.1: inject terminal reward into last trajectory entry
+            if highest_phase and self._ppo_trajectory:
+                terminal_bonus = self.PPO_TERMINAL_REWARDS.get(highest_phase, 0.0)
+                if terminal_bonus > 0:
+                    self._ppo_trajectory[-1]["reward"] += terminal_bonus
+                    logger.debug(
+                        f"[PPO][{self.agent_name}] Terminal bonus +{terminal_bonus:.1f} "
+                        f"for reaching {highest_phase}"
+                    )
+
             for t in self._ppo_trajectory:
                 self.ppo_agent.store_transition(
                     state=t["state"],
@@ -2284,7 +2308,7 @@ def create_smart_coach(
     agent_name: str,
     gpt_manager: "GPTManager",
     mentor_policy: Optional[MentorPolicy] = None,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5-mini",
 ) -> SmartCoach:
     """
     Factory function to create a SmartCoach.

@@ -33,7 +33,7 @@ class VectorSearch:
         self.cache_size = cache_size
         self.cache = {} if cache_size > 0 else None
         self.gpt_trigger_threshold = 0.4
-        self.gpt_model = "gpt-4o-mini"
+        self.gpt_model = "gpt-5-mini"
         self.database = self._load_database()
         self.gpt_manager = GPTManager()
         console.print(

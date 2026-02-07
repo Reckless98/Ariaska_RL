@@ -110,7 +110,7 @@ def run_training(
     gpt = GPTManager()
 
     config = SmartOrchestratorConfig(
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         mentor_mode="adaptive",
         mentor_warmup_episodes=2,
         mentor_min_rate=0.1,
@@ -198,6 +198,12 @@ def run_training(
                 "value_loss": ppo_metrics.get("avg_value_loss", 0.0),
                 "entropy": ppo_metrics.get("avg_entropy", 0.0),
                 "sources": sources,
+                # Phase 5.1: reward-invariant metrics
+                "unique_commands": ep_result.get("unique_commands_total", 0),
+                "unique_templates": ep_result.get("unique_templates_total", 0),
+                "command_diversity": ep_result.get("command_diversity_ratio", 0.0),
+                "total_discoveries": ep_result.get("total_discoveries", 0),
+                "step_at_first_exploit": ep_result.get("step_at_first_exploit", -1),
             }
             episode_data.append(ep_info)
 

@@ -76,8 +76,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
     """
 
     # --- Configurable constants ---
-    GPT_PRIMARY_MODEL = "gpt-4o-mini"  # ✅ Fixed to use only gpt-4o-mini
-    GPT_FALLBACK_MODEL = "gpt-4o-mini"  # ✅ Same model for consistency
+    GPT_PRIMARY_MODEL = "gpt-5-mini"  # ✅ Phase 5.1: Primary model
+    GPT_FALLBACK_MODEL = "gpt-4o-mini"  # ✅ Fallback when primary unavailable
     GPT_TOKEN_LIMIT = 3000  # ✅ Conservative limit from .env
     epsilon_min = 0.02  # ✅ Minimum exploration
     entropy_beta = 0.01
@@ -458,7 +458,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                     alternative_command = self.gpt_manager.gpt_request(
                         diversity_prompt, 
                         task_type="diversify",
-                        model="gpt-4o-mini",  # Use mini for speed in diversification
+                        model="gpt-5-mini",  # Use mini for speed in diversification
                     )
                     
                     if alternative_command and isinstance(alternative_command, str) and len(alternative_command.split()) > 2:
@@ -508,7 +508,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 
             # Reasoning/explanation
             reason_prompt = f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
-            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-4o-mini")
+            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-5-mini")
             
             if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
                 gpt_reason = f"Fallback reason for {command} in {phase}."
@@ -1481,7 +1481,7 @@ You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and
 - Suggest one new strategy for the next episode.
 Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": "..."}}
 """
-        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-4o-mini")
+        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-5-mini")
         
         # Log GPT feedback using redagent_brain
         if gpt_feedback and hasattr(self, "redagent_brain") and self.redagent_brain:
@@ -1889,7 +1889,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                                 self.gpt_manager.gpt_request,
                                 recommendation_prompt, 
                                 task_type="recommendations",
-                                model="gpt-4o-mini"
+                                model="gpt-5-mini"
                             )
                             try:
                                 # Wait up to 5 seconds for GPT response
@@ -1978,7 +1978,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                         self.gpt_manager.gpt_request,
                         f"Explain in one sentence what the command '{command}' does and what its output shows.", 
                         task_type="reasoning",
-                        model="gpt-4o-mini"
+                        model="gpt-5-mini"
                     )
                     try:
                         # Wait up to 3 seconds for GPT response

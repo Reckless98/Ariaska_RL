@@ -1859,7 +1859,7 @@ Privilege: {self.privilege_level}
 Keep it brief (max 5 lines) and realistic."""
 
                 result = subprocess.run(
-                    ["sgpt", "--model", "gpt-4o-mini", "--temperature", "0.4", "--role", "aria", gpt_prompt],
+                    ["sgpt", "--model", "gpt-5-mini", "--temperature", "0.4", "--role", "aria", gpt_prompt],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8
                 )
                 output = result.stdout.strip()

@@ -1,18 +1,18 @@
 {
   "fallback_chains": {
     "tactical": [
-      "LocalLilyLLM",
-      "GPT4o-mini",
-      "GPT4o"
+      "gpt-5-nano",
+      "gpt-5-mini",
+      "gpt-4o-mini"
     ],
     "strategic": [
-      "LocalSenecaLLM",
-      "LocalWhiteRabbitNeo",
-      "GPT4o"
+      "gpt-5-mini",
+      "gpt-4o-mini"
     ],
     "advanced": [
-      "GPT4o",
-      "GPT4-turbo"
+      "gpt-5.2",
+      "gpt-5-mini",
+      "gpt-4o-mini"
     ]
   },
   "max_cache_size": 1000,

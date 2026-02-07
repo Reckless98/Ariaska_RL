@@ -191,7 +191,7 @@ class LLMOrchestrator:
                 return {
                     "content": response,
                     "success": True,
-                    "model": "gpt-4o-mini",
+                    "model": "gpt-5-mini",
                     "tokens": tokens,
                     "response_time": response_time,
                     "cached": False

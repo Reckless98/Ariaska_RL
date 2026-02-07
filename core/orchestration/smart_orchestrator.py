@@ -58,7 +58,7 @@ class SmartOrchestratorConfig:
     enable_shadow: bool = True
     
     # Smart mentor settings
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-5-mini"
     mentor_mode: str = "anneal"
     mentor_warmup_episodes: int = 1
     mentor_min_rate: float = 0.15
@@ -730,6 +730,8 @@ class SmartOrchestrator:
         
         # ─── PHASE 4: Per-Coach PPO Updates ─────────────────────────
         # Each SmartCoach has its own PPOAgent; trigger update at end of episode
+        # Phase 5.1: pass highest_phase so terminal reward enters PPO gradient
+        highest_phase = metrics.get("highest_phase", "RECON")
         ppo_updates_fired = 0
         ppo_total_policy_loss = 0.0
         ppo_total_value_loss = 0.0
@@ -737,7 +739,9 @@ class SmartOrchestrator:
         for coach_name, coach in self.coaches.items():
             if hasattr(coach, 'end_episode_ppo'):
                 try:
-                    ppo_metrics = coach.end_episode_ppo(done=done)
+                    ppo_metrics = coach.end_episode_ppo(
+                        done=done, highest_phase=highest_phase
+                    )
                     if ppo_metrics:
                         ppo_updates_fired += 1
                         ppo_total_policy_loss += ppo_metrics.get("policy_loss", 0.0)
@@ -1962,15 +1966,15 @@ class SmartOrchestrator:
     ) -> Dict[str, Any]:
         """Compute detailed episode metrics with Phase 5 completion bonus."""
         
-        # ─── Phase 5: Episode completion bonus ───────────────────────
-        # Reward reaching high phases with a flat bonus
+        # ─── Phase 5.1: Episode completion bonus (honest scaling) ────
+        # Reduced from inflated values; terminal PPO reward handles gradient signal
         highest_phase = phase_progression[-1] if phase_progression else "RECON"
         COMPLETION_BONUSES = {
-            "EXFILTRATION": 1500.0,
-            "POST_EXPLOITATION": 750.0,
-            "LATERAL_MOVEMENT": 350.0,
-            "PRIVILEGE_ESCALATION": 150.0,
-            "EXPLOITATION": 50.0,
+            "EXFILTRATION": 350.0,
+            "POST_EXPLOITATION": 175.0,
+            "LATERAL_MOVEMENT": 75.0,
+            "PRIVILEGE_ESCALATION": 30.0,
+            "EXPLOITATION": 15.0,
         }
         completion_bonus = COMPLETION_BONUSES.get(highest_phase, 0.0)
         total_reward += completion_bonus
@@ -2022,6 +2026,59 @@ class SmartOrchestrator:
                     "avg_redundancy_penalty": sum(b.redundancy_penalty for b in all_breakdowns) / len(all_breakdowns),
                     "total_phase_advance_bonus": sum(b.phase_advance_bonus for b in all_breakdowns),
                 }
+        
+        # ─── Phase 5.1: Reward-invariant metrics ─────────────────────
+        # These track ACTUAL skill progress, unaffected by reward scaling
+        all_commands = [
+            r.decision.command for results in step_results
+            for r in results if r.decision and r.decision.command
+        ]
+        all_template_names = [
+            r.decision.template_name for results in step_results
+            for r in results if r.decision and r.decision.template_name
+        ]
+        
+        # Unique commands and diversity
+        unique_cmds = set(all_commands)
+        unique_templates = set(all_template_names)
+        metrics["unique_commands_total"] = len(unique_cmds)
+        metrics["unique_templates_total"] = len(unique_templates)
+        metrics["command_diversity_ratio"] = (
+            len(unique_cmds) / len(all_commands) if all_commands else 0.0
+        )
+        
+        # Discovery count (from reward calculators)
+        total_discoveries = 0
+        for coach in self.coaches.values():
+            if hasattr(coach, 'reward_calculator') and coach.reward_calculator:
+                total_discoveries += len(coach.reward_calculator.discoveries)
+        metrics["total_discoveries"] = total_discoveries
+        
+        # Step at first exploit (how quickly agent reaches exploitation)
+        step_at_first_exploit = -1
+        for step_idx, results in enumerate(step_results):
+            for r in results:
+                pp = r.phase_progression if hasattr(r, 'phase_progression') else []
+                if not pp:
+                    continue
+                # Check if any phase in this step is EXPLOITATION or beyond
+                for p in (pp if isinstance(pp, list) else [pp]):
+                    if p in ("EXPLOITATION", "POST_EXPLOITATION", "LATERAL_MOVEMENT", "EXFILTRATION"):
+                        step_at_first_exploit = step_idx
+                        break
+                if step_at_first_exploit >= 0:
+                    break
+            if step_at_first_exploit >= 0:
+                break
+        
+        # Fallback: check phase_progression list
+        if step_at_first_exploit < 0:
+            exploit_phases = {"EXPLOITATION", "POST_EXPLOITATION", "LATERAL_MOVEMENT", "EXFILTRATION"}
+            for idx, phase in enumerate(phase_progression):
+                if phase in exploit_phases:
+                    step_at_first_exploit = idx
+                    break
+        metrics["step_at_first_exploit"] = step_at_first_exploit
         
         return metrics
     

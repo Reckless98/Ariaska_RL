@@ -102,51 +102,51 @@ class SmartRewardCalculator:
         AttackPhase.EXFILTRATION: 75.0
     }
     
-    # Discovery type bonuses (calibrated for +100-200 reward in short runs)
-    # Enhanced for simulation mode - bigger bonuses since discoveries are less frequent
+    # Discovery type bonuses — Phase 5.1: +30% boost for genuine achievements
+    # These reward ACTUAL discoveries, not just existing
     DISCOVERY_BONUSES = {
         # Port/Service discoveries
-        "open_port": 2.0,       # was 1.0 - ports are valuable in recon
-        "service": 4.0,         # was 2.0 - service identification is key
-        "version": 5.0,         # was 3.0 - version = exploit potential
+        "open_port": 2.5,       # ports are valuable in recon
+        "service": 5.0,         # service identification is key
+        "version": 6.5,         # version = exploit potential
         
         # User/Credential discoveries
-        "user": 6.0,            # NEW: user discovery
-        "username": 6.0,        # was 4.0 - users are high value
-        "password": 20.0,       # was 15.0 - passwords are gold
-        "hash": 12.0,           # was 8.0 - hashes can be cracked
-        "credential": 15.0,     # was 12.0 - any credential is valuable
+        "user": 8.0,            # user discovery
+        "username": 8.0,        # users are high value
+        "password": 26.0,       # passwords are gold
+        "hash": 16.0,           # hashes can be cracked
+        "credential": 20.0,     # any credential is valuable
         
         # Vulnerability discoveries
-        "vulnerability": 8.0,   # was 5.0 - vulns lead to exploitation
-        "cve": 10.0,            # NEW: specific CVE = exploit ready
+        "vulnerability": 10.0,  # vulns lead to exploitation
+        "cve": 13.0,            # specific CVE = exploit ready
         
         # Shell/Access discoveries
-        "shell": 40.0,          # was 30.0 - shell = major milestone
-        "root_shell": 100.0,    # was 75.0 - root = game over
-        "flag": 150.0,          # was 150.0 - CTF flag = ultimate goal
+        "shell": 50.0,          # shell = major milestone
+        "root_shell": 130.0,    # root = game over
+        "flag": 200.0,          # CTF flag = ultimate goal
         
         # Web discoveries
-        "directory": 2.0,       # was 0.5 - directories need more weight
-        "web_path": 3.0,        # NEW: specific interesting paths
-        "file": 2.0,            # was 1.0 - files can be valuable
-        "sensitive_file": 8.0,  # NEW: sensitive files are high value
+        "directory": 2.5,       # directories expand attack surface
+        "web_path": 4.0,        # specific interesting paths
+        "file": 2.5,            # files can be valuable
+        "sensitive_file": 10.0, # sensitive files are high value
         
         # Network discoveries
-        "subdomain": 4.0,       # was 2.0 - subdomains expand attack surface
-        "share": 5.0,           # was 3.0 - shares can leak data
-        "smb_share": 5.0,       # NEW: SMB shares specifically
-        "domain_info": 5.0,     # was 4.0 - domain info helps lateral movement
+        "subdomain": 5.0,       # subdomains expand attack surface
+        "share": 6.5,           # shares can leak data
+        "smb_share": 6.5,       # SMB shares specifically
+        "domain_info": 6.5,     # domain info helps lateral movement
         
         # Database discoveries
-        "database": 6.0,        # NEW: database identified
-        "db_name": 4.0,         # NEW: specific database names
+        "database": 8.0,        # database identified
+        "db_name": 5.0,         # specific database names
         
         # Phase 5: Additional discovery types
-        "dns_record": 3.0,      # DNS records expand recon knowledge
-        "web_parameter": 4.0,   # Injectable parameters are high value
-        "api_endpoint": 5.0,    # API endpoints reveal attack surface
-        "version_info": 3.5,    # Version info = exploit matching
+        "dns_record": 4.0,      # DNS records expand recon knowledge
+        "web_parameter": 5.0,   # Injectable parameters are high value
+        "api_endpoint": 6.5,    # API endpoints reveal attack surface
+        "version_info": 4.5,    # Version info = exploit matching
     }
     
     def __init__(
@@ -154,9 +154,9 @@ class SmartRewardCalculator:
         novelty_weight: float = 1.5,          # was 1.0 - encourages exploration
         redundancy_decay: float = 0.5,
         max_redundancy_penalty: float = 0.5,   # Very low - don't punish too harshly
-        phase_advance_multiplier: float = 3.0, # was 2.0 - bigger phase bonuses
+        phase_advance_multiplier: float = 4.0, # Phase 5.1: 3→4, reward genuine progression
         efficiency_window: int = 10,
-        progress_bonus_per_step: float = 12.0   # Phase 5: 1→12, rewards sustained action
+        progress_bonus_per_step: float = 1.0   # Phase 5.1: Honest scaling (was 12.0)
     ):
         """
         Initialize the reward calculator.
@@ -167,7 +167,7 @@ class SmartRewardCalculator:
             max_redundancy_penalty: Maximum penalty for redundant commands
             phase_advance_multiplier: Multiplier for phase advancement bonus
             efficiency_window: Window for calculating efficiency
-            progress_bonus_per_step: Base bonus for making progress each step (Phase 5: 12.0)
+            progress_bonus_per_step: Base bonus per step (1.0 = industry standard)
         """
         self.novelty_weight = novelty_weight
         self.redundancy_decay = redundancy_decay
@@ -229,8 +229,8 @@ class SmartRewardCalculator:
         template = COMMAND_REGISTRY.get(template_name)
         
         # REWARD MULTIPLIER: Scale POSITIVE rewards, keep penalties real
-        # Industry standard: small base rewards, big rewards for achievements
-        REWARD_MULTIPLIER = 2.0  # Reduced from 4.0 - more honest scaling
+        # Phase 5.1: 2.5 (was 4.0 pre-Phase5, reduced to 2.0, now balanced)
+        REWARD_MULTIPLIER = 2.5
         
         # 1. Base reward from template 
         if template:
@@ -239,7 +239,7 @@ class SmartRewardCalculator:
             explanations.append(f"Base: {breakdown.base_reward:.1f}")
         
         # 1b. Progress bonus - small reward for taking action (not guaranteed success)
-        breakdown.progress_bonus = self.progress_bonus_per_step  # Unscaled - just 1.0
+        breakdown.progress_bonus = self.progress_bonus_per_step  # Phase 5.1: honest 1.0/step
         explanations.append(f"Progress: +{breakdown.progress_bonus:.1f}")
         
         # 2. Novelty bonus - reward trying NEW commands (calibrated for PPO)
@@ -254,12 +254,12 @@ class SmartRewardCalculator:
             breakdown.novelty_bonus = bonus
             explanations.append(f"Novelty (rare): +{bonus:.1f}")
         
-        # 3. CAPPED Redundancy penalty - discourages loops without crushing episodes
-        # Phase 4: Capped at 8.0 (was 32). Still exponential but bounded.
+        # 3. Escalating redundancy penalty - Phase 5.1: scales linearly, no hard cap
+        # 1st repeat=-3, 2nd=-6, 3rd=-9, ... up to soft cap -30
+        # With progress_bonus=1.0, net is negative from FIRST repeat
         repeat_count = self.command_history.count(command)
         if repeat_count > 0:
-            # Exponential with lower cap: 1st repeat = -2, 2nd = -4, 3rd+ = -8 max
-            penalty = min(2.0 * (2 ** min(repeat_count - 1, 2)), 8.0)
+            penalty = min(3.0 * repeat_count, 30.0)
             breakdown.redundancy_penalty = penalty
             if repeat_count >= 3:
                 explanations.append(f"🔁 STUCK LOOP: -{penalty:.1f} (repeat #{repeat_count})")
@@ -332,7 +332,7 @@ class SmartRewardCalculator:
         if cmd_prefix and cmd_prefix not in used_prefixes:
             # First time using this tool type - bonus based on total diversity
             diversity_count = len(used_prefixes) + 1
-            diversity_bonus = min(3.0, diversity_count * 0.5)  # Up to +3 for diverse toolkit
+            diversity_bonus = min(4.0, diversity_count * 0.5)  # Up to +4 for diverse toolkit
             breakdown.novelty_bonus += diversity_bonus
             explanations.append(f"🛠️ New tool ({diversity_count} unique): +{diversity_bonus:.1f}")
         
