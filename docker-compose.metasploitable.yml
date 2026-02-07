@@ -56,6 +56,8 @@ services:
     image: tleemcjr/metasploitable2
     container_name: metasploitable2
     hostname: metasploitable
+    tty: true          # Keep container alive (bash needs a TTY)
+    stdin_open: true   # Allocate stdin for interactive shell
     networks:
       pentest-net:
         ipv4_address: 172.28.0.10
