@@ -110,7 +110,7 @@ def run_training(
     gpt = GPTManager()
 
     config = SmartOrchestratorConfig(
-        model="gpt-5-mini",
+        model="gpt-5.1-codex-mini",
         mentor_mode="adaptive",
         mentor_warmup_episodes=2,
         mentor_min_rate=0.1,
