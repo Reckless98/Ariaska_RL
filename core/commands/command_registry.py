@@ -2430,35 +2430,71 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     """
     Determine current attack phase based on state flags.
     
+    Phase 6.4: Discovery-gated — requires CUMULATIVE evidence to advance.
+    Each phase requires ALL prior phase conditions to be met too,
+    preventing trivial jumps (e.g., one flag → POST_EXPLOITATION).
+    
     Args:
         state: Dictionary of state flags
         
     Returns:
         Current AttackPhase
     """
-    # Check phases in reverse order (most advanced first)
-    if state.get("data_exfiltrated") or state.get("persistence_established"):
-        return AttackPhase.EXFILTRATION
+    # Count service-related flags for ENUMERATION gate
+    service_flags = sum(
+        1 for svc in ["http", "smb", "ssh", "ftp", "ldap", "dns", "snmp", "nfs", "winrm", "kerberos"]
+        if state.get(f"{svc}_service_found")
+    )
+    has_enumeration = service_flags >= 2 or state.get("services_enumerated")
     
-    if state.get("domain_admin_obtained") or state.get("admin_access_obtained"):
-        return AttackPhase.POST_EXPLOITATION
+    # ENUMERATION requires finding ≥2 different services
+    if not has_enumeration:
+        return AttackPhase.RECON
     
-    if state.get("lateral_target_found") or state.get("hash_known"):
-        return AttackPhase.LATERAL_MOVEMENT
-    
-    if state.get("shell_obtained") or state.get("linux_shell_obtained") or state.get("windows_shell_obtained"):
-        return AttackPhase.PRIVILEGE_ESCALATION
-    
-    if state.get("credentials_known") or state.get("sqli_confirmed"):
-        return AttackPhase.EXPLOITATION
-    
-    if state.get("services_enumerated") or any(
-        state.get(f"{svc}_service_found") for svc in 
-        ["http", "smb", "ssh", "ftp", "ldap", "dns", "snmp", "nfs", "winrm", "kerberos"]
-    ):
+    # EXPLOITATION requires credentials OR confirmed vulnerability, AND enumeration
+    has_exploitation = (
+        state.get("credentials_known")
+        or state.get("sqli_confirmed")
+        or (state.get("vulnerability_found") and state.get("services_enumerated"))
+    )
+    if not has_exploitation:
         return AttackPhase.ENUMERATION
     
-    return AttackPhase.RECON
+    # PRIVILEGE_ESCALATION requires shell obtained (not just credentials)
+    has_shell = (
+        state.get("shell_obtained")
+        or state.get("linux_shell_obtained")
+        or state.get("windows_shell_obtained")
+    )
+    if not has_shell:
+        return AttackPhase.EXPLOITATION
+    
+    # LATERAL_MOVEMENT requires shell + lateral evidence
+    has_lateral = (
+        state.get("lateral_target_found")
+        or state.get("hash_known")
+    )
+    if not has_lateral:
+        return AttackPhase.PRIVILEGE_ESCALATION
+    
+    # POST_EXPLOITATION requires admin access + shell
+    has_post = (
+        state.get("admin_access_obtained")
+        or state.get("domain_admin_obtained")
+        or state.get("root_shell_obtained")
+    )
+    if not has_post:
+        return AttackPhase.LATERAL_MOVEMENT
+    
+    # EXFILTRATION requires actual data exfiltration OR persistence
+    has_exfil = (
+        state.get("data_exfiltrated")
+        or state.get("persistence_established")
+    )
+    if not has_exfil:
+        return AttackPhase.POST_EXPLOITATION
+    
+    return AttackPhase.EXFILTRATION
 
 
 def get_commands_by_tag(tag: str) -> List[CommandTemplate]:

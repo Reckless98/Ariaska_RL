@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-02-08T00:27:44.213568",
+  "episodes": 2,
+  "max_steps": 15,
+  "seed": 42,
+  "target_ip": "10.10.10.10",
+  "mode": "simulated",
+  "duration_s": 14.795303106307983,
+  "avg_reward": 1506.5,
+  "last10_avg": 1506.5,
+  "max_reward": 1584.75,
+  "min_reward": 1428.25,
+  "exfil_pct": 50.0,
+  "phase_distribution": {
+    "POST_EXPLOITATION": 1,
+    "EXFILTRATION": 1
+  },
+  "decision_sources": {
+    "ppo": 84,
+    "playbook": 6,
+    "registry": 0,
+    "anti_repeat": 1
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 1428.25,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": 15,
+      "ppo_updates": 3,
+      "policy_loss": 0.16789418024321398,
+      "value_loss": 1.2160560952292547,
+      "entropy": 3.601505676905314,
+      "sources": {
+        "ppo": 41,
+        "playbook": 4,
+        "registry": 0,
+        "anti_repeat": 1
+      },
+      "unique_commands": 40,
+      "unique_templates": 42,
+      "command_diversity": 0.851063829787234,
+      "total_discoveries": 6,
+      "step_at_first_exploit": 2
+    },
+    {
+      "episode": 2,
+      "reward": 1584.75,
+      "highest_phase": "EXFILTRATION",
+      "steps": 15,
+      "ppo_updates": 4,
+      "policy_loss": 0.19394403354575238,
+      "value_loss": 0.6536372018357118,
+      "entropy": 3.4236841102441153,
+      "sources": {
+        "ppo": 43,
+        "playbook": 2,
+        "registry": 0,
+        "anti_repeat": 0
+      },
+      "unique_commands": 42,
+      "unique_templates": 44,
+      "command_diversity": 0.8936170212765957,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 2
+    }
+  ]
+}

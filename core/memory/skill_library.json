@@ -1,22 +1,29 @@
 {
   "version": "1.0",
-  "last_updated": 1770500165.291113,
-  "skill_count": 8,
+  "last_updated": 1770522826.8920484,
+  "skill_count": 9,
   "skills": {
     "skill_001": {
       "id": "skill_001",
-      "if_condition": "When port 22 is open and SSH banner detected",
-      "then_action": "Run SSH enumeration with nmap scripts",
+      "if_condition": "When port list includes 22/80/443 and SSH or HTTP service banners are detected with version strings",
+      "then_action": "Run targeted nmap scripts for SSH- and HTTP-specific enumeration before service exploitation.",
       "parameters_template": {
-        "port": 22,
-        "script": "ssh-*"
+        "port": [
+          22,
+          80,
+          443
+        ],
+        "script": [
+          "ssh-hostkey",
+          "http-headers",
+          "http-title"
+        ]
       },
-      "confidence": 0.85,
+      "confidence": 0.9,
       "evidence_refs": [
-        "ep001_step5",
-        "ep001_step7"
+        "ep001_step05"
       ],
-      "created_at": 1770492809.0169702,
+      "created_at": 1770513643.6523743,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -147,6 +154,27 @@
         "ep001_step12"
       ],
       "created_at": 1770500165.290705,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_fuzz": {
+      "id": "skill_web_fuzz",
+      "if_condition": "When HTTP/HTTPS services respond with 200 OK and directories listed",
+      "then_action": "Execute directory and file enumeration (gobuster or dirsearch) to uncover hidden endpoints",
+      "parameters_template": {
+        "wordlist": "common.txt",
+        "extensions": [
+          "php",
+          "html",
+          "txt"
+        ]
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1770522826.8913646,
       "usage_count": 0,
       "success_rate": 0.0
     }

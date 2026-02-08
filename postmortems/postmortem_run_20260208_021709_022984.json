@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260208_021709_022984",
+  "timestamp": 1770513457.3938391,
+  "key_outcomes": {
+    "wins": [
+      "Consistently captured SSH and HTTP banners early (ep001_step02, ep001_step04), enabling precise target profiling and high reward despite failure.",
+      "Maintained mentor engagement cadence, collecting detailed environment feedback that can guide the next experiment."
+    ],
+    "fails": [
+      "Privilege escalation attempts stalled due to missing credentials and absence of writable sudoers entries (ep001_step12).",
+      "Failed to pivot from initial host to internal network segments because lateral movement tools were not executed after initial enumeration (ep001_step15)."
+    ],
+    "summary": "Run delivered strong early reconnaissance data but could not translate that into foothold or lateral movement, resulting in zero successful episode completions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated privilege escalation commands (sudo -l, exploit scripts) failed because the target lacked sudo rights and stored credentials were invalid.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and ssh-audit",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1770513464.45563,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If HTTP 80/443 responds with banner indicating outdated server",
+      "then_action": "Trigger nikto scan followed by directory brute force for common paths",
+      "parameters_template": {
+        "port": 80,
+        "scanner": "nikto",
+        "wordlist": "common-dirs"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1770513464.4556427,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Upon receipt of filesystem info showing writable /tmp",
+      "then_action": "Deploy limited local enumeration with linpeas and grep for sudo permissions",
+      "parameters_template": {
+        "tools": [
+          "linpeas",
+          "sudo -l"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1770513464.4556518,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success capturing SSH metadata critical for future targeting."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Effective HTTP banner enumeration provided actionable intelligence within first 5 steps."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential gathering before privilege escalation",
+      "description": "Focus on harvesting valid credentials via HTTP forms or SSH fallback before attempting sudo enumeration to avoid repeated denial.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated pivot trigger post enumeration",
+      "description": "After successful service enumeration, trigger lateral movement scripts targeting adjacent subnet hosts to validate pivot capability.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

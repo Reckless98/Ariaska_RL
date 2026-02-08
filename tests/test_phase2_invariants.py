@@ -623,16 +623,22 @@ class TestDiscoveryToStateFlagBridge:
         assert discoveries.get("shell") is True, "Should detect shell in meterpreter output"
 
     def test_service_discovery_triggers_enumeration(self):
-        """Service discovery should set state flags that enable phase advancement."""
+        """Service discovery should set state flags that enable phase advancement.
+        Phase 6.4: Requires ≥2 services for ENUMERATION (stricter gating)."""
         from core.llm.smart_mentor import AttackContext
         from core.commands.command_registry import AttackPhase
 
         ctx = AttackContext(target="10.10.10.10")
         assert ctx.current_phase == AttackPhase.RECON
 
-        # Adding HTTP service should advance to ENUMERATION via state flag
+        # Adding ONE service should stay in RECON (Phase 6.4 stricter gating)
         ctx.add_service("http", 80)
         assert ctx.state_flags.get("http_service_found") is True
+        assert ctx.current_phase == AttackPhase.RECON  # Need ≥2 services
+
+        # Adding SECOND service should advance to ENUMERATION
+        ctx.add_service("ssh", 22)
+        assert ctx.state_flags.get("ssh_service_found") is True
         assert ctx.current_phase == AttackPhase.ENUMERATION
 
     def test_credentials_advance_to_exploitation(self):
@@ -641,7 +647,9 @@ class TestDiscoveryToStateFlagBridge:
         from core.commands.command_registry import AttackPhase
 
         ctx = AttackContext(target="10.10.10.10")
-        ctx.add_service("ssh", 22)  # Move to ENUMERATION first
+        # Phase 6.4: Need ≥2 services for ENUMERATION
+        ctx.add_service("ssh", 22)
+        ctx.add_service("http", 80)
         assert ctx.current_phase == AttackPhase.ENUMERATION
 
         ctx.set_state_flag("credentials_known")
@@ -653,6 +661,9 @@ class TestDiscoveryToStateFlagBridge:
         from core.commands.command_registry import AttackPhase
 
         ctx = AttackContext(target="10.10.10.10")
+        # Phase 6.4: Need ≥2 services + credentials for progressive advance
+        ctx.add_service("ssh", 22)
+        ctx.add_service("http", 80)
         ctx.set_state_flag("credentials_known")  # EXPLOITATION
         ctx.set_state_flag("shell_obtained")       # Should → PRIVESC
         assert ctx.current_phase == AttackPhase.PRIVILEGE_ESCALATION

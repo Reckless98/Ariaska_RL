@@ -1,0 +1,105 @@
+{
+  "run_id": "run_20260208_031049_4cbc79",
+  "timestamp": 1770516674.6280837,
+  "key_outcomes": {
+    "wins": [
+      "Maintained high reward (87.5) per episode indicating consistent tactical progress even without full mission success",
+      "Sustained engagement through 15 mentor calls, demonstrating initiative in seeking guidance for stuck states"
+    ],
+    "fails": [
+      "Never reached mission success, indicating a break in the terminal exploitation or cleanup phase",
+      "Repeated reliance on mentor guidance suggests gaps in autonomous decision-making or skill application"
+    ],
+    "summary": "Run generated steady tactical progress but repeatedly fell short of mission completion; focus on translating reconnaissance into exploitation/autonomous action."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to convert reconnaissance findings into successful exploitation, despite gathering useful data",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step23"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Use targeted nmap SSH scripts to enumerate supported ciphers and authentication methods",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.87,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770516682.2913244,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web service requires authentication",
+      "then_action": "Deploy Burp intruder-like automation for credential guessing using known user lists",
+      "parameters_template": {
+        "enumeration_file": "/data/usernames.txt",
+        "max_attempts": 25
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step14"
+      ],
+      "created_at": 1770516682.2913358,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When foothold is gained without privilege escalation",
+      "then_action": "Chain low-privilege stability check with sudo enumeration scripts to identify escalation paths",
+      "parameters_template": {
+        "sudo_file": "/etc/sudoers",
+        "script": "sudo-privesc-check.sh"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step20"
+      ],
+      "created_at": 1770516682.2913506,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance success with SSH targets indicates strong leverage for exploitation phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tie reconnaissance to exploitation automation",
+      "description": "Automate transition from service enumeration (SSH/web) to exploitation scripts to close the gap before mentor intervention",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency through checkpoint reasoning",
+      "description": "Introduce intermediate decision heuristics after key reconnaissance events to prompt autonomous next steps instead of waiting for guidance",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate privilege escalation workflows",
+      "description": "Test sudo enumeration skill cards on varied foothold scenarios to ensure reliable escalation success",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

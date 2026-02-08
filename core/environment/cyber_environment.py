@@ -1515,30 +1515,74 @@ class CyberEnvironment:
             self.done = True
 
     def _check_phase_transition(self):
-        """Check if phase transition criteria are met"""
+        """Check if phase transition criteria are met.
+        
+        Phase 6.4: DISCOVERY-GATED transitions for live MS2 training.
+        Agents must demonstrate REAL progress (actual discoveries) to
+        advance, not just run N commands of the right category.
+        
+        Gates:
+            RECON → ENUMERATION:   ≥3 ports discovered
+            ENUMERATION → EXPLOIT: ≥2 services identified OR credentials known
+            EXPLOIT → PRIVESC:     shell obtained
+            PRIVESC → EXFILTRATE:  root shell OR admin access
+            EXFILTRATE → DONE:     data exfiltrated
+        """
         current = self.current_phase
         
         if current == "exfiltrate" and self.data_exfiltrated:
             self.done = True
             return
-            
-        if current in self.phase_transitions:
-            threshold = self.phase_transitions[current]["threshold"]
-            next_phase = self.phase_transitions[current]["next"]
-            
-            if self.phase_progress[current] >= threshold:
-                if next_phase == "complete":
-                    self.done = True
-                else:
-                    self.current_phase = next_phase
-                    console.print(f"[green]✓ Phase transition: {current} → {next_phase}[/green]")
-                    
-                    self.state = self.get_global_state()
-                    
-                    self._visualize_state_change("Phase transition", {
-                        "previous_phase": current,
-                        "new_phase": next_phase
-                    })
+        
+        if current not in self.phase_transitions:
+            return
+        
+        next_phase = self.phase_transitions[current]["next"]
+        counter_threshold = self.phase_transitions[current]["threshold"]
+        counter_met = self.phase_progress[current] >= counter_threshold
+        
+        # ── Phase 6.4: Discovery gates (require REAL evidence) ──────
+        # Counter must ALSO be met (backward compat). Discovery gate
+        # is the binding constraint — prevents trivial phase advancement.
+        discovery_gate_met = False
+        
+        if current == "recon":
+            # Need at least 3 real ports discovered
+            n_ports = len(self.open_ports) if self.open_ports else 0
+            discovery_gate_met = n_ports >= 3
+        elif current == "enumeration":
+            # Need services identified OR credentials
+            n_services = len(self.services) if self.services else 0
+            has_creds = self.credentials_found
+            discovery_gate_met = n_services >= 2 or has_creds
+        elif current == "exploit":
+            # Need shell access
+            has_shell = len(self.active_shells) > 0 or self.privilege_level not in ("none", "")
+            discovery_gate_met = has_shell
+        elif current == "privesc":
+            # Need root/admin
+            is_root = self.privilege_level in ("root", "admin", "SYSTEM")
+            discovery_gate_met = is_root
+        elif current == "exfiltrate":
+            # Need actual exfiltration
+            discovery_gate_met = self.data_exfiltrated
+        else:
+            # Unknown phase — fall back to counter only
+            discovery_gate_met = True
+        
+        if counter_met and discovery_gate_met:
+            if next_phase == "complete":
+                self.done = True
+            else:
+                self.current_phase = next_phase
+                console.print(f"[green]✓ Phase transition: {current} → {next_phase}[/green]")
+                
+                self.state = self.get_global_state()
+                
+                self._visualize_state_change("Phase transition", {
+                    "previous_phase": current,
+                    "new_phase": next_phase
+                })
 
     # ─────────────────────────────────────────────
     # 👁️ Orion Strategic Oversight

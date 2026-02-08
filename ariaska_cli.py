@@ -14,6 +14,7 @@ import json
 import time
 import random
 from pathlib import Path
+from typing import Optional
 from datetime import datetime
 from collections import Counter
 from rich.console import Console
@@ -74,6 +75,12 @@ def run_training(
     difficulty: str = "medium",
     verbosity: str = "standard",
     checkpoint_path: str = "models/enhanced/ppo_checkpoint.pt",
+    dashboard_mode: str = "rich",
+    log_jsonl: bool = True,
+    mentor_budget: float = 0.30,
+    mentor_min_rate: float = 0.05,
+    mentor_max_rate: float = 0.50,
+    resume_path: Optional[str] = None,
 ):
     """
     Consolidated training loop with PPO metrics, checkpoint persistence,
@@ -113,12 +120,19 @@ def run_training(
         model="gpt-5.1-codex-mini",
         mentor_mode="adaptive",
         mentor_warmup_episodes=2,
-        mentor_min_rate=0.1,
-        mentor_max_rate=0.5,
+        mentor_min_rate=mentor_min_rate,
+        mentor_max_rate=mentor_max_rate,
+        mentor_budget_pct=mentor_budget,
         max_steps_per_episode=max_steps,
         default_target=target_ip,
         dashboard_enabled=(verbosity != "quiet"),
-        dashboard_mode="live" if verbosity == "verbose" else "periodic",
+        dashboard_mode=dashboard_mode if dashboard_mode != "rich" else (
+            "live" if verbosity == "verbose" else "periodic"
+        ),
+        event_jsonl_path=(
+            f"traces/events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+            if log_jsonl else None
+        ),
     )
 
     orch = SmartOrchestrator(
@@ -129,9 +143,22 @@ def run_training(
     )
 
     # Load checkpoint if exists
-    if os.path.exists(checkpoint_path):
+    if resume_path and os.path.exists(resume_path):
+        orch.load_ppo_checkpoints(resume_path)
+        console.print(f"[green]✅ Resumed from checkpoint: {resume_path}[/green]")
+    elif os.path.exists(checkpoint_path):
         orch.load_ppo_checkpoints(checkpoint_path)
         console.print(f"[green]✅ Loaded PPO checkpoint from {checkpoint_path}[/green]")
+    
+    # Phase 6.2: Initialize CheckpointManager for atomic saves
+    from core.training.checkpoint_manager import CheckpointManager, CheckpointConfig
+    ckpt_mgr = CheckpointManager(config=CheckpointConfig(
+        checkpoint_dir=os.path.dirname(checkpoint_path) or "models/enhanced",
+        checkpoint_name=os.path.basename(checkpoint_path),
+        auto_save_interval=5,
+        target_health_enabled=(mode == "live"),
+        target_ip=target_ip if mode == "live" else "",
+    ))
 
     # ── Training Loop ────────────────────────────────────────────────────
     all_rewards = []
@@ -206,6 +233,18 @@ def run_training(
                 "step_at_first_exploit": ep_result.get("step_at_first_exploit", -1),
             }
             episode_data.append(ep_info)
+
+            # Phase 6.2: Auto-checkpoint every 5 episodes
+            if ckpt_mgr.should_auto_save(ep):
+                try:
+                    state_dict = orch.get_ppo_state_dicts() if hasattr(orch, 'get_ppo_state_dicts') else {}
+                    ckpt_mgr.auto_save(state_dict, ep, metadata={
+                        "episode": ep,
+                        "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
+                        "highest_phase": highest,
+                    })
+                except Exception as exc:
+                    console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
 
             recent = all_rewards[-10:]
             avg_recent = sum(recent) / len(recent)
@@ -417,6 +456,23 @@ def main():
                          choices=["quiet", "standard", "verbose"])
     train_p.add_argument("--checkpoint", type=str, default=None,
                          help="PPO checkpoint path (auto-selected per mode if omitted)")
+    
+    # Phase 6.2: New flags
+    train_p.add_argument("--dashboard", type=str, default="rich",
+                         choices=["textual", "rich", "off"],
+                         help="Dashboard mode (default: rich)")
+    train_p.add_argument("--log-jsonl", action="store_true", default=True,
+                         help="Enable JSONL event logging (default: on)")
+    train_p.add_argument("--no-log-jsonl", action="store_true", default=False,
+                         help="Disable JSONL event logging")
+    train_p.add_argument("--mentor-budget", type=float, default=0.30,
+                         help="Mentor call budget as fraction of steps (default: 0.30)")
+    train_p.add_argument("--mentor-min-rate", type=float, default=0.05,
+                         help="Minimum mentor call rate (default: 0.05)")
+    train_p.add_argument("--mentor-max-rate", type=float, default=0.50,
+                         help="Maximum mentor call rate (default: 0.50)")
+    train_p.add_argument("--resume", type=str, default=None,
+                         help="Resume from checkpoint path")
 
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
@@ -484,6 +540,12 @@ def main():
                 difficulty=preset["difficulty"],
                 verbosity=args.verbosity,
                 checkpoint_path=checkpoint_path,
+                dashboard_mode=args.dashboard,
+                log_jsonl=args.log_jsonl and not args.no_log_jsonl,
+                mentor_budget=args.mentor_budget,
+                mentor_min_rate=args.mentor_min_rate,
+                mentor_max_rate=args.mentor_max_rate,
+                resume_path=args.resume,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

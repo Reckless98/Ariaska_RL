@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260208_022312_fc2797",
+  "timestamp": 1770513799.8180025,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode with consistent reward accumulation (40.00) despite failures, indicating persistence through automation phases",
+      "Triggered all 10 mentor calls, demonstrating thorough engagement with escalation checkpoints"
+    ],
+    "fails": [
+      "Zero success rate indicates inability to reach objectives within single episode, likely due to repeated early-stage containment or detection failures",
+      "High reliance on mentor interventions suggests insufficient autonomous decision-making or inadequate tooling configurations"
+    ],
+    "summary": "Episode delivered stable reward but failed to meet mission success; recurring operational gaps around early checkpoint execution require focused remediation before next run."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated failure to complete objective after initial reconnaissance and exploitation attempts",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260208_022312_fc2797_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260208_022312_fc2797_ep001_flow02_step05"
+      ],
+      "created_at": 1770513806.8768315,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If no valid credentials from default password list and brute-force window remains open",
+      "then_action": "Escalate to credential stuffing with adaptive timing and lockout monitoring",
+      "parameters_template": {
+        "tool": "hydra",
+        "timeout_seconds": 10,
+        "monitor_lockouts": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260208_022312_fc2797_ep001_flow03_step08"
+      ],
+      "created_at": 1770513806.8768451,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Upon detection of IDS/IPS alerts during attempted exploit",
+      "then_action": "Switch to alternate lower-noise payload with obfuscation",
+      "parameters_template": {
+        "payload": "meterpreter_reverse_http",
+        "encode": "shikata_ga_nai"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260208_022312_fc2797_ep001_flow01_step12"
+      ],
+      "created_at": 1770513806.876854,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent need for adaptive credential stuffing after default list fails"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Adaptive SSH Exploration",
+      "description": "Integrate enhanced SSH banner parsing and dynamic nmap script selection before brute force attempts to increase initial foothold success",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Burst Tuning",
+      "description": "Test hydra timing and lockout detection adjustments to minimize IDS alerts while expanding credential coverage",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

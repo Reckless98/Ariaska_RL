@@ -188,6 +188,18 @@ class GPTManager:
     }
     
     FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
+
+    # Cost per 1K tokens (USD) — approximate, input+output blended average
+    COST_PER_1K_TOKENS: Dict[str, float] = {
+        "gpt-5-nano": 0.00010,
+        "gpt-5-mini": 0.00040,
+        "gpt-5.1-codex-mini": 0.00150,
+        "gpt-5.1-codex": 0.00600,
+        "gpt-5.2-codex": 0.01000,
+        "gpt-5.2": 0.01000,
+        "gpt-4o-mini": 0.00015,
+        "gpt-4o": 0.00250,
+    }
     
     def __init__(self, enable_llm: bool = None, require_llm: bool = None, 
                  offline: bool = None):
@@ -289,6 +301,12 @@ class GPTManager:
             "failures": 0,
             "tokens_used_total": 0
         }
+
+        # Phase 6.3: Per-model token tracking and cost estimation
+        self.tokens_by_model: Dict[str, int] = {}       # model_name → total tokens
+        self.requests_by_model: Dict[str, int] = {}     # model_name → request count
+        self._cumulative_cost_usd: float = 0.0           # running total $
+        self._episode_cost_usd: float = 0.0              # per-episode $
         
         # Load existing cache
         self._load_cache()
@@ -694,6 +712,7 @@ class GPTManager:
         """Reset per-episode token counters (call at episode start)."""
         self.tokens_used = 0
         self.tokens_by_agent.clear()
+        self._episode_cost_usd = 0.0
     
     def get_budget_status(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -923,6 +942,13 @@ class GPTManager:
                     tokens_used = response.usage.total_tokens
                     self.tokens_used += tokens_used
                     self.stats["tokens_used_total"] += tokens_used
+                    # Phase 6.3: per-model tracking + cost
+                    self.tokens_by_model[model] = self.tokens_by_model.get(model, 0) + tokens_used
+                    self.requests_by_model[model] = self.requests_by_model.get(model, 0) + 1
+                    cost_rate = self.COST_PER_1K_TOKENS.get(model, 0.001)
+                    step_cost = (tokens_used / 1000.0) * cost_rate
+                    self._cumulative_cost_usd += step_cost
+                    self._episode_cost_usd += step_cost
                 
                 # Sanitize if it's a command
                 if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
@@ -1014,11 +1040,37 @@ class GPTManager:
         return self.tokens_used
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get usage statistics"""
+        """Get usage statistics including cost tracking."""
         return {
             **self.stats,
             "tokens_used_current_episode": self.tokens_used,
-            "cache_size": len(self.cache)
+            "cache_size": len(self.cache),
+            "cumulative_cost_usd": round(self._cumulative_cost_usd, 6),
+            "episode_cost_usd": round(self._episode_cost_usd, 6),
+            "tokens_by_model": dict(self.tokens_by_model),
+            "requests_by_model": dict(self.requests_by_model),
+        }
+
+    def get_cost_summary(self) -> Dict[str, Any]:
+        """Get detailed cost breakdown by model.
+        
+        Returns:
+            Dict with cumulative_usd, episode_usd, and per-model breakdown.
+        """
+        breakdown = {}
+        for model_name, tok_count in self.tokens_by_model.items():
+            rate = self.COST_PER_1K_TOKENS.get(model_name, 0.001)
+            cost = (tok_count / 1000.0) * rate
+            breakdown[model_name] = {
+                "tokens": tok_count,
+                "requests": self.requests_by_model.get(model_name, 0),
+                "cost_usd": round(cost, 6),
+                "rate_per_1k": rate,
+            }
+        return {
+            "cumulative_usd": round(self._cumulative_cost_usd, 6),
+            "episode_usd": round(self._episode_cost_usd, 6),
+            "models": breakdown,
         }
     
     def store_learning_feedback(self, agent_id: str, command: str, 

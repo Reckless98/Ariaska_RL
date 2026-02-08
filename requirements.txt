@@ -17,6 +17,7 @@ pydantic>=2.0.0
 colorama>=0.4.6
 tqdm>=4.65.0
 matplotlib>=3.7.1
+textual>=0.47.0
 
 # Memory & vectorization
 # sqlite3 is a built-in Python module

@@ -36,6 +36,7 @@ class TerminationReason(Enum):
 from core.llm.reward_calculator import SmartRewardCalculator, RewardBreakdown
 from core.training.smart_coach import SmartCoach, SmartDecisionResult, SmartStepContext
 from core.observability import LiveDashboard, DashboardConfig
+from core.tracing.event_bus import EventBus, StepEvent, AgentStepRecord, GenericEvent, EventKind
 
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
@@ -89,8 +90,14 @@ class SmartOrchestratorConfig:
     
     # Dashboard settings
     dashboard_enabled: bool = True
-    dashboard_mode: str = "live"  # "off", "summary", "live"
+    dashboard_mode: str = "live"  # "off", "summary", "live", "textual"
     dashboard_watch_rate: float = 1.0
+    
+    # Phase 6.2: Mentor budget
+    mentor_budget_pct: float = 0.30  # 30% of steps can be mentor calls
+    
+    # Phase 6.2: EventBus JSONL logging
+    event_jsonl_path: Optional[str] = None
 
 
 @dataclass
@@ -189,15 +196,80 @@ class SmartOrchestrator:
         self.env = env
         self.gpt_manager = gpt_manager
         self.trace_writer = trace_writer
-        self.skill_library = skill_library
         self.config = config or SmartOrchestratorConfig()
         self.verbosity = verbosity
         
         self.run_dir: Optional[str] = None
         
+        # ─── PHASE 6.3: SkillLibrary — persistent skill cards from postmortems ──
+        if skill_library is not None:
+            self.skill_library = skill_library
+        else:
+            try:
+                from core.postmortem.skill_library import SkillLibrary
+                self.skill_library = SkillLibrary(path="data/skill_library.json")
+                self.skill_library.load()
+                logger.info(f"Phase 6.3: SkillLibrary loaded ({self.skill_library.count()} skills)")
+            except Exception as e:
+                logger.warning(f"Phase 6.3: SkillLibrary init failed: {e}")
+                self.skill_library = None
+        
+        # ─── PHASE 6.3: Campaign Memory — cross-episode persistent knowledge ──
+        self.campaign_memory = None
+        try:
+            from core.memory.campaign_memory import CampaignMemory
+            self.campaign_memory = CampaignMemory(path="data/campaign_state.json")
+            self.campaign_memory.load()
+            logger.info(f"Phase 6.3: CampaignMemory loaded (episodes={self.campaign_memory.total_episodes})")
+        except Exception as e:
+            logger.warning(f"Phase 6.3: CampaignMemory init failed: {e}")
+        
+        # ─── PHASE 6.3: Training Watchdog — overnight safety monitor ──
+        self.watchdog = None
+        try:
+            from core.training.watchdog import TrainingWatchdog, WatchdogConfig
+            # Phase 6.4: Live mode needs longer timeouts (real commands take time)
+            wdog_cfg = WatchdogConfig()
+            if self._is_live_mode:
+                wdog_cfg.episode_wall_clock_limit = 3600.0  # 1 hour per episode
+                wdog_cfg.wall_clock_limit = 120.0  # 2 min per step (some tools are slow)
+                wdog_cfg.phase_stuck_threshold = 40  # More patience in live mode
+            self.watchdog = TrainingWatchdog(wdog_cfg)
+            logger.info("Phase 6.3: TrainingWatchdog initialized")
+        except Exception as e:
+            logger.warning(f"Phase 6.3: Watchdog init failed: {e}")
+        
+        # ─── PHASE 6.3: Smart Output Parser — regex + nano-LLM fallback ──
+        self.smart_parser = None
+        try:
+            from core.execution.smart_output_parser import SmartOutputParser
+            self.smart_parser = SmartOutputParser(
+                gpt_manager=gpt_manager,
+                enable_llm=True,
+                max_llm_calls_per_episode=20,
+            )
+            logger.info("Phase 6.3: SmartOutputParser initialized (regex + nano-LLM)")
+        except Exception as e:
+            logger.warning(f"Phase 6.3: SmartOutputParser init failed: {e}")
+        
+        # ─── PHASE 6.3: OrionPostmortem — end-of-episode analysis ──
+        self.postmortem = None
+        try:
+            from core.postmortem.orion_postmortem import OrionPostmortem
+            self.postmortem = OrionPostmortem(
+                gpt_manager=gpt_manager,
+                output_dir="postmortems",
+            )
+            logger.info("Phase 6.3: OrionPostmortem initialized")
+        except Exception as e:
+            logger.warning(f"Phase 6.3: OrionPostmortem init failed: {e}")
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
+        
+        # Phase 6.4: Detect live mode early so coaches and reward calc can use it
+        self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
         
         # Initialize smart coaches
         self.coaches: Dict[str, SmartCoach] = {}
@@ -207,7 +279,8 @@ class SmartOrchestrator:
         self.attack_context: Optional[AttackContext] = None
         
         # Global reward calculator (for episode-level tracking)
-        self.global_reward_calc = SmartRewardCalculator()
+        # Phase 6.4: MS2-aware if in live mode
+        self.global_reward_calc = SmartRewardCalculator(ms2_mode=self._is_live_mode)
         
         # Episode tracking
         self.current_episode = 0
@@ -250,6 +323,23 @@ class SmartOrchestrator:
         # Initialize LiveDashboard for real-time visibility
         self.dashboard = self._init_dashboard()
         
+        # ─── PHASE 6.2: EventBus for decoupled event-driven architecture ──
+        self.event_bus = EventBus(
+            jsonl_path=self.config.event_jsonl_path,
+        )
+        # Wire dashboard as EventBus subscriber if textual mode
+        if self.config.dashboard_mode == "textual":
+            try:
+                from core.ui.textual_dashboard import create_textual_dashboard
+                self.textual_dashboard = create_textual_dashboard()
+                self.event_bus.subscribe(self.textual_dashboard.on_event)
+                logger.info("Phase 6.2: Textual dashboard subscribed to EventBus")
+            except Exception as e:
+                logger.warning(f"Textual dashboard init failed: {e}")
+                self.textual_dashboard = None
+        else:
+            self.textual_dashboard = None
+        
         # ─── PHASE 3: PPO Agent Integration ──────────────────────────
         # Creates a PPO actor-critic that runs alongside the existing
         # SmartCoach pipeline. Collects trajectories during episodes
@@ -283,7 +373,7 @@ class SmartOrchestrator:
         # _generate_simulated_output() is used instead.
         # These two paths NEVER mix.
         self.live_executor = None
-        self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
+        # _is_live_mode already set above (before coaches init)
         if self._is_live_mode:
             try:
                 from core.execution.live_executor import LiveCommandExecutor
@@ -441,6 +531,7 @@ class SmartOrchestrator:
     def _init_smart_coaches(self):
         """Initialize SmartCoach for each agent."""
         from core.training.mentor_policy import MentorPolicy, MentorPolicyConfig
+        from core.training.mentor_controller import MentorController, MentorControllerConfig
         
         policy_config = MentorPolicyConfig(
             mode=self.config.mentor_mode,
@@ -449,15 +540,30 @@ class SmartOrchestrator:
             max_mentor_rate=self.config.mentor_max_rate,
         )
         
+        # Phase 6.2: Create shared MentorController (all coaches share one)
+        mentor_ctrl_config = MentorControllerConfig(
+            budget_pct=getattr(self.config, 'mentor_budget_pct', 0.30),
+            min_rate=self.config.mentor_min_rate,
+            max_rate=self.config.mentor_max_rate,
+            warmup_episodes=self.config.mentor_warmup_episodes,
+        )
+        self.mentor_controller = MentorController(config=mentor_ctrl_config)
+        
         for agent_name in self.agents.keys():
             policy = MentorPolicy(policy_config)
+            
+            # Phase 6.4: Create MS2-aware reward calculator for live mode
+            ms2_mode = self._is_live_mode
+            reward_calc = SmartRewardCalculator(ms2_mode=ms2_mode) if ms2_mode else None
             
             self.coaches[agent_name] = SmartCoach(
                 agent_name=agent_name,
                 gpt_manager=self.gpt_manager,
                 mentor_policy=policy,
+                mentor_controller=self.mentor_controller,
                 skill_library=self.skill_library,
                 trace_writer=self.trace_writer,
+                reward_calculator=reward_calc,
                 mentor_log_path=None,
                 model=self.config.model,
             )
@@ -542,6 +648,20 @@ class SmartOrchestrator:
             coach.reset_episode(episode_number)
         self.global_reward_calc.reset()
         
+        # Phase 6.2: Reset MentorController for new episode
+        if hasattr(self, 'mentor_controller') and self.mentor_controller:
+            self.mentor_controller.start_episode(episode_number, max_steps)
+        
+        # Phase 6.2: Emit episode_start event
+        if hasattr(self, 'event_bus'):
+            self.event_bus.publish_generic(
+                EventKind.EPISODE_START,
+                message=f"Episode {episode_number} started",
+                data={"episode": episode_number, "max_steps": max_steps},
+                episode_id=episode_id,
+                episode_num=episode_number,
+            )
+        
         # PHASE 3: Clear PPO trajectory for new episode
         self._ppo_trajectory = []
         
@@ -559,6 +679,12 @@ class SmartOrchestrator:
         # Phase 6.1: Reset live executor per-episode tracking
         if self.live_executor:
             self.live_executor.reset_episode()
+        
+        # ─── PHASE 6.3: Reset watchdog + smart parser per episode ────
+        if self.watchdog:
+            self.watchdog.reset_episode()
+        if self.smart_parser:
+            self.smart_parser.reset_episode()
         
         # Reset stuck detection
         self.action_history.clear()
@@ -588,6 +714,16 @@ class SmartOrchestrator:
         difficulty = difficulty or self.config.default_difficulty
         platform = platform or state.get("os", self.config.default_platform)
         self.init_attack(target, difficulty, platform)
+        
+        # ─── PHASE 6.3: Inject campaign memory into attack context ───
+        if self.campaign_memory and self.attack_context:
+            self.campaign_memory.inject_into_attack_context(self.attack_context)
+            prior = self.campaign_memory.get_prior_knowledge()
+            if prior.get("known_ports"):
+                logger.info(
+                    f"Phase 6.3: Injected {len(prior['known_ports'])} known ports, "
+                    f"best_phase_ever={prior.get('best_phase_ever', 'RECON')}"
+                )
         
         # Update context from initial state
         self._update_context_from_state(state)
@@ -680,6 +816,22 @@ class SmartOrchestrator:
             # Print step table for live visibility
             self.dashboard.print_step_table(step)
             
+            # Phase 6.2: Emit StepEvent to EventBus
+            if hasattr(self, 'event_bus'):
+                self._emit_step_event(
+                    episode_id=episode_id,
+                    episode_num=episode_number,
+                    step_num=step,
+                    agent_results=step_agent_results,
+                    env_reward=env_reward,
+                    episode_reward=episode_reward,
+                    total_mentor_calls=total_mentor_calls,
+                    target=target,
+                )
+                # Advance MentorController step
+                if hasattr(self, 'mentor_controller') and self.mentor_controller:
+                    self.mentor_controller.step()
+            
             # Update attack context from new state
             if new_state:
                 self._update_context_from_state(new_state)
@@ -765,6 +917,28 @@ class SmartOrchestrator:
         # Each SmartCoach has its own PPOAgent; trigger update at end of episode
         # Phase 5.1: pass highest_phase so terminal reward enters PPO gradient
         highest_phase = metrics.get("highest_phase", "RECON")
+        
+        # Phase 6.2: End episode for MentorController (EXFIL gate tracking)
+        if hasattr(self, 'mentor_controller') and self.mentor_controller:
+            self.mentor_controller.end_episode(highest_phase)
+            metrics["mentor_controller"] = self.mentor_controller.get_stats()
+        
+        # Phase 6.2: Emit episode_end event
+        if hasattr(self, 'event_bus'):
+            self.event_bus.publish_generic(
+                EventKind.EPISODE_END,
+                message=f"Episode {episode_number} done: reward={episode_reward:+.1f}, phase={highest_phase}",
+                data={
+                    "episode": episode_number,
+                    "total_reward": episode_reward,
+                    "highest_phase": highest_phase,
+                    "mentor_calls": total_mentor_calls,
+                    "steps": len(step_results),
+                },
+                episode_id=episode_id,
+                episode_num=episode_number,
+            )
+        
         ppo_updates_fired = 0
         ppo_total_policy_loss = 0.0
         ppo_total_value_loss = 0.0
@@ -832,6 +1006,94 @@ class SmartOrchestrator:
             finally:
                 self._ppo_trajectory.clear()
         
+        # ─── PHASE 6.3: End-of-episode postmortem analysis ──────────
+        # Run OrionPostmortem every 5 episodes (or if EXFIL reached)
+        # to generate skill cards and learning insights.
+        if self.postmortem and self.skill_library:
+            should_postmortem = (
+                (episode_number + 1) % 5 == 0
+                or highest_phase in ("EXFILTRATION", "POST_EXPLOITATION")
+            )
+            if should_postmortem:
+                try:
+                    # Build episode transcript for postmortem
+                    transcript = self._build_episode_transcript(
+                        step_results, phase_progression, episode_reward
+                    )
+                    pm_result = self.postmortem.analyze(
+                        run_id=episode_id,
+                        transcript=transcript,
+                        metrics=metrics,
+                    )
+                    if pm_result and pm_result.skill_cards:
+                        for sc in pm_result.skill_cards:
+                            self.skill_library.add(sc)
+                        logger.info(
+                            f"Phase 6.3: Postmortem generated {len(pm_result.skill_cards)} skill cards"
+                        )
+                        metrics["postmortem_skills"] = len(pm_result.skill_cards)
+                    
+                    # Apply memory operations
+                    if pm_result and pm_result.memory_ops:
+                        for op in pm_result.memory_ops:
+                            try:
+                                if op.operation == "promote":
+                                    self.skill_library.promote(op.target)
+                                elif op.operation == "prune":
+                                    self.skill_library.prune(op.target)
+                            except Exception:
+                                pass
+                    
+                    # Save skill library
+                    self.skill_library.save()
+                except Exception as e:
+                    logger.warning(f"Phase 6.3: Postmortem error: {e}")
+        
+        # ─── PHASE 6.3: Record episode to campaign memory ───────────
+        if self.campaign_memory:
+            try:
+                # Collect all discoveries from this episode
+                all_disc = {}
+                for cat in ["ports", "services", "credentials", "vulns", "shells"]:
+                    board_val = self.discovery_board.get(cat, set())
+                    if board_val:
+                        if cat == "ports":
+                            all_disc["open_port"] = [int(p) for p in board_val if str(p).isdigit()]
+                        elif cat == "services":
+                            all_disc["service"] = list(board_val)
+                        elif cat == "credentials":
+                            all_disc["credential"] = True
+                        elif cat == "shells":
+                            all_disc["shell"] = True
+                        elif cat == "vulns":
+                            all_disc["vulnerability"] = True
+                
+                # Collect command chain (template names)
+                cmd_chain = []
+                for sr_list in step_results:
+                    for sr in sr_list:
+                        if sr.decision:
+                            cmd_chain.append(sr.decision.template_name)
+                
+                self.campaign_memory.record_episode(
+                    episode_num=episode_number,
+                    discoveries=all_disc,
+                    highest_phase=highest_phase,
+                    command_chain=cmd_chain,
+                    total_reward=episode_reward,
+                )
+                # Auto-save every 5 episodes
+                if (episode_number + 1) % 5 == 0:
+                    self.campaign_memory.save()
+            except Exception as e:
+                logger.warning(f"Phase 6.3: Campaign memory record error: {e}")
+        
+        # ─── PHASE 6.3: Add watchdog stats to metrics ───────────────
+        if self.watchdog:
+            metrics["watchdog"] = self.watchdog.get_stats()
+        if self.smart_parser:
+            metrics["smart_parser"] = self.smart_parser.get_stats()
+        
         return metrics
     
     # =========================================================================
@@ -880,6 +1142,31 @@ class SmartOrchestrator:
                     except Exception as e:
                         logger.warning(f"Failed to load PPO for {coach_name}: {e}")
         logger.info(f"Loaded {loaded} PPO checkpoints from {directory}")
+    
+    def _build_episode_transcript(
+        self,
+        step_results: List[List["SmartStepResult"]],
+        phase_progression: List[str],
+        episode_reward: float,
+    ) -> str:
+        """Build a text transcript of the episode for postmortem analysis."""
+        lines = [
+            f"Episode Transcript (phases: {' → '.join(phase_progression)}, reward: {episode_reward:+.1f})",
+            "=" * 60,
+        ]
+        for step_idx, sr_list in enumerate(step_results[:50]):  # Cap at 50 steps
+            for sr in sr_list:
+                d = sr.decision
+                reward = sr.reward_breakdown.total if sr.reward_breakdown else 0.0
+                lines.append(
+                    f"Step {step_idx:3d} | {sr.agent_name:12s} | "
+                    f"{d.source:10s} | {d.template_name:30s} | "
+                    f"reward={reward:+6.1f} | phase={d.phase.name}"
+                )
+                if d.command_output:
+                    snippet = d.command_output[:100].replace("\n", " ")
+                    lines.append(f"          output: {snippet}")
+        return "\n".join(lines)
     
     def _run_step(
         self,
@@ -1212,9 +1499,21 @@ class SmartOrchestrator:
                     k for k, v in ctx.state_flags.items() if v
                 )
             
-            # Determine success based on simulated output quality
+            # Determine success based on output quality
             # Commands that produce meaningful output are considered successful
-            sim_success = bool(output_to_parse and not output_to_parse.startswith("[SIM]") and len(output_to_parse) > 20)
+            # Phase 6.4: Detect tool-not-found and error outputs as failures
+            _out_lower = (output_to_parse or "").lower().strip()
+            _is_tool_failure = any(marker in _out_lower for marker in [
+                "not found", "command not found", "no such file",
+                "permission denied", "connection refused", "connection timed out",
+                "network is unreachable", "name or service not known",
+            ])
+            sim_success = bool(
+                output_to_parse
+                and not output_to_parse.startswith("[SIM]")
+                and len(output_to_parse) > 20
+                and not _is_tool_failure
+            )
             
             # Phase 5.2: Cross-agent discovery deduplication
             # Only pass genuinely NEW discoveries to record_result for reward
@@ -1266,6 +1565,38 @@ class SmartOrchestrator:
         
         # Use smart reward if available, otherwise fall back to env reward
         final_reward = smart_reward_total if smart_reward_total != 0 else env_reward
+        
+        # ─── PHASE 6.3: Watchdog check per step ─────────────────────
+        if self.watchdog:
+            for result in agent_results:
+                from core.training.watchdog import StepSnapshot, extract_command_family
+                snapshot = StepSnapshot(
+                    step_num=step,
+                    phase=self.attack_context.current_phase.name if self.attack_context else "RECON",
+                    agent_name=result.agent_name,
+                    command=result.decision.command,
+                    command_family=extract_command_family(result.decision.command),
+                    discoveries=self._parse_output_for_discoveries(result.decision.command_output or ""),
+                    is_live_mode=self._is_live_mode,
+                    target_ip=self.config.default_target,
+                )
+                verdict = self.watchdog.check(snapshot)
+                if verdict.should_intervene:
+                    # Emit watchdog event
+                    if hasattr(self, 'event_bus'):
+                        self.event_bus.publish_generic(
+                            EventKind.WARNING,
+                            message=f"[WATCHDOG] {verdict.message}",
+                            data={"trigger": verdict.trigger.value if verdict.trigger else "",
+                                  "heal": verdict.heal_action.value,
+                                  "agent": result.agent_name},
+                            episode_id=episode_id,
+                            step_num=step,
+                        )
+                    if verdict.abort_episode:
+                        done = True
+                        self.episode_termination_reason = TerminationReason.STUCK_ABORT
+                        logger.warning(f"[WATCHDOG] Aborting episode: {verdict.message}")
         
         # ─── PHASE 6.1: Terminal UI — Per-step display ───────────────
         if self.verbosity in ("standard", "verbose"):
@@ -2170,6 +2501,105 @@ class SmartOrchestrator:
         
         # Step footer
         console.print(f"  └{'─' * 70}", style="dim")
+    
+    def _emit_step_event(
+        self,
+        episode_id: str,
+        episode_num: int,
+        step_num: int,
+        agent_results: List[SmartStepResult],
+        env_reward: float,
+        episode_reward: float,
+        total_mentor_calls: int,
+        target: Optional[str] = None,
+    ) -> None:
+        """
+        Phase 6.2: Build and publish a StepEvent to the EventBus.
+        
+        Aggregates all per-agent results into a single StepEvent.
+        """
+        phase_before = self.attack_context.current_phase.name if self.attack_context else ""
+        
+        # Build per-agent records
+        records = []
+        step_reward_total = 0.0
+        step_tokens_total = 0
+        step_mentor_calls = 0
+        
+        for result in agent_results:
+            dec = result.decision
+            rb = result.reward_breakdown
+            reward = rb.total if rb else 0.0
+            step_reward_total += reward
+            tokens = getattr(dec, 'tokens_used', 0)
+            step_tokens_total += tokens
+            
+            mentor_call = dec.mentor_call
+            if mentor_call:
+                step_mentor_calls += 1
+            
+            # Get action family
+            cmd_parts = dec.command.split() if dec.command else []
+            family = cmd_parts[0].lower() if cmd_parts else ""
+            
+            # Get stdout snippet
+            stdout = ""
+            if dec.command_output:
+                stdout = dec.command_output.strip()[:200]
+            elif result.live_result and hasattr(result.live_result, 'stdout'):
+                stdout = (result.live_result.stdout or "")[:200]
+            
+            # Compute discoveries
+            discoveries = []
+            if rb and hasattr(rb, 'discovery_details'):
+                discoveries = list(getattr(rb, 'discovery_details', []))
+            
+            records.append(AgentStepRecord(
+                agent_name=result.agent_name,
+                role=self.coaches.get(result.agent_name, None) and
+                     self.coaches[result.agent_name].agent_role.get("role", "?") or "?",
+                decision_source=dec.source,
+                phase=dec.phase.name if hasattr(dec.phase, 'name') else str(dec.phase),
+                command=dec.command or "",
+                command_family=family,
+                reward=reward,
+                reward_breakdown={
+                    "base": rb.base_reward if rb else 0,
+                    "novelty": rb.novelty_bonus if rb else 0,
+                    "phase": rb.phase_advance_bonus if rb else 0,
+                    "discovery": rb.discovery_bonus if rb else 0,
+                    "redundancy": rb.redundancy_penalty if rb else 0,
+                    "total": reward,
+                } if rb else None,
+                mentor_call=mentor_call,
+                mentor_model=dec.model_used if mentor_call else None,
+                mentor_tier=None,  # TODO: extract from engagement
+                stdout_snippet=stdout,
+                discoveries=discoveries,
+                tokens_used=tokens,
+                confidence=dec.confidence,
+            ))
+        
+        phase_after = self.attack_context.current_phase.name if self.attack_context else ""
+        
+        event = StepEvent(
+            episode_id=episode_id,
+            episode_num=episode_num,
+            step_num=step_num,
+            agent_records=records,
+            phase_before=phase_before,
+            phase_after=phase_after,
+            step_reward_total=step_reward_total,
+            step_tokens_total=step_tokens_total,
+            mentor_calls_total=step_mentor_calls,
+            episode_reward_so_far=episode_reward,
+            episode_steps_so_far=step_num + 1,
+            episode_mentor_calls_so_far=total_mentor_calls,
+            target_ip=target or (self.attack_context.target if self.attack_context else ""),
+            mode="live" if self._is_live_mode else "sim",
+        )
+        
+        self.event_bus.publish(event)
     
     def _log_step_trace(
         self,

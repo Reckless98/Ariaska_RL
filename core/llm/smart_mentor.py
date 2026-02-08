@@ -155,6 +155,9 @@ class MentorResponse:
     """
     Structured response from the smart mentor.
     
+    Phase 6.3: Enhanced with intent, candidate_actions, expected_observation,
+    and risk fields for deeper reasoning trace.
+    
     Attributes:
         command: The actual command to execute
         template_name: Name of the CommandTemplate used
@@ -165,6 +168,10 @@ class MentorResponse:
         alternative_commands: Backup commands if this fails
         phase: Current attack phase
         tokens_used: Tokens consumed by this mentor call
+        intent: Strategic intent (e.g. "discover services", "exploit vsftpd backdoor")
+        expected_observation: What we expect to see if command succeeds
+        risk: Risk assessment ("low", "medium", "high")
+        candidate_actions: Ranked list of candidate actions considered
     """
     command: str
     template_name: str
@@ -175,6 +182,12 @@ class MentorResponse:
     alternative_commands: List[str] = field(default_factory=list)
     phase: AttackPhase = AttackPhase.RECON
     tokens_used: int = 0
+    
+    # Phase 6.3: Structured reasoning fields
+    intent: str = ""  # Strategic intent of this action
+    expected_observation: str = ""  # What we expect to see on success
+    risk: str = "low"  # "low", "medium", "high"
+    candidate_actions: List[Dict[str, Any]] = field(default_factory=list)
     
     @property
     def is_valid(self) -> bool:
@@ -276,11 +289,17 @@ ANTI-LOOP BEHAVIOR:
 
 OUTPUT FORMAT (JSON only):
 {
+    "intent": "strategic goal of this action (e.g. 'enumerate services on target', 'exploit vsftpd backdoor for root shell')",
     "selected_command": "template_name from the list",
     "parameters": {"param1": "value1", "param2": "value2"},
-    "reasoning": "Brief explanation of why this command",
+    "reasoning": "Brief WHY explanation — what led to this choice given current state",
+    "expected_observation": "what output/result we expect if this succeeds",
+    "risk": "low|medium|high",
     "confidence": 0.8,
-    "next_phase_hint": "what to try if this works"
+    "next_phase_hint": "what to try if this works",
+    "candidate_actions": [
+        {"command": "alternative_template_name", "why": "brief reason this was considered"}
+    ]
 }"""
     
     def _build_user_prompt(
@@ -487,7 +506,12 @@ OUTPUT FORMAT (JSON only):
             reasoning=reasoning,
             confidence=confidence,
             next_phase_hint=next_hint,
-            phase=template.phase
+            phase=template.phase,
+            # Phase 6.3: Structured reasoning fields
+            intent=parsed.get("intent", ""),
+            expected_observation=parsed.get("expected_observation", ""),
+            risk=parsed.get("risk", "low"),
+            candidate_actions=parsed.get("candidate_actions", []),
         )
     
     async def get_command_async(

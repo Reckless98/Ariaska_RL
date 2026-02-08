@@ -39,6 +39,9 @@ from core.llm.reward_calculator import (
     RewardBreakdown,
 )
 from core.training.mentor_policy import MentorPolicy, MentorPolicyConfig
+from core.training.mentor_controller import (
+    MentorController, MentorControllerConfig, MentorEngagement, MentorTier,
+)
 
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
@@ -114,6 +117,10 @@ class SmartDecisionResult:
     
     # Phase 6: Mentor imitation learning
     _mentor_suggestion: Optional[str] = None  # Template name mentor suggested (for imitation bonus)
+    
+    # Phase 6.3: Reasoning trace — why this decision was made
+    reasoning: str = ""  # Human-readable chain: "PPO proposed nmap → anti-repeat blocked → registry fallback to nikto"
+    belief_snapshot: Dict[str, Any] = field(default_factory=dict)  # Agent's belief state at decision time
     
     @property
     def chosen_action(self) -> str:
@@ -278,6 +285,7 @@ class SmartCoach:
         agent_name: str,
         gpt_manager: "GPTManager",
         mentor_policy: Optional[MentorPolicy] = None,
+        mentor_controller: Optional[MentorController] = None,
         skill_library: Optional["SkillLibrary"] = None,
         trace_writer: Optional["TraceWriter"] = None,
         learned_store: Optional[LearnedCommandStore] = None,
@@ -288,6 +296,7 @@ class SmartCoach:
         self.agent_name = agent_name
         self.gpt_manager = gpt_manager
         self.mentor_policy = mentor_policy or MentorPolicy()
+        self.mentor_controller = mentor_controller  # Phase 6.2: 3-tier mentor engagement
         self.skill_library = skill_library
         self.trace_writer = trace_writer
         self.mentor_log_path = mentor_log_path
@@ -352,11 +361,12 @@ class SmartCoach:
                         state_dim=512,
                         action_dim=self.action_mapper.action_dim,
                         hidden_dims=[256, 256, 128],
-                        learning_rate=3e-4,
-                        epochs_per_update=3,
-                        minibatch_size=8,   # Low: each coach gets ~5-10 PPO transitions/ep
-                        rollout_size=32,    # Frequent updates with sparse per-coach data
-                        entropy_coef=0.02,  # Higher entropy for exploration
+                        learning_rate=5e-4,       # Phase 6.4: Faster initial learning
+                        epochs_per_update=6,      # Phase 6.4: More gradient steps per update
+                        minibatch_size=8,         # Low: each coach gets ~5-10 PPO transitions/ep
+                        rollout_size=16,          # Phase 6.4: More frequent updates
+                        entropy_coef=0.05,        # Phase 6.4: Higher initial exploration
+                        entropy_coef_min=0.005,   # Phase 6.4: Anneal to focused policy
                     )
                     self.ppo_agent = PPOAgent(config=config, device="cpu")
                     logger.info(
@@ -846,35 +856,46 @@ class SmartCoach:
         self._last_phase = current_phase
         
         # =====================================================================
-        # PHASE 6.1: STRICT MENTOR GATING — ≤15% call rate
-        # Mentor is ONLY called for:
-        #   A) Phase transition (need strategic replanning)
-        #   B) Hard stagnation (>5 steps with no new discoveries AND stuck)
-        #   C) No valid registry commands AND PPO unavailable
-        # Removed: low_confidence trigger, dynamic PPO consultation
+        # PHASE 6.2: MENTOR CONTROLLER — 3-tier budget+fade with triggers
+        # Replaces Phase 6.1 hard 3-condition gating.
+        # MentorController evaluates: uncertainty, stagnation, phase transition,
+        # EXFIL curriculum gate, warmup, budget floor.
+        # Returns MentorEngagement with tier, model, and guidance flags.
         # =====================================================================
         should_call_gpt = False
         gpt_reason = None
+        mentor_engagement: Optional[MentorEngagement] = None
         
-        # Track stagnation steps (incremented when no new discoveries)
-        stagnation_steps = getattr(self, '_stagnation_steps', 0)
-        
-        # Condition A: Phase transition — strategic replanning
-        if prev_phase is not None and current_phase != prev_phase:
-            should_call_gpt = True
-            gpt_reason = f"phase_transition:{prev_phase.name}->{current_phase.name}"
-            self._stagnation_steps = 0  # Reset on phase advance
-        
-        # Condition B: Hard stagnation — >5 steps with no progress AND is_stuck
-        elif stagnation_steps > 5 and self.reward_calculator.is_stuck():
-            should_call_gpt = True
-            gpt_reason = f"hard_stagnation(steps={stagnation_steps})"
-            self._stagnation_steps = 0  # Reset after mentor call
-        
-        # Condition C: Force mentor (only if explicitly requested by orchestrator)
-        elif force_mentor:
-            should_call_gpt = True
-            gpt_reason = "forced_mentor"
+        if self.mentor_controller is not None:
+            # Use the new 3-tier controller
+            phase_changed = (prev_phase is not None and current_phase != prev_phase)
+            mentor_engagement = self.mentor_controller.should_engage(
+                confidence=confidence,
+                phase_changed=phase_changed,
+                prev_phase=prev_phase.name if prev_phase is not None else None,
+                current_phase=current_phase.name,
+                force=force_mentor,
+            )
+            if mentor_engagement.engage:
+                should_call_gpt = True
+                gpt_reason = f"{mentor_engagement.trigger.value}:{mentor_engagement.reason}"
+                # Reset stagnation on mentor call
+                self._stagnation_steps = 0
+        else:
+            # Fallback: legacy 3-condition gating (Phase 6.1 compat)
+            stagnation_steps = getattr(self, '_stagnation_steps', 0)
+            
+            if prev_phase is not None and current_phase != prev_phase:
+                should_call_gpt = True
+                gpt_reason = f"phase_transition:{prev_phase.name}->{current_phase.name}"
+                self._stagnation_steps = 0
+            elif stagnation_steps > 5 and self.reward_calculator.is_stuck():
+                should_call_gpt = True
+                gpt_reason = f"hard_stagnation(steps={stagnation_steps})"
+                self._stagnation_steps = 0
+            elif force_mentor:
+                should_call_gpt = True
+                gpt_reason = "forced_mentor"
         
         # Check if GPT is available
         gpt_available = (
@@ -895,36 +916,129 @@ class SmartCoach:
         filtered_commands = self._filter_commands_for_role(valid_commands)
         
         # Make decision based on hybrid logic
-        # PHASE 6: Priority: Skill Library → Playbook → PPO (with dynamic mentor) → Registry
-        # PPO is now the PRIMARY decision-maker after curriculum annealing.
-        # Mentor is called DYNAMICALLY based on PPO confidence, not as a separate branch.
+        # PHASE 6.4: MENTOR-FIRST → PPO-TAKEOVER pipeline
+        # Early episodes: mentor leads, PPO observes (builds demonstration buffer).
+        # Later episodes: PPO leads, mentor only called on uncertainty/stagnation.
+        # The crossover is controlled by a dynamic mentor_lead_rate that fades
+        # from 80% to 5% as PPO builds confidence.
+        # 
+        # Decision priority: Skill Library → Playbook → (Mentor OR PPO) → Registry
         if skill_result is not None:
             result = skill_result
         elif playbook_result is not None:
             result = playbook_result
         else:
-            # PHASE 6: PPO-first with dynamic mentor escalation
-            ppo_result = None
-            if self.ppo_agent and self.action_mapper:
-                ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
+            # Phase 6.4: Compute dynamic mentor_lead_rate
+            # Starts at 80%, decays to 5% over episodes. PPO confidence
+            # (measured by explained_variance and entropy) accelerates the decay.
+            base_mentor_rate = max(0.05, 0.80 - self.current_episode * 0.015)
             
-            if ppo_result is not None:
-                result = ppo_result
-                # PHASE 6.1: Mentor is NOT consulted dynamically per PPO decision.
-                # PPO must learn from its own rewards, not from mentor imitation.
-                # Mentor is only called via the strict gating above (phase transition,
-                # hard stagnation, forced). If mentor IS triggered, it's used as
-                # the primary decision — not as a PPO consultation.
-            elif should_call_gpt and gpt_available:
-                # PPO unavailable, use mentor directly
-                logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
-                result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
-                result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
-            else:
-                # Registry-first: efficient, no token usage
-                result = self._decide_from_registry(step_ctx, proposed_action, confidence)
-                if should_call_gpt and not gpt_available:
-                    logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
+            # Accelerate decay if PPO is learning well (low entropy = confident)
+            ppo_confidence_boost = 0.0
+            if self.ppo_agent and hasattr(self.ppo_agent, 'training_metrics'):
+                recent_entropy = self.ppo_agent.training_metrics.get('entropy', [])
+                if recent_entropy:
+                    # Lower entropy → more confident → less mentor needed
+                    avg_entropy = sum(recent_entropy[-5:]) / max(len(recent_entropy[-5:]), 1)
+                    max_entropy = self.ppo_agent.config.entropy_coef * 10  # rough max
+                    if max_entropy > 0:
+                        ppo_confidence_boost = max(0, 0.2 * (1.0 - avg_entropy / max_entropy))
+            
+            effective_mentor_rate = max(0.05, base_mentor_rate - ppo_confidence_boost)
+            
+            # Roll dice: mentor leads vs PPO leads
+            import random as _rand
+            mentor_leads = (_rand.random() < effective_mentor_rate)
+            
+            result = None  # Will be set by whichever path succeeds
+            
+            if mentor_leads and gpt_available:
+                # MENTOR-FIRST: Let mentor pick the command, store as demo for PPO
+                logger.debug(
+                    f"[{self.agent_name}] Mentor-first (rate={effective_mentor_rate:.2f}, "
+                    f"ep={self.current_episode})"
+                )
+                # Determine model from engagement tier
+                if mentor_engagement is not None and mentor_engagement.engage:
+                    orig_model = self.model
+                    self.model = mentor_engagement.model
+                    _exfil_hint = (
+                        "Focus on data exfiltration techniques. Try: cat /etc/shadow, "
+                        "find / -name '*.conf', mysqldump, pg_dump, tar critical files."
+                    ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
+                    result = self._decide_with_mentor(
+                        step_ctx, proposed_action, confidence, filtered_commands,
+                        exfil_prompt=_exfil_hint,
+                    )
+                    self.model = orig_model
+                else:
+                    result = self._decide_with_mentor(
+                        step_ctx, proposed_action, confidence, filtered_commands
+                    )
+                
+                if result.mentor_call:
+                    # Phase 6.4: ALSO run PPO to build trajectory, but DON'T use its decision.
+                    # Store mentor's template as _mentor_suggestion so PPO gets
+                    # imitation bonus when it agrees with the mentor.
+                    result._mentor_suggestion = result.template_name
+                    
+                    # Run PPO shadow selection (for learning, not for execution)
+                    if self.ppo_agent and self.action_mapper:
+                        ppo_shadow = self._ppo_select_command(step_ctx, filtered_commands)
+                        if ppo_shadow is not None:
+                            # PPO made a choice — store its trajectory.
+                            # The reward it gets will include mentor conformity bonus
+                            # if PPO independently chose the same template.
+                            result._mentor_suggestion = result.template_name
+                            # _ppo_pending is already set by _ppo_select_command
+                else:
+                    # Mentor call failed — fall through to PPO
+                    mentor_leads = False
+            
+            # If mentor didn't lead or mentor call failed, PPO takes over
+            if result is None or not getattr(result, 'mentor_call', False):
+                # PPO-FIRST (or mentor failed): PPO drives, mentor advises
+                ppo_result = None
+                if self.ppo_agent and self.action_mapper:
+                    ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
+                
+                if ppo_result is not None:
+                    result = ppo_result
+                    # If mentor should have been called (per controller), attach as advisory
+                    if (should_call_gpt and gpt_available and mentor_engagement is not None
+                            and mentor_engagement.tier != MentorTier.REACTIVE):
+                        logger.debug(
+                            f"[{self.agent_name}] Mentor advisory: {gpt_reason} "
+                            f"(tier={mentor_engagement.tier.value})"
+                        )
+                        orig_model = self.model
+                        self.model = mentor_engagement.model
+                        _exfil_hint2 = (
+                            "Focus on data exfiltration techniques. Try: cat /etc/shadow, "
+                            "find / -name '*.conf', mysqldump, pg_dump, tar critical files."
+                        ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
+                        mentor_result = self._decide_with_mentor(
+                            step_ctx, proposed_action, confidence, filtered_commands,
+                            exfil_prompt=_exfil_hint2,
+                        )
+                        self.model = orig_model
+                        if mentor_result.mentor_call:
+                            mentor_result.mentor_reasoning = f"[{gpt_reason}] {mentor_result.mentor_reasoning or ''}"
+                            mentor_result._mentor_suggestion = mentor_result.template_name
+                            result._mentor_suggestion = mentor_result.template_name
+                            # For DELIBERATIVE tier: override PPO with mentor
+                            if mentor_engagement.tier == MentorTier.DELIBERATIVE:
+                                result = mentor_result
+                elif should_call_gpt and gpt_available:
+                    # PPO unavailable, use mentor directly
+                    logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
+                    result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
+                    result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
+                else:
+                    # Registry-first: efficient, no token usage
+                    result = self._decide_from_registry(step_ctx, proposed_action, confidence)
+                    if should_call_gpt and not gpt_available:
+                        logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
         
         # =========================================================================
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
@@ -1008,7 +1122,39 @@ class SmartCoach:
         
         # Store repeat penalty for reward calculation
         result._repeat_penalty = repeat_penalty
-        
+
+        # ─── PHASE 6.3: Populate reasoning trace + belief snapshot ───────
+        # Build a human-readable chain-of-thought for every decision.
+        reasoning_parts = []
+        reasoning_parts.append(f"Phase={current_phase.name if hasattr(current_phase, 'name') else current_phase}")
+        reasoning_parts.append(f"Source={result.source}")
+        if result.mentor_call:
+            reasoning_parts.append(f"Mentor={result.model_used or 'unknown'}")
+            if result.mentor_reasoning:
+                reasoning_parts.append(f"MentorReason={result.mentor_reasoning[:120]}")
+        if ppo_bypass:
+            reasoning_parts.append("PPO-bypass(trusted)")
+        if repeat_penalty != 0.0:
+            reasoning_parts.append(f"RepeatPenalty={repeat_penalty:.1f}")
+        if gpt_reason:
+            reasoning_parts.append(f"GPTTrigger={gpt_reason}")
+        reasoning_parts.append(f"Cmd={result.command[:80] if result.command else 'NONE'}")
+        result.reasoning = " → ".join(reasoning_parts)
+
+        result.belief_snapshot = {
+            "phase": current_phase.name if hasattr(current_phase, 'name') else str(current_phase),
+            "confidence": confidence,
+            "discoveries": len(ctx.state_flags) if ctx.state_flags else 0,
+            "cmd_history_len": len(all_cmds),
+            "exact_repeats": exact_repeat_count,
+            "prefix_repeats": prefix_repeat_count,
+            "family": family,
+            "family_count": family_count,
+            "ppo_bypass": ppo_bypass,
+            "mentor_engaged": should_call_gpt,
+            "mentor_tier": mentor_engagement.tier.value if mentor_engagement else None,
+        }
+
         # Record decision
         self.decisions.append(result)
         
@@ -2033,6 +2179,15 @@ class SmartCoach:
                     if prefix_counts.get(cmd_prefix, 0) >= 3:
                         mask[idx] = False
 
+            # Phase 6.4: Block commands whose tool is known to not exist on target
+            _ft = getattr(self, '_failed_tools', set())
+            if _ft:
+                for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                    if tpl and mask[idx]:
+                        cmd_tool = tpl.template.split()[0].lower() if tpl.template else ""
+                        if cmd_tool in _ft:
+                            mask[idx] = False
+
             if not mask.any():
                 # Relax: allow all mapper commands with valid preconditions
                 mask = precond_mask
@@ -2189,6 +2344,7 @@ class SmartCoach:
         proposed_action: Optional[str],
         confidence: float,
         filtered_commands: Optional[List[CommandTemplate]] = None,
+        exfil_prompt: Optional[str] = None,
     ) -> SmartDecisionResult:
         """
         Make decision using the smart mentor (LLM).
@@ -2200,8 +2356,14 @@ class SmartCoach:
             proposed_action: Proposed action from rule-based system
             confidence: Confidence in proposed action
             filtered_commands: Pre-filtered commands for this agent's role
+            exfil_prompt: Optional exfil-specific prompt injection (from MentorController)
         """
         ctx = step_ctx.attack_context
+        
+        # Phase 6.2: Inject exfil guidance into context if provided
+        if exfil_prompt:
+            # Temporarily augment the context narrative for the mentor call
+            ctx._exfil_injection = exfil_prompt
         
         try:
             # === USE DUAL MENTOR IF AVAILABLE ===
@@ -2402,6 +2564,9 @@ class SmartCoach:
                     self.attack_context.set_state_flag("vulnerability_found")
             # Phase 6.1: Reset stagnation on new discoveries
             self._stagnation_steps = 0
+            # Phase 6.2: Notify MentorController of discovery
+            if self.mentor_controller is not None:
+                self.mentor_controller.record_discovery()
         else:
             # Phase 6.1: Increment stagnation counter
             self._stagnation_steps = getattr(self, '_stagnation_steps', 0) + 1
@@ -2410,12 +2575,32 @@ class SmartCoach:
         if not success:
             self.attack_context.failed_attempts.append(decision.command)
         
+        # Phase 6.4: Detect "not found" tools and mask them from future PPO selection.
+        # If a tool doesn't exist on the target, it will NEVER work — don't keep trying.
+        if raw_output:
+            _out_lower = raw_output.lower().strip()
+            if "not found" in _out_lower or "command not found" in _out_lower:
+                # Extract the tool name (first word of command)
+                _tool = decision.command.split()[0] if decision.command else ""
+                if _tool and not hasattr(self, '_failed_tools'):
+                    self._failed_tools = set()
+                if _tool:
+                    self._failed_tools.add(_tool)
+                    logger.info(
+                        f"[{self.agent_name}] Tool '{_tool}' not found on target — "
+                        f"masked from future PPO selection"
+                    )
+        
         # Record outcome for adaptive mentor policy learning
         self.mentor_policy.record_outcome(
             agent_name=self.agent_name,
             reward=breakdown.total,
             used_mentor=decision.mentor_call,
         )
+        
+        # Phase 6.2: Record outcome with MentorController
+        if self.mentor_controller is not None:
+            self.mentor_controller.record_outcome(breakdown.total)
 
         # ─── PHASE 4: Pair PPO trajectory entry with reward ─────────
         if self._ppo_pending is not None:
@@ -2432,6 +2617,18 @@ class SmartCoach:
                         f"[PPO][{self.agent_name}] Mentor conformity bonus +3.0 "
                         f"(both chose {decision.template_name})"
                     )
+            
+            # Phase 6.4: When MENTOR led the decision but PPO had a shadow
+            # trajectory, give PPO the mentor's reward (clipped) so it learns
+            # what good decisions look like. This is DAgger-lite.
+            if mentor_suggestion and decision.source == "mentor":
+                # PPO ran in shadow mode — give it the same reward signal
+                # so its gradient points toward the mentor's behavior
+                ppo_reward = max(breakdown.total, 1.0)  # At least +1 for mentor demos
+                logger.debug(
+                    f"[PPO][{self.agent_name}] DAgger-lite: PPO shadow learns from "
+                    f"mentor decision (reward={ppo_reward:.1f})"
+                )
             
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
@@ -2525,6 +2722,13 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+        
+        # Phase 6.4: Reset failed tools (tools not installed on target)
+        # NOTE: _failed_tools persists across episodes intentionally —
+        # if a tool isn't installed, it won't be next episode either.
+        # Only reset on explicit call.
+        if not hasattr(self, '_failed_tools'):
+            self._failed_tools: set = set()
         
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode

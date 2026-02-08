@@ -164,11 +164,12 @@ class LiveCommandExecutor:
         "medusa": 90,
         "sqlmap": 120,
         "searchsploit": 15,
-        "msfconsole": 60,
+        "msfconsole": 180,  # Phase 6.4: msfconsole needs time to load modules + exploit
         "curl": 15,
         "wget": 15,
-        "nc": 10,
-        "telnet": 10,
+        "nc": 15,           # Phase 6.4: nc can take time when used as shell
+        "ncat": 15,
+        "telnet": 15,       # Phase 6.4: telnet to ingreslock can need interaction
         "ssh": 15,
         "smbclient": 15,
         "rpcclient": 15,
@@ -189,6 +190,10 @@ class LiveCommandExecutor:
         "whois": 15,
         "traceroute": 20,
         "ping": 10,
+        "mount": 15,        # Phase 6.4: NFS mount
+        "rsh": 10,          # Phase 6.4: rservices
+        "rlogin": 10,
+        "vncviewer": 15,
     }
     DEFAULT_TIMEOUT = 30
     

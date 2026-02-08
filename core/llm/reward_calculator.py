@@ -160,7 +160,8 @@ class SmartRewardCalculator:
         max_redundancy_penalty: float = 0.5,   # Very low - don't punish too harshly
         phase_advance_multiplier: float = 4.0, # Phase 5.1: 3→4, reward genuine progression
         efficiency_window: int = 10,
-        progress_bonus_per_step: float = 1.0   # Phase 5.1: Honest scaling (was 12.0)
+        progress_bonus_per_step: float = 1.0,  # Phase 5.1: Honest scaling (was 12.0)
+        ms2_mode: bool = False,                # Phase 6.4: Enable MS2-specific reward shaping
     ):
         """
         Initialize the reward calculator.
@@ -172,6 +173,7 @@ class SmartRewardCalculator:
             phase_advance_multiplier: Multiplier for phase advancement bonus
             efficiency_window: Window for calculating efficiency
             progress_bonus_per_step: Base bonus per step (1.0 = industry standard)
+            ms2_mode: Enable Metasploitable 2 specific reward shaping
         """
         self.novelty_weight = novelty_weight
         self.redundancy_decay = redundancy_decay
@@ -179,6 +181,16 @@ class SmartRewardCalculator:
         self.phase_advance_multiplier = phase_advance_multiplier
         self.efficiency_window = efficiency_window
         self.progress_bonus_per_step = progress_bonus_per_step
+        self.ms2_mode = ms2_mode
+        
+        # Phase 6.4: MS2 exploit graph for shaped rewards
+        self._ms2_graph = None
+        if ms2_mode:
+            try:
+                from core.knowledge.ms2_exploit_graph import get_ms2_graph
+                self._ms2_graph = get_ms2_graph()
+            except ImportError:
+                pass
         
         # Tracking state
         self.command_history: List[str] = []
@@ -300,6 +312,18 @@ class SmartRewardCalculator:
             breakdown.discovery_bonus = total_discovery_bonus
             if total_discovery_bonus > 0:
                 explanations.append(f"Discoveries: +{total_discovery_bonus:.1f}")
+        
+        # 4b. Phase 6.4: MS2-specific shaped reward bonus
+        # Gives extra reward for targeting known MS2 vulnerable services
+        if self._ms2_graph and new_discoveries:
+            ms2_bonus = self._ms2_graph.get_shaped_reward(
+                command=command,
+                discoveries=new_discoveries,
+                state_flags=state_flags,
+            )
+            if ms2_bonus > 0:
+                breakdown.discovery_bonus += ms2_bonus
+                explanations.append(f"MS2-bonus: +{ms2_bonus:.1f}")
         
         # 5. Phase advancement bonus
         new_phase = get_phase_from_state(state_flags)
@@ -504,7 +528,8 @@ class SmartRewardCalculator:
 def create_reward_calculator(
     novelty_weight: float = 1.0,
     redundancy_decay: float = 0.5,
-    max_redundancy_penalty: float = 5.0
+    max_redundancy_penalty: float = 5.0,
+    ms2_mode: bool = False,
 ) -> SmartRewardCalculator:
     """
     Factory function to create a SmartRewardCalculator.
@@ -513,6 +538,7 @@ def create_reward_calculator(
         novelty_weight: Weight for novelty bonus
         redundancy_decay: Decay rate for redundancy penalty
         max_redundancy_penalty: Maximum redundancy penalty
+        ms2_mode: Enable Metasploitable 2 reward shaping
         
     Returns:
         Configured SmartRewardCalculator instance
@@ -520,5 +546,6 @@ def create_reward_calculator(
     return SmartRewardCalculator(
         novelty_weight=novelty_weight,
         redundancy_decay=redundancy_decay,
-        max_redundancy_penalty=max_redundancy_penalty
+        max_redundancy_penalty=max_redundancy_penalty,
+        ms2_mode=ms2_mode,
     )
