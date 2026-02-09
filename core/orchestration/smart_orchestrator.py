@@ -77,16 +77,16 @@ class SmartOrchestratorConfig:
     stuck_tag_overlap_threshold: float = 0.8  # Mask actions with >= this tag overlap
     stuck_forced_abort_threshold: int = 10  # Terminate episode after N forced-novel failures
     
-    # Execution - 120 steps for full kill-chain exploration (Phase 5)
-    max_steps_per_episode: int = 120
+    # Execution - 40 steps per episode (Phase 6.5)
+    max_steps_per_episode: int = 40
     
     # Logging
     mentor_log_dir: str = "traces"
     
     # Attack context
-    default_target: str = "10.10.10.10"
-    default_difficulty: str = "medium"
-    default_platform: str = "unknown"
+    default_target: str = "172.28.0.10"
+    default_difficulty: str = "easy"
+    default_platform: str = "linux"
     
     # Dashboard settings
     dashboard_enabled: bool = True
@@ -207,7 +207,7 @@ class SmartOrchestrator:
         else:
             try:
                 from core.postmortem.skill_library import SkillLibrary
-                self.skill_library = SkillLibrary(path="data/skill_library.json")
+                self.skill_library = SkillLibrary(library_path="data/skill_library.json")
                 self.skill_library.load()
                 logger.info(f"Phase 6.3: SkillLibrary loaded ({self.skill_library.count()} skills)")
             except Exception as e:
@@ -223,6 +223,9 @@ class SmartOrchestrator:
             logger.info(f"Phase 6.3: CampaignMemory loaded (episodes={self.campaign_memory.total_episodes})")
         except Exception as e:
             logger.warning(f"Phase 6.3: CampaignMemory init failed: {e}")
+        
+        # Phase 6.5: Detect live mode EARLY — needed by watchdog, coaches, reward calc
+        self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
         
         # ─── PHASE 6.3: Training Watchdog — overnight safety monitor ──
         self.watchdog = None
@@ -267,9 +270,6 @@ class SmartOrchestrator:
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
-        
-        # Phase 6.4: Detect live mode early so coaches and reward calc can use it
-        self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
         
         # Initialize smart coaches
         self.coaches: Dict[str, SmartCoach] = {}
@@ -458,10 +458,14 @@ class SmartOrchestrator:
             mode=self.config.dashboard_mode,
             watch_rate=self.config.dashboard_watch_rate,
             show_reward_breakdown=True,
-            max_action_width=40,
+            show_discoveries=True,
+            show_output=True,
+            max_action_width=80,
+            max_output_lines=6,
+            max_output_width=90,
         )
         dashboard = LiveDashboard(config=dash_config)
-        logger.debug("LiveDashboard initialized")
+        logger.debug("LiveDashboard v3.0 initialized (Phase 6.5 full-visibility)")
         return dashboard
     
     def _init_agents(self):
@@ -756,13 +760,43 @@ class SmartOrchestrator:
             step_results.append(step_agent_results)
             episode_reward += env_reward
             
-            # Record step to dashboard
-            dashboard_results = []
+            # ── Phase 6.5: Build unified dashboard display ──────────────
+            from core.observability.live_dashboard import AgentStepInfo
+            
+            dashboard_results = []   # Legacy format for record_step
+            agent_infos = []         # New AgentStepInfo for print_step
+            skipped_agents = {}      # Agents that didn't fire this step
+            
+            # Determine which agents were active vs skipped
+            active_agent_names = {r.agent_name for r in step_agent_results}
+            all_agent_names = list(self.coaches.keys())
+            
+            for aname in all_agent_names:
+                if aname not in active_agent_names:
+                    # Figure out why this agent was skipped
+                    phase_name = self.attack_context.current_phase.name
+                    freq = self.AGENT_ACTIVATION_SCHEDULE.get(phase_name, {}).get(aname, 1)
+                    if freq == 0:
+                        skipped_agents[aname] = f"inactive in {phase_name}"
+                    elif freq > 1:
+                        skipped_agents[aname] = f"every {freq} steps"
+                    else:
+                        skipped_agents[aname] = "skipped"
+            
             for result in step_agent_results:
                 total_mentor_calls += 1 if result.decision.mentor_call else 0
-                
-                # Get tokens from decision (now properly tracked)
                 tokens_for_step = getattr(result.decision, 'tokens_used', 0)
+                
+                # Parse discoveries from this agent's output
+                cmd_output = result.decision.command_output or ""
+                agent_disc = {}
+                if cmd_output:
+                    try:
+                        parsed = self._parse_output_for_discoveries(cmd_output)
+                        if parsed:
+                            agent_disc = parsed  # dict of {type: [items]}
+                    except Exception:
+                        pass
                 
                 dashboard_results.append({
                     "agent": result.agent_name,
@@ -770,24 +804,29 @@ class SmartOrchestrator:
                     "chosen_action": result.decision.command,
                     "proposed_action": result.decision.command,
                     "mentor_call": result.decision.mentor_call,
-                    "mentor_success": result.decision.mentor_call,
-                    "model_used": result.decision.model_used,
                     "confidence": result.decision.confidence,
-                    "mentor_delta": result.decision.mentor_delta,
-                    "mentor_reasoning": result.decision.mentor_reasoning or "",  # Pass reasoning
+                    "mentor_reasoning": result.decision.mentor_reasoning or "",
                     "tokens_used": tokens_for_step,
-                    "command_output": result.decision.command_output or "",  # Simulated output
+                    "command_output": cmd_output,
+                    "source": result.decision.source if hasattr(result.decision, 'source') else "unknown",
                 })
+                
+                agent_infos.append(AgentStepInfo(
+                    agent_name=result.agent_name,
+                    command=result.decision.command,
+                    command_output=cmd_output,
+                    mentor_reasoning=result.decision.mentor_reasoning or "",
+                    source=result.decision.source if hasattr(result.decision, 'source') else "unknown",
+                    confidence=result.decision.confidence,
+                    reward=env_reward,
+                    mentor_call=result.decision.mentor_call,
+                    tokens_used=tokens_for_step,
+                    discoveries=agent_disc,
+                ))
             
-            # Get reward breakdown for display - include reasoning from each agent
+            # Build reward breakdown dict
             reward_breakdown_dict = None
             if step_agent_results:
-                # Collect reasons from all agents
-                agent_reasons = []
-                for result in step_agent_results:
-                    if result.decision.mentor_reasoning:
-                        agent_reasons.append(f"{result.agent_name[:6]}: {result.decision.mentor_reasoning[:30]}")
-                
                 if step_agent_results[0].reward_breakdown:
                     rb = step_agent_results[0].reward_breakdown
                     reward_breakdown_dict = {
@@ -796,14 +835,9 @@ class SmartOrchestrator:
                         "redundancy_penalty": rb.redundancy_penalty,
                         "phase_bonus": rb.phase_advance_bonus,
                         "total": rb.total,
-                        "reason": " | ".join(agent_reasons[:3]) if agent_reasons else f"Phase: {self.attack_context.current_phase.name}",
-                    }
-                else:
-                    reward_breakdown_dict = {
-                        "reason": " | ".join(agent_reasons[:3]) if agent_reasons else "",
                     }
             
-            # Record to dashboard
+            # Record stats
             self.dashboard.record_step(
                 step=step,
                 phase=self.attack_context.current_phase.name.lower(),
@@ -813,8 +847,25 @@ class SmartOrchestrator:
                 reward_breakdown=reward_breakdown_dict,
             )
             
-            # Print step table for live visibility
-            self.dashboard.print_step_table(step)
+            # Print unified step display (Phase 6.5)
+            disc_board = getattr(self, 'discovery_board', None)
+            if disc_board:
+                # Convert sets to lists for display
+                disc_board_display = {k: list(v) if isinstance(v, set) else v for k, v in disc_board.items()}
+            else:
+                disc_board_display = None
+            
+            self.dashboard.print_step(
+                step=step,
+                phase=self.attack_context.current_phase.name.lower(),
+                mode_tag="LIVE" if self._is_live_mode else "SIM",
+                agent_infos=agent_infos,
+                skipped_agents=skipped_agents,
+                global_reward=env_reward,
+                done=done,
+                reward_breakdown=reward_breakdown_dict,
+                discovery_board=disc_board_display,
+            )
             
             # Phase 6.2: Emit StepEvent to EventBus
             if hasattr(self, 'event_bus'):
@@ -900,12 +951,14 @@ class SmartOrchestrator:
         if not done:
             self.episode_termination_reason = TerminationReason.MAX_STEPS
         
-        # Print episode summary
+        # Print episode summary (Phase 6.5: with highest_phase + PPO metrics)
+        highest_phase_for_summary = phase_progression[-1] if phase_progression else "RECON"
         self.dashboard.print_episode_summary(
             episode=episode_number,
             total_reward=episode_reward,
             total_steps=len(step_results),
             mentor_calls=total_mentor_calls,
+            highest_phase=highest_phase_for_summary,
         )
         
         # Compute metrics
@@ -1385,6 +1438,81 @@ class SmartOrchestrator:
             # Parse discoveries from this agent's output
             agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
             
+            # ─────────────────────────────────────────────────────────────
+            # PHASE 6.5: COMMAND-BASED SHELL DETECTION
+            # Known shell-granting commands on MS2 — if the command ran
+            # and output does NOT indicate failure, assume shell obtained.
+            # This catches cases where regex fails on real terminal output.
+            # ─────────────────────────────────────────────────────────────
+            cmd_name = getattr(result.decision, 'template_name', '') or ''
+            cmd_text = (result.decision.command or '').lower()
+            output_lower_check = output_to_parse.lower()
+            FAILURE_INDICATORS = ("refused", "timed out", "timeout", "no route", "not found",
+                                  "command not found", "connection closed", "error", "denied",
+                                  "invalid", "failed", "unsuccessful", "no such", "cannot",
+                                  "permission denied", "authentication fail")
+            has_failure = any(f in output_lower_check for f in FAILURE_INDICATORS)
+            has_output = len(output_to_parse.strip()) > 10  # non-trivial output
+            
+            SHELL_GRANTING_COMMANDS = {
+                "telnet_1524", "rsh_root", "rlogin_root", "vsftpd_exploit",
+                "unrealircd_exploit", "samba_exploit", "java_rmi_exploit",
+                "tomcat_war_deploy", "war_deploy", "distcc_exploit",
+                "psql_rce", "ssh_login", "telnet_login",
+                "nc_reverse_shell", "nc_bind_shell",
+            }
+            # NOTE: Don't use cmd_text prefix matching — anti-repeat can
+            # replace the actual command while keeping the original template_name,
+            # causing false positives (e.g. nc -zv port scan replacing cme_smb_shares).
+            # Only use template_name matching which is reliable.
+            
+            cmd_is_shell_granting = cmd_name in SHELL_GRANTING_COMMANDS
+            
+            if cmd_is_shell_granting and has_output and not has_failure:
+                if not agent_discoveries.get("shell"):
+                    agent_discoveries["shell"] = True
+                    logger.info(f"[SHELL-DETECT] Command-based shell detection for '{cmd_name}' by {result.agent_name}")
+                # Root shell for known root-granting commands
+                ROOT_SHELL_COMMANDS = {
+                    "telnet_1524", "rsh_root", "rlogin_root", "vsftpd_exploit",
+                    "unrealircd_exploit", "samba_exploit",
+                }
+                if cmd_name in ROOT_SHELL_COMMANDS or "1524" in cmd_text:
+                    if not agent_discoveries.get("root_shell"):
+                        agent_discoveries["root_shell"] = True
+                        logger.info(f"[SHELL-DETECT] Command-based ROOT shell detection for '{cmd_name}'")
+            
+            # ─── COMMAND-BASED PERSISTENCE DETECTION ─────────────────────
+            PERSISTENCE_COMMANDS = {
+                "cron_backdoor", "ssh_key_persistence", "ssh_key_plant",
+                "plant_ssh_key", "add_backdoor_user", "clear_bash_history",
+                "clear_auth_logs", "clear_syslog", "remove_uploaded_tools",
+                "remove_ssh_keys_planted",
+            }
+            if cmd_name in PERSISTENCE_COMMANDS and has_output and not has_failure:
+                if not agent_discoveries.get("persistence"):
+                    agent_discoveries["persistence"] = True
+                    logger.info(f"[PERSIST-DETECT] Command-based persistence detection for '{cmd_name}'")
+            
+            # ─── COMMAND-BASED EXFILTRATION DETECTION ────────────────────
+            EXFIL_COMMANDS = {
+                "nc_exfil", "curl_exfil", "scp_exfil", "base64_exfil",
+                "exfil_shadow", "exfil_ssh_keys", "exfil_mysql_dump",
+                "dump_shadow", "dump_passwd",
+            }
+            EXFIL_PREFIXES = (
+                "cat /etc/shadow", "cat /etc/passwd", "mysqldump",
+                "pg_dump", "base64 /etc/", "find / -name",
+            )
+            cmd_is_exfil = (
+                cmd_name in EXFIL_COMMANDS
+                or any(cmd_text.startswith(p) for p in EXFIL_PREFIXES)
+            )
+            if cmd_is_exfil and has_output and not has_failure:
+                if not agent_discoveries.get("data_exfiltrated"):
+                    agent_discoveries["data_exfiltrated"] = True
+                    logger.info(f"[EXFIL-DETECT] Command-based exfiltration detection for '{cmd_name}'")
+            
             # =====================================================================
             # PHASE 2A: DISCOVERY → STATE FLAG BRIDGE
             # Map parsed discoveries to AttackContext state_flags so phase can
@@ -1598,9 +1726,7 @@ class SmartOrchestrator:
                         self.episode_termination_reason = TerminationReason.STUCK_ABORT
                         logger.warning(f"[WATCHDOG] Aborting episode: {verdict.message}")
         
-        # ─── PHASE 6.1: Terminal UI — Per-step display ───────────────
-        if self.verbosity in ("standard", "verbose"):
-            self._display_step_results(step, agent_results, final_reward, done)
+        # Phase 6.5: _display_step_results removed — unified dashboard handles all display
         
         # ─── PHASE 4: PPO trajectory now collected per-coach in SmartCoach ──
         # The old global PPO trajectory collection was disconnected:
@@ -1694,25 +1820,27 @@ class SmartOrchestrator:
             discoveries["open_port"] = [int(p) for p in ports if p.isdigit()]
         
         # Service discovery (enhanced with version info)
+        # NOTE: Word boundaries (\b) prevent false positives from group names
+        # (e.g., "sambashare" in id output) and URLs containing "http"
         service_patterns = {
-            "ssh": r"ssh|openssh|sshd",
-            "http": r"http|apache|nginx|iis|web server",
-            "https": r"https|ssl|tls|443",
-            "smb": r"smb|samba|microsoft-ds|445/tcp",
-            "ftp": r"ftp|vsftpd|proftpd|21/tcp",
-            "mysql": r"mysql|mariadb|3306",
-            "mssql": r"ms-sql|mssql|1433",
-            "postgresql": r"postgresql|postgres|5432",
-            "rdp": r"rdp|3389|remote desktop",
-            "smtp": r"smtp|postfix|sendmail|25/tcp",
-            "telnet": r"telnet|23/tcp",
-            "dns": r"domain|bind|53/tcp",
-            "irc": r"irc|unrealircd|6667",
-            "vnc": r"vnc|5900",
-            "rmi": r"java-rmi|rmi|1099",
-            "distcc": r"distccd|distcc|3632",
-            "nfs": r"nfs|2049",
-            "tomcat": r"tomcat|8180|8009|ajp",
+            "ssh": r"\bssh\b|openssh|sshd",
+            "http": r"\bhttp\b[^s]|apache|nginx|\biis\b|web server|http/\d",
+            "https": r"\bhttps\b|ssl/|tls/|443/tcp",
+            "smb": r"\bsmb\b|\bsamba\b|microsoft-ds|445/tcp",
+            "ftp": r"\bftp\b|vsftpd|proftpd|21/tcp",
+            "mysql": r"\bmysql\b|mariadb|3306/tcp",
+            "mssql": r"ms-sql|mssql|1433/tcp",
+            "postgresql": r"postgresql|postgres\b|5432/tcp",
+            "rdp": r"\brdp\b|3389/tcp|remote desktop",
+            "smtp": r"\bsmtp\b|postfix|sendmail|25/tcp",
+            "telnet": r"\btelnet\b|23/tcp",
+            "dns": r"\bdomain\b|bind/|53/tcp",
+            "irc": r"\birc\b|unrealircd|6667/tcp",
+            "vnc": r"\bvnc\b|5900/tcp",
+            "rmi": r"java-rmi|rmi\b|1099/tcp",
+            "distcc": r"distccd|distcc\b|3632/tcp",
+            "nfs": r"\bnfs\b|2049/tcp",
+            "tomcat": r"\btomcat\b|8180/tcp|8009/tcp|\bajp\b",
         }
         
         for svc, pattern in service_patterns.items():
@@ -1805,28 +1933,30 @@ class SmartOrchestrator:
             discoveries["directory"] = True
         
         # ─── Phase 5: Subdomain discovery ────────────────────────────
+        # Phase 6.5: Tightened — require valid subdomain format (not IPs or version strings)
         subdomain_patterns = [
-            r"([\w\-]+\.[\w\-]+\.[\w\-]+)\s*(?:->|→|-->)\s*\d+\.\d+",  # fierce/amass
-            r"([\w\-]+\.[\w\-]+\.[\w\-]+)\s*$",                          # sublist3r
-            r"\[?\*?\]?\s*A\s+([\w\-]+\.[\w\-]+\.[\w\-]+)\s+\d+",       # dnsrecon
-            r"([\w\-]+\.[\w\-]+\.[\w\-]+):\d+\.\d+\.\d+\.\d+",         # theHarvester
+            r"((?:[a-z][a-z0-9\-]+\.){2,}[a-z]{2,})\s*(?:->|→|-->)\s*\d+\.\d+",  # fierce/amass
         ]
         subdomains = set()
         for pattern in subdomain_patterns:
-            subdomains.update(re.findall(pattern, output, re.MULTILINE | re.IGNORECASE))
+            for m in re.findall(pattern, output, re.IGNORECASE):
+                # Reject IP-like or version-like strings
+                if not re.match(r'^\d', m) and '.' in m and len(m) > 5:
+                    subdomains.add(m)
         if subdomains:
             discoveries["subdomain"] = list(subdomains)[:10]
         
         # ─── Phase 5: DNS record discovery ───────────────────────────
+        # Phase 6.5: Tightened — only match real DNS zone-file format lines
         dns_records = []
         dns_patterns = [
-            r"(\S+)\.\s+\d+\s+IN\s+(A|AAAA|MX|NS|TXT|CNAME|SOA)\s+(.+?)$",
-            r"\[?\*?\]?\s*(MX|NS|TXT|CNAME|A|AAAA)\s+(\S+)\s+(\S+)",
+            r"^(\S+)\.\s+\d+\s+IN\s+(A|AAAA|MX|NS|TXT|CNAME|SOA)\s+(\S+)$",
         ]
         for pattern in dns_patterns:
             matches = re.findall(pattern, output, re.MULTILINE | re.IGNORECASE)
             for m in matches:
-                dns_records.append({"type": m[1] if len(m) > 1 else m[0], "value": m[-1]})
+                if len(m) >= 3 and len(m[0]) > 2 and '.' in m[0]:
+                    dns_records.append({"type": m[1], "value": m[2]})
         if dns_records:
             discoveries["dns_record"] = dns_records[:8]
         
@@ -1883,26 +2013,29 @@ class SmartOrchestrator:
                 discoveries["sensitive_file"] = True
                 break
         
-        # Shell indicators
+        # Shell indicators (Phase 6.5: expanded for MS2 live output)
+        # NOTE: Keep patterns specific to REMOTE shell evidence.
+        # Avoid matching local `id` or `whoami` output (which runs on attacker host).
         shell_patterns = [
             r"shell\s*session\s*\d+\s*opened",
             r"www-data@",
-            r"root@",
+            r"root@(?:metasploitable|localhost|target)",
             r"meterpreter\s*>",
-            r"msfadmin@",
-            r"\$\s*$",
-            r"#\s*$",
-            r"C:\\>",
-            r"PS\s+C:\\",
-            r"nt authority\\system",
-            r"uid=0\(root\)",
-            r"Backdoor.*spawned",
+            r"msfadmin@metasploitable",           # specific MS2 login prompt
+            r"uid=0\(root\)\s+gid=0",             # root shell only — NOT generic uid=
+            r"nt authority\\\\system",
+            r"[Bb]ackdoor.*spawned",
+            r"ingreslock.*root",                  # ingreslock backdoor
+            r"Connected to.*\nroot@",             # telnet to backdoor (real newline)
+            r"Command shell session \d+ opened",  # msfconsole shell
+            r"root@metasploitable",               # specific MS2 root prompt
         ]
         
         for pattern in shell_patterns:
-            if re.search(pattern, output, re.MULTILINE):
+            if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
                 discoveries["shell"] = True
-                if re.search(r"root@|uid=0|nt authority\\system|domain admin|meterpreter.*root", output, re.IGNORECASE):
+                # Root shell detection — keep specific to avoid false positives
+                if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root", output, re.IGNORECASE):
                     discoveries["root_shell"] = True
                 break
         
@@ -2401,6 +2534,15 @@ class SmartOrchestrator:
             "useradd": "[+] User 'svc_backup' added to system\n[+] Added to sudoers with NOPASSWD\n[+] Persistence established via backdoor user",
             "reg": "[+] Registry key added\n[+] Persistence established via registry",
             "schtasks": "[+] Scheduled task created\n[+] Persistence established via scheduled task",
+            
+            # ─── Post-op cleanup (Phase 6.5) ────────────────────────
+            "history -c": "[+] Bash history cleared\n[+] ~/.bash_history removed\n[+] HISTFILE unset — no further commands logged",
+            "echo '' > /var/log/auth": "[+] /var/log/auth.log cleared\n[+] /var/log/wtmp cleared\n[+] /var/log/btmp cleared\n[+] Authentication traces removed",
+            "echo '' > /var/log/syslog": "[+] /var/log/syslog cleared\n[+] /var/log/messages cleared\n[+] /var/log/kern.log cleared\n[+] System log traces removed",
+            "find /tmp /dev/shm": "[+] Scanning /tmp, /dev/shm, /var/tmp for uploaded tools\n[+] Removed 3 files: /tmp/shell.elf, /tmp/linpeas.sh, /dev/shm/.payload\n[+] Uploaded tools cleaned",
+            "sed -i": "[+] Planted SSH key removed from /root/.ssh/authorized_keys\n[+] Persistence mechanism removed",
+            "crontab -r": "[+] Crontab entries removed\n[+] /var/spool/cron cleaned\n[+] Cron-based persistence removed",
+            "timestomp": "[+] Timestamps reset on 12 files in /tmp and /var/log\n[+] Modified times now match /etc/passwd\n[+] Forensic timestamps neutralized",
             
             # ─── No-output commands ──────────────────────────────────
             "chmod": "",

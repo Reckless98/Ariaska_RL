@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260208_131705_f190e9",
+  "timestamp": 1770553036.9865756,
+  "key_outcomes": {
+    "wins": [
+      "Captured detailed service/banner information during initial reconnaissance (ep001_step02) which provides actionable hypotheses for later exploitation.",
+      "Successfully enumerated open ports and correlated service versions with known vulnerabilities, enabling a prioritized target list (ep001_step05)."
+    ],
+    "fails": [
+      "Unable to develop and execute a stable privilege escalation path despite multiple mentor interventions (ep001_step08).",
+      "Failed to achieve mission success within allotted episode time, resulting in a 0% success rate despite incremental progress."
+    ],
+    "summary": "The agent demonstrated reliable reconnaissance behaviors and target triage but repeatedly stalled during exploitation and privilege escalation, preventing overall success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stalled due to missing credential harvesting and ineffective use of discovered services",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_recon_banner",
+      "if_condition": "When port scanning reveals HTTP/SSH banners from open ports",
+      "then_action": "Capture banner text and map to known service versions with the vulnerability database",
+      "parameters_template": {
+        "scan_tool": "nmap",
+        "flags": "-sV --script=banner"
+      },
+      "confidence": 0.88,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1770553044.8625774,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_port_prioritization",
+      "if_condition": "When multiple open ports detected during initial sweep",
+      "then_action": "Prioritize exploitation pathway based on service-criticality and CVSS data",
+      "parameters_template": {
+        "sorting_metric": "cvss_score",
+        "threshold": 6.5
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1770553044.8625963,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_mapping",
+      "if_condition": "When service version identified for target host",
+      "then_action": "Cross-reference service version with known CVEs and document potential payloads",
+      "parameters_template": {
+        "database": "nvd",
+        "time_window_days": 365
+      },
+      "confidence": 0.79,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1770553044.86261,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_recon_banner",
+      "skill_card_id": "skill_recon_banner",
+      "reason": "High success rate in extracting actionable reconnaissance data"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured credential harvesting",
+      "description": "Integrate targeted enumeration scripts to capture credentials from exposed services before attempting privilege escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit chaining validation",
+      "description": "Develop and test chained exploit paths based on the prioritized service list to ensure escalation steps are feasible.",
+      "priority": "medium"
+    },
+    {
+      "title": "Adaptive feedback loop",
+      "description": "Implement analysis of failed escalation attempts to adjust future attack paths automatically during the episode.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

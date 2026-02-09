@@ -276,7 +276,8 @@ class RealToolRunner(ToolRunner):
                 shell=True,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,  # Phase 6.5: prevent interactive prompts
             )
             result = ToolResult(
                 command=command,

@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260208_130521_0541da",
+  "timestamp": 1770552335.0331395,
+  "key_outcomes": {
+    "wins": [
+      "Completed thorough reconnaissance covering the primary target IP and identified open services within the allotted steps",
+      "Maintained consistent logging of mentor calls and response actions preventing duplication of effort"
+    ],
+    "fails": [
+      "Failed to exploit SSH service due to incorrect authentication flow, preventing pivot into deeper network segments",
+      "Persistence mechanisms were not established after repeated access attempts, leading to no sustained foothold"
+    ],
+    "summary": "Reconnaissance phase executed reliably but exploitation failures with SSH authentication prevented any episode success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated authentication failures against SSH despite valid banners indicating credential-based access required",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step13",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770552342.8212514,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH auth repeatedly fails after banner scan",
+      "then_action": "Switch to brute-forcing limited credential list with hydra and verify lockout timing",
+      "parameters_template": {
+        "tool": "hydra",
+        "mode": "ssh",
+        "userlist": "recon_users.txt",
+        "passlist": "common_passwords.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1770552342.821264,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential validation fails multiple times",
+      "then_action": "Capture host logs and assess account lockout policies before reattempting",
+      "parameters_template": {
+        "log_locations": [
+          "/var/log/auth.log",
+          "/var/log/secure"
+        ],
+        "retry_delay": "2m"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step15"
+      ],
+      "created_at": 1770552342.8212752,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase and consistent service detection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "SSH credential pivot experiment",
+      "description": "Introduce adaptive credential lists and lockout-aware timing when brute-forcing SSH after enumeration",
+      "priority": "high"
+    },
+    {
+      "title": "Logging verification before retry",
+      "description": "Capture authentication logs immediately after failure to determine if blocking or throttling is triggered and adjust retries",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential reuse validation",
+      "description": "Test reuse of credentials identified from related services before escalating to full exploitation attempts",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

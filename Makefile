@@ -46,17 +46,17 @@ venv:
 test:
 	$(PYTEST) -q
 
-# Full simulated training (100 episodes, 120 steps)
+# Full MS2 live training (100 episodes, 40 steps)
 train:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 120 --seed 42 --verbosity standard
+	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms2 --verbosity verbose
 
-# Quick simulated training (10 episodes)
+# Quick MS2 live training (10 episodes)
 train-quick:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 120 --seed 42 --verbosity verbose
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms2 --verbosity verbose
 
-# Live Metasploitable 2 training
+# Live Metasploitable 2 training (longer)
 train-msf:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 120 --env msf --verbosity verbose
+	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 40 --env ms2 --verbosity verbose
 
 # MS2 Docker lab setup
 ms2-setup:
@@ -71,9 +71,9 @@ ms2-health:
 ms2-stop:
 	@bash scripts/setup_ms2.sh stop
 
-# Quick smoke test
+# Quick smoke test (MS2 live)
 smoke:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 10 --seed 1337 --verbosity standard
+	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 20 --seed 1337 --env ms2 --verbosity verbose
 
 # View last training run
 last:

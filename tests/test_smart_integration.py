@@ -257,9 +257,12 @@ class TestSmartIntegration:
             reward_breakdown={"base": 1.0, "novelty_bonus": 1.5, "total": 2.5},
         )
         
-        assert len(dashboard.steps) == 1
-        assert dashboard.steps[0].reward == 2.5
-        assert dashboard.steps[0].agent == "RedAgent"
+        # Phase 6.5: record_step tracks stats in agent_stats (not a steps list)
+        assert "RedAgent" in dashboard.agent_stats
+        stats = dashboard.agent_stats["RedAgent"]
+        assert stats["episode_reward"] == 2.5
+        assert stats["last_action"] == "nmap -sV 10.10.10.10"
+        assert stats["confidence"] == 0.8
     
     @pytest.mark.skipif(
         os.getenv("OPENAI_API_KEY") is None,

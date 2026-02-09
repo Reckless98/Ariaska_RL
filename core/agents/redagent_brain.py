@@ -599,9 +599,9 @@ class RedAgentBrain:
             elif current_phase == "privesc":
                 # Suggest privilege escalation techniques
                 recommendations.append({
-                    "command": "sudo -l",
-                    "params": "-l",
-                    "why": "Check sudo permissions for current user"
+                    "command": "find / -perm -u=s -type f 2>/dev/null",
+                    "params": "-perm -u=s",
+                    "why": "Find SUID binaries for privilege escalation"
                 })
                 recommendations.append({
                     "command": "find / -perm -u=s -type f 2>/dev/null",

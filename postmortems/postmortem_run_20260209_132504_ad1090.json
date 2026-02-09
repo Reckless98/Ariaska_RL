@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260209_132504_ad1090",
+  "timestamp": 1770639933.6495306,
+  "key_outcomes": {
+    "wins": [
+      "Efficient reconnaissance leading to consistent discovery of initial foothold across the single episode (reward 57.5).",
+      "High mentor interaction rate (15 calls) ensured rapid tactical adjustments during the run."
+    ],
+    "fails": [
+      "Zero success rate indicates inability to achieve primary objective despite initial progress.",
+      "Late-stage privilege escalation attempts failed repeatedly, suggesting gaps in post-exploitation strategy."
+    ],
+    "summary": "Reconnaissance is solid but campaign loses momentum during post-exploitation, preventing mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts fail because no valid local exploits or credentials are leveraged.",
+      "frequency": 2,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts and attempt credential reuse",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1770639939.8908634,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When limited privilege shell is obtained",
+      "then_action": "Collect system info, search for SUID binaries, and confirm writable directories before escalating",
+      "parameters_template": {
+        "tools": [
+          "uname -a",
+          "find / -perm -4000 -type f 2>/dev/null"
+        ],
+        "focus": "privileges"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step11"
+      ],
+      "created_at": 1770639939.8908846,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials from network scans are cached",
+      "then_action": "Attempt lateral movement via SMB/WinRM using harvested credentials",
+      "parameters_template": {
+        "protocols": [
+          "SMB",
+          "WinRM"
+        ],
+        "credential_source": "nmap smb-brute output"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1770639939.8908994,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent system enumeration in limited shells sets up potential escalation paths."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate local exploit enumeration",
+      "description": "Run automated local exploit search (e.g., LinPEAS) immediately after collecting system info to close the privilege escalation gap.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse sequencing",
+      "description": "After SSH enumeration, systematically attempt credential reuse across SMB and WinRM before searching for new exploits.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-exploitation persistence drill",
+      "description": "Test persistence techniques following a successful privilege escalation simulation to ensure mission completion.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

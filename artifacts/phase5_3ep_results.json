@@ -1,89 +1,88 @@
 {
-  "timestamp": "2026-02-07T19:04:08.538166",
+  "timestamp": "2026-02-09T14:09:04.238887",
   "episodes": 3,
-  "max_steps": 10,
+  "max_steps": 20,
   "seed": 42,
-  "target_ip": "10.10.10.10",
-  "mode": "simulated",
-  "duration_s": 48.955283880233765,
-  "avg_reward": 2087.3333333333335,
-  "last10_avg": 2087.3333333333335,
-  "max_reward": 2247.25,
-  "min_reward": 1940.25,
-  "exfil_pct": 66.66666666666666,
+  "target_ip": "172.28.0.10",
+  "mode": "live",
+  "duration_s": 2031.1075820922852,
+  "avg_reward": 2432.3333333333335,
+  "last10_avg": 2432.3333333333335,
+  "max_reward": 2473.25,
+  "min_reward": 2367.75,
+  "exfil_pct": 100.0,
   "phase_distribution": {
-    "EXFILTRATION": 2,
-    "POST_EXPLOITATION": 1
+    "EXFILTRATION": 3
   },
   "decision_sources": {
-    "ppo": 36,
-    "playbook": 5,
-    "registry": 20,
-    "anti_repeat": 43
+    "ppo": 79,
+    "playbook": 51,
+    "registry": 0,
+    "anti_repeat": 64
   },
   "episode_data": [
     {
       "episode": 1,
-      "reward": 2247.25,
+      "reward": 2456.0,
       "highest_phase": "EXFILTRATION",
-      "steps": 10,
-      "ppo_updates": 0,
-      "policy_loss": 0.0,
-      "value_loss": 0.0,
-      "entropy": 0.0,
+      "steps": 20,
+      "ppo_updates": 1,
+      "policy_loss": -0.053191908014317356,
+      "value_loss": 12.48840711514155,
+      "entropy": 2.819110373655955,
       "sources": {
-        "ppo": 10,
-        "playbook": 2,
-        "registry": 6,
-        "anti_repeat": 15
+        "ppo": 21,
+        "playbook": 18,
+        "registry": 0,
+        "anti_repeat": 21
       },
-      "unique_commands": 33,
-      "unique_templates": 21,
-      "command_diversity": 1.0,
-      "total_discoveries": 93,
-      "step_at_first_exploit": 1
+      "unique_commands": 58,
+      "unique_templates": 57,
+      "command_diversity": 0.8055555555555556,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 0
     },
     {
       "episode": 2,
-      "reward": 2074.5,
+      "reward": 2473.25,
       "highest_phase": "EXFILTRATION",
-      "steps": 10,
-      "ppo_updates": 2,
-      "policy_loss": 0.29865404963493347,
-      "value_loss": 29313.7900390625,
-      "entropy": 3.9344464540481567,
+      "steps": 20,
+      "ppo_updates": 3,
+      "policy_loss": 0.1744286852578322,
+      "value_loss": 4.2496750978063105,
+      "entropy": 3.2147474421395192,
       "sources": {
-        "ppo": 17,
-        "playbook": 1,
-        "registry": 8,
-        "anti_repeat": 10
+        "ppo": 29,
+        "playbook": 16,
+        "registry": 0,
+        "anti_repeat": 21
       },
-      "unique_commands": 36,
-      "unique_templates": 23,
-      "command_diversity": 1.0,
-      "total_discoveries": 80,
-      "step_at_first_exploit": 1
+      "unique_commands": 60,
+      "unique_templates": 57,
+      "command_diversity": 0.8333333333333334,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 0
     },
     {
       "episode": 3,
-      "reward": 1940.25,
-      "highest_phase": "POST_EXPLOITATION",
-      "steps": 10,
-      "ppo_updates": 0,
-      "policy_loss": 0.0,
-      "value_loss": 0.0,
-      "entropy": 0.0,
+      "reward": 2367.75,
+      "highest_phase": "EXFILTRATION",
+      "steps": 20,
+      "ppo_updates": 2,
+      "policy_loss": -0.13447254083843696,
+      "value_loss": 3.5697313331895404,
+      "entropy": 3.4021680421299405,
       "sources": {
-        "ppo": 9,
-        "playbook": 2,
-        "registry": 6,
-        "anti_repeat": 18
+        "ppo": 29,
+        "playbook": 17,
+        "registry": 0,
+        "anti_repeat": 22
       },
-      "unique_commands": 35,
-      "unique_templates": 21,
-      "command_diversity": 1.0,
-      "total_discoveries": 92,
-      "step_at_first_exploit": 1
+      "unique_commands": 61,
+      "unique_templates": 57,
+      "command_diversity": 0.8591549295774648,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 0
     }
   ]
 }

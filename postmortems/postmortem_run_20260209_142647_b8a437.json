@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260209_142647_b8a437",
+  "timestamp": 1770643631.9858623,
+  "key_outcomes": {
+    "wins": [
+      "Agent maintained steady reward per episode (70) despite failing to complete goal, indicating consistent exploration strategy.",
+      "Prompted mentor 10 times demonstrating diligence in seeking guidance."
+    ],
+    "fails": [
+      "Zero success rate across run, indicating core task objective not met.",
+      "Repeated dependency on mentor guidance suggests lack of autonomous decision-making."
+    ],
+    "summary": "Consistent engagement but unable to reach success criteria; need improved autonomous tactics and fewer mentor interventions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Target service discovery stalled after initial reconnaissance, repeatedly missing active port identification.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When Nmap results show open port 22 and default SSH banner",
+      "then_action": "Executes focused SSH enumeration using nmap ssh-* scripts to uncover service details and credentials.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770643638.3218887,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When TCP SYN scan returns multiple open ports but no service detail",
+      "then_action": "Run nmap version scan and record service string to guide exploitation.",
+      "parameters_template": {
+        "flags": "-sV",
+        "ports": "1-1024"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1770643638.32191,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "If reconnaissance stalls after five mentor calls",
+      "then_action": "Switch to systematic directory brute forcing using gobuster with wordlist from common directories.",
+      "parameters_template": {
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/seclists/Discovery/Web-Content/common.txt"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step13"
+      ],
+      "created_at": 1770643638.3219254,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High consistency in reconnaissance focus when SSH ports were visible."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous Port Enumeration Drill",
+      "description": "Automate port/service scanning sequence to reduce mentor reliance and confirm service discovery within first 5 steps.",
+      "priority": "high"
+    },
+    {
+      "title": "SSH Banner Exploitation Flow",
+      "description": "Chain SSH enumeration results into credential guessing or banner-specific exploits to validate post-discovery actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

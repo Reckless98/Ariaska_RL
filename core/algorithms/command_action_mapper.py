@@ -53,6 +53,9 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         "whatweb", "curl_headers",
         # SNMP/NFS discovery
         "snmpwalk", "onesixtyone", "showmount", "nfs_mount",
+        # MS2-specific recon
+        "nmap_port_21", "nmap_port_1524", "nmap_port_8180", "nmap_port_5432",
+        "nmap_port_6667", "nmap_rservices", "rpcinfo_check", "showmount_enum",
     ],
 
     # ─── Red: Offensive Exploitation ─────────────────────────────────────────
@@ -88,6 +91,14 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         # Lateral (offensive)
         "impacket_pth_psexec", "crackmapexec_pth",
         "responder", "ntlmrelayx", "winrm_exec",
+        # MS2-specific exploitation
+        "telnet_1524", "rsh_root", "rlogin_root", "vsftpd_exploit",
+        "unrealircd_exploit", "samba_exploit", "java_rmi_exploit",
+        "distcc_exploit", "psql_rce", "psql_default_creds",
+        "tomcat_cred_test", "war_deploy", "mysql_root_login",
+        "root_shell_confirm",
+        # MS2 post-exploitation
+        "dump_shadow", "dump_passwd",
     ],
 
     # ─── Blue: Defensive Analysis ────────────────────────────────────────────
@@ -142,8 +153,12 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         # Exfiltration
         "nc_exfil", "curl_exfil", "scp_exfil", "exfil_data",
         "dns_exfil", "icmp_exfil", "base64_exfil", "smb_exfil",
+        # MS2 persistence & exfil
+        "plant_ssh_key", "exfil_shadow", "exfil_ssh_keys", "exfil_mysql_dump",
         # Cleanup
         "cleanup_logs", "timestomp",
+        "clear_bash_history", "clear_auth_logs", "clear_syslog",
+        "remove_uploaded_tools", "remove_ssh_keys_planted",
         # Impacket registry (stealthy)
         "impacket_reg",
         # CrackMapExec shares (stealthy)

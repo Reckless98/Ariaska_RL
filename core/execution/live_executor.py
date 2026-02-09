@@ -155,7 +155,8 @@ class LiveCommandExecutor:
     
     # Default timeouts per command category (seconds)
     COMMAND_TIMEOUTS = {
-        "nmap": 120,        # Nmap scans can be slow
+        "{": 20,            # Phase 6.5: piped ingreslock commands have built-in timeout 10 + sleep 2
+        "nmap": 45,         # Phase 6.5: reduced from 120s — targeted scans should finish quickly
         "masscan": 60,
         "nikto": 90,
         "gobuster": 60,
@@ -164,13 +165,14 @@ class LiveCommandExecutor:
         "medusa": 90,
         "sqlmap": 120,
         "searchsploit": 15,
-        "msfconsole": 180,  # Phase 6.4: msfconsole needs time to load modules + exploit
+        "msfconsole": 45,   # Phase 6.5: reduced from 180s — enough for module load + exploit fire
         "curl": 15,
         "wget": 15,
         "nc": 15,           # Phase 6.4: nc can take time when used as shell
         "ncat": 15,
-        "telnet": 15,       # Phase 6.4: telnet to ingreslock can need interaction
-        "ssh": 15,
+        "telnet": 20,       # Phase 6.5: piped ingreslock commands include sleep 2
+        "ssh": 20,
+        "sshpass": 20,     # Phase 6.5: sshpass wraps ssh with auto-password
         "smbclient": 15,
         "rpcclient": 15,
         "showmount": 10,

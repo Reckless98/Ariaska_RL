@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260208_125740_83a79a",
+  "timestamp": 1770551890.2058883,
+  "key_outcomes": {
+    "wins": [
+      "Completed all requested exploration steps, accumulating full reward potential even though criteria for success were unmet.",
+      "Consistent use of mentor guidance (10 calls) ensured every phase was documented for post-run analysis."
+    ],
+    "fails": [
+      "Zero success rate indicates the run never satisfied the mission objective\u2014progress stalled before achieving critical goals.",
+      "Repeated dependency on mentors suggests the agent could not self-correct strategy mid-run."
+    ],
+    "summary": "The agent maintained high procedural compliance but repeatedly failed to convert exploration into mission success, relying heavily on mentor intervention without resolving the core blocking issue."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent could not transition from reconnaissance to exploitation, repeatedly ending episodes after gathering intel without acting on it.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step04"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1770551897.9997196,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When only HTTP ports are visible and directory listings are disabled",
+      "then_action": "Pivot to forced browsing with burp intruder wordlists",
+      "parameters_template": {
+        "tool": "burp_intruder",
+        "wordlist": "directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1770551897.9997358,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance gathers service versions but no exploits triggered",
+      "then_action": "Correlate service versions to known exploits via searchsploit before using automated scanners",
+      "parameters_template": {
+        "services": [
+          "ssh",
+          "http"
+        ],
+        "action": "searchsploit"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1770551897.9997478,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent failure transition underscores need for prioritized correlation before action"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous exploitation after reconnaissance",
+      "description": "Implement a decision gate that triggers exploitation modules immediately after service enumeration to avoid stalling at intel collection.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Cap mentor calls per phase and require fallback heuristics, forcing autonomous recovery when guidance is unavailable.",
+      "priority": "medium"
+    },
+    {
+      "title": "Service-specific exploit sequencing",
+      "description": "Try targeted exploit chains per identified service versions (SSH + HTTP) based on searchsploit mapping to increase success likelihood.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -358,7 +358,7 @@ class GPTManager:
                 - error: str (if failed)
         """
         # Offline mode returns placeholder (no logging, no API access)
-        if self.is_offline():
+        if self.is_offline() or getattr(self, '_quota_exhausted', False):
             return {
                 "success": True,
                 "response": self._get_offline_placeholder(task_type),
@@ -812,6 +812,10 @@ class GPTManager:
         if self.is_offline():
             return self._get_offline_placeholder(task_type)
         
+        # PHASE 6.5: Quota circuit breaker — skip instantly if quota exhausted
+        if getattr(self, '_quota_exhausted', False):
+            return self._get_offline_placeholder(task_type)
+        
         if not self.can_make_request():
             logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit})")
             return "echo 'Token limit reached'"
@@ -910,6 +914,11 @@ class GPTManager:
                         return fallback_commands.get(task_type, "echo 'GPT timeout'")
             except Exception as e:
                 logger.warning(f"GPT request failed with exception: {e}, using immediate fallback")
+                # PHASE 6.5: Activate circuit breaker on quota exhaustion
+                error_str = str(e).lower()
+                if "insufficient_quota" in error_str or "exceeded your current quota" in error_str:
+                    self._quota_exhausted = True
+                    logger.warning("⚡ GPT quota exhausted — circuit breaker activated, all future LLM calls skipped this session")
                 # Immediate fallback for any network issues
                 fallback_commands = {
                     "tactical": "nmap -sV 10.10.10.10",

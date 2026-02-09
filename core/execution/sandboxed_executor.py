@@ -104,6 +104,9 @@ class SandboxedExecutor:
         "chmod 777", "chown",  # Don't change host permissions
     }
 
+    # Phase 6.5: sshpass handles SSH password auth automatically.
+    # sudo/su commands execute on target via ingreslock, not on host.
+
     # Patterns that indicate out-of-scope targeting
     SCOPE_VIOLATION_PATTERNS = [
         r"127\.0\.0\.1",  # localhost
@@ -121,7 +124,7 @@ class SandboxedExecutor:
         "msfconsole", "msfvenom",  # Metasploit
         "searchsploit",  # Exploit search
         "curl", "wget",  # HTTP
-        "ssh", "scp", "ftp", "telnet", "nc", "ncat",  # Connectivity
+        "ssh", "sshpass", "scp", "ftp", "telnet", "nc", "ncat",  # Connectivity
         "python", "python3", "perl", "ruby",  # Scripting
         "cat", "ls", "id", "whoami", "uname", "hostname",  # Recon on target
         "grep", "find", "locate", "which",  # Search
@@ -258,6 +261,10 @@ class SandboxedExecutor:
             if blocked in command.lower():
                 return {"valid": False, "reason": f"Blocked command pattern: {blocked}"}
 
+        # Phase 6.5: ssh/scp commands use sshpass for auto-password entry.
+        # sudo/su commands are piped to remote target via ingreslock, never run on host.
+        # stdin=DEVNULL in _execute_live() prevents any residual interactive prompts.
+
         # Check scope violations (localhost, etc.)
         for pattern in self.SCOPE_VIOLATION_PATTERNS:
             if re.search(pattern, command):
@@ -302,6 +309,7 @@ class SandboxedExecutor:
             process = subprocess.Popen(
                 command,
                 shell=True,
+                stdin=subprocess.DEVNULL,  # Phase 6.5: prevent interactive prompts (ssh, sudo, scp)
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

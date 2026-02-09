@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770522826.8920484,
-  "skill_count": 9,
+  "last_updated": 1770638578.0535512,
+  "skill_count": 12,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -175,6 +175,57 @@
         "ep001_step11"
       ],
       "created_at": 1770522826.8913646,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_recon_banner": {
+      "id": "skill_recon_banner",
+      "if_condition": "When port scanning reveals HTTP/SSH banners from open ports",
+      "then_action": "Capture banner text and map to known service versions with the vulnerability database",
+      "parameters_template": {
+        "scan_tool": "nmap",
+        "flags": "-sV --script=banner"
+      },
+      "confidence": 0.88,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1770553044.8625774,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_recon_ssh": {
+      "id": "skill_recon_ssh",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumerable scan with targeted nmap scripts and capture credentials if accessible",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-brute,ssh-auth-methods"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1770638578.0480409,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_privilege_escalation": {
+      "id": "skill_privilege_escalation",
+      "if_condition": "When initial shell access is constrained to low-privilege user",
+      "then_action": "Run local enumeration scripts (LinEnum/Linux-Exploit-Suggester) to identify privilege escalation paths",
+      "parameters_template": {
+        "scripts": [
+          "LinEnum.sh",
+          "linux-exploit-suggester.sh"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step20"
+      ],
+      "created_at": 1770638578.0480728,
       "usage_count": 0,
       "success_rate": 0.0
     }

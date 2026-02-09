@@ -28,6 +28,11 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# Suppress noisy HTTP retry logs (429 rate limit spam)
+import logging as _logging
+for _noisy in ("httpx", "openai", "openai._base_client", "httpcore"):
+    _logging.getLogger(_noisy).setLevel(_logging.WARNING)
+
 # Load environment variables
 load_dotenv()
 
@@ -67,19 +72,19 @@ _deterministic_mode = _init_deterministic_mode()
 # ─────────────────────────────────────────────────────────────────────────────
 def run_training(
     episodes: int = 100,
-    max_steps: int = 120,
+    max_steps: int = 40,
     seed: int = 42,
-    target_ip: str = "10.10.10.10",
-    mode: str = "simulated",
+    target_ip: str = "172.28.0.10",
+    mode: str = "live",
     platform: str = "linux",
-    difficulty: str = "medium",
-    verbosity: str = "standard",
+    difficulty: str = "easy",
+    verbosity: str = "verbose",
     checkpoint_path: str = "models/enhanced/ppo_checkpoint.pt",
     dashboard_mode: str = "rich",
     log_jsonl: bool = True,
     mentor_budget: float = 0.30,
-    mentor_min_rate: float = 0.05,
-    mentor_max_rate: float = 0.50,
+    mentor_min_rate: float = 0.15,
+    mentor_max_rate: float = 0.35,
     resume_path: Optional[str] = None,
 ):
     """
@@ -126,9 +131,7 @@ def run_training(
         max_steps_per_episode=max_steps,
         default_target=target_ip,
         dashboard_enabled=(verbosity != "quiet"),
-        dashboard_mode=dashboard_mode if dashboard_mode != "rich" else (
-            "live" if verbosity == "verbose" else "periodic"
-        ),
+        dashboard_mode="live" if dashboard_mode == "rich" else dashboard_mode,
         event_jsonl_path=(
             f"traces/events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
             if log_jsonl else None
@@ -446,13 +449,13 @@ def main():
     # smart-train
     train_p = sub.add_parser("smart-train", help="Run RL training")
     train_p.add_argument("--episodes", "-e", type=int, default=100, help="Number of episodes")
-    train_p.add_argument("--steps", "-s", type=int, default=120, help="Max steps per episode")
+    train_p.add_argument("--steps", "-s", type=int, default=40, help="Max steps per episode (default: 40)")
     train_p.add_argument("--seed", type=int, default=42, help="Random seed")
     train_p.add_argument("--target", type=str, default=None, help="Target IP")
     train_p.add_argument("--env", type=str, default="msf",
                          choices=["sim", "msf", "ms2", "msf3", "ms3", "htb"],
                          help="Environment preset (default: msf/ms2 = live Metasploitable 2)")
-    train_p.add_argument("--verbosity", "-v", type=str, default="standard",
+    train_p.add_argument("--verbosity", "-v", type=str, default="verbose",
                          choices=["quiet", "standard", "verbose"])
     train_p.add_argument("--checkpoint", type=str, default=None,
                          help="PPO checkpoint path (auto-selected per mode if omitted)")
@@ -467,10 +470,10 @@ def main():
                          help="Disable JSONL event logging")
     train_p.add_argument("--mentor-budget", type=float, default=0.30,
                          help="Mentor call budget as fraction of steps (default: 0.30)")
-    train_p.add_argument("--mentor-min-rate", type=float, default=0.05,
-                         help="Minimum mentor call rate (default: 0.05)")
-    train_p.add_argument("--mentor-max-rate", type=float, default=0.50,
-                         help="Maximum mentor call rate (default: 0.50)")
+    train_p.add_argument("--mentor-min-rate", type=float, default=0.15,
+                         help="Minimum mentor call rate (default: 0.15)")
+    train_p.add_argument("--mentor-max-rate", type=float, default=0.35,
+                         help="Maximum mentor call rate (default: 0.35)")
     train_p.add_argument("--resume", type=str, default=None,
                          help="Resume from checkpoint path")
 
