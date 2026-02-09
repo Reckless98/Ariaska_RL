@@ -36,7 +36,15 @@ for _noisy in ("httpx", "openai", "openai._base_client", "httpcore"):
 # Load environment variables
 load_dotenv()
 
-console = Console()
+# Force Rich terminal rendering — ensures full Rich UI even if accidentally piped
+console = Console(force_terminal=True, width=140)
+
+# Ensure line buffering so output appears immediately
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Deterministic Mode
@@ -197,7 +205,7 @@ def run_training(
     )
 
     console.print(Panel(
-        f"[bold cyan]ARIASKA Smart Training v6.7[/bold cyan]\n\n"
+        f"[bold cyan]ARIASKA Smart Training v6.8 — Investor Demo Mode[/bold cyan]\n\n"
         f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
         f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
         f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
@@ -344,19 +352,25 @@ def run_training(
 
     phase_counts = Counter(all_phases)
     phase_dist_str = "  ".join(f"{p}:{c}" for p, c in phase_counts.most_common())
-    exfil_pct = phase_counts.get("EXFILTRATION", 0) / len(all_phases) * 100
+    # CLOSEOUT implies EXFILTRATION was already reached — count both
+    exfil_count = phase_counts.get("EXFILTRATION", 0) + phase_counts.get("CLOSEOUT", 0)
+    exfil_pct = exfil_count / len(all_phases) * 100
+    closeout_pct = phase_counts.get("CLOSEOUT", 0) / len(all_phases) * 100
 
-    summary_table = Table(title="📊 Training Summary", box=box.ROUNDED)
-    summary_table.add_column("Metric", style="cyan")
-    summary_table.add_column("Value", style="bold white")
+    summary_table = Table(title="📊 ARIASKA Training Summary", box=box.ROUNDED)
+    summary_table.add_column("Metric", style="cyan", width=24)
+    summary_table.add_column("Value", style="bold white", width=30)
     summary_table.add_row("Episodes", str(episodes))
     summary_table.add_row("Steps/Episode", str(max_steps))
     summary_table.add_row("Duration", f"{elapsed:.1f}s ({elapsed/episodes:.2f}s/ep)")
-    summary_table.add_row("Avg Reward", f"{avg_reward:+.1f}")
+    summary_table.add_row("Avg Reward", f"[bold green]{avg_reward:+.1f}[/bold green]")
     summary_table.add_row("Last-10 Avg", f"{last10_avg:+.1f}")
-    summary_table.add_row("Max Reward", f"{max_reward:+.1f}")
+    summary_table.add_row("Max Reward", f"[green]{max_reward:+.1f}[/green]")
     summary_table.add_row("Min Reward", f"{min_reward:+.1f}")
-    summary_table.add_row("EXFILTRATION %", f"{exfil_pct:.0f}%")
+    summary_table.add_row("─" * 24, "─" * 24)
+    summary_table.add_row("📤 EXFILTRATION %", f"[bold {'green' if exfil_pct >= 80 else 'yellow'}]{exfil_pct:.0f}%[/bold {'green' if exfil_pct >= 80 else 'yellow'}] ({exfil_count}/{len(all_phases)} episodes)")
+    summary_table.add_row("🧹 CLOSEOUT %", f"[bold {'green' if closeout_pct >= 30 else 'yellow'}]{closeout_pct:.0f}%[/bold {'green' if closeout_pct >= 30 else 'yellow'}] ({phase_counts.get('CLOSEOUT', 0)}/{len(all_phases)} episodes)")
+    summary_table.add_row("─" * 24, "─" * 24)
     summary_table.add_row("Phase Distribution", phase_dist_str)
     console.print(summary_table)
 
@@ -391,6 +405,7 @@ def run_training(
         "max_reward": max_reward,
         "min_reward": min_reward,
         "exfil_pct": exfil_pct,
+        "closeout_pct": closeout_pct,
         "phase_distribution": dict(phase_counts),
         "decision_sources": agg_sources,
         "episode_data": episode_data,
@@ -552,8 +567,10 @@ def main():
     train_p.add_argument("--ethics-mode", type=str, default="training",
                          choices=["training", "assessment", "demo"],
                          help="Ethics mode: training=full capability, assessment=audit logging, demo=investor-safe display (default: training)")
-    train_p.add_argument("--seed-skills", action="store_true", default=False,
-                         help="Pre-seed SkillLibrary with 40+ expert skill cards on startup")
+    train_p.add_argument("--seed-skills", action="store_true", default=True,
+                         help="Pre-seed SkillLibrary with expert skill cards on startup (default: ON)")
+    train_p.add_argument("--no-seed-skills", dest="seed_skills", action="store_false",
+                         help="Disable pre-seeding of SkillLibrary")
 
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)

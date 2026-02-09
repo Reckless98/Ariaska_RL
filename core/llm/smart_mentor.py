@@ -228,8 +228,25 @@ class SmartMentor:
         self.max_retries = max_retries
     
     def _build_system_prompt(self) -> str:
-        """Build the system prompt for the mentor with MS2-specific knowledge."""
-        return """You are an expert penetration tester and red team operator with deep knowledge of:
+        """Build the system prompt with dynamic knowledge injection from knowledge_packs."""
+        # Dynamic knowledge injection from knowledge_packs module
+        try:
+            from core.knowledge.knowledge_packs import get_mentor_knowledge_text, PHASE_REASONING
+            ms2_knowledge = get_mentor_knowledge_text("metasploitable2")
+            ms3_knowledge = get_mentor_knowledge_text("metasploitable3")
+            # Build phase reasoning text
+            phase_reasoning_text = "\n=== PHASE REASONING (WHY and WHEN) ===\n"
+            for phase, reasoning in PHASE_REASONING.items():
+                phase_reasoning_text += f"\n{phase.upper()}:\n"
+                for key, val in reasoning.items():
+                    if isinstance(val, str):
+                        phase_reasoning_text += f"  {key}: {val[:150]}\n"
+        except ImportError:
+            ms2_knowledge = ""
+            ms3_knowledge = ""
+            phase_reasoning_text = ""
+
+        return f"""You are an expert penetration tester and red team operator with deep knowledge of:
 - Network reconnaissance and enumeration
 - Web application security testing
 - Active Directory attacks and lateral movement
@@ -355,6 +372,10 @@ After exfiltration, ALWAYS close out professionally:
   4. Clear bash history, auth logs, wtmp/btmp, syslog
   5. Timestomp modified files to match system baseline
   6. Verify target stability (uptime, services, disk)
+
+{ms3_knowledge}
+
+{phase_reasoning_text}
 """
     
     def _build_user_prompt(
