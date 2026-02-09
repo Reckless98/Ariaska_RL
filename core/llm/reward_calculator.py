@@ -342,6 +342,28 @@ class SmartRewardCalculator:
             
             self.highest_phase = new_phase
         
+        # 5b. Phase-appropriateness bonus (Phase 6.7)
+        # Teaches PPO WHEN to use each command — the "reasoning" signal
+        # +3.0 if command is appropriate for the current phase
+        # -2.0 if command belongs to a completely wrong phase
+        if template:
+            cmd_phase_order = self._phase_order(template.phase)
+            cur_phase_order = self._phase_order(current_phase)
+            phase_distance = abs(cmd_phase_order - cur_phase_order)
+            
+            if phase_distance == 0:
+                # Perfect phase match — this is the RIGHT time for this command
+                breakdown.efficiency_bonus += 3.0
+                explanations.append("🎯 Phase-match: +3.0")
+            elif phase_distance == 1:
+                # Adjacent phase — acceptable (e.g., ENUM tool during early EXPLOIT)
+                breakdown.efficiency_bonus += 1.0
+                explanations.append("Phase-adjacent: +1.0")
+            elif phase_distance >= 3:
+                # Way off — scanning during exfiltration is wasted effort
+                breakdown.failure_penalty += 2.0
+                explanations.append(f"⚠️ Wrong-phase ({template.phase.name} during {current_phase.name}): -2.0")
+        
         # 6. Progress bonus - reward commands that change state (ADD to base, don't overwrite)
         new_flags = sum(1 for k, v in state_flags.items() if v and k not in self.discoveries)
         if new_flags > 0:

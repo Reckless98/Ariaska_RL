@@ -1550,6 +1550,10 @@ class SmartOrchestrator:
                 "remove_uploaded_tools", "remove_ssh_keys_planted",
                 "remove_cron_backdoors", "verify_target_stable",
                 "cleanup_tmp_artifacts",
+                # Anti-forensics (Phase 6.7)
+                "clear_bash_history", "clear_auth_logs", "clear_wtmp_btmp",
+                "shred_sensitive_files", "timestomp_closeout", "clear_syslog",
+                "remove_known_hosts",
             }
             if cmd_name in CLOSEOUT_COMMANDS and has_output and not has_failure:
                 if not agent_discoveries.get("artifacts_removed"):
@@ -2174,6 +2178,13 @@ class SmartOrchestrator:
             r"CLOSEOUT_KEYS_REMOVED",
             r"CLOSEOUT_CRON_REMOVED",
             r"CLOSEOUT_TARGET_STABLE",
+            r"CLOSEOUT_HISTORY_CLEARED",
+            r"CLOSEOUT_AUTH_CLEARED",
+            r"CLOSEOUT_LOGIN_LOGS_CLEARED",
+            r"CLOSEOUT_FILES_SHREDDED",
+            r"CLOSEOUT_TIMESTAMPS_FIXED",
+            r"CLOSEOUT_SYSLOG_CLEARED",
+            r"CLOSEOUT_KNOWN_HOSTS_REMOVED",
             r"artifacts?\s*(cleaned|removed|deleted)",
             r"closeout\s*(complete|done|finished)",
         ]
@@ -2675,6 +2686,61 @@ class SmartOrchestrator:
                 f"[CLOSEOUT] No orphaned processes found\n"
                 f"[CLOSEOUT] Disk usage nominal\n"
                 f"CLOSEOUT_TARGET_STABLE - target verified healthy"
+            )
+        
+        # ─── Anti-forensics CLOSEOUT commands (Phase 6.7) ────────────
+        if "clear_bash_history" in cmd_lower or "history -c" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Clearing bash history on {target}...\n"
+                f"[CLOSEOUT] /root/.bash_history zeroed\n"
+                f"[CLOSEOUT] /home/msfadmin/.bash_history zeroed\n"
+                f"CLOSEOUT_HISTORY_CLEARED - command history wiped"
+            )
+        if "clear_auth_log" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Clearing authentication logs on {target}...\n"
+                f"[CLOSEOUT] /var/log/auth.log zeroed (was 2.4MB)\n"
+                f"[CLOSEOUT] /var/log/secure not found (Debian-based)\n"
+                f"CLOSEOUT_AUTH_CLEARED - auth evidence removed"
+            )
+        if "clear_wtmp" in cmd_lower or "clear_btmp" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Clearing login records on {target}...\n"
+                f"[CLOSEOUT] /var/log/wtmp zeroed (removed 847 login records)\n"
+                f"[CLOSEOUT] /var/log/btmp zeroed (removed 12 failed attempts)\n"
+                f"[CLOSEOUT] /var/log/lastlog zeroed\n"
+                f"CLOSEOUT_LOGIN_LOGS_CLEARED - session records wiped"
+            )
+        if "shred" in cmd_lower and ("sensitive" in cmd_lower or "loot" in cmd_lower or "dump" in cmd_lower):
+            return (
+                f"[CLOSEOUT] Secure shredding files on {target}...\n"
+                f"[CLOSEOUT] shred: /tmp/loot_shadow.txt: pass 1/3 (random)\n"
+                f"[CLOSEOUT] shred: /tmp/loot_shadow.txt: pass 2/3 (random)\n"
+                f"[CLOSEOUT] shred: /tmp/loot_shadow.txt: pass 3/3 (000000)\n"
+                f"[CLOSEOUT] shred: /tmp/loot_shadow.txt: removing\n"
+                f"CLOSEOUT_FILES_SHREDDED - sensitive files securely destroyed"
+            )
+        if "timestomp" in cmd_lower or ("touch -r" in cmd_lower and "closeout" in cmd_lower):
+            return (
+                f"[CLOSEOUT] Timestomping modified files on {target}...\n"
+                f"[CLOSEOUT] Reset timestamps on 7 files in /tmp\n"
+                f"[CLOSEOUT] Reset timestamps on 3 files in /dev/shm\n"
+                f"[CLOSEOUT] All file times now match /etc/hostname baseline\n"
+                f"CLOSEOUT_TIMESTAMPS_FIXED - forensic timeline neutralized"
+            )
+        if "clear_syslog" in cmd_lower or ("syslog" in cmd_lower and "dev/null" in cmd_lower):
+            return (
+                f"[CLOSEOUT] Clearing system logs on {target}...\n"
+                f"[CLOSEOUT] /var/log/syslog zeroed (was 5.1MB)\n"
+                f"[CLOSEOUT] /var/log/messages zeroed\n"
+                f"CLOSEOUT_SYSLOG_CLEARED - system log evidence removed"
+            )
+        if "known_hosts" in cmd_lower and ("remove" in cmd_lower or "rm" in cmd_lower):
+            return (
+                f"[CLOSEOUT] Removing SSH known_hosts on {target}...\n"
+                f"[CLOSEOUT] Removed /root/.ssh/known_hosts (3 entries)\n"
+                f"[CLOSEOUT] Removed /home/msfadmin/.ssh/known_hosts (1 entry)\n"
+                f"CLOSEOUT_KNOWN_HOSTS_REMOVED - SSH connection evidence removed"
             )
 
         return f"[SIM] {command[:80]}... executed"

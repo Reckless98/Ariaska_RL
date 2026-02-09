@@ -89,6 +89,9 @@ def run_training(
     difficulty_preset: str = "normal",
     max_tokens_run: Optional[int] = None,
     checkpoint_every: int = 10,
+    anti_forensics: bool = True,
+    ethics_mode: str = "training",
+    seed_skills: bool = False,
 ):
     """
     Consolidated training loop with PPO metrics, checkpoint persistence,
@@ -194,13 +197,28 @@ def run_training(
     )
 
     console.print(Panel(
-        f"[bold cyan]ARIASKA Smart Training v6.6[/bold cyan]\n\n"
+        f"[bold cyan]ARIASKA Smart Training v6.7[/bold cyan]\n\n"
         f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
         f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
+        f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
         f"Verbosity: {verbosity}  |  Checkpoint: {checkpoint_path}",
         title="🚀 Training Start",
         border_style="cyan",
     ))
+
+    # Phase 6.7: Pre-seed SkillLibrary with expert knowledge
+    if seed_skills:
+        try:
+            from core.postmortem.skill_library import SkillLibrary
+            skill_lib = SkillLibrary()
+            count = skill_lib.seed_skills()
+            console.print(f"[green]🧠 Pre-seeded {count} expert skill cards into SkillLibrary[/green]")
+        except Exception as e:
+            console.print(f"[yellow]⚠️ Skill seeding failed: {e}[/yellow]")
+
+    # Phase 6.7: Store anti-forensics config on orchestrator
+    orch.anti_forensics_enabled = anti_forensics
+    orch.ethics_mode = ethics_mode
 
     with Progress(
         SpinnerColumn(),
@@ -526,6 +544,17 @@ def main():
     train_p.add_argument("--checkpoint-every", type=int, default=10,
                          help="Save PPO checkpoints every N episodes (default: 10)")
 
+    # Phase 6.7: Anti-forensics & ethics mode
+    train_p.add_argument("--anti-forensics", action="store_true", default=True,
+                         help="Enable anti-forensics in CLOSEOUT phase (default: ON)")
+    train_p.add_argument("--no-anti-forensics", dest="anti_forensics", action="store_false",
+                         help="Disable anti-forensics in CLOSEOUT phase")
+    train_p.add_argument("--ethics-mode", type=str, default="training",
+                         choices=["training", "assessment", "demo"],
+                         help="Ethics mode: training=full capability, assessment=audit logging, demo=investor-safe display (default: training)")
+    train_p.add_argument("--seed-skills", action="store_true", default=False,
+                         help="Pre-seed SkillLibrary with 40+ expert skill cards on startup")
+
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
     train_p.add_argument("pos_env", nargs="?", type=str, default=None)
@@ -601,6 +630,9 @@ def main():
                 difficulty_preset=args.difficulty,
                 max_tokens_run=args.max_tokens_run,
                 checkpoint_every=args.checkpoint_every,
+                anti_forensics=args.anti_forensics,
+                ethics_mode=args.ethics_mode,
+                seed_skills=args.seed_skills,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

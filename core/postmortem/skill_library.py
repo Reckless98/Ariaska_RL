@@ -463,6 +463,307 @@ class SkillLibrary:
         
         return entries[-limit:]
 
+    def seed_skills(self) -> int:
+        """Pre-seed the library with 40+ expert skill cards from knowledge packs.
+
+        Each card encodes WHY and WHEN reasoning so PPO agents learn to think,
+        not just execute scripts.  Skills cover MS2, MS3, HTB common patterns,
+        and anti-forensics.
+
+        Returns:
+            int: Number of skills promoted.
+        """
+        promoted = 0
+        seeds: List[SkillCard] = [
+            # ─── MS2: Instant-root paths (highest confidence) ────────
+            SkillCard(
+                id="ms2_vsftpd_backdoor",
+                if_condition="Port 21 open AND service is vsftpd 2.3.4",
+                then_action="exploit/unix/ftp/vsftpd_234_backdoor → root shell. WHY: vsftpd 2.3.4 has a hardcoded backdoor triggered by ':)' in username; opens shell on port 6200.",
+                confidence=0.98,
+                evidence_refs=["CVE-2011-2523", "ms2_kill_chain_fastest_root"],
+            ),
+            SkillCard(
+                id="ms2_samba_usermap",
+                if_condition="Ports 139/445 open AND Samba 3.0.20",
+                then_action="exploit/multi/samba/usermap_script → root shell. WHY: CVE-2007-2447 allows command injection via username field in Samba 3.0.20-3.0.25rc3; no authentication needed.",
+                confidence=0.97,
+                evidence_refs=["CVE-2007-2447", "ms2_kill_chain_samba_chain"],
+            ),
+            SkillCard(
+                id="ms2_ingreslock_backdoor",
+                if_condition="Port 1524 open (ingreslock)",
+                then_action="telnet {target} 1524 → instant root shell. WHY: ingreslock is a legacy backdoor that provides root without authentication on port 1524.",
+                confidence=0.99,
+                evidence_refs=["ms2_kill_chain_fastest_root"],
+            ),
+            SkillCard(
+                id="ms2_unrealircd_backdoor",
+                if_condition="Port 6667 open AND UnrealIRCd 3.2.8.1",
+                then_action="exploit/unix/irc/unreal_ircd_3281_backdoor → root shell. WHY: UnrealIRCd 3.2.8.1 has a backdoor in the PASS command; sends 'AB;' followed by any system command.",
+                confidence=0.96,
+                evidence_refs=["CVE-2010-2075"],
+            ),
+            SkillCard(
+                id="ms2_java_rmi_rce",
+                if_condition="Port 1099 open AND Java RMI Registry",
+                then_action="exploit/multi/misc/java_rmi_server → remote code execution. WHY: Java RMI allows deserialization attacks; MS2's version is unpatched.",
+                confidence=0.93,
+                evidence_refs=["ms2_services"],
+            ),
+            # ─── MS2: Credential-based access ────────────────────────
+            SkillCard(
+                id="ms2_ssh_default_creds",
+                if_condition="Port 22 open AND target is MS2",
+                then_action="ssh msfadmin@{target} with password 'msfadmin'. WHY: MS2 ships with default credentials msfadmin:msfadmin that are never changed.",
+                confidence=0.95,
+                evidence_refs=["ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_mysql_no_password",
+                if_condition="Port 3306 open AND MySQL 5.0.51a",
+                then_action="mysql -h {target} -u root → no password required. WHY: MySQL on MS2 has root with empty password, allowing direct database access for credential dumps.",
+                confidence=0.94,
+                evidence_refs=["ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_postgres_default",
+                if_condition="Port 5432 open AND PostgreSQL 8.3",
+                then_action="psql -h {target} -U postgres (password: postgres), then COPY ... FROM PROGRAM for RCE. WHY: Default creds + COPY FROM PROGRAM = command execution as postgres user.",
+                confidence=0.93,
+                evidence_refs=["CVE-2019-9193", "ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_vnc_password",
+                if_condition="Port 5900 open AND VNC service",
+                then_action="vncviewer {target} with password 'password'. WHY: VNC on MS2 uses trivial password, granting desktop access for GUI-based attacks.",
+                confidence=0.92,
+                evidence_refs=["ms2_credentials"],
+            ),
+            SkillCard(
+                id="ms2_tomcat_manager",
+                if_condition="Port 8180 open AND Apache Tomcat",
+                then_action="Login tomcat:tomcat to /manager/html, deploy WAR file with msfvenom shell. WHY: Default Tomcat manager creds allow deploying arbitrary Java applications.",
+                confidence=0.94,
+                evidence_refs=["ms2_credentials"],
+            ),
+            # ─── MS2: Multi-step chains ──────────────────────────────
+            SkillCard(
+                id="ms2_nfs_to_ssh",
+                if_condition="Port 2049 open (NFS) AND / is world-readable",
+                then_action="Mount NFS share → write SSH key to /root/.ssh/authorized_keys → ssh root@target. WHY: NFS exports / with no_root_squash, so we can write as root remotely.",
+                confidence=0.91,
+                evidence_refs=["ms2_kill_chain_nfs_to_root"],
+            ),
+            SkillCard(
+                id="ms2_rsh_no_auth",
+                if_condition="Ports 512-514 open (rexec/rlogin/rsh)",
+                then_action="rsh {target} as root — no authentication required. WHY: Legacy r-services trust .rhosts; MS2 has permissive configuration allowing remote root.",
+                confidence=0.90,
+                evidence_refs=["ms2_services"],
+            ),
+            SkillCard(
+                id="ms2_smtp_enum",
+                if_condition="Port 25 open AND Postfix SMTP",
+                then_action="VRFY command to enumerate valid users → build target list for brute-force. WHY: SMTP VRFY reveals which usernames exist, enabling focused credential attacks.",
+                confidence=0.85,
+                evidence_refs=["ms2_services"],
+            ),
+            SkillCard(
+                id="ms2_dvwa_sqli",
+                if_condition="Port 80 open AND DVWA detected",
+                then_action="sqlmap against DVWA login → extract credentials → escalate. WHY: DVWA has intentional SQL injection in low-security mode; extracting admin hash leads to shell.",
+                confidence=0.88,
+                evidence_refs=["ms2_services"],
+            ),
+            # ─── MS3: Key attack paths ───────────────────────────────
+            SkillCard(
+                id="ms3_jenkins_groovy",
+                if_condition="Port 8484 open AND Jenkins detected",
+                then_action="Access /script console → execute Groovy: 'cmd'.execute(). WHY: Jenkins script console allows arbitrary Groovy code execution as the Jenkins service user.",
+                confidence=0.90,
+                evidence_refs=["ms3_kill_chain_jenkins_to_root"],
+            ),
+            SkillCard(
+                id="ms3_tomcat_war_deploy",
+                if_condition="Port 8282 open AND Tomcat on MS3",
+                then_action="Login sploit:sploit to manager → deploy msfvenom WAR shell. WHY: MS3 Tomcat has weak default credentials allowing application deployment.",
+                confidence=0.89,
+                evidence_refs=["ms3_credentials"],
+            ),
+            SkillCard(
+                id="ms3_elasticsearch_rce",
+                if_condition="Port 9200 open AND Elasticsearch 1.1.1",
+                then_action="CVE-2014-3120: MVEL script execution → RCE. WHY: Pre-1.2.0 Elasticsearch allows dynamic scripting, enabling arbitrary code execution via search queries.",
+                confidence=0.88,
+                evidence_refs=["CVE-2014-3120", "ms3_services"],
+            ),
+            SkillCard(
+                id="ms3_manageengine_upload",
+                if_condition="Port 8020 open AND ManageEngine Desktop Central",
+                then_action="CVE-2015-8249: Unrestricted file upload → webshell → RCE. WHY: ManageEngine has unauthenticated file upload allowing JSP shell deployment.",
+                confidence=0.87,
+                evidence_refs=["CVE-2015-8249", "ms3_services"],
+            ),
+            SkillCard(
+                id="ms3_ssh_vagrant",
+                if_condition="Port 22 open AND target is MS3",
+                then_action="ssh vagrant@{target} with password 'vagrant'. WHY: MS3 ships with default vagrant:vagrant credentials for the VM provisioning user.",
+                confidence=0.92,
+                evidence_refs=["ms3_credentials"],
+            ),
+            SkillCard(
+                id="ms3_struts_rce",
+                if_condition="Port 8282 open AND Apache Struts detected",
+                then_action="CVE-2017-5638: OGNL injection in Content-Type header → RCE. WHY: Apache Struts Jakarta Multipart parser allows OGNL injection triggering command execution.",
+                confidence=0.86,
+                evidence_refs=["CVE-2017-5638", "ms3_cves"],
+            ),
+            # ─── HTB: Common patterns ────────────────────────────────
+            SkillCard(
+                id="htb_sqli_credential_dump",
+                if_condition="Web application with login form AND no input sanitization",
+                then_action="sqlmap -u URL --forms --dump → extract credentials → SSH with dumped creds. WHY: SQL injection bypasses authentication and extracts stored password hashes.",
+                confidence=0.85,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_ssti_to_rce",
+                if_condition="Web app reflects user input in templates (Jinja2, Twig, Smarty)",
+                then_action="Test {{7*7}} → if 49, inject {{config.__class__.__init__.__globals__['os'].popen('id').read()}}. WHY: Template engines evaluate expressions; SSTI chains lead to arbitrary code execution.",
+                confidence=0.82,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_file_upload_bypass",
+                if_condition="File upload endpoint detected AND extension filtering present",
+                then_action="Upload .php5/.phtml/.phar with magic bytes → access webshell. WHY: Many filters only check .php extension; alternative extensions bypass the check but still execute.",
+                confidence=0.80,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_lfi_to_rce",
+                if_condition="Local File Inclusion vulnerability detected (path traversal)",
+                then_action="LFI to read /etc/passwd → find users → LFI + log poisoning for RCE. WHY: LFI reads arbitrary files; poisoning Apache access.log with PHP code turns LFI into code execution.",
+                confidence=0.78,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_suid_privesc",
+                if_condition="Shell obtained AND running as non-root user",
+                then_action="find / -perm -4000 2>/dev/null → check GTFOBins for exploitable SUID. WHY: SUID binaries run as owner (often root); GTFOBins documents how to escalate via common binaries.",
+                confidence=0.88,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_sudo_l_privesc",
+                if_condition="Shell obtained AND user has sudo privileges",
+                then_action="sudo -l → find NOPASSWD entries → use GTFOBins techniques. WHY: Misconfigured sudo rules (e.g., sudo vim, sudo python) allow trivial root escalation.",
+                confidence=0.87,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_kernel_exploit",
+                if_condition="Linux shell AND kernel version < 4.x",
+                then_action="uname -r → searchsploit linux kernel → compile and run exploit. WHY: Older kernels have public exploits (DirtyCow, overlayfs) that give instant root.",
+                confidence=0.83,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_docker_escape",
+                if_condition="Shell inside Docker container AND docker.sock mounted",
+                then_action="docker run -v /:/host --rm -it alpine chroot /host. WHY: Mounting host filesystem via docker.sock gives full host access from inside the container.",
+                confidence=0.80,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            SkillCard(
+                id="htb_cron_privesc",
+                if_condition="Shell obtained AND writable cron scripts found",
+                then_action="Inject reverse shell into writable cron job → wait for execution. WHY: Cron jobs run as their configured user; writable scripts owned by root = root shell.",
+                confidence=0.84,
+                evidence_refs=["htb_common_patterns"],
+            ),
+            # ─── Phase reasoning: WHEN to do what ────────────────────
+            SkillCard(
+                id="phase_recon_strategy",
+                if_condition="Episode start OR no ports discovered yet",
+                then_action="Run nmap_quick_scan first, then nmap_service_version. WHY: You must discover the attack surface before you can exploit it. Quick scan finds ports; version scan identifies exploitable services.",
+                confidence=0.95,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="phase_enum_strategy",
+                if_condition="Ports discovered AND services not yet fingerprinted",
+                then_action="Run service-specific enumeration (enum4linux, nikto, gobuster). WHY: Knowing exact versions reveals specific CVEs; enumeration turns 'port 80 open' into 'Apache 2.2.8 with DVWA'.",
+                confidence=0.93,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="phase_exploit_timing",
+                if_condition="Services enumerated AND known vulnerabilities identified",
+                then_action="Exploit the EASIEST path first (backdoors before brute-force). WHY: Backdoors (vsftpd, ingreslock, UnrealIRCd) give instant root; trying complex exploits first wastes steps.",
+                confidence=0.92,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="phase_privesc_strategy",
+                if_condition="User shell obtained AND not root",
+                then_action="Run linpeas/find_suid/sudo_check in sequence. WHY: LinPEAS finds 90% of privesc vectors; SUID and sudo checks are the most common escalation paths on Linux.",
+                confidence=0.90,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="phase_lateral_strategy",
+                if_condition="Root on one host AND other hosts visible on network",
+                then_action="Dump credentials from compromised host → spray across network. WHY: Credential reuse is the #1 lateral movement vector; dumped hashes/passwords often work on other hosts.",
+                confidence=0.85,
+                evidence_refs=["phase_reasoning"],
+            ),
+            SkillCard(
+                id="phase_exfil_strategy",
+                if_condition="Root shell AND sensitive data located",
+                then_action="Exfiltrate /etc/shadow, SSH keys, database dumps. WHY: These prove total compromise — shadow file shows password control, SSH keys enable persistent access.",
+                confidence=0.88,
+                evidence_refs=["phase_reasoning"],
+            ),
+            # ─── Anti-forensics reasoning ────────────────────────────
+            SkillCard(
+                id="antiforensics_log_clearing",
+                if_condition="CLOSEOUT phase AND shells obtained during engagement",
+                then_action="Clear bash_history, auth.log, wtmp, btmp, syslog IN ORDER. WHY: Logs record every action; clearing from most specific (bash_history) to most general (syslog) ensures no trace of commands remains.",
+                confidence=0.90,
+                evidence_refs=["ms2_anti_forensics_knowledge"],
+            ),
+            SkillCard(
+                id="antiforensics_timestomp",
+                if_condition="CLOSEOUT phase AND files modified during engagement",
+                then_action="touch -r /etc/hosts <modified_file> to restore timestamps. WHY: File timestamps are forensic evidence; timestomping makes modified files appear unaltered.",
+                confidence=0.87,
+                evidence_refs=["ms2_anti_forensics_knowledge"],
+            ),
+            SkillCard(
+                id="antiforensics_shred",
+                if_condition="CLOSEOUT phase AND tools/payloads left on target",
+                then_action="shred -vfzu -n 5 <file> for secure deletion. WHY: rm only removes directory entries; shred overwrites data blocks making file recovery impossible.",
+                confidence=0.88,
+                evidence_refs=["ms2_anti_forensics_knowledge"],
+            ),
+            SkillCard(
+                id="antiforensics_ssh_fingerprint",
+                if_condition="CLOSEOUT phase AND SSH was used during engagement",
+                then_action="Remove target from ~/.ssh/known_hosts. WHY: known_hosts entries prove you connected to the target; removing them eliminates SSH forensic evidence on attacker machine.",
+                confidence=0.85,
+                evidence_refs=["ms2_anti_forensics_knowledge"],
+            ),
+        ]
+
+        for skill in seeds:
+            if self.promote(skill, reason="Phase 6.7: Pre-seeded from knowledge packs"):
+                promoted += 1
+
+        logger.info(f"Seeded {promoted} expert skill cards into library")
+        return promoted
+
 
 # Factory function
 def create_skill_library(

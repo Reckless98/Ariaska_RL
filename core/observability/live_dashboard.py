@@ -588,6 +588,11 @@ class LiveDashboard:
                 border_style="blue", padding=(0, 1),
             ))
 
+        # ── KILL CHAIN PROGRESS BAR (Phase 6.7) ─────────────────────
+        phases_reached = {pname for _, pname in self.phase_timeline}
+        self.print_kill_chain_bar(highest_phase, phases_reached)
+        self.print_cost_ticker(self.tokens_total)
+
         # ── REWARD CHART ─────────────────────────────────────────────
         if len(self.episode_rewards) >= 2:
             console.print(Panel(
@@ -667,6 +672,7 @@ class LiveDashboard:
     def print_run_summary(self, run_id: str, total_episodes: int,
                           total_time: float, final_metrics: Dict[str, Any]):
         console.print()
+        self.print_ariaska_banner()
         console.rule("[bold green]🏁 Training Complete", style="green")
         table = Table(title=f"[bold]Run: {run_id}[/bold]",
                       show_header=True, header_style="bold cyan", box=box.ROUNDED)
@@ -690,6 +696,7 @@ class LiveDashboard:
             for ag, tok in sorted(self.tokens_by_agent.items()):
                 tt.add_row(ag, str(tok))
             console.print(tt)
+        self.print_cost_ticker(self.tokens_total)
         console.rule(style="green")
 
     # =========================================================================
@@ -721,6 +728,72 @@ class LiveDashboard:
 
     def set_skill_library_size(self, size: int):
         self.skill_library_size = size
+
+    # =========================================================================
+    # INVESTOR-READY DISPLAY (Phase 6.7)
+    # =========================================================================
+
+    def print_ariaska_banner(self):
+        """Print the ARIASKA ASCII logo banner — investor-demo mode."""
+        logo = r"""
+[bold red]     █████╗ ██████╗ ██╗ █████╗ ███████╗██╗  ██╗ █████╗ [/bold red]
+[bold red]    ██╔══██╗██╔══██╗██║██╔══██╗██╔════╝██║ ██╔╝██╔══██╗[/bold red]
+[bold red]    ███████║██████╔╝██║███████║███████╗█████╔╝ ███████║[/bold red]
+[bold red]    ██╔══██║██╔══██╗██║██╔══██║╚════██║██╔═██╗ ██╔══██║[/bold red]
+[bold red]    ██║  ██║██║  ██║██║██║  ██║███████║██║  ██╗██║  ██║[/bold red]
+[bold red]    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝[/bold red]
+[bold cyan]    ⚡ Autonomous Multi-Agent Reinforcement Learning for Cybersecurity ⚡[/bold cyan]
+[dim]    5 Agents  •  PPO + GPT Hybrid  •  8-Phase Kill Chain  •  Live Pentesting[/dim]
+"""
+        console.print(Panel(
+            logo,
+            border_style="red",
+            padding=(0, 2),
+        ))
+
+    def print_kill_chain_bar(self, current_phase: str, phases_reached: Optional[set] = None):
+        """Print a colored kill-chain progress bar showing 8 phase segments.
+
+        Each phase that's been reached fills in with its icon and color;
+        unreached phases show as dim outlines.
+        """
+        phases_reached = phases_reached or set()
+        PHASE_ORDER = [
+            ("RECON", "🔍", "cyan"),
+            ("ENUMERATION", "📋", "blue"),
+            ("EXPLOITATION", "💥", "yellow"),
+            ("PRIVILEGE_ESCALATION", "👑", "bright_yellow"),
+            ("LATERAL_MOVEMENT", "🔀", "magenta"),
+            ("POST_EXPLOITATION", "🏴", "red"),
+            ("EXFILTRATION", "📤", "bright_red"),
+            ("CLOSEOUT", "🧹", "green"),
+        ]
+        current_upper = current_phase.upper()
+        parts = []
+        for phase_name, icon, color in PHASE_ORDER:
+            reached = phase_name in phases_reached or phase_name == current_upper
+            if phase_name == current_upper:
+                parts.append(f"[bold {color} on dark_blue]▓{icon}{phase_name[:5]}▓[/bold {color} on dark_blue]")
+            elif reached:
+                parts.append(f"[{color}]█{icon}{phase_name[:5]}█[/{color}]")
+            else:
+                parts.append(f"[dim]░░{phase_name[:5]}░░[/dim]")
+
+        bar = "→".join(parts)
+        console.print(f"  [bold]Kill Chain:[/bold] {bar}")
+
+    def print_cost_ticker(self, tokens_used: int, estimated_cost_per_1k: float = 0.01):
+        """Print a running cost estimate based on token usage.
+
+        Args:
+            tokens_used: Total tokens consumed this run.
+            estimated_cost_per_1k: Cost per 1K tokens (default $0.01 for GPT-5-mini).
+        """
+        cost = (tokens_used / 1000.0) * estimated_cost_per_1k
+        console.print(
+            f"  [dim]💰 Tokens: {tokens_used:,}  |  Est. cost: ${cost:.4f}  |  "
+            f"Rate: ${estimated_cost_per_1k:.3f}/1K tok[/dim]"
+        )
 
     # =========================================================================
     # LEGACY COMPATIBILITY — record_step + print_step_table stubs
