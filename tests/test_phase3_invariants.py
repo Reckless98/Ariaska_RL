@@ -182,8 +182,9 @@ class TestRichStateEncoder:
             "phase_progress": {},
         }
         tensor = encode_state(state, device)
-        # Port 22 is at index 1 in COMMON_PORTS → dim 27+1 = 28
-        port_start = 27
+        # Port start = len(PHASES) + 1 (normalized) + 4 (progress) + 15 (flags) + 2 (exfil+done)
+        from core.models.state_encoder import PHASES, STATE_FLAG_KEYS
+        port_start = len(PHASES) + 1 + 4 + len(STATE_FLAG_KEYS) + 2
         for i, port in enumerate(COMMON_PORTS):
             expected = 1.0 if port in [22, 80, 443] else 0.0
             actual = tensor[port_start + i].item()
@@ -202,7 +203,9 @@ class TestRichStateEncoder:
             "phase_progress": {},
         }
         tensor = encode_state(state, device)
-        svc_start = 27 + len(COMMON_PORTS)  # Dynamic: adjusts with port list size
+        from core.models.state_encoder import PHASES, STATE_FLAG_KEYS
+        port_start = len(PHASES) + 1 + 4 + len(STATE_FLAG_KEYS) + 2
+        svc_start = port_start + len(COMMON_PORTS)
         for i, svc in enumerate(SERVICE_TYPES):
             expected = 1.0 if svc in ["ssh", "http", "mysql"] else 0.0
             actual = tensor[svc_start + i].item()
@@ -222,8 +225,9 @@ class TestRichStateEncoder:
             }
             tensor = encode_state(state, device)
             # Privilege ordinal is first dim of Section 5 (after phases+flags+ports+services)
-            from core.models.state_encoder import COMMON_PORTS as CP, SERVICE_TYPES as ST
-            priv_dim = 27 + len(CP) + len(ST)  # Dynamic: adjusts with list sizes
+            from core.models.state_encoder import COMMON_PORTS as CP, SERVICE_TYPES as ST, PHASES, STATE_FLAG_KEYS
+            port_start = len(PHASES) + 1 + 4 + len(STATE_FLAG_KEYS) + 2
+            priv_dim = port_start + len(CP) + len(ST)  # Dynamic: adjusts with list sizes
             actual = tensor[priv_dim].item()
             assert abs(actual - expected) < 1e-6, (
                 f"Privilege '{priv}': expected {expected}, got {actual}"

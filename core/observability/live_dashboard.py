@@ -36,6 +36,7 @@ PHASE_ICONS = {
     "LATERAL_MOVEMENT": "🔀",
     "POST_EXPLOITATION": "🏴",
     "EXFILTRATION": "📤",
+    "CLOSEOUT": "🧹",
 }
 AGENT_ICONS = {
     "ScoutAgent": ("🔍", "Recon", "bold cyan"),

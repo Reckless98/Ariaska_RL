@@ -57,7 +57,7 @@ class CyberEnvironment:
         ]
         
         # Define cyber kill chain phases
-        self.phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate"]
+        self.phases = ["recon", "enumeration", "exploit", "privesc", "exfiltrate", "closeout"]
         
         # PHASE 2A: Configurable phase transition thresholds
         # Can be overridden via set_phase_thresholds() for different target profiles
@@ -68,18 +68,19 @@ class CyberEnvironment:
             "enumeration": {"threshold": 4, "next": "exploit"},
             "exploit": {"threshold": 2, "next": "privesc"},
             "privesc": {"threshold": 1, "next": "exfiltrate"},
-            "exfiltrate": {"threshold": 1, "next": "complete"}
+            "exfiltrate": {"threshold": 1, "next": "closeout"},
+            "closeout": {"threshold": 2, "next": "complete"}
         }
         
         # Predefined target profiles for phase thresholds
         self.TARGET_PROFILES = {
             "default": {
                 "recon": 5, "enumeration": 4, "exploit": 2,
-                "privesc": 1, "exfiltrate": 1,
+                "privesc": 1, "exfiltrate": 1, "closeout": 2,
             },
             "simulation": {
                 "recon": 3, "enumeration": 3, "exploit": 2,
-                "privesc": 1, "exfiltrate": 1,
+                "privesc": 1, "exfiltrate": 1, "closeout": 2,
             },
             "metasploitable2": {
                 "recon": 5,       # M2 has ~20 open ports, 5 is quick enough
@@ -87,6 +88,7 @@ class CyberEnvironment:
                 "exploit": 2,     # M2 has easy vulns, 2 exploits = move on
                 "privesc": 1,     # 1 privesc = move to exfil
                 "exfiltrate": 1,
+                "closeout": 2,    # 2 restore actions to complete
             },
             "metasploitable3": {
                 "recon": 6,
@@ -94,14 +96,15 @@ class CyberEnvironment:
                 "exploit": 2,
                 "privesc": 1,
                 "exfiltrate": 1,
+                "closeout": 2,
             },
             "htb_easy": {
                 "recon": 4, "enumeration": 3, "exploit": 2,
-                "privesc": 1, "exfiltrate": 1,
+                "privesc": 1, "exfiltrate": 1, "closeout": 2,
             },
             "htb_hard": {
                 "recon": 8, "enumeration": 6, "exploit": 3,
-                "privesc": 2, "exfiltrate": 1,
+                "privesc": 2, "exfiltrate": 1, "closeout": 3,
             },
         }
 
@@ -126,7 +129,7 @@ class CyberEnvironment:
         self.done = False
         self.current_phase = "recon"  # Default starting phase
         self.discovered_info = set()  # Track unique info discoveries
-        self.phase_progress = {"recon": 0, "enumeration": 0, "exploit": 0, "privesc": 0, "exfiltrate": 0}
+        self.phase_progress = {"recon": 0, "enumeration": 0, "exploit": 0, "privesc": 0, "exfiltrate": 0, "closeout": 0}
         self.active_shells = []
         self.active_processes = []
         
@@ -276,7 +279,7 @@ class CyberEnvironment:
             
             # Initialize all attributes needed by get_global_state
             self.current_phase = "recon"
-            self.phase_progress = {"recon": 0, "enumeration": 0, "exploit": 0, "privesc": 0, "exfiltrate": 0}
+            self.phase_progress = {"recon": 0, "enumeration": 0, "exploit": 0, "privesc": 0, "exfiltrate": 0, "closeout": 0}
             self.discovered_info = set()
             
             # In live mode, we don't generate random ports and services, but start with empty lists
@@ -1531,8 +1534,14 @@ class CyberEnvironment:
         current = self.current_phase
         
         if current == "exfiltrate" and self.data_exfiltrated:
-            self.done = True
-            return
+            # Phase 6.6: Don't end — transition to CLOSEOUT
+            if "closeout" in self.phases:
+                self.current_phase = "closeout"
+                console.print("[green]✓ Phase transition: exfiltrate → closeout[/green]")
+                return
+            else:
+                self.done = True
+                return
         
         if current not in self.phase_transitions:
             return
@@ -1566,6 +1575,10 @@ class CyberEnvironment:
         elif current == "exfiltrate":
             # Need actual exfiltration
             discovery_gate_met = self.data_exfiltrated
+        elif current == "closeout":
+            # Phase 6.6: Need artifacts removed / target verified
+            closeout_progress = self.phase_progress.get("closeout", 0)
+            discovery_gate_met = closeout_progress >= 2
         else:
             # Unknown phase — fall back to counter only
             discovery_gate_met = True

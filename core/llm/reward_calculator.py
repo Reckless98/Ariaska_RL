@@ -103,7 +103,8 @@ class SmartRewardCalculator:
         AttackPhase.PRIVILEGE_ESCALATION: 30.0,
         AttackPhase.LATERAL_MOVEMENT: 45.0,
         AttackPhase.POST_EXPLOITATION: 60.0,
-        AttackPhase.EXFILTRATION: 75.0
+        AttackPhase.EXFILTRATION: 75.0,
+        AttackPhase.CLOSEOUT: 90.0,
     }
     
     # Discovery type bonuses — Phase 5.1: +30% boost for genuine achievements
@@ -408,7 +409,8 @@ class SmartRewardCalculator:
             AttackPhase.PRIVILEGE_ESCALATION: 3,
             AttackPhase.LATERAL_MOVEMENT: 4,
             AttackPhase.POST_EXPLOITATION: 5,
-            AttackPhase.EXFILTRATION: 6
+            AttackPhase.EXFILTRATION: 6,
+            AttackPhase.CLOSEOUT: 7,
         }
         return order.get(phase, 0)
     

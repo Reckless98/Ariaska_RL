@@ -86,6 +86,9 @@ def run_training(
     mentor_min_rate: float = 0.15,
     mentor_max_rate: float = 0.35,
     resume_path: Optional[str] = None,
+    difficulty_preset: str = "normal",
+    max_tokens_run: Optional[int] = None,
+    checkpoint_every: int = 10,
 ):
     """
     Consolidated training loop with PPO metrics, checkpoint persistence,
@@ -136,6 +139,7 @@ def run_training(
             f"traces/events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
             if log_jsonl else None
         ),
+        difficulty=difficulty_preset,
     )
 
     orch = SmartOrchestrator(
@@ -169,10 +173,30 @@ def run_training(
     episode_data = []
     start_time = time.time()
 
+    # Phase 6.6: Initialize overnight guardrails
+    from core.training.guardrails import (
+        GuardrailManager, BudgetGovernor, HealthChecker,
+        StagnationWatchdog, CheckpointScheduler, LogRotator,
+    )
+    guardrails = GuardrailManager(
+        budget=BudgetGovernor(
+            max_tokens_per_run=max_tokens_run,
+        ),
+        health=HealthChecker(
+            target_ip=target_ip if mode == "live" else "",
+            enabled=(mode == "live"),
+        ),
+        watchdog=StagnationWatchdog(),
+        checkpoint=CheckpointScheduler(
+            interval=checkpoint_every,
+        ),
+        log_rotator=LogRotator(),
+    )
+
     console.print(Panel(
-        f"[bold cyan]ARIASKA Smart Training v5.0[/bold cyan]\n\n"
+        f"[bold cyan]ARIASKA Smart Training v6.6[/bold cyan]\n\n"
         f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
-        f"Target: {target_ip}  |  Mode: {mode.upper()}\n"
+        f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
         f"Verbosity: {verbosity}  |  Checkpoint: {checkpoint_path}",
         title="🚀 Training Start",
         border_style="cyan",
@@ -190,6 +214,11 @@ def run_training(
         task = progress.add_task("Training", total=episodes)
 
         for ep in range(episodes):
+            # Phase 6.6: Pre-episode guardrail check
+            if not guardrails.pre_episode_check(ep):
+                console.print(f"[yellow]⚠️ Guardrails stopped training at episode {ep}[/yellow]")
+                break
+            
             episode_id = f"phase5_ep{ep:04d}"
             ep_result = orch.run_episode(
                 episode_id=episode_id,
@@ -248,6 +277,17 @@ def run_training(
                     })
                 except Exception as exc:
                     console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
+
+            # Phase 6.6: Post-episode guardrail checkpoint
+            ckpt_path = guardrails.post_episode_check(ep, difficulty_preset)
+            if ckpt_path:
+                try:
+                    orch.save_ppo_checkpoints(ckpt_path)
+                    guardrails.checkpoint.record_save(ckpt_path)
+                    if verbosity != "quiet":
+                        console.print(f"[green]💾 Guardrail checkpoint saved: {ckpt_path}[/green]")
+                except Exception as exc:
+                    logger.warning(f"Guardrail checkpoint failed: {exc}")
 
             recent = all_rewards[-10:]
             avg_recent = sum(recent) / len(recent)
@@ -476,6 +516,15 @@ def main():
                          help="Maximum mentor call rate (default: 0.35)")
     train_p.add_argument("--resume", type=str, default=None,
                          help="Resume from checkpoint path")
+    
+    # Phase 6.6: Difficulty presets & overnight guardrails
+    train_p.add_argument("--difficulty", "-d", type=str, default="normal",
+                         choices=["normal", "medium", "hard"],
+                         help="Difficulty preset: normal=all services, medium=no instant-root, hard=multi-step only (default: normal)")
+    train_p.add_argument("--max-tokens-run", type=int, default=None,
+                         help="Total token budget for the entire run (default: unlimited)")
+    train_p.add_argument("--checkpoint-every", type=int, default=10,
+                         help="Save PPO checkpoints every N episodes (default: 10)")
 
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
@@ -549,6 +598,9 @@ def main():
                 mentor_min_rate=args.mentor_min_rate,
                 mentor_max_rate=args.mentor_max_rate,
                 resume_path=args.resume,
+                difficulty_preset=args.difficulty,
+                max_tokens_run=args.max_tokens_run,
+                checkpoint_every=args.checkpoint_every,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

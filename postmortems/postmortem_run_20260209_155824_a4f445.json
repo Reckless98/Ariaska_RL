@@ -1,0 +1,92 @@
+{
+  "run_id": "run_20260209_155824_a4f445",
+  "timestamp": 1770649131.0235498,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with total reward of 80.00, indicating ability to reach terminal state.",
+      "Consistently triggered mentor assistance (10 calls) showing proactive troubleshooting when stuck."
+    ],
+    "fails": [
+      "0.00% success rate, indicating failure to pass validation criteria across the run.",
+      "High reliance on mentor calls without translating into independent actions."
+    ],
+    "summary": "Run achieved reward but failed to succeed; indicates perseverance but lack of execution beyond mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent stalled at mid-stage reconnaissance without completing exploitation steps despite mentor hints.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260209_155824_a4f445_ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When port 22 is open and SSH banner detected during scanning",
+      "then_action": "Run targeted SSH enumeration with nmap --script ssh-* and log supported algorithms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260209_155824_a4f445_ep001_step03"
+      ],
+      "created_at": 1770649137.5879347,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_enum_http",
+      "if_condition": "When HTTP service responds with banner and status 200",
+      "then_action": "Fetch robots.txt and enumerate known web directories via dirb",
+      "parameters_template": {
+        "url": "http://<target>:80",
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260209_155824_a4f445_ep001_step02"
+      ],
+      "created_at": 1770649137.5879548,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_bruteforce",
+      "if_condition": "When credentials not validated after login attempt",
+      "then_action": "Switch to credentials wordlist brute force with hydra for exposed service",
+      "parameters_template": {
+        "service": "ssh",
+        "wordlist": "common_creds.txt"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260209_155824_a4f445_ep001_step07"
+      ],
+      "created_at": 1770649137.5879693,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "SSH enumeration pattern showed reliable start for later stages"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase independent attack chaining",
+      "description": "Reduce mentor dependence by automating reconnaissance-to-exploitation handoff, e.g., trigger exploitation action immediately after SSH and HTTP scans complete.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

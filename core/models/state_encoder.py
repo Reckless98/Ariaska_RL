@@ -33,7 +33,7 @@ STATE_DIM = 512
 
 PHASES = [
     "recon", "enumeration", "exploit", "privesc",
-    "lateral_movement", "post_exploitation", "exfiltrate",
+    "lateral_movement", "post_exploitation", "exfiltrate", "closeout",
 ]
 PHASE_INDEX = {p: i for i, p in enumerate(PHASES)}
 

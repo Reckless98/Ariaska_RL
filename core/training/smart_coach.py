@@ -343,6 +343,9 @@ class SmartCoach:
         
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
+        # ─── PHASE 6.6: Difficulty preset (set externally by orchestrator) ───
+        self.difficulty_preset = None  # Set via set_difficulty_preset()
+
         # =====================================================================
         # PHASE 4: Per-role PPO agent + CommandActionMapper
         # PPO drives command selection within each role's action pool.
@@ -1111,6 +1114,22 @@ class SmartCoach:
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
         # =========================================================================
         is_valid_role = self._validate_command_for_role(result.command)
+        
+        # =========================================================================
+        # PHASE 6.6: DIFFICULTY GATE — Block commands banned by current preset
+        # =========================================================================
+        if self.difficulty_preset is not None and result.template_name:
+            if result.template_name in self.difficulty_preset.blocked_commands:
+                logger.info(
+                    f"[{self.agent_name}] DIFFICULTY-BLOCKED: '{result.template_name}' "
+                    f"banned in {self.difficulty_preset.name} mode"
+                )
+                # Replace with alternative from same phase
+                alt = self._get_difficulty_alternative(step_ctx)
+                if alt is not None:
+                    result = alt
+                    result.source = "difficulty_gate"
+                    result.reasoning = f"Difficulty {self.difficulty_preset.name}: {result.template_name} blocked → alternative"
         
         # =========================================================================
         # PHASE 6: PPO decisions BYPASS post-selection anti-repeat guard.
@@ -2158,6 +2177,7 @@ class SmartCoach:
             "lateral_movement": "lateral_movement",
             "post_exploitation": "post_exploitation",
             "exfiltration": "exfiltrate",
+            "closeout": "closeout",
         }
         role_phases = [
             _PHASE_TO_PLAYBOOK.get(p.name.lower(), p.name.lower())
@@ -2410,6 +2430,7 @@ class SmartCoach:
     # Old values (50/25/15/10/5) were outsized relative to per-step rewards.
     # New values proportional to 50.0 ceiling per step.
     PPO_TERMINAL_REWARDS = {
+        "CLOSEOUT": 25.0,
         "EXFILTRATION": 20.0,
         "POST_EXPLOITATION": 12.0,
         "LATERAL_MOVEMENT": 8.0,
@@ -2607,6 +2628,51 @@ class SmartCoach:
         except Exception as e:
             logger.warning(f"Smart mentor failed: {e}, falling back to registry")
             return self._decide_from_registry(step_ctx, proposed_action, confidence)
+    
+    def _get_difficulty_alternative(self, step_ctx: SmartStepContext) -> Optional[SmartDecisionResult]:
+        """Get an alternative command when difficulty preset blocks the proposed one.
+
+        Finds a registry command for the current phase that is NOT blocked.
+
+        Args:
+            step_ctx: Current step context.
+
+        Returns:
+            A SmartDecisionResult with an allowed command, or None.
+        """
+        try:
+            ctx = step_ctx.attack_context
+            phase = ctx.current_phase
+            blocked = self.difficulty_preset.blocked_commands if self.difficulty_preset else frozenset()
+            
+            # Get all registry commands for this phase
+            from core.commands.command_registry import get_commands_for_phase
+            candidates = get_commands_for_phase(phase)
+            
+            # Filter out blocked commands and already-used commands
+            valid = [
+                c for c in candidates
+                if c.name not in blocked
+                and c.name not in self.episode_used_commands
+                and self._validate_command_for_role(
+                    c.template.replace("{target}", ctx.target if ctx else "10.10.10.10")
+                )
+            ]
+            
+            if valid:
+                import random
+                choice = random.choice(valid)
+                cmd = choice.template.replace("{target}", ctx.target if ctx else "10.10.10.10")
+                return SmartDecisionResult(
+                    command=cmd,
+                    template_name=choice.name,
+                    source="difficulty_gate",
+                    confidence=0.5,
+                    phase=phase,
+                )
+        except Exception as e:
+            logger.debug(f"Difficulty alternative failed: {e}")
+        return None
     
     def _validate_command_for_role(self, command: str) -> bool:
         """

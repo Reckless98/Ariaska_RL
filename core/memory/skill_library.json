@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770638578.0535512,
-  "skill_count": 12,
+  "last_updated": 1770649176.8975327,
+  "skill_count": 13,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -46,24 +46,18 @@
     },
     "skill_003": {
       "id": "skill_003",
-      "if_condition": "When Nmap scan reveals open SMB ports with anonymous login allowed",
-      "then_action": "Enumerate shares and run smb-os-discovery scripts before considering lateral movement",
+      "if_condition": "When mentor call count exceeds 5 without progress",
+      "then_action": "Document mentor insights, map to actionable steps, then execute highest impact action immediately",
       "parameters_template": {
-        "ports": [
-          139,
-          445
-        ],
-        "scripts": [
-          "smb-enum-shares",
-          "smb-os-discovery"
-        ]
+        "mentor_calls": "count",
+        "action": "highest_impact"
       },
-      "confidence": 0.8,
+      "confidence": 0.82,
       "evidence_refs": [
-        "ep001_step11",
-        "ep001_step13"
+        "ep001_step07",
+        "ep001_step11"
       ],
-      "created_at": 1770495564.8170822,
+      "created_at": 1770649176.8963752,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -226,6 +220,22 @@
         "ep001_step20"
       ],
       "created_at": 1770638578.0480728,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_ssh_recon": {
+      "id": "skill_ssh_recon",
+      "if_condition": "When port 22 is open and SSH banner detected during scanning",
+      "then_action": "Run targeted SSH enumeration with nmap --script ssh-* and log supported algorithms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260209_155824_a4f445_ep001_step03"
+      ],
+      "created_at": 1770649137.5879347,
       "usage_count": 0,
       "success_rate": 0.0
     }

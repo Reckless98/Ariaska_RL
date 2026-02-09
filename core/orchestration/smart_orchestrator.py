@@ -98,6 +98,9 @@ class SmartOrchestratorConfig:
     
     # Phase 6.2: EventBus JSONL logging
     event_jsonl_path: Optional[str] = None
+    
+    # Phase 6.6: Difficulty preset
+    difficulty: str = "normal"  # "normal", "medium", "hard"
 
 
 @dataclass
@@ -162,6 +165,9 @@ class SmartOrchestrator:
         
         # EXFIL: Shadow leads stealth extraction, Blue monitors defense
         "EXFILTRATION": ["ShadowAgent", "RedAgent", "OrionAgent", "BlueAgent", "ScoutAgent"],
+        
+        # CLOSEOUT: Blue leads restoration, Shadow verifies cleanup, Orion reports
+        "CLOSEOUT": ["BlueAgent", "ShadowAgent", "RedAgent", "OrionAgent", "ScoutAgent"],
     }
     
     def get_optimal_agent_order(self, phase: str = "RECON") -> List[str]:
@@ -274,6 +280,16 @@ class SmartOrchestrator:
         # Initialize smart coaches
         self.coaches: Dict[str, SmartCoach] = {}
         self._init_smart_coaches()
+        
+        # Phase 6.6: Store difficulty preset for simulated output filtering
+        self._difficulty_preset = None
+        _diff_name = getattr(self.config, 'difficulty', 'normal')
+        if _diff_name and _diff_name != "normal":
+            try:
+                from core.training.difficulty_presets import get_preset
+                self._difficulty_preset = get_preset(_diff_name)
+            except Exception:
+                pass
         
         # Shared attack context (all agents see same state)
         self.attack_context: Optional[AttackContext] = None
@@ -431,6 +447,10 @@ class SmartOrchestrator:
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
             "OrionAgent": 3, "BlueAgent": 1,
         },
+        "CLOSEOUT": {
+            "ScoutAgent": 3, "RedAgent": 2, "ShadowAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 1,
+        },
     }
     
     def _should_activate(self, agent_name: str, step: int, phase: str) -> bool:
@@ -571,6 +591,18 @@ class SmartOrchestrator:
                 mentor_log_path=None,
                 model=self.config.model,
             )
+        
+        # Phase 6.6: Inject difficulty preset into all coaches
+        difficulty_name = getattr(self.config, 'difficulty', 'normal')
+        if difficulty_name and difficulty_name != "normal":
+            try:
+                from core.training.difficulty_presets import get_preset
+                preset = get_preset(difficulty_name)
+                for coach in self.coaches.values():
+                    coach.difficulty_preset = preset
+                logger.info(f"[DIFFICULTY] All coaches set to {preset.name}: {preset.description}")
+            except Exception as e:
+                logger.warning(f"Failed to set difficulty preset '{difficulty_name}': {e}")
         
         logger.info(f"Initialized smart coaches: {list(self.coaches.keys())}")
     
@@ -1065,7 +1097,7 @@ class SmartOrchestrator:
         if self.postmortem and self.skill_library:
             should_postmortem = (
                 (episode_number + 1) % 5 == 0
-                or highest_phase in ("EXFILTRATION", "POST_EXPLOITATION")
+                or highest_phase in ("CLOSEOUT", "EXFILTRATION", "POST_EXPLOITATION")
             )
             if should_postmortem:
                 try:
@@ -1513,6 +1545,17 @@ class SmartOrchestrator:
                     agent_discoveries["data_exfiltrated"] = True
                     logger.info(f"[EXFIL-DETECT] Command-based exfiltration detection for '{cmd_name}'")
             
+            # ─── COMMAND-BASED CLOSEOUT DETECTION ────────────────────────
+            CLOSEOUT_COMMANDS = {
+                "remove_uploaded_tools", "remove_ssh_keys_planted",
+                "remove_cron_backdoors", "verify_target_stable",
+                "cleanup_tmp_artifacts",
+            }
+            if cmd_name in CLOSEOUT_COMMANDS and has_output and not has_failure:
+                if not agent_discoveries.get("artifacts_removed"):
+                    agent_discoveries["artifacts_removed"] = True
+                    logger.info(f"[CLOSEOUT-DETECT] Command-based closeout detection for '{cmd_name}'")
+            
             # =====================================================================
             # PHASE 2A: DISCOVERY → STATE FLAG BRIDGE
             # Map parsed discoveries to AttackContext state_flags so phase can
@@ -1606,6 +1649,12 @@ class SmartOrchestrator:
                 if agent_discoveries.get("data_exfiltrated"):
                     ctx.set_state_flag("data_exfiltrated")
                     logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
+
+                # Closeout artifacts removed → closeout phase completion
+                if agent_discoveries.get("artifacts_removed") or agent_discoveries.get("closeout_completed"):
+                    ctx.set_state_flag("artifacts_removed")
+                    ctx.set_state_flag("closeout_completed")
+                    logger.info(f"[PHASE-ADVANCE] closeout_completed set by {result.agent_name}")
 
                 # ─── PHASE 4: Update discovery board for cross-agent sharing ─
                 for port in agent_discoveries.get("open_port", []):
@@ -2119,6 +2168,21 @@ class SmartOrchestrator:
             if db_names:
                 discoveries["db_name"] = list(set(db_names))
         
+        # Closeout indicators → triggers CLOSEOUT completion
+        closeout_patterns = [
+            r"CLOSEOUT_TOOLS_REMOVED",
+            r"CLOSEOUT_KEYS_REMOVED",
+            r"CLOSEOUT_CRON_REMOVED",
+            r"CLOSEOUT_TARGET_STABLE",
+            r"artifacts?\s*(cleaned|removed|deleted)",
+            r"closeout\s*(complete|done|finished)",
+        ]
+        for pattern in closeout_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                discoveries["artifacts_removed"] = True
+                discoveries["closeout_completed"] = True
+                break
+        
         return discoveries
     
     def _get_agent_proposal(
@@ -2307,11 +2371,18 @@ class SmartOrchestrator:
             return random.choice(failures)
         
         # ─── Metasploitable 2 realistic service fingerprints ─────────
-        MSF2_PORTS = random.sample([
+        _all_msf2_ports = [
             21, 22, 23, 25, 53, 80, 111, 139, 445, 512, 513, 514,
             1099, 1524, 2049, 2121, 3306, 3632, 5432, 5900, 6000,
             6667, 6697, 8009, 8180, 8787,
-        ], k=random.randint(6, 12))
+        ]
+        # Phase 6.6: Filter out difficulty-blocked ports
+        _difficulty = getattr(self, '_difficulty_preset', None)
+        if _difficulty and _difficulty.blocked_ports:
+            _all_msf2_ports = [p for p in _all_msf2_ports if p not in _difficulty.blocked_ports]
+        MSF2_PORTS = random.sample(
+            _all_msf2_ports, k=min(random.randint(6, 12), len(_all_msf2_ports))
+        )
         
         MSF2_SERVICES = {
             21: ("ftp", "vsftpd 2.3.4"),
@@ -2575,6 +2646,37 @@ class SmartOrchestrator:
         if "enum" in cmd_lower:
             return f"[+] Enumerating {target}\n[+] Found users: msfadmin, user, service, postgres\n[+] Found shares: tmp, opt"
         
+        # ─── CLOSEOUT phase commands ─────────────────────────────────
+        if "remove_uploaded_tools" in cmd_lower or "cleanup_tmp" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Scanning {target} for uploaded artifacts...\n"
+                f"[CLOSEOUT] Removed /tmp/linpeas.sh\n"
+                f"[CLOSEOUT] Removed /tmp/exploit.py\n"
+                f"[CLOSEOUT] Removed /dev/shm/.payload\n"
+                f"CLOSEOUT_TOOLS_REMOVED - 3 artifacts cleaned"
+            )
+        if "remove_ssh_keys" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Checking authorized_keys on {target}...\n"
+                f"[CLOSEOUT] Removed planted key from /root/.ssh/authorized_keys\n"
+                f"[CLOSEOUT] Removed planted key from /home/msfadmin/.ssh/authorized_keys\n"
+                f"CLOSEOUT_KEYS_REMOVED - 2 keys cleaned"
+            )
+        if "remove_cron" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Checking crontabs on {target}...\n"
+                f"[CLOSEOUT] Removed backdoor cron from root crontab\n"
+                f"CLOSEOUT_CRON_REMOVED - 1 backdoor cron removed"
+            )
+        if "verify_target_stable" in cmd_lower:
+            return (
+                f"[CLOSEOUT] Verifying target {target} stability...\n"
+                f"[CLOSEOUT] All services responding normally\n"
+                f"[CLOSEOUT] No orphaned processes found\n"
+                f"[CLOSEOUT] Disk usage nominal\n"
+                f"CLOSEOUT_TARGET_STABLE - target verified healthy"
+            )
+
         return f"[SIM] {command[:80]}... executed"
     
     def _display_step_results(
@@ -2807,6 +2909,7 @@ class SmartOrchestrator:
         # Reduced from inflated values; terminal PPO reward handles gradient signal
         highest_phase = phase_progression[-1] if phase_progression else "RECON"
         COMPLETION_BONUSES = {
+            "CLOSEOUT": 500.0,
             "EXFILTRATION": 350.0,
             "POST_EXPLOITATION": 175.0,
             "LATERAL_MOVEMENT": 75.0,
