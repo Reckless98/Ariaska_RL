@@ -1,0 +1,82 @@
+{
+  "run_id": "run_20260210_220302_20d715",
+  "timestamp": 1770757409.0869257,
+  "key_outcomes": {
+    "wins": [
+      "Agent maintained high reward accumulation (90) within single episode, indicating efficient exploration and objective prioritization despite no final success.",
+      "Despite lack of success, the agent solicited mentorship 10 times, demonstrating proactive self-correction attempts during the run."
+    ],
+    "fails": [
+      "Critical objective never achieved; success rate 0% suggests inability to complete final exploitation or persistence step.",
+      "Repeated reliance on mentor calls without translating guidance into autonomous progress, leading to stagnation before mission success."
+    ],
+    "summary": "Strong reconnaissance effort yielded high reward, but failure to convert intelligence into mission success highlights a gap in autonomous transition from scanning to exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to pivot from reconnaissance to exploitation after identifying vulnerable services, causing episode to terminate without mission completion.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1770757417.1513011,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_enum",
+      "if_condition": "When HTTP service is detected on port 80/443",
+      "then_action": "Fetch HTTP headers and directories using gobuster",
+      "parameters_template": {
+        "port": 80,
+        "tool": "gobuster",
+        "mode": "dir"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1770757417.1513176,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "Consistent reward contribution from reconnaissance on SSH targets"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit Transition Drill",
+      "description": "After identifying open services, execute targeted exploitation payloads to validate persistence capabilities and close loop on mission success.",
+      "priority": "high"
+    },
+    {
+      "title": "Autonomous Decision Bottleneck Analysis",
+      "description": "Instrument decision points post-recon to determine why mentor advice is not translated into action, focusing on policy adjustments around state-value estimations.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
