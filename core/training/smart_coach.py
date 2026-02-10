@@ -2048,16 +2048,12 @@ class SmartCoach:
         ctx = step_ctx.attack_context
         target = ctx.target if ctx else "172.28.0.10"
 
-        # Track which closeout commands we've already used this episode
-        used_closeout = set()
-        for cmd_hist in (ctx.command_history if ctx else []):
-            cmd_lower = cmd_hist.lower()
-            for co_name in self.CLOSEOUT_COMMAND_NAMES:
-                if co_name.replace("_", " ") in cmd_lower or co_name in cmd_lower:
-                    used_closeout.add(co_name)
+        # Phase 6.9.1: Use instance-level tracking (template names, not rendered strings)
+        if not hasattr(self, '_closeout_used_templates'):
+            self._closeout_used_templates = set()
 
         # Find the first closeout command NOT yet used
-        remaining = [n for n in self.CLOSEOUT_COMMAND_NAMES if n not in used_closeout]
+        remaining = [n for n in self.CLOSEOUT_COMMAND_NAMES if n not in self._closeout_used_templates]
 
         # If all done, pick verify_target_stable as final check
         if not remaining:
@@ -2080,6 +2076,9 @@ class SmartCoach:
         else:
             # Fallback: raw command
             command = f"{{ echo 'echo CLOSEOUT_COMPLETE'; sleep 2; }} | timeout 10 telnet {target} 1524"
+
+        # Mark this template as used so next call picks the next one
+        self._closeout_used_templates.add(chosen_name)
 
         logger.info(
             f"[CLOSEOUT][{self.agent_name}] Phase=CLOSEOUT → {chosen_name} "
@@ -3028,6 +3027,9 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+
+        # Phase 6.9.1: Reset closeout tracking
+        self._closeout_used_templates: set = set()
         
         # Phase 6.4: Reset failed tools (tools not installed on target)
         # NOTE: _failed_tools persists across episodes intentionally —

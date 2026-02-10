@@ -369,7 +369,7 @@ class TrainingWatchdog:
         self._total_interventions += 1
         self._heal_actions_taken[heal.value] += 1
 
-        log_fn = logger.warning if severity == "warning" else logger.error
+        log_fn = logger.debug if severity == "warning" else logger.warning
         log_fn(f"[WATCHDOG:{trigger.value.upper()}] {message}")
 
         return WatchdogVerdict(

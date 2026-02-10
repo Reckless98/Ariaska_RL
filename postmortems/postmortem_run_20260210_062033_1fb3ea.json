@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260210_062033_1fb3ea",
+  "timestamp": 1770700854.1182206,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial reconnaissance and enumerated available services within first 5 minutes, establishing a reliable baseline for future attacks.",
+      "Maintained consistent observation of network behaviors throughout the episode despite lack of success, providing comprehensive data for analysis."
+    ],
+    "fails": [
+      "Failed to progress from enumeration to exploitation, resulting in a 0% success rate despite high reward indicating partial objectives were met.",
+      "Missed opportunities to leverage the identified services for credential-based attacks, likely due to insufficient preparatory skill triggers."
+    ],
+    "summary": "The run demonstrated disciplined reconnaissance but failed to transition into exploitation, suggesting a gap between detection and attack execution phases."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Always stopping after enumeration without launching exploitation or privilege escalation attempts.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates outdated service",
+      "then_action": "Run SSH enumeration with nmap scripts and attempt default credential brute-force.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-brute",
+        "timeout": "30s"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770700861.7937713,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns a directory listing or unusual headers",
+      "then_action": "Execute targeted directory brute-force and check for common CMS panels or outdated software versions.",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "common_dirs.txt",
+        "timeout": "45s"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1770700861.7937865,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When enumeration reveals a writable file share",
+      "then_action": "Attempt to stage a custom payload or drop a webshell via smbclient or curl upload.",
+      "parameters_template": {
+        "share": "data",
+        "payload": "recon_shell.php"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1770700861.7937977,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success potential in reconnaissance phase when SSH service present and vulnerable banner detected."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Extend enumeration to exploitation",
+      "description": "After identifying open services, immediately queue targeted exploitation attempts (e.g., default creds, known CVEs) to close the loop on reconnaissance.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate conditional skill chaining",
+      "description": "Create a flow that triggers skill_002 only if HTTP enumeration yields directory listings, ensuring deeper coverage without manual intervention.",
+      "priority": "medium"
+    },
+    {
+      "title": "Evaluate payload staging opportunities",
+      "description": "Test dropping benign payloads on writable shares to verify exploitation prep, improving confidence for actual attacks.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -3,9 +3,12 @@
 
 import os
 import random
+import logging
 import subprocess
 import time
 import torch
+
+logger = logging.getLogger("ariaska.blue_agent")
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -297,13 +300,13 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
             # Use the output_size from the policy_net properly
             action_idx = random.randint(0, getattr(self.policy_net, 'output_size', 5) - 1)
             if self.verbosity in ("debug", "verbose"):
-                console.print(f"[yellow]🎲 Random action selected: {get_action_description(action_idx)}[/yellow]")
+                logger.debug(f"Random action selected: {get_action_description(action_idx)}")
             return action_idx
         phase_vec = get_phase_vector(phase, str(self.device))
         q_values = self.policy_net(state_tensor.unsqueeze(0), phase_vector=phase_vec)
         action_idx = torch.argmax(q_values, dim=-1).item()
         if self.verbosity in ("debug", "verbose"):
-            console.print(f"[cyan]🎯 PolicyNet action selected: {get_action_description(action_idx)}[/cyan]")
+            logger.debug(f"PolicyNet action selected: {get_action_description(action_idx)}")
         # PHASE 2A FIX: Removed GPT mode-switch call from select_action.
         # Mode switching is now handled by alert_level checks in simulate_step.
         return action_idx

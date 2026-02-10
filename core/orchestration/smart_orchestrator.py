@@ -1614,12 +1614,14 @@ class SmartOrchestrator:
                 
                 # Shell discovery → advance to PRIVILEGE_ESCALATION
                 if agent_discoveries.get("shell"):
+                    if not ctx.state_flags.get("shell_obtained"):
+                        logger.info(f"[PHASE-ADVANCE] shell_obtained set by {result.agent_name}")
                     ctx.set_state_flag("shell_obtained")
-                    logger.info(f"[PHASE-ADVANCE] shell_obtained set by {result.agent_name}")
                     if agent_discoveries.get("root_shell"):
+                        if not ctx.state_flags.get("root_shell_obtained"):
+                            logger.info(f"[PHASE-ADVANCE] root_shell_obtained set by {result.agent_name}")
                         ctx.set_state_flag("root_shell_obtained")
                         ctx.set_state_flag("admin_access_obtained")
-                        logger.info(f"[PHASE-ADVANCE] root_shell_obtained set by {result.agent_name}")
                 
                 # User discoveries
                 for user in agent_discoveries.get("user", []):
@@ -1665,19 +1667,22 @@ class SmartOrchestrator:
 
                 # Persistence → exfiltration
                 if agent_discoveries.get("persistence"):
+                    if not ctx.state_flags.get("persistence_established"):
+                        logger.info(f"[PHASE-ADVANCE] persistence_established set by {result.agent_name}")
                     ctx.set_state_flag("persistence_established")
-                    logger.info(f"[PHASE-ADVANCE] persistence_established set by {result.agent_name}")
                 
                 # Data exfiltration → exfiltration phase
                 if agent_discoveries.get("data_exfiltrated"):
+                    if not ctx.state_flags.get("data_exfiltrated"):
+                        logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
                     ctx.set_state_flag("data_exfiltrated")
-                    logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
 
                 # Closeout artifacts removed → closeout phase completion
                 if agent_discoveries.get("artifacts_removed") or agent_discoveries.get("closeout_completed"):
+                    if not ctx.state_flags.get("closeout_completed"):
+                        logger.info(f"[PHASE-ADVANCE] closeout_completed set by {result.agent_name}")
                     ctx.set_state_flag("artifacts_removed")
                     ctx.set_state_flag("closeout_completed")
-                    logger.info(f"[PHASE-ADVANCE] closeout_completed set by {result.agent_name}")
 
                 # ─── PHASE 4: Update discovery board for cross-agent sharing ─
                 for port in agent_discoveries.get("open_port", []):
@@ -3156,7 +3161,7 @@ class SmartOrchestrator:
         if len(set(last_n)) == 1:
             if agent_name not in self.stuck_agents:
                 self.stuck_agents.add(agent_name)
-                logger.warning(f"Agent {agent_name} STUCK: repeated '{last_n[0][:40]}...'")
+                logger.debug(f"Agent {agent_name} STUCK: repeated '{last_n[0][:40]}...'")
                 self.dashboard.add_event("stuck", f"Repeated: {last_n[0][:30]}...", agent_name)
             return True
         

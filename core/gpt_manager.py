@@ -311,14 +311,11 @@ class GPTManager:
         # Load existing cache
         self._load_cache()
         
-        logger.info(f"GPTManager initialized with primary model: {self.primary_model}")
-        logger.info(f"Fallback model: {self.fallback_model}")
-        logger.info(f"Platform detected: {platform.system()}")
+        logger.debug(f"GPTManager initialized with primary model: {self.primary_model}")
+        logger.debug(f"Fallback model: {self.fallback_model}")
+        logger.debug(f"Platform detected: {platform.system()}")
         if self.is_configured():
-            venice_status = f"[cyan]Venice: {self.venice_model}[/cyan]" if self.venice_enabled else "[dim]Venice: disabled[/dim]"
-            if console:
-                console.print(f"[green]GPTManager v5.1 initialized | Primary: {self.primary_model} | Fallback: {self.fallback_model} | {venice_status}[/green]")
-            logger.info(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
+            logger.debug(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
         else:
             logger.warning("GPTManager: OPENAI_API_KEY not set. LLM calls disabled until configured.")
     
@@ -740,7 +737,7 @@ class GPTManager:
             if self.cache_file.exists():
                 with open(self.cache_file, 'r') as f:
                     self.cache = json.load(f)
-                logger.info(f"Loaded {len(self.cache)} cached responses")
+                logger.debug(f"Loaded {len(self.cache)} cached responses")
         except Exception as e:
             logger.warning(f"Could not load cache: {e}")
             self.cache = {}
@@ -842,7 +839,7 @@ class GPTManager:
             time.sleep(self.min_request_interval)
         
         # Log that we're making a real GPT call (only reached if NOT offline)
-        logger.info(f"GPT API call | model={model} | agent={agent_id} | task={task_type}")
+        logger.debug(f"GPT API call | model={model} | agent={agent_id} | task={task_type}")
         
         try:
             # Enhanced system prompts based on task type
