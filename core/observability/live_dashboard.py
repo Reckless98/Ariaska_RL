@@ -138,8 +138,8 @@ class DashboardConfig:
     watch_rate: float = 1.0
     trend_window: int = 20
     max_action_width: int = 80
-    max_output_lines: int = 6
-    max_output_width: int = 90
+    max_output_lines: int = 3
+    max_output_width: int = 80
     show_guidance: bool = True
     show_reward_breakdown: bool = True
     show_discoveries: bool = True
@@ -269,86 +269,44 @@ class LiveDashboard:
         discovery_board: Optional[Dict[str, Any]] = None,
     ):
         """
-        Print ONE comprehensive step display.  This is the ONLY step printer.
+        Print ONE compact step display. Phase 6.9: Clean redesign.
+        
+        Layout:
+          ┄┄┄ Step 12 │ Ep 1/5 │ LIVE │ 🧹 CLOSEOUT │ R:+85.2 │ ▁▂▃▅▇ ┄┄┄
+          ⚔️ Red    [🤖 ppo]    nmap -sV 172.28.0.10          +12.5  70%
+                    → Starting Nmap 7.95...Found 11 open ports
+                    🟢 port:21,22,80 │ svc:ftp,ssh,http
+          👤 Shadow [📖 play]   clear_bash_history             +8.0  80%
+          💤 Scout(skip) │ Blue(skip)
+          ── 🔓 8 ports │ ⚙️ 12 svcs │ 🔑 1 cred │ 💀 4 shells ──────
         """
         if not self.should_print(step):
             return
 
         phase_upper = phase.upper()
         phase_icon = PHASE_ICONS.get(phase_upper, "❓")
-        reward_style = "bold green" if global_reward > 0 else "bold red" if global_reward < 0 else "dim"
+        reward_color = "green" if global_reward > 0 else "red" if global_reward < 0 else "dim"
         ep_str = (
             f"Ep {self.current_episode}/{self.total_episodes}"
             if self.total_episodes else f"Ep {self.current_episode}"
         )
+        step_spark = sparkline(list(self.step_rewards), width=12)
 
-        # Step reward sparkline (last 15 steps)
-        step_spark = sparkline(list(self.step_rewards), width=15)
+        # ── STEP HEADER (single line) ────────────────────────────────
+        done_tag = " [bold magenta]✅[/bold magenta]" if done else ""
+        console.print(
+            f"\n[dim]{'┄' * 3}[/dim] "
+            f"[bold cyan]Step {step + 1:2d}[/bold cyan] │ "
+            f"[cyan]{ep_str}[/cyan] │ "
+            f"[bold yellow]{mode_tag}[/bold yellow] │ "
+            f"{phase_icon} [bold]{phase_upper}[/bold] │ "
+            f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}]{done_tag} │ "
+            f"[dim]{step_spark}[/dim]"
+        )
 
-        # ── HEADER ───────────────────────────────────────────────────
-        hdr_parts = [
-            f"[bold cyan]Step {step + 1:2d}[/bold cyan]",
-            f"[bold cyan]{ep_str}[/bold cyan]",
-            f"[bold yellow]{mode_tag}[/bold yellow]",
-            f"{phase_icon} [bold]{phase_upper}[/bold]",
-            f"[{reward_style}]R:{global_reward:+.1f}[/{reward_style}]",
-        ]
-        if done:
-            hdr_parts.append("[bold magenta]✅ DONE[/bold magenta]")
-        hdr_parts.append(f"[dim]{step_spark}[/dim]")
-        header = " │ ".join(hdr_parts)
-
-        console.print(f"\n[cyan]┌{'─' * 95}┐[/cyan]")
-        console.print(f"│ {header}")
-        console.print(f"[dim cyan]├{'─' * 95}┤[/dim cyan]")
-
-        # ── COMPACT AGENT TABLE ──────────────────────────────────────
+        # ── PER-AGENT LINES (compact: one line per agent + optional output) ──
         active_agents = [a for a in agent_infos if not a.skipped]
 
-        if active_agents:
-            table = Table(
-                show_header=True,
-                header_style="bold white on dark_blue",
-                border_style="dim",
-                box=box.SIMPLE_HEAVY,
-                padding=(0, 1),
-                expand=True,
-            )
-            table.add_column("Agent", style="bold", width=14, no_wrap=True)
-            table.add_column("Src", width=10, no_wrap=True)
-            table.add_column("Command", width=50, overflow="fold")
-            table.add_column("R", width=7, justify="right")
-            table.add_column("Conf", width=5, justify="right")
-
-            for a in active_agents:
-                icon, _role, _style = AGENT_ICONS.get(
-                    a.agent_name, ("🤖", "Agent", "dim")
-                )
-                src_key = a.source[:8] if a.source else "unknown"
-                src_icon, src_style = SOURCE_STYLES.get(
-                    src_key, SOURCE_STYLES.get(a.source.split("_")[0] if a.source else "unknown", ("❓", "dim"))
-                )
-
-                r_text = Text(
-                    f"{a.reward:+.1f}",
-                    style="green" if a.reward > 0 else "red" if a.reward < 0 else "dim",
-                )
-                c_text = Text(
-                    f"{a.confidence:.0%}",
-                    style="green" if a.confidence > 0.7 else "red" if a.confidence < 0.3 else "yellow",
-                )
-                cmd_disp = (a.command or "(none)")[:70]
-
-                table.add_row(
-                    f"{icon} {a.agent_name.replace('Agent', '')}",
-                    Text(f"{src_icon} {a.source[:8]}", style=src_style),
-                    Text(cmd_disp, style="white"),
-                    r_text,
-                    c_text,
-                )
-            console.print(table)
-
-        # ── DETAILED PER-AGENT OUTPUT ────────────────────────────────
         for a in active_agents:
             icon, _role, style = AGENT_ICONS.get(
                 a.agent_name, ("🤖", "Agent", "dim")
@@ -357,102 +315,87 @@ class LiveDashboard:
             src_icon, src_style = SOURCE_STYLES.get(
                 src_key, SOURCE_STYLES.get(a.source.split("_")[0] if a.source else "unknown", ("❓", "dim"))
             )
-            mentor_tag = " [yellow]📡 MENTOR[/yellow]" if a.mentor_call else ""
 
+            agent_short = a.agent_name.replace("Agent", "").ljust(7)
+            cmd_disp = (a.command or "(none)")[:60]
+            r_str = f"{a.reward:+.1f}" if a.reward != 0 else ""
+            r_color = "green" if a.reward > 0 else "red" if a.reward < 0 else "dim"
+            conf_str = f"{a.confidence:.0%}" if a.confidence else ""
+            mentor_tag = " 📡" if a.mentor_call else ""
+
+            # Main agent line
             console.print(
-                f"  [{style}]{icon} {a.agent_name}[/{style}]"
-                f" [{src_style}][{src_icon} {a.source}][/{src_style}]"
-                f"{mentor_tag}"
-                f"  [dim]tok:{a.tokens_used}[/dim]"
+                f"  [{style}]{icon} {agent_short}[/{style}]"
+                f"[{src_style}][{src_icon} {a.source[:7].ljust(7)}][/{src_style}] "
+                f"[white]{cmd_disp}[/white]"
+                f"  [{r_color}]{r_str}[/{r_color}]"
+                f"  [dim]{conf_str}[/dim]{mentor_tag}"
             )
 
-            # Full command
-            if a.command:
-                console.print(f"    [bold white]CMD:[/bold white] [cyan]{a.command}[/cyan]")
-
-            # Command output (multi-line)
+            # Output snippet (1 line max, only if meaningful)
             if a.command_output and self.config.show_output:
-                lines = a.command_output.strip().split("\n")
-                max_l = self.config.max_output_lines
-                for line in lines[:max_l]:
-                    console.print(f"    [dim]OUT: {line[:self.config.max_output_width]}[/dim]")
-                if len(lines) > max_l:
-                    console.print(f"    [dim]    ... (+{len(lines) - max_l} more lines)[/dim]")
+                out_text = a.command_output.strip().replace("\n", " │ ")
+                out_text = out_text[:self.config.max_output_width]
+                if out_text:
+                    console.print(f"    [dim]→ {out_text}[/dim]")
 
-            # Reasoning
-            if a.mentor_reasoning:
-                console.print(f"    [yellow]WHY: {a.mentor_reasoning[:150]}[/yellow]")
-
-            # Discoveries
+            # Discoveries on same block (compact, green)
             if a.discoveries:
                 disc_parts = []
                 for dtype, items in a.discoveries.items():
                     if items and isinstance(items, (list, set, tuple)):
-                        disc_parts.append(f"{dtype}: {', '.join(str(i) for i in list(items)[:5])}")
+                        disc_parts.append(f"{dtype}:{','.join(str(i) for i in list(items)[:4])}")
                     elif items and isinstance(items, str):
-                        disc_parts.append(f"{dtype}: {items}")
+                        disc_parts.append(f"{dtype}:{items}")
                 if disc_parts:
-                    console.print(f"    [green bold]FOUND: {' │ '.join(disc_parts)}[/green bold]")
+                    console.print(f"    [green]🟢 {' │ '.join(disc_parts)}[/green]")
 
-        # ── SKIPPED AGENTS ───────────────────────────────────────────
+        # ── SKIPPED (very compact, one line) ─────────────────────────
         if skipped_agents:
-            parts = []
-            for aname, reason in skipped_agents.items():
-                ic = AGENT_ICONS.get(aname, ("🤖", "", ""))[0]
-                parts.append(f"{ic} {aname.replace('Agent', '')}: {reason}")
-            console.print(f"  [dim]💤 Skipped: {' │ '.join(parts)}[/dim]")
+            names = [f"{AGENT_ICONS.get(n, ('🤖','',''))[0]}{n.replace('Agent','')}" 
+                     for n in skipped_agents]
+            console.print(f"  [dim]💤 {' │ '.join(names)}[/dim]")
 
-        # ── DISCOVERY BOARD (compact) ────────────────────────────────
+        # ── DISCOVERY BOARD (single compact line) ────────────────────
         if discovery_board and self.config.show_discoveries:
             db = discovery_board
             parts = []
             ports = db.get("ports", set())
             if ports:
-                pl = sorted(ports if isinstance(ports, (set, list)) else [])[:10]
-                parts.append(f"🔓 Ports({len(ports)}): {','.join(str(p) for p in pl)}")
+                parts.append(f"🔓 {len(ports)} ports")
             svcs = db.get("services", set())
             if svcs:
-                parts.append(
-                    f"⚙️  Svcs({len(svcs)}): {','.join(str(s)[:15] for s in list(svcs)[:5])}"
-                )
+                parts.append(f"⚙️ {len(svcs)} svcs")
             creds = db.get("credentials", set())
             if creds:
-                parts.append(f"🔑 Creds: {len(creds)}")
+                parts.append(f"🔑 {len(creds)} creds")
             shells = db.get("shells", set())
             if shells:
-                parts.append(f"💀 Shells: {len(shells)}")
-            flags = db.get("flags_set", set())
-            if flags:
-                parts.append(f"🚩 Flags: {','.join(str(f)[:18] for f in list(flags)[:4])}")
+                parts.append(f"💀 {len(shells)} shells")
             if parts:
-                console.print(f"  [bold]{' │ '.join(parts)}[/bold]")
+                console.print(f"  [dim]── {' │ '.join(parts)} ──[/dim]")
 
-        # ── REWARD BREAKDOWN ─────────────────────────────────────────
+        # ── REWARD BREAKDOWN (single line, only if interesting) ──────
         if reward_breakdown and self.config.show_reward_breakdown:
             rb = reward_breakdown
             rp = []
             if rb.get("base", 0):
                 rp.append(f"base:{rb['base']:+.1f}")
             if rb.get("novelty_bonus", 0):
-                rp.append(f"[green]novelty:{rb['novelty_bonus']:+.1f}[/green]")
+                rp.append(f"[green]+nov:{rb['novelty_bonus']:+.1f}[/green]")
             if rb.get("redundancy_penalty", 0):
-                rp.append(f"[red]repeat:{rb['redundancy_penalty']:+.1f}[/red]")
+                rp.append(f"[red]rep:{rb['redundancy_penalty']:+.1f}[/red]")
             if rb.get("phase_bonus", 0):
                 rp.append(f"[cyan]phase:{rb['phase_bonus']:+.1f}[/cyan]")
-            reason = rb.get("reason", "")
-            if rp or reason:
-                detail = " ".join(rp)
-                if reason:
-                    detail += f"  [dim]({reason[:80]})[/dim]"
-                console.print(f"  [dim]💰 {detail}[/dim]")
+            if rp:
+                console.print(f"  [dim]💰 {' '.join(rp)}[/dim]")
 
-        # ── EVENTS (last 3 seconds) ─────────────────────────────────
+        # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
-        recent = [e for e in self.events if now - e.timestamp < 5]
+        recent = [e for e in self.events if now - e.timestamp < 3]
         if recent:
-            self._print_events(recent[-3:])
+            self._print_events(recent[-2:])
 
-        console.print(f"[dim cyan]└{'─' * 95}┘[/dim cyan]")
         self.last_print_step = step
 
     # ─── Event printer ───────────────────────────────────────────────────────

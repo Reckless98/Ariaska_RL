@@ -310,7 +310,7 @@ class LiveCommandExecutor:
         # Log execution
         status = "BLOCKED" if result.blocked else ("OK" if result.success else "FAIL")
         output_preview = result.output[:80].replace("\n", " ") if result.output else "(empty)"
-        logger.info(
+        logger.debug(
             f"[LIVE][{agent_name}] {status} ({elapsed_ms:.0f}ms) "
             f"cmd={command[:60]}... → {output_preview}"
         )

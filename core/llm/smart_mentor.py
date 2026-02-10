@@ -305,19 +305,19 @@ ANTI-LOOP BEHAVIOR:
 - If stuck in RECON, jump to easy exploits: telnet 1524, mysql no-password
 
 OUTPUT FORMAT (JSON only):
-{
-    "intent": "strategic goal of this action (e.g. 'enumerate services on target', 'exploit vsftpd backdoor for root shell')",
+{{
+    "intent": "strategic goal of this action",
     "selected_command": "template_name from the list",
-    "parameters": {"param1": "value1", "param2": "value2"},
-    "reasoning": "Brief WHY explanation — what led to this choice given current state",
-    "expected_observation": "what output/result we expect if this succeeds",
+    "parameters": {{"param1": "value1", "param2": "value2"}},
+    "reasoning": "Brief WHY explanation",
+    "expected_observation": "what we expect if this succeeds",
     "risk": "low|medium|high",
     "confidence": 0.8,
     "next_phase_hint": "what to try if this works",
     "candidate_actions": [
-        {"command": "alternative_template_name", "why": "brief reason this was considered"}
+        {{"command": "alternative_template_name", "why": "reason"}}
     ]
-}
+}}
 
 === METASPLOITABLE 3 TARGET KNOWLEDGE ===
 MS3 (Ubuntu 14.04 / Windows Server 2008) is HARDER than MS2. No instant backdoors.

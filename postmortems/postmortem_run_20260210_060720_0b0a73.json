@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260210_060720_0b0a73",
+  "timestamp": 1770700051.8860164,
+  "key_outcomes": {
+    "wins": [
+      "Consistently identified open ports and service banners, gathering timely reconnaissance data across the single episode.",
+      "Successfully deployed scripted vulnerability checks that yielded the total reward despite the run failing to achieve mission success."
+    ],
+    "fails": [
+      "Failed to pivot to privilege escalation after credential gathering, preventing mission completion in the sole episode.",
+      "Each mentor call terminated without establishing persistent foothold, forcing repeated restarts and contributing to 0% success rate."
+    ],
+    "summary": "Reconnaissance was effective but follow-on exploitation and persistence tactics failed repeatedly, resulting in no completed objectives despite accumulating a reward."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stalled because discovered credentials were rejected or insufficient",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770700059.7631412,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH authentication succeeds with a low-privilege account",
+      "then_action": "Execute local sudo capability enumeration and capture /etc/sudoers output",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "cat /etc/sudoers"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1770700059.7631652,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential capture returns password hashes",
+      "then_action": "Feed hashes into incremental cracking tool with wordlists and prioritize common user accounts",
+      "parameters_template": {
+        "hash_file": "/tmp/captured_hashes.txt",
+        "wordlist": "rockyou.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1770700059.7631757,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential validation loop",
+      "description": "Integrate repeated credential trials with throttling to confirm admin account reuse and track response codes before escalating.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-SSH sudo path refinement",
+      "description": "After SSH access, immediately run sudo capability enumeration with parsed output to automate privilege escalation choice.",
+      "priority": "medium"
+    },
+    {
+      "title": "Hash cracking parallelization",
+      "description": "Trigger hash cracking with prioritized lists concurrently, then feed successful credentials back into exploitation chain to shorten response time.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

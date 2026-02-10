@@ -2754,14 +2754,8 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     if not has_exfil:
         return AttackPhase.POST_EXPLOITATION
     
-    # CLOSEOUT requires closeout actions completed (artifacts removed, target verified)
-    has_closeout = (
-        state.get("closeout_completed")
-        or state.get("artifacts_removed")
-    )
-    if not has_closeout:
-        return AttackPhase.EXFILTRATION
-    
+    # Phase 6.9: CLOSEOUT auto-advance — once data is exfiltrated, go to CLOSEOUT.
+    # The SmartCoach hard-gate forces cleanup commands. No chicken-and-egg deadlock.
     return AttackPhase.CLOSEOUT
 
 

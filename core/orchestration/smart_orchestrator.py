@@ -1382,7 +1382,7 @@ class SmartOrchestrator:
                 last_action = self.action_history.get(agent_name, [""])[-1] if self.action_history.get(agent_name) else ""
                 if decision.command == last_action:
                     self.deep_stuck_count[agent_name] = self.deep_stuck_count.get(agent_name, 0) + 1
-                    logger.warning(
+                    logger.debug(
                         f"[DEEP-STUCK][{agent_name}] forced-novel returned same action "
                         f"count={self.deep_stuck_count[agent_name]}/{self.config.stuck_forced_abort_threshold}"
                     )
@@ -1391,7 +1391,7 @@ class SmartOrchestrator:
                     self.forced_novel_count[agent_name] = self.forced_novel_count.get(agent_name, 0) + 1
                     self.repeat_stuck_count[agent_name] = 0  # Reset repeat counter
                     
-                    logger.info(
+                    logger.debug(
                         f"[FORCED-NOVEL][{agent_name}] "
                         f"prev={last_action[:30]}... → new={decision.command[:30]}... "
                         f"tags_recent={{...}} excluded={decision.excluded_count}"

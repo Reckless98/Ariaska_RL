@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260210_060744_9b4180",
+  "timestamp": 1770700072.7786412,
+  "key_outcomes": {
+    "wins": [
+      "Completed reconnaissance phase without triggering alarms, capturing initial service banners and open ports for subsequent exploitation.",
+      "Maintained consistent reward accumulation (60.00) across the episode despite not achieving overall success, indicating controlled symptom management."
+    ],
+    "fails": [
+      "Final objective unmet; payload delivery/privilege escalation attempt failed, resulting in 0% success rate.",
+      "Mentor assistance required 10 times, highlighting gaps in autonomous decisioning during exploitation stages."
+    ],
+    "summary": "Reconnaissance was effective, but exploitation/exfiltration phases repeatedly faltered; focus next on automating reliable exploitation chains and reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Payload deployment aborted after SSH enumeration due to incorrect exploit selection or configuration error.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step29",
+        "ep001_step34",
+        "ep001_step40",
+        "ep001_step48"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH",
+      "then_action": "Run targeted SSH enumeration using nmap ssh scripts to capture authentication methods and version",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1770700080.8584783,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP port 80 or 443 responds with 200 status",
+      "then_action": "Launch automated web directory brute force with wfuzz and record potential admin panels",
+      "parameters_template": {
+        "method": "GET",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step16"
+      ],
+      "created_at": 1770700080.8584924,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH enumeration reveals password authentication allowed",
+      "then_action": "Attempt password spraying with collected credentials and monitor response rates",
+      "parameters_template": {
+        "userlist": "identified_users.txt",
+        "passlist": "common_passwords.txt",
+        "delay": "2s"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step25"
+      ],
+      "created_at": 1770700080.8585126,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate SSH exploit selection",
+      "description": "Implement decision tree to match SSH version/fingerprints to vetted exploits and validate configuration before payload delivery.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor calls during exploitation",
+      "description": "Integrate context-aware prompt templates summarizing prior steps to guide independent decision-making and minimize external hints.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate credential reuse strategy",
+      "description": "Test credential spraying success upstream of exploitation to confirm access before running payloads, adjusting timing to avoid lockouts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

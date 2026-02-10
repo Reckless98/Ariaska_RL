@@ -733,7 +733,7 @@ class SmartCoach:
                 )
         
         # Last resort: random from ALL role-valid commands (ignore history)
-        logger.warning(f"[FORCED-NOVEL][{self.agent_name}] All thresholds exhausted, picking random")
+        logger.debug(f"[FORCED-NOVEL][{self.agent_name}] All thresholds exhausted, picking random")
         
         valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
         if not valid_commands:
@@ -1298,7 +1298,7 @@ class SmartCoach:
         """Replace a blocked command with an alternative from the role pool."""
         import random
         
-        logger.warning(
+        logger.debug(
             f"[{self.agent_name}] ANTI-REPEAT: Replacing '{result.command[:40]}...' ({reason})"
         )
         
@@ -2708,7 +2708,7 @@ class SmartCoach:
             )
             
         except Exception as e:
-            logger.warning(f"Smart mentor failed: {e}, falling back to registry")
+            logger.debug(f"Smart mentor failed: {e}, falling back to registry")
             return self._decide_from_registry(step_ctx, proposed_action, confidence)
     
     def _get_difficulty_alternative(self, step_ctx: SmartStepContext) -> Optional[SmartDecisionResult]:
@@ -2892,7 +2892,7 @@ class SmartCoach:
                     self._failed_tools = set()
                 if _tool:
                     self._failed_tools.add(_tool)
-                    logger.info(
+                    logger.debug(
                         f"[{self.agent_name}] Tool '{_tool}' not found on target — "
                         f"masked from future PPO selection"
                     )

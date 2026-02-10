@@ -5,6 +5,7 @@ import random
 import ipaddress
 import subprocess
 import json
+import logging
 from rich.console import Console
 import numpy as np
 import os
@@ -14,6 +15,8 @@ import re
 import traceback
 import threading
 from typing import Dict, Any, List, Tuple, Optional, Union
+
+logger = logging.getLogger("ariaska.cyber_environment")
 
 try:
     import nmap
@@ -855,7 +858,7 @@ class CyberEnvironment:
         if cache_key in self.scan_results_cache:
             cache_entry = self.scan_results_cache[cache_key]
             if time.time() - cache_entry["timestamp"] < 300:
-                console.print("[cyan]ℹ Using cached scan results[/cyan]")
+                logger.debug(f"Using cached scan results for {cache_key}")
                 return cache_entry["ports"]
                 
         discovered_ports = []
@@ -863,7 +866,7 @@ class CyberEnvironment:
         
         try:
             with self.scanner_lock:
-                console.print(f"[cyan]🔍 Scanning {target}...[/cyan]")
+                logger.debug(f"Scanning {target}...")
                 
                 if NMAP_AVAILABLE and nmap is not None:
                     try:
@@ -955,7 +958,7 @@ class CyberEnvironment:
                     "ports": discovered_ports.copy()
                 }
                 
-                console.print(f"[green]✓ Scan complete. Found {len(discovered_ports)} open ports on {target}[/green]")
+                logger.debug(f"Scan complete. Found {len(discovered_ports)} open ports on {target}")
                 return discovered_ports
                 
         except Exception as e:
