@@ -1,6 +1,6 @@
 # core/gpt_manager.py — ARIASKA GPTManager v5.0 APEX (GPT-5-mini + Multi-Model Routing)
 # Centralized LLM Gateway: Role-Based Routing, Cross-Platform, Learning-Enhanced
-# Models: GPT-5-mini (primary), GPT-4o-mini (fallback), GPT-5-nano (lightweight), GPT-5.2 (postmortem)
+# Models: GPT-5-mini (primary), GPT-4o-mini (fallback), GPT-5-nano (lightweight), GPT-5.2-2025-12-11 (postmortem/walkthrough)
 
 import os
 import logging
@@ -156,7 +156,7 @@ class GPTManager:
     - GPT-5-mini: Primary model for Red/Orion agents (strategy/tactics)
     - GPT-4o-mini: Fallback model when GPT-5-mini unavailable
     - GPT-5-nano: Lightweight model for Scout/Shadow/Blue (classification/rewrites)
-    - GPT-5.2: Deep reasoning for end-of-run postmortem (feature-flagged)
+    - GPT-5.2 (gpt-5.2-2025-12-11): Deep reasoning for postmortem + walkthrough analysis
     
     Features:
     - Role-based automatic routing
@@ -182,6 +182,7 @@ class GPTManager:
         "classification": "gpt-5.1-codex-mini",
         "embedding": "gpt-5.1-codex-mini",
         "postmortem": "gpt-5.2-codex",       # Deep reasoning for end-of-run analysis
+        "walkthrough_analysis": "gpt-5.2-2025-12-11",  # Base GPT-5.2 for HTB walkthrough deep reasoning
         # Fallbacks
         "general": "gpt-5.1-codex-mini",
         "default": "gpt-5.1-codex-mini",
@@ -197,6 +198,7 @@ class GPTManager:
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
         "gpt-5.2": 0.01000,
+        "gpt-5.2-2025-12-11": 0.01000,  # Base GPT-5.2 dated release
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
     }
@@ -774,7 +776,8 @@ class GPTManager:
     
     def gpt_request(self, prompt: str, task_type: str = "general", 
                    agent_id: str = "unknown", max_tokens: int = 150,
-                   model: Optional[str] = None, allow_fallback: bool = True) -> str:
+                   model: Optional[str] = None, allow_fallback: bool = True,
+                   timeout: Optional[int] = None) -> str:
         """
         Make a request to GPT with role-based model routing.
         
@@ -785,6 +788,7 @@ class GPTManager:
             max_tokens: Maximum tokens in response
             model: Optional explicit model override
             allow_fallback: Whether to allow fallback to backup model
+            timeout: Optional request timeout in seconds (default: 8 for agents, higher for analysis)
             
         Returns:
             str: The model's response
@@ -869,7 +873,7 @@ class GPTManager:
                             {"role": "user", "content": prompt}
                         ],
                         token_param: max_tokens,
-                        "timeout": 5.0  # 5 second client timeout
+                        "timeout": min(max(5.0, (timeout or 8) - 2), 120.0),  # Client timeout: adapt to request timeout
                     }
                     # Only add temperature for models that support it (not gpt-5.x, o1, o3)
                     if not uses_new_api:
@@ -877,13 +881,14 @@ class GPTManager:
                     return self.client.chat.completions.create(**request_params)
             
             # Execute with aggressive timeout using ThreadPoolExecutor
+            _request_timeout = timeout if timeout is not None else 8
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(make_gpt_request)
                     try:
-                        response = future.result(timeout=8)  # 8 second overall timeout
+                        response = future.result(timeout=_request_timeout)
                     except concurrent.futures.TimeoutError:
-                        logger.warning(f"GPT request timed out after 8 seconds for {agent_id}, using fallback")
+                        logger.warning(f"GPT request timed out after {_request_timeout} seconds for {agent_id}, using fallback")
                         # Return immediate fallback command based on task type
                         fallback_commands = {
                             "tactical": "nmap -sV 10.10.10.10",

@@ -231,9 +231,13 @@ class SmartMentor:
         """Build the system prompt with dynamic knowledge injection from knowledge_packs."""
         # Dynamic knowledge injection from knowledge_packs module
         try:
-            from core.knowledge.knowledge_packs import get_mentor_knowledge_text, PHASE_REASONING
+            from core.knowledge.knowledge_packs import (
+                get_mentor_knowledge_text, PHASE_REASONING,
+                HTB_DECISION_RULES, HTB_CVES,
+            )
             ms2_knowledge = get_mentor_knowledge_text("metasploitable2")
             ms3_knowledge = get_mentor_knowledge_text("metasploitable3")
+            htb_knowledge = get_mentor_knowledge_text("htb")
             # Build phase reasoning text
             phase_reasoning_text = "\n=== PHASE REASONING (WHY and WHEN) ===\n"
             for phase, reasoning in PHASE_REASONING.items():
@@ -241,10 +245,26 @@ class SmartMentor:
                 for key, val in reasoning.items():
                     if isinstance(val, str):
                         phase_reasoning_text += f"  {key}: {val[:150]}\n"
+            # Build decision rules text for rapid expert-like reasoning
+            decision_rules_text = "\n=== EXPERT DECISION RULES (IF → THEN) ===\n"
+            decision_rules_text += "Apply these rules like a human pentester — check conditions, execute matching actions:\n\n"
+            for rule in HTB_DECISION_RULES:
+                decision_rules_text += f"[P{rule['priority']}] IF: {rule['if_condition']}\n"
+                decision_rules_text += f"     THEN: {rule['then_action']}\n"
+                decision_rules_text += f"     WHY: {rule['reasoning']}\n\n"
+            # Build CVE quick-reference
+            cve_text = "\n=== CVE QUICK REFERENCE ===\n"
+            for cve in HTB_CVES[:10]:  # Top 10 most relevant
+                cve_text += f"  {cve['id']}: {cve['service']} — {cve['description'][:80]}\n"
+                if cve.get('exploit_module'):
+                    cve_text += f"    Exploit: {cve['exploit_module']}\n"
         except ImportError:
             ms2_knowledge = ""
             ms3_knowledge = ""
+            htb_knowledge = ""
             phase_reasoning_text = ""
+            decision_rules_text = ""
+            cve_text = ""
 
         return f"""You are an expert penetration tester and red team operator with deep knowledge of:
 - Network reconnaissance and enumeration
@@ -389,6 +409,12 @@ After exfiltration, ALWAYS close out professionally:
   6. Verify target stability (uptime, services, disk)
 
 {ms3_knowledge}
+
+{htb_knowledge}
+
+{decision_rules_text}
+
+{cve_text}
 
 {phase_reasoning_text}
 """

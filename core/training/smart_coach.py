@@ -2435,6 +2435,32 @@ class SmartCoach:
                 steps_in_phase=0,
                 phase_transitions=0,
                 agent_role=self.agent_role.get("role", ""),
+                # Phase 6.9.6: Reasoning context signals
+                failed_commands_ratio=(
+                    self._reasoning_failed_commands / max(self._reasoning_total_commands, 1)
+                    if hasattr(self, '_reasoning_failed_commands') else 0.0
+                ),
+                unique_tools_used=len(self.episode_used_commands),
+                commands_since_discovery=(
+                    step_ctx.step - getattr(self, '_reasoning_last_discovery_step', 0)
+                ),
+                decision_source_ppo_ratio=(
+                    self._reasoning_ppo_decisions / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_ppo_decisions') else 0.0
+                ),
+                anti_repeat_ratio=(
+                    self._reasoning_anti_repeat_decisions / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_anti_repeat_decisions') else 0.0
+                ),
+                reward_trend=(
+                    (sum(self._reasoning_step_rewards[-5:]) / max(len(self._reasoning_step_rewards[-5:]), 1))
+                    / 200.0  # Normalize to ~0-1 range
+                    if hasattr(self, '_reasoning_step_rewards') and self._reasoning_step_rewards else 0.0
+                ),
+                highest_reward_step=(
+                    min(self._reasoning_highest_reward / 300.0, 1.0)
+                    if hasattr(self, '_reasoning_highest_reward') else 0.0
+                ),
             )
 
             # Build mask: only commands in filtered_commands AND in mapper
@@ -2935,6 +2961,25 @@ class SmartCoach:
         if not success:
             self.attack_context.failed_attempts.append(decision.command)
         
+        # Phase 6.9.6: Update reasoning context trackers
+        if hasattr(self, '_reasoning_step_rewards'):
+            self._reasoning_step_rewards.append(breakdown.total)
+            self._reasoning_highest_reward = max(
+                self._reasoning_highest_reward, breakdown.total
+            )
+            self._reasoning_total_commands += 1
+            self._reasoning_total_decisions += 1
+            if not success:
+                self._reasoning_failed_commands += 1
+            if decision.source == "ppo":
+                self._reasoning_ppo_decisions += 1
+            elif decision.source in ("anti_repeat", "forced"):
+                self._reasoning_anti_repeat_decisions += 1
+            if new_discoveries:
+                self._reasoning_last_discovery_step = getattr(
+                    self, '_ppo_step_count', 0
+                )
+        
         # Phase 6.4: Detect "not found" tools and mask them from future PPO selection.
         # If a tool doesn't exist on the target, it will NEVER work — don't keep trying.
         if raw_output:
@@ -3082,6 +3127,16 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+
+        # Phase 6.9.6: Reset reasoning context trackers
+        self._reasoning_step_rewards: List[float] = []
+        self._reasoning_highest_reward: float = 0.0
+        self._reasoning_last_discovery_step: int = 0
+        self._reasoning_ppo_decisions: int = 0
+        self._reasoning_anti_repeat_decisions: int = 0
+        self._reasoning_total_decisions: int = 0
+        self._reasoning_failed_commands: int = 0
+        self._reasoning_total_commands: int = 0
 
         # Phase 6.9.1: Reset closeout tracking
         self._closeout_used_templates: set = set()

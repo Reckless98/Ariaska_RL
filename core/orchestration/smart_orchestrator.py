@@ -288,7 +288,17 @@ class SmartOrchestrator:
         if _diff_name and _diff_name != "normal":
             try:
                 from core.training.difficulty_presets import get_preset
-                self._difficulty_preset = get_preset(_diff_name)
+                # Phase 6.9.6: Auto-select MS3-specific presets when targeting MS3
+                _target = getattr(self.config, 'default_target', '')
+                if _target and '172.28.0.11' in str(_target):
+                    ms3_preset_name = f"ms3_{_diff_name}"
+                    try:
+                        self._difficulty_preset = get_preset(ms3_preset_name)
+                        logger.info(f"[DIFFICULTY] Auto-selected MS3 preset: {ms3_preset_name}")
+                    except ValueError:
+                        self._difficulty_preset = get_preset(_diff_name)
+                else:
+                    self._difficulty_preset = get_preset(_diff_name)
             except Exception:
                 pass
         

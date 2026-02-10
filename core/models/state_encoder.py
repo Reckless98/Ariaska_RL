@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-core/models/state_encoder.py — ARIASKA Rich State Encoder v3.0
-🧠 90+ Meaningful Features | 🎯 Shared Across All Agents | 📊 Normalized & Information-Dense
+core/models/state_encoder.py — ARIASKA Rich State Encoder v3.1
+🧠 140+ Meaningful Features | 🎯 Shared Across All Agents | 📊 Normalized & Information-Dense
 
 Replaces the legacy 19-dim encoding (492 dead zeros) with a rich 512-dim
-vector where ~90 dimensions carry meaningful signal about the environment,
-attack progress, agent state, and temporal dynamics.
+vector where ~140 dimensions carry meaningful signal about the environment,
+attack progress, agent state, temporal dynamics, and reasoning context.
 
 Architecture:
     Section 1: Phase Information         [0-11]    12 dims
@@ -19,8 +19,9 @@ Architecture:
     Section 9: Agent Role Encoding       [105-109]  5 dims  (Phase 5.2+)
     Section 10: Target Profile           [110-114]  5 dims  (Phase 5.2+)
     Section 11: Discovery Breakdown      [115-122]  8 dims  (Phase 5.2+)
+    Section 12: Reasoning Context        [123-142] 20 dims  (Phase 6.9.6)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~123 / 512
+    Total meaningful dims: ~143 / 512
 """
 
 import torch
@@ -92,6 +93,17 @@ def encode_state(
     phase_transitions: int = 0,
     agent_role: str = "",
     target_profile: str = "",
+    # Phase 6.9.6: Reasoning context
+    exploit_graph_score: float = 0.0,
+    failed_commands_ratio: float = 0.0,
+    unique_tools_used: int = 0,
+    commands_since_discovery: int = 0,
+    skill_match_confidence: float = 0.0,
+    playbook_progress: float = 0.0,
+    decision_source_ppo_ratio: float = 0.0,
+    anti_repeat_ratio: float = 0.0,
+    reward_trend: float = 0.0,
+    highest_reward_step: float = 0.0,
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -307,6 +319,111 @@ def encode_state(
 
     # ─── Remaining dims [123-511] are zero-padded ────────────────────
     # ~123 meaningful dims / 512 total
+
+    # ─── Section 12: Reasoning Context (20 dims) [123-142] ──────────
+    # Phase 6.9.6: Encode attack reasoning signals for smarter PPO
+
+    # Exploit graph progress (0-1) — how far along known exploit paths
+    vec[idx] = min(float(exploit_graph_score), 1.0)
+    idx += 1
+
+    # Command failure ratio this episode (0-1)
+    vec[idx] = min(float(failed_commands_ratio), 1.0)
+    idx += 1
+
+    # Unique tools diversity (normalized)
+    vec[idx] = min(float(unique_tools_used) / 20.0, 1.0)
+    idx += 1
+
+    # Stagnation signal — steps since last discovery (higher = stuck)
+    vec[idx] = min(float(commands_since_discovery) / 20.0, 1.0)
+    idx += 1
+
+    # Skill library match confidence (0-1)
+    vec[idx] = min(float(skill_match_confidence), 1.0)
+    idx += 1
+
+    # Playbook completion progress (0-1)
+    vec[idx] = min(float(playbook_progress), 1.0)
+    idx += 1
+
+    # Decision source ratios — PPO self-reliance signal
+    vec[idx] = min(float(decision_source_ppo_ratio), 1.0)
+    idx += 1
+
+    # Anti-repeat pressure (high = too many blocked, need new strategy)
+    vec[idx] = min(float(anti_repeat_ratio), 1.0)
+    idx += 1
+
+    # Reward trend (normalized: -1 to 1, positive = improving)
+    vec[idx] = max(min(float(reward_trend), 1.0), -1.0) * 0.5 + 0.5
+    idx += 1
+
+    # Highest step reward so far (normalized)
+    vec[idx] = min(float(highest_reward_step) / 50.0, 1.0)
+    idx += 1
+
+    # Phase-specific attack surface signals (10 dims)
+    # Encode which attack surfaces are available based on discoveries
+    db = state.get("discovery_board", {})
+    _ports = db.get("ports", set())
+    _services = db.get("services", set())
+    _creds = db.get("credentials", set())
+    _shells = db.get("shells", set())
+
+    # Web attack surface available
+    web_ports = {80, 443, 8080, 8180, 8443, 8484}
+    vec[idx] = 1.0 if (set(_ports) if isinstance(_ports, set) else set()) & web_ports else 0.0
+    idx += 1
+
+    # Database attack surface
+    db_ports = {3306, 5432, 1433, 27017}
+    vec[idx] = 1.0 if (set(_ports) if isinstance(_ports, set) else set()) & db_ports else 0.0
+    idx += 1
+
+    # SMB/file share surface
+    smb_ports = {139, 445, 2049}
+    vec[idx] = 1.0 if (set(_ports) if isinstance(_ports, set) else set()) & smb_ports else 0.0
+    idx += 1
+
+    # Remote access surface (SSH, RDP, VNC)
+    remote_ports = {22, 23, 3389, 5900}
+    vec[idx] = 1.0 if (set(_ports) if isinstance(_ports, set) else set()) & remote_ports else 0.0
+    idx += 1
+
+    # Credentials available for lateral movement
+    vec[idx] = min(len(_creds) / 5.0, 1.0) if isinstance(_creds, (set, list)) else 0.0
+    idx += 1
+
+    # Shell access level
+    vec[idx] = 1.0 if isinstance(_shells, (set, list)) and len(_shells) > 0 else 0.0
+    idx += 1
+
+    # Multi-step chain feasibility (have creds AND shell? can pivot)
+    have_creds = isinstance(_creds, (set, list)) and len(_creds) > 0
+    have_shell = isinstance(_shells, (set, list)) and len(_shells) > 0
+    vec[idx] = 1.0 if have_creds and have_shell else (0.5 if have_creds or have_shell else 0.0)
+    idx += 1
+
+    # Exploitation readiness — have both services enumerated and vulns found?
+    have_services = isinstance(_services, (set, list)) and len(_services) > 0
+    have_vulns = len(vulns) > 0 if isinstance(vulns, (list, set)) else False
+    vec[idx] = 1.0 if have_services and have_vulns else (0.5 if have_services else 0.0)
+    idx += 1
+
+    # Difficulty context (from difficulty preset, encoded in state)
+    diff_val = state.get("difficulty_level", 0)
+    vec[idx] = min(float(diff_val) / 3.0, 1.0) if diff_val else 0.0
+    idx += 1
+
+    # Episode progress relative to phase (are we behind schedule?)
+    expected_phase_by_step = min(float(current_step) / max(max_steps, 1) * len(PHASES), len(PHASES) - 1)
+    actual_phase = float(phase_idx)
+    vec[idx] = max(min((actual_phase - expected_phase_by_step) / len(PHASES), 1.0), -1.0) * 0.5 + 0.5
+    idx += 1  # 143 after section 12
+
+    # ─── Remaining dims [143-511] are zero-padded ────────────────────
+    # ~143 meaningful dims / 512 total
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

