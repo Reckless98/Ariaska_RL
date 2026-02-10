@@ -75,6 +75,22 @@ ms2-stop:
 smoke:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 20 --seed 1337 --env ms2 --verbosity verbose
 
+# MS3 training: medium difficulty (10 episodes)
+train-ms3:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env sim --difficulty ms3_medium --verbosity verbose
+
+# MS3 training: hard difficulty (10 episodes)
+train-ms3-hard:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env sim --difficulty ms3_hard --verbosity verbose
+
+# Overnight training: progressive difficulty (300 episodes)
+overnight:
+	bash scripts/overnight_train.sh
+
+# Overnight quick test (30 episodes)
+overnight-quick:
+	bash scripts/overnight_train.sh --quick
+
 # View last training run
 last:
 	@LAST_RUN=$$(ls -t traces/ 2>/dev/null | head -1); \
