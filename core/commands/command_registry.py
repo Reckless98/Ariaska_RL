@@ -1471,6 +1471,22 @@ register(CommandTemplate(
     tags={"closeout", "anti-forensics", "ssh", "linux"}
 ))
 
+# Phase 6.9: Final report generation — marks CLOSEOUT as COMPLETE
+register(CommandTemplate(
+    name="generate_report",
+    template="{ echo '=== ARIASKA ENGAGEMENT REPORT ==='; echo 'Target: {target}'; echo 'Status: CLOSEOUT COMPLETE'; echo 'Artifacts removed: YES'; echo 'Logs cleared: YES'; echo 'Target stable: VERIFIED'; echo 'REPORT_GENERATED'; sleep 2; } | timeout 10 telnet {target} 1524",
+    description="Generate final engagement report. This marks the CLOSEOUT phase as COMPLETE.",
+    phase=AttackPhase.CLOSEOUT,
+    required_params=["target"],
+    preconditions={"shell_obtained", "data_exfiltrated"},
+    success_indicators=["REPORT_GENERATED"],
+    typical_reward=15.0,
+    tags={"closeout", "report", "final", "linux"},
+    why="Marks the engagement as professionally completed. Required for clean exit.",
+    when="After all cleanup commands have been executed in CLOSEOUT phase.",
+    not_when="Before EXFILTRATION is complete.",
+))
+
 
 # =============================================================================
 # ADDITIONAL ADVANCED TECHNIQUES

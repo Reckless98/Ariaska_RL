@@ -380,43 +380,15 @@ class SmartCoach:
             logger.warning(f"PPO init failed for {agent_name}: {e}")
     
     def _init_smart_mentor(self):
-        """Initialize the smart mentor (DualMentor if Venice available, else SmartMentor)."""
+        """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
+        
+        Venice was causing f-string format errors with JSON braces in prompts
+        and adding complexity without proportional value. All 3 codex model
+        variants (gpt-5.1-codex-mini, gpt-4o-mini fallback) are GPT-based.
+        """
         try:
-            # Check if GPTManager has Venice capability
-            has_venice = (
-                hasattr(self.gpt_manager, 'has_venice') and 
-                self.gpt_manager.has_venice()
-            )
-            
-            # Get mentor configuration from GPTManager
-            mentor_strategy = getattr(self.gpt_manager, 'mentor_strategy', 'gpt_first')
-            venice_model = getattr(self.gpt_manager, 'venice_model', 'venice-uncensored')
-            
-            # === DUAL MENTOR: GPT + Venice ===
-            if has_venice:
-                try:
-                    gpt_client = self.gpt_manager.async_client
-                    venice_client = self.gpt_manager.venice_async_client
-                    
-                    self.dual_mentor = DualMentor(
-                        gpt_client=gpt_client,
-                        venice_client=venice_client,
-                        gpt_model=self.model,
-                        venice_model=venice_model,
-                        learned_store=self.learned_store,
-                        strategy=mentor_strategy,
-                    )
-                    self.smart_mentor = self.dual_mentor.gpt_mentor  # Fallback reference
-                    logger.info(
-                        f"🚀 DualMentor initialized for {self.agent_name} | "
-                        f"Strategy: {mentor_strategy} | GPT: {self.model} | Venice: {venice_model}"
-                    )
-                    return
-                except Exception as e:
-                    logger.warning(f"DualMentor init failed, falling back to single mentor: {e}")
-            
-            # === SINGLE MENTOR: GPT only ===
-            self.dual_mentor = None  # Explicitly set to None
+            # Phase 6.9: Venice/DualMentor REMOVED — GPT-only pipeline
+            self.dual_mentor = None
             
             if hasattr(self.gpt_manager, 'async_client'):
                 self.smart_mentor = SmartMentor(
@@ -905,6 +877,15 @@ class SmartCoach:
         """
         confidence = confidence if confidence is not None else 0.5
         ctx = step_ctx.attack_context
+        
+        # =====================================================================
+        # PHASE 6.9: CLOSEOUT HARD GATE
+        # Once phase transitions to CLOSEOUT, ONLY closeout commands are allowed.
+        # No recon, no exploitation, no scanning, no lateral movement.
+        # This enforces real-world red-team discipline: exfil → cleanup → exit.
+        # =====================================================================
+        if ctx and ctx.current_phase == AttackPhase.CLOSEOUT:
+            return self._decide_closeout_only(step_ctx)
         
         # ─── PHASE 5.2+: Skill Library query ────────────────────────
         # Before main pipeline, check if skill library has a high-confidence match
@@ -2026,6 +2007,96 @@ class SmartCoach:
     # PHASE 5.2+: SKILL LIBRARY INTEGRATION
     # =====================================================================
 
+    # =========================================================================
+    # PHASE 6.9: CLOSEOUT-ONLY COMMAND SELECTION
+    # When phase is CLOSEOUT, we skip the entire normal pipeline.
+    # Only closeout commands are valid. Simple round-robin through the ledger.
+    # =========================================================================
+    CLOSEOUT_COMMAND_NAMES = [
+        "remove_uploaded_tools",
+        "remove_ssh_keys_planted",
+        "remove_cron_backdoors",
+        "cleanup_tmp_artifacts",
+        "verify_target_stable",
+        "clear_bash_history",
+        "clear_auth_logs",
+        "clear_wtmp_btmp",
+        "shred_sensitive_files",
+        "timestomp_closeout",
+        "clear_syslog",
+        "remove_known_hosts",
+        "generate_report",
+    ]
+
+    def _decide_closeout_only(
+        self,
+        step_ctx: "SmartStepContext",
+    ) -> "SmartDecisionResult":
+        """Select the next closeout command in round-robin order.
+
+        Hard-gates the action space to ONLY closeout commands.
+        No recon, no exploitation, no scanning.
+        Uses a simple ledger: track which closeout commands haven't been
+        executed yet, pick the next one.
+
+        Args:
+            step_ctx: Current step context.
+
+        Returns:
+            SmartDecisionResult with a closeout command.
+        """
+        ctx = step_ctx.attack_context
+        target = ctx.target if ctx else "172.28.0.10"
+
+        # Track which closeout commands we've already used this episode
+        used_closeout = set()
+        for cmd_hist in (ctx.command_history if ctx else []):
+            cmd_lower = cmd_hist.lower()
+            for co_name in self.CLOSEOUT_COMMAND_NAMES:
+                if co_name.replace("_", " ") in cmd_lower or co_name in cmd_lower:
+                    used_closeout.add(co_name)
+
+        # Find the first closeout command NOT yet used
+        remaining = [n for n in self.CLOSEOUT_COMMAND_NAMES if n not in used_closeout]
+
+        # If all done, pick verify_target_stable as final check
+        if not remaining:
+            remaining = ["verify_target_stable"]
+
+        chosen_name = remaining[0]
+
+        # Get the template from registry
+        template = COMMAND_REGISTRY.get(chosen_name)
+        if template:
+            params = {"target": target}
+            for p in template.required_params:
+                if p not in params:
+                    params[p] = self._get_default_param(p, ctx)
+            params.update(template.optional_params)
+            try:
+                command = render_command(template, params)
+            except (ValueError, KeyError):
+                command = template.template.replace("{target}", target)
+        else:
+            # Fallback: raw command
+            command = f"{{ echo 'echo CLOSEOUT_COMPLETE'; sleep 2; }} | timeout 10 telnet {target} 1524"
+
+        logger.info(
+            f"[CLOSEOUT][{self.agent_name}] Phase=CLOSEOUT → {chosen_name} "
+            f"(remaining={len(remaining)-1} of {len(self.CLOSEOUT_COMMAND_NAMES)})"
+        )
+
+        return SmartDecisionResult(
+            command=command,
+            template_name=chosen_name,
+            params={"target": target},
+            mentor_call=False,
+            phase=AttackPhase.CLOSEOUT,
+            confidence=0.95,
+            source="closeout_gate",
+            mentor_reasoning=f"[CLOSEOUT PROTOCOL] Executing {chosen_name} ({len(self.CLOSEOUT_COMMAND_NAMES) - len(remaining) + 1}/{len(self.CLOSEOUT_COMMAND_NAMES)})",
+        )
+
     def _query_skill_library(
         self,
         step_ctx: "SmartStepContext",
@@ -2427,16 +2498,19 @@ class SmartCoach:
             return None
 
     # Phase 6: Terminal reward mapping — reduced to match tighter reward scale
-    # Old values (50/25/15/10/5) were outsized relative to per-step rewards.
-    # New values proportional to 50.0 ceiling per step.
+    # Phase 6.9: CLOSEOUT-centric terminal rewards.
+    # EXFIL is no longer the big dopamine hit — CLEAN EXIT is.
+    # Missing CLOSEOUT after reaching EXFIL = penalty (failed to finish the job).
     PPO_TERMINAL_REWARDS = {
-        "CLOSEOUT": 25.0,
-        "EXFILTRATION": 20.0,
-        "POST_EXPLOITATION": 12.0,
-        "LATERAL_MOVEMENT": 8.0,
-        "PRIVILEGE_ESCALATION": 5.0,
-        "EXPLOITATION": 3.0,
+        "CLOSEOUT": 40.0,         # BIG: clean exit = mission success
+        "EXFILTRATION": 10.0,     # Moderate: you got data but didn't clean up
+        "POST_EXPLOITATION": 8.0,
+        "LATERAL_MOVEMENT": 5.0,
+        "PRIVILEGE_ESCALATION": 3.0,
+        "EXPLOITATION": 2.0,
     }
+    # Phase 6.9: Penalty for reaching EXFIL but NOT completing CLOSEOUT
+    PPO_INCOMPLETE_CLOSEOUT_PENALTY = -15.0
 
     def end_episode_ppo(
         self, done: bool = True, highest_phase: str = ""
@@ -2460,7 +2534,7 @@ class SmartCoach:
             return None
 
         try:
-            # Phase 5.1: inject terminal reward into last trajectory entry
+            # Phase 6.9: inject terminal reward + incomplete-closeout penalty
             if highest_phase and self._ppo_trajectory:
                 terminal_bonus = self.PPO_TERMINAL_REWARDS.get(highest_phase, 0.0)
                 if terminal_bonus > 0:
@@ -2468,6 +2542,14 @@ class SmartCoach:
                     logger.debug(
                         f"[PPO][{self.agent_name}] Terminal bonus +{terminal_bonus:.1f} "
                         f"for reaching {highest_phase}"
+                    )
+                # Phase 6.9: Penalize reaching EXFIL but not CLOSEOUT
+                # This teaches PPO that the job isn't done until cleanup is complete
+                if highest_phase == "EXFILTRATION":
+                    self._ppo_trajectory[-1]["reward"] += self.PPO_INCOMPLETE_CLOSEOUT_PENALTY
+                    logger.debug(
+                        f"[PPO][{self.agent_name}] Incomplete closeout penalty "
+                        f"{self.PPO_INCOMPLETE_CLOSEOUT_PENALTY:.1f} (reached EXFIL but not CLOSEOUT)"
                     )
 
             for t in self._ppo_trajectory:

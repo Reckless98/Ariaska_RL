@@ -20,7 +20,8 @@ from collections import Counter
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
+# Phase 6.9: Rich Progress REMOVED — caused carriage-return interleaving with logging
+# from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 from rich import box
 from dotenv import load_dotenv
 
@@ -205,7 +206,7 @@ def run_training(
     )
 
     console.print(Panel(
-        f"[bold cyan]ARIASKA Smart Training v6.8 — Investor Demo Mode[/bold cyan]\n\n"
+        f"[bold cyan]ARIASKA Smart Training v6.9 — CLOSEOUT Enforced[/bold cyan]\n\n"
         f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
         f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
         f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
@@ -228,115 +229,108 @@ def run_training(
     orch.anti_forensics_enabled = anti_forensics
     orch.ethics_mode = ethics_mode
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console,
-        disable=(verbosity == "quiet"),
-    ) as progress:
-        task = progress.add_task("Training", total=episodes)
+    # Phase 6.9: NO Rich Progress wrapper — it causes carriage-return interleaving
+    # with Python logging, producing the "glued monster line" UI bug.
+    # Instead: simple console.print after each episode. Clean, visible, no overlap.
+    for ep in range(episodes):
+        # Phase 6.6: Pre-episode guardrail check
+        if not guardrails.pre_episode_check(ep):
+            console.print(f"[yellow]⚠️ Guardrails stopped training at episode {ep}[/yellow]")
+            break
+        
+        episode_id = f"phase5_ep{ep:04d}"
+        ep_result = orch.run_episode(
+            episode_id=episode_id,
+            episode_number=ep,
+            target=target_ip,
+            difficulty=difficulty,
+            platform=platform,
+        )
 
-        for ep in range(episodes):
-            # Phase 6.6: Pre-episode guardrail check
-            if not guardrails.pre_episode_check(ep):
-                console.print(f"[yellow]⚠️ Guardrails stopped training at episode {ep}[/yellow]")
-                break
-            
-            episode_id = f"phase5_ep{ep:04d}"
-            ep_result = orch.run_episode(
-                episode_id=episode_id,
-                episode_number=ep,
-                target=target_ip,
-                difficulty=difficulty,
-                platform=platform,
-            )
+        reward = ep_result.get("total_reward", 0.0)
+        highest = ep_result.get("highest_phase", "RECON")
+        steps = ep_result.get("total_steps", 0)
+        all_rewards.append(reward)
+        all_phases.append(highest)
 
-            reward = ep_result.get("total_reward", 0.0)
-            highest = ep_result.get("highest_phase", "RECON")
-            steps = ep_result.get("total_steps", 0)
-            all_rewards.append(reward)
-            all_phases.append(highest)
+        ppo_metrics = {
+            "updates_fired": ep_result.get("ppo_updates_fired", 0),
+            "avg_policy_loss": ep_result.get("ppo_avg_policy_loss", 0.0),
+            "avg_value_loss": ep_result.get("ppo_avg_value_loss", 0.0),
+            "avg_entropy": ep_result.get("ppo_avg_entropy", 0.0),
+        }
+        sources = {
+            "ppo": ep_result.get("decisions_ppo", 0),
+            "playbook": ep_result.get("decisions_playbook", 0),
+            "registry": ep_result.get("decisions_registry", 0),
+            "anti_repeat": ep_result.get("decisions_anti_repeat", 0),
+        }
 
-            ppo_metrics = {
-                "updates_fired": ep_result.get("ppo_updates_fired", 0),
-                "avg_policy_loss": ep_result.get("ppo_avg_policy_loss", 0.0),
-                "avg_value_loss": ep_result.get("ppo_avg_value_loss", 0.0),
-                "avg_entropy": ep_result.get("ppo_avg_entropy", 0.0),
-            }
-            sources = {
-                "ppo": ep_result.get("decisions_ppo", 0),
-                "playbook": ep_result.get("decisions_playbook", 0),
-                "registry": ep_result.get("decisions_registry", 0),
-                "anti_repeat": ep_result.get("decisions_anti_repeat", 0),
-            }
+        ep_info = {
+            "episode": ep + 1,
+            "reward": reward,
+            "highest_phase": highest,
+            "steps": steps,
+            "ppo_updates": ppo_metrics.get("updates_fired", 0),
+            "policy_loss": ppo_metrics.get("avg_policy_loss", 0.0),
+            "value_loss": ppo_metrics.get("avg_value_loss", 0.0),
+            "entropy": ppo_metrics.get("avg_entropy", 0.0),
+            "sources": sources,
+            # Phase 5.1: reward-invariant metrics
+            "unique_commands": ep_result.get("unique_commands_total", 0),
+            "unique_templates": ep_result.get("unique_templates_total", 0),
+            "command_diversity": ep_result.get("command_diversity_ratio", 0.0),
+            "total_discoveries": ep_result.get("total_discoveries", 0),
+            "step_at_first_exploit": ep_result.get("step_at_first_exploit", -1),
+        }
+        episode_data.append(ep_info)
 
-            ep_info = {
-                "episode": ep + 1,
-                "reward": reward,
-                "highest_phase": highest,
-                "steps": steps,
-                "ppo_updates": ppo_metrics.get("updates_fired", 0),
-                "policy_loss": ppo_metrics.get("avg_policy_loss", 0.0),
-                "value_loss": ppo_metrics.get("avg_value_loss", 0.0),
-                "entropy": ppo_metrics.get("avg_entropy", 0.0),
-                "sources": sources,
-                # Phase 5.1: reward-invariant metrics
-                "unique_commands": ep_result.get("unique_commands_total", 0),
-                "unique_templates": ep_result.get("unique_templates_total", 0),
-                "command_diversity": ep_result.get("command_diversity_ratio", 0.0),
-                "total_discoveries": ep_result.get("total_discoveries", 0),
-                "step_at_first_exploit": ep_result.get("step_at_first_exploit", -1),
-            }
-            episode_data.append(ep_info)
+        # Phase 6.2: Auto-checkpoint every 5 episodes
+        if ckpt_mgr.should_auto_save(ep):
+            try:
+                state_dict = orch.get_ppo_state_dicts() if hasattr(orch, 'get_ppo_state_dicts') else {}
+                ckpt_mgr.auto_save(state_dict, ep, metadata={
+                    "episode": ep,
+                    "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
+                    "highest_phase": highest,
+                })
+            except Exception as exc:
+                console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
 
-            # Phase 6.2: Auto-checkpoint every 5 episodes
-            if ckpt_mgr.should_auto_save(ep):
-                try:
-                    state_dict = orch.get_ppo_state_dicts() if hasattr(orch, 'get_ppo_state_dicts') else {}
-                    ckpt_mgr.auto_save(state_dict, ep, metadata={
-                        "episode": ep,
-                        "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
-                        "highest_phase": highest,
-                    })
-                except Exception as exc:
-                    console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
+        # Phase 6.6: Post-episode guardrail checkpoint
+        ckpt_path = guardrails.post_episode_check(ep, difficulty_preset)
+        if ckpt_path:
+            try:
+                orch.save_ppo_checkpoints(ckpt_path)
+                guardrails.checkpoint.record_save(ckpt_path)
+                if verbosity != "quiet":
+                    console.print(f"[green]💾 Guardrail checkpoint saved: {ckpt_path}[/green]")
+            except Exception as exc:
+                logger.warning(f"Guardrail checkpoint failed: {exc}")
 
-            # Phase 6.6: Post-episode guardrail checkpoint
-            ckpt_path = guardrails.post_episode_check(ep, difficulty_preset)
-            if ckpt_path:
-                try:
-                    orch.save_ppo_checkpoints(ckpt_path)
-                    guardrails.checkpoint.record_save(ckpt_path)
-                    if verbosity != "quiet":
-                        console.print(f"[green]💾 Guardrail checkpoint saved: {ckpt_path}[/green]")
-                except Exception as exc:
-                    logger.warning(f"Guardrail checkpoint failed: {exc}")
+        recent = all_rewards[-10:]
+        avg_recent = sum(recent) / len(recent)
 
-            recent = all_rewards[-10:]
-            avg_recent = sum(recent) / len(recent)
-
-            if verbosity != "quiet":
-                ppo_str = ""
-                if ppo_metrics.get("updates_fired", 0) > 0:
-                    ppo_str = (
-                        f"PPO[upd:{ppo_metrics.get('updates_fired',0)} "
-                        f"π:{ppo_metrics.get('avg_policy_loss',0):.3f} "
-                        f"V:{ppo_metrics.get('avg_value_loss',0):.3f} "
-                        f"H:{ppo_metrics.get('avg_entropy',0):.3f}]"
-                    )
-
-                progress.update(
-                    task,
-                    advance=1,
-                    description=(
-                        f"Ep {ep+1}/{episodes}  "
-                        f"R:{reward:+.0f}  avg10:{avg_recent:+.0f}  "
-                        f"phase:{highest}  {ppo_str}"
-                    ),
+        # Phase 6.9: Clean episode progress line — no Rich Progress overlay
+        if verbosity != "quiet":
+            ppo_str = ""
+            if ppo_metrics.get("updates_fired", 0) > 0:
+                ppo_str = (
+                    f"PPO[upd:{ppo_metrics.get('updates_fired',0)} "
+                    f"π:{ppo_metrics.get('avg_policy_loss',0):.3f} "
+                    f"V:{ppo_metrics.get('avg_value_loss',0):.3f} "
+                    f"H:{ppo_metrics.get('avg_entropy',0):.3f}]"
                 )
+            pct = (ep + 1) / episodes * 100
+            elapsed_so_far = time.time() - start_time
+            console.print(
+                f"[bold cyan]━━ Ep {ep+1}/{episodes} ({pct:.0f}%) ━━[/bold cyan] "
+                f"R:[bold {'green' if reward > 0 else 'red'}]{reward:+.0f}[/bold {'green' if reward > 0 else 'red'}]  "
+                f"avg10:{avg_recent:+.0f}  "
+                f"phase:[bold yellow]{highest}[/bold yellow]  "
+                f"{ppo_str}  "
+                f"[dim]{elapsed_so_far:.0f}s[/dim]"
+            )
 
     elapsed = time.time() - start_time
 

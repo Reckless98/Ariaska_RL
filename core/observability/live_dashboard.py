@@ -56,6 +56,8 @@ SOURCE_STYLES = {
     "skill": ("🧠", "magenta"),
     "forced_novel": ("🆕", "bright_yellow"),
     "forced_no": ("🆕", "bright_yellow"),
+    "closeout_gate": ("🧹", "green"),
+    "difficulty_gate": ("🛡️", "blue"),
     "fallback": ("⚡", "dim"),
     "unknown": ("❓", "dim"),
 }

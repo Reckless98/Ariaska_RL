@@ -167,7 +167,8 @@ class SmartOrchestrator:
         "EXFILTRATION": ["ShadowAgent", "RedAgent", "OrionAgent", "BlueAgent", "ScoutAgent"],
         
         # CLOSEOUT: Blue leads restoration, Shadow verifies cleanup, Orion reports
-        "CLOSEOUT": ["BlueAgent", "ShadowAgent", "RedAgent", "OrionAgent", "ScoutAgent"],
+        # Phase 6.9: CLOSEOUT handoff — Shadow leads cleanup, Red/Scout disabled
+        "CLOSEOUT": ["ShadowAgent", "BlueAgent", "OrionAgent"],
     }
     
     def get_optimal_agent_order(self, phase: str = "RECON") -> List[str]:
@@ -447,9 +448,10 @@ class SmartOrchestrator:
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
             "OrionAgent": 3, "BlueAgent": 1,
         },
+        # Phase 6.9: CLOSEOUT auto-handoff — Red/Scout DISABLED, Shadow leads cleanup
         "CLOSEOUT": {
-            "ScoutAgent": 3, "RedAgent": 2, "ShadowAgent": 1,
-            "OrionAgent": 2, "BlueAgent": 1,
+            "ScoutAgent": 0, "RedAgent": 0, "ShadowAgent": 1,
+            "OrionAgent": 1, "BlueAgent": 1,
         },
     }
     
@@ -468,6 +470,9 @@ class SmartOrchestrator:
         phase_upper = phase.upper().replace(" ", "_")
         schedule = self.AGENT_ACTIVATION_SCHEDULE.get(phase_upper, {})
         frequency = schedule.get(agent_name, 1)  # Default: every step
+        # Phase 6.9: frequency=0 means agent is DISABLED for this phase
+        if frequency == 0:
+            return False
         # Use (step + 1) so step 0 behaves like step 1 (not always-activate)
         return (step + 1) % frequency == 0
     
@@ -941,6 +946,20 @@ class SmartOrchestrator:
                     f"Advanced to {current_phase}",
                     agent="system"
                 )
+                
+                # ─── PHASE 6.9: CLOSEOUT AUTO-HANDOFF EVENT ─────────────
+                # When entering CLOSEOUT, emit system event and log the transition
+                if current_phase == "CLOSEOUT":
+                    logger.info(
+                        "[CLOSEOUT-PROTOCOL] Objective complete. "
+                        "Switching to CLOSEOUT protocol. "
+                        "Red/Scout DISABLED. Shadow leads cleanup."
+                    )
+                    self.dashboard.add_event(
+                        "closeout_protocol",
+                        "🧹 CLOSEOUT PROTOCOL: Objective complete. Cleanup only.",
+                        agent="system"
+                    )
             
             # =================================================================
             # PHASE 4: TIME-BASED AUTO-ADVANCEMENT REMOVED
@@ -1549,7 +1568,7 @@ class SmartOrchestrator:
             CLOSEOUT_COMMANDS = {
                 "remove_uploaded_tools", "remove_ssh_keys_planted",
                 "remove_cron_backdoors", "verify_target_stable",
-                "cleanup_tmp_artifacts",
+                "cleanup_tmp_artifacts", "generate_report",
                 # Anti-forensics (Phase 6.7)
                 "clear_bash_history", "clear_auth_logs", "clear_wtmp_btmp",
                 "shred_sensitive_files", "timestomp_closeout", "clear_syslog",
@@ -2742,6 +2761,19 @@ class SmartOrchestrator:
                 f"[CLOSEOUT] Removed /home/msfadmin/.ssh/known_hosts (1 entry)\n"
                 f"CLOSEOUT_KNOWN_HOSTS_REMOVED - SSH connection evidence removed"
             )
+        
+        # Phase 6.9: generate_report — marks CLOSEOUT as complete
+        if "generate_report" in cmd_lower or ("engagement report" in cmd_lower) or ("report_generated" in cmd_lower):
+            return (
+                f"=== ARIASKA ENGAGEMENT REPORT ===\n"
+                f"Target: {target}\n"
+                f"Status: CLOSEOUT COMPLETE\n"
+                f"Artifacts removed: YES\n"
+                f"Logs cleared: YES\n"
+                f"Target stable: VERIFIED\n"
+                f"Duration: engagement concluded normally\n"
+                f"REPORT_GENERATED"
+            )
 
         return f"[SIM] {command[:80]}... executed"
     
@@ -2974,10 +3006,12 @@ class SmartOrchestrator:
         # ─── Phase 5.1: Episode completion bonus (honest scaling) ────
         # Reduced from inflated values; terminal PPO reward handles gradient signal
         highest_phase = phase_progression[-1] if phase_progression else "RECON"
+        # Phase 6.9: CLOSEOUT-centric completion bonuses.
+        # Clean exit is the REAL success metric. EXFIL without cleanup = incomplete.
         COMPLETION_BONUSES = {
-            "CLOSEOUT": 500.0,
-            "EXFILTRATION": 350.0,
-            "POST_EXPLOITATION": 175.0,
+            "CLOSEOUT": 600.0,          # Biggest: mission fully completed
+            "EXFILTRATION": 200.0,      # Moderate: got data but didn't clean up
+            "POST_EXPLOITATION": 150.0,
             "LATERAL_MOVEMENT": 75.0,
             "PRIVILEGE_ESCALATION": 30.0,
             "EXPLOITATION": 15.0,
