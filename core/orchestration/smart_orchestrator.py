@@ -262,15 +262,16 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 6.3: SmartOutputParser init failed: {e}")
         
-        # ─── PHASE 6.3: OrionPostmortem — end-of-episode analysis ──
+        # ─── PHASE 7.1: OrionPostmortem — uses gpt-5.2-codex for deep analysis ──
         self.postmortem = None
         try:
             from core.postmortem.orion_postmortem import OrionPostmortem
             self.postmortem = OrionPostmortem(
                 gpt_manager=gpt_manager,
                 output_dir="postmortems",
+                enable_gpt_5_2=True,  # Phase 7.1: Use gpt-5.2-codex for postmortems
             )
-            logger.info("Phase 6.3: OrionPostmortem initialized")
+            logger.info("Phase 7.1: OrionPostmortem initialized (gpt-5.2-codex)")
         except Exception as e:
             logger.warning(f"Phase 6.3: OrionPostmortem init failed: {e}")
         
@@ -343,6 +344,9 @@ class SmartOrchestrator:
             "web_paths": set(),
             "phase": "RECON",
             "flags_set": set(),
+            # Phase 7.1: Track exploited services/ports to prevent re-exploitation
+            "exploited_services": set(),  # e.g. {"ssh:22", "ftp:21", "samba:445"}
+            "exploited_ports": set(),     # e.g. {21, 22, 445}
         }
         # Stagnation tracking per agent
         self._steps_without_discoveries: Dict[str, int] = {}
@@ -429,39 +433,42 @@ class SmartOrchestrator:
     # Red always runs (core attacker). Blue/Shadow now run more often
     # to ensure proper token usage and defensive coverage.
     AGENT_ACTIVATION_SCHEDULE = {
-        # RECON: Scout leads, Red every step, Blue/Shadow observe every 2 steps
+        # Phase 7.1: BlueAgent reframed as INFRASTRUCTURE DEFENDER
+        # Blue monitors attacker-side health (network, logs, detection) — low frequency
+        # Blue should NOT run often: we have Scout + Shadow + Orion + Red for offense.
+        # RECON: Scout leads, Red every step, Blue observes every 4 steps
         "RECON": {
             "ScoutAgent": 1, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 4,
         },
         "ENUMERATION": {
             "ScoutAgent": 2, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 4,
         },
         "EXPLOITATION": {
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 2, "BlueAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 3,
         },
         "PRIVILEGE_ESCALATION": {
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 1,
+            "OrionAgent": 3, "BlueAgent": 4,
         },
         "LATERAL_MOVEMENT": {
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 2, "BlueAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 4,
         },
         "POST_EXPLOITATION": {
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 2, "BlueAgent": 1,
+            "OrionAgent": 2, "BlueAgent": 3,
         },
         "EXFILTRATION": {
             "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 3, "BlueAgent": 1,
+            "OrionAgent": 3, "BlueAgent": 3,
         },
         # Phase 6.9: CLOSEOUT auto-handoff — Red/Scout DISABLED, Shadow leads cleanup
         "CLOSEOUT": {
             "ScoutAgent": 0, "RedAgent": 0, "ShadowAgent": 1,
-            "OrionAgent": 1, "BlueAgent": 1,
+            "OrionAgent": 1, "BlueAgent": 2,
         },
     }
     
@@ -762,6 +769,8 @@ class SmartOrchestrator:
             "ports": set(), "services": set(), "credentials": set(),
             "vulns": set(), "shells": set(), "users": set(),
             "web_paths": set(), "phase": "RECON", "flags_set": set(),
+            # Phase 7.1: Exploited-service tracking (reset per episode)
+            "exploited_services": set(), "exploited_ports": set(),
         }
         
         # Phase 5.2: Cross-agent discovery deduplication
@@ -1049,8 +1058,13 @@ class SmartOrchestrator:
 
             # =========================================================================
             # PHASE 0.1: CHECK STUCK_ABORT TERMINATION
+            # Phase 7.1: Exclude BlueAgent from stuck-abort — defensive agent
+            # repeating monitoring commands is NORMAL behavior, not stuck.
             # =========================================================================
-            total_deep_stuck = sum(self.deep_stuck_count.values())
+            total_deep_stuck = sum(
+                v for k, v in self.deep_stuck_count.items()
+                if "BlueAgent" not in k
+            )
             if total_deep_stuck >= self.config.stuck_forced_abort_threshold:
                 self.episode_termination_reason = TerminationReason.STUCK_ABORT
                 logger.warning(
@@ -1182,13 +1196,14 @@ class SmartOrchestrator:
             finally:
                 self._ppo_trajectory.clear()
         
-        # ─── PHASE 6.3: End-of-episode postmortem analysis ──────────
-        # Run OrionPostmortem every 5 episodes (or if EXFIL reached)
-        # to generate skill cards and learning insights.
+        # ─── PHASE 7.1: End-of-episode postmortem analysis ──────────
+        # Run OrionPostmortem every 10 episodes (cost-efficient) OR on significant
+        # achievements (EXFIL/CLOSEOUT reached). Uses gpt-5.2-codex for deep analysis.
+        # Additional postmortem runs at end of full training (handled in run_training).
         if self.postmortem and self.skill_library:
             should_postmortem = (
-                (episode_number + 1) % 5 == 0
-                or highest_phase in ("CLOSEOUT", "EXFILTRATION", "POST_EXPLOITATION")
+                (episode_number + 1) % 10 == 0
+                or highest_phase in ("CLOSEOUT", "EXFILTRATION")
             )
             if should_postmortem:
                 try:
@@ -1196,10 +1211,15 @@ class SmartOrchestrator:
                     transcript = self._build_episode_transcript(
                         step_results, phase_progression, episode_reward
                     )
-                    pm_result = self.postmortem.analyze(
-                        run_id=episode_id,
-                        transcript=transcript,
-                        metrics=metrics,
+                    pm_result = self.postmortem.analyze_run(
+                        run_trace={
+                            "run_id": episode_id,
+                            "transcript": transcript,
+                            "total_episodes": 1,
+                            "total_reward": episode_reward,
+                            "success_rate": 1.0 if highest_phase in ("CLOSEOUT", "EXFILTRATION") else 0.0,
+                            "total_mentor_calls": metrics.get("mentor_calls", 0),
+                        },
                     )
                     if pm_result and pm_result.skill_cards:
                         for sc in pm_result.skill_cards:
@@ -1422,6 +1442,9 @@ class SmartOrchestrator:
                 k: list(v) if isinstance(v, set) else v
                 for k, v in self.discovery_board.items()
             }
+            # Phase 7.1: Also pass exploited-service data as raw sets for filtering
+            enriched_state["discovery_board"]["exploited_services"] = self.discovery_board.get("exploited_services", set())
+            enriched_state["discovery_board"]["exploited_ports"] = self.discovery_board.get("exploited_ports", set())
             step_ctx = SmartStepContext(
                 episode=self.current_episode,
                 step=step,
@@ -1767,6 +1790,15 @@ class SmartOrchestrator:
                     self.discovery_board["credentials"].add("found")
                 if agent_discoveries.get("shell"):
                     self.discovery_board["shells"].add(result.agent_name)
+                    # Phase 7.1: Mark the service/port as exploited
+                    # Extract port/service from command to mark as exploited
+                    _cmd_lower = (getattr(result.decision, "command", "") or "").lower()
+                    for _p in self.discovery_board["ports"]:
+                        if str(_p) in _cmd_lower:
+                            self.discovery_board["exploited_ports"].add(int(_p))
+                    for _svc in self.discovery_board["services"]:
+                        if str(_svc).lower().split("/")[0] in _cmd_lower:
+                            self.discovery_board["exploited_services"].add(_svc)
                 if agent_discoveries.get("vulnerability"):
                     self.discovery_board["vulns"].add("found")
                 for path in agent_discoveries.get("web_path", []):

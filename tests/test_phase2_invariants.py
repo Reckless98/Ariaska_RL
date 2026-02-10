@@ -93,12 +93,13 @@ class TestSmartAgentActivation:
         assert schedule.get("OrionAgent") == 3, "Orion should activate every 3 steps in RECON"
 
     def test_activation_schedule_exploitation(self):
-        """In EXPLOITATION, RedAgent and BlueAgent lead (every step), ScoutAgent every 3."""
+        """In EXPLOITATION, RedAgent leads (every step), Blue monitors (every 3), ScoutAgent every 3."""
         from core.orchestration.smart_orchestrator import SmartOrchestrator
 
         schedule = SmartOrchestrator.AGENT_ACTIVATION_SCHEDULE.get("EXPLOITATION", {})
         assert schedule.get("RedAgent") == 1, "Red should activate every step in EXPLOITATION"
-        assert schedule.get("BlueAgent") == 1, "Blue should activate every step in EXPLOITATION"
+        # Phase 7.1: Blue is purely defensive — activates every 3 steps for monitoring
+        assert schedule.get("BlueAgent") == 3, "Blue should activate every 3 steps in EXPLOITATION (defensive monitor)"
         assert schedule.get("ScoutAgent") == 3, "Scout should activate every 3 steps in EXPLOITATION"
 
     def test_should_activate_logic(self):

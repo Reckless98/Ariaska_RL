@@ -570,12 +570,7 @@ def main():
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
     train_p.add_argument("pos_env", nargs="?", type=str, default=None)
 
-    # ingest-htb
-    ingest_p = sub.add_parser("ingest-htb", help="Ingest HTB walkthrough PDFs and MDs via GPT-5.2 analysis")
-    ingest_p.add_argument("--pdf-dir", type=str, default="data/htb_walkthroughs",
-                          help="Directory containing PDF/MD walkthrough files (default: data/htb_walkthroughs)")
-    ingest_p.add_argument("--force", action="store_true", default=False,
-                          help="Force re-analysis even if cached")
+    # Phase 7.1: ingest-htb removed — knowledge is now hardcoded in knowledge_packs.py
 
     sub.add_parser("status", help="Show system status")
     sub.add_parser("help", help="Show help")
@@ -588,14 +583,6 @@ def main():
 
     if args.command == "status":
         show_system_status()
-        return
-
-    if args.command == "ingest-htb":
-        from core.knowledge.htb_analyzer import ingest_htb_walkthroughs
-        results = ingest_htb_walkthroughs(
-            walkthrough_dir=args.pdf_dir,
-            force=args.force,
-        )
         return
 
     if args.command == "smart-train":

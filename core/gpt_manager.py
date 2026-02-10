@@ -182,7 +182,6 @@ class GPTManager:
         "classification": "gpt-5.1-codex-mini",
         "embedding": "gpt-5.1-codex-mini",
         "postmortem": "gpt-5.2-codex",       # Deep reasoning for end-of-run analysis
-        "walkthrough_analysis": "gpt-5.2-2025-12-11",  # Base GPT-5.2 for HTB walkthrough deep reasoning
         # Fallbacks
         "general": "gpt-5.1-codex-mini",
         "default": "gpt-5.1-codex-mini",
@@ -198,7 +197,6 @@ class GPTManager:
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
         "gpt-5.2": 0.01000,
-        "gpt-5.2-2025-12-11": 0.01000,  # Base GPT-5.2 dated release
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
     }

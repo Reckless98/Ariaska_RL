@@ -60,29 +60,35 @@ class MentorTrigger(str, Enum):
 
 
 # Model mapping: tier → model name
+# Phase 7.1: DELIBERATIVE uses codex-mini for cost-efficient reasoning
 TIER_MODELS: Dict[MentorTier, str] = {
     MentorTier.REACTIVE: "gpt-5.1-codex-mini",
-    MentorTier.DELIBERATIVE: "gpt-5.1-codex",
+    MentorTier.DELIBERATIVE: "gpt-5.1-codex-mini",
     MentorTier.POSTMORTEM: "gpt-5.2-codex",
 }
 
 
 @dataclass
 class MentorControllerConfig:
-    """Configuration for the 3-tier mentor controller."""
+    """Configuration for the 3-tier mentor controller.
+    
+    Phase 7.1 tuning: Increased budget for smarter reasoning guidance.
+    Codex-mini is cheap enough to use more frequently for REASONING checks.
+    Budget still anneals to keep long-term costs manageable.
+    """
 
     # Budget: percentage of max_steps that can trigger mentor calls
-    budget_pct: float = 0.30          # 30% of steps get mentor calls initially
-    min_rate: float = 0.05            # Floor: never below 5% calls/step
-    max_rate: float = 0.50            # Ceiling: never above 50%
-    fade_episodes: int = 80           # Fade budget over N episodes
+    budget_pct: float = 0.40          # Phase 7.1: 40% → more mentor guidance for reasoning
+    min_rate: float = 0.10            # Phase 7.1: 10% floor — always some guidance available
+    max_rate: float = 0.55            # Phase 7.1: Allow up to 55% during warmup
+    fade_episodes: int = 60           # Phase 7.1: Faster fade — 60 episodes to converge
 
     # Warmup: first N episodes use mentor more aggressively
-    warmup_episodes: int = 3
-    warmup_rate: float = 0.40         # 40% call rate during warmup
+    warmup_episodes: int = 8          # Phase 7.1: 8 episodes warmup (was 3)
+    warmup_rate: float = 0.50         # Phase 7.1: 50% call rate during warmup
 
     # Per-episode hard limit
-    max_calls_per_episode: int = 25
+    max_calls_per_episode: int = 20   # Phase 7.1: 20 max (was 25) — codex-mini is efficient
 
     # Cooldown between consecutive mentor calls (steps)
     cooldown_steps: int = 2
@@ -90,10 +96,10 @@ class MentorControllerConfig:
     # --- Trigger thresholds ---
 
     # Uncertainty: PPO confidence below this → reactive mentor
-    uncertainty_threshold: float = 0.25
+    uncertainty_threshold: float = 0.30  # Phase 7.1: Raised to 0.30 (was 0.25)
 
     # Stagnation: no new discoveries for N steps → deliberative
-    stagnation_threshold: int = 5
+    stagnation_threshold: int = 4       # Phase 7.1: Reduced to 4 (was 5) — faster reaction
 
     # Phase transition always triggers deliberative
     phase_transition_enabled: bool = True
@@ -102,10 +108,12 @@ class MentorControllerConfig:
     exfil_patience: int = 3           # Episodes stuck at POST_EXPLOIT before forcing exfil mentor
     exfil_mentor_tier: MentorTier = MentorTier.DELIBERATIVE
 
-    # --- Model overrides (if you want to remap) ---
+    # --- Model overrides ---
+    # Phase 7.1: DELIBERATIVE also uses codex-mini for cost savings
+    # Only POSTMORTEM uses expensive gpt-5.2-codex
     tier_models: Dict[str, str] = field(default_factory=lambda: {
         "reactive": "gpt-5.1-codex-mini",
-        "deliberative": "gpt-5.1-codex",
+        "deliberative": "gpt-5.1-codex-mini",  # Phase 7.1: Changed from gpt-5.1-codex
         "postmortem": "gpt-5.2-codex",
     })
 

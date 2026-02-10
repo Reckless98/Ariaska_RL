@@ -858,6 +858,171 @@ class SmartCoach:
         # Fallback: only use target IP for truly target-like unknown params
         return defaults.get(param, ctx.target)
     
+    # =========================================================================
+    # PHASE 7.1: FORWARD-ONLY PHASE GATING + EXPLOITED-SERVICE FILTER
+    # =========================================================================
+    
+    # Phase ordering for forward-only gating
+    PHASE_ORDER = {
+        AttackPhase.RECON: 0,
+        AttackPhase.ENUMERATION: 1,
+        AttackPhase.EXPLOITATION: 2,
+        AttackPhase.PRIVILEGE_ESCALATION: 3,
+        AttackPhase.LATERAL_MOVEMENT: 4,
+        AttackPhase.POST_EXPLOITATION: 5,
+        AttackPhase.EXFILTRATION: 6,
+        AttackPhase.CLOSEOUT: 7,
+    }
+    
+    # Exceptions: some backward-phase commands are legitimate
+    # e.g., "nmap" in EXPLOITATION if we need to re-scan a new subnet
+    PHASE_GATE_EXCEPTIONS = {
+        # Commands allowed to run 1 phase behind current phase
+        "nmap_service_version",  # Re-scan to verify version during exploitation
+        "curl_headers",          # Quick HTTP check during any phase
+        "whatweb",               # Quick web fingerprint
+    }
+    
+    def _filter_phase_forward(
+        self, commands: List[CommandTemplate], current_phase: AttackPhase
+    ) -> List[CommandTemplate]:
+        """
+        Filter commands to only allow current phase or forward phases.
+        
+        Phase 7.1: Prevents agents from running RECON commands during EXPLOITATION,
+        or EXPLOITATION commands during EXFILTRATION. Forward-only progression.
+        
+        Args:
+            commands: List of candidate commands
+            current_phase: The current attack phase
+            
+        Returns:
+            Commands from current phase or ahead (with some exceptions)
+        """
+        current_order = self.PHASE_ORDER.get(current_phase, 0)
+        
+        forward_commands = []
+        for cmd in commands:
+            cmd_order = self.PHASE_ORDER.get(cmd.phase, 0)
+            
+            # Allow current phase and forward
+            if cmd_order >= current_order:
+                forward_commands.append(cmd)
+            # Allow 1-phase-behind exceptions
+            elif cmd_order >= current_order - 1 and cmd.name in self.PHASE_GATE_EXCEPTIONS:
+                forward_commands.append(cmd)
+        
+        # If filtering removed ALL commands (unusual), allow current phase only
+        if not forward_commands:
+            forward_commands = [
+                cmd for cmd in commands
+                if cmd.phase == current_phase
+            ]
+        
+        # If still empty, don't filter — return original
+        return forward_commands if forward_commands else commands
+    
+    def _filter_exploited_services(
+        self, commands: List[CommandTemplate], ctx: AttackContext
+    ) -> List[CommandTemplate]:
+        """
+        Filter out exploit commands targeting already-exploited services/ports.
+        
+        Phase 7.1: If a shell was obtained via FTP exploit, don't run FTP exploits again.
+        Uses the discovery_board's exploited_services and exploited_ports sets.
+        
+        Args:
+            commands: List of candidate commands
+            ctx: Attack context with discovery board info
+            
+        Returns:
+            Commands that don't target already-exploited services
+        """
+        exploited_services = ctx.state_flags.get("_exploited_services", set())
+        exploited_ports = ctx.state_flags.get("_exploited_ports", set())
+        
+        if not exploited_services and not exploited_ports:
+            return commands
+        
+        filtered = []
+        for cmd in commands:
+            # Only filter exploit-phase commands
+            if cmd.phase not in (AttackPhase.EXPLOITATION, AttackPhase.PRIVILEGE_ESCALATION):
+                filtered.append(cmd)
+                continue
+            
+            # Check if this exploit targets an already-exploited service
+            cmd_lower = cmd.name.lower() + " " + (cmd.template.lower() if hasattr(cmd, 'template') else "")
+            is_exploiting_done = False
+            
+            for svc in exploited_services:
+                svc_name = str(svc).lower().split("/")[0]
+                if svc_name in cmd_lower:
+                    is_exploiting_done = True
+                    logger.debug(
+                        f"[PHASE-GATE] {self.agent_name}: Blocking {cmd.name} — "
+                        f"service '{svc}' already exploited"
+                    )
+                    break
+            
+            if not is_exploiting_done:
+                filtered.append(cmd)
+        
+        return filtered if filtered else commands
+    
+    def _ask_mentor_reasoning(
+        self, step_ctx: SmartStepContext, question: str
+    ) -> Optional[str]:
+        """
+        Ask codex-mini a quick reasoning question (e.g., 'should I move to next phase?').
+        
+        Phase 7.1: Token-efficient reasoning check. Uses max_tokens=150 to keep costs low.
+        Only called when agent is genuinely unsure — not on every step.
+        
+        Args:
+            step_ctx: Current step context
+            question: The reasoning question to ask
+            
+        Returns:
+            Short reasoning answer, or None if LLM unavailable
+        """
+        if not self.gpt_manager or self.gpt_manager.is_offline():
+            return None
+        
+        ctx = step_ctx.attack_context
+        # Use available AttackContext attributes (discoveries dict, services_found list)
+        _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
+        _services = ctx.services_found if hasattr(ctx, "services_found") else []
+        compact_prompt = (
+            f"You are a pentesting reasoning assistant. Answer in 1-2 sentences.\n"
+            f"Target: {ctx.target} | Phase: {ctx.current_phase.name} | "
+            f"Discoveries: ports={len(_ports)}, "
+            f"services={len(_services)}, "
+            f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
+            f"shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
+            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}\n"
+            f"Question: {question}"
+        )
+        
+        try:
+            response = self.gpt_manager.gpt_request(
+                compact_prompt,
+                task_type="reasoning",
+                agent_id=self.agent_name,
+                max_tokens=150,
+                model="gpt-5.1-codex-mini",
+            )
+            if response:
+                logger.info(
+                    f"[MENTOR-REASONING] {self.agent_name}: Q={question[:60]} → "
+                    f"A={response[:100]}"
+                )
+                return response.strip()
+        except Exception as e:
+            logger.debug(f"Mentor reasoning check failed: {e}")
+        
+        return None
+    
     def decide(
         self,
         step_ctx: SmartStepContext,
@@ -973,6 +1138,25 @@ class SmartCoach:
                 if cmd.phase == AttackPhase.RECON and not cmd.preconditions
             ]
         filtered_commands = self._filter_commands_for_role(valid_commands)
+        
+        # =====================================================================
+        # PHASE 7.1: FORWARD-ONLY PHASE GATE + EXPLOITED-SERVICE FILTER
+        # 1. Remove commands from phases BEHIND current phase
+        # 2. Remove exploit commands targeting already-exploited services
+        # 3. Inject exploited_services from discovery_board into ctx for filtering
+        # =====================================================================
+        
+        # Inject exploited-service info from discovery_board (passed via state_flags)
+        discovery_board = step_ctx.state.get("discovery_board", {})
+        if discovery_board:
+            ctx.state_flags["_exploited_services"] = discovery_board.get("exploited_services", set())
+            ctx.state_flags["_exploited_ports"] = discovery_board.get("exploited_ports", set())
+        
+        # Apply forward-only phase gating
+        filtered_commands = self._filter_phase_forward(filtered_commands, current_phase)
+        
+        # Apply exploited-service filtering
+        filtered_commands = self._filter_exploited_services(filtered_commands, ctx)
         
         # Make decision based on hybrid logic
         # PHASE 6.4: MENTOR-FIRST → PPO-TAKEOVER pipeline
@@ -1199,6 +1383,97 @@ class SmartCoach:
         
         # Store repeat penalty for reward calculation
         result._repeat_penalty = repeat_penalty
+
+        # =====================================================================
+        # PHASE 7.1: SMART REASONING CHECK (codex-mini)
+        # If the selected command belongs to a BEHIND phase or seems stuck,
+        # ask codex-mini for quick reasoning guidance. Token-efficient: max 150 tokens.
+        # Only triggers when: (1) agent is stagnating, OR (2) command seems wrong phase.
+        # =====================================================================
+        _stag = getattr(self, '_stagnation_steps', 0)
+        _cmd_phase_order = 0
+        _cur_phase_order = self.PHASE_ORDER.get(current_phase, 0)
+        
+        if result.template_name:
+            # Look up the command's phase
+            cmd_template = COMMAND_REGISTRY.get(result.template_name)
+            if cmd_template:
+                _cmd_phase_order = self.PHASE_ORDER.get(cmd_template.phase, 0)
+        
+        _needs_reasoning = False
+        _reasoning_question = ""
+        
+        # Case 1: Command is from a phase 2+ steps behind current
+        if _cmd_phase_order < _cur_phase_order - 1 and not ppo_bypass:
+            _needs_reasoning = True
+            _reasoning_question = (
+                f"I'm in {current_phase.name} but about to run a "
+                f"{cmd_template.phase.name if cmd_template else 'unknown'}-phase command "
+                f"({result.template_name}). Should I do something more phase-appropriate instead? "
+                f"What command would advance me forward?"
+            )
+        
+        # Case 2: Stagnating for 4+ steps — ask what to do differently
+        elif _stag >= 4 and not ppo_bypass and gpt_available:
+            _needs_reasoning = True
+            _reasoning_question = (
+                f"I've been in {current_phase.name} for {_stag} steps without new discoveries. "
+                f"What should I try to break through to the next phase?"
+            )
+        
+        # Case 3: Credentials found but still running credential-search commands
+        if (ctx.state_flags.get("credentials_known") and result.template_name and
+                any(kw in (result.template_name or "").lower() 
+                    for kw in ["brute", "hydra", "crack", "pass"]) and not ppo_bypass):
+            _needs_reasoning = True
+            _reasoning_question = (
+                f"I already have credentials. Why am I running {result.template_name}? "
+                f"Should I use the known creds to exploit a service instead?"
+            )
+        
+        # Case 4: Shell obtained but still running exploit commands
+        if (ctx.state_flags.get("shell_obtained") and result.template_name and
+                _cmd_phase_order <= self.PHASE_ORDER.get(AttackPhase.EXPLOITATION, 2) and
+                _cur_phase_order > self.PHASE_ORDER.get(AttackPhase.EXPLOITATION, 2) and
+                not ppo_bypass):
+            _needs_reasoning = True
+            _reasoning_question = (
+                f"I already have a shell but I'm about to run {result.template_name} "
+                f"(exploitation-level). Should I focus on post-exploitation or privesc instead?"
+            )
+        
+        if _needs_reasoning and gpt_available:
+            mentor_advice = self._ask_mentor_reasoning(step_ctx, _reasoning_question)
+            if mentor_advice:
+                # Inject reasoning into the result
+                result.mentor_reasoning = (
+                    f"[REASONING-CHECK] {mentor_advice[:200]} | "
+                    f"{result.mentor_reasoning or ''}"
+                )
+                # If mentor suggests a specific command and we're not PPO-bypassed,
+                # check if we should replace. Only replace for very backward commands.
+                if _cmd_phase_order < _cur_phase_order - 1 and not ppo_bypass:
+                    # Try to find a phase-appropriate command instead
+                    phase_cmds = [
+                        c for c in filtered_commands
+                        if self.PHASE_ORDER.get(c.phase, 0) >= _cur_phase_order
+                    ]
+                    if phase_cmds:
+                        alt_template = random.choice(phase_cmds)
+                        params = {"target": ctx.target}
+                        for param in alt_template.required_params:
+                            if param not in params:
+                                params[param] = self._get_default_param(param, ctx)
+                        rendered = render_command(alt_template, params)
+                        result.command = rendered
+                        result.template_name = alt_template.name
+                        result.params = params
+                        result.source = "phase_gate_reasoning"
+                        result.confidence = 0.65
+                        logger.info(
+                            f"[PHASE-GATE] {self.agent_name}: Replaced backward command "
+                            f"with {alt_template.name} (phase={alt_template.phase.name})"
+                        )
 
         # ─── PHASE 6.3: Populate reasoning trace + belief snapshot ───────
         # Build a human-readable chain-of-thought for every decision.
