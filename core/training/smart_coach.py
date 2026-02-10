@@ -908,8 +908,11 @@ class SmartCoach:
             # Allow current phase and forward
             if cmd_order >= current_order:
                 forward_commands.append(cmd)
-            # Allow 1-phase-behind exceptions
-            elif cmd_order >= current_order - 1 and cmd.name in self.PHASE_GATE_EXCEPTIONS:
+            # Phase 7.2: No exceptions during late phases (POST_EXPLOITATION+)
+            # Only allow 1-phase-behind exceptions during early/mid phases
+            elif (cmd_order >= current_order - 1 
+                  and cmd.name in self.PHASE_GATE_EXCEPTIONS
+                  and current_order < 5):  # < POST_EXPLOITATION
                 forward_commands.append(cmd)
         
         # If filtering removed ALL commands (unusual), allow current phase only
@@ -970,6 +973,44 @@ class SmartCoach:
         
         return filtered if filtered else commands
     
+    # Commands that search for credentials — redundant once creds are known
+    CRED_SEARCH_COMMANDS = {
+        "hydra_ssh", "hydra_ftp", "hydra_http", "hydra_mysql",
+        "medusa_ssh", "medusa_ftp", "brute_force", "brute_ssh",
+        "patator_ssh", "ncrack_ssh", "john_crack", "hashcat_crack",
+        "cewl_wordlist", "crunch_wordlist",
+    }
+
+    def _filter_creds_aware(
+        self, commands: List[CommandTemplate], ctx: AttackContext
+    ) -> List[CommandTemplate]:
+        """
+        Phase 7.2: Remove brute-force/credential-search commands when credentials
+        are already known. This prevents wasted cycles AND avoids burning mentor
+        reasoning tokens on 'why am I running hydra when I have creds' questions.
+        
+        Returns:
+            Filtered list with credential-search commands removed (if creds known)
+        """
+        if not ctx.state_flags.get("credentials_known"):
+            return commands
+        
+        filtered = [
+            cmd for cmd in commands
+            if cmd.name not in self.CRED_SEARCH_COMMANDS
+            and not any(kw in cmd.name.lower() for kw in ["brute", "hydra", "crack", "wordlist"])
+        ]
+        
+        if filtered:
+            removed = len(commands) - len(filtered)
+            if removed > 0:
+                logger.debug(
+                    f"[CRED-FILTER] {self.agent_name}: Removed {removed} "
+                    f"credential-search commands (creds already known)"
+                )
+            return filtered
+        return commands  # Don't remove everything
+
     def _ask_mentor_reasoning(
         self, step_ctx: SmartStepContext, question: str
     ) -> Optional[str]:
@@ -1157,6 +1198,9 @@ class SmartCoach:
         
         # Apply exploited-service filtering
         filtered_commands = self._filter_exploited_services(filtered_commands, ctx)
+        
+        # Phase 7.2: Remove brute-force commands when credentials already known
+        filtered_commands = self._filter_creds_aware(filtered_commands, ctx)
         
         # Make decision based on hybrid logic
         # PHASE 6.4: MENTOR-FIRST → PPO-TAKEOVER pipeline
@@ -1474,6 +1518,10 @@ class SmartCoach:
                             f"[PHASE-GATE] {self.agent_name}: Replaced backward command "
                             f"with {alt_template.name} (phase={alt_template.phase.name})"
                         )
+                        # Phase 7.2: Teach PPO that backward commands are bad
+                        # Store negative reward so PPO learns not to propose them
+                        if self._ppo_pending is not None:
+                            self._store_ppo_negative_reward(-5.0, "backward_phase_command")
 
         # ─── PHASE 6.3: Populate reasoning trace + belief snapshot ───────
         # Build a human-readable chain-of-thought for every decision.
@@ -1571,6 +1619,36 @@ class SmartCoach:
             if cmd_prefix in tools:
                 return family
         return "other"
+    
+    def _store_ppo_negative_reward(self, penalty: float, reason: str) -> None:
+        """
+        Phase 7.2: Store a negative reward for the pending PPO trajectory.
+        
+        When a PPO-selected command gets replaced (e.g., backward phase, wrong
+        command), we inject a negative reward so PPO learns not to propose it again.
+        This fixes the 'silent disconnect' where PPO never gets feedback on bad choices.
+        """
+        if self._ppo_pending is None:
+            return
+        
+        try:
+            ppo = self._lazy_ppo()
+            if ppo is not None:
+                ppo.store_transition(
+                    state=self._ppo_pending["state"],
+                    action=self._ppo_pending["action"],
+                    log_prob=self._ppo_pending["log_prob"],
+                    reward=penalty,
+                    value=self._ppo_pending["value"],
+                    done=False,
+                )
+                self._ppo_pending = None
+                logger.debug(
+                    f"[PPO-NEG] {self.agent_name}: Stored penalty {penalty:.1f} "
+                    f"for {reason}"
+                )
+        except Exception as e:
+            logger.debug(f"[PPO-NEG] Failed to store penalty: {e}")
     
     def _replace_with_alternative(
         self,
@@ -2630,6 +2708,30 @@ class SmartCoach:
             template = COMMAND_REGISTRY.get(matched_step.command)
             if not template:
                 continue
+
+            # Phase 7.2: Skip credential-search playbook steps when creds are known
+            if (ctx.state_flags.get("credentials_known") and
+                    (matched_step.command in self.CRED_SEARCH_COMMANDS or
+                     any(kw in matched_step.command.lower() 
+                         for kw in ["brute", "hydra", "crack", "wordlist"]))):
+                logger.debug(
+                    f"[PLAYBOOK-CRED-SKIP] {self.agent_name}: Skipping "
+                    f"{matched_step.command} — credentials already known"
+                )
+                completed_set.add(matched_step.command)  # Mark as done
+                continue  # Try next playbook
+
+            # Phase 7.2: Skip playbook steps from phases behind current
+            _template_phase_order = self.PHASE_ORDER.get(template.phase, 0)
+            _current_phase_order = self.PHASE_ORDER.get(ctx.current_phase, 0)
+            if _template_phase_order < _current_phase_order - 1:
+                logger.debug(
+                    f"[PLAYBOOK-PHASE-SKIP] {self.agent_name}: Skipping "
+                    f"{matched_step.command} ({template.phase.name}) — "
+                    f"too far behind current phase ({ctx.current_phase.name})"
+                )
+                completed_set.add(matched_step.command)  # Mark as done
+                continue  # Try next playbook
 
             # Render command
             params = {}
