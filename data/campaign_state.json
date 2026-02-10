@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 20,
   "best_phase_reached": "EXFILTRATION",
-  "last_updated": 1770707106.2882113,
+  "last_updated": 1770716087.9450018,
   "target_ip": "",
   "ports": {
     "512": {
@@ -34,8 +34,8 @@
       "service": "ftp",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 27
+      "last_seen_episode": 4,
+      "confirmed_count": 42
     },
     "5900": {
       "port": 5900,
@@ -50,8 +50,8 @@
       "service": "distcc",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 35
+      "last_seen_episode": 4,
+      "confirmed_count": 50
     },
     "43147": {
       "port": 43147,
@@ -66,16 +66,16 @@
       "service": "smtp",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 38
+      "last_seen_episode": 4,
+      "confirmed_count": 53
     },
     "22": {
       "port": 22,
       "service": "telnet",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 29
+      "last_seen_episode": 4,
+      "confirmed_count": 44
     },
     "23": {
       "port": 23,
@@ -90,8 +90,8 @@
       "service": "rmi",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 35
+      "last_seen_episode": 0,
+      "confirmed_count": 41
     },
     "25": {
       "port": 25,
@@ -122,8 +122,8 @@
       "service": "smb",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 25
+      "last_seen_episode": 3,
+      "confirmed_count": 26
     },
     "44": {
       "port": 44,
@@ -170,16 +170,16 @@
       "service": "distcc",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 35
+      "last_seen_episode": 2,
+      "confirmed_count": 44
     },
     "445": {
       "port": 445,
       "service": "https",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 29
+      "last_seen_episode": 4,
+      "confirmed_count": 44
     },
     "6463": {
       "port": 6463,
@@ -187,7 +187,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 1,
-      "confirmed_count": 35
+      "confirmed_count": 42
     },
     "5187": {
       "port": 5187,
@@ -250,24 +250,24 @@
       "service": "ssh",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 28
+      "last_seen_episode": 4,
+      "confirmed_count": 43
     },
     "5228": {
       "port": 5228,
       "service": "tomcat",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 35
+      "last_seen_episode": 2,
+      "confirmed_count": 44
     },
     "111": {
       "port": 111,
       "service": "http",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 27
+      "last_seen_episode": 3,
+      "confirmed_count": 28
     },
     "6000": {
       "port": 6000,
@@ -442,8 +442,8 @@
       "service": "http",
       "version": "",
       "first_seen_episode": 1,
-      "last_seen_episode": 7,
-      "confirmed_count": 3
+      "last_seen_episode": 2,
+      "confirmed_count": 7
     },
     "7": {
       "port": 7,
@@ -466,8 +466,8 @@
       "service": "tomcat",
       "version": "",
       "first_seen_episode": 2,
-      "last_seen_episode": 8,
-      "confirmed_count": 2
+      "last_seen_episode": 4,
+      "confirmed_count": 17
     },
     "6": {
       "port": 6,
@@ -858,8 +858,8 @@
       "service": "rdp",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 0,
-      "confirmed_count": 1
+      "last_seen_episode": 4,
+      "confirmed_count": 16
     },
     "40": {
       "port": 40,
@@ -914,8 +914,24 @@
       "service": "irc",
       "version": "",
       "first_seen_episode": 1,
-      "last_seen_episode": 1,
+      "last_seen_episode": 0,
+      "confirmed_count": 8
+    },
+    "999": {
+      "port": 999,
+      "service": "mssql",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 2,
       "confirmed_count": 2
+    },
+    "8067": {
+      "port": 8067,
+      "service": "mssql",
+      "version": "",
+      "first_seen_episode": 3,
+      "last_seen_episode": 3,
+      "confirmed_count": 1
     }
   },
   "credentials": [
@@ -1092,71 +1108,6 @@
   },
   "shells": [
     {
-      "episode": 5,
-      "type": "user",
-      "timestamp": 1770670369.320424
-    },
-    {
-      "episode": 6,
-      "type": "user",
-      "timestamp": 1770671375.2868483
-    },
-    {
-      "episode": 7,
-      "type": "user",
-      "timestamp": 1770672543.230452
-    },
-    {
-      "episode": 8,
-      "type": "user",
-      "timestamp": 1770673470.5569098
-    },
-    {
-      "episode": 9,
-      "type": "user",
-      "timestamp": 1770674400.375942
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770701333.6719713
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770701587.6214674
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770701840.8101513
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770702539.5366926
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770702776.3271754
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770704711.9771886
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770704801.9620306
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770704893.002589
-    },
-    {
       "episode": 3,
       "type": "user",
       "timestamp": 1770704999.311506
@@ -1190,6 +1141,71 @@
       "episode": 4,
       "type": "user",
       "timestamp": 1770707106.2881343
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770709609.9559524
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770709843.1698399
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770709997.4954584
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770710263.0726297
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770710384.143409
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770713946.2449636
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770714911.3668885
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770715040.2741752
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770715170.3786497
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770715527.9710312
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770715648.195548
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770715766.5236077
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770716087.9449275
     }
   ],
   "attack_chains": [
