@@ -775,8 +775,18 @@ class SmartCoach:
         param name used in the 144+ command registry should be listed here
         to avoid mis-substitution (e.g. ports or lport getting an IP value).
         """
-        # MS2 common ports for scan-type commands
-        ms2_ports = "21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,5432,5900,6667,8180"
+        # Target-aware port and credential defaults
+        is_ms3 = ctx.target in ("172.28.0.11",) or getattr(ctx, 'difficulty', '') == 'medium'
+        if is_ms3:
+            target_ports = "21,22,80,139,445,3306,6667,8080,8484,9200"
+            default_user = "vagrant"
+            default_pass = "vagrant"
+            default_rport = "8080"
+        else:
+            target_ports = "21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,5432,5900,6667,8180"
+            default_user = "msfadmin"
+            default_pass = "msfadmin"
+            default_rport = "445"
         # Attacker IP — same subnet as target, .1 gateway convention
         parts = ctx.target.rsplit(".", 1)
         attacker_ip = f"{parts[0]}.1" if len(parts) == 2 else "172.28.0.1"
@@ -794,8 +804,8 @@ class SmartCoach:
             "subnet": parts[0] if len(parts) == 2 else "172.28.0",
             # ─── Ports ───────────────────────────────────────────
             "port": "80",
-            "ports": ms2_ports,
-            "rport": "445",
+            "ports": target_ports,
+            "rport": default_rport,
             "lport": "4444",
             "num_ports": "100",
             "rate": "5000",
@@ -803,9 +813,9 @@ class SmartCoach:
             "lhost": attacker_ip,
             "attacker": attacker_ip,
             # ─── Credentials ─────────────────────────────────────
-            "user": "msfadmin",
-            "username": "msfadmin",
-            "password": "msfadmin",
+            "user": default_user,
+            "username": default_user,
+            "password": default_pass,
             "userlist": "/usr/share/wordlists/metasploit/unix_users.txt",
             "passlist": "/usr/share/wordlists/metasploit/unix_passwords.txt",
             # ─── Wordlists ───────────────────────────────────────
@@ -2265,10 +2275,14 @@ class SmartCoach:
         # Map generic difficulty labels to actual target profiles
         target_profile = getattr(ctx, 'difficulty', 'generic') or 'generic'
         if target_profile in ("medium", "easy", "hard"):
-            # Detect MS2 target by IP range
+            # Detect target by IP: MS2=172.28.0.10, MS3=172.28.0.11
             target_ip = getattr(ctx, 'target', '')
-            if target_ip and ('172.28.0' in target_ip or '192.168.56' in target_ip):
+            if target_ip == '172.28.0.11' or target_ip.startswith('192.168.56.10'):
+                target_profile = "metasploitable3"
+            elif target_ip == '172.28.0.10' or target_ip.startswith('192.168.56.10'):
                 target_profile = "metasploitable2"
+            elif target_ip and '172.28.0' in target_ip:
+                target_profile = "metasploitable3"  # Default pentest-net = MS3
             else:
                 target_profile = "generic"
         playbooks = get_playbooks_for_target(target_profile)

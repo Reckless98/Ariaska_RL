@@ -83,8 +83,8 @@ class SmartOrchestratorConfig:
     # Logging
     mentor_log_dir: str = "traces"
     
-    # Attack context
-    default_target: str = "172.28.0.10"
+    # Attack context — Phase 6.9.5: MS3 is new default target
+    default_target: str = "172.28.0.11"
     default_difficulty: str = "easy"
     default_platform: str = "linux"
     
@@ -581,9 +581,20 @@ class SmartOrchestrator:
         for agent_name in self.agents.keys():
             policy = MentorPolicy(policy_config)
             
-            # Phase 6.4: Create MS2-aware reward calculator for live mode
+            # Phase 6.9.5: Create target-aware reward calculator for live mode
             ms2_mode = self._is_live_mode
-            reward_calc = SmartRewardCalculator(ms2_mode=ms2_mode) if ms2_mode else None
+            target_profile = ""
+            if ms2_mode:
+                target = self.config.default_target
+                if target == "172.28.0.11":
+                    target_profile = "metasploitable3"
+                elif target == "172.28.0.10":
+                    target_profile = "metasploitable2"
+                elif "172.28.0" in target:
+                    target_profile = "metasploitable3"
+            reward_calc = SmartRewardCalculator(
+                ms2_mode=ms2_mode, target_profile=target_profile
+            ) if ms2_mode else None
             
             self.coaches[agent_name] = SmartCoach(
                 agent_name=agent_name,
@@ -643,9 +654,39 @@ class SmartOrchestrator:
             current_phase=AttackPhase.RECON,
         )
         
+        # Phase 6.9.5: Detect target profile and load correct exploit graph
+        self._target_profile = "generic"
+        if target == "172.28.0.11":
+            self._target_profile = "metasploitable3"
+        elif target == "172.28.0.10":
+            self._target_profile = "metasploitable2"
+        elif "172.28.0" in target:
+            self._target_profile = "metasploitable3"
+        
+        # Load target-specific exploit graph for reward shaping
+        try:
+            if self._target_profile == "metasploitable3":
+                from core.knowledge.ms3_exploit_graph import get_ms3_graph
+                self._exploit_graph = get_ms3_graph()
+                logger.info(f"MS3ExploitGraph loaded: {len(self._exploit_graph.services)} services")
+            elif self._target_profile == "metasploitable2":
+                from core.knowledge.ms2_exploit_graph import get_ms2_graph
+                self._exploit_graph = get_ms2_graph()
+                logger.info(f"MS2ExploitGraph loaded: {len(self._exploit_graph.services)} services")
+            else:
+                self._exploit_graph = None
+        except Exception as e:
+            logger.warning(f"Exploit graph load failed: {e}")
+            self._exploit_graph = None
+        
         # Share context with all coaches
         for coach in self.coaches.values():
             coach.attack_context = self.attack_context
+            # Phase 6.9.5: Inject target-specific exploit graph into reward calculators
+            if hasattr(coach, 'reward_calculator') and coach.reward_calculator and self._exploit_graph:
+                coach.reward_calculator._exploit_graph = self._exploit_graph
+                coach.reward_calculator._ms2_graph = self._exploit_graph
+                coach.reward_calculator.target_profile = self._target_profile
         
         return self.attack_context
     
@@ -2432,12 +2473,45 @@ class SmartOrchestrator:
             1099, 1524, 2049, 2121, 3306, 3632, 5432, 5900, 6000,
             6667, 6697, 8009, 8180, 8787,
         ]
+        
+        # Phase 6.9.5: Metasploitable 3 service fingerprints
+        _all_msf3_ports = [
+            21, 22, 80, 111, 139, 445, 3000, 3306, 6667,
+            8020, 8080, 8282, 8484, 9200,
+        ]
+        MSF3_SERVICES = {
+            21: ("ftp", "ProFTPD 1.3.5"),
+            22: ("ssh", "OpenSSH 6.6.1p1 Ubuntu 2ubuntu2.13"),
+            80: ("http", "Apache httpd 2.4.7 (Ubuntu)"),
+            111: ("rpcbind", "2-4 (RPC #100000)"),
+            139: ("netbios-ssn", "Samba smbd 3.X - 4.X"),
+            445: ("microsoft-ds", "Samba smbd 4.3.11-Ubuntu"),
+            3000: ("http", "Ruby on Rails (WEBrick 1.3.1)"),
+            3306: ("mysql", "MySQL 5.5.62-0ubuntu0.14.04.1"),
+            6667: ("irc", "UnrealIRCd"),
+            8020: ("http", "ManageEngine Desktop Central"),
+            8080: ("http", "Apache Tomcat 8.0.33"),
+            8282: ("http", "Apache Axis2 1.6.2"),
+            8484: ("http", "Jetty (Jenkins)"),
+            9200: ("http", "Elasticsearch REST API 1.1.1"),
+        }
+        
+        # Phase 6.9.5: Select port/service mappings based on target profile
+        _target_prof = getattr(self, '_target_profile', 'metasploitable2')
+        if _target_prof == "metasploitable3":
+            _all_target_ports = _all_msf3_ports
+            _target_services = MSF3_SERVICES
+        else:
+            _all_target_ports = _all_msf2_ports
+            _target_services = None  # Will use MSF2_SERVICES below
+        
         # Phase 6.6: Filter out difficulty-blocked ports
         _difficulty = getattr(self, '_difficulty_preset', None)
         if _difficulty and _difficulty.blocked_ports:
             _all_msf2_ports = [p for p in _all_msf2_ports if p not in _difficulty.blocked_ports]
+            _all_target_ports = [p for p in _all_target_ports if p not in _difficulty.blocked_ports]
         MSF2_PORTS = random.sample(
-            _all_msf2_ports, k=min(random.randint(6, 12), len(_all_msf2_ports))
+            _all_target_ports, k=min(random.randint(6, 12), len(_all_target_ports))
         )
         
         MSF2_SERVICES = {
@@ -2471,7 +2545,11 @@ class SmartOrchestrator:
         
         # Realistic service lines for nmap-style output
         def _nmap_line(port):
-            svc, ver = MSF2_SERVICES.get(port, ("unknown", ""))
+            # Phase 6.9.5: Use target-appropriate service fingerprints
+            if _target_services and port in _target_services:
+                svc, ver = _target_services[port]
+            else:
+                svc, ver = MSF2_SERVICES.get(port, ("unknown", ""))
             return f"{port}/tcp open  {svc:16s} {ver}"
         
         # Variable ports for non-MSF2 variety

@@ -163,6 +163,7 @@ class SmartRewardCalculator:
         efficiency_window: int = 10,
         progress_bonus_per_step: float = 1.0,  # Phase 5.1: Honest scaling (was 12.0)
         ms2_mode: bool = False,                # Phase 6.4: Enable MS2-specific reward shaping
+        target_profile: str = "",              # Phase 6.9.5: "metasploitable2", "metasploitable3", etc.
     ):
         """
         Initialize the reward calculator.
@@ -175,6 +176,7 @@ class SmartRewardCalculator:
             efficiency_window: Window for calculating efficiency
             progress_bonus_per_step: Base bonus per step (1.0 = industry standard)
             ms2_mode: Enable Metasploitable 2 specific reward shaping
+            target_profile: Target identifier for loading correct exploit graph
         """
         self.novelty_weight = novelty_weight
         self.redundancy_decay = redundancy_decay
@@ -183,15 +185,23 @@ class SmartRewardCalculator:
         self.efficiency_window = efficiency_window
         self.progress_bonus_per_step = progress_bonus_per_step
         self.ms2_mode = ms2_mode
+        self.target_profile = target_profile
         
-        # Phase 6.4: MS2 exploit graph for shaped rewards
-        self._ms2_graph = None
-        if ms2_mode:
+        # Phase 6.9.5: Load exploit graph based on target_profile (preferred) or ms2_mode (legacy)
+        self._exploit_graph = None
+        if target_profile == "metasploitable3":
             try:
-                from core.knowledge.ms2_exploit_graph import get_ms2_graph
-                self._ms2_graph = get_ms2_graph()
+                from core.knowledge.ms3_exploit_graph import get_ms3_graph
+                self._exploit_graph = get_ms3_graph()
             except ImportError:
                 pass
+        elif target_profile == "metasploitable2" or ms2_mode:
+            try:
+                from core.knowledge.ms2_exploit_graph import get_ms2_graph
+                self._exploit_graph = get_ms2_graph()
+            except ImportError:
+                pass
+        self._ms2_graph = self._exploit_graph  # Backwards compat alias
         
         # Tracking state
         self.command_history: List[str] = []

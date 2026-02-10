@@ -320,26 +320,41 @@ OUTPUT FORMAT (JSON only):
 }}
 
 === METASPLOITABLE 3 TARGET KNOWLEDGE ===
-MS3 (Ubuntu 14.04 / Windows Server 2008) is HARDER than MS2. No instant backdoors.
+MS3 (Ubuntu 14.04) has MORE services than MS2, with UnrealIRCd backdoor + web app vulns.
 
-VULNERABLE SERVICES:
-  • Port 22 SSH: vagrant:vagrant default → sudo privesc needed
-  • Port 80 Apache: WordPress, Drupal, phpMyAdmin — CMS-specific vulns
-  • Port 3306 MySQL: root:sploitme weak password → UDF for RCE
-  • Port 8080 Tomcat: sploit:sploit OR Apache Struts CVE-2017-5638 → RCE
+INSTANT SHELL VECTORS (try FIRST):
+  • Port 6667 (UnrealIRCd 3.2.8.1 backdoor): AB;cmd via nc → instant shell (SAME as MS2!)
+  • Port 8484 (Jenkins): /script Groovy console → 'cmd'.execute() → instant RCE
+
+DEFAULT CREDENTIAL ACCESS:
+  • Port 22 SSH: vagrant:vagrant → sudo ALL = root
+  • Port 8080 Tomcat: sploit:sploit → manager → WAR deploy → shell
+  • Port 3306 MySQL: root:sploitme → UDF → RCE
   • Port 8282 Axis2: admin:axis2 → deploy malicious service → RCE
-  • Port 8484 Jenkins: Check /script for Groovy console → 'cmd'.execute() → instant RCE
-  • Port 8020 ManageEngine: CVE-2015-8249 auth bypass → file upload → RCE
-  • Port 9200 Elasticsearch: CVE-2014-3120 dynamic scripting → Java code exec via REST API
-  • Port 3000 Ruby on Rails: CVE-2013-0156 XML parameter parsing → object injection → RCE
+  • Port 80 WordPress: admin:admin → theme editor → PHP shell
 
-MS3 ATTACK CHAIN:
-  1. Recon all ports (more services than MS2)
-  2. Check Jenkins /script FIRST — easiest MS3 vector
-  3. Try Tomcat manager with sploit:sploit for WAR deploy
-  4. WordPress wpscan → plugin vulns or brute force admin
-  5. MySQL root:sploitme → UDF shell
-  6. Struts CVE-2017-5638 if Tomcat has Struts
+VULNERABILITY-BASED ACCESS:
+  • Port 21 ProFTPD 1.3.5: CVE-2015-3306 mod_copy → unauthenticated file write to webroot → RCE
+  • Port 139/445 Samba 4.x: share enum, writable shares, SambaCry if < 4.6.4
+  • Port 8080 Struts: CVE-2017-5638 → OGNL injection in Content-Type → RCE
+  • Port 9200 Elasticsearch: CVE-2014-3120 → dynamic scripting → Java exec → RCE
+  • Port 3000 Rails: CVE-2013-0156 → XML deserialization → RCE
+
+MS3 OPTIMAL ATTACK CHAIN:
+  1. Recon all ports (nmap -sV -sC -p-)
+  2. UnrealIRCd backdoor on 6667 — fastest shell
+  3. If 6667 fails: Jenkins /script for Groovy RCE
+  4. If web needed: SSH vagrant:vagrant → sudo su
+  5. MySQL root:sploitme → UDF shell (slower but reliable)
+  6. WordPress/Struts as fallback vectors
+
+CRITICAL MS3 vs MS2 DIFFERENCES:
+  • MS3 has vagrant:vagrant (sudo ALL) instead of msfadmin:msfadmin
+  • MS3 has ProFTPD mod_copy (unauthenticated file write!) — MS2 doesn't
+  • MS3 has Jenkins, Elasticsearch, Struts — MS2 doesn't
+  • Both have UnrealIRCd backdoor on 6667 — works identically
+  • MS3 MySQL has password (sploitme) — MS2 MySQL has NO password
+  • For MS3: prefer telnet-style backdoors > web app creds > CVE exploits
 
 === HACK THE BOX COMMON PATTERNS ===
 80% of HTB boxes start with web. Master these patterns:
