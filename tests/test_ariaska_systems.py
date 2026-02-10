@@ -315,7 +315,7 @@ class TestLLMRouting(unittest.TestCase):
         
         # Tactical uses mini, strategic uses 5.3-codex (Orion big-brain)
         self.assertEqual(model_map.get("tactical"), "gpt-5.1-codex-mini")
-        self.assertEqual(model_map.get("strategic"), "gpt-5.3-codex")
+        self.assertEqual(model_map.get("strategic"), "gpt-5.2-codex")
         
         # Analysis/classification should use nano
         self.assertEqual(model_map.get("analysis"), "gpt-5.1-codex-mini")

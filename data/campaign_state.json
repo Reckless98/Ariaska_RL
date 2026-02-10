@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 20,
   "best_phase_reached": "EXFILTRATION",
-  "last_updated": 1770702776.327238,
+  "last_updated": 1770707106.2882113,
   "target_ip": "",
   "ports": {
     "512": {
@@ -91,7 +91,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 1,
-      "confirmed_count": 34
+      "confirmed_count": 35
     },
     "25": {
       "port": 25,
@@ -171,7 +171,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 1,
-      "confirmed_count": 34
+      "confirmed_count": 35
     },
     "445": {
       "port": 445,
@@ -187,7 +187,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 1,
-      "confirmed_count": 34
+      "confirmed_count": 35
     },
     "5187": {
       "port": 5187,
@@ -259,7 +259,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 1,
-      "confirmed_count": 34
+      "confirmed_count": 35
     },
     "111": {
       "port": 111,
@@ -915,7 +915,7 @@
       "version": "",
       "first_seen_episode": 1,
       "last_seen_episode": 1,
-      "confirmed_count": 1
+      "confirmed_count": 2
     }
   },
   "credentials": [
@@ -1092,56 +1092,6 @@
   },
   "shells": [
     {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770650398.0428169
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770650623.2564251
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770650801.3929229
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770650950.508473
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770651141.4066901
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770666659.2535665
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770667306.8195596
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770668339.4375088
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770668836.6819136
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770669419.8792658
-    },
-    {
       "episode": 5,
       "type": "user",
       "timestamp": 1770670369.320424
@@ -1190,6 +1140,56 @@
       "episode": 4,
       "type": "user",
       "timestamp": 1770702776.3271754
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770704711.9771886
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770704801.9620306
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770704893.002589
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770704999.311506
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770705096.4347754
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770706977.41683
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770707016.6697996
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770707039.308656
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770707071.1006482
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770707106.2881343
     }
   ],
   "attack_chains": [

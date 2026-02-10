@@ -31,12 +31,13 @@ services:
       - ./models:/home/ariaska/ARIASKA_RL/models
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GPT_PRIMARY_MODEL=${GPT_PRIMARY_MODEL:-gpt-4o-mini}
+      - GPT_PRIMARY_MODEL=${GPT_PRIMARY_MODEL:-gpt-5.1-codex-mini}
       - GPT_TOKEN_LIMIT=${GPT_TOKEN_LIMIT:-8000}
       - PYTHONPATH=/home/ariaska/ARIASKA_RL
       - ARIASKA_MODE=live
-      - ARIASKA_TARGET=172.28.0.10
-      - ARIASKA_TARGET_PROFILE=metasploitable2
+      - ARIASKA_TARGET=${ARIASKA_TARGET:-172.28.0.10}
+      - ARIASKA_TARGET_PROFILE=${ARIASKA_TARGET_PROFILE:-metasploitable2}
+      - ARIASKA_MS3_TARGET=172.28.0.11
     command: >
       python -m ariaska_cli smart-train
       --episodes 10
@@ -69,16 +70,23 @@ services:
     # 8009(ajp), 8180(tomcat)
     restart: unless-stopped
 
-  # Optional: Metasploitable 3 Windows target
-  # Uncomment to add Windows target to the lab
-  # metasploitable3-win:
-  #   image: rapid7/metasploitable3-ub1404  # or Windows variant
-  #   container_name: metasploitable3
-  #   hostname: metasploitable3
-  #   networks:
-  #     pentest-net:
-  #       ipv4_address: 172.28.0.11
-  #   restart: unless-stopped
+  # Metasploitable 3 — Secondary target (Ubuntu 14.04, harder than MS2)
+  # No instant backdoors — requires proper exploitation chains.
+  # Pull: docker pull rapid7/metasploitable3-ub1404
+  # Build alternative: https://github.com/rapid7/metasploitable3
+  # Services: 22(ssh), 80(http/wordpress), 3000(rails), 3306(mysql),
+  #   8020(manageengine), 8080(tomcat/struts), 8282(axis2), 8484(jenkins),
+  #   9200(elasticsearch)
+  metasploitable3:
+    image: rapid7/metasploitable3-ub1404
+    container_name: metasploitable3
+    hostname: metasploitable3
+    tty: true
+    stdin_open: true
+    networks:
+      pentest-net:
+        ipv4_address: 172.28.0.11
+    restart: unless-stopped
 
 networks:
   pentest-net:

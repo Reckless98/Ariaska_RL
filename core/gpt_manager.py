@@ -176,7 +176,7 @@ class GPTManager:
         "blue": "gpt-5.1-codex-mini",
         # Task-based routing
         "tactical": "gpt-5.1-codex-mini",
-        "strategic": "gpt-5.3-codex",        # Orion big-brain planning (rare, expensive)
+        "strategic": "gpt-5.2-codex",        # Orion planning + postmortem (shared deep model)
         "reasoning": "gpt-5.1-codex-mini",
         "analysis": "gpt-5.1-codex-mini",
         "classification": "gpt-5.1-codex-mini",
@@ -196,7 +196,6 @@ class GPTManager:
         "gpt-5.1-codex-mini": 0.00150,
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
-        "gpt-5.3-codex": 0.02500,
         "gpt-5.2": 0.01000,
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
@@ -257,7 +256,7 @@ class GPTManager:
         self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-4o-mini")
         self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5.1-codex-mini")
         self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2-codex")
-        self.strategic_model = os.getenv("GPT_STRATEGIC_MODEL", "gpt-5.3-codex")
+        self.strategic_model = os.getenv("GPT_STRATEGIC_MODEL", "gpt-5.2-codex")
         
         # Feature flags
         self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
@@ -615,7 +614,7 @@ class GPTManager:
         if task_type == "postmortem":
             return self.postmortem_model
         
-        # Strategic: Orion big-brain planning (gpt-5.3-codex, very rare)
+        # Strategic: Orion planning + deep reasoning (gpt-5.2-codex, shared with postmortem)
         if task_type == "strategic":
             return self.strategic_model
         
