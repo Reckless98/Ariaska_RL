@@ -168,20 +168,20 @@ class GPTManager:
     
     # Model configuration
     MODEL_MAP = {
-        # Primary models by role
+        # Primary models by role — all agents use codex-mini for normal ops
         "red": "gpt-5.1-codex-mini",
-        "orion": "gpt-5.1-codex-mini", 
+        "orion": "gpt-5.1-codex-mini",
         "scout": "gpt-5.1-codex-mini",
         "shadow": "gpt-5.1-codex-mini",
         "blue": "gpt-5.1-codex-mini",
         # Task-based routing
         "tactical": "gpt-5.1-codex-mini",
-        "strategic": "gpt-5.1-codex-mini",
+        "strategic": "gpt-5.3-codex",        # Orion big-brain planning (rare, expensive)
         "reasoning": "gpt-5.1-codex-mini",
         "analysis": "gpt-5.1-codex-mini",
         "classification": "gpt-5.1-codex-mini",
         "embedding": "gpt-5.1-codex-mini",
-        "postmortem": "gpt-5.1-codex",  # Feature-flagged deep reasoning
+        "postmortem": "gpt-5.2-codex",       # Deep reasoning for end-of-run analysis
         # Fallbacks
         "general": "gpt-5.1-codex-mini",
         "default": "gpt-5.1-codex-mini",
@@ -196,6 +196,7 @@ class GPTManager:
         "gpt-5.1-codex-mini": 0.00150,
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
+        "gpt-5.3-codex": 0.02500,
         "gpt-5.2": 0.01000,
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
@@ -255,10 +256,11 @@ class GPTManager:
         self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5.1-codex-mini")
         self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-4o-mini")
         self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5.1-codex-mini")
-        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.1-codex")
+        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2-codex")
+        self.strategic_model = os.getenv("GPT_STRATEGIC_MODEL", "gpt-5.3-codex")
         
         # Feature flags
-        self.enable_postmortem_5_2 = os.getenv("ENABLE_GPT_5_2_POSTMORTEM", "false").lower() == "true"
+        self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
         
         # Venice integration stats
         self.venice_enabled = bool(self.venice_api_key) and self.enable_dual_mentor
@@ -611,30 +613,13 @@ class GPTManager:
         
         # Special handling for postmortem
         if task_type == "postmortem":
-            if self.enable_postmortem_5_2:
-                return self.postmortem_model
-            else:
-                return self.primary_model  # Fall back to primary
+            return self.postmortem_model
         
-        # Role-based selection
-        if role:
-            model = self.MODEL_MAP.get(role, self.primary_model)
-            # Map to actual configured models
-            if model == "gpt-5.1-codex-mini":
-                return self.primary_model
-            elif model == "gpt-5.1-codex-mini":
-                return self.nano_model
-            elif model == "gpt-5.1-codex":
-                return self.postmortem_model
+        # Strategic: Orion big-brain planning (gpt-5.3-codex, very rare)
+        if task_type == "strategic":
+            return self.strategic_model
         
-        # Task-type based selection
-        if task_type:
-            model = self.MODEL_MAP.get(task_type, self.primary_model)
-            if model == "gpt-5.1-codex-mini":
-                return self.primary_model
-            elif model == "gpt-5.1-codex-mini":
-                return self.nano_model
-        
+        # Everything else uses primary (codex-mini)
         return self.primary_model
     
     def get_model_for_task(self, task_type: str) -> str:

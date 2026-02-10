@@ -976,6 +976,27 @@ class SmartOrchestrator:
                 self._phase_start_step[new_phase] = step
             
             # =========================================================================
+            # PHASE 6.9.3: CLOSEOUT COMPLETE → END EPISODE
+            # Once all cleanup commands executed, engagement is done.
+            # =========================================================================
+            if self.attack_context.current_phase.name == "CLOSEOUT" and not done:
+                if any(
+                    getattr(coach, 'closeout_complete', False)
+                    for coach in self.coaches.values()
+                ):
+                    done = True
+                    self.episode_termination_reason = TerminationReason.GOAL_REACHED
+                    logger.info(
+                        "[CLOSEOUT-COMPLETE] All 13 cleanup tasks done. "
+                        "Engagement complete — ending episode."
+                    )
+                    self.dashboard.add_event(
+                        "closeout_complete",
+                        "✅ All cleanup done. Episode complete!",
+                        agent="system"
+                    )
+
+            # =========================================================================
             # PHASE 0.1: CHECK STUCK_ABORT TERMINATION
             # =========================================================================
             total_deep_stuck = sum(self.deep_stuck_count.values())

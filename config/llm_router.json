@@ -2,15 +2,20 @@
   "fallback_chains": {
     "tactical": [
       "gpt-5.1-codex-mini",
-      "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ],
     "strategic": [
+      "gpt-5.3-codex",
       "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ],
     "advanced": [
-      "gpt-5.1-codex",
+      "gpt-5.2-codex",
+      "gpt-5.1-codex-mini",
+      "gpt-4o-mini"
+    ],
+    "postmortem": [
+      "gpt-5.2-codex",
       "gpt-5.1-codex-mini",
       "gpt-4o-mini"
     ]
@@ -21,7 +26,8 @@
   "token_budget": {
     "default": 500,
     "tactical": 300,
-    "strategic": 800,
-    "advanced": 2000
+    "strategic": 1500,
+    "advanced": 2000,
+    "postmortem": 3000
   }
 }

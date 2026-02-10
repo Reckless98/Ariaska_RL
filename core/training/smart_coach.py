@@ -2096,6 +2096,13 @@ class SmartCoach:
             mentor_reasoning=f"[CLOSEOUT PROTOCOL] Executing {chosen_name} ({len(self.CLOSEOUT_COMMAND_NAMES) - len(remaining) + 1}/{len(self.CLOSEOUT_COMMAND_NAMES)})",
         )
 
+    @property
+    def closeout_complete(self) -> bool:
+        """Returns True when all 13 closeout commands have been executed."""
+        if not hasattr(self, '_closeout_used_templates'):
+            return False
+        return len(self._closeout_used_templates) >= len(self.CLOSEOUT_COMMAND_NAMES)
+
     def _query_skill_library(
         self,
         step_ctx: "SmartStepContext",

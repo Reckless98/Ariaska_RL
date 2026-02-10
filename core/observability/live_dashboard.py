@@ -220,6 +220,10 @@ class LiveDashboard:
         # Action history for repeat detection
         self.action_history: Dict[str, deque] = {}
 
+        # Per-episode mentor tracking (Phase 6.9.3)
+        self.episode_mentor_calls_total: int = 0
+        self.episode_active_steps: int = 0
+
     # ─── Run metadata ────────────────────────────────────────────────────────
 
     def set_run_info(self, run_id: str, total_episodes: int):
@@ -269,19 +273,20 @@ class LiveDashboard:
         discovery_board: Optional[Dict[str, Any]] = None,
     ):
         """
-        Print ONE compact step display. Phase 6.9: Clean redesign.
-        
+        Print unified step display with Rich agent table. Phase 6.9.3.
+
         Layout:
-          ┄┄┄ Step 12 │ Ep 1/5 │ LIVE │ 🧹 CLOSEOUT │ R:+85.2 │ ▁▂▃▅▇ ┄┄┄
-          ⚔️ Red    [🤖 ppo]    nmap -sV 172.28.0.10          +12.5  70%
-                    → Starting Nmap 7.95...Found 11 open ports
-                    🟢 port:21,22,80 │ svc:ftp,ssh,http
-          👤 Shadow [📖 play]   clear_bash_history             +8.0  80%
-          💤 Scout(skip) │ Blue(skip)
-          ── 🔓 8 ports │ ⚙️ 12 svcs │ 🔑 1 cred │ 💀 4 shells ──────
+          ┄┄┄ Step 3 │ Ep 1/5 │ LIVE │ 🧹 CLOSEOUT │ R:+87.0 │ 📡 2 │ ▁█▁
+          ┃ Agent     ┃ Source     ┃ Command                  ┃ Output              ┃ Reward ┃ Discoveries    ┃
+          ┃ 👤Shadow  ┃ 🧹closeout ┃ sed -i "/attacker/d"... ┃ Connected to 172... ┃ +87.0  ┃ service:ssh    ┃
+          ┃ 💤Scout   ┃ skip       ┃ inactive in CLOSEOUT     ┃                     ┃        ┃                ┃
+          🔓 7 ports │ ⚙️ 7 svcs │ 💀 4 shells │ 💰 base:+12.0 +nov:+7.5
         """
         if not self.should_print(step):
             return
+
+        # Update episode step counter
+        self.episode_active_steps += 1
 
         phase_upper = phase.upper()
         phase_icon = PHASE_ICONS.get(phase_upper, "❓")
@@ -292,90 +297,112 @@ class LiveDashboard:
         )
         step_spark = sparkline(list(self.step_rewards), width=12)
 
-        # ── STEP HEADER (single line) ────────────────────────────────
-        done_tag = " [bold magenta]✅[/bold magenta]" if done else ""
+        # Mentor stats
+        mentor_str = f"📡 {self.episode_mentor_calls_total}" if self.episode_mentor_calls_total else ""
+        done_tag = " [bold green]✅ DONE[/bold green]" if done else ""
+
+        # ── STEP HEADER ──────────────────────────────────────────────
         console.print(
             f"\n[dim]{'┄' * 3}[/dim] "
             f"[bold cyan]Step {step + 1:2d}[/bold cyan] │ "
             f"[cyan]{ep_str}[/cyan] │ "
             f"[bold yellow]{mode_tag}[/bold yellow] │ "
             f"{phase_icon} [bold]{phase_upper}[/bold] │ "
-            f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}]{done_tag} │ "
-            f"[dim]{step_spark}[/dim]"
+            f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}] │ "
+            f"[dim]{mentor_str}[/dim] │ "
+            f"[dim]{step_spark}[/dim]{done_tag}"
         )
 
-        # ── PER-AGENT LINES (compact: one line per agent + optional output) ──
-        active_agents = [a for a in agent_infos if not a.skipped]
+        # ── AGENT TABLE ──────────────────────────────────────────────
+        table = Table(
+            box=box.SIMPLE_HEAVY, show_header=True,
+            header_style="bold", padding=(0, 1), expand=True,
+        )
+        table.add_column("Agent", style="bold", width=12)
+        table.add_column("Source", width=12)
+        table.add_column("Command", width=36, no_wrap=True)
+        table.add_column("Output", width=34, no_wrap=True)
+        table.add_column("Reward", width=8, justify="right")
+        table.add_column("Discoveries", width=18)
 
-        for a in active_agents:
+        # Active agents
+        active = [a for a in agent_infos if not a.skipped]
+        for a in active:
             icon, _role, style = AGENT_ICONS.get(
                 a.agent_name, ("🤖", "Agent", "dim")
             )
             src_key = a.source[:8] if a.source else "unknown"
             src_icon, src_style = SOURCE_STYLES.get(
-                src_key, SOURCE_STYLES.get(a.source.split("_")[0] if a.source else "unknown", ("❓", "dim"))
+                src_key, SOURCE_STYLES.get(
+                    a.source.split("_")[0] if a.source else "unknown",
+                    ("❓", "dim"),
+                )
             )
 
-            agent_short = a.agent_name.replace("Agent", "").ljust(7)
-            cmd_disp = (a.command or "(none)")[:60]
-            r_str = f"{a.reward:+.1f}" if a.reward != 0 else ""
-            r_color = "green" if a.reward > 0 else "red" if a.reward < 0 else "dim"
-            conf_str = f"{a.confidence:.0%}" if a.confidence else ""
-            mentor_tag = " 📡" if a.mentor_call else ""
+            agent_label = f"{icon} {a.agent_name.replace('Agent', '')}"
+            source_label = f"{src_icon}{a.source[:9]}"
+            if a.mentor_call:
+                source_label += " 📡"
 
-            # Main agent line
-            console.print(
-                f"  [{style}]{icon} {agent_short}[/{style}]"
-                f"[{src_style}][{src_icon} {a.source[:7].ljust(7)}][/{src_style}] "
-                f"[white]{cmd_disp}[/white]"
-                f"  [{r_color}]{r_str}[/{r_color}]"
-                f"  [dim]{conf_str}[/dim]{mentor_tag}"
-            )
+            cmd = (a.command or "(none)")[:34]
 
-            # Output snippet (1 line max, only if meaningful)
-            if a.command_output and self.config.show_output:
-                out_text = a.command_output.strip().replace("\n", " │ ")
-                out_text = out_text[:self.config.max_output_width]
-                if out_text:
-                    console.print(f"    [dim]→ {out_text}[/dim]")
+            # Output: flatten to single line, truncate
+            out = ""
+            if a.command_output:
+                out = a.command_output.strip().replace("\n", " │ ")[:32]
 
-            # Discoveries on same block (compact, green)
+            # Reward display
+            if a.reward > 0:
+                r_str = f"[green]{a.reward:+.1f}[/green]"
+            elif a.reward < 0:
+                r_str = f"[red]{a.reward:+.1f}[/red]"
+            else:
+                r_str = "[dim]-[/dim]"
+
+            # Discoveries
+            disc = ""
             if a.discoveries:
-                disc_parts = []
+                parts = []
                 for dtype, items in a.discoveries.items():
                     if items and isinstance(items, (list, set, tuple)):
-                        disc_parts.append(f"{dtype}:{','.join(str(i) for i in list(items)[:4])}")
+                        parts.append(
+                            f"{dtype}:{','.join(str(i) for i in list(items)[:3])}"
+                        )
                     elif items and isinstance(items, str):
-                        disc_parts.append(f"{dtype}:{items}")
-                if disc_parts:
-                    console.print(f"    [green]🟢 {' │ '.join(disc_parts)}[/green]")
+                        parts.append(f"{dtype}:{items}")
+                disc = "; ".join(parts)[:18] if parts else ""
 
-        # ── SKIPPED (very compact, one line) ─────────────────────────
-        if skipped_agents:
-            names = [f"{AGENT_ICONS.get(n, ('🤖','',''))[0]}{n.replace('Agent','')}" 
-                     for n in skipped_agents]
-            console.print(f"  [dim]💤 {' │ '.join(names)}[/dim]")
+            table.add_row(
+                f"[{style}]{agent_label}[/{style}]",
+                f"[{src_style}]{source_label}[/{src_style}]",
+                f"[white]{cmd}[/white]",
+                f"[dim]{out}[/dim]",
+                r_str,
+                f"[green]{disc}[/green]" if disc else "[dim]-[/dim]",
+            )
 
-        # ── DISCOVERY BOARD (single compact line) ────────────────────
+        # Skipped agents
+        for name, reason in skipped_agents.items():
+            icon = AGENT_ICONS.get(name, ("💤", "", "dim"))[0]
+            table.add_row(
+                f"[dim]{icon} {name.replace('Agent', '')}[/dim]",
+                "[dim]💤 skip[/dim]",
+                f"[dim]{reason}[/dim]",
+                "", "", "",
+            )
+
+        console.print(table)
+
+        # ── FOOTER: Discovery board + Reward breakdown ───────────────
+        footer = []
         if discovery_board and self.config.show_discoveries:
             db = discovery_board
-            parts = []
-            ports = db.get("ports", set())
-            if ports:
-                parts.append(f"🔓 {len(ports)} ports")
-            svcs = db.get("services", set())
-            if svcs:
-                parts.append(f"⚙️ {len(svcs)} svcs")
-            creds = db.get("credentials", set())
-            if creds:
-                parts.append(f"🔑 {len(creds)} creds")
-            shells = db.get("shells", set())
-            if shells:
-                parts.append(f"💀 {len(shells)} shells")
-            if parts:
-                console.print(f"  [dim]── {' │ '.join(parts)} ──[/dim]")
+            for key, icon_s in [("ports", "🔓"), ("services", "⚙️"),
+                                ("credentials", "🔑"), ("shells", "💀")]:
+                items = db.get(key, set())
+                if items:
+                    footer.append(f"{icon_s} {len(items)} {key[:5]}")
 
-        # ── REWARD BREAKDOWN (single line, only if interesting) ──────
         if reward_breakdown and self.config.show_reward_breakdown:
             rb = reward_breakdown
             rp = []
@@ -388,7 +415,10 @@ class LiveDashboard:
             if rb.get("phase_bonus", 0):
                 rp.append(f"[cyan]phase:{rb['phase_bonus']:+.1f}[/cyan]")
             if rp:
-                console.print(f"  [dim]💰 {' '.join(rp)}[/dim]")
+                footer.append(f"💰 {' '.join(rp)}")
+
+        if footer:
+            console.print(f"  [dim]{' │ '.join(footer)}[/dim]")
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
@@ -662,6 +692,8 @@ class LiveDashboard:
         self.episode_repeat_count = 0
         self.episode_discoveries.clear()
         self.phase_timeline.clear()
+        self.episode_mentor_calls_total = 0
+        self.episode_active_steps = 0
 
     def reset_episode(self):
         self.step_counter = 0
@@ -671,6 +703,8 @@ class LiveDashboard:
         self.mentor_history.clear()
         self.reward_history.clear()
         self._reset_episode_stats()
+        self.episode_mentor_calls_total = 0
+        self.episode_active_steps = 0
 
     def set_skill_library_size(self, size: int):
         self.skill_library_size = size
@@ -778,6 +812,7 @@ class LiveDashboard:
             s["decision_sources"][source] = s["decision_sources"].get(source, 0) + 1
             if result.get("mentor_call"):
                 s["episode_mentor_calls"] += 1
+                self.episode_mentor_calls_total += 1
 
             self.tokens_total += tokens
             self.tokens_by_agent[agent_name] = self.tokens_by_agent.get(agent_name, 0) + tokens

@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 20,
   "best_phase_reached": "EXFILTRATION",
-  "last_updated": 1770674400.3760378,
+  "last_updated": 1770702776.327238,
   "target_ip": "",
   "ports": {
     "512": {
@@ -90,8 +90,8 @@
       "service": "rmi",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 33
+      "last_seen_episode": 1,
+      "confirmed_count": 34
     },
     "25": {
       "port": 25,
@@ -170,8 +170,8 @@
       "service": "distcc",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 33
+      "last_seen_episode": 1,
+      "confirmed_count": 34
     },
     "445": {
       "port": 445,
@@ -186,8 +186,8 @@
       "service": "smtp",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 33
+      "last_seen_episode": 1,
+      "confirmed_count": 34
     },
     "5187": {
       "port": 5187,
@@ -258,8 +258,8 @@
       "service": "tomcat",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 33
+      "last_seen_episode": 1,
+      "confirmed_count": 34
     },
     "111": {
       "port": 111,
@@ -908,6 +908,14 @@
       "first_seen_episode": 8,
       "last_seen_episode": 8,
       "confirmed_count": 1
+    },
+    "5952": {
+      "port": 5952,
+      "service": "irc",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 1,
+      "confirmed_count": 1
     }
   },
   "credentials": [
@@ -1157,6 +1165,31 @@
       "episode": 9,
       "type": "user",
       "timestamp": 1770674400.375942
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770701333.6719713
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770701587.6214674
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770701840.8101513
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770702539.5366926
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770702776.3271754
     }
   ],
   "attack_chains": [

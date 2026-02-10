@@ -304,8 +304,8 @@ class TestLLMRouting(unittest.TestCase):
         self.assertEqual(model_map.get("shadow"), "gpt-5.1-codex-mini")
         self.assertEqual(model_map.get("blue"), "gpt-5.1-codex-mini")
         
-        # Postmortem should use 5.2
-        self.assertEqual(model_map.get("postmortem"), "gpt-5.1-codex")
+        # Postmortem should use 5.2-codex (deep reasoning)
+        self.assertEqual(model_map.get("postmortem"), "gpt-5.2-codex")
     
     def test_task_type_routing(self):
         """Test model selection by task type."""
@@ -313,9 +313,9 @@ class TestLLMRouting(unittest.TestCase):
         
         model_map = GPTManager.MODEL_MAP
         
-        # Tactical/strategic should use mini
+        # Tactical uses mini, strategic uses 5.3-codex (Orion big-brain)
         self.assertEqual(model_map.get("tactical"), "gpt-5.1-codex-mini")
-        self.assertEqual(model_map.get("strategic"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("strategic"), "gpt-5.3-codex")
         
         # Analysis/classification should use nano
         self.assertEqual(model_map.get("analysis"), "gpt-5.1-codex-mini")
