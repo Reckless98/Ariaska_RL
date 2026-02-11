@@ -57,7 +57,10 @@ SOURCE_STYLES = {
     "forced_novel": ("🆕", "bright_yellow"),
     "forced_no": ("🆕", "bright_yellow"),
     "closeout_gate": ("🧹", "green"),
+    "closeout_": ("🧹", "green"),
+    "closeout": ("🧹", "green"),
     "difficulty_gate": ("🛡️", "blue"),
+    "difficul": ("🛡️", "blue"),
     "fallback": ("⚡", "dim"),
     "unknown": ("❓", "dim"),
 }
@@ -320,9 +323,10 @@ class LiveDashboard:
         )
         table.add_column("Agent", style="bold", width=12)
         table.add_column("Source", width=12)
-        table.add_column("Command", width=36, no_wrap=True)
-        table.add_column("Output", width=34, no_wrap=True)
+        table.add_column("Command", width=34, no_wrap=True)
+        table.add_column("Output", width=30, no_wrap=True)
         table.add_column("Reward", width=8, justify="right")
+        table.add_column("Conf", width=5, justify="center")
         table.add_column("Discoveries", width=18)
 
         # Active agents
@@ -331,25 +335,29 @@ class LiveDashboard:
             icon, _role, style = AGENT_ICONS.get(
                 a.agent_name, ("🤖", "Agent", "dim")
             )
-            src_key = a.source[:8] if a.source else "unknown"
+            # Better source key matching — try full name, truncated, and prefix
+            src_raw = a.source or "unknown"
+            src_key = src_raw[:8]
             src_icon, src_style = SOURCE_STYLES.get(
-                src_key, SOURCE_STYLES.get(
-                    a.source.split("_")[0] if a.source else "unknown",
-                    ("❓", "dim"),
+                src_raw, SOURCE_STYLES.get(
+                    src_key, SOURCE_STYLES.get(
+                        src_raw.split("_")[0],
+                        ("❓", "dim"),
+                    )
                 )
             )
 
             agent_label = f"{icon} {a.agent_name.replace('Agent', '')}"
-            source_label = f"{src_icon}{a.source[:9]}"
+            source_label = f"{src_icon}{src_raw[:9]}"
             if a.mentor_call:
                 source_label += " 📡"
 
-            cmd = (a.command or "(none)")[:34]
+            cmd = (a.command or "(none)")[:32]
 
             # Output: flatten to single line, truncate
             out = ""
             if a.command_output:
-                out = a.command_output.strip().replace("\n", " │ ")[:32]
+                out = a.command_output.strip().replace("\n", " │ ")[:28]
 
             # Reward display
             if a.reward > 0:
@@ -358,6 +366,15 @@ class LiveDashboard:
                 r_str = f"[red]{a.reward:+.1f}[/red]"
             else:
                 r_str = "[dim]-[/dim]"
+
+            # Confidence display
+            conf = a.confidence
+            if conf >= 0.7:
+                conf_str = f"[green]{conf:.0%}[/green]"
+            elif conf >= 0.4:
+                conf_str = f"[yellow]{conf:.0%}[/yellow]"
+            else:
+                conf_str = f"[red]{conf:.0%}[/red]"
 
             # Discoveries
             disc = ""
@@ -378,6 +395,7 @@ class LiveDashboard:
                 f"[white]{cmd}[/white]",
                 f"[dim]{out}[/dim]",
                 r_str,
+                conf_str,
                 f"[green]{disc}[/green]" if disc else "[dim]-[/dim]",
             )
 
@@ -388,7 +406,7 @@ class LiveDashboard:
                 f"[dim]{icon} {name.replace('Agent', '')}[/dim]",
                 "[dim]💤 skip[/dim]",
                 f"[dim]{reason}[/dim]",
-                "", "", "",
+                "", "", "", "",
             )
 
         console.print(table)
@@ -451,18 +469,18 @@ class LiveDashboard:
         if not self.agent_stats:
             return
         table = Table(
-            title="[bold]Agent Snapshot[/bold]",
+            title="[bold]Agent Performance[/bold]",
             show_header=True, header_style="bold magenta",
-            border_style="dim", box=box.SIMPLE, padding=(0, 1),
+            border_style="dim", box=box.ROUNDED, padding=(0, 1),
         )
         table.add_column("Agent", style="bold", width=14)
-        table.add_column("Phase", width=12)
+        table.add_column("Phase", width=14)
         table.add_column("Cmds", width=5, justify="right")
         table.add_column("Uniq", width=5, justify="right")
-        table.add_column("Ep R", width=9, justify="right")
+        table.add_column("Ep Reward", width=10, justify="right")
+        table.add_column("Conf", width=6, justify="center")
         table.add_column("Mentor", width=6, justify="center")
-        table.add_column("Tok", width=7, justify="right")
-        table.add_column("Top Src", width=10)
+        table.add_column("Top Source", width=12)
 
         for agent_name, stats in sorted(self.agent_stats.items()):
             icon = AGENT_ICONS.get(agent_name, ("🤖", "", ""))[0]
@@ -474,15 +492,20 @@ class LiveDashboard:
             mc = stats.get("episode_mentor_calls", 0)
             total_cmds = stats.get("total_commands", 0)
             unique_cmds = len(stats.get("unique_commands", set()))
+            conf = stats.get("confidence", 0.5)
+            conf_color = "green" if conf >= 0.7 else "yellow" if conf >= 0.4 else "red"
             sources = stats.get("decision_sources", {})
             top_src = max(sources, key=sources.get) if sources else "-"
+            src_icon = SOURCE_STYLES.get(top_src[:8], SOURCE_STYLES.get(top_src.split("_")[0] if top_src != "-" else "unknown", ("", "")))[0]
+            phase_name = str(stats.get("phase", "?"))
+            phase_icon = PHASE_ICONS.get(phase_name.upper(), "")
             table.add_row(
                 f"{icon} {agent_name.replace('Agent', '')}",
-                str(stats.get("phase", "?"))[:12],
+                f"{phase_icon} {phase_name[:12]}",
                 str(total_cmds), str(unique_cmds), ep_text,
-                f"📡{mc}" if mc > 0 else "-",
-                str(stats.get("episode_tokens", 0)),
-                top_src[:10],
+                f"[{conf_color}]{conf:.0%}[/{conf_color}]",
+                f"📡{mc}" if mc > 0 else "[dim]-[/dim]",
+                f"{src_icon}{top_src[:10]}",
             )
         console.print(table)
 
@@ -506,7 +529,7 @@ class LiveDashboard:
         console.print()
         console.rule(f"[bold green]Episode {episode} Complete", style="green")
 
-        # ── METRICS TABLE ────────────────────────────────────────────
+        # ── METRICS TABLE with deltas ────────────────────────────────
         table = Table(
             title=f"[bold]Episode {episode} Summary[/bold]",
             show_header=True, header_style="bold green",
@@ -514,14 +537,29 @@ class LiveDashboard:
         )
         table.add_column("Metric", style="bold cyan", width=22)
         table.add_column("Value", justify="right", width=14)
-        table.add_column("Trend", width=24)
+        table.add_column("Δ / Trend", width=28)
 
         avg_step = (
             sum(list(self.step_rewards)[-10:]) /
             max(len(list(self.step_rewards)[-10:]), 1)
         )
+
+        # Episode reward with delta from previous
+        prev_reward = self.episode_rewards[-2] if len(self.episode_rewards) >= 2 else None
+        delta_str = ""
+        if prev_reward is not None:
+            delta = total_reward - prev_reward
+            delta_pct = (delta / max(abs(prev_reward), 1)) * 100
+            if delta > 0:
+                delta_str = f"[green]▲ +{delta:.0f} ({delta_pct:+.0f}%)[/green]"
+            elif delta < 0:
+                delta_str = f"[red]▼ {delta:.0f} ({delta_pct:+.0f}%)[/red]"
+            else:
+                delta_str = "[dim]→ same[/dim]"
+        trend_spark = self._trend_display(self.episode_rewards)
+
         table.add_row("Episode Reward", f"{total_reward:+.1f}",
-                       self._trend_display(self.episode_rewards))
+                       f"{delta_str}  {trend_spark}")
         table.add_row("Avg Step Reward", f"{avg_step:+.2f}",
                        sparkline(list(self.step_rewards)))
         table.add_row("Steps", str(total_steps), "")
@@ -529,16 +567,49 @@ class LiveDashboard:
         phase_icon = PHASE_ICONS.get(highest_phase, "")
         table.add_row("Highest Phase", f"{phase_icon} {highest_phase}", "")
 
+        # Mentor rate with trend
+        if self.episode_active_steps > 0:
+            mentor_rate = mentor_calls / self.episode_active_steps
+        else:
+            mentor_rate = 0.0
+        self.mentor_history.append(mentor_rate)
         avg_mentor = (
             sum(self.mentor_history) / max(len(self.mentor_history), 1)
         )
-        table.add_row("Mentor Calls", str(mentor_calls), f"rate: {avg_mentor:.0%}")
+        mentor_delta = ""
+        if len(self.mentor_history) >= 2:
+            prev_mr = self.mentor_history[-2]
+            if mentor_rate > prev_mr:
+                mentor_delta = f"[yellow]▲ {(mentor_rate - prev_mr):.0%}[/yellow]"
+            elif mentor_rate < prev_mr:
+                mentor_delta = f"[dim]▼ {(mentor_rate - prev_mr):.0%}[/dim]"
+        table.add_row("Mentor Calls", str(mentor_calls),
+                       f"rate: {mentor_rate:.0%}  avg: {avg_mentor:.0%}  {mentor_delta}")
 
         total_disc = sum(len(v) for v in self.episode_discoveries.values())
         table.add_row("Discoveries", str(total_disc), "")
-        table.add_row("Unique Cmds", str(len(self.episode_unique_commands)),
-                       f"repeats: {self.episode_repeat_count}")
+
+        # Command diversity with quality signal
+        unique_count = len(self.episode_unique_commands)
+        diversity = unique_count / max(total_steps, 1)
+        diversity_color = "green" if diversity > 0.6 else "yellow" if diversity > 0.3 else "red"
+        table.add_row("Unique Cmds", str(unique_count),
+                       f"[{diversity_color}]diversity: {diversity:.0%}[/{diversity_color}]  repeats: {self.episode_repeat_count}")
         table.add_row("Tokens", str(self.tokens_total), "")
+
+        # Decision source breakdown for this episode
+        all_sources: Dict[str, int] = {}
+        for stats in self.agent_stats.values():
+            for src, cnt in stats.get("decision_sources", {}).items():
+                all_sources[src] = all_sources.get(src, 0) + cnt
+        total_decisions = sum(all_sources.values()) or 1
+        src_parts = []
+        for src, cnt in sorted(all_sources.items(), key=lambda x: -x[1])[:4]:
+            pct = cnt / total_decisions * 100
+            src_icon = SOURCE_STYLES.get(src[:8], ("", "dim"))[0]
+            src_parts.append(f"{src_icon}{src}:{pct:.0f}%")
+        if src_parts:
+            table.add_row("Decision Mix", " ".join(src_parts), "")
 
         if ppo_metrics:
             if ppo_metrics.get("updates"):

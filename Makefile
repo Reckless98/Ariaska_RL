@@ -1,19 +1,26 @@
-# ARIASKA_RL Makefile — Phase 5
+# ARIASKA_RL Makefile — Phase 7.3
 #
 # Unified entry point: ariaska_cli.py smart-train
 #
 # Usage:
-#   make venv          - Create/upgrade .venv, install dependencies
-#   make test          - Run pytest
-#   make train         - Training (100 eps, 120 steps, simulated)
-#   make train-quick   - Quick training (10 eps, 120 steps)
-#   make train-msf     - Live Metasploitable 2 training
-#   make smoke         - Quick smoke test (3 eps, 10 steps)
-#   make last          - View last training run
-#   make status        - System diagnostics
-#   make clean         - Clean temporary files
+#   make venv            - Create/upgrade .venv, install dependencies
+#   make test            - Run pytest
+#   make train           - Default training (MS3 medium, 100 eps)
+#   make train-quick     - Quick training (MS3 medium, 10 eps)
+#   make train-ms3       - MS3 medium 10 episodes
+#   make train-ms3-medium- MS3 medium 100 episodes
+#   make train-ms3-hard  - MS3 hard 10 episodes
+#   make train-ms2       - MS2 10 episodes (live)
+#   make train-ms2-hard  - MS2 hard 100 episodes (live)
+#   make smoke           - Quick smoke test (3 eps)
+#   make overnight       - Overnight progressive training (300 eps)
+#   make last            - View last training run
+#   make status          - System diagnostics
+#   make clean           - Clean temporary files
 
-.PHONY: venv test train train-quick train-msf smoke last status clean help
+.PHONY: venv test train train-quick train-ms3 train-ms3-medium train-ms3-hard \
+        train-ms2 train-ms2-hard train-msf smoke ms2-setup ms2-status ms2-health \
+        ms2-stop overnight overnight-quick last status clean help traces
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -21,17 +28,29 @@ PYTEST := .venv/bin/pytest
 
 # Default target
 help:
-	@echo "ARIASKA_RL v5.0 — Metasploitable 2 Ready"
+	@echo "ARIASKA_RL v7.3 — Multi-Agent Cybersec RL"
 	@echo ""
-	@echo "  make venv          - Create/upgrade .venv, install deps"
-	@echo "  make test          - Run pytest"
-	@echo "  make train         - Full training (100 eps, 120 steps)"
-	@echo "  make train-quick   - Quick training (10 eps, 120 steps)"
-	@echo "  make train-msf     - Live Metasploitable 2 training"
-	@echo "  make smoke         - Smoke test (3 eps, 10 steps)"
-	@echo "  make last          - View last training run traces"
-	@echo "  make status        - System diagnostics"
-	@echo "  make clean         - Clean temporary files"
+	@echo "  Training (MS3 LIVE — default):"
+	@echo "    make train           - MS3 LIVE medium, 100 eps (default)"
+	@echo "    make train-quick     - MS3 LIVE medium, 10 eps (quick test)"
+	@echo "    make train-ms3       - MS3 LIVE medium, 10 eps"
+	@echo "    make train-ms3-medium- MS3 LIVE medium, 100 eps"
+	@echo "    make train-ms3-hard  - MS3 LIVE hard, 10 eps"
+	@echo ""
+	@echo "  Training (MS2):"
+	@echo "    make train-ms2       - MS2 live, 10 eps"
+	@echo "    make train-ms2-hard  - MS2 live, 100 eps"
+	@echo "    make train-msf       - MS2 live, 20 eps"
+	@echo ""
+	@echo "  Utilities:"
+	@echo "    make smoke           - 3 eps, fast validation"
+	@echo "    make overnight       - Progressive 300 eps"
+	@echo "    make overnight-quick - Quick overnight 30 eps"
+	@echo "    make test            - Run pytest suite"
+	@echo "    make venv            - Setup virtual environment"
+	@echo "    make status          - System diagnostics"
+	@echo "    make last            - View last training run"
+	@echo "    make clean           - Clean temp files"
 
 # Create/upgrade virtual environment and install dependencies
 venv:
@@ -46,15 +65,41 @@ venv:
 test:
 	$(PYTEST) -q
 
-# Full MS2 live training (100 episodes, 40 steps)
+# ── MS3 LIVE Training (default) ─────────────────────────────────────────────
+# Default: MS3 LIVE, 100 episodes (ms3_live difficulty)
 train:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms2 --verbosity verbose
+	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms3 --difficulty ms3_live --verbosity verbose
 
-# Quick MS2 live training (10 episodes)
+# Quick: MS3 LIVE, 10 episodes
 train-quick:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms3 --difficulty ms3_live --verbosity verbose
+
+# MS3 LIVE, 10 episodes (alias)
+train-ms3:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms3 --difficulty ms3_live --verbosity verbose
+
+# MS3 LIVE medium (easier), 100 episodes
+train-ms3-medium:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms3 --difficulty ms3_medium --verbosity verbose
+
+# MS3 LIVE hard (blocks creds too), 10 episodes
+train-ms3-hard:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms3 --difficulty ms3_hard --verbosity verbose
+
+# MS3 LIVE, 10 episodes with custom seed (for iterative runs)
+train-ms3-iter:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed $(SEED) --env ms3 --difficulty ms3_live --verbosity verbose
+
+# ── MS2 Training ─────────────────────────────────────────────────────────────
+# MS2 live, 10 episodes
+train-ms2:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms2 --verbosity verbose
 
-# Live Metasploitable 2 training (longer)
+# MS2 live, 100 episodes (longer runs)
+train-ms2-hard:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms2 --difficulty hard --verbosity verbose
+
+# Live Metasploitable 2 training (legacy)
 train-msf:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 40 --env ms2 --verbosity verbose
 
@@ -71,17 +116,9 @@ ms2-health:
 ms2-stop:
 	@bash scripts/setup_ms2.sh stop
 
-# Quick smoke test (MS2 live)
+# Quick smoke test (MS3 LIVE, 3 eps)
 smoke:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 20 --seed 1337 --env ms2 --verbosity verbose
-
-# MS3 training: medium difficulty (10 episodes)
-train-ms3:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env sim --difficulty ms3_medium --verbosity verbose
-
-# MS3 training: hard difficulty (10 episodes)
-train-ms3-hard:
-	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env sim --difficulty ms3_hard --verbosity verbose
+	$(PYTHON) ariaska_cli.py smart-train --episodes 3 --steps 20 --seed 1337 --env ms3 --difficulty ms3_live --verbosity verbose
 
 # Overnight training: progressive difficulty (300 episodes)
 overnight:

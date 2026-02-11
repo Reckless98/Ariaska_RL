@@ -168,12 +168,43 @@ MS3_HARD = DifficultyPreset(
     ),
 )
 
+MS3_LIVE = DifficultyPreset(
+    name="ms3_live",
+    description=(
+        "MS3 Live: Balanced for real Docker targets. Blocks only backdoor instant-root "
+        "(UnrealIRCd, ingreslock, r-services). Allows credential attacks, SSH login, FTP, "
+        "brute-force. Forces service exploitation but permits credential chains."
+    ),
+    blocked_commands=frozenset({
+        # Instant-root backdoors only
+        "unrealircd_exploit", "unrealircd_backdoor",
+        "telnet_1524", "nc_1524",
+        "rsh_root", "rlogin_root", "rexec_root",
+    }),
+    blocked_ports=frozenset({6667, 1524, 512, 513, 514}),
+    blocked_services=frozenset({"unrealircd", "ingreslock", "rexec", "rlogin", "rsh"}),
+    phase_threshold_multiplier=1.2,
+    mentor_hint=(
+        "DIFFICULTY: MS3 LIVE — Real Metasploitable 3 Docker (172.28.0.11).\n"
+        "ONLY these ports are OPEN: 21(ProFTPD), 22(SSH), 111(rpcbind), 139/445(Samba), 3306(MySQL).\n"
+        "Ports 80, 8080, 8484, 6667, 9200 are CLOSED — do NOT attack them.\n"
+        "FASTEST PATH TO ROOT:\n"
+        "  1) SSH (22): sshpass -p msfadmin ssh msfadmin@TARGET → sudo su → root\n"
+        "  2) ProFTPD mod_copy (21): SITE CPFR/CPTO for unauthenticated file copy\n"
+        "  3) MySQL (3306): root:sploitme → UDF → command exec\n"
+        "  4) Samba (445): Enumerate shares and users → credential reuse\n"
+        "CRITICAL: vagrant:vagrant does NOT work. Use msfadmin:msfadmin for SSH.\n"
+        "CRITICAL: No web server on port 80. Do NOT use gobuster, nikto, ffuf, wpscan."
+    ),
+)
+
 DIFFICULTY_PRESETS: Dict[str, DifficultyPreset] = {
     "normal": NORMAL,
     "medium": MEDIUM,
     "hard": HARD,
     "ms3_medium": MS3_MEDIUM,
     "ms3_hard": MS3_HARD,
+    "ms3_live": MS3_LIVE,
 }
 
 

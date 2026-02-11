@@ -141,7 +141,7 @@ run_phase() {
         --episodes "$EPISODES" \
         --steps "$STEPS" \
         --seed "$SEED" \
-        --env sim \
+        --env ms3 \
         --difficulty "$DIFFICULTY" \
         --verbosity standard \
         --checkpoint-every 10 \

@@ -286,14 +286,19 @@ def run_training(
         episode_data.append(ep_info)
 
         # Phase 6.2: Auto-checkpoint every 5 episodes
+        # NOTE: Guardrail checkpoint (below) handles per-agent PPO saves.
+        # The auto-save here only fires if get_ppo_state_dicts() exists and
+        # returns non-empty data; otherwise it's skipped to avoid creating
+        # stale files that collide with the directory-based final save.
         if ckpt_mgr.should_auto_save(ep):
             try:
                 state_dict = orch.get_ppo_state_dicts() if hasattr(orch, 'get_ppo_state_dicts') else {}
-                ckpt_mgr.auto_save(state_dict, ep, metadata={
-                    "episode": ep,
-                    "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
-                    "highest_phase": highest,
-                })
+                if state_dict:  # Only save if we got real state data
+                    ckpt_mgr.auto_save(state_dict, ep, metadata={
+                        "episode": ep,
+                        "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
+                        "highest_phase": highest,
+                    })
             except Exception as exc:
                 console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
 
@@ -354,18 +359,26 @@ def run_training(
     summary_table = Table(title="📊 ARIASKA Training Summary", box=box.ROUNDED)
     summary_table.add_column("Metric", style="cyan", width=24)
     summary_table.add_column("Value", style="bold white", width=30)
-    summary_table.add_row("Episodes", str(episodes))
-    summary_table.add_row("Steps/Episode", str(max_steps))
-    summary_table.add_row("Duration", f"{elapsed:.1f}s ({elapsed/episodes:.2f}s/ep)")
-    summary_table.add_row("Avg Reward", f"[bold green]{avg_reward:+.1f}[/bold green]")
-    summary_table.add_row("Last-10 Avg", f"{last10_avg:+.1f}")
-    summary_table.add_row("Max Reward", f"[green]{max_reward:+.1f}[/green]")
-    summary_table.add_row("Min Reward", f"{min_reward:+.1f}")
-    summary_table.add_row("─" * 24, "─" * 24)
-    summary_table.add_row("📤 EXFILTRATION %", f"[bold {'green' if exfil_pct >= 80 else 'yellow'}]{exfil_pct:.0f}%[/bold {'green' if exfil_pct >= 80 else 'yellow'}] ({exfil_count}/{len(all_phases)} episodes)")
-    summary_table.add_row("🧹 CLOSEOUT %", f"[bold {'green' if closeout_pct >= 30 else 'yellow'}]{closeout_pct:.0f}%[/bold {'green' if closeout_pct >= 30 else 'yellow'}] ({phase_counts.get('CLOSEOUT', 0)}/{len(all_phases)} episodes)")
-    summary_table.add_row("─" * 24, "─" * 24)
-    summary_table.add_row("Phase Distribution", phase_dist_str)
+    summary_table.add_column("Quality", style="dim", width=16)
+    summary_table.add_row("Episodes", str(episodes), "")
+    summary_table.add_row("Steps/Episode", str(max_steps), "")
+    summary_table.add_row("Duration", f"{elapsed:.1f}s ({elapsed/episodes:.2f}s/ep)", "")
+    summary_table.add_row("Avg Reward", f"[bold green]{avg_reward:+.1f}[/bold green]",
+                          f"{'🔥 excellent' if avg_reward > 1200 else '✅ good' if avg_reward > 800 else '⚠️ moderate'}")
+    summary_table.add_row("Last-10 Avg", f"{last10_avg:+.1f}",
+                          f"{'📈' if last10_avg > avg_reward else '📉'} vs overall")
+    summary_table.add_row("Max Reward", f"[green]{max_reward:+.1f}[/green]", "")
+    summary_table.add_row("Min Reward", f"{min_reward:+.1f}",
+                          f"spread: {max_reward - min_reward:.0f}")
+    summary_table.add_row("Reward StdDev", f"±{(sum((r - avg_reward)**2 for r in all_rewards) / max(len(all_rewards), 1))**0.5:.1f}",
+                          f"{'🎯 consistent' if (sum((r - avg_reward)**2 for r in all_rewards) / max(len(all_rewards), 1))**0.5 < 200 else '📊 variable'}")
+    summary_table.add_row("─" * 24, "─" * 24, "─" * 16)
+    summary_table.add_row("📤 EXFILTRATION %", f"[bold {'green' if exfil_pct >= 80 else 'yellow'}]{exfil_pct:.0f}%[/bold {'green' if exfil_pct >= 80 else 'yellow'}] ({exfil_count}/{len(all_phases)} episodes)",
+                          f"{'🏆 domination' if exfil_pct == 100 else '✅ strong' if exfil_pct >= 80 else '⚠️ needs work'}")
+    summary_table.add_row("🧹 CLOSEOUT %", f"[bold {'green' if closeout_pct >= 30 else 'yellow'}]{closeout_pct:.0f}%[/bold {'green' if closeout_pct >= 30 else 'yellow'}] ({phase_counts.get('CLOSEOUT', 0)}/{len(all_phases)} episodes)",
+                          f"{'🏆 clean' if closeout_pct == 100 else ''}")
+    summary_table.add_row("─" * 24, "─" * 24, "─" * 16)
+    summary_table.add_row("Phase Distribution", phase_dist_str, "")
     console.print(summary_table)
 
     # Decision source summary
@@ -519,7 +532,7 @@ def main():
     train_p.add_argument("--steps", "-s", type=int, default=40, help="Max steps per episode (default: 40)")
     train_p.add_argument("--seed", type=int, default=42, help="Random seed")
     train_p.add_argument("--target", type=str, default=None, help="Target IP")
-    train_p.add_argument("--env", type=str, default="msf",
+    train_p.add_argument("--env", type=str, default="ms3",
                          choices=["sim", "msf", "msf2", "ms2", "msf3", "ms3", "htb"],
                          help="Environment preset (default: msf = live MS3. Use ms2 for Metasploitable 2)")
     train_p.add_argument("--verbosity", "-v", type=str, default="verbose",
@@ -545,9 +558,9 @@ def main():
                          help="Resume from checkpoint path")
     
     # Phase 6.6: Difficulty presets & overnight guardrails
-    train_p.add_argument("--difficulty", "-d", type=str, default="normal",
-                         choices=["normal", "medium", "hard", "ms3_medium", "ms3_hard"],
-                         help="Difficulty preset: normal=all services, medium=no instant-root, hard=multi-step only, ms3_medium/ms3_hard=MS3-specific (default: normal)")
+    train_p.add_argument("--difficulty", "-d", type=str, default="ms3_live",
+                         choices=["normal","medium","hard","ms3_medium","ms3_hard","ms3_live"],
+                         help="Difficulty preset: normal=all services, medium=no instant-root, hard=multi-step only, ms3_medium/ms3_hard/ms3_live=MS3-specific (default: ms3_live)")
     train_p.add_argument("--max-tokens-run", type=int, default=None,
                          help="Total token budget for the entire run (default: unlimited)")
     train_p.add_argument("--checkpoint-every", type=int, default=10,
@@ -611,7 +624,7 @@ def main():
                     ENV_PRESETS["custom"] = {"target_ip": env_key, "mode": "live", "platform": "unknown", "difficulty": "medium"}
                     env_key = "custom"
                 else:
-                    env_key = "msf"  # Default to MS2 live
+                    env_key = "ms3"  # Default to MS3 live
 
         preset = ENV_PRESETS.get(env_key, ENV_PRESETS["msf"])
         target_ip = args.target or preset["target_ip"]

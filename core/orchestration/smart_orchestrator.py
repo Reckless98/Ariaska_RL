@@ -889,7 +889,7 @@ class SmartOrchestrator:
                 agent_disc = {}
                 if cmd_output:
                     try:
-                        parsed = self._parse_output_for_discoveries(cmd_output)
+                        parsed = self._parse_output_for_discoveries(cmd_output, command=result.decision.command or "")
                         if parsed:
                             agent_disc = parsed  # dict of {type: [items]}
                     except Exception:
@@ -1303,6 +1303,12 @@ class SmartOrchestrator:
             directory: Directory to save checkpoints into.
         """
         import os
+        # Phase 7.3: Handle case where path exists as a regular file
+        # (e.g. from CheckpointManager auto-save creating a .pt FILE at the
+        #  same path this method needs as a DIRECTORY for per-agent saves)
+        if os.path.isfile(directory):
+            os.remove(directory)
+            logger.info(f"Removed stale file at checkpoint path: {directory}")
         os.makedirs(directory, exist_ok=True)
         saved = 0
         for coach_name, coach in self.coaches.items():
@@ -1582,7 +1588,7 @@ class SmartOrchestrator:
             output_to_parse = result.decision.command_output or ""
             
             # Parse discoveries from this agent's output
-            agent_discoveries = self._parse_output_for_discoveries(output_to_parse)
+            agent_discoveries = self._parse_output_for_discoveries(output_to_parse, command=result.decision.command or "")
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 6.5: COMMAND-BASED SHELL DETECTION
@@ -1885,7 +1891,7 @@ class SmartOrchestrator:
                     agent_name=result.agent_name,
                     command=result.decision.command,
                     command_family=extract_command_family(result.decision.command),
-                    discoveries=self._parse_output_for_discoveries(result.decision.command_output or ""),
+                    discoveries=self._parse_output_for_discoveries(result.decision.command_output or "", command=result.decision.command or ""),
                     is_live_mode=self._is_live_mode,
                     target_ip=self.config.default_target,
                 )
@@ -1963,11 +1969,13 @@ class SmartOrchestrator:
             if "last_command" in state:
                 ctx.command_history.append(state["last_command"])
     
-    def _parse_output_for_discoveries(self, output: str) -> Dict[str, Any]:
+    def _parse_output_for_discoveries(self, output: str, command: str = "") -> Dict[str, Any]:
         """Parse command output for new discoveries - rewards good simulated actions.
 
         Phase 5: Expanded with subdomain, dns_record, web_parameter,
         api_endpoint, version_info discovery types for deeper reward signal.
+        Phase 7.3: Added command-aware filtering to prevent false discoveries
+        from non-scanner commands (searchsploit, msfvenom, msfconsole search).
         """
         discoveries = {}
         
@@ -1982,6 +1990,14 @@ class SmartOrchestrator:
             return discoveries
         
         output_lower = output.lower()
+        cmd_lower = command.lower() if command else ""
+        
+        # Phase 7.3: Commands that produce text with numbers but NOT actual port scans.
+        # Their output contains exploit paths, module names, etc. that regex
+        # incorrectly picks up as open ports.
+        _NO_PORT_PARSE = ("searchsploit", "msfconsole", "msfvenom", "exploit-db",
+                          "find /", "cat /etc", "uname ", "hashdump")
+        skip_port_parse = any(tag in cmd_lower for tag in _NO_PORT_PARSE)
         
         import re
         
@@ -1995,10 +2011,12 @@ class SmartOrchestrator:
             r"TCP open \S+:(\d+)",         # unicornscan format
         ]
         ports = set()
-        for pattern in port_patterns:
-            ports.update(re.findall(pattern, output_lower))
+        if not skip_port_parse:
+            for pattern in port_patterns:
+                ports.update(re.findall(pattern, output_lower))
         if ports:
-            discoveries["open_port"] = [int(p) for p in ports if p.isdigit()]
+            # Phase 7.3: Filter to valid service port range only
+            discoveries["open_port"] = [int(p) for p in ports if p.isdigit() and 1 <= int(p) <= 65535]
         
         # Service discovery (enhanced with version info)
         # NOTE: Word boundaries (\b) prevent false positives from group names
@@ -3516,10 +3534,10 @@ class SmartOrchestrator:
                     (p[-1] for p in phase_progressions),
                     key=lambda x: ["RECON", "ENUMERATION", "EXPLOITATION", 
                                    "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
-                                   "POST_EXPLOITATION", "EXFILTRATION"].index(x)
+                                   "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"].index(x)
                     if x in ["RECON", "ENUMERATION", "EXPLOITATION", 
                              "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
-                             "POST_EXPLOITATION", "EXFILTRATION"] else 0,
+                             "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"] else 0,
                     default="RECON"
                 ),
             },

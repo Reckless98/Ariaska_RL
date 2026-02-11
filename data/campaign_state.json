@@ -1,937 +1,145 @@
 {
   "version": "1.0",
-  "total_episodes": 20,
-  "best_phase_reached": "EXFILTRATION",
-  "last_updated": 1770716087.9450018,
+  "total_episodes": 10,
+  "best_phase_reached": "RECON",
+  "last_updated": 1770783906.4930549,
   "target_ip": "",
   "ports": {
-    "512": {
-      "port": 512,
-      "service": "ssh",
+    "0": {
+      "port": 0,
+      "service": "dns",
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 32
+      "confirmed_count": 10
     },
-    "513": {
-      "port": 513,
-      "service": "tomcat",
+    "4": {
+      "port": 4,
+      "service": "irc",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 33
+      "last_seen_episode": 0,
+      "confirmed_count": 1
     },
-    "514": {
-      "port": 514,
-      "service": "http",
+    "999": {
+      "port": 999,
+      "service": "smb",
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
+      "confirmed_count": 10
+    },
+    "3306": {
+      "port": 3306,
+      "service": "mssql",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 8,
       "confirmed_count": 35
     },
     "139": {
       "port": 139,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 42
-    },
-    "5900": {
-      "port": 5900,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 29
-    },
-    "6667": {
-      "port": 6667,
-      "service": "distcc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 50
-    },
-    "43147": {
-      "port": 43147,
-      "service": "https",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 19,
-      "confirmed_count": 20
-    },
-    "21": {
-      "port": 21,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 53
-    },
-    "22": {
-      "port": 22,
-      "service": "telnet",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 44
-    },
-    "23": {
-      "port": 23,
-      "service": "dns",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 6,
-      "confirmed_count": 31
-    },
-    "65432": {
-      "port": 65432,
-      "service": "rmi",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 0,
-      "confirmed_count": 41
-    },
-    "25": {
-      "port": 25,
       "service": "mysql",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 25
-    },
-    "28": {
-      "port": 28,
-      "service": "irc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 5,
-      "confirmed_count": 4
-    },
-    "30": {
-      "port": 30,
-      "service": "vnc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 12,
-      "confirmed_count": 2
-    },
-    "6697": {
-      "port": 6697,
-      "service": "smb",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 26
-    },
-    "44": {
-      "port": 44,
-      "service": "ssh",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 3
-    },
-    "45": {
-      "port": 45,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 19,
-      "confirmed_count": 4
-    },
-    "3632": {
-      "port": 3632,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 24
-    },
-    "5432": {
-      "port": 5432,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 27
-    },
-    "6200": {
-      "port": 6200,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 28
-    },
-    "443": {
-      "port": 443,
-      "service": "distcc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 2,
-      "confirmed_count": 44
-    },
-    "445": {
-      "port": 445,
-      "service": "https",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 44
-    },
-    "6463": {
-      "port": 6463,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 42
-    },
-    "5187": {
-      "port": 5187,
-      "service": "telnet",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 31
-    },
-    "2121": {
-      "port": 2121,
-      "service": "dns",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 28
-    },
-    "8009": {
-      "port": 8009,
-      "service": "rmi",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 2,
-      "confirmed_count": 26
-    },
-    "38985": {
-      "port": 38985,
-      "service": "mysql",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 32
-    },
-    "1099": {
-      "port": 1099,
-      "service": "irc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 23
-    },
-    "80": {
-      "port": 80,
-      "service": "vnc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 32
-    },
-    "8787": {
-      "port": 8787,
-      "service": "smb",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 22
-    },
-    "3306": {
-      "port": 3306,
-      "service": "ssh",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 43
-    },
-    "5228": {
-      "port": 5228,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 2,
-      "confirmed_count": 44
+      "last_seen_episode": 8,
+      "confirmed_count": 35
     },
     "111": {
       "port": 111,
       "service": "http",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 28
-    },
-    "6000": {
-      "port": 6000,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 25
-    },
-    "8180": {
-      "port": 8180,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 5,
-      "confirmed_count": 25
-    },
-    "1524": {
-      "port": 1524,
-      "service": "distcc",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 35
-    },
-    "1": {
-      "port": 1,
-      "service": "https",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 7,
-      "confirmed_count": 4
-    },
-    "55": {
-      "port": 55,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 15,
-      "confirmed_count": 2
-    },
-    "57": {
-      "port": 57,
-      "service": "telnet",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 7,
-      "confirmed_count": 5
-    },
-    "54000": {
-      "port": 54000,
-      "service": "dns",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 1,
-      "confirmed_count": 1
-    },
-    "42914": {
-      "port": 42914,
-      "service": "rmi",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 2,
-      "confirmed_count": 1
-    },
-    "56": {
-      "port": 56,
-      "service": "mysql",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 19,
-      "confirmed_count": 2
-    },
-    "20": {
-      "port": 20,
-      "service": "ssh",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 6,
-      "confirmed_count": 2
-    },
-    "39576": {
-      "port": 39576,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 3,
-      "confirmed_count": 1
-    },
-    "31": {
-      "port": 31,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 5,
-      "confirmed_count": 2
-    },
-    "33": {
-      "port": 33,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 4,
-      "confirmed_count": 2
-    },
-    "35": {
-      "port": 35,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 5,
-      "confirmed_count": 2
-    },
-    "10": {
-      "port": 10,
-      "service": "ssh",
-      "version": "",
-      "first_seen_episode": 4,
-      "last_seen_episode": 14,
-      "confirmed_count": 3
-    },
-    "11": {
-      "port": 11,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 4,
-      "last_seen_episode": 2,
-      "confirmed_count": 2
-    },
-    "52506": {
-      "port": 52506,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 4,
-      "last_seen_episode": 4,
-      "confirmed_count": 1
-    },
-    "9": {
-      "port": 9,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 7,
-      "confirmed_count": 4
-    },
-    "48978": {
-      "port": 48978,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 0,
-      "confirmed_count": 1
-    },
-    "51690": {
-      "port": 51690,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 0,
-      "confirmed_count": 1
-    },
-    "2": {
-      "port": 2,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 1,
       "last_seen_episode": 8,
-      "confirmed_count": 2
-    },
-    "0": {
-      "port": 0,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 2,
-      "confirmed_count": 7
-    },
-    "7": {
-      "port": 7,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 1,
-      "confirmed_count": 1
-    },
-    "50556": {
-      "port": 50556,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 1,
-      "confirmed_count": 1
-    },
-    "4": {
-      "port": 4,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 4,
-      "confirmed_count": 17
-    },
-    "6": {
-      "port": 6,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 2,
-      "confirmed_count": 1
-    },
-    "60168": {
-      "port": 60168,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 2,
-      "confirmed_count": 1
-    },
-    "47": {
-      "port": 47,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 7,
-      "confirmed_count": 3
-    },
-    "49": {
-      "port": 49,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 17,
-      "confirmed_count": 6
-    },
-    "51": {
-      "port": 51,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 2,
-      "confirmed_count": 3
-    },
-    "54": {
-      "port": 54,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 15,
-      "confirmed_count": 2
-    },
-    "50242": {
-      "port": 50242,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 3,
-      "confirmed_count": 1
-    },
-    "39": {
-      "port": 39,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 4,
-      "last_seen_episode": 8,
-      "confirmed_count": 2
-    },
-    "56914": {
-      "port": 56914,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 4,
-      "last_seen_episode": 4,
-      "confirmed_count": 1
-    },
-    "42882": {
-      "port": 42882,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 5,
-      "confirmed_count": 1
-    },
-    "14": {
-      "port": 14,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 5,
-      "confirmed_count": 1
-    },
-    "16": {
-      "port": 16,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 5,
-      "confirmed_count": 1
-    },
-    "38804": {
-      "port": 38804,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 5,
-      "confirmed_count": 1
-    },
-    "24": {
-      "port": 24,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 5,
-      "confirmed_count": 1
-    },
-    "53376": {
-      "port": 53376,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 6,
-      "last_seen_episode": 6,
-      "confirmed_count": 1
-    },
-    "26": {
-      "port": 26,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 6,
-      "last_seen_episode": 6,
-      "confirmed_count": 1
-    },
-    "57386": {
-      "port": 57386,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 7,
-      "last_seen_episode": 7,
-      "confirmed_count": 1
-    },
-    "41": {
-      "port": 41,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 8,
-      "last_seen_episode": 8,
-      "confirmed_count": 1
-    },
-    "37652": {
-      "port": 37652,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 8,
-      "last_seen_episode": 8,
-      "confirmed_count": 1
-    },
-    "36482": {
-      "port": 36482,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 9,
-      "last_seen_episode": 9,
-      "confirmed_count": 1
-    },
-    "19": {
-      "port": 19,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 9,
-      "last_seen_episode": 10,
-      "confirmed_count": 2
-    },
-    "59": {
-      "port": 59,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 9,
-      "last_seen_episode": 16,
-      "confirmed_count": 3
-    },
-    "42918": {
-      "port": 42918,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 10,
-      "last_seen_episode": 10,
-      "confirmed_count": 1
-    },
-    "47682": {
-      "port": 47682,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 10,
-      "last_seen_episode": 10,
-      "confirmed_count": 1
-    },
-    "36702": {
-      "port": 36702,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 10,
-      "last_seen_episode": 10,
-      "confirmed_count": 1
-    },
-    "27": {
-      "port": 27,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 11,
-      "last_seen_episode": 5,
-      "confirmed_count": 5
-    },
-    "42": {
-      "port": 42,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 11,
-      "last_seen_episode": 1,
-      "confirmed_count": 2
-    },
-    "52562": {
-      "port": 52562,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 11,
-      "last_seen_episode": 11,
-      "confirmed_count": 1
-    },
-    "34804": {
-      "port": 34804,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 12,
-      "last_seen_episode": 12,
-      "confirmed_count": 1
-    },
-    "12": {
-      "port": 12,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 13,
-      "last_seen_episode": 13,
-      "confirmed_count": 1
-    },
-    "13": {
-      "port": 13,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 13,
-      "last_seen_episode": 7,
-      "confirmed_count": 2
-    },
-    "29": {
-      "port": 29,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 13,
-      "last_seen_episode": 1,
-      "confirmed_count": 3
-    },
-    "54244": {
-      "port": 54244,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 14,
-      "last_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "15": {
-      "port": 15,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 14,
-      "last_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "46192": {
-      "port": 46192,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 14,
-      "last_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "51344": {
-      "port": 51344,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 14,
-      "last_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "49594": {
-      "port": 49594,
-      "service": "postgresql",
-      "version": "",
-      "first_seen_episode": 14,
-      "last_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "50986": {
-      "port": 50986,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 16,
-      "last_seen_episode": 16,
-      "confirmed_count": 1
-    },
-    "54018": {
-      "port": 54018,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 17,
-      "last_seen_episode": 17,
-      "confirmed_count": 1
-    },
-    "48": {
-      "port": 48,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 17,
-      "last_seen_episode": 4,
-      "confirmed_count": 2
-    },
-    "44392": {
-      "port": 44392,
-      "service": "smtp",
-      "version": "",
-      "first_seen_episode": 17,
-      "last_seen_episode": 17,
-      "confirmed_count": 1
-    },
-    "46198": {
-      "port": 46198,
-      "service": "ftp",
-      "version": "",
-      "first_seen_episode": 17,
-      "last_seen_episode": 17,
-      "confirmed_count": 1
-    },
-    "39502": {
-      "port": 39502,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 18,
-      "last_seen_episode": 18,
-      "confirmed_count": 1
-    },
-    "36": {
-      "port": 36,
-      "service": "tomcat",
-      "version": "",
-      "first_seen_episode": 19,
-      "last_seen_episode": 9,
-      "confirmed_count": 3
-    },
-    "56248": {
-      "port": 56248,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 19,
-      "last_seen_episode": 19,
-      "confirmed_count": 1
-    },
-    "2049": {
-      "port": 2049,
-      "service": "rmi",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 5
-    },
-    "53": {
-      "port": 53,
-      "service": "smb",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 3
-    },
-    "32": {
-      "port": 32,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 0,
-      "last_seen_episode": 9,
-      "confirmed_count": 2
+      "confirmed_count": 34
     },
     "17": {
       "port": 17,
-      "service": "rdp",
+      "service": "vnc",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 16
-    },
-    "40": {
-      "port": 40,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 1,
-      "last_seen_episode": 1,
-      "confirmed_count": 1
-    },
-    "50": {
-      "port": 50,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 2,
-      "last_seen_episode": 2,
-      "confirmed_count": 1
-    },
-    "37": {
-      "port": 37,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 5,
-      "last_seen_episode": 7,
-      "confirmed_count": 2
-    },
-    "5": {
-      "port": 5,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 7,
-      "last_seen_episode": 7,
-      "confirmed_count": 1
-    },
-    "43": {
-      "port": 43,
-      "service": "rdp",
-      "version": "",
-      "first_seen_episode": 7,
-      "last_seen_episode": 7,
-      "confirmed_count": 1
-    },
-    "58": {
-      "port": 58,
-      "service": "http",
-      "version": "",
-      "first_seen_episode": 8,
-      "last_seen_episode": 8,
-      "confirmed_count": 1
-    },
-    "5952": {
-      "port": 5952,
-      "service": "irc",
-      "version": "",
-      "first_seen_episode": 1,
       "last_seen_episode": 0,
-      "confirmed_count": 8
+      "confirmed_count": 1
     },
-    "999": {
-      "port": 999,
-      "service": "mssql",
+    "21": {
+      "port": 21,
+      "service": "telnet",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 2,
-      "confirmed_count": 2
+      "last_seen_episode": 9,
+      "confirmed_count": 37
+    },
+    "22": {
+      "port": 22,
+      "service": "nfs",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 8,
+      "confirmed_count": 35
+    },
+    "445": {
+      "port": 445,
+      "service": "tomcat",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 8,
+      "confirmed_count": 35
+    },
+    "6667": {
+      "port": 6667,
+      "service": "dns",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 7,
+      "confirmed_count": 28
     },
     "8067": {
       "port": 8067,
-      "service": "mssql",
+      "service": "dns",
       "version": "",
-      "first_seen_episode": 3,
-      "last_seen_episode": 3,
-      "confirmed_count": 1
+      "first_seen_episode": 6,
+      "last_seen_episode": 6,
+      "confirmed_count": 14
+    },
+    "6697": {
+      "port": 6697,
+      "service": "irc",
+      "version": "",
+      "first_seen_episode": 6,
+      "last_seen_episode": 6,
+      "confirmed_count": 14
+    },
+    "5228": {
+      "port": 5228,
+      "service": "postgresql",
+      "version": "",
+      "first_seen_episode": 5,
+      "last_seen_episode": 9,
+      "confirmed_count": 6
+    },
+    "65432": {
+      "port": 65432,
+      "service": "https",
+      "version": "",
+      "first_seen_episode": 5,
+      "last_seen_episode": 9,
+      "confirmed_count": 6
+    },
+    "443": {
+      "port": 443,
+      "service": "ftp",
+      "version": "",
+      "first_seen_episode": 5,
+      "last_seen_episode": 9,
+      "confirmed_count": 6
+    },
+    "6463": {
+      "port": 6463,
+      "service": "rmi",
+      "version": "",
+      "first_seen_episode": 5,
+      "last_seen_episode": 9,
+      "confirmed_count": 6
     }
   },
   "credentials": [
@@ -1024,781 +232,110 @@
       "exploit_path": "",
       "first_seen_episode": 9,
       "confirmed_count": 1
-    },
-    "vuln_ep10": {
-      "vuln_id": "vuln_ep10",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 10,
-      "confirmed_count": 1
-    },
-    "vuln_ep11": {
-      "vuln_id": "vuln_ep11",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 11,
-      "confirmed_count": 1
-    },
-    "vuln_ep12": {
-      "vuln_id": "vuln_ep12",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 12,
-      "confirmed_count": 1
-    },
-    "vuln_ep13": {
-      "vuln_id": "vuln_ep13",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 13,
-      "confirmed_count": 1
-    },
-    "vuln_ep14": {
-      "vuln_id": "vuln_ep14",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 14,
-      "confirmed_count": 1
-    },
-    "vuln_ep15": {
-      "vuln_id": "vuln_ep15",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 15,
-      "confirmed_count": 1
-    },
-    "vuln_ep16": {
-      "vuln_id": "vuln_ep16",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 16,
-      "confirmed_count": 1
-    },
-    "vuln_ep17": {
-      "vuln_id": "vuln_ep17",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 17,
-      "confirmed_count": 1
-    },
-    "vuln_ep18": {
-      "vuln_id": "vuln_ep18",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 18,
-      "confirmed_count": 1
-    },
-    "vuln_ep19": {
-      "vuln_id": "vuln_ep19",
-      "vuln_type": "generic",
-      "target_service": "",
-      "exploit_path": "",
-      "first_seen_episode": 19,
-      "confirmed_count": 1
     }
   },
   "shells": [
     {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770704999.311506
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770705096.4347754
-    },
-    {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770706977.41683
+      "timestamp": 1770779431.6231472
     },
     {
       "episode": 1,
       "type": "user",
-      "timestamp": 1770707016.6697996
+      "timestamp": 1770779929.6808455
     },
     {
       "episode": 2,
       "type": "user",
-      "timestamp": 1770707039.308656
+      "timestamp": 1770780089.1963334
     },
     {
       "episode": 3,
       "type": "user",
-      "timestamp": 1770707071.1006482
+      "timestamp": 1770780275.1113553
     },
     {
       "episode": 4,
       "type": "user",
-      "timestamp": 1770707106.2881343
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770709609.9559524
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770709843.1698399
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770709997.4954584
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770710263.0726297
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770710384.143409
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770713946.2449636
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770714911.3668885
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770715040.2741752
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770715170.3786497
-    },
-    {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770715527.9710312
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770715648.195548
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770715766.5236077
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770716087.9449275
-    }
-  ],
-  "attack_chains": [
-    {
-      "episode": 0,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "sudo_check",
-        "blue_cmd_10",
-        "find_suid",
-        "gobuster_dir",
-        "linpeas",
-        "ssh_login",
-        "sudo_check",
-        "gobuster_vhost",
-        "find_suid",
-        "nmap_quick_scan",
-        "kernel_exploit_check",
-        "pivot_scan",
-        "blue_cmd_14",
-        "nikto_scan",
-        "blue_cmd_5",
-        "sudo_list",
-        "exfil_data",
-        "ffuf_fuzz",
-        "find_suid",
-        "nmap_comprehensive",
-        "searchsploit",
-        "blue_cmd_2",
-        "hydra_ssh",
-        "linpeas",
-        "blue_cmd_2",
-        "msfconsole_auto",
-        "find_suid",
-        "find_capabilities",
-        "nmap_service_version",
-        "exfil_shadow",
-        "credential_dump",
-        "blue_cmd_10",
-        "exfil_mysql_dump",
-        "dump_passwd",
-        "blue_cmd_15",
-        "smb_exfil",
-        "nikto_scan",
-        "feroxbuster",
-        "blue_cmd_8",
-        "nmap_vuln_scan",
-        "icmp_exfil",
-        "exfil_shadow",
-        "blue_cmd_9",
-        "exfil_mysql_dump",
-        "hydra_ssh",
-        "blue_cmd_11",
-        "nc_exfil",
-        "cme_smb_bruteforce",
-        "exfil_shadow",
-        "blue_cmd_17"
-      ],
-      "total_reward": 2445.0,
-      "discoveries_count": 39,
-      "timestamp": 1770650398.0428333
-    },
-    {
-      "episode": 1,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "sudo_check",
-        "blue_cmd_4",
-        "find_suid",
-        "gobuster_dir",
-        "linpeas",
-        "ssh_login",
-        "sudo_check",
-        "feroxbuster",
-        "cron_check",
-        "nmap_quick_scan",
-        "kernel_exploit_check",
-        "pivot_scan",
-        "find_suid",
-        "nikto_scan",
-        "kernel_exploit_check",
-        "searchsploit",
-        "exfil_data",
-        "ffuf_fuzz",
-        "blue_cmd_16",
-        "nmap_comprehensive",
-        "hydra_ssh",
-        "find_suid",
-        "msfconsole_auto",
-        "capability_check",
-        "blue_cmd_3",
-        "exfil_shadow",
-        "credential_dump",
-        "gobuster_vhost",
-        "blue_cmd_17",
-        "nmap_service_version",
-        "curl_exfil",
-        "find_sgid",
-        "scp_exfil",
-        "nc_exfil",
-        "cme_smb_bruteforce",
-        "blue_cmd_6",
-        "exfil_shadow",
-        "msfconsole_auto",
-        "dirsearch",
-        "blue_cmd_12",
-        "nmap_vuln_scan",
-        "icmp_exfil",
-        "exfil_shadow",
-        "blue_cmd_2",
-        "exfil_data",
-        "dump_shadow",
-        "blue_cmd_12",
-        "exfil_ssh_keys",
-        "sudo_list",
-        "ftp_anonymous"
-      ],
-      "total_reward": 2357.25,
-      "discoveries_count": 30,
-      "timestamp": 1770650623.2564352
-    },
-    {
-      "episode": 2,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "crackmapexec_smb_bruteforce",
-        "blue_cmd_16",
-        "sudo_check",
-        "gobuster_dir",
-        "linpeas",
-        "blue_cmd_1",
-        "find_suid",
-        "nmap_quick_scan",
-        "ssh_login",
-        "find_capabilities",
-        "pivot_scan",
-        "blue_cmd_10",
-        "kernel_exploit_check",
-        "find_suid",
-        "nikto_scan",
-        "exfil_data",
-        "sudo_check",
-        "blue_cmd_16",
-        "nmap_comprehensive",
-        "searchsploit",
-        "blue_cmd_13",
-        "hydra_ssh",
-        "linpeas",
-        "kernel_exploit_check",
-        "msfconsole_auto",
-        "ldapsearch_base",
-        "blue_cmd_8",
-        "nmap_service_version",
-        "exfil_shadow",
-        "credential_dump",
-        "blue_cmd_15",
-        "smb_exfil",
-        "credential_dump",
-        "blue_cmd_15",
-        "exfil_mysql_dump",
-        "sudo_check",
-        "feroxbuster",
-        "blue_cmd_12",
-        "nmap_vuln_scan",
-        "icmp_exfil",
-        "exfil_shadow",
-        "blue_cmd_10",
-        "base64_exfil",
-        "dump_passwd",
-        "blue_cmd_10",
-        "smbmap_shares",
-        "hydra_http_form",
-        "windapsearch",
-        "blue_cmd_7",
-        "nmap_port_5432"
-      ],
-      "total_reward": 2408.25,
-      "discoveries_count": 27,
-      "timestamp": 1770650801.3929346
-    },
-    {
-      "episode": 0,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_1",
-        "plant_ssh_key",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_1",
-        "exfil_shadow",
-        "rsh_root",
-        "feroxbuster",
-        "blue_cmd_11",
-        "nmap_port_1524",
-        "exfil_ssh_keys",
-        "dump_passwd",
-        "blue_cmd_2",
-        "enum4linux_scan",
-        "vsftpd_exploit",
-        "blue_cmd_13",
-        "smbclient_list",
-        "root_shell_confirm",
-        "gobuster_vhost",
-        "nc_exfil",
-        "nmap_port_21",
-        "linpeas",
-        "find_sgid",
-        "exfil_data",
-        "pivot_scan",
-        "unrealircd_exploit",
-        "curl_exfil",
-        "exfil_data",
-        "rlogin_root",
-        "ffuf_fuzz",
-        "scp_exfil",
-        "nmap_rservices",
-        "curl_exfil",
-        "hydra_ssh",
-        "blue_cmd_9",
-        "exfil_data",
-        "hydra_ftp",
-        "blue_cmd_4",
-        "base64_exfil",
-        "cme_smb_bruteforce",
-        "ftp_anonymous",
-        "blue_cmd_2",
-        "nmap_port_6667",
-        "exfil_ssh_keys",
-        "msfconsole_auto",
-        "blue_cmd_10",
-        "nc_exfil",
-        "tomcat_cred_test",
-        "blue_cmd_3"
-      ],
-      "total_reward": 2498.75,
-      "discoveries_count": 36,
-      "timestamp": 1770666659.2535794
-    },
-    {
-      "episode": 1,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_5",
-        "plant_ssh_key",
-        "dump_passwd",
-        "gobuster_dir",
-        "blue_cmd_2",
-        "exfil_shadow",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_10",
-        "nmap_port_1524",
-        "exfil_ssh_keys",
-        "rsh_root",
-        "blue_cmd_5",
-        "enum4linux_scan",
-        "vsftpd_exploit",
-        "blue_cmd_13",
-        "smb_exfil",
-        "sudo_check",
-        "dirsearch",
-        "curl_exfil",
-        "nmap_rservices",
-        "smbclient_list",
-        "root_shell_confirm",
-        "base64_exfil",
-        "linpeas",
-        "unrealircd_exploit",
-        "base64_exfil",
-        "pivot_scan",
-        "impacket_secretsdump",
-        "ffuf_fuzz",
-        "exfil_shadow",
-        "nmap_port_21",
-        "exfil_data",
-        "rlogin_root",
-        "blue_cmd_15",
-        "nc_exfil",
-        "hydra_ssh",
-        "blue_cmd_11",
-        "icmp_exfil",
-        "hydra_ftp",
-        "gobuster_vhost",
-        "blue_cmd_14",
-        "nmap_port_6667",
-        "nc_exfil",
-        "cme_smb_bruteforce",
-        "blue_cmd_12",
-        "base64_exfil",
-        "msfconsole_auto",
-        "blue_cmd_9"
-      ],
-      "total_reward": 2446.25,
-      "discoveries_count": 36,
-      "timestamp": 1770667306.819572
-    },
-    {
-      "episode": 3,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "crackmapexec_smb_bruteforce",
-        "blue_cmd_10",
-        "telnet_1524",
-        "gobuster_dir",
-        "plant_ssh_key",
-        "blue_cmd_10",
-        "exfil_shadow",
-        "dump_shadow",
-        "dirsearch",
-        "blue_cmd_5",
-        "dnsrecon",
-        "exfil_mysql_dump",
-        "rsh_root",
-        "blue_cmd_2",
-        "exfil_ssh_keys",
-        "dump_passwd",
-        "blue_cmd_0",
-        "enum4linux_scan",
-        "kernel_exploit_check",
-        "ftp_anonymous",
-        "nc_exfil",
-        "nmap_port_1524",
-        "smbclient_list",
-        "vsftpd_exploit",
-        "scp_exfil",
-        "linpeas",
-        "root_shell_confirm",
-        "blue_cmd_11",
-        "pivot_scan",
-        "unrealircd_exploit",
-        "gobuster_dir",
-        "blue_cmd_14",
-        "nmap_rservices",
-        "exfil_data",
-        "rlogin_root",
-        "blue_cmd_7",
-        "smb_exfil",
-        "hydra_ssh",
-        "blue_cmd_2",
-        "base64_exfil",
-        "hydra_ftp",
-        "ffuf_fuzz",
-        "blue_cmd_5",
-        "nmap_port_21",
-        "curl_exfil",
-        "cme_smb_bruteforce",
-        "blue_cmd_10",
-        "exfil_mysql_dump",
-        "msfconsole_auto",
-        "blue_cmd_6"
-      ],
-      "total_reward": 2591.25,
-      "discoveries_count": 46,
-      "timestamp": 1770668836.681927
+      "timestamp": 1770780482.9554932
     },
     {
       "episode": 5,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_11",
-        "plant_ssh_key",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_0",
-        "exfil_shadow",
-        "rsh_root",
-        "gobuster_dir",
-        "blue_cmd_5",
-        "nmap_port_1524",
-        "exfil_ssh_keys",
-        "dump_passwd",
-        "blue_cmd_15",
-        "enum4linux_scan",
-        "vsftpd_exploit",
-        "blue_cmd_16",
-        "curl_exfil",
-        "hydra_ssh",
-        "ftp_anonymous",
-        "exfil_mysql_dump",
-        "nmap_rservices",
-        "smbclient_list",
-        "root_shell_confirm",
-        "exfil_data",
-        "linpeas",
-        "searchsploit",
-        "nc_exfil",
-        "pivot_scan",
-        "unrealircd_exploit",
-        "feroxbuster",
-        "scp_exfil",
-        "dig_axfr",
-        "exfil_data",
-        "rlogin_root",
-        "blue_cmd_0",
-        "exfil_mysql_dump",
-        "hydra_ftp",
-        "blue_cmd_15",
-        "smb_exfil",
-        "cme_smb_bruteforce",
-        "ffuf_fuzz",
-        "blue_cmd_10",
-        "nmap_port_21",
-        "exfil_data",
-        "msfconsole_auto",
-        "blue_cmd_14",
-        "exfil_ssh_keys",
-        "sudo_list",
-        "blue_cmd_14"
-      ],
-      "total_reward": 2507.5,
-      "discoveries_count": 33,
-      "timestamp": 1770670369.3204377
+      "type": "user",
+      "timestamp": 1770780618.8489559
     },
     {
       "episode": 6,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_16",
-        "plant_ssh_key",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_15",
-        "exfil_shadow",
-        "hydra_ssh",
-        "ftp_anonymous",
-        "blue_cmd_17",
-        "nmap_port_1524",
-        "exfil_ssh_keys",
-        "rsh_root",
-        "blue_cmd_5",
-        "enum4linux_scan",
-        "dump_passwd",
-        "blue_cmd_11",
-        "smbclient_list",
-        "vsftpd_exploit",
-        "dirsearch",
-        "exfil_data",
-        "dnsrecon",
-        "linpeas",
-        "root_shell_confirm",
-        "curl_exfil",
-        "pivot_scan",
-        "unrealircd_exploit",
-        "nc_exfil",
-        "exfil_mysql_dump",
-        "rlogin_root",
-        "gobuster_vhost",
-        "base64_exfil",
-        "nmap_rservices",
-        "nc_exfil",
-        "hydra_ftp",
-        "base64_exfil",
-        "nc_exfil",
-        "cme_smb_bruteforce",
-        "base64_exfil",
-        "nc_exfil",
-        "msfconsole_auto",
-        "feroxbuster",
-        "icmp_exfil",
-        "nmap_port_21",
-        "exfil_data",
-        "tomcat_cred_test",
-        "scp_exfil",
-        "exfil_mysql_dump",
-        "find_suid",
-        "blue_cmd_3"
-      ],
-      "total_reward": 2557.0,
-      "discoveries_count": 28,
-      "timestamp": 1770671375.2868574
+      "type": "user",
+      "timestamp": 1770780752.4078054
     },
     {
       "episode": 7,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_0",
-        "plant_ssh_key",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_12",
-        "exfil_shadow",
-        "rsh_root",
-        "ffuf_fuzz",
-        "blue_cmd_10",
-        "nmap_port_1524",
-        "exfil_ssh_keys",
-        "dump_passwd",
-        "blue_cmd_13",
-        "enum4linux_scan",
-        "vsftpd_exploit",
-        "blue_cmd_5",
-        "smbclient_list",
-        "root_shell_confirm",
-        "gobuster_vhost",
-        "nc_exfil",
-        "nmap_rservices",
-        "linpeas",
-        "unrealircd_exploit",
-        "exfil_shadow",
-        "pivot_scan",
-        "root_shell_confirm",
-        "blue_cmd_12",
-        "exfil_data",
-        "rlogin_root",
-        "feroxbuster",
-        "blue_cmd_13",
-        "nmap_port_21",
-        "base64_exfil",
-        "hydra_ssh",
-        "blue_cmd_10",
-        "scp_exfil",
-        "hydra_ftp",
-        "blue_cmd_15",
-        "smb_exfil",
-        "cme_smb_bruteforce",
-        "dirsearch",
-        "blue_cmd_2",
-        "nmap_port_6667",
-        "exfil_data",
-        "msfconsole_auto",
-        "exfil_ssh_keys",
-        "exfil_mysql_dump",
-        "hydra_smb",
-        "blue_cmd_16"
-      ],
-      "total_reward": 2500.5,
-      "discoveries_count": 40,
-      "timestamp": 1770672543.230465
+      "type": "user",
+      "timestamp": 1770781015.2446964
     },
     {
       "episode": 8,
-      "highest_phase": "EXFILTRATION",
-      "steps": [
-        "telnet_1524",
-        "blue_cmd_2",
-        "plant_ssh_key",
-        "dump_shadow",
-        "gobuster_dir",
-        "blue_cmd_10",
-        "exfil_shadow",
-        "rsh_root",
-        "feroxbuster",
-        "blue_cmd_17",
-        "nmap_port_6667",
-        "exfil_ssh_keys",
-        "dump_passwd",
-        "blue_cmd_10",
-        "exfil_data",
-        "nikto_scan",
-        "blue_cmd_12",
-        "curl_exfil",
-        "vsftpd_exploit",
-        "gobuster_dir",
-        "base64_exfil",
-        "nmap_comprehensive",
-        "exfil_mysql_dump",
-        "root_shell_confirm",
-        "nc_exfil",
-        "enum4linux_scan",
-        "unrealircd_exploit",
-        "scp_exfil",
-        "smbclient_list",
-        "find_suid",
-        "ftp_anonymous",
-        "blue_cmd_16",
-        "nmap_port_1524",
-        "linpeas",
-        "rlogin_root",
-        "blue_cmd_8",
-        "pivot_scan",
-        "sqlmap_test",
-        "blue_cmd_17",
-        "smb_exfil",
-        "sudo_check",
-        "gobuster_vhost",
-        "blue_cmd_15",
-        "nmap_rservices",
-        "nc_exfil",
-        "hydra_ssh",
-        "blue_cmd_7",
-        "scp_exfil",
-        "hydra_ftp",
-        "blue_cmd_13"
-      ],
-      "total_reward": 2500.0,
-      "discoveries_count": 35,
-      "timestamp": 1770673470.5569215
+      "type": "user",
+      "timestamp": 1770781172.3900313
+    },
+    {
+      "episode": 9,
+      "type": "user",
+      "timestamp": 1770781292.713464
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770782330.9285133
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770782477.1139064
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770782617.6629064
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770782750.513175
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770782857.3534236
+    },
+    {
+      "episode": 5,
+      "type": "user",
+      "timestamp": 1770782971.0810542
+    },
+    {
+      "episode": 6,
+      "type": "user",
+      "timestamp": 1770783187.7767384
+    },
+    {
+      "episode": 7,
+      "type": "user",
+      "timestamp": 1770783616.2887073
+    },
+    {
+      "episode": 8,
+      "type": "user",
+      "timestamp": 1770783781.4356165
+    },
+    {
+      "episode": 9,
+      "type": "user",
+      "timestamp": 1770783906.4929786
     }
   ],
+  "attack_chains": [],
   "failed_approaches": {}
 }

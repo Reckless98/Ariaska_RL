@@ -675,7 +675,7 @@ class SkillLibrary:
             SkillCard(
                 id="ms3_ssh_vagrant",
                 if_condition="Port 22 open AND target is MS3",
-                then_action="ssh vagrant@{target} with password 'vagrant'. WHY: MS3 ships with default vagrant:vagrant credentials for the VM provisioning user.",
+                then_action="ssh msfadmin@{target} with password 'msfadmin'. WHY: MS3 Docker uses default msfadmin:msfadmin credentials and msfadmin is in the sudo group for root access.",
                 confidence=0.92,
                 evidence_refs=["ms3_credentials"],
             ),

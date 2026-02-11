@@ -91,7 +91,7 @@ class MentorControllerConfig:
     max_calls_per_episode: int = 20   # Phase 7.1: 20 max (was 25) — codex-mini is efficient
 
     # Cooldown between consecutive mentor calls (steps)
-    cooldown_steps: int = 2
+    cooldown_steps: int = 1             # Phase 7.3: Reduced from 2 → 1 for live mode responsiveness
 
     # --- Trigger thresholds ---
 
@@ -99,7 +99,7 @@ class MentorControllerConfig:
     uncertainty_threshold: float = 0.30  # Phase 7.1: Raised to 0.30 (was 0.25)
 
     # Stagnation: no new discoveries for N steps → deliberative
-    stagnation_threshold: int = 4       # Phase 7.1: Reduced to 4 (was 5) — faster reaction
+    stagnation_threshold: int = 3       # Phase 7.3: Reduced to 3 (was 4) — fire codex-mini faster when stuck
 
     # Phase transition always triggers deliberative
     phase_transition_enabled: bool = True

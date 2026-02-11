@@ -1548,7 +1548,7 @@ register(CommandTemplate(
     description="Generate Metasploit payload.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["payload", "lhost", "lport", "format", "output"],
-    optional_params={"format": "exe", "payload": "windows/x64/meterpreter/reverse_tcp"},
+    optional_params={"format": "elf", "payload": "linux/x86/shell_reverse_tcp"},
     preconditions=set(),
     success_indicators=["Saved as"],
     typical_reward=3.0,
