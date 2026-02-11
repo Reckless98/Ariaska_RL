@@ -787,6 +787,10 @@ class SmartOrchestrator:
         if self.smart_parser:
             self.smart_parser.reset_episode()
         
+        # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
+        self._shell_obtained_step: Optional[int] = None
+        self.POST_SHELL_EXPLORE_STEPS = 3  # Phase 8.0 Batch 4: 3 steps for reliable CLOSEOUT
+        
         # Reset stuck detection
         self.action_history.clear()
         self.stuck_agents.clear()
@@ -997,6 +1001,23 @@ class SmartOrchestrator:
             
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
+            
+            # ─── PHASE 8.0: POST-SHELL EXPLORATION GATE ─────────────
+            # If CLOSEOUT would trigger but we haven't explored enough post-shell,
+            # override phase back to POST_EXPLOITATION to let agents explore.
+            # Late-shell bypass: if shell obtained after step 28, reduce minimum to 2
+            if current_phase == "CLOSEOUT" and self._shell_obtained_step is not None:
+                _steps_since_shell = step - self._shell_obtained_step
+                _min_explore = 2 if self._shell_obtained_step >= 28 else self.POST_SHELL_EXPLORE_STEPS
+                if _steps_since_shell < _min_explore:
+                    from core.environment.cyber_environment import AttackPhase
+                    self.attack_context._current_phase = AttackPhase.POST_EXPLOITATION
+                    current_phase = "POST_EXPLOITATION"
+                    logger.info(
+                        f"[POST-SHELL-EXPLORE] Overriding CLOSEOUT → POST_EXPLOITATION "
+                        f"({_steps_since_shell}/{self.POST_SHELL_EXPLORE_STEPS} post-shell steps)"
+                    )
+            
             if current_phase != phase_progression[-1]:
                 phase_progression.append(current_phase)
                 self.phase_progressed_this_episode = True  # Phase 0.1
@@ -1661,9 +1682,13 @@ class SmartOrchestrator:
                 or any(cmd_text.startswith(p) for p in EXFIL_PREFIXES)
             )
             if cmd_is_exfil and has_output and not has_failure:
-                if not agent_discoveries.get("data_exfiltrated"):
-                    agent_discoveries["data_exfiltrated"] = True
-                    logger.info(f"[EXFIL-DETECT] Command-based exfiltration detection for '{cmd_name}'")
+                # Phase 8.0: Only mark exfil after post-shell exploration minimum
+                _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
+                _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
+                if _steps_since_shell >= _min_explore:
+                    if not agent_discoveries.get("data_exfiltrated"):
+                        agent_discoveries["data_exfiltrated"] = True
+                        logger.info(f"[EXFIL-DETECT] Command-based exfiltration detection for '{cmd_name}'")
             
             # ─── COMMAND-BASED CLOSEOUT DETECTION ────────────────────────
             CLOSEOUT_COMMANDS = {
@@ -1717,6 +1742,9 @@ class SmartOrchestrator:
                 if agent_discoveries.get("shell"):
                     if not ctx.state_flags.get("shell_obtained"):
                         logger.info(f"[PHASE-ADVANCE] shell_obtained set by {result.agent_name}")
+                        # Phase 8.0: Track when shell was first obtained for post-shell exploration
+                        if self._shell_obtained_step is None:
+                            self._shell_obtained_step = step
                     ctx.set_state_flag("shell_obtained")
                     if agent_discoveries.get("root_shell"):
                         if not ctx.state_flags.get("root_shell_obtained"):
@@ -1766,17 +1794,27 @@ class SmartOrchestrator:
                     ctx.set_state_flag("admin_access_obtained")
                     logger.info(f"[PHASE-ADVANCE] domain_admin_obtained set by {result.agent_name}")
 
-                # Persistence → exfiltration
+                # Persistence → exfiltration (Phase 8.0: post-shell gate)
                 if agent_discoveries.get("persistence"):
-                    if not ctx.state_flags.get("persistence_established"):
-                        logger.info(f"[PHASE-ADVANCE] persistence_established set by {result.agent_name}")
-                    ctx.set_state_flag("persistence_established")
+                    _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
+                    _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
+                    if _steps_since_shell >= _min_explore:
+                        if not ctx.state_flags.get("persistence_established"):
+                            logger.info(f"[PHASE-ADVANCE] persistence_established set by {result.agent_name}")
+                        ctx.set_state_flag("persistence_established")
+                    else:
+                        logger.debug(f"[POST-SHELL-EXPLORE] Suppressing persistence_established — {_steps_since_shell}/{self.POST_SHELL_EXPLORE_STEPS} post-shell steps")
                 
-                # Data exfiltration → exfiltration phase
+                # Data exfiltration → exfiltration phase (Phase 8.0: post-shell gate)
                 if agent_discoveries.get("data_exfiltrated"):
-                    if not ctx.state_flags.get("data_exfiltrated"):
-                        logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
-                    ctx.set_state_flag("data_exfiltrated")
+                    _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
+                    _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
+                    if _steps_since_shell >= _min_explore:
+                        if not ctx.state_flags.get("data_exfiltrated"):
+                            logger.info(f"[PHASE-ADVANCE] data_exfiltrated set by {result.agent_name}")
+                        ctx.set_state_flag("data_exfiltrated")
+                    else:
+                        logger.debug(f"[POST-SHELL-EXPLORE] Suppressing data_exfiltrated — {_steps_since_shell}/{self.POST_SHELL_EXPLORE_STEPS} post-shell steps")
 
                 # Closeout artifacts removed → closeout phase completion
                 if agent_discoveries.get("artifacts_removed") or agent_discoveries.get("closeout_completed"):

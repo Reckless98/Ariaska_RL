@@ -341,6 +341,22 @@ class SmartCoach:
         self._episode_diversity_ratios: List[float] = []  # Recent diversity ratios
         self._adaptive_history_window = 10  # Look back N episodes
         
+        # ─── Phase 8.0: Cross-episode attack chain memory ────────────────
+        # Remembers successful command sequences that led to discoveries/shells.
+        # Used to bias future episode decisions toward proven attack chains.
+        self._successful_chains: List[Dict[str, Any]] = []  # [{commands: [...], reward: float, phase: str}]
+        self._best_chain: Optional[Dict[str, Any]] = None  # Highest reward chain across all episodes
+        self._episode_chain: List[str] = []  # Current episode's command sequence
+        self._episode_chain_rewards: List[float] = []  # Per-step rewards this episode
+        self._chain_memory_size = 20  # Keep top N chains
+        
+        # ─── Phase 8.0: Agent reasoning state ────────────────────────────
+        # Persistent reasoning context that carries between steps.
+        self._reasoning_hypotheses: List[str] = []  # Current working hypotheses
+        self._reasoning_failures: List[str] = []  # What failed and why
+        self._reasoning_plan: Optional[str] = None  # Current attack plan from mentor
+        self._exploration_score: float = 1.0  # Decays as we repeat actions, resets on new discovery
+        
         logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
         # ─── PHASE 7.4: Tool availability check (one-time at init) ───────────
@@ -1039,17 +1055,32 @@ class SmartCoach:
             return None
         
         ctx = step_ctx.attack_context
-        # Use available AttackContext attributes (discoveries dict, services_found list)
+        # Phase 8.0: Rich reasoning context with chain memory + failures
         _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
         _services = ctx.services_found if hasattr(ctx, "services_found") else []
+        
+        # Build enriched prompt with cross-episode learning
+        _failures_str = ""
+        if self._reasoning_failures:
+            _failures_str = f"\nPrevious failures: {'; '.join(self._reasoning_failures[-3:])}"
+        _chain_str = ""
+        if self._best_chain:
+            _best_cmds = self._best_chain["commands"][:5]
+            _chain_str = f"\nBest attack chain from past episodes: {' -> '.join(_best_cmds)}"
+        _plan_str = ""
+        if self._reasoning_plan:
+            _plan_str = f"\nCurrent plan: {self._reasoning_plan[:100]}"
+        
         compact_prompt = (
-            f"You are a pentesting reasoning assistant. Answer in 1-2 sentences.\n"
+            f"You are an expert pentesting reasoning assistant for Metasploitable 3.\n"
             f"Target: {ctx.target} | Phase: {ctx.current_phase.name} | "
-            f"Discoveries: ports={len(_ports)}, "
-            f"services={len(_services)}, "
-            f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
-            f"shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
-            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}\n"
+            f"Ports: {', '.join(str(p) for p in list(_ports)[:10])} | "
+            f"Services: {', '.join(str(s) for s in _services[:5])} | "
+            f"Creds: {'msfadmin:msfadmin' if ctx.state_flags.get('credentials_known') else 'unknown'} | "
+            f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'} | "
+            f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}"
+            f"{_failures_str}{_chain_str}{_plan_str}\n"
+            f"Answer in 1-2 concrete sentences with specific tool/command suggestions.\n"
             f"Question: {question}"
         )
         
@@ -1066,7 +1097,14 @@ class SmartCoach:
                     f"[MENTOR-REASONING] {self.agent_name}: Q={question[:60]} → "
                     f"A={response[:100]}"
                 )
-                return response.strip()
+                # Phase 8.0: Store reasoning as hypothesis/plan for context
+                clean = response.strip()
+                if "should" in clean.lower() or "try" in clean.lower() or "use" in clean.lower():
+                    self._reasoning_plan = clean[:200]
+                self._reasoning_hypotheses.append(clean[:100])
+                if len(self._reasoning_hypotheses) > 5:
+                    self._reasoning_hypotheses = self._reasoning_hypotheses[-5:]
+                return clean
         except Exception as e:
             logger.debug(f"Mentor reasoning check failed: {e}")
         
@@ -1304,8 +1342,7 @@ class SmartCoach:
                 if ppo_result is not None:
                     result = ppo_result
                     # If mentor should have been called (per controller), attach as advisory
-                    if (should_call_gpt and gpt_available and mentor_engagement is not None
-                            and mentor_engagement.tier != MentorTier.REACTIVE):
+                    if (should_call_gpt and gpt_available and mentor_engagement is not None):
                         logger.debug(
                             f"[{self.agent_name}] Mentor advisory: {gpt_reason} "
                             f"(tier={mentor_engagement.tier.value})"
@@ -1660,6 +1697,105 @@ class SmartCoach:
                 )
         except Exception as e:
             logger.debug(f"[PPO-NEG] Failed to store penalty: {e}")
+    
+    # ─── Phase 8.0: Cross-episode attack chain memory ────────────────────────
+    
+    def _record_chain_step(self, command: str, reward: float) -> None:
+        """Record a command + reward in the current episode's attack chain."""
+        self._episode_chain.append(command)
+        self._episode_chain_rewards.append(reward)
+        # Decay exploration score on repeat, boost on new command
+        if command in self._episode_chain[:-1]:
+            self._exploration_score = max(0.1, self._exploration_score * 0.85)
+        else:
+            self._exploration_score = min(2.0, self._exploration_score * 1.1)
+    
+    def _save_episode_chain(self, total_reward: float, highest_phase: str) -> None:
+        """Save the current episode's chain to cross-episode memory if valuable."""
+        if not self._episode_chain:
+            return
+        chain = {
+            "commands": self._episode_chain.copy(),
+            "rewards": self._episode_chain_rewards.copy(),
+            "total_reward": total_reward,
+            "highest_phase": highest_phase,
+            "unique_commands": len(set(self._episode_chain)),
+            "agent": self.agent_name,
+        }
+        self._successful_chains.append(chain)
+        # Keep top N by total_reward
+        self._successful_chains.sort(key=lambda c: c["total_reward"], reverse=True)
+        self._successful_chains = self._successful_chains[:self._chain_memory_size]
+        # Update best chain
+        if self._best_chain is None or total_reward > self._best_chain["total_reward"]:
+            self._best_chain = chain
+            logger.info(
+                f"[CHAIN-MEM] {self.agent_name}: New best chain! "
+                f"reward={total_reward:.1f}, cmds={len(chain['commands'])}, "
+                f"unique={chain['unique_commands']}, phase={highest_phase}"
+            )
+    
+    def _get_chain_suggestion(self, step: int, current_phase: str) -> Optional[str]:
+        """Get a command suggestion from the best attack chain for this phase/step.
+        
+        Returns command string if a relevant chain step exists, None otherwise.
+        Used as a soft hint for the PPO/playbook decision.
+        """
+        if not self._best_chain:
+            return None
+        best_cmds = self._best_chain["commands"]
+        if step < len(best_cmds):
+            return best_cmds[step]
+        return None
+    
+    def _reset_episode_chain(self) -> None:
+        """Reset current episode chain tracking."""
+        self._episode_chain = []
+        self._episode_chain_rewards = []
+        self._exploration_score = 1.0
+        self._reasoning_hypotheses = []
+        self._reasoning_failures = []
+        self._reasoning_plan = None
+    
+    def _build_reasoning_context(self, ctx: "AttackContext", step: int) -> str:
+        """Build a rich reasoning context string for mentor/LLM calls.
+        
+        Phase 8.0: Includes attack chain history, failures, hypotheses,
+        and cross-episode best chain info for better strategic reasoning.
+        """
+        parts = []
+        parts.append(f"Step {step} | Phase: {ctx.current_phase.name}")
+        parts.append(f"Target: {ctx.target}")
+        
+        # Discoveries summary
+        _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
+        _services = ctx.services_found if hasattr(ctx, "services_found") else []
+        parts.append(f"Ports: {len(_ports)} | Services: {len(_services)}")
+        parts.append(f"Creds: {'YES' if ctx.state_flags.get('credentials_known') else 'NO'}")
+        parts.append(f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}")
+        parts.append(f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}")
+        
+        # Recent commands (last 5)
+        if ctx.command_history:
+            parts.append(f"Recent: {', '.join(ctx.command_history[-5:])}")
+        
+        # Failures (what we learned)
+        if self._reasoning_failures:
+            parts.append(f"Failed: {'; '.join(self._reasoning_failures[-3:])}")
+        
+        # Current hypotheses
+        if self._reasoning_hypotheses:
+            parts.append(f"Hypotheses: {'; '.join(self._reasoning_hypotheses[-2:])}")
+        
+        # Best chain hint
+        if self._best_chain:
+            chain_hint = self._best_chain["commands"][:5]
+            parts.append(f"Best chain (prev episode): {' -> '.join(chain_hint)}")
+        
+        # Exploration score
+        parts.append(f"Exploration: {self._exploration_score:.2f}")
+        
+        return " | ".join(parts)
     
     def _replace_with_alternative(
         self,
@@ -2677,16 +2813,16 @@ class SmartCoach:
         episode = self.current_episode
 
         # Adaptive Curriculum: performance-based annealing
-        # Base rate starts HIGH (90%) — playbooks are critical for bootstrapping
-        # fresh PPO networks with good commands before RL learns
-        base_prob = max(0.15, 0.90 - episode * 0.015)
+        # Phase 8.0: Start lower (60%) and anneal faster (3%/ep)
+        # PPO has enough training now to drive most decisions
+        base_prob = max(0.10, 0.60 - episode * 0.03)
         perf = self._get_curriculum_performance()
         if perf > 0.7:
             # Agent doing well — anneal faster, less hand-holding
-            playbook_prob = max(0.10, base_prob * 0.5)
+            playbook_prob = max(0.10, base_prob * 0.4)
         elif perf < 0.3:
             # Agent struggling — keep guidance higher
-            playbook_prob = min(0.95, base_prob * 1.3)
+            playbook_prob = min(0.80, base_prob * 1.3)
         else:
             playbook_prob = base_prob
         if random.random() > playbook_prob:
@@ -2976,11 +3112,100 @@ class SmartCoach:
                         elif tpl.template and "http://" in tpl.template.lower():
                             mask[idx] = False
 
+            # ─── Phase 8.0: Block Windows-only commands on Linux targets ────
+            # MS3 is Linux — commands like mimikatz, evil-winrm, rubeus are dead weight
+            _platform = getattr(ctx, 'platform', 'linux') or 'linux'
+            if 'linux' in str(_platform).lower():
+                _WINDOWS_ONLY = {
+                    "evil_winrm", "evil_winrm_hash", "mimikatz_dump", "mimikatz_golden",
+                    "mimikatz_dcsync", "winpeas", "whoami_all", "systeminfo",
+                    "windows_exploit_suggester", "accesschk_services", "powerup",
+                    "rubeus_asreproast", "rubeus_kerberoast", "secretsdump_dc",
+                    "crackmapexec_winrm", "mssql_login", "ntlmrelayx", "responder",
+                    "certipy_find", "bloodhound_collect", "sharphound",
+                }
+                for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                    if name in _WINDOWS_ONLY and mask[idx]:
+                        mask[idx] = False
+
+            # ─── Phase 8.0: Shell priority mask ─────────────────────────
+            # When credentials are known but shell not obtained, narrow PPO to
+            # shell-granting commands so it learns to exploit creds → shell.
+            _creds_known = _flags.get("credentials_known", False)
+            _shell_obtained = _flags.get("shell_obtained", False)
+            if _creds_known and not _shell_obtained:
+                _SHELL_COMMANDS = {
+                    "ssh_login", "telnet_login", "psql_rce", "mysql_root_login",
+                    "telnet_1524", "rsh_root", "rlogin_root", "samba_exploit",
+                    "vsftpd_exploit", "unrealircd_exploit", "java_rmi_exploit",
+                }
+                shell_mask = torch.zeros_like(mask)
+                for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                    if name in _SHELL_COMMANDS and mask[idx]:
+                        shell_mask[idx] = True
+                if shell_mask.any():
+                    mask = shell_mask
+                    logger.debug(
+                        f"[PPO-SHELL-PRIORITY] {self.agent_name}: Narrowed to "
+                        f"{int(shell_mask.sum())} shell-granting commands"
+                    )
+
+            # ─── Phase 8.0: Post-exploitation priority mask ────────────
+            # When shell IS obtained, bias PPO toward post-exploitation commands
+            # to maximize learning during post-shell exploration period.
+            if _shell_obtained and _creds_known:
+                _POST_EXPLOIT_COMMANDS = {
+                    "dump_shadow", "dump_passwd", "find_suid", "find_world_writable",
+                    "check_sudo", "cat_shadow", "cat_passwd", "mysql_dump",
+                    "dump_hashes", "crack_hashes", "enum_users_local",
+                    "find_sensitive_files", "check_crontab", "check_ssh_keys",
+                    "exfil_shadow", "exfil_ssh_keys", "exfil_mysql_dump",
+                    "base64_exfil", "nc_exfil", "scp_exfil",
+                    "linpeas", "priv_esc_check", "kernel_exploit_check",
+                    "enum_network_local", "arp_scan_internal",
+                }
+                postexploit_mask = torch.zeros_like(mask)
+                for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                    if name in _POST_EXPLOIT_COMMANDS and mask[idx]:
+                        postexploit_mask[idx] = True
+                if postexploit_mask.sum() >= 3:  # Only apply if enough options
+                    # 50% chance to narrow to post-exploit commands
+                    if random.random() < 0.5:
+                        mask = postexploit_mask
+                        logger.debug(
+                            f"[PPO-POSTEXPLOIT] {self.agent_name}: Narrowed to "
+                            f"{int(postexploit_mask.sum())} post-exploitation commands"
+                        )
+
+            # ─── Phase 8.0: Safe mask relaxation ─────────────────────────
+            # When mask is all-zero, relax to precondition mask BUT keep
+            # unavailable tool + HTTP filters to prevent wasted actions.
             if not mask.any():
-                # Relax: allow all mapper commands with valid preconditions
-                mask = precond_mask
-            if not mask.any():
-                mask[:] = True
+                mask = precond_mask.clone()
+                # Re-apply unavailable tool filter
+                if _ut:
+                    for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                        if tpl and mask[idx]:
+                            cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                            if "/" in cmd_tool:
+                                cmd_tool = cmd_tool.rsplit("/", 1)[-1]
+                            if cmd_tool in _ut:
+                                mask[idx] = False
+                # Re-apply HTTP filter
+                if not _has_http:
+                    _HTTP_TOOLS_RELAX = {"gobuster", "feroxbuster", "dirsearch", "nikto",
+                                         "ffuf", "whatweb", "wpscan", "sqlmap", "commix",
+                                         "dirb", "wfuzz", "gospider", "katana", "arjun"}
+                    for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                        if tpl and mask[idx]:
+                            cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                            if cmd_tool in _HTTP_TOOLS_RELAX:
+                                mask[idx] = False
+                            elif tpl.template and "http://" in tpl.template.lower():
+                                mask[idx] = False
+                if not mask.any():
+                    # True last resort: allow everything
+                    mask[:] = True
 
             # PPO selects
             action_idx, log_prob, value = self.ppo_agent.select_action(
@@ -3135,6 +3360,11 @@ class SmartCoach:
             logger.warning(f"PPO update error for {self.agent_name}: {e}")
             return None
         finally:
+            # Phase 8.0: Save episode attack chain to cross-episode memory
+            total_ep_reward = sum(t.get("reward", 0) for t in self._ppo_trajectory)
+            self._save_episode_chain(total_ep_reward, highest_phase)
+            self._reset_episode_chain()
+            
             self._ppo_trajectory.clear()
             self._ppo_pending = None
     
@@ -3481,6 +3711,16 @@ class SmartCoach:
         # Phase 6.2: Record outcome with MentorController
         if self.mentor_controller is not None:
             self.mentor_controller.record_outcome(breakdown.total)
+
+        # ─── Phase 8.0: Record to cross-episode chain memory ────────
+        if decision.command:
+            self._record_chain_step(decision.command, breakdown.total)
+            # Store failures for reasoning context
+            if not success and decision.template_name:
+                fail_reason = f"{decision.template_name}: {'not found' if 'not found' in (raw_output or '').lower() else 'failed'}"
+                self._reasoning_failures.append(fail_reason)
+                if len(self._reasoning_failures) > 10:
+                    self._reasoning_failures = self._reasoning_failures[-10:]
 
         # ─── PHASE 4: Pair PPO trajectory entry with reward ─────────
         if self._ppo_pending is not None:

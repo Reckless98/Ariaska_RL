@@ -54,7 +54,7 @@ class PPOConfig:
     # Rollout
     rollout_size: int = 256             # Steps per rollout before update
     # Annealing
-    total_timesteps: int = 50000        # For LR and entropy annealing
+    total_timesteps: int = 10000        # Phase 8.0: Faster annealing (was 50k)
     # Architecture
     use_attention: bool = True
     use_residual: bool = True
