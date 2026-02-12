@@ -1140,6 +1140,33 @@ class SmartOrchestrator:
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
             
+            # ─── R52: LATERAL_MOVEMENT FORCED CLOSEOUT CASCADE ──────
+            # R51 showed agents grinding 10-15 steps in LATERAL_MOVEMENT with
+            # all CLOSEOUT prerequisites met (shell + exfil + creds + persistence)
+            # except domain_admin_obtained/admin_access_obtained/root_shell_obtained.
+            # After 12 steps in LATERAL, if shell + (exfil OR persistence) exist,
+            # force admin_access_obtained to cascade through to CLOSEOUT.
+            # This avoids wasting steps waiting for enum4linux discovery.
+            if current_phase == "LATERAL_MOVEMENT":
+                _lateral_step_count = step - self._phase_start_step.get("LATERAL_MOVEMENT", step)
+                _has_shell = self.attack_context.state_flags.get("shell_obtained")
+                _has_exfil_or_persist = (
+                    self.attack_context.state_flags.get("data_exfiltrated")
+                    or self.attack_context.state_flags.get("persistence_established")
+                )
+                if _lateral_step_count >= 12 and _has_shell and _has_exfil_or_persist:
+                    if not self.attack_context.state_flags.get("admin_access_obtained"):
+                        self.attack_context.set_state_flag("admin_access_obtained")
+                        self.attack_context.set_state_flag("domain_admin_obtained")
+                        logger.info(
+                            f"[R52-LATERAL-CASCADE] Forced admin_access_obtained + "
+                            f"domain_admin_obtained after {_lateral_step_count} steps "
+                            f"in LATERAL_MOVEMENT (shell={_has_shell}, "
+                            f"exfil/persist={_has_exfil_or_persist})"
+                        )
+                        # Re-evaluate phase after forcing flags
+                        current_phase = self.attack_context.current_phase.name
+
             # ─── PHASE 8.0: POST-SHELL EXPLORATION GATE ─────────────
             # If CLOSEOUT would trigger but we haven't explored enough post-shell,
             # override phase back to POST_EXPLOITATION to let agents explore.

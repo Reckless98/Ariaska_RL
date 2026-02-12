@@ -1244,12 +1244,19 @@ class SmartCoach:
         current_phase = ctx.current_phase
         self._last_phase = current_phase
 
-        # R49: Track consecutive steps in PRIV_ESC for escalation shortcut
+        # R49/R52: Track consecutive steps in PRIV_ESC and LATERAL_MOVEMENT
+        # for escalation shortcuts. Both phases can grind without progress.
         if current_phase == AttackPhase.PRIVILEGE_ESCALATION:
             self._privesc_steps = getattr(self, '_privesc_steps', 0) + 1
         elif getattr(self, '_privesc_steps', 0) > 0:
             # Phase changed away from PRIV_ESC — reset
             self._privesc_steps = 0
+        
+        # R52: Track LATERAL_MOVEMENT steps for forced root escalation
+        if current_phase == AttackPhase.LATERAL_MOVEMENT:
+            self._lateral_steps = getattr(self, '_lateral_steps', 0) + 1
+        elif getattr(self, '_lateral_steps', 0) > 0:
+            self._lateral_steps = 0
         
         # =====================================================================
         # PHASE 6.2: MENTOR CONTROLLER — 3-tier budget+fade with triggers
@@ -1533,31 +1540,47 @@ class SmartCoach:
                     result.reasoning = f"Difficulty {self.difficulty_preset.name}: {result.template_name} blocked → alternative"
         
         # =========================================================================
-        # R49: PRIV_ESC ESCALATION SHORTCUT
-        # When Red agent is stuck in PRIV_ESC for 10+ steps without root shell,
-        # force a targeted sshpass root attempt every 5 steps.
-        # This breaks the PRIV_ESC grind loop where Red cycles through linpeas,
-        # find_suid, sudo_check etc. without actually attempting privilege escalation.
-        # Fires at steps 10, 15, 20, 25, 30, 35 in PRIV_ESC.
-        # =========================================================================
-        # =========================================================================
-        # R51: PRIV_ESC ESCALATION SHORTCUT (improved from R49/R50)
-        # - Pre-cleanup: kill stale SSH connections before attempting sshpass
-        #   to prevent "Connection closed" from MaxSessions exhaustion
-        # - Relaxed SSH failure threshold: allow up to 3 failures (was 2)
-        #   because Connection closed from saturation is transient, not permanent
+        # R52: UNIFIED PHASE-STUCK ESCALATION SHORTCUT (replaces R49/R50/R51)
+        # When the offensive agent is stuck in PRIV_ESC or LATERAL_MOVEMENT
+        # without root_shell_obtained, force a targeted sshpass root attempt.
+        #
+        # PRIV_ESC: fires at step 3 and every 3 steps after (3, 6, 9, ...)
+        #   - Lowered from 10→3 because R51 showed PRIV_ESC only lasts ~2 steps
+        #     so the old threshold NEVER fired. Now fires on 3rd step.
+        #
+        # LATERAL_MOVEMENT: fires at step 5 and every 5 steps after (5, 10, 15, ...)
+        #   - R51 showed agents grind 10-15 steps in LATERAL waiting for
+        #     domain_admin_obtained (only from enum4linux). Root shell would
+        #     cascade: root → POST_EXPLOITATION → CLOSEOUT (if exfil/persist exist).
+        #
+        # Pre-cleanup: kill stale SSH connections before sshpass attempt.
+        # SSH failure threshold: max 3 failures per episode.
         # =========================================================================
         _privesc_steps = getattr(self, '_privesc_steps', 0)
-        if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
-                and self.agent_role.get("role") == "offensive"
-                and _privesc_steps >= 10
-                and _privesc_steps % 5 == 0
+        _lateral_steps = getattr(self, '_lateral_steps', 0)
+        _should_escalate = False
+        _escalation_source_phase = ""
+        _escalation_step_count = 0
+
+        if (self.agent_role.get("role") == "offensive"
                 and not ctx.state_flags.get("root_shell_obtained")
                 and getattr(self, '_ssh_failures_this_episode', 0) < 3):
+            if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
+                    and _privesc_steps >= 3
+                    and _privesc_steps % 3 == 0):
+                _should_escalate = True
+                _escalation_source_phase = "PRIV_ESC"
+                _escalation_step_count = _privesc_steps
+            elif (current_phase == AttackPhase.LATERAL_MOVEMENT
+                    and _lateral_steps >= 5
+                    and _lateral_steps % 5 == 0
+                    and ctx.state_flags.get("shell_obtained")):
+                _should_escalate = True
+                _escalation_source_phase = "LATERAL"
+                _escalation_step_count = _lateral_steps
+
+        if _should_escalate:
             target = ctx.target
-            # R51: Pre-cleanup stale SSH connections before the sshpass attempt.
-            # This prevents "Connection closed by remote host" errors caused by
-            # MaxSessions exhaustion from accumulated SSH connections in the episode.
             escalation_cmd = (
                 f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
@@ -1568,12 +1591,12 @@ class SmartCoach:
             result.source = "privesc_escalation"
             result.confidence = 0.6
             result.mentor_reasoning = (
-                f"[PRIVESC-ESCALATION] Forced root attempt after "
-                f"{_privesc_steps} steps in PRIV_ESC"
+                f"[PHASE-ESCALATION] Forced root attempt after "
+                f"{_escalation_step_count} steps in {_escalation_source_phase}"
             )
             logger.info(
-                f"[{self.agent_name}] [PRIVESC-ESCALATION] Forced sshpass root "
-                f"attempt at privesc step {_privesc_steps}"
+                f"[{self.agent_name}] [PHASE-ESCALATION] Forced sshpass root "
+                f"attempt at {_escalation_source_phase} step {_escalation_step_count}"
             )
             # Store negative PPO trajectory if this overrides a PPO decision
             if self._ppo_pending is not None:
@@ -3885,14 +3908,14 @@ class SmartCoach:
                         f"[PPO][{self.agent_name}] Incomplete closeout penalty "
                         f"{self.PPO_INCOMPLETE_CLOSEOUT_PENALTY:.1f} (reached EXFIL but not CLOSEOUT)"
                     )
-                # R51: Efficiency bonus for fast CLOSEOUTs.
-                # Reward PPO for reaching CLOSEOUT in fewer steps — this aligns
-                # the reward signal with operational efficiency. A CLOSEOUT in
-                # 10 steps is worth more than a CLOSEOUT in 35 steps.
-                # Bonus = 2.0 × (20 - trajectory_length), capped at [0, 20].
+                # R52: Efficiency bonus for fast CLOSEOUTs (improved from R51).
+                # R51 used 2.0 × (20 - traj) capped at 20 — too weak to compensate
+                # for fewer accumulation steps. R52 uses 5.0 × (25 - traj) capped at 50.
+                # This strongly rewards fast CLOSEOUTs: 10 steps → +75, 15 steps → +50,
+                # 20 steps → +25, 25+ steps → 0. Aligns reward with operational efficiency.
                 if highest_phase == "CLOSEOUT":
                     traj_len = len(self._ppo_trajectory)
-                    efficiency_bonus = max(0.0, min(20.0, (20 - traj_len) * 2.0))
+                    efficiency_bonus = max(0.0, min(50.0, (25 - traj_len) * 5.0))
                     if efficiency_bonus > 0:
                         self._ppo_trajectory[-1]["reward"] += efficiency_bonus
                         logger.debug(
@@ -4487,8 +4510,9 @@ class SmartCoach:
         self._stagnation_steps = 0
         self._last_phase = None
 
-        # R49: Reset PRIV_ESC escalation tracker
+        # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0
+        self._lateral_steps = 0
         self._privesc_escalation_fired = False
 
         # R42: Reset forced-novel counter per episode
