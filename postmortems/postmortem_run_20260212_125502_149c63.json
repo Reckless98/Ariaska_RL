@@ -1,0 +1,81 @@
+{
+  "run_id": "run_20260212_125502_149c63",
+  "timestamp": 1770897330.9566083,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward accumulation (77.5) despite lack of full success, indicating some intermediate progress was made",
+      "System produced a detailed reward signal enabling identification of bottlenecks for further tuning"
+    ],
+    "fails": [
+      "Episode failed to achieve final objective, as success rate remained 0.00% despite full mentor engagement",
+      "Multiple mentor calls (15) consumed without translating into improved completion, indicating training loop inefficiency"
+    ],
+    "summary": "Training run shows potential in partial task execution but fails final objective; focus on refining decision-making after mentor prompts is required."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to finalize breach workflow after initial reconnaissance despite consistent intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1770897337.7961278,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When basic reconnaissance completes with open web service and no subsequent exploitation action triggered",
+      "then_action": "Trigger automated web service enumeration and exploit search",
+      "parameters_template": {
+        "toolchain": "nmap,http-enum",
+        "timeout": "120s"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1770897337.7961426,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Close Breach Workflow",
+      "description": "Focus on post-recon decision tree; ensure that once reconnaissance completes, exploitation actions proceed without waiting for extra prompts",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Efficiency",
+      "description": "Reduce reliance on mentor guidance by reinforcing successful skill cards (SSH enumeration and web enumeration) with automated triggers",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770869828.4333148,
-  "skill_count": 91,
+  "last_updated": 1770897396.4747288,
+  "skill_count": 92,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1272,6 +1272,26 @@
         "ep001_step11"
       ],
       "created_at": 1770869828.4304395,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_port_followup": {
+      "id": "skill_port_followup",
+      "if_condition": "When host scan returns services but no credentials collected",
+      "then_action": "Trigger structured follow-up probing using service-specific enumeration (http-enum, smb-os-discovery).",
+      "parameters_template": {
+        "scan_tool": "nmap",
+        "scripts": [
+          "http-enum",
+          "smb-os-discovery"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1770897396.4719877,
       "usage_count": 0,
       "success_rate": 0.0
     }
