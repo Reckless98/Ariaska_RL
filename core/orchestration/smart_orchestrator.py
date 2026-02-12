@@ -1481,6 +1481,20 @@ class SmartOrchestrator:
                 except Exception as e:
                     logger.warning(f"Failed to save PPO for {coach_name}: {e}")
         logger.info(f"Saved {saved} PPO checkpoints to {directory}")
+        
+        # Phase 9.0: Save DDQN macro checkpoints alongside PPO
+        ddqn_saved = 0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'ddqn_macro') and coach.ddqn_macro is not None:
+                path = os.path.join(directory, f"ddqn_{coach_name}.pt")
+                try:
+                    import torch
+                    torch.save(coach.ddqn_macro.state_dict(), path)
+                    ddqn_saved += 1
+                except Exception as e:
+                    logger.debug(f"Failed to save DDQN for {coach_name}: {e}")
+        if ddqn_saved:
+            logger.info(f"Saved {ddqn_saved} DDQN macro checkpoints to {directory}")
     
     def load_ppo_checkpoints(self, directory: str = "models/ppo_checkpoints"):
         """Load per-coach PPO checkpoints from a previous run.
@@ -1504,6 +1518,22 @@ class SmartOrchestrator:
                     except Exception as e:
                         logger.warning(f"Failed to load PPO for {coach_name}: {e}")
         logger.info(f"Loaded {loaded} PPO checkpoints from {directory}")
+        
+        # Phase 9.0: Load DDQN macro checkpoints
+        ddqn_loaded = 0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'ddqn_macro') and coach.ddqn_macro is not None:
+                path = os.path.join(directory, f"ddqn_{coach_name}.pt")
+                if os.path.isfile(path):
+                    try:
+                        import torch
+                        state = torch.load(path, map_location="cpu", weights_only=False)
+                        coach.ddqn_macro.load_state_dict(state)
+                        ddqn_loaded += 1
+                    except Exception as e:
+                        logger.debug(f"Failed to load DDQN for {coach_name}: {e}")
+        if ddqn_loaded:
+            logger.info(f"Loaded {ddqn_loaded} DDQN macro checkpoints from {directory}")
     
     def _build_episode_transcript(
         self,

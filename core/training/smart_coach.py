@@ -404,6 +404,23 @@ class SmartCoach:
                     )
         except Exception as e:
             logger.warning(f"PPO init failed for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 9.0: DDQN Macro-Intent Selector (Hierarchical RL)
+        # DDQN picks strategic macro-intent → PPO picks command within macro.
+        # Off-policy Double DQN with target network + experience replay.
+        # =====================================================================
+        self.ddqn_macro = None
+        self._active_macro = None       # Current macro-intent for this step
+        self._active_macro_q = None     # Q-values from DDQN for this step
+        self._ddqn_confidence = 0.0     # DDQN Q-value separation (for mentor)
+        self._ddqn_pending = None       # Pending DDQN transition (state, macro)
+        try:
+            from core.algorithms.ddqn_macro import DDQNMacro, DDQNConfig
+            ddqn_config = DDQNConfig(state_dim=512, num_macros=9)
+            self.ddqn_macro = DDQNMacro(config=ddqn_config, device="cpu")
+        except Exception as e:
+            logger.debug(f"DDQN macro init skipped for {agent_name}: {e}")
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1281,6 +1298,47 @@ class SmartCoach:
         
         # Phase 7.2: Remove brute-force commands when credentials already known
         filtered_commands = self._filter_creds_aware(filtered_commands, ctx)
+        
+        # =====================================================================
+        # PHASE 9.0: DDQN MACRO-INTENT SELECTION
+        # Before PPO picks a concrete command, DDQN picks the strategic
+        # macro-intent (RECON_FOCUS, CREDENTIAL_CHAIN, SERVICE_EXPLOIT, etc.)
+        # PPO is then constrained to commands within that macro-intent.
+        # This creates a natural hierarchy: DDQN=strategy, PPO=tactics.
+        # =====================================================================
+        self._active_macro = None
+        self._active_macro_q = None
+        self._ddqn_confidence = 0.0
+        self._ddqn_pending = None
+        
+        if self.ddqn_macro is not None:
+            try:
+                import torch as _torch
+                _, _, _, encode_state = _lazy_ppo()
+                if encode_state is not None:
+                    state_dict = step_ctx.state if step_ctx.state else {}
+                    state_tensor = encode_state(
+                        state_dict, _torch.device("cpu"),
+                        current_step=step_ctx.step,
+                        max_steps=250,
+                    )
+                    phase_name = current_phase.name if current_phase else "RECON"
+                    macro, q_values, confidence = self.ddqn_macro.select_macro(
+                        state_tensor, phase_name,
+                    )
+                    self._active_macro = macro
+                    self._active_macro_q = q_values
+                    self._ddqn_confidence = confidence
+                    self._ddqn_pending = {
+                        "state": state_tensor,
+                        "macro": macro.value,
+                    }
+                    logger.debug(
+                        f"[DDQN][{self.agent_name}] Macro={macro.name} "
+                        f"conf={confidence:.2f} ε={self.ddqn_macro.epsilon:.3f}"
+                    )
+            except Exception as e:
+                logger.debug(f"[DDQN][{self.agent_name}] Macro select failed: {e}")
         
         # Make decision based on hybrid logic
         # PHASE 6.4: MENTOR-FIRST → PPO-TAKEOVER pipeline
@@ -3192,6 +3250,34 @@ class SmartCoach:
             )
             mask = mask & precond_mask
             
+            # ─── Phase 9.0: DDQN macro-intent command filter ────────────
+            # If DDQN selected a macro-intent, further constrain PPO to only
+            # commands within that macro's allowed set. This is the key
+            # hierarchy: DDQN picks strategy, PPO picks tactics.
+            if self._active_macro is not None:
+                try:
+                    from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
+                    macro_allowed = MACRO_COMMAND_MAP.get(self._active_macro, set())
+                    if macro_allowed:
+                        macro_mask = torch.zeros_like(mask)
+                        for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                            if name in macro_allowed and mask[idx]:
+                                macro_mask[idx] = True
+                        # Only apply if at least 2 commands remain
+                        if macro_mask.sum() >= 2:
+                            mask = macro_mask
+                            logger.debug(
+                                f"[DDQN-MASK][{self.agent_name}] Macro {self._active_macro.name} "
+                                f"→ {int(macro_mask.sum())} commands"
+                            )
+                        else:
+                            logger.debug(
+                                f"[DDQN-MASK][{self.agent_name}] Macro {self._active_macro.name} "
+                                f"too restrictive ({int(macro_mask.sum())} cmds), skipping"
+                            )
+                except Exception as e:
+                    logger.debug(f"[DDQN-MASK] Failed: {e}")
+            
             # Also block commands whose PREFIX has been used 3+ times
             # (matches the anti-repeat guard's prefix check)
             all_cmds = ctx.command_history if ctx.command_history else []
@@ -3566,6 +3652,12 @@ class SmartCoach:
             
             self._ppo_trajectory.clear()
             self._ppo_pending = None
+            
+            # Phase 9.0: Reset DDQN episode state
+            if self.ddqn_macro is not None:
+                self.ddqn_macro.reset_episode()
+                self._active_macro = None
+                self._ddqn_pending = None
     
     def _decide_with_mentor(
         self,
@@ -3958,6 +4050,53 @@ class SmartCoach:
                 "done": done,
             })
             self._ppo_pending = None
+        
+        # ─── PHASE 9.0: Store DDQN macro transition ────────────────
+        if self._ddqn_pending is not None and self.ddqn_macro is not None:
+            try:
+                import torch as _torch
+                _, _, _, encode_state = _lazy_ppo()
+                if encode_state is not None:
+                    # Encode next state from current attack context
+                    next_state_dict = {
+                        "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
+                    }
+                    next_state = encode_state(next_state_dict, _torch.device("cpu"))
+                    
+                    from core.algorithms.ddqn_macro import compute_macro_reward
+                    phase_name = (
+                        self.attack_context.current_phase.name
+                        if self.attack_context and self.attack_context.current_phase
+                        else "RECON"
+                    )
+                    prev_phase_name = None
+                    if hasattr(self, '_last_phase') and self._last_phase is not None:
+                        prev_phase_name = (
+                            self._last_phase.name
+                            if hasattr(self._last_phase, 'name')
+                            else str(self._last_phase)
+                        )
+                    
+                    macro_reward = compute_macro_reward(
+                        macro=self._active_macro,
+                        step_reward=breakdown.total,
+                        phase_name=phase_name,
+                        discoveries=new_discoveries or {},
+                        prev_phase=prev_phase_name,
+                    )
+                    
+                    self.ddqn_macro.store_transition(
+                        state=self._ddqn_pending["state"],
+                        macro=self._ddqn_pending["macro"],
+                        reward=macro_reward,
+                        next_state=next_state,
+                        done=done,
+                    )
+                    # Update DDQN (off-policy, can update every step)
+                    self.ddqn_macro.update()
+            except Exception as e:
+                logger.debug(f"[DDQN][{self.agent_name}] Transition store failed: {e}")
+            self._ddqn_pending = None
         
         return breakdown
     
