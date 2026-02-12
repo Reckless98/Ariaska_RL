@@ -1876,6 +1876,24 @@ class SmartOrchestrator:
                 if any(cmd_text.startswith(ind) for ind in _shell_cmd_indicators):
                     cmd_is_shell_granting = True
             
+            # R47 Fix #1: Override has_failure when POSITIVE shell indicators appear
+            # alongside "connection closed". SSH on MS2 (OpenSSH 4.7p1) often returns
+            # uid=0(root) or shadow hashes, then immediately closes the connection.
+            # Without this override, has_failure=True blocks all shell detection.
+            if has_failure and has_output and cmd_is_shell_granting:
+                _POSITIVE_SHELL_OVERRIDES = (
+                    "uid=0(root)", "uid=0", "root:$", "root:!",
+                    "msfadmin:$", "$1$", "$6$", "$5$",  # shadow hash formats
+                    "# ", "root@",  # root prompt indicators
+                )
+                if any(pos in output_to_parse for pos in _POSITIVE_SHELL_OVERRIDES):
+                    has_failure = False
+                    logger.info(
+                        f"[SHELL-DETECT] R47: Positive shell override — "
+                        f"output contains root indicators despite connection close "
+                        f"(cmd='{cmd_name}', agent={result.agent_name})"
+                    )
+            
             if cmd_is_shell_granting and has_output and not has_failure:
                 if not agent_discoveries.get("shell"):
                     agent_discoveries["shell"] = True

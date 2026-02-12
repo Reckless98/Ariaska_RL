@@ -263,8 +263,8 @@ class SmartCoach:
                 #          vsftpd_exploit, psql_default_creds (belong to Red/Shadow)
                 "nmap_vuln_scan", "nmap_aggressive",
                 "searchsploit_search", "msfconsole_search",
-                # LDAP/AD - Orion ONLY
-                "ldapsearch_base", "bloodhound_collection", "kerbrute", "windapsearch",
+                # R47: Removed ldapsearch_base, bloodhound_collection, kerbrute,
+                # windapsearch — MS2 has no LDAP/AD, these waste 3+ actions per episode
             ],
             "command_tags": {"comprehensive", "analysis", "directory", "ldap", "vuln"},
             # Phase 9.0: Orion must NEVER run exploitation/shell commands.
@@ -2032,12 +2032,15 @@ class SmartCoach:
                 f"enum4linux -a {target} 2>/dev/null",
             ],
             "strategic": [
+                # R47 Fix #5: Removed enum4linux/smbclient/rpcclient (Shadow-exclusive)
                 f"nmap -sV -O -p 21,22,111,139,445,3306 {target}",
                 f"nmap --script smb-enum-shares -p 139,445 {target}",
                 f"nmap --script mysql-info -p 3306 {target}",
-                f"enum4linux -a {target}",
-                f"smbclient -L //{target} -N",
-                f"rpcclient -U '' -N {target} -c 'enumdomusers'",
+                f"nmap --script vuln -p 21,22,139,445 {target}",
+                f"nmap -sC -p 1099,1524,2049,5432,8180 {target}",
+                f"searchsploit vsftpd 2.3.4",
+                f"searchsploit samba 3.0",
+                f"searchsploit unrealircd",
             ],
             "defensive": [
                 f"ss -tlnp 2>/dev/null",
@@ -2055,6 +2058,16 @@ class SmartCoach:
         if _ut:
             alts = [cmd for cmd in alts
                     if cmd.strip().split()[0].lower() not in _ut]
+        # R47 Fix #4: Skip sshpass alternatives when SSH is consistently failing
+        _ssh_fails = getattr(self, '_ssh_failures_this_episode', 0)
+        if _ssh_fails >= 2:
+            alts = [cmd for cmd in alts if not cmd.strip().startswith("sshpass ")]
+            if not alts:
+                # Fallback: if ALL alternatives were sshpass, restore non-sshpass from role
+                alts = alternative_commands.get(role_name, alternative_commands["recon"])
+                alts = [cmd for cmd in alts if not cmd.strip().startswith("sshpass ")]
+            if not alts:
+                alts = alternative_commands["recon"]  # Ultimate fallback
         used_prefixes = set(self._extract_tool_prefix(c) for c in all_cmds if c.strip())
         available = [cmd for cmd in alts if self._extract_tool_prefix(cmd) not in used_prefixes]
         if not available:
@@ -4013,6 +4026,19 @@ class SmartCoach:
         # Add failed command to context if failed
         if not success:
             self.attack_context.failed_attempts.append(decision.command)
+            # R47 Fix #4: Track SSH/sshpass failures for anti-repeat filtering
+            cmd_lower = (decision.command or "").lower()
+            if ("sshpass " in cmd_lower or cmd_lower.startswith("ssh ")) and raw_output:
+                output_lower = raw_output.lower()
+                _ssh_fail_indicators = (
+                    "connection closed", "key exchange", "no matching",
+                    "connection refused", "connection timed out", "permission denied",
+                    "kex_exchange_identification", "host key verification",
+                )
+                if any(ind in output_lower for ind in _ssh_fail_indicators):
+                    self._ssh_failures_this_episode = getattr(
+                        self, '_ssh_failures_this_episode', 0
+                    ) + 1
         
         # Phase 6.9.6: Update reasoning context trackers
         if hasattr(self, '_reasoning_step_rewards'):
@@ -4260,6 +4286,11 @@ class SmartCoach:
         # Only reset on explicit call.
         if not hasattr(self, '_failed_tools'):
             self._failed_tools: set = set()
+        
+        # R47 Fix #4: Reset SSH failure tracking per episode
+        # When SSH consistently fails (key exchange, connection closed),
+        # we skip sshpass alternatives in anti-repeat pool
+        self._ssh_failures_this_episode: int = 0
         
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode

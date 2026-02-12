@@ -356,6 +356,8 @@ class LiveCommandExecutor:
                 escaped_cmd = cmd_stripped.replace("'", "'\\''")
                 command = (
                     f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+                    f"-o HostKeyAlgorithms=+ssh-rsa "
+                    f"-o KexAlgorithms=+diffie-hellman-group1-sha1 "
                     f"-o ConnectTimeout=5 msfadmin@{self.target_ip} "
                     f"'{escaped_cmd}'"
                 )
