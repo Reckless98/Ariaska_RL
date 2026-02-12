@@ -1243,6 +1243,13 @@ class SmartCoach:
         prev_phase = getattr(self, '_last_phase', None)
         current_phase = ctx.current_phase
         self._last_phase = current_phase
+
+        # R49: Track consecutive steps in PRIV_ESC for escalation shortcut
+        if current_phase == AttackPhase.PRIVILEGE_ESCALATION:
+            self._privesc_steps = getattr(self, '_privesc_steps', 0) + 1
+        elif getattr(self, '_privesc_steps', 0) > 0:
+            # Phase changed away from PRIV_ESC — reset
+            self._privesc_steps = 0
         
         # =====================================================================
         # PHASE 6.2: MENTOR CONTROLLER — 3-tier budget+fade with triggers
@@ -1525,6 +1532,55 @@ class SmartCoach:
                     result.source = "difficulty_gate"
                     result.reasoning = f"Difficulty {self.difficulty_preset.name}: {result.template_name} blocked → alternative"
         
+        # =========================================================================
+        # R49: PRIV_ESC ESCALATION SHORTCUT
+        # When Red agent is stuck in PRIV_ESC for 10+ steps without root shell,
+        # force a targeted sshpass root attempt every 5 steps.
+        # This breaks the PRIV_ESC grind loop where Red cycles through linpeas,
+        # find_suid, sudo_check etc. without actually attempting privilege escalation.
+        # Fires at steps 10, 15, 20, 25, 30, 35 in PRIV_ESC.
+        # =========================================================================
+        _privesc_steps = getattr(self, '_privesc_steps', 0)
+        if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
+                and self.agent_role.get("role") == "offensive"
+                and _privesc_steps >= 10
+                and _privesc_steps % 5 == 0
+                and not ctx.state_flags.get("root_shell_obtained")
+                and getattr(self, '_ssh_failures_this_episode', 0) < 2):
+            target = ctx.target
+            escalation_cmd = (
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+                f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
+                f"'echo msfadmin | sudo -S id'"
+            )
+            result.command = escalation_cmd
+            result.source = "privesc_escalation"
+            result.confidence = 0.6
+            result.mentor_reasoning = (
+                f"[PRIVESC-ESCALATION] Forced root attempt after "
+                f"{_privesc_steps} steps in PRIV_ESC"
+            )
+            logger.info(
+                f"[{self.agent_name}] [PRIVESC-ESCALATION] Forced sshpass root "
+                f"attempt at privesc step {_privesc_steps}"
+            )
+            # Store negative PPO trajectory if this overrides a PPO decision
+            if self._ppo_pending is not None:
+                try:
+                    ppo = self._lazy_ppo()
+                    if ppo is not None:
+                        ppo.store_transition(
+                            self._ppo_pending['state'],
+                            self._ppo_pending['action'],
+                            self._ppo_pending['log_prob'],
+                            -3.0,  # Negative reward: PPO failed to escalate
+                            self._ppo_pending['value'],
+                            False,
+                        )
+                        self._ppo_pending = None
+                except Exception:
+                    self._ppo_pending = None
+
         # =========================================================================
         # PHASE 6: PPO decisions BYPASS post-selection anti-repeat guard.
         # PPO already has comprehensive pre-selection masking in _decide_ppo():
@@ -4388,6 +4444,10 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+
+        # R49: Reset PRIV_ESC escalation tracker
+        self._privesc_steps = 0
+        self._privesc_escalation_fired = False
 
         # R42: Reset forced-novel counter per episode
         self._forced_novel_count = 0
