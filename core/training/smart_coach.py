@@ -3294,6 +3294,35 @@ class SmartCoach:
                     # True last resort: allow everything
                     mask[:] = True
 
+            # ─── Phase 8.2 Batch 11: FINAL unavailable-tool sweep ────────
+            # All mask manipulations above (shell priority, post-exploit
+            # priority, safe relaxation, mask[:]=True last resort) can
+            # RE-ENABLE commands for unavailable tools.  This final sweep
+            # guarantees PPO NEVER selects a tool that isn't installed,
+            # regardless of which mask path was taken.
+            if _ut:
+                for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                    if tpl and mask[idx]:
+                        cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                        if "/" in cmd_tool:
+                            cmd_tool = cmd_tool.rsplit("/", 1)[-1]
+                        if cmd_tool in _ut:
+                            mask[idx] = False
+                # Also block Windows-only tools on Linux (may have been re-enabled)
+                if 'linux' in str(_platform).lower():
+                    for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                        if name in _WINDOWS_ONLY and mask[idx]:
+                            mask[idx] = False
+                # If sweep killed everything, allow precondition-free available tools
+                if not mask.any():
+                    for idx, (name, tpl) in enumerate(self.action_mapper.commands):
+                        if tpl and not tpl.preconditions:
+                            cmd_tool = tpl.template.strip().split()[0].lower() if tpl.template else ""
+                            if "/" in cmd_tool:
+                                cmd_tool = cmd_tool.rsplit("/", 1)[-1]
+                            if cmd_tool not in _ut:
+                                mask[idx] = True
+
             # PPO selects
             action_idx, log_prob, value = self.ppo_agent.select_action(
                 state_tensor, training=True, action_mask=mask,

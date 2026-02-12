@@ -1,0 +1,97 @@
+{
+  "run_id": "run_20260212_044156_fcddcc",
+  "timestamp": 1770867743.1806674,
+  "key_outcomes": {
+    "wins": [
+      "Collected comprehensive external reconnaissance data, yielding consistent 70 reward despite no full compromise."
+    ],
+    "fails": [
+      "Unable to achieve objective due to repeated inability to authenticate after initial scan, resulting in 0% success.",
+      "Missed opportunity to pivot from up/down service scan to credential brute forcing because necessary tooling was not invoked."
+    ],
+    "summary": "Run achieved strong reconnaissance scoring but consistently failed to advance beyond authentication barriers; focus should shift toward validated persistence and credential techniques."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Authentication attempts never progressed past initial banner grabbing, leaving valid credentials unconfirmed.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1770867750.9572735,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 80 or 443 presents a web service with forms",
+      "then_action": "Execute automated credential stuffing and directory enumeration",
+      "parameters_template": {
+        "tool": "ffuf",
+        "wordlist": "common_dirs.txt",
+        "method": "POST"
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1770867750.957289,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After brute force fails, but valid service identified",
+      "then_action": "Switch to manual session capture and credential replay",
+      "parameters_template": {
+        "capture_tool": "mitmproxy",
+        "replay_target": "captured-token"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step14"
+      ],
+      "created_at": 1770867750.9572997,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential escalation after banner enumeration",
+      "description": "Integrate SSH and web-facing service credential attacks immediately after banner grab to validate accounts before attempting lateral movement.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive session capture fallback",
+      "description": "If brute force fails, trigger session capture/replay workflow to recover tokens for persistence.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
