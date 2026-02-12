@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260212_073856_c0c9e6",
+  "timestamp": 1770878347.2906783,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stability throughout episode with consistent reward extraction despite no success",
+      "Effective handling of initial reconnaissance with accurate scanning data collection"
+    ],
+    "fails": [
+      "Failed to achieve mission success after 10 mentor escalations due to incomplete exploitation chain",
+      "Critical credential capture step was missed, preventing privilege escalation and actionable access"
+    ],
+    "summary": "Reconnaissance phase performed reliably but exploitation and post-exploitation steps were not completed, leading to zero success despite high engagement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to pivot from reconnaissance to exploitation because credential harvesting was skipped",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open and SSH banner indicates OpenSSH",
+      "then_action": "Run nmap version scan with ssh\u2011related scripts to enumerate host keys and supported ciphers",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step9"
+      ],
+      "created_at": 1770878352.9169822,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is reachable and returns status 200",
+      "then_action": "Spider the web root with dirb and capture reachable endpoints for potential input vectors",
+      "parameters_template": {
+        "tool": "dirb",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "base_url": "http://<target>"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1770878352.9169981,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials are captured or default passwords confirmed",
+      "then_action": "Attempt credential-based SSH or HTTP login using Hydra or Burp Intruder with captured creds",
+      "parameters_template": {
+        "method": "hydra",
+        "target_service": "ssh",
+        "credentials_source": "captured",
+        "thread_count": 10
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step17"
+      ],
+      "created_at": 1770878352.9170098,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reliability in SSH reconnaissance narrows the attack surface effectively"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration consistently identifies additional service panels for follow-up"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential capture verification",
+      "description": "Develop and integrate automation to harvest credentials from HTTP/SSH banners and validate immediately before exploitation attempts",
+      "priority": "high"
+    },
+    {
+      "title": "Post-recon exploitation chaining",
+      "description": "Design exploitation steps triggered once both reconnaissance and credential capture signals succeed to avoid stalled runs",
+      "priority": "medium"
+    },
+    {
+      "title": "Feedback loop for mentor cues",
+      "description": "Log mentor advice and map to failed steps to adjust agent behavior dynamically during training",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

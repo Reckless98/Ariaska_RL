@@ -879,8 +879,8 @@ register(CommandTemplate(
 # --- Linux PrivEsc ---
 register(CommandTemplate(
     name="linpeas",
-    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null; echo '---SUDO---'; sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; echo '---CAPS---'; getcap -r /usr 2>/dev/null",
-    description="LinPEAS-equivalent - comprehensive Linux privilege escalation checker (SUID, sudo, cron, capabilities).",
+    template="sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo '---CAPS---'; getcap -r /usr /bin /sbin 2>/dev/null",
+    description="LinPEAS-equivalent - Linux privilege escalation checker (sudo, cron, capabilities). SUID check is separate find_suid.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
     optional_params={},
@@ -928,7 +928,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="find_capabilities",
-    template="getcap -r / 2>/dev/null",
+    template="getcap -r /usr /bin /sbin 2>/dev/null",
     description="Find binaries with Linux capabilities.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
@@ -1740,8 +1740,8 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="linpeas",
-    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null; echo '---SUDO---'; sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; echo '---CAPS---'; getcap -r /usr 2>/dev/null",
-    description="Manual Linux privilege escalation enumeration (SUID, sudo, cron, capabilities).",
+    template="sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo '---CAPS---'; getcap -r /usr /bin /sbin 2>/dev/null",
+    description="Manual Linux privilege escalation enumeration (sudo, cron, capabilities). SUID check is separate find_suid.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
     preconditions={"shell_obtained"},
@@ -1905,7 +1905,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="capability_check",
-    template="getcap -r / 2>/dev/null",
+    template="getcap -r /usr /bin /sbin 2>/dev/null",
     description="Find binaries with Linux capabilities for privesc.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],

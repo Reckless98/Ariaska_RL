@@ -3276,6 +3276,23 @@ class SmartCoach:
             # shell-granting commands so it learns to exploit creds → shell.
             _creds_known = _flags.get("credentials_known", False)
             _shell_obtained = _flags.get("shell_obtained", False)
+
+            # ─── Batch 15: Block brute-force commands when creds are known ──
+            # PPO was selecting hydra even with credentials_known, causing 120s
+            # timeouts.  Playbook + registry paths already have this guard
+            # (CRED_SEARCH_COMMANDS) — PPO must match.
+            if _creds_known:
+                _BRUTE_FORCE_COMMANDS = {
+                    "hydra_ssh", "hydra_ftp", "hydra_smb", "hydra_http_form",
+                    "hydra_http", "hydra_mysql",
+                    "medusa_ssh", "medusa_ftp", "brute_force", "brute_ssh",
+                    "patator_ssh", "ncrack_ssh", "john_crack", "hashcat_crack",
+                    "cewl_wordlist", "crunch_wordlist",
+                }
+                for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                    if name in _BRUTE_FORCE_COMMANDS and mask[idx]:
+                        mask[idx] = False
+
             if _creds_known and not _shell_obtained:
                 _SHELL_COMMANDS = {
                     "ssh_login", "telnet_login", "psql_rce", "mysql_root_login",

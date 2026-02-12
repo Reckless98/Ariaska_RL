@@ -1102,7 +1102,7 @@ HTB_COMMON_PATTERNS = {
                           "(Source: Bashed — /scripts/test.py ran as root, replaced with reverse shell)"},
             {"name": "Writable /etc/passwd", "commands": ["ls -la /etc/passwd"],
              "reasoning": "If /etc/passwd is writable, add a root-equivalent user with known password hash."},
-            {"name": "Capabilities", "commands": ["getcap -r / 2>/dev/null"],
+            {"name": "Capabilities", "commands": ["getcap -r /usr /bin /sbin 2>/dev/null"],
              "reasoning": "Linux capabilities grant specific root powers. cap_setuid on python3 = instant root. "
                           "(Source: Cap walkthrough — python3.8 had cap_setuid → os.setuid(0) → root)"},
             {"name": "Docker group", "commands": ["id", "docker run -v /:/host -it alpine chroot /host sh"],
@@ -1530,7 +1530,7 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "SSH with leaked FTP credentials (password reuse)",
                           "Credential reuse is the #1 lateral movement technique. FTP password often = SSH password.",
                           "nathan@target:~$", "nathan@"),
-            KillChainStep("privilege_escalation", "getcap -r / 2>/dev/null",
+            KillChainStep("privilege_escalation", "getcap -r /usr /bin /sbin 2>/dev/null",
                           "Enumerate Linux capabilities for privesc",
                           "Linux capabilities are often overlooked. cap_setuid on python = instant root.",
                           "/usr/bin/python3.8 = cap_setuid", "cap_setuid"),

@@ -1,30 +1,30 @@
 {
-  "timestamp": "2026-02-12T06:50:39.401452",
+  "timestamp": "2026-02-12T07:50:44.910853",
   "episodes": 1,
   "max_steps": 10,
-  "seed": 400,
+  "seed": 500,
   "target_ip": "172.28.0.11",
   "mode": "live",
-  "duration_s": 118.87761378288269,
-  "avg_reward": 1649.5,
-  "last10_avg": 1649.5,
-  "max_reward": 1649.5,
-  "min_reward": 1649.5,
+  "duration_s": 69.25172877311707,
+  "avg_reward": 1745.5,
+  "last10_avg": 1745.5,
+  "max_reward": 1745.5,
+  "min_reward": 1745.5,
   "exfil_pct": 100.0,
   "closeout_pct": 100.0,
   "phase_distribution": {
     "CLOSEOUT": 1
   },
   "decision_sources": {
-    "ppo": 11,
-    "playbook": 4,
+    "ppo": 8,
+    "playbook": 6,
     "registry": 0,
-    "anti_repeat": 1
+    "anti_repeat": 2
   },
   "episode_data": [
     {
       "episode": 1,
-      "reward": 1649.5,
+      "reward": 1745.5,
       "highest_phase": "CLOSEOUT",
       "steps": 7,
       "ppo_updates": 0,
@@ -32,15 +32,15 @@
       "value_loss": 0.0,
       "entropy": 0.0,
       "sources": {
-        "ppo": 11,
-        "playbook": 4,
+        "ppo": 8,
+        "playbook": 6,
         "registry": 0,
-        "anti_repeat": 1
+        "anti_repeat": 2
       },
       "unique_commands": 18,
       "unique_templates": 18,
       "command_diversity": 0.9473684210526315,
-      "total_discoveries": 3,
+      "total_discoveries": 4,
       "step_at_first_exploit": 0
     }
   ]

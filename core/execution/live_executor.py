@@ -161,8 +161,8 @@ class LiveCommandExecutor:
         "nikto": 90,
         "gobuster": 60,
         "dirb": 60,
-        "hydra": 120,
-        "medusa": 90,
+        "hydra": 45,        # Batch 15: reduced from 120s — 45s enough for small wordlists, no burn
+        "medusa": 45,       # Batch 15: match hydra reduction
         "sqlmap": 120,
         "searchsploit": 15,
         "msfconsole": 45,   # Phase 6.5: reduced from 180s — enough for module load + exploit fire
@@ -196,6 +196,8 @@ class LiveCommandExecutor:
         "rsh": 10,          # Phase 6.4: rservices
         "rlogin": 10,
         "vncviewer": 15,
+        "find": 15,         # Batch 15: find commands can hang on remote FS — fail fast
+        "getcap": 15,       # Batch 15: getcap -r can scan entire FS — fail fast
     }
     DEFAULT_TIMEOUT = 30
     
@@ -327,6 +329,39 @@ class LiveCommandExecutor:
         """
         command = command.replace("{target}", self.target_ip)
         command = command.replace("10.10.10.10", self.target_ip)
+        
+        # ── Batch 15: Auto-wrap local-only post-exploitation commands ──
+        # Commands like sudo -l, find -perm, getcap, cat /etc/shadow etc.
+        # are meant to run ON THE TARGET, not locally on the Kali host.
+        # If the command doesn't reference the target IP and looks like a
+        # local post-exploitation command, wrap it with sshpass+ssh to
+        # execute on the target.
+        if self.target_ip not in command and not command.strip().startswith(("{", "sshpass", "ssh ")):
+            _LOCAL_PRIVESC_PREFIXES = (
+                "sudo ", "find ", "getcap ", "cat /etc/", "ls -la /etc/",
+                "id", "whoami", "uname ", "env ", "printenv",
+                "crontab ", "docker ", "lxd ", "./linpeas", "linpeas",
+                "pspy", "history ", "grep ", "awk ", "sed ",
+                "chmod ", "chown ", "mount ", "df ", "ps ",
+                "netstat ", "ss ", "ip addr", "ifconfig",
+                "base64 /", "head /", "tail /", "xxd /",
+                "strings /", "file /", "dpkg ", "apt ",
+                "service ", "systemctl ", "journalctl ",
+            )
+            cmd_stripped = command.strip()
+            if any(cmd_stripped.startswith(p) for p in _LOCAL_PRIVESC_PREFIXES):
+                # Escape single quotes in the command for safe ssh wrapping
+                escaped_cmd = cmd_stripped.replace("'", "'\\''")
+                command = (
+                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+                    f"-o ConnectTimeout=5 msfadmin@{self.target_ip} "
+                    f"'{escaped_cmd}'"
+                )
+                logger.debug(
+                    f"[LIVE-AUTOWRAP] Local command wrapped with sshpass: "
+                    f"{cmd_stripped[:50]}..."
+                )
+        
         return command
     
     def _get_timeout(self, command: str) -> int:
