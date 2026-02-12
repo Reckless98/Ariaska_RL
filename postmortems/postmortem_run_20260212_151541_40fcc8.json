@@ -1,0 +1,81 @@
+{
+  "run_id": "run_20260212_151541_40fcc8",
+  "timestamp": 1770905770.6542306,
+  "key_outcomes": {
+    "wins": [
+      "Successfully completed one full episode without crashing the environment",
+      "Maintained average reward of 80.00 across mentoring interactions, indicating consistent completion of guided steps"
+    ],
+    "fails": [
+      "Zero success rate indicates task objectives were not met despite mentor assistance",
+      "High reliance on mentor calls (10) suggests automation strategy or decision-making logic was insufficient"
+    ],
+    "summary": "Run achieved stable execution but failed to satisfy mission success criteria, pointing to gaps in autonomous decision-making especially under mentorship-heavy conditions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to close critical objective despite multiple mentor interventions",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_stepall"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and save banner output",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh2-enum-algos"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1770905775.578573,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_detection",
+      "if_condition": "When an open port is identified without service context",
+      "then_action": "Execute nmap service/version scan on that port",
+      "parameters_template": {
+        "scan_type": "nmap -sV",
+        "timeout": 120
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1770905775.5785885,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "Consistent early reconnaissance alignment with mentor guidance"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve autonomous completion flow",
+      "description": "Reduce mentor dependence by adding decision checkpoints for success criteria and validating mission completion before calling for help",
+      "priority": "high"
+    },
+    {
+      "title": "Enhance service enumeration depth",
+      "description": "Integrate additional nmap scripts and follow-up probes after initial detection to gather actionable service intelligence",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
