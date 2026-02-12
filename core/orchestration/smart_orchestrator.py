@@ -1716,30 +1716,36 @@ class SmartOrchestrator:
                     ],
                 )
                 
-                # Check if forced action is same as last (deep stuck)
-                last_action = self.action_history.get(agent_name, [""])[-1] if self.action_history.get(agent_name) else ""
-                if decision.command == last_action:
-                    self.deep_stuck_count[agent_name] = self.deep_stuck_count.get(agent_name, 0) + 1
-                    logger.debug(
-                        f"[DEEP-STUCK][{agent_name}] forced-novel returned same action "
-                        f"count={self.deep_stuck_count[agent_name]}/{self.config.stuck_forced_abort_threshold}"
-                    )
-                else:
-                    # Successful novel action
-                    self.forced_novel_count[agent_name] = self.forced_novel_count.get(agent_name, 0) + 1
-                    self.repeat_stuck_count[agent_name] = 0  # Reset repeat counter
-                    
-                    logger.debug(
-                        f"[FORCED-NOVEL][{agent_name}] "
-                        f"prev={last_action[:30]}... → new={decision.command[:30]}... "
-                        f"tags_recent={{...}} excluded={decision.excluded_count}"
-                    )
-                    
-                    self.dashboard.add_event(
-                        "forced_novel",
-                        f"Forced: {decision.template_name}",
-                        agent_name
-                    )
+                # R42: Handle forced-novel cap — when None, fall through to normal pipeline
+                if decision is None:
+                    is_repeat_stuck = False  # Pretend not stuck, let PPO/registry handle it
+                    logger.debug(f"[FORCED-NOVEL][{agent_name}] Cap reached, falling through to normal pipeline")
+                
+                if decision is not None:
+                    # Check if forced action is same as last (deep stuck)
+                    last_action = self.action_history.get(agent_name, [""])[-1] if self.action_history.get(agent_name) else ""
+                    if decision.command == last_action:
+                        self.deep_stuck_count[agent_name] = self.deep_stuck_count.get(agent_name, 0) + 1
+                        logger.debug(
+                            f"[DEEP-STUCK][{agent_name}] forced-novel returned same action "
+                            f"count={self.deep_stuck_count[agent_name]}/{self.config.stuck_forced_abort_threshold}"
+                        )
+                    else:
+                        # Successful novel action
+                        self.forced_novel_count[agent_name] = self.forced_novel_count.get(agent_name, 0) + 1
+                        self.repeat_stuck_count[agent_name] = 0  # Reset repeat counter
+                        
+                        logger.debug(
+                            f"[FORCED-NOVEL][{agent_name}] "
+                            f"prev={last_action[:30]}... → new={decision.command[:30]}... "
+                            f"tags_recent={{...}} excluded={decision.excluded_count}"
+                        )
+                        
+                        self.dashboard.add_event(
+                            "forced_novel",
+                            f"Forced: {decision.template_name}",
+                            agent_name
+                        )
             else:
                 # Normal decision flow
                 # Get agent's proposed action (for comparison)

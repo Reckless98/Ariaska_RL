@@ -193,7 +193,12 @@ class SmartCoach:
                 "whatweb", "curl_headers", "wafw00f", "wappalyzer",
             ],
             "command_tags": {"network", "discovery", "scanning", "dns", "recon"},
-            "avoid_tags": {"exploit", "privesc", "persistence", "defense", "attack", "bruteforce", "smb", "enum", "stealth"},
+            # R42: Added post/post-exploit/credential/lateral/antiforensics/keylogger/ssh_keys
+            # to prevent forced-novel from assigning post-exploitation commands to Scout
+            "avoid_tags": {"exploit", "privesc", "persistence", "defense", "attack", "bruteforce",
+                           "smb", "enum", "stealth", "post", "post-exploit", "credential",
+                           "lateral", "antiforensics", "keylogger", "ssh_keys", "cleanup",
+                           "timestomp", "closeout"},
             "exclusive_prefixes": ["nmap", "masscan", "dig", "whois", "dns", "rustscan", "host", "wafw00f"],  # Scout OWNS these
         },
         "RedAgent": {
@@ -221,7 +226,11 @@ class SmartCoach:
             "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.POST_EXPLOITATION],
             "preferred_commands": [],  # Uses custom defensive commands
             "command_tags": {"defense", "monitoring", "analysis", "logs", "forensics"},
-            "avoid_tags": {"exploit", "attack", "bruteforce"},
+            # R42: Added post/post-exploit/keylogger/persistence/lateral/antiforensics
+            # to prevent forced-novel from assigning offensive post-exploit commands to Blue
+            "avoid_tags": {"exploit", "attack", "bruteforce", "post", "post-exploit",
+                           "keylogger", "persistence", "lateral", "antiforensics",
+                           "timestomp", "credential"},
             "custom_commands": [
                 ("netstat -tlnp", "List listening TCP ports"),
                 ("ss -tlnp", "Socket statistics"),
@@ -260,8 +269,12 @@ class SmartCoach:
             "command_tags": {"comprehensive", "analysis", "directory", "ldap", "vuln"},
             # Phase 9.0: Orion must NEVER run exploitation/shell commands.
             # "shell","ssh","backdoor","creds" blocks ssh_login, telnet_1524, psql_default_creds
+            # R42: Added post/post-exploit/credential/lateral/antiforensics/keylogger/ssh_keys/
+            # persistence/timestomp to prevent forced-novel from assigning post-exploit to Orion
             "avoid_tags": {"defense", "stealth", "scanning", "exploit", "bruteforce",
-                           "shell", "ssh", "backdoor", "creds"},
+                           "shell", "ssh", "backdoor", "creds", "post", "post-exploit",
+                           "credential", "lateral", "antiforensics", "keylogger",
+                           "ssh_keys", "persistence", "timestomp", "cleanup", "closeout"},
             # Phase 8.2 Batch 14: Removed gobuster/ffuf/feroxbuster/dirsearch from Orion
             "exclusive_prefixes": ["ldap", "bloodhound", "kerb", "burp", "windap"],
             "is_coordinator": True,
@@ -306,6 +319,10 @@ class SmartCoach:
         self.trace_writer = trace_writer
         self.mentor_log_path = mentor_log_path
         self.model = model
+        
+        # R42: Forced-novel cap per episode — prevent forced dominance
+        self._forced_novel_count = 0
+        self._forced_novel_max = 3  # Max forced-novel selections per episode
         
         # Get agent role configuration
         self.agent_role = self.AGENT_ROLES.get(agent_name, {
@@ -732,8 +749,16 @@ class SmartCoach:
             thresholds: List of overlap thresholds to try
             
         Returns:
-            SmartDecisionResult with forced=True
+            SmartDecisionResult with forced=True, or None if cap reached
         """
+        # R42: Cap forced-novel selections per episode to prevent forced dominance
+        if self._forced_novel_count >= self._forced_novel_max:
+            logger.debug(
+                f"[FORCED-NOVEL][{self.agent_name}] Cap reached ({self._forced_novel_max}), "
+                "falling back to PPO/registry instead"
+            )
+            return None  # Signal caller to use normal pipeline
+        
         ctx = step_ctx.attack_context
         history_k = 15  # Could come from config
         
@@ -764,6 +789,8 @@ class SmartCoach:
                     f"excluded={excluded} "
                     f"tag_info={tag_info[:80]}"
                 )
+                
+                self._forced_novel_count += 1  # R42: Track for cap enforcement
                 
                 return SmartDecisionResult(
                     command=rendered,
@@ -801,6 +828,8 @@ class SmartCoach:
                 params[param] = self._get_default_param(param, ctx)
         
         rendered = render_command(template, params)
+        
+        self._forced_novel_count += 1  # R42: Track for cap enforcement
         
         return SmartDecisionResult(
             command=rendered,
@@ -1531,6 +1560,16 @@ class SmartCoach:
         prefix_repeat_count = sum(1 for c in all_cmds 
                                    if self._extract_tool_prefix(c) == result_prefix)
         
+        # R42: PPO bypass should NOT apply to heavy prefix repeats.
+        # In R41, Orion PPO looped ldapsearch 4+ times because PPO was fully exempt.
+        # Now: if PPO picks the same prefix ≥3 times, treat it like non-PPO.
+        if ppo_bypass and prefix_repeat_count >= 3:
+            ppo_bypass = False
+            logger.info(
+                f"[{self.agent_name}] PPO bypass revoked: "
+                f"prefix '{result_prefix}' used {prefix_repeat_count}x in episode"
+            )
+        
         # Determine action family for this command
         family = self._get_action_family(result_prefix)
         family_count = sum(
@@ -2095,6 +2134,14 @@ class SmartCoach:
             # Skip commands with avoided tags
             if cmd.tags & avoid_tags:
                 continue
+            
+            # R42: Phase-gate — block commands from phases this agent doesn't operate in
+            # Prevents post-exploit commands leaking to recon/strategic agents even
+            # when their tags don't exactly match avoid_tags
+            if primary_phases and cmd.phase not in primary_phases:
+                # Allow preferred commands regardless of phase (explicit override)
+                if cmd.name not in preferred_names:
+                    continue
             
             # Skip commands already used this step (deduplication)
             if cmd.name in self.step_used_commands:
@@ -4189,6 +4236,9 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+
+        # R42: Reset forced-novel counter per episode
+        self._forced_novel_count = 0
 
         # Phase 6.9.6: Reset reasoning context trackers
         self._reasoning_step_rewards: List[float] = []

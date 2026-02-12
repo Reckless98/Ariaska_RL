@@ -202,9 +202,12 @@ class DDQNConfig:
     tau: float = 0.005               # Soft target update rate
     target_update_freq: int = 50     # Hard target update every N steps (if not using soft)
     # Exploration
+    # R42: Reduced epsilon_decay from 2000→300 for faster convergence in 10-episode runs.
+    # At 160 steps/run, old decay only reached ε≈0.48. New decay reaches ε≈0.26,
+    # enabling DDQN_UNCERTAINTY mentor trigger at [0.15, 0.45] to fire by mid-run.
     epsilon_start: float = 0.5       # Initial exploration
     epsilon_end: float = 0.05        # Final exploration
-    epsilon_decay: int = 2000        # Steps to decay epsilon
+    epsilon_decay: int = 300         # Steps to decay epsilon (was 2000)
     # Replay buffer
     buffer_size: int = 10000
     batch_size: int = 64
