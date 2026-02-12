@@ -1566,8 +1566,8 @@ class SmartCoach:
                 and not ctx.state_flags.get("root_shell_obtained")
                 and getattr(self, '_ssh_failures_this_episode', 0) < 3):
             if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
-                    and _privesc_steps >= 3
-                    and _privesc_steps % 3 == 0):
+                    and _privesc_steps >= 5
+                    and _privesc_steps % 5 == 0):  # R56: 3→5. Less aggressive in PRIV_ESC (duration gate keeps agent exploring)
                 _should_escalate = True
                 _escalation_source_phase = "PRIV_ESC"
                 _escalation_step_count = _privesc_steps
