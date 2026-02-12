@@ -2202,27 +2202,45 @@ class SmartOrchestrator:
                 # Hash discovery → lateral movement
                 # R56: Minimum PRIV_ESC duration gate — defer hash_known
                 # until agent has spent MIN_PRIVESC_STEPS in PRIV_ESC.
-                # This prevents organic hash discovery (cat /etc/shadow at
-                # step 2-3) from rushing episodes to LATERAL in ~11 steps.
+                # This prevents organic hash discovery (cat /etc/shadow)
+                # from rushing episodes to LATERAL in ~11 steps.
+                # Gate applies to ALL phases before LATERAL — not just PRIV_ESC.
+                # If hash is discovered during EXPLOITATION (before shell),
+                # it's deferred until PRIV_ESC + MIN steps, preventing the
+                # phase graph from skipping PRIV_ESC entirely.
                 # Cascade at 12 steps bypasses this gate (sets flag directly).
                 if agent_discoveries.get("hash_dump"):
-                    _in_privesc = self.attack_context.current_phase.name == "PRIVILEGE_ESCALATION"
-                    if _in_privesc:
+                    _current_phase = self.attack_context.current_phase.name
+                    _past_privesc = _current_phase in (
+                        "LATERAL_MOVEMENT", "POST_EXPLOITATION",
+                        "EXFILTRATION", "CLOSEOUT",
+                    )
+                    if _past_privesc:
+                        # Already past PRIV_ESC — set immediately
+                        ctx.set_state_flag("hash_known")
+                        logger.info(f"[PHASE-ADVANCE] hash_known set by {result.agent_name}")
+                    elif _current_phase == "PRIVILEGE_ESCALATION":
+                        # In PRIV_ESC — check minimum step requirement
                         _privesc_start = self._phase_start_step.get("PRIVILEGE_ESCALATION", step)
                         _privesc_steps_here = step - _privesc_start
-                        if _privesc_steps_here < self.MIN_PRIVESC_STEPS:
+                        if _privesc_steps_here >= self.MIN_PRIVESC_STEPS:
+                            ctx.set_state_flag("hash_known")
+                            logger.info(f"[PHASE-ADVANCE] hash_known set by {result.agent_name}")
+                        else:
                             if not self._deferred_hash_known:
                                 self._deferred_hash_known = True
                                 logger.info(
                                     f"[R56-GATE] hash_dump by {result.agent_name} deferred — "
                                     f"PRIV_ESC step {_privesc_steps_here}/{self.MIN_PRIVESC_STEPS}"
                                 )
-                        else:
-                            ctx.set_state_flag("hash_known")
-                            logger.info(f"[PHASE-ADVANCE] hash_known set by {result.agent_name}")
                     else:
-                        ctx.set_state_flag("hash_known")
-                        logger.info(f"[PHASE-ADVANCE] hash_known set by {result.agent_name}")
+                        # In RECON/ENUM/EXPLOITATION — defer until PRIV_ESC + MIN steps
+                        if not self._deferred_hash_known:
+                            self._deferred_hash_known = True
+                            logger.info(
+                                f"[R56-GATE] hash_dump by {result.agent_name} deferred — "
+                                f"currently in {_current_phase}, waiting for PRIV_ESC"
+                            )
                 
                 # Lateral target → lateral movement
                 if agent_discoveries.get("lateral_target"):
