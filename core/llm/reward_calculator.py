@@ -322,6 +322,23 @@ class SmartRewardCalculator:
             if total_discovery_bonus > 0:
                 explanations.append(f"Discoveries: +{total_discovery_bonus:.1f}")
         
+        # 4a. R54: Multi-discovery thoroughness bonus
+        # Reward steps that find 2+ new things — incentivizes deep enum over rushing
+        # R53 episodes completed too fast (avg 16 steps) because agents didn't
+        # explore thoroughly. This bonus makes rich enumeration steps more valuable.
+        if new_discoveries:
+            _new_disc_count = 0
+            for discovery_type, values in new_discoveries.items():
+                if discovery_type in self.DISCOVERY_BONUSES:
+                    if isinstance(values, list):
+                        _new_disc_count += len(values)
+                    else:
+                        _new_disc_count += 1
+            if _new_disc_count >= 2:
+                _thoroughness = min(3.0 * _new_disc_count, 15.0)
+                breakdown.discovery_bonus += _thoroughness
+                explanations.append(f"Thoroughness({_new_disc_count}): +{_thoroughness:.1f}")
+        
         # 4b. Phase 6.4: MS2-specific shaped reward bonus
         # Gives extra reward for targeting known MS2 vulnerable services
         if self._ms2_graph and new_discoveries:

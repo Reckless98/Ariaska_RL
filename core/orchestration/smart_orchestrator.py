@@ -803,7 +803,7 @@ class SmartOrchestrator:
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
-        self.POST_SHELL_EXPLORE_STEPS = 2  # Phase 8.2 Batch 9: reduced 3→2 for faster CLOSEOUT
+        self.POST_SHELL_EXPLORE_STEPS = 5  # R54: 2→5. R53 episodes too fast (avg 16 steps vs R48's 27). More post-shell exploration = more discoveries + reward
         
         # ─── PHASE 8.2 Batch 16: Deferred discovery queue ───────────
         # Stores (discovery_type, agent_name, step) for discoveries suppressed

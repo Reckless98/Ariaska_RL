@@ -3928,20 +3928,12 @@ class SmartCoach:
                         f"[PPO][{self.agent_name}] Incomplete closeout penalty "
                         f"{self.PPO_INCOMPLETE_CLOSEOUT_PENALTY:.1f} (reached EXFIL but not CLOSEOUT)"
                     )
-                # R52: Efficiency bonus for fast CLOSEOUTs (improved from R51).
-                # R51 used 2.0 × (20 - traj) capped at 20 — too weak to compensate
-                # for fewer accumulation steps. R52 uses 5.0 × (25 - traj) capped at 50.
-                # This strongly rewards fast CLOSEOUTs: 10 steps → +75, 15 steps → +50,
-                # 20 steps → +25, 25+ steps → 0. Aligns reward with operational efficiency.
-                if highest_phase == "CLOSEOUT":
-                    traj_len = len(self._ppo_trajectory)
-                    efficiency_bonus = max(0.0, min(50.0, (25 - traj_len) * 5.0))
-                    if efficiency_bonus > 0:
-                        self._ppo_trajectory[-1]["reward"] += efficiency_bonus
-                        logger.debug(
-                            f"[PPO][{self.agent_name}] Efficiency bonus +{efficiency_bonus:.1f} "
-                            f"for CLOSEOUT in {traj_len} PPO steps"
-                        )
+                # R54: Efficiency bonus REMOVED.
+                # R52-R53 showed this trained PPO to rush episodes (avg 16 steps),
+                # reducing cumulative reward. R48 (avg 27 steps, +2863.8) proves
+                # longer episodes = more total reward. Removing the speed incentive
+                # lets PPO optimize for cumulative reward through deeper exploration.
+                # (Was: 5.0 × (25 - traj_len), capped at 50.0)
 
             for t in self._ppo_trajectory:
                 self.ppo_agent.store_transition(
