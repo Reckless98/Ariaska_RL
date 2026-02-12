@@ -1594,7 +1594,7 @@ class SmartCoach:
         # Non-PPO decisions (playbook, registry, mentor, skill) still go through
         # the anti-repeat guard as before.
         # =========================================================================
-        ppo_bypass = (result.source == "ppo" and is_valid_role)
+        ppo_bypass = (result.source in ("ppo", "privesc_escalation") and is_valid_role)
         
         # =========================================================================
         # PHASE 6.1: FAMILY-BASED ANTI-REPEAT WITH GRADED PENALTIES
@@ -1619,7 +1619,8 @@ class SmartCoach:
         # R42: PPO bypass should NOT apply to heavy prefix repeats.
         # In R41, Orion PPO looped ldapsearch 4+ times because PPO was fully exempt.
         # Now: if PPO picks the same prefix ≥3 times, treat it like non-PPO.
-        if ppo_bypass and prefix_repeat_count >= 3:
+        # R50: privesc_escalation is a forced emergency override — NEVER revoke its bypass.
+        if ppo_bypass and result.source == "ppo" and prefix_repeat_count >= 3:
             ppo_bypass = False
             logger.info(
                 f"[{self.agent_name}] PPO bypass revoked: "

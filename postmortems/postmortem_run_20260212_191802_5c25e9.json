@@ -1,0 +1,100 @@
+{
+  "run_id": "run_20260212_191802_5c25e9",
+  "timestamp": 1770920315.1076345,
+  "key_outcomes": {
+    "wins": [
+      "High cumulative reward (57.5) indicating effective partial progress within episode despite lack of success.",
+      "Mentor interactions (15 calls) leveraged for guided exploration, indicating persistence in troubleshooting."
+    ],
+    "fails": [
+      "Zero success rate: training never reached final objective, pointing to an unresolved critical failure pattern.",
+      "Single episode limits ability to generalize, suggesting insufficient variety to stabilize policy."
+    ],
+    "summary": "Training run showed promising reward accumulation but failed to reach goal; focus on breaking the remaining failure cycle is required."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Final exploit attempt never triggered after reconnaissance, leaving objectives unmet",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step100"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH service detected with open port 22",
+      "then_action": "Run targeted SSH enumeration using nmap script suite",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step45",
+        "ep001_step52"
+      ],
+      "created_at": 1770920323.1914093,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When high-value service fingerprinted but no credential set found",
+      "then_action": "Trigger credential stuffing automation from curated list",
+      "parameters_template": {
+        "wordlist": "top_common_creds.txt",
+        "threads": 10
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step60",
+        "ep001_step72"
+      ],
+      "created_at": 1770920323.1914246,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web server banner indicates outdated framework",
+      "then_action": "Execute vulnerability scan focused on known CVEs for that framework",
+      "parameters_template": {
+        "framework": "ExpressJS",
+        "scanner": "nmap-vulners"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step33",
+        "ep001_step40"
+      ],
+      "created_at": 1770920323.1914344,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate and recurring relevance in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate exploit chaining after SSH enumeration",
+      "description": "Once SSH service fingerprinting completes, trigger automated exploit modules to attempt privilege escalation and confirm persistence paths.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase episode variety with multiple target profiles",
+      "description": "Run additional episodes with diversified simulated targets to expose policy to more scenarios and reduce overfitting to single trace.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
