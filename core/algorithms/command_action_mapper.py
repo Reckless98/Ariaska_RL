@@ -110,9 +110,9 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
     ],
 
     # ─── Orion: Strategic Coordination & Service Analysis ───────────────────
-    # Phase 8.2 Batch 14: Removed HTTP brute-force (gobuster/feroxbuster/ffuf/
-    # wfuzz/dirsearch) — Orion is a strategist, not a directory scanner.
-    # Replaced with service-oriented commands that work on ALL targets.
+    # Phase 8.2 Batch 14: Removed HTTP brute-force — strategist, not scanner.
+    # Phase 9.0: Removed ALL exploit commands (ssh_login, telnet_1524, etc.)
+    # Orion is a STRATEGIST — issues directives, does NOT run exploits.
     "OrionAgent": [
         # Service analysis (works on all targets)
         "ftp_anonymous",
@@ -128,16 +128,16 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         "bloodhound_python", "sharphound",
         # Port knocking
         "knock", "nmap_port_knock",
-        # MS2/MS3 exploitation (Orion can suggest high-value targets)
-        "ssh_login", "telnet_1524", "mysql_root_login", "psql_default_creds",
-        "samba_exploit", "vsftpd_exploit",
     ],
 
     # ─── Shadow: Stealth & Persistence ───────────────────────────────────────
+    # Phase 9.0: Removed enum4linux variants (broad discovery spam).
+    # Shadow = persistence, stealth, lateral movement. NOT broad enum.
+    # Only activates after shell_obtained or credentials_known.
     "ShadowAgent": [
-        # SMB/RPC enumeration (quiet)
+        # SMB/RPC targeted enumeration (quiet, no broad enum4linux)
         "smbclient_list", "smbclient_connect", "smbclient_auth",
-        "smbmap_shares", "enum4linux_full", "enum4linux_ng", "enum4linux_scan",
+        "smbmap_shares",
         "rpcclient_null", "rpcclient_enumdomusers",
         # SSH enumeration
         "ssh_audit", "ssh_key_login",

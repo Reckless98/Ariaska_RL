@@ -476,6 +476,9 @@ class SmartOrchestrator:
         """
         Determine if an agent should be activated this step based on phase.
         
+        Phase 9.0: Shadow only activates after credentials_known or shell_obtained.
+        Shadow's role is persistence/stealth/lateral — NOT broad enumeration.
+        
         Args:
             agent_name: Name of the agent
             step: Current step number (0-indexed from orchestrator)
@@ -490,6 +493,16 @@ class SmartOrchestrator:
         # Phase 6.9: frequency=0 means agent is DISABLED for this phase
         if frequency == 0:
             return False
+        
+        # Phase 9.0: Shadow gate — only activate after creds or shell
+        if agent_name == "ShadowAgent" and phase_upper not in ("CLOSEOUT",):
+            board = getattr(self, "discovery_board", {})
+            flags = board.get("flags_set", set()) if isinstance(board, dict) else set()
+            has_creds = "credentials_known" in flags
+            has_shell = "shell_obtained" in flags
+            if not has_creds and not has_shell:
+                return False
+        
         # Use (step + 1) so step 0 behaves like step 1 (not always-activate)
         return (step + 1) % frequency == 0
     
