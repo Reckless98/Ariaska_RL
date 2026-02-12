@@ -1716,11 +1716,6 @@ class SmartOrchestrator:
                     ],
                 )
                 
-                # R42: Handle forced-novel cap — when None, fall through to normal pipeline
-                if decision is None:
-                    is_repeat_stuck = False  # Pretend not stuck, let PPO/registry handle it
-                    logger.debug(f"[FORCED-NOVEL][{agent_name}] Cap reached, falling through to normal pipeline")
-                
                 if decision is not None:
                     # Check if forced action is same as last (deep stuck)
                     last_action = self.action_history.get(agent_name, [""])[-1] if self.action_history.get(agent_name) else ""
@@ -1746,8 +1741,13 @@ class SmartOrchestrator:
                             f"Forced: {decision.template_name}",
                             agent_name
                         )
-            else:
-                # Normal decision flow
+                else:
+                    # R43: forced-novel cap reached (returned None) — fall through to normal pipeline
+                    is_repeat_stuck = False
+                    logger.debug(f"[FORCED-NOVEL][{agent_name}] Cap reached, falling through to normal pipeline")
+            
+            if not is_repeat_stuck and decision is None:
+                # Normal decision flow (also handles forced-novel cap fallthrough)
                 # Get agent's proposed action (for comparison)
                 proposed_action, confidence = self._get_agent_proposal(agent, state)
                 
@@ -1762,6 +1762,11 @@ class SmartOrchestrator:
                 # Coach may have set: "ppo", "playbook", "anti_repeat", etc.
                 if decision.source == "unknown":
                     decision.source = "mentor" if decision.mentor_call else "registry"
+            
+            # R43: Safety guard — if decision is still None after all pipelines, skip this agent
+            if decision is None:
+                logger.warning(f"[SKIP][{agent_name}] All decision pipelines returned None — skipping agent this step")
+                continue
             
             # Track this command as used for deduplication
             step_used_commands.add(decision.template_name)
