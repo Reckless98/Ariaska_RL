@@ -1,0 +1,123 @@
+{
+  "run_id": "run_20260212_012131_8246df",
+  "timestamp": 1770855722.3094616,
+  "key_outcomes": {
+    "wins": [
+      "Identified high-reward reconnaissance steps leading to 77.5 total reward despite no episode success.",
+      "Consistent use of mentor calls helped maintain steady reward acquisition during complex phase."
+    ],
+    "fails": [
+      "Failing to achieve success in the sole episode indicates a gap between detected opportunities and completed objectives.",
+      "Mentor interventions were required 15 times, suggesting limited autonomous decision-making when encountering branching tasks."
+    ],
+    "summary": "The agent accrued reward through reliable reconnaissance but repeatedly stalled before completing the mission, highlighting a need for improved action planning after detection."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "After identifying a promising vulnerability, the agent hesitates or diverges before completing the exploit pathway, leading to mentor intervention.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22",
+        "ep001_step28"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripting engine targeting ssh-* scripts to enumerate user accounts and authentication mechanisms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1770855730.187424,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service responds on port 80/443 with identifiable server headers",
+      "then_action": "Chain HTTP reconnaissance via nikto followed by targeted directory brute-force with dirb",
+      "parameters_template": {
+        "target": "detected_host",
+        "mode": "recursive",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1770855730.1874402,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials enumeration yields valid username candidates",
+      "then_action": "Attempt SSH password spraying with incremental throttling to avoid lockouts",
+      "parameters_template": {
+        "user_list": [
+          "admin",
+          "user",
+          "oracle"
+        ],
+        "delay": 2
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step24"
+      ],
+      "created_at": 1770855730.1874516,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success in early reconnaissance and reliable detection-to-enumeration handoff"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent HTTP side-channel results facilitate later exploitation steps"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit sequencing after SSH reconnaissance",
+      "description": "Test automated decision chain: SSH enumeration -> credential brute-force -> scripted post-auth actions to close the loop without mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive HTTP brute-force pacing",
+      "description": "Introduce pacing adjustments in directory brute-force to prevent detection and allow smoother transition into payload delivery.",
+      "priority": "medium"
+    },
+    {
+      "title": "Candidate user list refinement",
+      "description": "Incorporate dynamic username inference from reconnaissance logs to reduce false attempts and mentor calls.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

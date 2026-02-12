@@ -60,10 +60,11 @@ class MentorTrigger(str, Enum):
 
 
 # Model mapping: tier → model name
-# Phase 7.1: DELIBERATIVE uses codex-mini for cost-efficient reasoning
+# Phase 8.2: DELIBERATIVE upgraded to gpt-5.2-codex for deeper strategic reasoning
+# REACTIVE stays cheap (codex-mini), DELIBERATIVE+POSTMORTEM use 5.2 for quality
 TIER_MODELS: Dict[MentorTier, str] = {
     MentorTier.REACTIVE: "gpt-5.1-codex-mini",
-    MentorTier.DELIBERATIVE: "gpt-5.1-codex-mini",
+    MentorTier.DELIBERATIVE: "gpt-5.2-codex",
     MentorTier.POSTMORTEM: "gpt-5.2-codex",
 }
 
@@ -78,17 +79,18 @@ class MentorControllerConfig:
     """
 
     # Budget: percentage of max_steps that can trigger mentor calls
-    budget_pct: float = 0.40          # Phase 7.1: 40% → more mentor guidance for reasoning
-    min_rate: float = 0.10            # Phase 7.1: 10% floor — always some guidance available
-    max_rate: float = 0.55            # Phase 7.1: Allow up to 55% during warmup
-    fade_episodes: int = 60           # Phase 7.1: Faster fade — 60 episodes to converge
+    # Phase 8.2: Raised for LIVE mode — real targets need more mentor guidance
+    budget_pct: float = 0.50          # Phase 8.2: 50% → aggressive mentor for LIVE training
+    min_rate: float = 0.15            # Phase 8.2: 15% floor — always substantial guidance
+    max_rate: float = 0.60            # Phase 8.2: Allow up to 60% during warmup
+    fade_episodes: int = 80           # Phase 8.2: Slower fade — LIVE needs longer guidance
 
     # Warmup: first N episodes use mentor more aggressively
-    warmup_episodes: int = 8          # Phase 7.1: 8 episodes warmup (was 3)
-    warmup_rate: float = 0.50         # Phase 7.1: 50% call rate during warmup
+    warmup_episodes: int = 12         # Phase 8.2: 12 episodes warmup (was 8)
+    warmup_rate: float = 0.55         # Phase 8.2: 55% call rate during warmup
 
     # Per-episode hard limit
-    max_calls_per_episode: int = 20   # Phase 7.1: 20 max (was 25) — codex-mini is efficient
+    max_calls_per_episode: int = 25   # Phase 8.2: 25 max — more tokens for LIVE mode
 
     # Cooldown between consecutive mentor calls (steps)
     cooldown_steps: int = 1             # Phase 7.3: Reduced from 2 → 1 for live mode responsiveness
@@ -113,7 +115,7 @@ class MentorControllerConfig:
     # Only POSTMORTEM uses expensive gpt-5.2-codex
     tier_models: Dict[str, str] = field(default_factory=lambda: {
         "reactive": "gpt-5.1-codex-mini",
-        "deliberative": "gpt-5.1-codex-mini",  # Phase 7.1: Changed from gpt-5.1-codex
+        "deliberative": "gpt-5.2-codex",  # Phase 8.2: Upgraded for deeper strategic reasoning
         "postmortem": "gpt-5.2-codex",
     })
 
@@ -329,11 +331,12 @@ class MentorController:
                 max_tokens=500,  # More tokens for strategic exfil guidance
             )
 
-        # T4: Stagnation → deliberative
+        # T4: Stagnation → deliberative (gpt-5.2-codex for deep reasoning)
         if self._stagnation_steps >= self.config.stagnation_threshold:
             return self._make_engagement(
                 MentorTier.DELIBERATIVE, MentorTrigger.STAGNATION,
                 reason=f"stagnation_steps={self._stagnation_steps}",
+                max_tokens=500,  # Phase 8.2: More tokens for strategic stagnation-breaking
             )
 
         # T5: Warmup episodes → reactive (frequent cheap calls)

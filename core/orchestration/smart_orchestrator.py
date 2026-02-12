@@ -789,10 +789,10 @@ class SmartOrchestrator:
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
-        self.POST_SHELL_EXPLORE_STEPS = 3  # Phase 8.0 Batch 4: 3 steps for reliable CLOSEOUT
+        self.POST_SHELL_EXPLORE_STEPS = 2  # Phase 8.2 Batch 9: reduced 3→2 for faster CLOSEOUT
         
-        # ─── PHASE 8.1: Orion mid-episode strategic review flag ─────
-        self._orion_reviewed_this_ep = False
+        # ─── PHASE 8.2: Orion dual strategic reviews (2 per episode) ─────
+        self._orion_review_count = 0
         
         # Reset stuck detection
         self.action_history.clear()
@@ -1002,58 +1002,121 @@ class SmartOrchestrator:
                     "credentials": ["found"] if self.attack_context.state_flags.get("credentials_known") else [],
                 })
             
-            # ─── Phase 8.1: Orion gpt-5.2-codex strategic mid-episode review ────
-            # At step 15, Orion uses gpt-5.2-codex for a strategic assessment.
-            # Budget-capped: max 1 call per episode to control token spend.
-            # Generates strategic directives injected into SmartCoach reasoning.
-            if step == 15 and not getattr(self, '_orion_reviewed_this_ep', False):
-                self._orion_reviewed_this_ep = True
+            # ─── Phase 8.2: Orion gpt-5.2-codex strategic reviews (2 per episode) ────
+            # Review 1 at step 10: Initial assessment and kill chain selection
+            # Review 2 at step 25: Mid-game strategic adjustment based on progress
+            # Dynamic token allocation: more tokens for deeper analysis on LIVE targets
+            _orion_review_steps = [10, 25]
+            _orion_review_count = getattr(self, '_orion_review_count', 0)
+            if step in _orion_review_steps and _orion_review_count < 2:
+                self._orion_review_count = _orion_review_count + 1
                 try:
                     _disc = self.discovery_board
-                    _ports_str = str(list(_disc.get('ports', set()))[:10])
-                    _svc_str = str(list(_disc.get('services', set()))[:5])
-                    _creds_str = str(list(_disc.get('credentials', set()))[:3])
-                    _shells_str = str(list(_disc.get('shells', set()))[:2])
+                    _ports_list = sorted(list(_disc.get('ports', set())))[:15]
+                    _svc_list = list(_disc.get('services', set()))[:8]
+                    _creds_list = list(_disc.get('credentials', set()))[:5]
+                    _shells_list = list(_disc.get('shells', set()))[:3]
                     _phase = self.attack_context.current_phase.name
+                    _flags = self.attack_context.state_flags
+                    
+                    # Dynamic token allocation — first review shorter, second deeper
+                    _max_tokens = 350 if step == 10 else 500
+                    
+                    # Build team communication context — what each agent discovered
+                    _team_context = ""
+                    for _coach_key, _coach in self.smart_coaches.items():
+                        _recent = _coach._episode_chain[-3:] if _coach._episode_chain else []
+                        _fails = _coach._reasoning_failures[-2:] if _coach._reasoning_failures else []
+                        if _recent or _fails:
+                            _team_context += f"\n  {_coach.agent_name}: recent=[{', '.join(_recent)}]"
+                            if _fails:
+                                _team_context += f" failures=[{', '.join(_fails)}]"
+                    
+                    # Build best chain context from cross-episode memory
+                    _chain_context = ""
+                    for _coach_key, _coach in self.smart_coaches.items():
+                        if _coach._best_chain:
+                            _bc = _coach._best_chain
+                            _chain_context += (
+                                f"\n  {_coach.agent_name} best chain: "
+                                f"{' → '.join(_bc['commands'][:6])} "
+                                f"(reward={_bc['total_reward']:.0f}, phase={_bc['highest_phase']})"
+                            )
+                    
+                    _review_type = "INITIAL ASSESSMENT" if step == 10 else "MID-GAME ADJUSTMENT"
                     _orion_prompt = (
-                        f"You are Orion, strategic coordinator of a 5-agent pentesting team.\n"
-                        f"Target: {target} (Metasploitable 3 Linux)\n"
-                        f"Episode step: {step}/{self.config.max_steps} | Phase: {_phase}\n"
-                        f"Discoveries: ports={_ports_str}, services={_svc_str}, "
-                        f"creds={_creds_str}, shells={_shells_str}\n"
-                        f"Phase progression so far: {' → '.join(phase_progression)}\n\n"
-                        f"KNOWN MS3 EXPLOIT PATHS:\n"
-                        f"- SSH msfadmin:msfadmin → sudo su → root shell → dump /etc/shadow\n"
-                        f"- MySQL root:sploitme → db_dump → exfil\n"
-                        f"- Samba 445 → samba_exploit → shell → privesc\n"
-                        f"- ProFTPD 21 → proftpd_exploit → shell\n\n"
-                        f"Assess the team's progress. Are we on track?\n"
-                        f"Provide 2-3 concrete tactical directives:\n"
-                        f"1. What should RedAgent do NEXT (specific command)?\n"
-                        f"2. What kill chain are we following?\n"
-                        f"3. Any coordination adjustments needed?"
+                        f"You are Orion, the strategic mastermind of a 5-agent pentesting team "
+                        f"(Red=attacker, Scout=recon, Shadow=stealth, Blue=defense, Orion=you).\n"
+                        f"This is a {_review_type} for episode progress.\n\n"
+                        f"TARGET: {target} (LIVE {'Metasploitable 3' if '0.11' in str(target) else 'Metasploitable 2'} Linux)\n"
+                        f"Step: {step}/{self.config.max_steps} | Phase: {_phase}\n"
+                        f"Flags: shell={'YES' if _flags.get('shell_obtained') else 'NO'}, "
+                        f"root={'YES' if _flags.get('root_shell_obtained') else 'NO'}, "
+                        f"creds={'YES' if _flags.get('credentials_known') else 'NO'}, "
+                        f"data_exfil={'YES' if _flags.get('data_exfiltrated') else 'NO'}\n\n"
+                        f"DISCOVERIES:\n"
+                        f"  Ports: {_ports_list}\n  Services: {_svc_list}\n"
+                        f"  Credentials: {_creds_list}\n  Shells: {_shells_list}\n"
+                        f"Phase progression: {' → '.join(phase_progression)}\n"
+                        f"\nTEAM STATUS:{_team_context or ' (no data yet)'}\n"
+                        f"\nBEST KNOWN CHAINS:{_chain_context or ' (none yet)'}\n"
+                        f"\nKNOWN EXPLOIT PATHS FOR THIS TARGET:\n"
+                    )
+                    if '0.11' in str(target):
+                        _orion_prompt += (
+                            f"MS3 LINUX:\n"
+                            f"- SSH msfadmin:msfadmin → sudo su → root → dump /etc/shadow → exfil\n"
+                            f"- MySQL root:sploitme → mysqldump → exfil database\n"
+                            f"- Samba 445 → samba_exploit → shell → privesc\n"
+                            f"- ProFTPD 21 → proftpd_exploit or anonymous login → files\n"
+                            f"- NFS 2049 → mount exports → read/write files\n"
+                        )
+                    else:
+                        _orion_prompt += (
+                            f"MS2 LINUX:\n"
+                            f"- vsftpd 21 → vsftpd_234_backdoor → root shell (FASTEST)\n"
+                            f"- SSH msfadmin:msfadmin → sudo → root\n"
+                            f"- Samba 445 → usermap_script → root shell\n"
+                            f"- UnrealIRCd 6667 → backdoor → root shell\n"
+                            f"- ingreslock 1524 → telnet → instant root\n"
+                            f"- Java RMI 1099 → RCE → shell\n"
+                            f"- PostgreSQL 5432 → postgres:postgres → COPY FROM PROGRAM → RCE\n"
+                            f"- Tomcat 8180 → tomcat:tomcat → WAR deploy → shell\n"
+                            f"- VNC 5900 → password='password' → desktop access\n"
+                        )
+                    _orion_prompt += (
+                        f"\nAs Orion, provide EXACTLY:\n"
+                        f"1. KILL CHAIN: Which specific exploit path should we follow RIGHT NOW?\n"
+                        f"2. NEXT COMMAND: The exact command RedAgent should execute next\n"
+                        f"3. COORDINATION: What should Scout/Shadow do to support?\n"
+                        f"4. RISK: Any detection risks to mitigate?\n"
+                        f"Be concrete and specific. Use actual tool names and targets."
                     )
                     _orion_response = self.gpt_manager.gpt_request(
                         _orion_prompt,
                         task_type="strategic",
                         agent_id="OrionAgent",
-                        max_tokens=250,
+                        max_tokens=_max_tokens,
                         model="gpt-5.2-codex",
                     )
                     if _orion_response:
-                        # Inject Orion's strategic guidance into SmartCoach reasoning
+                        _resp_str = str(_orion_response)
+                        # Inject Orion's strategic guidance into ALL SmartCoach agents
                         for _coach_key, _coach in self.smart_coaches.items():
-                            _coach._reasoning_plan = str(_orion_response)[:200]
+                            _coach._reasoning_plan = _resp_str[:300]
                             if not _coach._reasoning_hypotheses:
                                 _coach._reasoning_hypotheses = []
                             _coach._reasoning_hypotheses.append(
-                                f"[Orion-5.2] {str(_orion_response)[:100]}"
+                                f"[Orion-5.2-{_review_type[:4]}] {_resp_str[:150]}"
                             )
+                            # Trim hypothesis list to prevent unbounded growth
+                            if len(_coach._reasoning_hypotheses) > 8:
+                                _coach._reasoning_hypotheses = _coach._reasoning_hypotheses[-8:]
                         logger.info(
-                            f"[ORION-5.2] Strategic review: {str(_orion_response)[:120]}"
+                            f"[ORION-5.2] {_review_type} (step {step}): {_resp_str[:150]}"
                         )
                 except Exception as e:
-                    logger.debug(f"[ORION-5.2] Strategic review failed: {e}")
+                    logger.debug(f"[ORION-5.2] Strategic review failed at step {step}: {e}")
             
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
@@ -1273,21 +1336,28 @@ class SmartOrchestrator:
             finally:
                 self._ppo_trajectory.clear()
         
-        # ─── PHASE 8.1: End-of-episode postmortem analysis ──────────
-        # Run OrionPostmortem every 2 episodes (Phase 8.1: was 10) for faster
-        # gpt-5.2-codex learning feedback. Also triggers on significant achievements.
-        # More frequent postmortems = more skill cards = faster agent learning.
+        # ─── PHASE 8.2: End-of-episode postmortem analysis ──────────
+        # Run OrionPostmortem EVERY episode (Phase 8.2: was every 2).
+        # LIVE-only training demands maximum learning extraction per episode.
+        # gpt-5.2-codex deep analysis with team coordination context.
         if self.postmortem and self.skill_library:
-            should_postmortem = (
-                (episode_number + 1) % 2 == 0
-                or highest_phase in ("CLOSEOUT", "EXFILTRATION")
-            )
+            should_postmortem = True  # Phase 8.2: every episode for LIVE training
             if should_postmortem:
                 try:
                     # Build episode transcript for postmortem
                     transcript = self._build_episode_transcript(
                         step_results, phase_progression, episode_reward
                     )
+                    
+                    # Phase 8.2: Enhanced run trace with team coordination data
+                    _chain_data = {}
+                    for _ck, _coach in self.smart_coaches.items():
+                        _chain_data[_coach.agent_name] = {
+                            "episode_chain": list(_coach._episode_chain[-10:]),
+                            "best_chain": _coach._best_chain,
+                            "failures": list(_coach._reasoning_failures[-5:]) if _coach._reasoning_failures else [],
+                        }
+                    
                     pm_result = self.postmortem.analyze_run(
                         run_trace={
                             "run_id": episode_id,
@@ -1296,13 +1366,21 @@ class SmartOrchestrator:
                             "total_reward": episode_reward,
                             "success_rate": 1.0 if highest_phase in ("CLOSEOUT", "EXFILTRATION") else 0.0,
                             "total_mentor_calls": metrics.get("mentor_calls", 0),
+                            "discoveries": {
+                                k: list(v) if isinstance(v, set) else v
+                                for k, v in self.discovery_board.items()
+                                if k != "phase"
+                            },
+                            "phase_progression": phase_progression,
+                            "agent_chains": _chain_data,
+                            "target": str(target),
                         },
                     )
                     if pm_result and pm_result.skill_cards:
                         for sc in pm_result.skill_cards:
                             self.skill_library.add(sc)
                         logger.info(
-                            f"Phase 6.3: Postmortem generated {len(pm_result.skill_cards)} skill cards"
+                            f"Phase 8.2: Postmortem generated {len(pm_result.skill_cards)} skill cards"
                         )
                         metrics["postmortem_skills"] = len(pm_result.skill_cards)
                     
@@ -1320,7 +1398,7 @@ class SmartOrchestrator:
                     # Save skill library
                     self.skill_library.save()
                 except Exception as e:
-                    logger.warning(f"Phase 6.3: Postmortem error: {e}")
+                    logger.warning(f"Phase 8.2: Postmortem error: {e}")
         
         # ─── PHASE 6.3: Record episode to campaign memory ───────────
         if self.campaign_memory:
@@ -1712,32 +1790,61 @@ class SmartOrchestrator:
                         logger.info(f"[SHELL-DETECT] Command-based ROOT shell detection for '{cmd_name}'")
             
             # ─── COMMAND-BASED PERSISTENCE DETECTION ─────────────────────
+            # Phase 8.2: Expanded persistence command set
             PERSISTENCE_COMMANDS = {
                 "cron_backdoor", "ssh_key_persistence", "ssh_key_plant",
                 "plant_ssh_key", "add_backdoor_user", "clear_bash_history",
                 "clear_auth_logs", "clear_syslog", "remove_uploaded_tools",
                 "remove_ssh_keys_planted",
+                # Phase 8.2: Additional persistence indicators
+                "check_crontab", "check_ssh_keys",
             }
-            if cmd_name in PERSISTENCE_COMMANDS and has_output and not has_failure:
+            # Phase 8.2: Also detect persistence from command text patterns
+            PERSISTENCE_PATTERNS = (
+                "crontab", "authorized_keys", ".ssh/", "useradd", "adduser",
+                "echo '* * * * *",
+            )
+            cmd_is_persist = (
+                cmd_name in PERSISTENCE_COMMANDS
+                or any(p in cmd_text for p in PERSISTENCE_PATTERNS)
+            )
+            if cmd_is_persist and has_output and not has_failure:
                 if not agent_discoveries.get("persistence"):
                     agent_discoveries["persistence"] = True
                     logger.info(f"[PERSIST-DETECT] Command-based persistence detection for '{cmd_name}'")
             
             # ─── COMMAND-BASED EXFILTRATION DETECTION ────────────────────
+            # Phase 8.2 Batch 9: Also match by template_name AND detect exfil
+            # inside telnet-wrapped { echo ... } blocks where cmd_text starts with {
             EXFIL_COMMANDS = {
                 "nc_exfil", "curl_exfil", "scp_exfil", "base64_exfil",
                 "exfil_shadow", "exfil_ssh_keys", "exfil_mysql_dump",
                 "dump_shadow", "dump_passwd",
+                # Phase 8.2: Additional exfil template names
+                "cat_shadow", "cat_passwd", "mysql_dump",
+                "dump_hashes", "find_sensitive_files",
             }
             EXFIL_PREFIXES = (
                 "cat /etc/shadow", "cat /etc/passwd", "mysqldump",
                 "pg_dump", "base64 /etc/", "find / -name",
             )
+            # Phase 8.2: Also check inside { echo '...' } wrapped commands
+            _inner_cmd = cmd_text
+            if cmd_text.startswith("{") and "echo" in cmd_text:
+                # Extract what's inside echo quotes: { echo 'cat /etc/passwd'; ... }
+                import re as _re
+                _echo_match = _re.search(r"echo\s+['\"]([^'\"]+)['\"]", cmd_text)
+                if _echo_match:
+                    _inner_cmd = _echo_match.group(1).strip()
             cmd_is_exfil = (
                 cmd_name in EXFIL_COMMANDS
                 or any(cmd_text.startswith(p) for p in EXFIL_PREFIXES)
+                or any(_inner_cmd.startswith(p) for p in EXFIL_PREFIXES)
             )
-            if cmd_is_exfil and has_output and not has_failure:
+            # Phase 8.2 Batch 9: For known exfil template names, don't gate on has_failure
+            # (output may contain minor errors alongside real sensitive data)
+            _exfil_by_name = cmd_name in EXFIL_COMMANDS
+            if cmd_is_exfil and has_output and (_exfil_by_name or not has_failure):
                 # Phase 8.0: Only mark exfil after post-shell exploration minimum
                 _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
                 _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
@@ -1745,6 +1852,24 @@ class SmartOrchestrator:
                     if not agent_discoveries.get("data_exfiltrated"):
                         agent_discoveries["data_exfiltrated"] = True
                         logger.info(f"[EXFIL-DETECT] Command-based exfiltration detection for '{cmd_name}'")
+            
+            # ─── Phase 8.2 Batch 9: OUTPUT-BASED EXFIL DETECTION ────────
+            # If the OUTPUT contains sensitive data (password hashes, /etc/passwd
+            # entries, database dumps), that IS exfiltration regardless of command
+            if has_output and not agent_discoveries.get("data_exfiltrated"):
+                _EXFIL_OUTPUT_INDICATORS = (
+                    "root:x:0:0:", "root:$", ":0:0:root",  # /etc/passwd or /etc/shadow
+                    "mysql>", "MariaDB", "PostgreSQL",  # DB access
+                    "msfadmin:$", "$6$", "$1$", "$5$",  # password hashes
+                    "BEGIN RSA PRIVATE KEY", "BEGIN OPENSSH PRIVATE KEY",  # SSH keys
+                    "CREATE TABLE", "INSERT INTO", "mysqldump",  # DB dumps
+                )
+                if any(ind in output_to_parse for ind in _EXFIL_OUTPUT_INDICATORS):
+                    _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
+                    _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
+                    if _steps_since_shell >= _min_explore:
+                        agent_discoveries["data_exfiltrated"] = True
+                        logger.info(f"[EXFIL-DETECT] Output-based exfiltration: sensitive data in output of '{cmd_name}'")
             
             # ─── COMMAND-BASED CLOSEOUT DETECTION ────────────────────────
             CLOSEOUT_COMMANDS = {

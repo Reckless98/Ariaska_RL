@@ -2049,9 +2049,13 @@ class SmartCoach:
     
     # Tools known to NOT be standard Linux utilities and likely missing.
     # We check these with shutil.which() once at init.
+    # Phase 8.2 Batch 9: Added impacket-atexec, impacket-wmiexec, impacket-GetNPUsers,
+    # impacket-GetUserSPNs, evil-winrm, redis-cli, linpeas, mysqldump, certipy
     _TOOL_BINARIES = {
         "crackmapexec", "impacket-psexec", "impacket-secretsdump",
-        "impacket-smbexec", "smbmap", "dirsearch", "dnsrecon",
+        "impacket-smbexec", "impacket-atexec", "impacket-wmiexec",
+        "impacket-GetNPUsers", "impacket-GetUserSPNs",
+        "smbmap", "dirsearch", "dnsrecon",
         "wpscan", "commix", "chisel", "windapsearch", "enum4linux-ng",
         "rpcinfo", "gospider", "feroxbuster", "gobuster",
         "masscan", "whatweb", "smbclient", "rpcclient",
@@ -2059,6 +2063,7 @@ class SmartCoach:
         "nmap", "msfconsole", "msfvenom", "searchsploit",
         "enum4linux", "ftp", "telnet", "sshpass", "psql", "mysql",
         "curl", "nc", "dig",
+        "evil-winrm", "redis-cli", "linpeas", "mysqldump", "certipy",
     }
     
     def _check_tool_availability(self) -> None:
@@ -3178,17 +3183,26 @@ class SmartCoach:
                         elif tpl.template and "http://" in tpl.template.lower():
                             mask[idx] = False
 
-            # ─── Phase 8.0: Block Windows-only commands on Linux targets ────
-            # MS3 is Linux — commands like mimikatz, evil-winrm, rubeus are dead weight
+            # ─── Phase 8.0/8.2: Block Windows-only commands on Linux targets ─
+            # MS2/MS3 are Linux — commands like mimikatz, evil-winrm, rubeus are dead weight
+            # Phase 8.2 Batch 9: Fixed mimikatz names to match actual registry entries
             _platform = getattr(ctx, 'platform', 'linux') or 'linux'
             if 'linux' in str(_platform).lower():
                 _WINDOWS_ONLY = {
-                    "evil_winrm", "evil_winrm_hash", "mimikatz_dump", "mimikatz_golden",
-                    "mimikatz_dcsync", "winpeas", "whoami_all", "systeminfo",
+                    # Evil-WinRM
+                    "evil_winrm", "evil_winrm_hash",
+                    # Mimikatz (corrected names matching command_registry.py)
+                    "mimikatz_logonpasswords", "mimikatz_sam", "mimikatz_dcsync",
+                    # Windows enumeration
+                    "winpeas", "whoami_all", "systeminfo",
                     "windows_exploit_suggester", "accesschk_services", "powerup",
+                    # Kerberos/AD (Windows domain)
                     "rubeus_asreproast", "rubeus_kerberoast", "secretsdump_dc",
                     "crackmapexec_winrm", "mssql_login", "ntlmrelayx", "responder",
                     "certipy_find", "bloodhound_collect", "sharphound",
+                    # Impacket (Windows-oriented: psexec/wmiexec/atexec/smbexec)
+                    "impacket_psexec", "impacket_wmiexec", "impacket_smbexec",
+                    "impacket_GetNPUsers", "impacket_GetUserSPNs",
                 }
                 for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
                     if name in _WINDOWS_ONLY and mask[idx]:
