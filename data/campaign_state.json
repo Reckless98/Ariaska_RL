@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 10,
   "best_phase_reached": "POST_EXPLOITATION",
-  "last_updated": 1770879710.7797143,
+  "last_updated": 1770880605.5558555,
   "target_ip": "",
   "ports": {
     "0": {
@@ -34,24 +34,24 @@
       "service": "mssql",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 177
+      "last_seen_episode": 9,
+      "confirmed_count": 183
     },
     "139": {
       "port": 139,
       "service": "mysql",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 179
+      "last_seen_episode": 9,
+      "confirmed_count": 184
     },
     "111": {
       "port": 111,
       "service": "http",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 176
+      "last_seen_episode": 9,
+      "confirmed_count": 181
     },
     "17": {
       "port": 17,
@@ -66,24 +66,24 @@
       "service": "telnet",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 6,
-      "confirmed_count": 184
+      "last_seen_episode": 9,
+      "confirmed_count": 191
     },
     "22": {
       "port": 22,
       "service": "nfs",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 1,
-      "confirmed_count": 178
+      "last_seen_episode": 9,
+      "confirmed_count": 183
     },
     "445": {
       "port": 445,
       "service": "tomcat",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 4,
-      "confirmed_count": 183
+      "last_seen_episode": 9,
+      "confirmed_count": 191
     },
     "6667": {
       "port": 6667,
@@ -91,23 +91,23 @@
       "version": "",
       "first_seen_episode": 1,
       "last_seen_episode": 7,
-      "confirmed_count": 125
+      "confirmed_count": 127
     },
     "8067": {
       "port": 8067,
       "service": "dns",
       "version": "",
       "first_seen_episode": 6,
-      "last_seen_episode": 2,
-      "confirmed_count": 76
+      "last_seen_episode": 7,
+      "confirmed_count": 78
     },
     "6697": {
       "port": 6697,
       "service": "irc",
       "version": "",
       "first_seen_episode": 6,
-      "last_seen_episode": 1,
-      "confirmed_count": 89
+      "last_seen_episode": 7,
+      "confirmed_count": 91
     },
     "5228": {
       "port": 5228,
@@ -446,56 +446,6 @@
     {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770876349.8222713
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770876554.3891344
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770876679.2217486
-    },
-    {
-      "episode": 3,
-      "type": "user",
-      "timestamp": 1770876778.7608306
-    },
-    {
-      "episode": 4,
-      "type": "user",
-      "timestamp": 1770876964.7534552
-    },
-    {
-      "episode": 5,
-      "type": "user",
-      "timestamp": 1770877159.2715912
-    },
-    {
-      "episode": 6,
-      "type": "user",
-      "timestamp": 1770877296.2656977
-    },
-    {
-      "episode": 7,
-      "type": "user",
-      "timestamp": 1770877402.2879267
-    },
-    {
-      "episode": 8,
-      "type": "user",
-      "timestamp": 1770877528.4166825
-    },
-    {
-      "episode": 9,
-      "type": "user",
-      "timestamp": 1770877599.602392
-    },
-    {
-      "episode": 0,
-      "type": "user",
       "timestamp": 1770879180.540448
     },
     {
@@ -542,6 +492,56 @@
       "episode": 9,
       "type": "user",
       "timestamp": 1770879710.779645
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770879888.1838648
+    },
+    {
+      "episode": 1,
+      "type": "user",
+      "timestamp": 1770879935.253125
+    },
+    {
+      "episode": 2,
+      "type": "user",
+      "timestamp": 1770879986.551753
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770880053.0518582
+    },
+    {
+      "episode": 4,
+      "type": "user",
+      "timestamp": 1770880093.1193612
+    },
+    {
+      "episode": 5,
+      "type": "user",
+      "timestamp": 1770880138.1426604
+    },
+    {
+      "episode": 6,
+      "type": "user",
+      "timestamp": 1770880255.8195188
+    },
+    {
+      "episode": 7,
+      "type": "user",
+      "timestamp": 1770880319.932849
+    },
+    {
+      "episode": 8,
+      "type": "user",
+      "timestamp": 1770880465.890774
+    },
+    {
+      "episode": 9,
+      "type": "user",
+      "timestamp": 1770880605.5557678
     }
   ],
   "attack_chains": [

@@ -791,6 +791,11 @@ class SmartOrchestrator:
         self._shell_obtained_step: Optional[int] = None
         self.POST_SHELL_EXPLORE_STEPS = 2  # Phase 8.2 Batch 9: reduced 3→2 for faster CLOSEOUT
         
+        # ─── PHASE 8.2 Batch 16: Deferred discovery queue ───────────
+        # Stores (discovery_type, agent_name, step) for discoveries suppressed
+        # by the post-shell gate. Re-evaluated when gate is satisfied.
+        self._deferred_discoveries: list = []
+        
         # ─── PHASE 8.2: Orion dual strategic reviews (2 per episode) ─────
         self._orion_review_count = 0
         
@@ -1857,8 +1862,18 @@ class SmartOrchestrator:
             )
             # Phase 8.2 Batch 9: For known exfil template names, don't gate on has_failure
             # (output may contain minor errors alongside real sensitive data)
+            # Phase 8.2 Batch 16: BUT if has_failure AND output lacks actual sensitive
+            # data, reject — prevents false positive on MS3 where port 1524 is closed
+            # and dump_passwd/dump_shadow templates always get "Connection refused".
             _exfil_by_name = cmd_name in EXFIL_COMMANDS
-            if cmd_is_exfil and has_output and (_exfil_by_name or not has_failure):
+            _SENSITIVE_DATA_MARKERS = ("root:x:0:0:", "root:$", ":0:0:root",
+                                       "msfadmin:$", "$6$", "$1$", "$5$",
+                                       "BEGIN RSA PRIVATE KEY", "BEGIN OPENSSH PRIVATE KEY",
+                                       "CREATE TABLE", "INSERT INTO", "mysqldump")
+            _has_sensitive_data = any(m in output_to_parse for m in _SENSITIVE_DATA_MARKERS)
+            # Allow exfil if: (a) no failure, OR (b) by-name AND has sensitive data
+            _exfil_pass = (not has_failure) or (_exfil_by_name and _has_sensitive_data)
+            if cmd_is_exfil and has_output and _exfil_pass:
                 # Phase 8.0: Only mark exfil after post-shell exploration minimum
                 _steps_since_shell = (step - self._shell_obtained_step) if self._shell_obtained_step is not None else 0
                 _min_explore = 2 if (self._shell_obtained_step is not None and self._shell_obtained_step >= 28) else self.POST_SHELL_EXPLORE_STEPS
@@ -1999,6 +2014,8 @@ class SmartOrchestrator:
                         ctx.set_state_flag("persistence_established")
                     else:
                         logger.debug(f"[POST-SHELL-EXPLORE] Suppressing persistence_established — {_steps_since_shell}/{self.POST_SHELL_EXPLORE_STEPS} post-shell steps")
+                        # Phase 8.2 Batch 16: Defer for re-evaluation when gate is satisfied
+                        self._deferred_discoveries.append(("persistence", result.agent_name, step))
                 
                 # Data exfiltration → exfiltration phase (Phase 8.0: post-shell gate)
                 if agent_discoveries.get("data_exfiltrated"):
@@ -2010,6 +2027,8 @@ class SmartOrchestrator:
                         ctx.set_state_flag("data_exfiltrated")
                     else:
                         logger.debug(f"[POST-SHELL-EXPLORE] Suppressing data_exfiltrated — {_steps_since_shell}/{self.POST_SHELL_EXPLORE_STEPS} post-shell steps")
+                        # Phase 8.2 Batch 16: Defer for re-evaluation when gate is satisfied
+                        self._deferred_discoveries.append(("data_exfiltrated", result.agent_name, step))
 
                 # Closeout artifacts removed → closeout phase completion
                 if agent_discoveries.get("artifacts_removed") or agent_discoveries.get("closeout_completed"):
@@ -2110,6 +2129,28 @@ class SmartOrchestrator:
                     self._steps_without_discoveries[result.agent_name] = (
                         self._steps_without_discoveries.get(result.agent_name, 0) + 1
                     )
+        
+        # ─── PHASE 8.2 Batch 16: Re-evaluate deferred discoveries ───
+        # If post-shell gate is now satisfied, apply previously suppressed
+        # persistence/exfil discoveries so phase can advance to CLOSEOUT.
+        if self._deferred_discoveries and self._shell_obtained_step is not None and self.attack_context:
+            _steps_since_shell = step - self._shell_obtained_step
+            _min_explore = 2 if self._shell_obtained_step >= 28 else self.POST_SHELL_EXPLORE_STEPS
+            if _steps_since_shell >= _min_explore:
+                ctx = self.attack_context
+                _applied = []
+                for disc_type, agent_name, orig_step in self._deferred_discoveries:
+                    if disc_type == "persistence" and not ctx.state_flags.get("persistence_established"):
+                        ctx.set_state_flag("persistence_established")
+                        logger.info(f"[PHASE-ADVANCE] persistence_established set (deferred from s{orig_step} {agent_name})")
+                        _applied.append(disc_type)
+                    elif disc_type == "data_exfiltrated" and not ctx.state_flags.get("data_exfiltrated"):
+                        ctx.set_state_flag("data_exfiltrated")
+                        logger.info(f"[PHASE-ADVANCE] data_exfiltrated set (deferred from s{orig_step} {agent_name})")
+                        _applied.append(disc_type)
+                if _applied:
+                    self._deferred_discoveries.clear()
+                    logger.info(f"[DEFERRED-DISCOVERY] Applied deferred: {_applied} at step {step}")
         
         # Use smart reward if available, otherwise fall back to env reward
         final_reward = smart_reward_total if smart_reward_total != 0 else env_reward

@@ -198,6 +198,8 @@ class LiveCommandExecutor:
         "vncviewer": 15,
         "find": 15,         # Batch 15: find commands can hang on remote FS — fail fast
         "getcap": 15,       # Batch 15: getcap -r can scan entire FS — fail fast
+        "script": 5,        # Batch 15: script -q opens interactive session — kill fast
+        "(script": 5,       # Batch 15: subshell-wrapped script — kill fast
     }
     DEFAULT_TIMEOUT = 30
     
