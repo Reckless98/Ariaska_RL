@@ -1967,6 +1967,86 @@ class SmartCoach:
         
         return " | ".join(parts)
     
+    # ── R48: Dynamic phase-aware alternative selection ────────────────────
+    def _get_dynamic_alternative(
+        self,
+        ctx: Any,
+        used_cmds: set,
+        used_prefixes: set,
+    ) -> Optional[str]:
+        """Get a phase-aware, role-filtered, macro-aware alternative from the registry.
+
+        Returns a rendered command string, or None if no suitable command found.
+        Uses the same filtering pipeline as _decide_registry / _force_novel_command
+        but in a lightweight path suitable for anti-repeat fallback.
+        """
+        import random
+        try:
+            # 1. Get phase-valid, precondition-met commands
+            state_flags = ctx.state_flags if hasattr(ctx, 'state_flags') else set()
+            current_phase = ctx.current_phase if hasattr(ctx, 'current_phase') else None
+            
+            valid_commands = get_valid_commands_for_state(state_flags, current_phase)
+            if not valid_commands:
+                valid_commands = get_valid_commands_for_state(state_flags)
+            if not valid_commands:
+                return None
+            
+            # 2. Role filter
+            role_filtered = self._filter_commands_for_role(valid_commands)
+            if not role_filtered:
+                return None
+            
+            # 3. Tool availability filter
+            role_filtered = [cmd for cmd in role_filtered if self._is_tool_available(cmd)]
+            if not role_filtered:
+                return None
+            
+            # 4. DDQN macro filter — if a macro is active, prefer its commands
+            macro_filtered = role_filtered
+            if self._active_macro is not None:
+                try:
+                    from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
+                    macro_allowed = MACRO_COMMAND_MAP.get(self._active_macro, set())
+                    if macro_allowed:
+                        _mf = [cmd for cmd in role_filtered if cmd.name in macro_allowed]
+                        if len(_mf) >= 2:
+                            macro_filtered = _mf
+                except Exception:
+                    pass
+            
+            # 5. Render and filter out already-used commands
+            candidates = []
+            params = {"target": ctx.target}
+            for template in macro_filtered:
+                for param in template.required_params:
+                    if param not in params:
+                        params[param] = self._get_default_param(param, ctx)
+                rendered = render_command(template, params)
+                # Skip exact matches with history
+                if rendered.strip() in used_cmds:
+                    continue
+                # Skip commands with heavily-used prefixes
+                prefix = self._extract_tool_prefix(rendered)
+                prefix_uses = sum(1 for p in used_prefixes if p == prefix)
+                if prefix_uses >= 3:
+                    continue
+                candidates.append((rendered, template.typical_reward))
+            
+            if not candidates:
+                return None
+            
+            # 6. Sort by typical_reward descending and pick from top tier
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            # Pick randomly from top 5 to maintain exploration
+            top_n = min(5, len(candidates))
+            chosen = random.choice(candidates[:top_n])
+            return chosen[0]
+            
+        except Exception as e:
+            logger.debug(f"[{self.agent_name}] Dynamic alternative failed: {e}")
+            return None
+    
     def _replace_with_alternative(
         self,
         result: SmartDecisionResult,
@@ -1975,7 +2055,12 @@ class SmartCoach:
         all_cmds: List[str],
         reason: str,
     ) -> SmartDecisionResult:
-        """Replace a blocked command with an alternative from the role pool."""
+        """Replace a blocked command with a phase-aware, macro-aware alternative.
+
+        R48: First tries to get a registry command matching the current phase,
+        role, and DDQN macro-intent.  Falls back to static per-role pool only
+        if the dynamic query yields nothing.
+        """
         import random
         
         logger.debug(
@@ -1986,6 +2071,46 @@ class SmartCoach:
         step = step_ctx.step
         target = ctx.target
         rand_offset = random.randint(0, 1000)
+        
+        # ── R48: Phase-aware dynamic alternative from registry ────────────
+        used_cmds_set = set(c.strip() for c in all_cmds if c.strip())
+        used_prefixes = set(self._extract_tool_prefix(c) for c in all_cmds if c.strip())
+        _dynamic_cmd = self._get_dynamic_alternative(ctx, used_cmds_set, used_prefixes)
+        if _dynamic_cmd is not None:
+            result.command = _dynamic_cmd
+            result.mentor_reasoning = (
+                f"[ANTI-REPEAT:{reason}→registry] "
+                f"{result.mentor_reasoning or 'Phase-aware alternative'}"
+            )
+            result.confidence = 0.5  # Higher than static (0.3) — strategically coherent
+            result.source = "anti_repeat"
+            result._repeat_penalty = -5.0
+            
+            # Graduated PPO negative reward (same as static path)
+            _repeat_penalty = -3.0
+            if reason == "prefix_flood":
+                _repeat_penalty = -8.0
+            elif "exact_repeat" in reason:
+                _repeat_count = sum(1 for c in all_cmds if c == result.command)
+                _repeat_penalty = -3.0 - min(5.0, _repeat_count * 1.5)
+            
+            if self._ppo_pending is not None:
+                self._ppo_trajectory.append({
+                    "state": self._ppo_pending["state"],
+                    "action": self._ppo_pending["action"],
+                    "log_prob": self._ppo_pending["log_prob"],
+                    "value": self._ppo_pending["value"],
+                    "reward": _repeat_penalty,
+                    "done": False,
+                })
+                self._ppo_pending = None
+            
+            logger.debug(
+                f"[{self.agent_name}] ANTI-REPEAT→REGISTRY: "
+                f"'{_dynamic_cmd[:50]}' (phase-aware)"
+            )
+            return result
+        # ── End R48 dynamic alternative ───────────────────────────────────
         
         alternative_commands = {
             "recon": [
