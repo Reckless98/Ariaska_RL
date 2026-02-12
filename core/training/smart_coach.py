@@ -1540,15 +1540,26 @@ class SmartCoach:
         # find_suid, sudo_check etc. without actually attempting privilege escalation.
         # Fires at steps 10, 15, 20, 25, 30, 35 in PRIV_ESC.
         # =========================================================================
+        # =========================================================================
+        # R51: PRIV_ESC ESCALATION SHORTCUT (improved from R49/R50)
+        # - Pre-cleanup: kill stale SSH connections before attempting sshpass
+        #   to prevent "Connection closed" from MaxSessions exhaustion
+        # - Relaxed SSH failure threshold: allow up to 3 failures (was 2)
+        #   because Connection closed from saturation is transient, not permanent
+        # =========================================================================
         _privesc_steps = getattr(self, '_privesc_steps', 0)
         if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
                 and self.agent_role.get("role") == "offensive"
                 and _privesc_steps >= 10
                 and _privesc_steps % 5 == 0
                 and not ctx.state_flags.get("root_shell_obtained")
-                and getattr(self, '_ssh_failures_this_episode', 0) < 2):
+                and getattr(self, '_ssh_failures_this_episode', 0) < 3):
             target = ctx.target
+            # R51: Pre-cleanup stale SSH connections before the sshpass attempt.
+            # This prevents "Connection closed by remote host" errors caused by
+            # MaxSessions exhaustion from accumulated SSH connections in the episode.
             escalation_cmd = (
+                f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
                 f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
                 f"'echo msfadmin | sudo -S id'"
@@ -2256,6 +2267,11 @@ class SmartCoach:
             available = alts.copy()
             random.shuffle(available)
         new_cmd = random.choice(available) if available else alts[step % len(alts)]
+        
+        # R51: Prepend SSH cleanup to any sshpass alternative to prevent
+        # "Connection closed" from MaxSessions exhaustion
+        if new_cmd.strip().startswith("sshpass "):
+            new_cmd = f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.3; {new_cmd}"
         
         result.command = new_cmd
         result.mentor_reasoning = f"[ANTI-REPEAT:{reason}] {result.mentor_reasoning or 'Forced alternative'}"
@@ -3390,6 +3406,17 @@ class SmartCoach:
             except ValueError:
                 continue
 
+            # R51: Pre-check if the rendered command is already in the episode.
+            # This avoids "wasting" a decision slot on a playbook command that
+            # anti-repeat will just reject. Return None to let PPO decide instead.
+            _episode_cmds = set(d.command.strip() for d in self.decisions if d.command)
+            if command.strip() in _episode_cmds:
+                logger.debug(
+                    f"[PLAYBOOK-DEDUP] {self.agent_name}: Skipping "
+                    f"{matched_step.command} — already executed this episode"
+                )
+                continue  # Try next playbook step
+
             logger.debug(
                 f"[PLAYBOOK][{self.agent_name}] {pb.name} → {matched_step.command} "
                 f"(prob={playbook_prob:.0%}, ep={episode})"
@@ -3858,6 +3885,20 @@ class SmartCoach:
                         f"[PPO][{self.agent_name}] Incomplete closeout penalty "
                         f"{self.PPO_INCOMPLETE_CLOSEOUT_PENALTY:.1f} (reached EXFIL but not CLOSEOUT)"
                     )
+                # R51: Efficiency bonus for fast CLOSEOUTs.
+                # Reward PPO for reaching CLOSEOUT in fewer steps — this aligns
+                # the reward signal with operational efficiency. A CLOSEOUT in
+                # 10 steps is worth more than a CLOSEOUT in 35 steps.
+                # Bonus = 2.0 × (20 - trajectory_length), capped at [0, 20].
+                if highest_phase == "CLOSEOUT":
+                    traj_len = len(self._ppo_trajectory)
+                    efficiency_bonus = max(0.0, min(20.0, (20 - traj_len) * 2.0))
+                    if efficiency_bonus > 0:
+                        self._ppo_trajectory[-1]["reward"] += efficiency_bonus
+                        logger.debug(
+                            f"[PPO][{self.agent_name}] Efficiency bonus +{efficiency_bonus:.1f} "
+                            f"for CLOSEOUT in {traj_len} PPO steps"
+                        )
 
             for t in self._ppo_trajectory:
                 self.ppo_agent.store_transition(
