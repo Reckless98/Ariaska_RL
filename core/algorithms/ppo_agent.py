@@ -45,7 +45,7 @@ class PPOConfig:
     learning_rate: float = 3e-4         # Adam LR (PPO standard)
     lr_min: float = 1e-5                # Minimum LR after annealing
     epochs_per_update: int = 4          # PPO epochs per rollout
-    minibatch_size: int = 64            # Minibatch for SGD
+    minibatch_size: int = 16            # R43: 64→16 — short episodes (6-9 steps) had 0 updates with 64
     max_grad_norm: float = 0.5          # Gradient clipping norm
     # Loss coefficients
     value_loss_coef: float = 0.5        # Critic loss weight
