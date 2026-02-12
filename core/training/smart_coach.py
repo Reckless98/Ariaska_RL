@@ -433,6 +433,8 @@ class SmartCoach:
         self._active_macro_q = None     # Q-values from DDQN for this step
         self._ddqn_confidence = 0.0     # DDQN Q-value separation (for mentor)
         self._ddqn_pending = None       # Pending DDQN transition (state, macro)
+        self._ddqn_prev_macro = None    # R57 Layer 1: Previous macro for switch penalty
+        self._last_step_had_discovery = False  # R57 Layer 1: Discovery signal for DDQN
         try:
             from core.algorithms.ddqn_macro import DDQNMacro, DDQNConfig
             ddqn_config = DDQNConfig(state_dim=512, num_macros=9)
@@ -1375,8 +1377,11 @@ class SmartCoach:
                         max_steps=250,
                     )
                     phase_name = current_phase.name if current_phase else "RECON"
+                    # R57 Layer 1: Pass discovery signal for stagnation detection
+                    _had_disc = getattr(self, '_last_step_had_discovery', False)
                     macro, q_values, confidence = self.ddqn_macro.select_macro(
                         state_tensor, phase_name,
+                        had_discovery=_had_disc,
                     )
                     self._active_macro = macro
                     self._active_macro_q = q_values
@@ -1384,7 +1389,9 @@ class SmartCoach:
                     self._ddqn_pending = {
                         "state": state_tensor,
                         "macro": macro.value,
+                        "prev_macro": self._ddqn_prev_macro,  # R57 Layer 1: track for switch penalty
                     }
+                    self._ddqn_prev_macro = macro.value  # R57: remember for next step
                     logger.debug(
                         f"[DDQN][{self.agent_name}] Macro={macro.name} "
                         f"conf={confidence:.2f} ε={self.ddqn_macro.epsilon:.3f}"
@@ -3986,6 +3993,8 @@ class SmartCoach:
                 self.ddqn_macro.reset_episode()
                 self._active_macro = None
                 self._ddqn_pending = None
+                self._ddqn_prev_macro = None  # R57 Layer 1
+                self._last_step_had_discovery = False  # R57 Layer 1
     
     def _decide_with_mentor(
         self,
@@ -4274,12 +4283,16 @@ class SmartCoach:
                     self.attack_context.set_state_flag("vulnerability_found")
             # Phase 6.1: Reset stagnation on new discoveries
             self._stagnation_steps = 0
+            # R57 Layer 1: Signal for DDQN stagnation detection
+            self._last_step_had_discovery = True
             # Phase 6.2: Notify MentorController of discovery
             if self.mentor_controller is not None:
                 self.mentor_controller.record_discovery()
         else:
             # Phase 6.1: Increment stagnation counter
             self._stagnation_steps = getattr(self, '_stagnation_steps', 0) + 1
+            # R57 Layer 1: No discovery this step
+            self._last_step_had_discovery = False
         
         # Add failed command to context if failed
         if not success:
@@ -4424,6 +4437,13 @@ class SmartCoach:
                         phase_name=phase_name,
                         discoveries=new_discoveries or {},
                         prev_phase=prev_phase_name,
+                        prev_macro=self._ddqn_pending.get("prev_macro"),  # R57 Layer 1
+                    )
+                    
+                    # R57 Layer 1: Record macro outcome for success tracking
+                    _had_disc = bool(new_discoveries)
+                    self.ddqn_macro.record_macro_outcome(
+                        self._ddqn_pending["macro"], macro_reward, _had_disc,
                     )
                     
                     self.ddqn_macro.store_transition(

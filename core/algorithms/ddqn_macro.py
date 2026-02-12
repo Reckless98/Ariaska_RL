@@ -402,6 +402,14 @@ class DDQNMacro:
         self._episode_macros: List[int] = []
         self._last_macro: Optional[int] = None
 
+        # ── R57 Layer 1: Macro persistence & stagnation detection ──
+        self._macro_hold_counter: int = 0            # Steps current macro has been held
+        self._macro_min_hold: int = 3                # Minimum steps before macro switch allowed
+        self._stagnation_counter: int = 0            # Steps in same phase without discoveries
+        self._stagnation_threshold: int = 10         # Trigger stagnation override after N steps
+        self._last_phase_name: Optional[str] = None  # Track phase for stagnation
+        self._per_macro_success: Dict[int, Dict[str, float]] = {}  # macro_idx → {hits, total, reward_sum}
+
         logger.info(
             f"DDQNMacro initialized: state_dim={self.config.state_dim}, "
             f"num_macros={self.config.num_macros}, "
@@ -413,22 +421,45 @@ class DDQNMacro:
         state: torch.Tensor,
         phase_name: str = "RECON",
         force_macro: Optional[MacroIntent] = None,
+        had_discovery: bool = False,
     ) -> Tuple[MacroIntent, torch.Tensor, float]:
         """Select a macro-intent using epsilon-greedy Double DQN.
+        
+        R57 Layer 1 enhancements:
+          - Macro persistence: hold current macro for min 3 steps before switching
+          - Stagnation detection: force forward macro after 10 steps without discoveries
+          - Per-macro success tracking for future biasing
         
         Args:
             state: (state_dim,) state tensor.
             phase_name: Current attack phase name for masking.
             force_macro: If set, force this macro-intent (for testing/mentor override).
+            had_discovery: Whether the previous step produced any new discoveries.
             
         Returns:
             (macro_intent, q_values, confidence) where confidence is
             the normalized Q-value separation between best and second-best.
         """
+        # ── R57: Update stagnation counter ──
+        if phase_name == self._last_phase_name:
+            if had_discovery:
+                self._stagnation_counter = 0  # Reset on discovery
+            else:
+                self._stagnation_counter += 1
+        else:
+            # Phase changed — reset stagnation
+            self._stagnation_counter = 0
+        self._last_phase_name = phase_name
+
         if force_macro is not None:
             # Return forced macro with dummy Q-values
             q_dummy = torch.zeros(self.config.num_macros)
             q_dummy[force_macro.value] = 1.0
+            self._macro_hold_counter = 0
+            self._last_macro = force_macro.value
+            self._episode_macros.append(force_macro.value)
+            self.total_steps += 1
+            self._decay_epsilon()
             return force_macro, q_dummy, 1.0
 
         # Get phase-valid macro mask
@@ -449,14 +480,37 @@ class DDQNMacro:
         masked_q = q_values.clone()
         masked_q[~macro_mask] = float("-inf")
 
-        # Epsilon-greedy
-        if random.random() < self.epsilon:
-            # Random from allowed macros
-            valid_indices = macro_mask.nonzero(as_tuple=True)[0].tolist()
-            macro_idx = random.choice(valid_indices)
-        else:
-            # Greedy
-            macro_idx = masked_q.argmax().item()
+        # ── R57: Stagnation override — force most forward macro ──
+        stagnation_override = False
+        if self._stagnation_counter >= self._stagnation_threshold:
+            forward_macro = _get_stagnation_override(phase_name, allowed)
+            if forward_macro is not None and macro_mask[forward_macro.value]:
+                macro_idx = forward_macro.value
+                stagnation_override = True
+                logger.info(
+                    f"[DDQN-STAGNATION] Forcing {forward_macro.name} after "
+                    f"{self._stagnation_counter} stagnant steps in {phase_name}"
+                )
+                self._stagnation_counter = 0  # Reset after override
+
+        if not stagnation_override:
+            # ── R57: Macro persistence — hold for min steps ──
+            if (
+                self._last_macro is not None
+                and self._macro_hold_counter < self._macro_min_hold
+                and macro_mask[self._last_macro]  # Still valid in current phase
+            ):
+                macro_idx = self._last_macro
+                # Don't increment here — tracking block below handles it
+            else:
+                # Epsilon-greedy selection
+                if random.random() < self.epsilon:
+                    # Random from allowed macros
+                    valid_indices = macro_mask.nonzero(as_tuple=True)[0].tolist()
+                    macro_idx = random.choice(valid_indices)
+                else:
+                    # Greedy
+                    macro_idx = masked_q.argmax().item()
 
         # Compute confidence: Q-separation between best and second-best
         sorted_q = masked_q[macro_mask].sort(descending=True).values
@@ -468,12 +522,26 @@ class DDQNMacro:
 
         macro = MacroIntent(macro_idx)
 
+        # ── R57: Track macro hold / switch ──
+        if self._last_macro is not None and macro_idx != self._last_macro:
+            self._macro_hold_counter = 1  # New macro — start hold
+        elif self._last_macro is None:
+            self._macro_hold_counter = 1  # First macro of episode
+        else:
+            self._macro_hold_counter += 1  # Same macro — increment hold
+
         # Track
         self._episode_macros.append(macro_idx)
         self._last_macro = macro_idx
         self.total_steps += 1
 
         # Decay epsilon
+        self._decay_epsilon()
+
+        return macro, q_values.cpu(), confidence
+
+    def _decay_epsilon(self):
+        """Decay epsilon toward minimum."""
         self.epsilon = max(
             self.config.epsilon_end,
             self.config.epsilon_start - (
@@ -481,7 +549,21 @@ class DDQNMacro:
             ) * (self.config.epsilon_start - self.config.epsilon_end),
         )
 
-        return macro, q_values.cpu(), confidence
+    def record_macro_outcome(self, macro_idx: int, reward: float, had_discovery: bool):
+        """R57 Layer 1: Track per-macro success for future biasing.
+        
+        Args:
+            macro_idx: MacroIntent index.
+            reward: Reward received during this macro.
+            had_discovery: Whether any new discoveries were made.
+        """
+        if macro_idx not in self._per_macro_success:
+            self._per_macro_success[macro_idx] = {"hits": 0.0, "total": 0.0, "reward_sum": 0.0}
+        stats = self._per_macro_success[macro_idx]
+        stats["total"] += 1.0
+        stats["reward_sum"] += reward
+        if had_discovery:
+            stats["hits"] += 1.0
 
     def store_transition(
         self,
@@ -577,6 +659,10 @@ class DDQNMacro:
         """Reset per-episode tracking."""
         self._episode_macros = []
         self._last_macro = None
+        # R57 Layer 1 resets
+        self._macro_hold_counter = 0
+        self._stagnation_counter = 0
+        self._last_phase_name = None
 
     def get_macro_stats(self) -> Dict[str, Any]:
         """Get statistics about macro-intent selection this episode.
@@ -655,6 +741,40 @@ class DDQNMacro:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# R57 LAYER 1: STAGNATION OVERRIDE HELPER
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Phase → macro to force when stagnated (most forward-biased for that phase)
+_STAGNATION_OVERRIDE_MAP: Dict[str, MacroIntent] = {
+    "RECON": MacroIntent.SERVICE_ENUM,
+    "ENUMERATION": MacroIntent.CREDENTIAL_CHAIN,
+    "EXPLOITATION": MacroIntent.SERVICE_EXPLOIT,   # EP8 R56 fix — force exploitation
+    "PRIVILEGE_ESCALATION": MacroIntent.PRIV_ESC,
+    "LATERAL_MOVEMENT": MacroIntent.LATERAL,
+    "POST_EXPLOITATION": MacroIntent.EXFIL,
+    "EXFILTRATION": MacroIntent.EXFIL,
+}
+
+
+def _get_stagnation_override(
+    phase_name: str,
+    allowed: List[MacroIntent],
+) -> Optional[MacroIntent]:
+    """Get the forward-biased macro to force during stagnation.
+    
+    Returns the most appropriate macro for breaking out of the current
+    phase, or None if no override is suitable.
+    """
+    override = _STAGNATION_OVERRIDE_MAP.get(phase_name)
+    if override is not None and override in allowed:
+        return override
+    # Fallback: pick the last (most forward) allowed macro
+    if allowed:
+        return allowed[-1]
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # OPTION-LEVEL REWARD SHAPING
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -664,13 +784,17 @@ def compute_macro_reward(
     phase_name: str,
     discoveries: Dict[str, Any],
     prev_phase: Optional[str] = None,
+    prev_macro: Optional[int] = None,
 ) -> float:
     """Compute option-level reward for a macro-intent.
+    
+    R57 Layer 1: Added macro switch penalty to discourage thrashing.
     
     Shapes reward to encourage:
     - Phase-appropriate macro selection
     - Forward phase progression
     - Discovery-rich exploration
+    - Macro persistence (switch penalty)
     - Minimal looping
     
     Args:
@@ -679,6 +803,7 @@ def compute_macro_reward(
         phase_name: Current phase name.
         discoveries: New discoveries this step.
         prev_phase: Previous phase name (for transition detection).
+        prev_macro: Previous macro index (for switch penalty). R57.
         
     Returns:
         Shaped macro-level reward.
@@ -692,6 +817,11 @@ def compute_macro_reward(
         reward += 2.0  # Aligned with phase
     else:
         reward -= 3.0  # Phase-misaligned (shouldn't happen with masking)
+
+    # ── R57: Macro switch penalty ──
+    # Penalize frequent macro switching to encourage persistence
+    if prev_macro is not None and prev_macro != macro.value:
+        reward -= 2.0  # Switch cost — encourages macro stability
 
     # ── Forward progression bonus ──
     if prev_phase and prev_phase != phase_name:
