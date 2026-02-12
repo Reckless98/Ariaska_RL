@@ -1315,6 +1315,38 @@ class SmartOrchestrator:
             metrics["ppo_avg_value_loss"] = ppo_total_value_loss / ppo_updates_fired
             metrics["ppo_avg_entropy"] = ppo_total_entropy / ppo_updates_fired
         
+        # ─── PHASE 9.0: Collect DDQN macro-intent metrics ───────────
+        ddqn_total_macros = 0
+        ddqn_total_switches = 0
+        ddqn_distributions: Dict[str, int] = {}
+        ddqn_epsilon = 0.0
+        ddqn_coaches = 0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'ddqn_macro') and coach.ddqn_macro is not None:
+                try:
+                    stats = coach.ddqn_macro.get_macro_stats()
+                    conf = coach.ddqn_macro.get_confidence_metrics()
+                    ddqn_total_macros += stats.get("count", 0)
+                    ddqn_total_switches += stats.get("switches", 0)
+                    for m_name, m_count in stats.get("distribution", {}).items():
+                        ddqn_distributions[m_name] = ddqn_distributions.get(m_name, 0) + m_count
+                    ddqn_epsilon = conf.get("epsilon", 0.0)
+                    ddqn_coaches += 1
+                except Exception:
+                    pass
+        if ddqn_coaches > 0:
+            metrics["ddqn_macros"] = ddqn_total_macros
+            metrics["ddqn_switches"] = ddqn_total_switches
+            metrics["ddqn_epsilon"] = ddqn_epsilon
+            metrics["ddqn_distribution"] = ddqn_distributions
+            # Log DDQN summary
+            top_macros = sorted(ddqn_distributions.items(), key=lambda x: -x[1])[:3]
+            top_str = " ".join(f"{m}:{c}" for m, c in top_macros) if top_macros else "none"
+            logger.info(
+                f"[DDQN] ε={ddqn_epsilon:.2f} macros={ddqn_total_macros} "
+                f"switches={ddqn_total_switches} top=[{top_str}]"
+            )
+        
         # Count decision sources across all step results
         source_counts = {"ppo": 0, "playbook": 0, "registry": 0, "anti_repeat": 0, "other": 0}
         for sr in step_results:

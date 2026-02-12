@@ -249,18 +249,19 @@ class SmartCoach:
             "description": "🎯 Strategic Coordination - service analysis, comprehensive recon",
             "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION],
             "preferred_commands": [
-                # Phase 8.2 Batch 14: Service-based commands (NOT HTTP-dependent)
-                # Orion is a strategist — focuses on service exploitation, not dir brute-force
+                # Phase 9.0: Orion is STRATEGIC ONLY — no direct exploitation commands.
+                # Removed: ssh_login, telnet_1524, mysql_root_login, samba_exploit,
+                #          vsftpd_exploit, psql_default_creds (belong to Red/Shadow)
                 "nmap_vuln_scan", "nmap_aggressive",
                 "searchsploit_search", "msfconsole_search",
                 # LDAP/AD - Orion ONLY
                 "ldapsearch_base", "bloodhound_collection", "kerbrute", "windapsearch",
-                # MS2/MS3 exploitation targets
-                "ssh_login", "telnet_1524", "mysql_root_login",
-                "samba_exploit", "vsftpd_exploit", "psql_default_creds",
             ],
             "command_tags": {"comprehensive", "analysis", "directory", "ldap", "vuln"},
-            "avoid_tags": {"defense", "stealth", "scanning"},
+            # Phase 9.0: Orion must NEVER run exploitation/shell commands.
+            # "shell","ssh","backdoor","creds" blocks ssh_login, telnet_1524, psql_default_creds
+            "avoid_tags": {"defense", "stealth", "scanning", "exploit", "bruteforce",
+                           "shell", "ssh", "backdoor", "creds"},
             # Phase 8.2 Batch 14: Removed gobuster/ffuf/feroxbuster/dirsearch from Orion
             "exclusive_prefixes": ["ldap", "bloodhound", "kerb", "burp", "windap"],
             "is_coordinator": True,
