@@ -298,7 +298,7 @@ class RolloutBuffer:
         """Yield random minibatches for PPO epochs.
 
         Yields:
-            dict with keys: states, actions, old_log_probs, returns, advantages
+            dict with keys: states, actions, old_log_probs, returns, advantages, values
         """
         n = self.size
         indices = np.arange(n)
@@ -307,6 +307,7 @@ class RolloutBuffer:
         states_t = torch.stack(self.states, dim=0)
         actions_t = torch.tensor(self.actions, dtype=torch.long)
         old_log_probs_t = torch.tensor(self.log_probs, dtype=torch.float32)
+        values_t = torch.tensor(self.values, dtype=torch.float32)
 
         for start in range(0, n, minibatch_size):
             end = min(start + minibatch_size, n)
@@ -318,6 +319,7 @@ class RolloutBuffer:
                 "old_log_probs": old_log_probs_t[mb_idx].to(device),
                 "returns": returns[mb_idx].to(device),
                 "advantages": advantages[mb_idx].to(device),
+                "values": values_t[mb_idx].to(device),
             }
 
     def __len__(self):
@@ -591,7 +593,21 @@ class PPOAgent:
                 # ── Value Loss (Huber for outlier robustness) ─────────
                 # Phase 6: Huber loss is less sensitive to reward outliers
                 # than MSE, preventing value function divergence
-                value_loss = F.huber_loss(new_values, batch["returns"], delta=10.0)
+                # R46: PPO-style value clipping — clamp new values to
+                # old values ± clip_epsilon to prevent catastrophic updates
+                # (EP8/R45 had value_loss=22.56 without this)
+                value_pred_clipped = batch["values"] + torch.clamp(
+                    new_values - batch["values"],
+                    -self.config.clip_value,
+                    self.config.clip_value,
+                )
+                value_loss_unclipped = F.huber_loss(
+                    new_values, batch["returns"], delta=10.0, reduction="none"
+                )
+                value_loss_clipped = F.huber_loss(
+                    value_pred_clipped, batch["returns"], delta=10.0, reduction="none"
+                )
+                value_loss = torch.max(value_loss_unclipped, value_loss_clipped).mean()
 
                 # ── Entropy Bonus ────────────────────────────────────
                 entropy_loss = entropy.mean()

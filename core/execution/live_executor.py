@@ -156,13 +156,13 @@ class LiveCommandExecutor:
     # Default timeouts per command category (seconds)
     COMMAND_TIMEOUTS = {
         "{": 20,            # Phase 6.5: piped ingreslock commands have built-in timeout 10 + sleep 2
-        "nmap": 45,         # Phase 6.5: reduced from 120s — targeted scans should finish quickly
+        "nmap": 30,         # R46: reduced from 45s — targeted scans finish fast, less dead time
         "masscan": 60,
         "nikto": 90,
         "gobuster": 60,
         "dirb": 60,
-        "hydra": 45,        # Batch 15: reduced from 120s — 45s enough for small wordlists, no burn
-        "medusa": 45,       # Batch 15: match hydra reduction
+        "hydra": 25,        # R46: reduced from 45s — small wordlists only, 25s sufficient
+        "medusa": 25,       # R46: match hydra reduction to 25s
         "sqlmap": 120,
         "searchsploit": 15,
         "msfconsole": 45,   # Phase 6.5: reduced from 180s — enough for module load + exploit fire

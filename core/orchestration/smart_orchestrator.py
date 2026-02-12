@@ -1850,7 +1850,9 @@ class SmartOrchestrator:
             FAILURE_INDICATORS = ("refused", "timed out", "timeout", "no route", "not found",
                                   "command not found", "connection closed", "error", "denied",
                                   "invalid", "failed", "unsuccessful", "no such", "cannot",
-                                  "permission denied", "authentication fail")
+                                  "permission denied", "authentication fail",
+                                  "traceback", "modulenotfounderror", "importerror",
+                                  "nameerror", "syntaxerror", "no module named")
             has_failure = any(f in output_lower_check for f in FAILURE_INDICATORS)
             has_output = len(output_to_parse.strip()) > 10  # non-trivial output
             

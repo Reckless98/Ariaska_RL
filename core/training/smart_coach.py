@@ -3405,6 +3405,7 @@ class SmartCoach:
                     "rubeus_asreproast", "rubeus_kerberoast", "secretsdump_dc",
                     "crackmapexec_winrm", "mssql_login", "ntlmrelayx", "responder",
                     "certipy_find", "bloodhound_collect", "sharphound",
+                    "bloodhound_python",  # R46: always fails with ModuleNotFoundError on Linux
                     # Impacket (Windows-oriented: psexec/wmiexec/atexec/smbexec)
                     "impacket_psexec", "impacket_wmiexec", "impacket_smbexec",
                     "impacket_GetNPUsers", "impacket_GetUserSPNs",
