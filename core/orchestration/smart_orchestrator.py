@@ -791,6 +791,9 @@ class SmartOrchestrator:
         self._shell_obtained_step: Optional[int] = None
         self.POST_SHELL_EXPLORE_STEPS = 3  # Phase 8.0 Batch 4: 3 steps for reliable CLOSEOUT
         
+        # ─── PHASE 8.1: Orion mid-episode strategic review flag ─────
+        self._orion_reviewed_this_ep = False
+        
         # Reset stuck detection
         self.action_history.clear()
         self.stuck_agents.clear()
@@ -998,6 +1001,59 @@ class SmartOrchestrator:
                     "root_achieved": self.attack_context.state_flags.get("root_shell_obtained", False),
                     "credentials": ["found"] if self.attack_context.state_flags.get("credentials_known") else [],
                 })
+            
+            # ─── Phase 8.1: Orion gpt-5.2-codex strategic mid-episode review ────
+            # At step 15, Orion uses gpt-5.2-codex for a strategic assessment.
+            # Budget-capped: max 1 call per episode to control token spend.
+            # Generates strategic directives injected into SmartCoach reasoning.
+            if step == 15 and not getattr(self, '_orion_reviewed_this_ep', False):
+                self._orion_reviewed_this_ep = True
+                try:
+                    _disc = self.discovery_board
+                    _ports_str = str(list(_disc.get('ports', set()))[:10])
+                    _svc_str = str(list(_disc.get('services', set()))[:5])
+                    _creds_str = str(list(_disc.get('credentials', set()))[:3])
+                    _shells_str = str(list(_disc.get('shells', set()))[:2])
+                    _phase = self.attack_context.current_phase.name
+                    _orion_prompt = (
+                        f"You are Orion, strategic coordinator of a 5-agent pentesting team.\n"
+                        f"Target: {target} (Metasploitable 3 Linux)\n"
+                        f"Episode step: {step}/{self.config.max_steps} | Phase: {_phase}\n"
+                        f"Discoveries: ports={_ports_str}, services={_svc_str}, "
+                        f"creds={_creds_str}, shells={_shells_str}\n"
+                        f"Phase progression so far: {' → '.join(phase_progression)}\n\n"
+                        f"KNOWN MS3 EXPLOIT PATHS:\n"
+                        f"- SSH msfadmin:msfadmin → sudo su → root shell → dump /etc/shadow\n"
+                        f"- MySQL root:sploitme → db_dump → exfil\n"
+                        f"- Samba 445 → samba_exploit → shell → privesc\n"
+                        f"- ProFTPD 21 → proftpd_exploit → shell\n\n"
+                        f"Assess the team's progress. Are we on track?\n"
+                        f"Provide 2-3 concrete tactical directives:\n"
+                        f"1. What should RedAgent do NEXT (specific command)?\n"
+                        f"2. What kill chain are we following?\n"
+                        f"3. Any coordination adjustments needed?"
+                    )
+                    _orion_response = self.gpt_manager.gpt_request(
+                        _orion_prompt,
+                        task_type="strategic",
+                        agent_id="OrionAgent",
+                        max_tokens=250,
+                        model="gpt-5.2-codex",
+                    )
+                    if _orion_response:
+                        # Inject Orion's strategic guidance into SmartCoach reasoning
+                        for _coach_key, _coach in self.smart_coaches.items():
+                            _coach._reasoning_plan = str(_orion_response)[:200]
+                            if not _coach._reasoning_hypotheses:
+                                _coach._reasoning_hypotheses = []
+                            _coach._reasoning_hypotheses.append(
+                                f"[Orion-5.2] {str(_orion_response)[:100]}"
+                            )
+                        logger.info(
+                            f"[ORION-5.2] Strategic review: {str(_orion_response)[:120]}"
+                        )
+                except Exception as e:
+                    logger.debug(f"[ORION-5.2] Strategic review failed: {e}")
             
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
@@ -1217,13 +1273,13 @@ class SmartOrchestrator:
             finally:
                 self._ppo_trajectory.clear()
         
-        # ─── PHASE 7.1: End-of-episode postmortem analysis ──────────
-        # Run OrionPostmortem every 10 episodes (cost-efficient) OR on significant
-        # achievements (EXFIL/CLOSEOUT reached). Uses gpt-5.2-codex for deep analysis.
-        # Additional postmortem runs at end of full training (handled in run_training).
+        # ─── PHASE 8.1: End-of-episode postmortem analysis ──────────
+        # Run OrionPostmortem every 2 episodes (Phase 8.1: was 10) for faster
+        # gpt-5.2-codex learning feedback. Also triggers on significant achievements.
+        # More frequent postmortems = more skill cards = faster agent learning.
         if self.postmortem and self.skill_library:
             should_postmortem = (
-                (episode_number + 1) % 10 == 0
+                (episode_number + 1) % 2 == 0
                 or highest_phase in ("CLOSEOUT", "EXFILTRATION")
             )
             if should_postmortem:

@@ -40,7 +40,7 @@ class PPOConfig:
     clip_epsilon: float = 0.2           # Surrogate clipping range
     clip_value: float = 0.2             # Value function clipping
     gamma: float = 0.99                 # Discount factor
-    gae_lambda: float = 0.95            # GAE lambda
+    gae_lambda: float = 0.97            # Phase 8.1: 0.95→0.97 for longer-horizon attack planning
     # Training
     learning_rate: float = 3e-4         # Adam LR (PPO standard)
     lr_min: float = 1e-5                # Minimum LR after annealing
@@ -50,7 +50,7 @@ class PPOConfig:
     # Loss coefficients
     value_loss_coef: float = 0.5        # Critic loss weight
     entropy_coef: float = 0.01          # Entropy bonus weight
-    entropy_coef_min: float = 0.001     # Min entropy (annealed)
+    entropy_coef_min: float = 0.003     # Phase 8.1: 0.001→0.003 — higher floor prevents exploration collapse
     # Rollout
     rollout_size: int = 256             # Steps per rollout before update
     # Annealing

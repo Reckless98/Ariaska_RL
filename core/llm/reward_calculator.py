@@ -372,6 +372,41 @@ class SmartRewardCalculator:
                 breakdown.failure_penalty += 2.0
                 explanations.append(f"⚠️ Wrong-phase ({template.phase.name} during {current_phase.name}): -2.0")
         
+        # 5c. Phase 8.1: Kill chain sequential bonus
+        # Rewards agents for following the logical attack progression:
+        # RECON→ENUM→EXPLOIT→PRIVESC→POSTEXPLOIT→EXFIL→CLOSEOUT
+        # Each step in sequence gets a cumulative bonus that teaches PPO
+        # the full end-to-end pentesting methodology.
+        if len(self.phase_history) >= 2:
+            prev_order = self._phase_order(self.phase_history[-1])
+            curr_order = self._phase_order(current_phase)
+            if curr_order == prev_order + 1:
+                # Sequential progression — this is the kill chain pattern!
+                chain_bonus = 5.0 + (curr_order * 2.0)  # Grows as you advance
+                breakdown.efficiency_bonus += chain_bonus
+                explanations.append(f"⚡ Kill-chain step: +{chain_bonus:.1f}")
+        
+        # 5c. Phase 8.1: Exploit path micro-curriculum
+        # Small bonus for commands that are part of known MS3 exploit paths
+        _exploit_path_cmds = {
+            "ssh", "sudo", "mysql", "smbclient", "samba_exploit",
+            "proftpd_exploit", "cat /etc/shadow", "cat /etc/passwd",
+            "whoami", "id", "uname", "db_dump", "ftp",
+        }
+        cmd_base = command.split()[0].lower() if command else ""
+        if cmd_base in _exploit_path_cmds or any(ep in command.lower() for ep in ["msfadmin", "sploitme", "sudo su", "/etc/shadow"]):
+            _path_bonus = 3.0
+            breakdown.efficiency_bonus += _path_bonus
+            explanations.append(f"🎯 Exploit-path cmd: +{_path_bonus:.1f}")
+        
+        # 5d. Phase 8.1 B7: Speed bonus — early exploitation gets extra reward
+        step_num = len(self.command_history)  # Proxy for episode step
+        _phase_name = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+        if _phase_name in ("EXPLOITATION", "PRIVILEGE_ESCALATION") and step_num <= 10:
+            _speed_bonus = max(0, (11 - step_num) * 1.5)  # Up to +15 at step 1
+            breakdown.efficiency_bonus += _speed_bonus
+            explanations.append(f"⚡ Speed exploit (step {step_num}): +{_speed_bonus:.1f}")
+        
         # 6. Progress bonus - reward commands that change state (ADD to base, don't overwrite)
         new_flags = sum(1 for k, v in state_flags.items() if v and k not in self.discoveries)
         if new_flags > 0:

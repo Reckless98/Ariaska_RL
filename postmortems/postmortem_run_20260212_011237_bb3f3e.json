@@ -1,0 +1,85 @@
+{
+  "run_id": "run_20260212_011237_bb3f3e",
+  "timestamp": 1770855185.218708,
+  "key_outcomes": {
+    "wins": [
+      "Generated a high cumulative reward (57.5) despite not achieving full mission success, indicating effective short-term decision-making.",
+      "Executed 15 mentor calls, showing active utilization of guidance to refine tactics during the run."
+    ],
+    "fails": [
+      "Success rate remained at 0%, suggesting the final objective was never reached or was mis-prioritized.",
+      "Mentor interventions did not translate to measurable mission completion, implying gaps in follow-through after guidance."
+    ],
+    "summary": "The agent demonstrates promising tactical decisions but consistently fails to translate them into mission success, pointing to a missing strategic handoff."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent completes reconnaissance but stalls before executing the final exploit sequence, leaving objectives unmet.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a critical asset is identified but no exploit chain is selected",
+      "then_action": "Map usable exploits to asset OS/version and queue highest-impact path",
+      "parameters_template": {
+        "asset": "target_host",
+        "priority": "highest"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step22"
+      ],
+      "created_at": 1770855192.3797457,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reconnaissance yields high reward actions but no follow-up",
+      "then_action": "Trigger execution module to validate foothold within 3 steps",
+      "parameters_template": {
+        "follow_up_delay": 3,
+        "validation": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step17"
+      ],
+      "created_at": 1770855192.3797624,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Most directly addresses the gap between asset identification and exploit execution."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Enforce exploit follow-through",
+      "description": "After reconnaissance completes, automatically trigger a selected exploit sequence within three decision steps to ensure mission progression.",
+      "priority": "high"
+    },
+    {
+      "title": "Metric-driven mentor callback tuning",
+      "description": "Adjust mentor triggers so they focus on critical junctures (e.g., post-recon, pre-exploit) to improve guidance efficacy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

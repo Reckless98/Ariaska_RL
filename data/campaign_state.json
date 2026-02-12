@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 10,
   "best_phase_reached": "POST_EXPLOITATION",
-  "last_updated": 1770843175.8083632,
+  "last_updated": 1770853943.4627879,
   "target_ip": "",
   "ports": {
     "0": {
@@ -35,23 +35,23 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 3,
-      "confirmed_count": 104
+      "confirmed_count": 137
     },
     "139": {
       "port": 139,
       "service": "mysql",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 103
+      "last_seen_episode": 4,
+      "confirmed_count": 139
     },
     "111": {
       "port": 111,
       "service": "http",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 102
+      "last_seen_episode": 2,
+      "confirmed_count": 140
     },
     "17": {
       "port": 17,
@@ -66,80 +66,192 @@
       "service": "telnet",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 109
+      "last_seen_episode": 2,
+      "confirmed_count": 140
     },
     "22": {
       "port": 22,
       "service": "nfs",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 104
+      "last_seen_episode": 4,
+      "confirmed_count": 140
     },
     "445": {
       "port": 445,
       "service": "tomcat",
       "version": "",
       "first_seen_episode": 0,
-      "last_seen_episode": 3,
-      "confirmed_count": 103
+      "last_seen_episode": 4,
+      "confirmed_count": 142
     },
     "6667": {
       "port": 6667,
       "service": "dns",
       "version": "",
       "first_seen_episode": 1,
-      "last_seen_episode": 3,
-      "confirmed_count": 87
+      "last_seen_episode": 2,
+      "confirmed_count": 103
     },
     "8067": {
       "port": 8067,
       "service": "dns",
       "version": "",
       "first_seen_episode": 6,
-      "last_seen_episode": 3,
-      "confirmed_count": 56
+      "last_seen_episode": 2,
+      "confirmed_count": 66
     },
     "6697": {
       "port": 6697,
       "service": "irc",
       "version": "",
       "first_seen_episode": 6,
-      "last_seen_episode": 3,
-      "confirmed_count": 56
+      "last_seen_episode": 2,
+      "confirmed_count": 74
     },
     "5228": {
       "port": 5228,
       "service": "postgresql",
       "version": "",
       "first_seen_episode": 5,
-      "last_seen_episode": 3,
-      "confirmed_count": 20
+      "last_seen_episode": 1,
+      "confirmed_count": 25
     },
     "65432": {
       "port": 65432,
       "service": "https",
       "version": "",
       "first_seen_episode": 5,
-      "last_seen_episode": 3,
-      "confirmed_count": 18
+      "last_seen_episode": 1,
+      "confirmed_count": 23
     },
     "443": {
       "port": 443,
       "service": "ftp",
       "version": "",
       "first_seen_episode": 5,
-      "last_seen_episode": 3,
-      "confirmed_count": 20
+      "last_seen_episode": 1,
+      "confirmed_count": 25
     },
     "6463": {
       "port": 6463,
       "service": "rmi",
       "version": "",
       "first_seen_episode": 5,
+      "last_seen_episode": 1,
+      "confirmed_count": 23
+    },
+    "80": {
+      "port": 80,
+      "service": "telnet",
+      "version": "",
+      "first_seen_episode": 0,
       "last_seen_episode": 3,
-      "confirmed_count": 18
+      "confirmed_count": 15
+    },
+    "6000": {
+      "port": 6000,
+      "service": "postgresql",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 4,
+      "confirmed_count": 15
+    },
+    "3632": {
+      "port": 3632,
+      "service": "mysql",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 4,
+      "confirmed_count": 16
+    },
+    "8180": {
+      "port": 8180,
+      "service": "ftp",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 4,
+      "confirmed_count": 19
+    },
+    "5432": {
+      "port": 5432,
+      "service": "distcc",
+      "version": "",
+      "first_seen_episode": 0,
+      "last_seen_episode": 4,
+      "confirmed_count": 13
+    },
+    "5900": {
+      "port": 5900,
+      "service": "vnc",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 4,
+      "confirmed_count": 14
+    },
+    "8009": {
+      "port": 8009,
+      "service": "rmi",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 4,
+      "confirmed_count": 13
+    },
+    "8787": {
+      "port": 8787,
+      "service": "dns",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 4,
+      "confirmed_count": 4
+    },
+    "53": {
+      "port": 53,
+      "service": "telnet",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 4,
+      "confirmed_count": 11
+    },
+    "23": {
+      "port": 23,
+      "service": "irc",
+      "version": "",
+      "first_seen_episode": 1,
+      "last_seen_episode": 4,
+      "confirmed_count": 8
+    },
+    "2049": {
+      "port": 2049,
+      "service": "smtp",
+      "version": "",
+      "first_seen_episode": 2,
+      "last_seen_episode": 2,
+      "confirmed_count": 14
+    },
+    "2121": {
+      "port": 2121,
+      "service": "rmi",
+      "version": "",
+      "first_seen_episode": 2,
+      "last_seen_episode": 2,
+      "confirmed_count": 16
+    },
+    "1099": {
+      "port": 1099,
+      "service": "dns",
+      "version": "",
+      "first_seen_episode": 2,
+      "last_seen_episode": 2,
+      "confirmed_count": 7
+    },
+    "25": {
+      "port": 25,
+      "service": "telnet",
+      "version": "",
+      "first_seen_episode": 2,
+      "last_seen_episode": 2,
+      "confirmed_count": 13
     }
   },
   "credentials": [
@@ -238,102 +350,102 @@
     {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770837923.4097934
+      "timestamp": 1770853740.2997773
     },
     {
       "episode": 1,
       "type": "user",
-      "timestamp": 1770838324.786838
+      "timestamp": 1770853751.5454948
     },
     {
       "episode": 2,
       "type": "user",
-      "timestamp": 1770838587.9176617
+      "timestamp": 1770853755.7756906
     },
     {
       "episode": 3,
       "type": "user",
-      "timestamp": 1770838899.6228836
+      "timestamp": 1770853758.4639614
     },
     {
       "episode": 4,
       "type": "user",
-      "timestamp": 1770839116.4327354
+      "timestamp": 1770853765.2677655
     },
     {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770839498.6967683
+      "timestamp": 1770853797.854339
     },
     {
       "episode": 1,
       "type": "user",
-      "timestamp": 1770839738.9267602
+      "timestamp": 1770853811.6677752
     },
     {
       "episode": 2,
       "type": "user",
-      "timestamp": 1770839949.3826745
+      "timestamp": 1770853817.6214132
     },
     {
       "episode": 3,
       "type": "user",
-      "timestamp": 1770840246.1664298
+      "timestamp": 1770853820.4303763
     },
     {
       "episode": 4,
       "type": "user",
-      "timestamp": 1770840544.5350974
+      "timestamp": 1770853822.081853
     },
     {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770840812.8048384
+      "timestamp": 1770853856.4846632
     },
     {
       "episode": 1,
       "type": "user",
-      "timestamp": 1770841033.1882255
+      "timestamp": 1770853870.4903934
     },
     {
       "episode": 2,
       "type": "user",
-      "timestamp": 1770841277.0567448
+      "timestamp": 1770853872.6132388
     },
     {
       "episode": 3,
       "type": "user",
-      "timestamp": 1770841684.292221
+      "timestamp": 1770853879.2577991
     },
     {
       "episode": 4,
       "type": "user",
-      "timestamp": 1770841881.5437412
+      "timestamp": 1770853885.6495945
     },
     {
       "episode": 0,
       "type": "user",
-      "timestamp": 1770842255.429526
+      "timestamp": 1770853915.8611228
     },
     {
       "episode": 1,
       "type": "user",
-      "timestamp": 1770842380.885616
+      "timestamp": 1770853927.0140493
     },
     {
       "episode": 2,
       "type": "user",
-      "timestamp": 1770842722.8047144
+      "timestamp": 1770853935.4317188
     },
     {
       "episode": 3,
       "type": "user",
-      "timestamp": 1770843038.4112904
+      "timestamp": 1770853940.9660656
     },
     {
       "episode": 4,
       "type": "user",
-      "timestamp": 1770843175.8083029
+      "timestamp": 1770853943.462719
     }
   ],
   "attack_chains": [
@@ -690,6 +802,242 @@
       "total_reward": 3333.75,
       "discoveries_count": 34,
       "timestamp": 1770841684.2922347
+    },
+    {
+      "episode": 4,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": [
+        "msfconsole_auto",
+        "msfconsole_exploit",
+        "ftp_anonymous",
+        "rpcclient_null",
+        "sudo_check",
+        "nmap_comprehensive",
+        "blue_cmd_12",
+        "credential_dump",
+        "gobuster_dir",
+        "linpeas",
+        "find_suid",
+        "nuclei_scan",
+        "wfuzz_params",
+        "pivot_scan",
+        "nmap_port_5432",
+        "blue_cmd_10",
+        "kernel_exploit_check",
+        "searchsploit",
+        "bloodhound_python",
+        "smbclient_auth",
+        "nikto_scan",
+        "nmap_udp_scan",
+        "blue_cmd_12",
+        "hydra_smb",
+        "gobuster_dir",
+        "exfil_data",
+        "ssh_login",
+        "history_dump",
+        "dump_passwd",
+        "keylogger_deploy",
+        "blue_cmd_3",
+        "dig_any",
+        "credential_dump",
+        "find_sgid",
+        "timestomp",
+        "hashdump",
+        "ldapsearch_base",
+        "cron_backdoor",
+        "kernel_exploit_check",
+        "blue_cmd_16",
+        "nmap_port_21",
+        "cleanup_logs",
+        "sudo_list",
+        "sharphound",
+        "keylogger_deploy",
+        "hydra_http_form",
+        "exfil_shadow",
+        "find_writable_etc",
+        "dump_shadow",
+        "ssh_key_harvest"
+      ],
+      "total_reward": 3452.0,
+      "discoveries_count": 30,
+      "timestamp": 1770847784.9069777
+    },
+    {
+      "episode": 0,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": [
+        "msfconsole_auto",
+        "sudo_check",
+        "ftp_anonymous",
+        "ssh_audit",
+        "credential_dump",
+        "nmap_port_21",
+        "blue_cmd_10",
+        "find_suid",
+        "gobuster_dir",
+        "linpeas",
+        "msfconsole_auto",
+        "kernel_exploit_check",
+        "ldapsearch_users",
+        "pivot_scan",
+        "nmap_stealth_scan",
+        "blue_cmd_6",
+        "msfvenom_payload",
+        "nikto_scan",
+        "wfuzz_params",
+        "enum4linux_full",
+        "nuclei_scan",
+        "nmap_port_1524",
+        "blue_cmd_17",
+        "searchsploit",
+        "wfuzz_params",
+        "exfil_data",
+        "searchsploit",
+        "hydra_ssh",
+        "dirsearch",
+        "ssh_lateral",
+        "nmap_comprehensive",
+        "blue_cmd_10",
+        "nuclei_scan",
+        "hashdump",
+        "ffuf_fuzz",
+        "impacket_reg",
+        "evil_winrm_hash",
+        "curl_headers",
+        "blue_cmd_12",
+        "searchsploit",
+        "ffuf_fuzz",
+        "smbclient_list",
+        "ssh_login",
+        "rubeus_asreproast",
+        "feroxbuster",
+        "enum4linux_ng",
+        "dig_any",
+        "ssh_login",
+        "network_config_dump",
+        "find_suid"
+      ],
+      "total_reward": 3097.250000000001,
+      "discoveries_count": 30,
+      "timestamp": 1770848256.285553
+    },
+    {
+      "episode": 4,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": [
+        "msfvenom_payload",
+        "searchsploit",
+        "gobuster_dir",
+        "smbclient_auth",
+        "msfconsole_auto",
+        "nmap_port_5432",
+        "blue_cmd_0",
+        "sudo_check",
+        "ftp_anonymous",
+        "ssh_audit",
+        "msfconsole_exploit",
+        "ssh_login",
+        "cme_ldap_users",
+        "ssh_lateral",
+        "curl_headers",
+        "blue_cmd_9",
+        "credential_dump",
+        "hydra_ssh",
+        "certipy_find",
+        "linpeas",
+        "hydra_http_form",
+        "nmap_port_1524",
+        "blue_cmd_16",
+        "hashdump",
+        "cme_ldap_users",
+        "rpcclient_null",
+        "find_suid",
+        "sudo_list",
+        "certipy_find",
+        "pivot_scan",
+        "masscan_fast",
+        "blue_cmd_3",
+        "kernel_exploit_check",
+        "nikto_scan",
+        "knock",
+        "clear_syslog",
+        "rsh_root",
+        "nmap_udp_scan",
+        "blue_cmd_7",
+        "accesschk_services",
+        "gobuster_vhost",
+        "exfil_data",
+        "kernel_exploit_check",
+        "rubeus_asreproast",
+        "feroxbuster",
+        "nmap_pivot",
+        "dig_axfr",
+        "blue_cmd_0",
+        "telnet_1524",
+        "ntlmrelayx"
+      ],
+      "total_reward": 3193.0,
+      "discoveries_count": 34,
+      "timestamp": 1770850452.0918777
+    },
+    {
+      "episode": 4,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": [
+        "nuclei_scan",
+        "msfconsole_auto",
+        "ftp_anonymous",
+        "smbclient_list",
+        "sudo_check",
+        "nmap_port_5432",
+        "blue_cmd_0",
+        "msfconsole_auto",
+        "bloodhound_python",
+        "linpeas",
+        "credential_dump",
+        "hydra_http_form",
+        "gobuster_dir",
+        "pivot_scan",
+        "masscan_fast",
+        "blue_cmd_2",
+        "find_suid",
+        "searchsploit",
+        "feroxbuster",
+        "ssh_audit",
+        "kernel_exploit_check",
+        "nmap_port_1524",
+        "blue_cmd_3",
+        "hydra_ssh",
+        "feroxbuster",
+        "impacket_reg",
+        "hydra_ftp",
+        "hashdump",
+        "hydra_smb",
+        "ssh_lateral",
+        "nmap_port_21",
+        "blue_cmd_1",
+        "nikto_scan",
+        "impacket_GetNPUsers",
+        "windapsearch",
+        "rpcclient_null",
+        "sudo_list",
+        "nmap_udp_scan",
+        "blue_cmd_13",
+        "searchsploit",
+        "gobuster_vhost",
+        "enum4linux_full",
+        "winpeas",
+        "msfvenom_payload",
+        "ftp_anonymous",
+        "nmap_pivot",
+        "curl_headers",
+        "ssh_login",
+        "network_config_dump",
+        "dump_passwd"
+      ],
+      "total_reward": 3194.5000000000014,
+      "discoveries_count": 27,
+      "timestamp": 1770853101.126547
     }
   ],
   "failed_approaches": {}
