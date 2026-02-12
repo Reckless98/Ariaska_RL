@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260212_051543_a5137f",
+  "timestamp": 1770869783.1767454,
+  "key_outcomes": {
+    "wins": [
+      "Achieved consistent high reward (90.00) indicating effective short-term actions within the episode",
+      "Engaged mentor support frequently (10 calls), highlighting proactive decision-making under uncertainty"
+    ],
+    "fails": [
+      "0% success rate indicates objectives (likely compromise or persistence) were not met despite high reward",
+      "High mentor dependency suggests automation or policy understanding gaps that prevented autonomous completion"
+    ],
+    "summary": "The agent performed strongly in isolated tasks (high reward) but failed to achieve mission success, signaling a need for improved automation and end-goal orchestration with fewer mentor interventions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to escalate privileges or establish persistence after initial discovery, preventing mission completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 reveal HTTP service with default web page",
+      "then_action": "Run automated vulnerability scan (e.g., nikto + nmap http scripts) to identify exploitable endpoints",
+      "parameters_template": {
+        "port": "80,443",
+        "script": "http-headers,http-vuln*"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1770869790.6438217,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is accessible and banner indicates OpenSSH",
+      "then_action": "Execute SSH-specific enumeration (nmap ssh-* scripts, check-user enumeration) before brute forcing",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-brute"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1770869790.6438384,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Upon gaining initial foothold but lacking persistence modules",
+      "then_action": "Deploy post-exploitation persistence module (e.g., scheduled task or service creation) while monitoring for detection",
+      "parameters_template": {
+        "module": "persistence",
+        "method": "scheduled_task"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1770869790.6438513,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward outcomes triggered when applying HTTP reconnaissance before exploitation attempts"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH enumeration provided actionable data that drove subsequent decisions"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate persistence chaining",
+      "description": "After successful reconnaissance, immediately deploy a scripted persistence mechanism (scheduled task + service) to secure foothold before reaction window closes",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency by parameterized reconnaissance",
+      "description": "Create decision tree to automatically choose scanning depth based on service fingerprint instead of awaiting mentor input",
+      "priority": "medium"
+    },
+    {
+      "title": "Integrate privilege escalation verification",
+      "description": "After exploitation, run automated checks for available priv esc vectors (sudoers, brute force local accounts) and validate before declaring failure",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

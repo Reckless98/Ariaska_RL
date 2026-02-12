@@ -561,7 +561,7 @@ if __name__ == "__main__":
     console.print("[yellow]Adding test experience...[/yellow]")
     doc_id = store.add_experience(
         agent_id="RedAgent",
-        command="nmap -sS -sV 10.10.10.10",
+        command="nmap -sT -sV 10.10.10.10",
         state={"phase": "recon", "privilege_level": "none", "open_ports": [22, 80]},
         reward=10.0,
         output="22/tcp open ssh\n80/tcp open http"
@@ -575,7 +575,7 @@ if __name__ == "__main__":
     console.print(f"[green]Found {len(similar)} similar commands[/green]")
     
     # Test redundancy check
-    is_redundant = store.check_command_redundancy("nmap -sS -sV 10.10.10.10")
+    is_redundant = store.check_command_redundancy("nmap -sT -sV 10.10.10.10")
     console.print(f"[green]Redundancy check: {is_redundant}[/green]")
     
     # Test high-reward experiences

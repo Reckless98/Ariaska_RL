@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770757593.696065,
-  "skill_count": 90,
+  "last_updated": 1770869828.4333148,
+  "skill_count": 91,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1255,6 +1255,23 @@
         "htb_codeparttwo_walkthrough"
       ],
       "created_at": 1770753708.3124733,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_cred_extract": {
+      "id": "skill_cred_extract",
+      "if_condition": "When valid SSH credentials fail to authenticate",
+      "then_action": "Capture response codes and rerun password spray with adjusted wordlist",
+      "parameters_template": {
+        "wordlist": "common_passwords.txt",
+        "retry_delay": 2
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1770869828.4304395,
       "usage_count": 0,
       "success_rate": 0.0
     }

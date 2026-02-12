@@ -845,10 +845,10 @@ class SmartCoach:
             "user": default_user,
             "username": default_user,
             "password": default_pass,
-            "userlist": "/usr/share/wordlists/metasploit/unix_users.txt",
-            "passlist": "/usr/share/wordlists/metasploit/unix_passwords.txt",
+            "userlist": "/usr/share/nmap/nselib/data/usernames.lst",
+            "passlist": "/usr/share/nmap/nselib/data/passwords.lst",
             # ─── Wordlists ───────────────────────────────────────
-            "wordlist": "/usr/share/wordlists/dirb/common.txt",
+            "wordlist": "/usr/share/dirb/wordlists/common.txt",
             # ─── Metasploit / payloads ───────────────────────────
             "module": "exploit/unix/ftp/vsftpd_234_backdoor",
             "payload": "linux/x86/shell_reverse_tcp",
@@ -2151,6 +2151,7 @@ class SmartCoach:
         
         # Build a pool of strategic commands and cycle through them
         strategic_pool = []
+        has_http = state_flags.get("http_service_found", False)
         
         if phase == AttackPhase.RECON:
             strategic_pool = [
@@ -2162,23 +2163,39 @@ class SmartCoach:
             ]
         elif phase == AttackPhase.ENUMERATION:
             strategic_pool = [
-                (f"nikto -h http://{ctx.target}", "🎯 Strategy: Web vulnerability scan"),
-                (f"enum4linux -a {ctx.target}", "🎯 Strategy: SMB enumeration - Windows likely"),
+                (f"enum4linux -a {ctx.target}", "🎯 Strategy: SMB enumeration"),
                 (f"nmap --script=vuln {ctx.target}", "🎯 Strategy: Vulnerability scanning"),
-                (f"gobuster dir -u http://{ctx.target} -w /usr/share/wordlists/dirb/common.txt -q", "🎯 Strategy: Web directory enumeration"),
-                (f"whatweb -v {ctx.target}", "🎯 Strategy: Web technology fingerprinting"),
+                (f"smbclient -L //{ctx.target} -N", "🎯 Strategy: SMB share listing"),
+                (f"nmap --script=smb-enum-shares,smb-enum-users {ctx.target}", "🎯 Strategy: SMB share/user enum"),
             ]
+            if has_http:
+                strategic_pool.extend([
+                    (f"nikto -h http://{ctx.target}", "🎯 Strategy: Web vulnerability scan"),
+                    (f"gobuster dir -u http://{ctx.target} -w /usr/share/dirb/wordlists/common.txt -q", "🎯 Strategy: Web directory enumeration"),
+                    (f"whatweb -v {ctx.target}", "🎯 Strategy: Web technology fingerprinting"),
+                ])
         elif phase == AttackPhase.EXPLOITATION:
             strategic_pool = [
-                (f"searchsploit --update 2>/dev/null; searchsploit linux kernel", "🎯 Strategy: Search for kernel exploits"),
-                (f"msfconsole -q -x 'search type:exploit; exit'", "🎯 Strategy: Metasploit exploit enumeration"),
-                (f"crackmapexec smb {ctx.target} --shares", "🎯 Strategy: SMB share access check"),
-                (f"hydra -L /usr/share/wordlists/rockyou.txt -P /usr/share/wordlists/rockyou.txt ssh://{ctx.target}", "🎯 Strategy: Credential attack"),
+                (f"LANG=C searchsploit --update 2>/dev/null; LANG=C searchsploit linux kernel", "🎯 Strategy: Search for kernel exploits"),
+                (f"smbclient //{ctx.target}/tmp -N -c 'ls'", "🎯 Strategy: SMB anonymous share access"),
+                (f"hydra -L /usr/share/nmap/nselib/data/usernames.lst -P /usr/share/nmap/nselib/data/passwords.lst ssh://{ctx.target} -t 4", "🎯 Strategy: SSH credential attack"),
+                (f"mysql -h {ctx.target} -u root -e 'show databases;' 2>/dev/null", "🎯 Strategy: MySQL default creds"),
             ]
         else:
             strategic_pool = [
                 (f"echo '[Orion] Phase: {phase.name} | Ready to coordinate'", f"🎯 Strategy: {phase.name} phase coordination"),
                 (f"nmap -sV {ctx.target}", "🎯 Strategy: Re-scan to update intel"),
+            ]
+        
+        # Filter out unavailable tools
+        if hasattr(self, '_unavailable_tools'):
+            strategic_pool = [
+                (cmd, desc) for cmd, desc in strategic_pool
+                if cmd.split()[0].split("/")[-1] not in self._unavailable_tools
+            ]
+        if not strategic_pool:
+            strategic_pool = [
+                (f"nmap -sV {ctx.target}", "🎯 Strategy: Fallback re-scan"),
             ]
         
         # Cycle through pool based on step to avoid repetition
@@ -2280,7 +2297,7 @@ class SmartCoach:
                     (f"nmap -sV -Pn {ctx.target}", "nmap_-sv_-pn", "🔍 Version detection no-ping"),
                     (f"nmap -sU --top-ports 20 {ctx.target}", "nmap_-su_--top-ports", "🔍 UDP scan"),
                     (f"nmap -A -T4 {ctx.target}", "nmap_-a_-t4", "🔍 Aggressive fast scan"),
-                    (f"nmap -sS -Pn {ctx.target}", "nmap_-ss_-pn", "🔍 SYN stealth no-ping"),
+                    (f"nmap -sT -Pn {ctx.target}", "nmap_-ss_-pn", "🔍 SYN stealth no-ping"),
                     (f"nmap --script discovery {ctx.target}", "nmap_--script_discovery", "🔍 Discovery scripts"),
                     (f"nmap -sC -sV {ctx.target}", "nmap_-sc_-sv", "🔍 Default scripts + version"),
                     (f"nmap -p- --min-rate 5000 {ctx.target}", "nmap_-p-_--min-rate", "🔍 All ports fast"),
@@ -2356,10 +2373,10 @@ class SmartCoach:
                     (f"msfconsole -q -x 'search type:exploit platform:linux; exit'", "msf_linux", "⚔️ MSF linux exploits"),
                     (f"msfconsole -q -x 'search type:exploit platform:windows; exit'", "msf_windows", "⚔️ MSF windows exploits"),
                     # Brute force (different targets)
-                    (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt -t 4 ssh://{ctx.target}", "hydra_ssh", "⚔️ SSH brute"),
-                    (f"hydra -l root -P /usr/share/wordlists/rockyou.txt -t 4 ftp://{ctx.target}", "hydra_ftp", "⚔️ FTP brute"),
-                    (f"hydra -l admin -P /usr/share/wordlists/rockyou.txt http-get://{ctx.target}", "hydra_http", "⚔️ HTTP brute"),
-                    (f"hydra -l sa -P /usr/share/wordlists/rockyou.txt mssql://{ctx.target}", "hydra_mssql", "⚔️ MSSQL brute"),
+                    (f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst -t 4 ssh://{ctx.target}", "hydra_ssh", "⚔️ SSH brute"),
+                    (f"hydra -l root -P /usr/share/nmap/nselib/data/passwords.lst -t 4 ftp://{ctx.target}", "hydra_ftp", "⚔️ FTP brute"),
+                    (f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst http-get://{ctx.target}", "hydra_http", "⚔️ HTTP brute"),
+                    (f"hydra -l sa -P /usr/share/nmap/nselib/data/passwords.lst mssql://{ctx.target}", "hydra_mssql", "⚔️ MSSQL brute"),
                     # SMB/Network attacks
                     (f"crackmapexec smb {ctx.target} --shares", "cme_shares", "⚔️ SMB share enum"),
                     (f"crackmapexec smb {ctx.target} --users", "cme_users", "⚔️ SMB users"),
@@ -2380,8 +2397,18 @@ class SmartCoach:
                     (f"wpscan --url http://{ctx.target} --enumerate t", "wpscan_themes", "⚔️ WP themes"),
                 ]
                 # Filter by signature (not just prefix)
+                # Batch 12: Also filter out HTTP commands when no HTTP service, and unavailable tools
+                _has_http = ctx.state_flags.get("http_service_found", False)
+                _ut = getattr(self, '_unavailable_tools', set())
+                def _fallback_ok(cmd):
+                    binary = cmd.split()[0].split("/")[-1]
+                    if binary in _ut:
+                        return False
+                    if not _has_http and ("http://" in cmd or "https://" in cmd):
+                        return False
+                    return True
                 untried = [(c, sig, r) for c, sig, r in red_fallbacks 
-                           if sig not in tried_signatures and c not in tried_commands]
+                           if sig not in tried_signatures and c not in tried_commands and _fallback_ok(c)]
                 if untried:
                     cmd, _, reason = random.choice(untried)
                 else:
@@ -2390,7 +2417,7 @@ class SmartCoach:
                         (f"searchsploit kernel {3 + step % 5}", "⚔️ Kernel search var"),
                         (f"nikto -h http://{ctx.target}:{80 + step*10}", "⚔️ Nikto alt port"),
                         (f"nuclei -u http://{ctx.target} -severity high", "⚔️ Nuclei high sev"),
-                        (f"wfuzz -c -z file,/usr/share/wordlists/dirb/common.txt http://{ctx.target}/FUZZ", "⚔️ Wfuzz"),
+                        (f"wfuzz -c -z file,/usr/share/dirb/wordlists/common.txt http://{ctx.target}/FUZZ", "⚔️ Wfuzz"),
                     ]
                     cmd, reason = diverse_red[step % len(diverse_red)]
                     logger.warning(f"[{self.agent_name}] Red fallbacks exhausted - rotating")
@@ -3014,6 +3041,29 @@ class SmartCoach:
                 )
                 completed_set.add(matched_step.command)  # Mark as done
                 continue  # Try next playbook
+
+            # Batch 12: Skip HTTP-dependent commands when no HTTP service found
+            _HTTP_PLAYBOOK_TOOLS = {"gobuster", "nikto", "dirb", "dirsearch",
+                                    "feroxbuster", "ffuf", "wfuzz", "whatweb",
+                                    "wpscan", "sqlmap", "gospider"}
+            _tpl_binary = template.template.split()[0].split("/")[-1] if template.template else ""
+            if (_tpl_binary in _HTTP_PLAYBOOK_TOOLS and
+                    not ctx.state_flags.get("http_service_found")):
+                logger.debug(
+                    f"[PLAYBOOK-HTTP-SKIP] {self.agent_name}: Skipping "
+                    f"{matched_step.command} ({_tpl_binary}) — no HTTP service found"
+                )
+                completed_set.add(matched_step.command)
+                continue
+
+            # Batch 12: Skip commands whose binary is unavailable
+            if hasattr(self, '_unavailable_tools') and _tpl_binary in self._unavailable_tools:
+                logger.debug(
+                    f"[PLAYBOOK-TOOL-SKIP] {self.agent_name}: Skipping "
+                    f"{matched_step.command} — tool '{_tpl_binary}' not installed"
+                )
+                completed_set.add(matched_step.command)
+                continue
 
             # Render command
             params = {}

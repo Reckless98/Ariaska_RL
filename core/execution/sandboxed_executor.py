@@ -313,9 +313,11 @@ class SandboxedExecutor:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                errors="replace",  # Batch 12: handle non-utf8 output (searchsploit etc)
                 env={
                     **os.environ,
                     "TERM": "dumb",  # Prevent color codes
+                    "LANG": "C",    # Batch 12: force ASCII locale for tool output
                 },
             )
 

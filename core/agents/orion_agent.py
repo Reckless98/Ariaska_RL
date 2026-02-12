@@ -393,17 +393,17 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             
             if phase == "recon":
                 if detection_risk > 40:
-                    command = "nmap -sS -T2 10.10.10.10 -p 22,80,443"  # Slower scan
+                    command = "nmap -sT -T2 10.10.10.10 -p 22,80,443"  # Slower scan
                     reason = "Strategic directive: Prioritize stealth over speed in recon"
                 else:
-                    command = "nmap -sS -sV 10.10.10.10"  # Version detection
+                    command = "nmap -sT -sV 10.10.10.10"  # Version detection
                     reason = "Strategic directive: Gather comprehensive service information"
             elif phase == "exploit":
                 if open_ports and 22 in open_ports:
-                    command = "hydra -l admin -P rockyou.txt ssh://10.10.10.10"
+                    command = "hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://10.10.10.10"
                     reason = "Strategic directive: Target SSH service for credential attack"
                 else:
-                    command = "searchsploit $(nmap -sS 10.10.10.10 --script=version)"
+                    command = "searchsploit $(nmap -sT 10.10.10.10 --script=version)"
                     reason = "Strategic directive: Search for known vulnerabilities"
             else:
                 command = "whoami && id"  # Safe command for any phase
@@ -1105,19 +1105,19 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         # Fallback: Return phase-appropriate default chain
         default_chains = {
             "recon": [
-                "nmap -sS -T2 -p- TARGET_IP",
+                "nmap -sT -T2 -p- TARGET_IP",
                 "nmap -sV -p OPEN_PORTS TARGET_IP",
                 "nmap -A -p OPEN_PORTS TARGET_IP",
             ],
             "enumeration": [
-                "gobuster dir -u http://TARGET_IP -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+                "gobuster dir -u http://TARGET_IP -w /usr/share/dirb/wordlists/big.txt",
                 "enum4linux -a TARGET_IP",
                 "nikto -h TARGET_IP",
             ],
             "exploit": [
                 "searchsploit SERVICE_NAME VERSION",
                 "msfconsole -x 'use exploit/SERVICE_PATH; set RHOSTS TARGET_IP; exploit'",
-                "hydra -L /usr/share/wordlists/user.txt -P /usr/share/wordlists/rockyou.txt ssh://TARGET_IP",
+                "hydra -L /usr/share/nmap/nselib/data/usernames.lst -P /usr/share/nmap/nselib/data/passwords.lst ssh://TARGET_IP",
             ],
             "privesc": ["find / -perm -u=s -type f 2>/dev/null", "uname -a", "cat /etc/crontab"],
             "exfiltrate": [
@@ -1129,7 +1129,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         return default_chains.get(
             current_phase,
-            ["nmap -sS TARGET", "gobuster dir -u http://TARGET", "enum4linux TARGET"],
+            ["nmap -sT TARGET", "gobuster dir -u http://TARGET", "enum4linux TARGET"],
         )
 
     def adjust_agent_parameters(
@@ -1503,7 +1503,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         elif crisis_type == "agent_stuck":
             # Initialize novel_command at method level to ensure it's defined
-            novel_command = "nmap -sS -sV target"  # Default fallback command
+            novel_command = "nmap -sT -sV target"  # Default fallback command
             
             # Intervention for stuck agent: Force exploration
             if "RedAgent" in self.subordinate_agents:
@@ -2365,7 +2365,7 @@ if __name__ == "__main__":
                 "mode": "balanced",
                 "epsilon": 0.3,
                 "avg_reward": 5.0,
-                "last_command": "nmap -sS 10.10.10.10",
+                "last_command": "nmap -sT 10.10.10.10",
             },
             "BlueAgent": {"mode": "Standard", "epsilon": 0.2, "avg_reward": 2.0},
         },

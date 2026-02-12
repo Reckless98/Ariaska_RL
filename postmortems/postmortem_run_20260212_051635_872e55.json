@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260212_051635_872e55",
+  "timestamp": 1770869821.0638711,
+  "key_outcomes": {
+    "wins": [
+      "Demonstrated consistent ability to complete the single episode and accumulate total reward of 90 while fully utilizing mentor support when needed.",
+      "Successfully maintained operational tempo across all mentor-assisted steps, avoiding critical misconfigurations."
+    ],
+    "fails": [
+      "Despite the completed episode, the team did not achieve a successful outcome (0% success rate), indicating inability to meet the final objective.",
+      "Requiring mentor intervention in every call suggests recurring gaps in independent decision-making or playbook coverage."
+    ],
+    "summary": "The run showed disciplined execution with mentor guidance but highlights a critical inability to achieve objectives without external intervention."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to progress past intermediate validation without mentor support, causing every step to need external input.",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05",
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration using targeted nmap scripts and store banner details",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07"
+      ],
+      "created_at": 1770869828.4304233,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_extract",
+      "if_condition": "When valid SSH credentials fail to authenticate",
+      "then_action": "Capture response codes and rerun password spray with adjusted wordlist",
+      "parameters_template": {
+        "wordlist": "common_passwords.txt",
+        "retry_delay": 2
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1770869828.4304395,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_posture_check",
+      "if_condition": "When repeated mentor support occurs during validation",
+      "then_action": "Trigger checklist review to verify automation/config baseline and escalate to subject matter expert",
+      "parameters_template": {
+        "checklist_id": "baseline_ops_v2",
+        "escalation_channel": "sec_ops_lead"
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12"
+      ],
+      "created_at": 1770869828.4304512,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High reliability in initial reconnaissance phase to capture SSH banner details"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_cred_extract",
+      "skill_card_id": "skill_cred_extract",
+      "reason": "Frequently triggered when authentication adjustments were required"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Independent Objective Verification",
+      "description": "Run the scenario without mentor input up to the validation stage, using the promoted recon and credential skills to confirm capability gaps.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Posture Checklist",
+      "description": "Implement automated baseline validation triggered when repeated support is needed to reduce dependence on mentors before escalation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

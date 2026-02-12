@@ -1025,7 +1025,7 @@ class SkillLibrary:
             SkillCard(
                 id="htb_shadow_backup_crack",
                 if_condition="Linux shell AND /backup/ directory exists OR find reveals shadow backup files",
-                then_action="cat /backup/shadow.backup → john --wordlist=rockyou.txt shadow_hashes → su with cracked password. WHY: Admins create shadow backups with weaker permissions. These contain crackable password hashes. Source: Sunday walkthrough.",
+                then_action="cat /backup/shadow.backup → john --wordlist=/usr/share/nmap/nselib/data/passwords.lst shadow_hashes → su with cracked password. WHY: Admins create shadow backups with weaker permissions. These contain crackable password hashes. Source: Sunday walkthrough.",
                 confidence=0.92,
                 evidence_refs=["htb_sunday_walkthrough"],
             ),

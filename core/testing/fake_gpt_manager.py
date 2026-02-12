@@ -36,7 +36,7 @@ class FakeGPTManager:
     RESPONSES = {
         "tactical": [
             "nmap -sV 10.10.10.10",
-            "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
+            "gobuster dir -u http://10.10.10.10 -w /usr/share/dirb/wordlists/common.txt",
             "ssh admin@10.10.10.10",
             "curl http://10.10.10.10/robots.txt",
             "nc -nv 10.10.10.10 22",

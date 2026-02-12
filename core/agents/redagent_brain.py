@@ -534,7 +534,7 @@ class RedAgentBrain:
                         # If HTTP port found
                         if any(port in output for port in ["80", "443", "8080", "8443"]):
                             recommendations.append({
-                                "command": f"gobuster dir -u http://{state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt",
+                                "command": f"gobuster dir -u http://{state.get('target_ip', '10.10.10.10')} -w /usr/share/dirb/wordlists/common.txt",
                                 "params": "-u -w",
                                 "why": "Enumerate web directories on discovered HTTP port"
                             })
@@ -542,7 +542,7 @@ class RedAgentBrain:
                     else:
                         # Suggest different scan types
                         recommendations.append({
-                            "command": f"nmap -sS -p- {state.get('target_ip', '10.10.10.10')}",
+                            "command": f"nmap -sT -p- {state.get('target_ip', '10.10.10.10')}",
                             "params": "-sS -p-",
                             "why": "Try a full SYN scan on all ports"
                         })
@@ -590,7 +590,7 @@ class RedAgentBrain:
                     for service in ["ssh", "ftp", "http"]:
                         if service in output.lower():
                             recommendations.append({
-                                "command": f"hydra -L /usr/share/wordlists/metasploit/common_users.txt -P /usr/share/wordlists/metasploit/common_passwords.txt {state.get('target_ip', '10.10.10.10')} {service}",
+                                "command": f"hydra -L /usr/share/nmap/nselib/data/usernames.lst -P /usr/share/nmap/nselib/data/passwords.lst {state.get('target_ip', '10.10.10.10')} {service}",
                                 "params": "-L -P",
                                 "why": f"Attempt credential brute force on {service}"
                             })
@@ -683,8 +683,8 @@ class RedAgentBrain:
             import traceback
             console.print(f"[dim]{traceback.format_exc()}[/dim]")
             return [
-                {"command": "nmap -sS -sV 10.10.10.10", "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
-                {"command": "gobuster dir -u http://10.10.10.10 -w /usr/share/wordlists/dirb/common.txt", "params": "", "why": "Web directory enumeration (fallback)"}
+                {"command": "nmap -sT -sV 10.10.10.10", "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
+                {"command": "gobuster dir -u http://10.10.10.10 -w /usr/share/dirb/wordlists/common.txt", "params": "", "why": "Web directory enumeration (fallback)"}
             ]
 
     def log_novel_command(self, command, source, reason=""):

@@ -2,7 +2,7 @@
   "version": "1.0",
   "total_episodes": 10,
   "best_phase_reached": "POST_EXPLOITATION",
-  "last_updated": 1770868586.07947,
+  "last_updated": 1770872488.2472982,
   "target_ip": "",
   "ports": {
     "0": {
@@ -35,7 +35,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 159
+      "confirmed_count": 168
     },
     "139": {
       "port": 139,
@@ -43,7 +43,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 161
+      "confirmed_count": 170
     },
     "111": {
       "port": 111,
@@ -51,7 +51,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 159
+      "confirmed_count": 168
     },
     "17": {
       "port": 17,
@@ -67,7 +67,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 164
+      "confirmed_count": 173
     },
     "22": {
       "port": 22,
@@ -75,7 +75,7 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 161
+      "confirmed_count": 170
     },
     "445": {
       "port": 445,
@@ -83,23 +83,23 @@
       "version": "",
       "first_seen_episode": 0,
       "last_seen_episode": 9,
-      "confirmed_count": 164
+      "confirmed_count": 173
     },
     "6667": {
       "port": 6667,
       "service": "dns",
       "version": "",
       "first_seen_episode": 1,
-      "last_seen_episode": 7,
-      "confirmed_count": 118
+      "last_seen_episode": 9,
+      "confirmed_count": 122
     },
     "8067": {
       "port": 8067,
       "service": "dns",
       "version": "",
       "first_seen_episode": 6,
-      "last_seen_episode": 4,
-      "confirmed_count": 72
+      "last_seen_episode": 9,
+      "confirmed_count": 75
     },
     "6697": {
       "port": 6697,
@@ -107,7 +107,7 @@
       "version": "",
       "first_seen_episode": 6,
       "last_seen_episode": 9,
-      "confirmed_count": 82
+      "confirmed_count": 85
     },
     "5228": {
       "port": 5228,
@@ -396,21 +396,6 @@
   },
   "shells": [
     {
-      "episode": 0,
-      "type": "user",
-      "timestamp": 1770862783.918123
-    },
-    {
-      "episode": 1,
-      "type": "user",
-      "timestamp": 1770862916.5773776
-    },
-    {
-      "episode": 2,
-      "type": "user",
-      "timestamp": 1770863130.9499185
-    },
-    {
       "episode": 3,
       "type": "user",
       "timestamp": 1770863318.6279683
@@ -494,6 +479,21 @@
       "episode": 9,
       "type": "user",
       "timestamp": 1770868586.0793927
+    },
+    {
+      "episode": 0,
+      "type": "user",
+      "timestamp": 1770870472.3509445
+    },
+    {
+      "episode": 3,
+      "type": "user",
+      "timestamp": 1770870879.6313326
+    },
+    {
+      "episode": 9,
+      "type": "user",
+      "timestamp": 1770872488.247128
     }
   ],
   "attack_chains": [

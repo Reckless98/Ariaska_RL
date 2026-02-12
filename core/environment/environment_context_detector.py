@@ -622,7 +622,7 @@ if __name__ == "__main__":
         
     # Test action permissions
     test_actions = [
-        "nmap -sS -sV 10.10.10.10",
+        "nmap -sT -sV 10.10.10.10",
         "gobuster dir -u http://10.10.10.10",
         "msfconsole",
         "zip -r /tmp/data /etc/passwd"
@@ -643,7 +643,7 @@ if __name__ == "__main__":
     
     # Test stealth scoring
     test_history = [
-        {"command": "nmap -sS 10.10.10.10", "success": True},
+        {"command": "nmap -sT 10.10.10.10", "success": True},
         {"command": "nmap -A 10.10.10.10", "success": True},
         {"command": "gobuster dir -u http://10.10.10.10", "success": True},
         {"command": "hydra -l admin -P wordlist.txt 10.10.10.10 ssh", "success": False, "redundant": True}

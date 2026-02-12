@@ -420,7 +420,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         try:
             command = self.gpt_manager.smart_decision(task_type=phase, task_description=prompt)
             if not command or not isinstance(command, str) or len(command.split()) < 2:
-                command = "nmap -sS -sV 10.10.10.10"
+                command = "nmap -sT -sV 10.10.10.10"
                 
             # NEW: Check for redundancy using enhanced RedAgentBrain
             redundant = False
@@ -524,7 +524,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             
         except Exception as e:
             console.print(f"[red]❌ GPT error: {e}[/red]")
-            return "nmap -sS -sV 10.10.10.10", f"Fallback: GPT unavailable."
+            return "nmap -sT -sV 10.10.10.10", f"Fallback: GPT unavailable."
 
     @staticmethod
     def encode_env_state_static(state, device, **kwargs):
@@ -1861,12 +1861,12 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                             recommendations = [
                                 {"command": f"nmap -sV -p 80,443 {current_state.get('target_ip', '10.10.10.10')}", 
                                  "params": "-sV -p", "why": "Check web services"},
-                                {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt", 
+                                {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/dirb/wordlists/common.txt", 
                                  "params": "-w", "why": "Directory enumeration"}
                             ]
                         else:
                             recommendations = [
-                                {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                                {"command": f"nmap -sT -sV {current_state.get('target_ip', '10.10.10.10')}", 
                                  "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
                                 {"command": "whoami", 
                                  "params": "", "why": "Check current user context"}
@@ -1917,7 +1917,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                             except concurrent.futures.TimeoutError:
                                 console.print(f"[yellow]⚠ GPT recommendation timed out, using defaults[/yellow]")
                                 recommendations = [
-                                    {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                                    {"command": f"nmap -sT -sV {current_state.get('target_ip', '10.10.10.10')}", 
                                      "params": "-sS -sV", "why": "Basic recon scan (timeout fallback)"},
                                     {"command": "whoami", 
                                      "params": "", "why": "Check current user context"}
@@ -1925,7 +1925,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                     except Exception as gpt_err:
                         console.print(f"[yellow]⚠ GPT recommendations error: {gpt_err}, using defaults[/yellow]")
                         recommendations = [
-                            {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                            {"command": f"nmap -sT -sV {current_state.get('target_ip', '10.10.10.10')}", 
                              "params": "-sS -sV", "why": "Basic recon scan (error fallback)"},
                             {"command": "whoami", 
                              "params": "", "why": "Check current user context"}
@@ -1936,9 +1936,9 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                 import traceback
                 console.print(traceback.format_exc())
                 recommendations = [
-                    {"command": f"nmap -sS -sV {current_state.get('target_ip', '10.10.10.10')}", 
+                    {"command": f"nmap -sT -sV {current_state.get('target_ip', '10.10.10.10')}", 
                      "params": "-sS -sV", "why": "Basic recon scan (fallback)"},
-                    {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/wordlists/dirb/common.txt", 
+                    {"command": f"gobuster dir -u http://{current_state.get('target_ip', '10.10.10.10')} -w /usr/share/dirb/wordlists/common.txt", 
                      "params": "", "why": "Web directory enumeration (fallback)"}
                 ]
             
@@ -2095,9 +2095,9 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
         target = state.get("target", "10.10.10.10")
         
         phase_commands = {
-            "recon": f"nmap -sS -sV {target}",
-            "enumeration": f"gobuster dir -u http://{target} -w /usr/share/wordlists/common.txt",
-            "exploit": f"hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://{target}",
+            "recon": f"nmap -sT -sV {target}",
+            "enumeration": f"gobuster dir -u http://{target} -w /usr/share/dirb/wordlists/common.txt",
+            "exploit": f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://{target}",
             "privesc": "find / -perm -u=s -type f 2>/dev/null",
             "exfiltrate": "zip -r /tmp/data.zip /etc/passwd"
         }

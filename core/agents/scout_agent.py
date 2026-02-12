@@ -291,12 +291,12 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             # Use existing plan_scan method for recon
             target_ip = state.get("target_ip", "10.10.10.10")
             scan_plan = self.plan_scan(target_ip, state)
-            command = scan_plan.get("command", "nmap -sS 10.10.10.10")
+            command = scan_plan.get("command", "nmap -sT 10.10.10.10")
             reason = scan_plan.get("reasoning", "Reconnaissance scan")
             return command, reason
         except Exception as e:
             # Fallback command
-            fallback_command = "nmap -sS 10.10.10.10 -p 22,80,443"
+            fallback_command = "nmap -sT 10.10.10.10 -p 22,80,443"
             return fallback_command, f"Fallback scan due to error: {e}"
     
     def act(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -328,7 +328,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             info = {"action_type": "coverage_expansion", "coverage": network_coverage}
         elif scan_intensity < 60:
             # Perform detailed scans
-            action = "nmap -sS -sV -O 10.10.10.10"
+            action = "nmap -sT -sV -O 10.10.10.10"
             success = True
             reward = 35  # High reward for detailed intel
             info = {"action_type": "detailed_scan", "intensity": scan_intensity}
@@ -388,7 +388,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         scan_plan = self.plan_scan(target_ip, discovered_info=state)
         
         # Extract command from scan plan
-        command = scan_plan.get("command", f"nmap -sS {target_ip}")
+        command = scan_plan.get("command", f"nmap -sT {target_ip}")
         
         # Adjust stealth parameters based on ShadowAgent if available
         if self.shadow_agent and hasattr(self.shadow_agent, "get_stealth_recommendation"):
@@ -550,7 +550,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
     def get_base_commands(self):
         """Return base reconnaissance commands for CLI completion."""
         return [
-            "nmap -sS",
+            "nmap -sT",
             "nmap -sT", 
             "nmap -sU",
             "nmap -sV",

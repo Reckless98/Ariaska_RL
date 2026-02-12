@@ -255,7 +255,7 @@ class CybersecurityEnvironment:
     
     def execute_command(self, agent_name: str, command: str) -> Tuple[str, float, bool]:
         """Execute command and return output, reward, and success status"""
-        # Get command base (e.g., "nmap" from "nmap -sS target")
+        # Get command base (e.g., "nmap" from "nmap -sT target")
         cmd_base = command.split()[0] if command else "unknown"
         
         # Generate realistic output

@@ -252,7 +252,7 @@ def display_gpu_status(device, gpu_info=None):
 
 def get_action_description(action_index):
     action_map = {
-        0: "nmap -sS -sV [target]",
+        0: "nmap -sT -sV [target]",
         1: "gobuster dir -u [url] -w [wordlist]",
         2: "hydra -l admin -P [wordlist] ssh://[target]",
         3: "find / -perm -u=s -type f",
