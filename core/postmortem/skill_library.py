@@ -718,7 +718,7 @@ class SkillLibrary:
             SkillCard(
                 id="htb_suid_privesc",
                 if_condition="Shell obtained AND running as non-root user",
-                then_action="find / -perm -4000 2>/dev/null → check GTFOBins for exploitable SUID. WHY: SUID binaries run as owner (often root); GTFOBins documents how to escalate via common binaries.",
+                then_action="find /usr /bin /sbin -perm -4000 2>/dev/null → check GTFOBins for exploitable SUID. WHY: SUID binaries run as owner (often root); GTFOBins documents how to escalate via common binaries.",
                 confidence=0.88,
                 evidence_refs=["htb_common_patterns"],
             ),

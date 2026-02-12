@@ -109,26 +109,28 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         # We create synthetic "blue_*" action indices for the 18 custom commands.
     ],
 
-    # ─── Orion: Strategic Web/AD Scanning ────────────────────────────────────
+    # ─── Orion: Strategic Coordination & Service Analysis ───────────────────
+    # Phase 8.2 Batch 14: Removed HTTP brute-force (gobuster/feroxbuster/ffuf/
+    # wfuzz/dirsearch) — Orion is a strategist, not a directory scanner.
+    # Replaced with service-oriented commands that work on ALL targets.
     "OrionAgent": [
-        # Directory brute force
-        "gobuster_dir", "gobuster_vhost",
-        "ffuf_fuzz", "wfuzz_params", "dirsearch", "feroxbuster",
-        # LDAP/AD
+        # Service analysis (works on all targets)
+        "ftp_anonymous",
+        "redis_cli",
+        # SMB/LDAP enumeration
         "ldapsearch_base", "ldapsearch_users", "windapsearch",
         "cme_ldap_users",
-        # WordPress/CMS
+        # WordPress/CMS (only when HTTP present)
         "wpscan",
         # Kerberos recon
         "certipy_find",
         # AD collection
         "bloodhound_python", "sharphound",
-        # FTP anonymous
-        "ftp_anonymous",
-        # Redis
-        "redis_cli",
         # Port knocking
         "knock", "nmap_port_knock",
+        # MS2/MS3 exploitation (Orion can suggest high-value targets)
+        "ssh_login", "telnet_1524", "mysql_root_login", "psql_default_creds",
+        "samba_exploit", "vsftpd_exploit",
     ],
 
     # ─── Shadow: Stealth & Persistence ───────────────────────────────────────

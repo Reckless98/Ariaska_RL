@@ -599,12 +599,12 @@ class RedAgentBrain:
             elif current_phase == "privesc":
                 # Suggest privilege escalation techniques
                 recommendations.append({
-                    "command": "find / -perm -u=s -type f 2>/dev/null",
+                    "command": "find /usr /bin /sbin -perm -u=s -type f 2>/dev/null",
                     "params": "-perm -u=s",
                     "why": "Find SUID binaries for privilege escalation"
                 })
                 recommendations.append({
-                    "command": "find / -perm -u=s -type f 2>/dev/null",
+                    "command": "find /usr /bin /sbin -perm -u=s -type f 2>/dev/null",
                     "params": "-perm -u=s",
                     "why": "Find SUID binaries for privilege escalation"
                 })
@@ -620,7 +620,7 @@ class RedAgentBrain:
             elif current_phase == "exfiltrate":
                 # Suggest data exfiltration techniques
                 recommendations.append({
-                    "command": "find / -name \"*.txt\" -o -name \"*.pdf\" -o -name \"*.doc\" 2>/dev/null | grep -v \"proc\"",
+                    "command": "find /home /opt /var /tmp -name \"*.txt\" -o -name \"*.pdf\" -o -name \"*.doc\" 2>/dev/null | grep -v \"proc\"",
                     "params": "-name",
                     "why": "Find potentially valuable documents"
                 })

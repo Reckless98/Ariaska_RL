@@ -1774,6 +1774,12 @@ class SmartOrchestrator:
             # Only use template_name matching which is reliable.
             
             cmd_is_shell_granting = cmd_name in SHELL_GRANTING_COMMANDS
+            # Phase 8.2 Batch 13: Also detect shell from command text when anti-repeat
+            # replaces a command but keeps the original template_name
+            if not cmd_is_shell_granting and cmd_text:
+                _shell_cmd_indicators = ("sshpass ", "ssh ", "telnet ", "rlogin ", "rsh ", "nc -e ")
+                if any(cmd_text.startswith(ind) for ind in _shell_cmd_indicators):
+                    cmd_is_shell_granting = True
             
             if cmd_is_shell_granting and has_output and not has_failure:
                 if not agent_discoveries.get("shell"):
@@ -1783,11 +1789,19 @@ class SmartOrchestrator:
                 ROOT_SHELL_COMMANDS = {
                     "telnet_1524", "rsh_root", "rlogin_root", "vsftpd_exploit",
                     "unrealircd_exploit", "samba_exploit",
+                    # Phase 8.2 Batch 13: SSH with default creds on MS2/MS3 → sudo root
+                    "ssh_login", "telnet_login",
                 }
                 if cmd_name in ROOT_SHELL_COMMANDS or "1524" in cmd_text:
                     if not agent_discoveries.get("root_shell"):
                         agent_discoveries["root_shell"] = True
                         logger.info(f"[SHELL-DETECT] Command-based ROOT shell detection for '{cmd_name}'")
+                # Phase 8.2 Batch 13: Also detect root from output — covers anti-repeat
+                # sshpass variants where template_name doesn't match
+                if not agent_discoveries.get("root_shell") and output_to_parse:
+                    if re.search(r"uid=0\(root\)", output_to_parse):
+                        agent_discoveries["root_shell"] = True
+                        logger.info(f"[SHELL-DETECT] Output-based ROOT shell detection (uid=0) for '{cmd_name}' by {result.agent_name}")
             
             # ─── COMMAND-BASED PERSISTENCE DETECTION ─────────────────────
             # Phase 8.2: Expanded persistence command set
@@ -2217,6 +2231,17 @@ class SmartOrchestrator:
         _NO_PORT_PARSE = ("searchsploit", "msfconsole", "msfvenom", "exploit-db",
                           "find /", "cat /etc", "uname ", "hashdump")
         skip_port_parse = any(tag in cmd_lower for tag in _NO_PORT_PARSE)
+
+        # Phase 8.2 Batch 14: Commands that produce REFERENCE TEXT about services,
+        # exploits, and credentials — NOT actual discoveries from scanning the target.
+        # msfconsole search lists modules containing "http", "ssh", "ftp", "sql injection",
+        # "password", etc. in their names/descriptions.  Parser was falsely setting
+        # http_service_found, credentials_known, sqli_confirmed, hash_known,
+        # domain_admin_obtained from these module listings.
+        _REFERENCE_COMMANDS = ("searchsploit", "msfconsole -q -x 'search",
+                               "msfconsole -q -x \"search", "msfvenom",
+                               "exploit-db", "apt ", "pip ")
+        skip_discovery_parse = any(tag in cmd_lower for tag in _REFERENCE_COMMANDS)
         
         import re
         
@@ -2242,41 +2267,43 @@ class SmartOrchestrator:
         # (e.g., "sambashare" in id output) and URLs containing "http"
         # Phase 8.2 Batch 10: Strip tool banner URLs before service detection
         # to prevent false http/https from nmap/hydra/enum4linux banners
-        _clean_output = re.sub(
-            r'https?://\S+',  # Remove all URLs
-            '', output_lower
-        )
-        _clean_output = re.sub(
-            r'starting nmap.*?\n|hydra v[\d.]+.*?\n|enum4linux v[\d.]+.*?\n',
-            '', _clean_output
-        )
-        service_patterns = {
-            "ssh": r"\bssh\b|openssh|sshd",
-            "http": r"\bhttp\b[^s:/]|apache|nginx|\biis\b|web server|http/\d",
-            "https": r"\bhttps\b[^:/]|ssl/|tls/|443/tcp",
-            "smb": r"\bsmb\b|\bsamba\b|microsoft-ds|445/tcp",
-            "ftp": r"\bftp\b|vsftpd|proftpd|21/tcp",
-            "mysql": r"\bmysql\b|mariadb|3306/tcp",
-            "mssql": r"ms-sql|mssql|1433/tcp",
-            "postgresql": r"postgresql|postgres\b|5432/tcp",
-            "rdp": r"\brdp\b|3389/tcp|remote desktop",
-            "smtp": r"\bsmtp\b|postfix|sendmail|25/tcp",
-            "telnet": r"\btelnet\b|23/tcp",
-            "dns": r"\bdomain\b|bind/|53/tcp",
-            "irc": r"\birc\b|unrealircd|6667/tcp",
-            "vnc": r"\bvnc\b|5900/tcp",
-            "rmi": r"java-rmi|rmi\b|1099/tcp",
-            "distcc": r"distccd|distcc\b|3632/tcp",
-            "nfs": r"\bnfs\b|2049/tcp",
-            "tomcat": r"\btomcat\b|8180/tcp|8009/tcp|\bajp\b",
-        }
-        
-        for svc, pattern in service_patterns.items():
-            if re.search(pattern, _clean_output):
-                if "service" not in discoveries:
-                    discoveries["service"] = []
-                if svc not in discoveries.get("service", []):
-                    discoveries["service"].append(svc)
+        # Phase 8.2 Batch 14: Skip service parsing for reference commands
+        if not skip_discovery_parse:
+            _clean_output = re.sub(
+                r'https?://\S+',  # Remove all URLs
+                '', output_lower
+            )
+            _clean_output = re.sub(
+                r'starting nmap.*?\n|hydra v[\d.]+.*?\n|enum4linux v[\d.]+.*?\n',
+                '', _clean_output
+            )
+            service_patterns = {
+                "ssh": r"\bssh\b|openssh|sshd",
+                "http": r"\bhttp\b[^s:/]|apache|nginx|\biis\b|web server|http/\d",
+                "https": r"\bhttps\b[^:/]|ssl/|tls/|443/tcp",
+                "smb": r"\bsmb\b|\bsamba\b|microsoft-ds|445/tcp",
+                "ftp": r"\bftp\b|vsftpd|proftpd|21/tcp",
+                "mysql": r"\bmysql\b|mariadb|3306/tcp",
+                "mssql": r"ms-sql|mssql|1433/tcp",
+                "postgresql": r"postgresql|postgres\b|5432/tcp",
+                "rdp": r"\brdp\b|3389/tcp|remote desktop",
+                "smtp": r"\bsmtp\b|postfix|sendmail|25/tcp",
+                "telnet": r"\btelnet\b|23/tcp",
+                "dns": r"\bdomain\b|bind/|53/tcp",
+                "irc": r"\birc\b|unrealircd|6667/tcp",
+                "vnc": r"\bvnc\b|5900/tcp",
+                "rmi": r"java-rmi|rmi\b|1099/tcp",
+                "distcc": r"distccd|distcc\b|3632/tcp",
+                "nfs": r"\bnfs\b|2049/tcp",
+                "tomcat": r"\btomcat\b|8180/tcp|8009/tcp|\bajp\b",
+            }
+
+            for svc, pattern in service_patterns.items():
+                if re.search(pattern, _clean_output):
+                    if "service" not in discoveries:
+                        discoveries["service"] = []
+                    if svc not in discoveries.get("service", []):
+                        discoveries["service"].append(svc)
         
         # ─── Phase 5: Version info discovery ─────────────────────────
         version_patterns = [
@@ -2292,21 +2319,24 @@ class SmartOrchestrator:
             discoveries["version_info"] = list(set(v.strip() for v in versions_found[:5]))
         
         # Credential patterns (enhanced)
-        cred_patterns = [
-            r"password[:\s]+\S+",
-            r"login:\s*\w+\s+password",
-            r"\(Pwn3d!\)",
-            r"NTLMv[12] Hash:",
-            r"valid credentials",
-            r"authentication successful",
-            r"Login successful",
-            r"password hashes cracked",
-            r"Key found:",
-        ]
-        for pattern in cred_patterns:
-            if re.search(pattern, output, re.IGNORECASE):
-                discoveries["credential"] = "password_found"
-                break
+        # Phase 8.2 Batch 14: Skip for reference commands (msfconsole search
+        # output contains "password", "Login" in module names/descriptions)
+        if not skip_discovery_parse:
+            cred_patterns = [
+                r"password[:\s]+\S+",
+                r"login:\s*\w+\s+password",
+                r"\(Pwn3d!\)",
+                r"NTLMv[12] Hash:",
+                r"valid credentials",
+                r"authentication successful",
+                r"Login successful",
+                r"password hashes cracked",
+                r"Key found:",
+            ]
+            for pattern in cred_patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    discoveries["credential"] = "password_found"
+                    break
         
         # User discovery
         user_patterns = [
@@ -2325,28 +2355,32 @@ class SmartOrchestrator:
             discoveries["user"] = list(set(users))
         
         # Vulnerability patterns
-        vuln_patterns = [
-            r"CVE-\d{4}-\d+",              # CVE IDs
-            r"vulnerable|vulnerability",
-            r"exploit|exploitable",
-            r"OSVDB-\d+",
-            r"Remote Code Execution",
-            r"Buffer Overflow",
-            r"SQL Injection",
-            r"Path Traversal",
-            r"Backdoor",
-            r"Command Execution",
-            r"command injection",
-            r"XSS vulnerability",
-        ]
-        for pattern in vuln_patterns:
-            if re.search(pattern, output, re.IGNORECASE):
-                discoveries["vulnerability"] = True
-                # Extract CVE IDs
-                cves = re.findall(r"CVE-\d{4}-\d+", output, re.IGNORECASE)
-                if cves:
-                    discoveries["cve"] = list(set(cves))
-                break
+        # Phase 8.2 Batch 14: Skip for reference commands (msfconsole search
+        # output is FULL of "exploit", "vulnerability", "SQL Injection", "Backdoor"
+        # in module names — these are NOT actual discoveries from the target)
+        if not skip_discovery_parse:
+            vuln_patterns = [
+                r"CVE-\d{4}-\d+",              # CVE IDs
+                r"vulnerable|vulnerability",
+                r"exploit|exploitable",
+                r"OSVDB-\d+",
+                r"Remote Code Execution",
+                r"Buffer Overflow",
+                r"SQL Injection",
+                r"Path Traversal",
+                r"Backdoor",
+                r"Command Execution",
+                r"command injection",
+                r"XSS vulnerability",
+            ]
+            for pattern in vuln_patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    discoveries["vulnerability"] = True
+                    # Extract CVE IDs
+                    cves = re.findall(r"CVE-\d{4}-\d+", output, re.IGNORECASE)
+                    if cves:
+                        discoveries["cve"] = list(set(cves))
+                    break
         
         # Directory/path discovery (web)
         if re.search(r"(?:Status:|CODE:)\s*200", output):
@@ -2425,32 +2459,37 @@ class SmartOrchestrator:
                 discoveries["smb_share"] = list(set(shares))
         
         # File discovery (sensitive files)
-        sensitive_patterns = [
-            r"\.ssh/id_rsa",
-            r"\.htaccess",
-            r"\.backup",
-            r"password",
-            r"\.env",
-            r"config\.",
-            r"wp-config",
-            r"db_dump",
-            r"\.sql",
-        ]
-        for pattern in sensitive_patterns:
-            if re.search(pattern, output_lower):
-                discoveries["sensitive_file"] = True
-                break
+        # Phase 8.2 Batch 14: Skip for reference commands
+        if not skip_discovery_parse:
+            sensitive_patterns = [
+                r"\.ssh/id_rsa",
+                r"\.htaccess",
+                r"\.backup",
+                r"password",
+                r"\.env",
+                r"config\.",
+                r"wp-config",
+                r"db_dump",
+                r"\.sql",
+            ]
+            for pattern in sensitive_patterns:
+                if re.search(pattern, output_lower):
+                    discoveries["sensitive_file"] = True
+                    break
         
         # Shell indicators (Phase 6.5: expanded for MS2 live output)
         # NOTE: Keep patterns specific to REMOTE shell evidence.
         # Avoid matching local `id` or `whoami` output (which runs on attacker host).
+        # Phase 8.2 Batch 13: Added generic uid= pattern for MS3 non-root shells
         shell_patterns = [
             r"shell\s*session\s*\d+\s*opened",
             r"www-data@",
             r"root@(?:metasploitable|localhost|target)",
             r"meterpreter\s*>",
             r"msfadmin@metasploitable",           # specific MS2 login prompt
-            r"uid=0\(root\)\s+gid=0",             # root shell only — NOT generic uid=
+            r"msfadmin@metasploitable3",          # specific MS3 login prompt
+            r"uid=0\(root\)\s+gid=0",             # root shell
+            r"uid=\d+\([a-z]\w+\)\s+gid=\d+",    # Batch 13: any valid uid= shell output
             r"nt authority\\\\system",
             r"[Bb]ackdoor.*spawned",
             r"ingreslock.*root",                  # ingreslock backdoor
@@ -2463,51 +2502,58 @@ class SmartOrchestrator:
             if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
                 discoveries["shell"] = True
                 # Root shell detection — keep specific to avoid false positives
-                if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root", output, re.IGNORECASE):
+                # Phase 8.2 Batch 13: Also detect sudo -S id output showing root
+                if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root|echo msfadmin.*sudo.*uid=0", output, re.IGNORECASE):
                     discoveries["root_shell"] = True
                 break
         
         # Hash/credential dump patterns → triggers LATERAL_MOVEMENT
-        hash_patterns = [
-            r"NTLMv[12]\s*Hash",
-            r"[a-f0-9]{32}:{3}",               # NT hash format
-            r"\$krb5tgs\$",                      # Kerberoast
-            r"\$krb5asrep\$",                    # AS-REP roast
-            r"Hash\s*dumped",
-            r"secretsdump|hashdump",
-            r"mimikatz.*NTLM",
-        ]
-        for pattern in hash_patterns:
-            if re.search(pattern, output, re.IGNORECASE):
-                discoveries["hash_dump"] = True
-                break
-        
+        # Phase 8.2 Batch 14: Skip for reference commands
+        if not skip_discovery_parse:
+            hash_patterns = [
+                r"NTLMv[12]\s*Hash",
+                r"[a-f0-9]{32}:{3}",               # NT hash format
+                r"\$krb5tgs\$",                      # Kerberoast
+                r"\$krb5asrep\$",                    # AS-REP roast
+                r"Hash\s*dumped",
+                r"secretsdump|hashdump",
+                r"mimikatz.*NTLM",
+            ]
+            for pattern in hash_patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    discoveries["hash_dump"] = True
+                    break
+
         # Lateral movement indicators → triggers LATERAL_MOVEMENT
-        lateral_patterns = [
-            r"Lateral target:\s*\S+",
-            r"Domain Admin found",
-            r"PsExec|WmiExec|SmbExec|AtExec|DcomExec",
-            r"Evil-WinRM shell",
-            r"proxychains.*OK",
-            r"Tunnel established",
-            r"session#\d+:\s*tun pair",
-        ]
-        for pattern in lateral_patterns:
-            if re.search(pattern, output, re.IGNORECASE):
-                discoveries["lateral_target"] = True
-                break
-        
+        # Phase 8.2 Batch 14: Skip for reference commands
+        if not skip_discovery_parse:
+            lateral_patterns = [
+                r"Lateral target:\s*\S+",
+                r"Domain Admin found",
+                r"PsExec|WmiExec|SmbExec|AtExec|DcomExec",
+                r"Evil-WinRM shell",
+                r"proxychains.*OK",
+                r"Tunnel established",
+                r"session#\d+:\s*tun pair",
+            ]
+            for pattern in lateral_patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    discoveries["lateral_target"] = True
+                    break
+
         # Domain admin indicators → triggers POST_EXPLOITATION
-        domain_admin_patterns = [
-            r"Domain\s*Admin",
-            r"nt authority\\system",
-            r"Enterprise\s*Admin",
-            r"memberOf.*Domain Admins",
-        ]
-        for pattern in domain_admin_patterns:
-            if re.search(pattern, output, re.IGNORECASE):
-                discoveries["domain_admin"] = True
-                break
+        # Phase 8.2 Batch 14: Skip for reference commands
+        if not skip_discovery_parse:
+            domain_admin_patterns = [
+                r"Domain\s*Admin",
+                r"nt authority\\system",
+                r"Enterprise\s*Admin",
+                r"memberOf.*Domain Admins",
+            ]
+            for pattern in domain_admin_patterns:
+                if re.search(pattern, output, re.IGNORECASE):
+                    discoveries["domain_admin"] = True
+                    break
         
         # Persistence indicators → triggers EXFILTRATION
         persistence_patterns = [

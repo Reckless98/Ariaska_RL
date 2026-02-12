@@ -255,7 +255,7 @@ def get_action_description(action_index):
         0: "nmap -sT -sV [target]",
         1: "gobuster dir -u [url] -w [wordlist]",
         2: "hydra -l admin -P [wordlist] ssh://[target]",
-        3: "find / -perm -u=s -type f",
+        3: "find /usr /bin /sbin -perm -u=s -type f",
         4: "zip -r /tmp/data.zip /etc/passwd",
     }
     return action_map.get(action_index, f"Custom/Unknown ({action_index})")

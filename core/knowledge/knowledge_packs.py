@@ -1087,7 +1087,7 @@ HTB_COMMON_PATTERNS = {
         "reasoning": "After getting a user shell on Linux, these are the standard escalation paths. "
                      "The agent must learn to enumerate ALL paths before attempting any single one.",
         "techniques": [
-            {"name": "SUID binaries", "commands": ["find / -perm -4000 -type f 2>/dev/null"],
+            {"name": "SUID binaries", "commands": ["find /usr /bin /sbin -perm -4000 -type f 2>/dev/null"],
              "reasoning": "SUID binaries run as their owner (often root). GTFOBins lists exploitable ones. "
                           "(Source: BoardLight — CVE-2022-37706 enlightenment SUID exploit)"},
             {"name": "sudo -l misconfiguration", "commands": ["sudo -l"],
@@ -1266,7 +1266,7 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "SQL injection → OS shell",
                           "sqlmap automates SQLi detection and exploitation. --os-shell attempts direct command execution.",
                           "os-shell> ", "os-shell"),
-            KillChainStep("privilege_escalation", "find / -perm -4000 -type f 2>/dev/null",
+            KillChainStep("privilege_escalation", "find /usr /bin /sbin -perm -4000 -type f 2>/dev/null",
                           "Enumerate SUID binaries for privesc",
                           "SUID binaries running as root are the fastest Linux privesc path. Check GTFOBins for each.",
                           "/usr/bin/python3.8", "python"),
@@ -1345,7 +1345,7 @@ HTB_KILL_CHAINS: List[KillChain] = [
                   "(3) use the specific binary's exploitation technique.",
         total_expected_reward=250.0,
         steps=(
-            KillChainStep("privilege_escalation", "find / -perm -4000 -type f 2>/dev/null",
+            KillChainStep("privilege_escalation", "find /usr /bin /sbin -perm -4000 -type f 2>/dev/null",
                           "Find all SUID binaries on the system",
                           "SUID bit means the binary runs as its owner. If owned by root, we execute as root. "
                           "This is THE first command to run after getting any Linux shell.",
@@ -1389,7 +1389,7 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "Upgrade SSTI to reverse shell",
                           "Use SSTI to launch a reverse shell. Bash reverse shell is the most reliable for Linux.",
                           "Connection received", "shell"),
-            KillChainStep("privilege_escalation", "sudo -l && find / -perm -4000 2>/dev/null",
+            KillChainStep("privilege_escalation", "sudo -l && find /usr /bin /sbin -perm -4000 2>/dev/null",
                           "Enumerate privesc vectors from www-data shell",
                           "www-data rarely has sudo but ALWAYS check. Then enumerate SUID binaries.",
                           "/usr/bin/python3", "python"),
@@ -1724,7 +1724,7 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "Password reuse from web app config → SSH is extremely common.",
                           "larissa@BoardLight:~$", "larissa@"),
             KillChainStep("privilege_escalation",
-                          "find / -perm -4000 2>/dev/null → enlightenment SUID → CVE-2022-37706",
+                          "find /usr /bin /sbin -perm -4000 2>/dev/null → enlightenment SUID → CVE-2022-37706",
                           "Exploit SUID binary for root",
                           "Enumerate SUID binaries. Research unknown ones for CVEs.",
                           "root@BoardLight:#", "root"),
