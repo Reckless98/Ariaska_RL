@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260212_135845_b3c0dd",
+  "timestamp": 1770901161.080673,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward accumulation (70 per episode) despite lack of success, showing reliability in automated interactions",
+      "Leveraged mentor guidance effectively (10 calls) to gather context for future strategy refinement"
+    ],
+    "fails": [
+      "Zero percent success rate indicates failure to complete primary objective within the single episode",
+      "High dependency on mentor calls suggests knowledge gaps in automated reasoning or missing reconnaissance automation",
+      "No exploit or post-exploitation phase achieved, preventing goal completion"
+    ],
+    "summary": "The run yielded consistent reward but no successes; focus on automating reconnaissance-to-exploitation handoff while reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to escalate privileges after initial reconnaissance, likely due to insufficient credential validation or missing lateral movement steps",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates Linux target",
+      "then_action": "Run targeted SSH enumeration using nmap scripts (ssh2-enum-algos, ssh-hostkey) before credential attempts",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh2-enum-algos",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07"
+      ],
+      "created_at": 1770901169.0605955,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When default web credentials fail during login",
+      "then_action": "Switch to manual brute-force with constrained password list derived from service metadata and previous breach intel",
+      "parameters_template": {
+        "service": "HTTP",
+        "password_list": "custom_constrained_list.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step14"
+      ],
+      "created_at": 1770901169.0606165,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial exploit attempt stalls before shell acquisition",
+      "then_action": "Capture and analyze target response logs, adjust payload timing and retry with adaptive evasion flags",
+      "parameters_template": {
+        "payload": "custom_reverse_shell",
+        "timing": "adaptive"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step15"
+      ],
+      "created_at": 1770901169.060631,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration consistently informs next steps during reconnaissance, showing reliability"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Adaptive brute-force heuristics needed when default creds fail, improving transition to exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate adaptive exploitation loop",
+      "description": "Implement automated feedback from failed exploits (logs, timing) to adjust payload and re-attempt without mentor intervention",
+      "priority": "high"
+    },
+    {
+      "title": "Credential diversification strategy",
+      "description": "Integrate service-specific credential heuristics (e.g., SSH banner, HTTP headers) into brute-force toolchains to reduce wasted attempts",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
