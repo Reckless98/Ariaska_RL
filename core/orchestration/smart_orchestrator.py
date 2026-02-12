@@ -823,7 +823,7 @@ class SmartOrchestrator:
         self.forced_novel_count = {agent: 0 for agent in self.agents}
         self._steps_without_discoveries = {agent: 0 for agent in self.agents}  # Stagnation counter
         self.phase_progressed_this_episode = False
-        self._phase_start_step = {"RECON": 0}  # Reset phase timing
+        self._phase_start_step = {}  # R55: Start empty, populated after init
         self.episode_termination_reason = TerminationReason.MAX_STEPS
         self.previous_discoveries = {}
         
@@ -866,12 +866,24 @@ class SmartOrchestrator:
         # Episode tracking
         episode_reward = 0.0
         step_results: List[List[SmartStepResult]] = []
-        phase_progression: List[str] = [self.attack_context.current_phase.name]
+        _initial_phase = self.attack_context.current_phase.name
+        # R55: Register the ACTUAL initial phase (may be EXPLOITATION after
+        # campaign memory injection, not always RECON)
+        self._phase_start_step = {_initial_phase: 0}
+        phase_progression: List[str] = [_initial_phase]
         done = False
         total_mentor_calls = 0
         
         for step in range(max_steps):
             self.current_step = step
+            
+            # R55: Track phase BEFORE _run_step() to detect transitions.
+            # Previously, current_phase was read AFTER _run_step(), causing a
+            # race condition where phase transitions during _run_step() made
+            # both current_phase and new_phase identical — so _phase_start_step
+            # was never updated, and the ≥12 PRIV_ESC forced cascade could
+            # never fire (step - step = 0 always).
+            _pre_step_phase = self.attack_context.current_phase.name
             
             # Run all agents
             step_agent_results, env_reward, new_state, done = self._run_step(
@@ -1140,6 +1152,13 @@ class SmartOrchestrator:
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
             
+            # R55: Ensure current phase is always registered in _phase_start_step.
+            # This is the safety net for the race condition fix — if a phase was
+            # never registered (e.g., initial EXPLOITATION phase from campaign
+            # memory injection), register it now.
+            if current_phase not in self._phase_start_step:
+                self._phase_start_step[current_phase] = step
+            
             # ─── R53: PRIVILEGE_ESCALATION FORCED CASCADE ────────────
             # R52 showed 20% failure rate (EP5, EP7) where agents get stuck
             # at PRIV_ESC for all 40 steps. PHASE-ESCALATION sshpass fires
@@ -1242,10 +1261,16 @@ class SmartOrchestrator:
             # =================================================================
             # (Phase 2A code removed — agent must earn advancement through discoveries)
             
-            # Track phase start steps
+            # R55: Track phase start steps using _pre_step_phase (captured BEFORE
+            # _run_step) to correctly detect transitions that happen during agent
+            # execution. The old code compared current_phase (post-step) with
+            # new_phase (also post-step) — they were always equal when a
+            # transition happened during _run_step, so phases were never registered.
             new_phase = self.attack_context.current_phase.name
-            if new_phase != current_phase:
+            if new_phase != _pre_step_phase:
                 self._phase_start_step[new_phase] = step
+                if new_phase not in phase_progression:
+                    phase_progression.append(new_phase)
             
             # =========================================================================
             # PHASE 6.9.3: CLOSEOUT COMPLETE → END EPISODE
