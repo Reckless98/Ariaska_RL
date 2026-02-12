@@ -588,14 +588,20 @@ class CyberEnvironment:
 
     def get_global_state(self):
         # Build state_flags for SmartCoach compatibility
+        # Phase 8.2 Batch 10: Use exact matching for service names to prevent
+        # "https" from triggering "http_service_found" etc.
+        _svc_lower = {str(s).lower() for s in self.services}
+        # Also check port-based strings like "http:80"
+        _has_http = "http" in _svc_lower or any(s.startswith("http:") for s in _svc_lower) or "80" in [str(p) for p in self.open_ports]
+        _has_https = "https" in _svc_lower or any(s.startswith("https:") for s in _svc_lower) or "443" in [str(p) for p in self.open_ports]
         state_flags = {
             "ports_discovered": len(self.open_ports) > 0,
             "services_enumerated": len(self.services) > 0,
-            "ssh_service_found": "ssh" in self.services or any("ssh" in str(s).lower() for s in self.services),
-            "http_service_found": "http" in self.services or any("http" in str(s).lower() for s in self.services),
-            "smb_service_found": "smb" in self.services or any("smb" in str(s).lower() for s in self.services),
-            "ftp_service_found": "ftp" in self.services or any("ftp" in str(s).lower() for s in self.services),
-            "mysql_service_found": "mysql" in self.services or any("mysql" in str(s).lower() for s in self.services),
+            "ssh_service_found": "ssh" in _svc_lower or any(s.startswith("ssh") for s in _svc_lower),
+            "http_service_found": _has_http or _has_https,  # HTTPS implies HTTP capability
+            "smb_service_found": "smb" in _svc_lower or any("samba" in s or "microsoft-ds" in s for s in _svc_lower),
+            "ftp_service_found": "ftp" in _svc_lower or any(s.startswith("ftp") for s in _svc_lower),
+            "mysql_service_found": "mysql" in _svc_lower or any(s.startswith("mysql") for s in _svc_lower),
             "vulnerability_found": len(self.discovered_vulnerabilities) > 0,
             "credentials_known": self.credentials_found,
             "shell_obtained": self.privilege_level in ("user", "root"),

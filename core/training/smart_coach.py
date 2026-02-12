@@ -660,6 +660,9 @@ class SmartCoach:
         # Filter for agent role
         role_filtered = self._filter_commands_for_role(valid_commands)
         
+        # Phase 8.2 Batch 10: Also filter by tool availability
+        role_filtered = [cmd for cmd in role_filtered if self._is_tool_available(cmd)]
+        
         # Also exclude commands already in history (exact match)
         history_set = set(ctx.command_history[-history_k:])
         
@@ -762,8 +765,10 @@ class SmartCoach:
             valid_commands = list(COMMAND_REGISTRY.values())[:20]
         
         role_filtered = self._filter_commands_for_role(valid_commands)
+        # Phase 8.2 Batch 10: Filter by tool availability even in last resort
+        role_filtered = [cmd for cmd in role_filtered if self._is_tool_available(cmd)]
         if not role_filtered:
-            role_filtered = valid_commands[:10]
+            role_filtered = [cmd for cmd in valid_commands[:10] if self._is_tool_available(cmd)]
         
         import random
         template = random.choice(role_filtered) if role_filtered else list(COMMAND_REGISTRY.values())[0]
@@ -2051,19 +2056,21 @@ class SmartCoach:
     # We check these with shutil.which() once at init.
     # Phase 8.2 Batch 9: Added impacket-atexec, impacket-wmiexec, impacket-GetNPUsers,
     # impacket-GetUserSPNs, evil-winrm, redis-cli, linpeas, mysqldump, certipy
+    # Phase 8.2 Batch 10: Added last, knock, dnsenum, wfuzz, ldapsearch, mysql (client)
     _TOOL_BINARIES = {
         "crackmapexec", "impacket-psexec", "impacket-secretsdump",
         "impacket-smbexec", "impacket-atexec", "impacket-wmiexec",
         "impacket-GetNPUsers", "impacket-GetUserSPNs",
-        "smbmap", "dirsearch", "dnsrecon",
+        "smbmap", "dirsearch", "dnsrecon", "dnsenum",
         "wpscan", "commix", "chisel", "windapsearch", "enum4linux-ng",
         "rpcinfo", "gospider", "feroxbuster", "gobuster",
         "masscan", "whatweb", "smbclient", "rpcclient",
         "nuclei", "ffuf", "nikto", "sqlmap", "hydra",
         "nmap", "msfconsole", "msfvenom", "searchsploit",
         "enum4linux", "ftp", "telnet", "sshpass", "psql", "mysql",
-        "curl", "nc", "dig",
+        "curl", "nc", "dig", "wfuzz", "ldapsearch",
         "evil-winrm", "redis-cli", "linpeas", "mysqldump", "certipy",
+        "last", "knock",
     }
     
     def _check_tool_availability(self) -> None:

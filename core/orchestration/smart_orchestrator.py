@@ -2240,10 +2240,20 @@ class SmartOrchestrator:
         # Service discovery (enhanced with version info)
         # NOTE: Word boundaries (\b) prevent false positives from group names
         # (e.g., "sambashare" in id output) and URLs containing "http"
+        # Phase 8.2 Batch 10: Strip tool banner URLs before service detection
+        # to prevent false http/https from nmap/hydra/enum4linux banners
+        _clean_output = re.sub(
+            r'https?://\S+',  # Remove all URLs
+            '', output_lower
+        )
+        _clean_output = re.sub(
+            r'starting nmap.*?\n|hydra v[\d.]+.*?\n|enum4linux v[\d.]+.*?\n',
+            '', _clean_output
+        )
         service_patterns = {
             "ssh": r"\bssh\b|openssh|sshd",
-            "http": r"\bhttp\b[^s]|apache|nginx|\biis\b|web server|http/\d",
-            "https": r"\bhttps\b|ssl/|tls/|443/tcp",
+            "http": r"\bhttp\b[^s:/]|apache|nginx|\biis\b|web server|http/\d",
+            "https": r"\bhttps\b[^:/]|ssl/|tls/|443/tcp",
             "smb": r"\bsmb\b|\bsamba\b|microsoft-ds|445/tcp",
             "ftp": r"\bftp\b|vsftpd|proftpd|21/tcp",
             "mysql": r"\bmysql\b|mariadb|3306/tcp",
@@ -2262,7 +2272,7 @@ class SmartOrchestrator:
         }
         
         for svc, pattern in service_patterns.items():
-            if re.search(pattern, output_lower):
+            if re.search(pattern, _clean_output):
                 if "service" not in discoveries:
                     discoveries["service"] = []
                 if svc not in discoveries.get("service", []):
