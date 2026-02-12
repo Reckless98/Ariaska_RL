@@ -1229,12 +1229,20 @@ class SmartCoach:
         if self.mentor_controller is not None:
             # Use the new 3-tier controller
             phase_changed = (prev_phase is not None and current_phase != prev_phase)
+            # Phase 9.0: Pass DDQN confidence for macro-uncertainty trigger
+            _ddqn_conf = None
+            if hasattr(self, 'ddqn_macro') and self.ddqn_macro is not None:
+                try:
+                    _ddqn_conf = self.ddqn_macro.get_confidence_metrics()
+                except Exception:
+                    pass
             mentor_engagement = self.mentor_controller.should_engage(
                 confidence=confidence,
                 phase_changed=phase_changed,
                 prev_phase=prev_phase.name if prev_phase is not None else None,
                 current_phase=current_phase.name,
                 force=force_mentor,
+                ddqn_confidence=_ddqn_conf,
             )
             if mentor_engagement.engage:
                 should_call_gpt = True

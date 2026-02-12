@@ -56,6 +56,7 @@ class MentorTrigger(str, Enum):
     FORCED = "forced"
     WARMUP = "warmup"
     BUDGET_FLOOR = "budget_floor"       # Minimum engagement rate enforcement
+    DDQN_UNCERTAINTY = "ddqn_uncertainty"  # Phase 9.0: DDQN macro selector uncertain
     NONE = "none"
 
 
@@ -109,6 +110,13 @@ class MentorControllerConfig:
     # --- EXFIL curriculum gate ---
     exfil_patience: int = 3           # Episodes stuck at POST_EXPLOIT before forcing exfil mentor
     exfil_mentor_tier: MentorTier = MentorTier.DELIBERATIVE
+
+    # --- Phase 9.0: DDQN uncertainty trigger ---
+    # When DDQN macro selector has high TD error and mid-range epsilon,
+    # it's learning but struggling — mentor guidance is most valuable here.
+    ddqn_td_error_threshold: float = 1.5    # TD error above this → uncertain
+    ddqn_epsilon_range: Tuple[float, float] = (0.15, 0.45)  # Active learning window
+    ddqn_trigger_cooldown: int = 3    # Min steps between DDQN-triggered mentor calls
 
     # --- Model overrides ---
     # Phase 7.1: DELIBERATIVE also uses codex-mini for cost savings
@@ -179,6 +187,9 @@ class MentorController:
         self.total_decisions: int = 0
         self.tier_counts: Dict[str, int] = {t.value: 0 for t in MentorTier}
         self.trigger_counts: Dict[str, int] = {t.value: 0 for t in MentorTrigger}
+
+        # --- Phase 9.0: DDQN uncertainty tracking ---
+        self._steps_since_ddqn_trigger: int = 999
 
         logger.info(
             f"MentorController initialized: budget={self.config.budget_pct:.0%}, "
@@ -251,6 +262,7 @@ class MentorController:
         self.current_step += 1
         self.steps_since_last_call += 1
         self._stagnation_steps += 1
+        self._steps_since_ddqn_trigger += 1
 
     def record_discovery(self) -> None:
         """Record that a new discovery was made this step (resets stagnation)."""
@@ -285,6 +297,7 @@ class MentorController:
         prev_phase: Optional[str] = None,
         current_phase: str = "",
         force: bool = False,
+        ddqn_confidence: Optional[Dict[str, float]] = None,
     ) -> MentorEngagement:
         """
         Determine whether the mentor should be called and at which tier.
@@ -298,6 +311,8 @@ class MentorController:
             prev_phase: Previous phase name
             current_phase: Current phase name
             force: Orchestrator explicitly requests mentor
+            ddqn_confidence: Phase 9.0 — DDQN macro selector confidence metrics
+                {avg_td_error, avg_q_value, epsilon, buffer_size, update_count}
         """
         # --- Hard limits ---
         if self.calls_this_episode >= min(self._episode_budget, self.config.max_calls_per_episode):
@@ -338,6 +353,23 @@ class MentorController:
                 reason=f"stagnation_steps={self._stagnation_steps}",
                 max_tokens=500,  # Phase 8.2: More tokens for strategic stagnation-breaking
             )
+
+        # T4.5: Phase 9.0 — DDQN macro uncertainty → deliberative
+        # When the DDQN macro selector is in its active learning window
+        # (epsilon between 0.15-0.45) but has high TD error (> 1.5),
+        # the model is learning but struggling to distinguish strategies.
+        # Strategic mentor guidance is most valuable in this window.
+        if ddqn_confidence and self._steps_since_ddqn_trigger >= self.config.ddqn_trigger_cooldown:
+            eps = ddqn_confidence.get("epsilon", 1.0)
+            td_err = ddqn_confidence.get("avg_td_error", 0.0)
+            eps_lo, eps_hi = self.config.ddqn_epsilon_range
+            if eps_lo <= eps <= eps_hi and td_err > self.config.ddqn_td_error_threshold:
+                self._steps_since_ddqn_trigger = 0
+                return self._make_engagement(
+                    MentorTier.DELIBERATIVE, MentorTrigger.DDQN_UNCERTAINTY,
+                    reason=f"ddqn_uncertain(ε={eps:.2f},td={td_err:.2f})",
+                    max_tokens=400,
+                )
 
         # T5: Warmup episodes → reactive (frequent cheap calls)
         if self.current_episode < self.config.warmup_episodes:

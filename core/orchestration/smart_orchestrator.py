@@ -1287,35 +1287,8 @@ class SmartOrchestrator:
                 episode_num=episode_number,
             )
         
-        ppo_updates_fired = 0
-        ppo_total_policy_loss = 0.0
-        ppo_total_value_loss = 0.0
-        ppo_total_entropy = 0.0
-        for coach_name, coach in self.coaches.items():
-            if hasattr(coach, 'end_episode_ppo'):
-                try:
-                    ppo_metrics = coach.end_episode_ppo(
-                        done=done, highest_phase=highest_phase
-                    )
-                    if ppo_metrics:
-                        ppo_updates_fired += 1
-                        ppo_total_policy_loss += ppo_metrics.get("policy_loss", 0.0)
-                        ppo_total_value_loss += ppo_metrics.get("value_loss", 0.0)
-                        ppo_total_entropy += ppo_metrics.get("entropy", 0.0)
-                        metrics[f"ppo_{coach_name}_policy_loss"] = ppo_metrics.get("policy_loss", 0.0)
-                        metrics[f"ppo_{coach_name}_value_loss"] = ppo_metrics.get("value_loss", 0.0)
-                        metrics[f"ppo_{coach_name}_entropy"] = ppo_metrics.get("entropy", 0.0)
-                except Exception as e:
-                    logger.warning(f"PPO update error for {coach_name}: {e}")
-
-        # Aggregate PPO metrics
-        metrics["ppo_updates_fired"] = ppo_updates_fired
-        if ppo_updates_fired > 0:
-            metrics["ppo_avg_policy_loss"] = ppo_total_policy_loss / ppo_updates_fired
-            metrics["ppo_avg_value_loss"] = ppo_total_value_loss / ppo_updates_fired
-            metrics["ppo_avg_entropy"] = ppo_total_entropy / ppo_updates_fired
-        
         # ─── PHASE 9.0: Collect DDQN macro-intent metrics ───────────
+        # MUST be collected BEFORE end_episode_ppo() which calls ddqn_macro.reset_episode()
         ddqn_total_macros = 0
         ddqn_total_switches = 0
         ddqn_distributions: Dict[str, int] = {}
@@ -1346,6 +1319,34 @@ class SmartOrchestrator:
                 f"[DDQN] ε={ddqn_epsilon:.2f} macros={ddqn_total_macros} "
                 f"switches={ddqn_total_switches} top=[{top_str}]"
             )
+        
+        ppo_updates_fired = 0
+        ppo_total_policy_loss = 0.0
+        ppo_total_value_loss = 0.0
+        ppo_total_entropy = 0.0
+        for coach_name, coach in self.coaches.items():
+            if hasattr(coach, 'end_episode_ppo'):
+                try:
+                    ppo_metrics = coach.end_episode_ppo(
+                        done=done, highest_phase=highest_phase
+                    )
+                    if ppo_metrics:
+                        ppo_updates_fired += 1
+                        ppo_total_policy_loss += ppo_metrics.get("policy_loss", 0.0)
+                        ppo_total_value_loss += ppo_metrics.get("value_loss", 0.0)
+                        ppo_total_entropy += ppo_metrics.get("entropy", 0.0)
+                        metrics[f"ppo_{coach_name}_policy_loss"] = ppo_metrics.get("policy_loss", 0.0)
+                        metrics[f"ppo_{coach_name}_value_loss"] = ppo_metrics.get("value_loss", 0.0)
+                        metrics[f"ppo_{coach_name}_entropy"] = ppo_metrics.get("entropy", 0.0)
+                except Exception as e:
+                    logger.warning(f"PPO update error for {coach_name}: {e}")
+
+        # Aggregate PPO metrics
+        metrics["ppo_updates_fired"] = ppo_updates_fired
+        if ppo_updates_fired > 0:
+            metrics["ppo_avg_policy_loss"] = ppo_total_policy_loss / ppo_updates_fired
+            metrics["ppo_avg_value_loss"] = ppo_total_value_loss / ppo_updates_fired
+            metrics["ppo_avg_entropy"] = ppo_total_entropy / ppo_updates_fired
         
         # Count decision sources across all step results
         source_counts = {"ppo": 0, "playbook": 0, "registry": 0, "anti_repeat": 0, "other": 0}
