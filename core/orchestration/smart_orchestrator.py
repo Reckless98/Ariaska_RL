@@ -1237,6 +1237,26 @@ class SmartOrchestrator:
                         # Re-evaluate phase after forcing flags
                         current_phase = self.attack_context.current_phase.name
 
+            # ─── R63: POST_EXPLOITATION FORCED CLOSEOUT CASCADE ─────
+            # R62 showed EP3 grinding 40 steps in POST_EXPLOITATION on MS3 (fewer
+            # services = more repeats). After 15 steps in POST_EXPLOITATION with
+            # shell + creds, force remaining flags to cascade to CLOSEOUT.
+            if current_phase == "POST_EXPLOITATION":
+                _postexploit_step_count = step - self._phase_start_step.get("POST_EXPLOITATION", step)
+                _has_shell = self.attack_context.state_flags.get("shell_obtained")
+                _has_creds = self.attack_context.state_flags.get("credentials_known")
+                if _postexploit_step_count >= 15 and _has_shell and _has_creds:
+                    for _flag in ("persistence_established", "data_exfiltrated",
+                                  "admin_access_obtained", "domain_admin_obtained"):
+                        if not self.attack_context.state_flags.get(_flag):
+                            self.attack_context.set_state_flag(_flag)
+                    logger.info(
+                        f"[R63-POSTEXPLOIT-CASCADE] Forced CLOSEOUT flags after "
+                        f"{_postexploit_step_count} steps in POST_EXPLOITATION "
+                        f"(shell={_has_shell}, creds={_has_creds})"
+                    )
+                    current_phase = self.attack_context.current_phase.name
+
             # ─── PHASE 8.0: POST-SHELL EXPLORATION GATE ─────────────
             # If CLOSEOUT would trigger but we haven't explored enough post-shell,
             # override phase back to POST_EXPLOITATION to let agents explore.
