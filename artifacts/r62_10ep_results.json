@@ -1,0 +1,248 @@
+{
+  "timestamp": "2026-02-13T11:18:52.847297",
+  "episodes": 10,
+  "max_steps": 40,
+  "seed": 62,
+  "target_ip": "172.28.0.11",
+  "mode": "live",
+  "duration_s": 1207.0369246006012,
+  "avg_reward": 2505.475,
+  "last10_avg": 2505.475,
+  "max_reward": 3316.2500000000005,
+  "min_reward": 2102.0,
+  "exfil_pct": 90.0,
+  "closeout_pct": 90.0,
+  "phase_distribution": {
+    "CLOSEOUT": 9,
+    "POST_EXPLOITATION": 1
+  },
+  "decision_sources": {
+    "ppo": 366,
+    "playbook": 46,
+    "registry": 0,
+    "anti_repeat": 62,
+    "codex_meta": 15
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 2102.0,
+      "highest_phase": "CLOSEOUT",
+      "steps": 15,
+      "ppo_updates": 0,
+      "policy_loss": 0.0,
+      "value_loss": 0.0,
+      "entropy": 0.0,
+      "sources": {
+        "ppo": 22,
+        "playbook": 6,
+        "registry": 0,
+        "anti_repeat": 4,
+        "codex_meta": 1
+      },
+      "unique_commands": 28,
+      "unique_templates": 27,
+      "command_diversity": 0.7777777777777778,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 2,
+      "reward": 2314.5,
+      "highest_phase": "CLOSEOUT",
+      "steps": 17,
+      "ppo_updates": 5,
+      "policy_loss": -0.19101082272827624,
+      "value_loss": 5.115461850166321,
+      "entropy": 2.908976322412491,
+      "sources": {
+        "ppo": 30,
+        "playbook": 4,
+        "registry": 0,
+        "anti_repeat": 3,
+        "codex_meta": 1
+      },
+      "unique_commands": 36,
+      "unique_templates": 35,
+      "command_diversity": 0.8571428571428571,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 3,
+      "reward": 3316.2500000000005,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": 40,
+      "ppo_updates": 5,
+      "policy_loss": 0.07880753980328639,
+      "value_loss": 32.05180425643921,
+      "entropy": 2.8906876683235168,
+      "sources": {
+        "ppo": 71,
+        "playbook": 6,
+        "registry": 0,
+        "anti_repeat": 16,
+        "codex_meta": 4
+      },
+      "unique_commands": 72,
+      "unique_templates": 72,
+      "command_diversity": 0.5950413223140496,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 4,
+      "reward": 2349.25,
+      "highest_phase": "CLOSEOUT",
+      "steps": 17,
+      "ppo_updates": 3,
+      "policy_loss": 0.05814464452366034,
+      "value_loss": 1.9961638450622559,
+      "entropy": 3.054131587346395,
+      "sources": {
+        "ppo": 35,
+        "playbook": 4,
+        "registry": 0,
+        "anti_repeat": 4,
+        "codex_meta": 2
+      },
+      "unique_commands": 40,
+      "unique_templates": 40,
+      "command_diversity": 0.8333333333333334,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 5,
+      "reward": 2431.5,
+      "highest_phase": "CLOSEOUT",
+      "steps": 18,
+      "ppo_updates": 3,
+      "policy_loss": 0.06536224639664094,
+      "value_loss": 2.93602155148983,
+      "entropy": 3.0149793227513633,
+      "sources": {
+        "ppo": 29,
+        "playbook": 5,
+        "registry": 0,
+        "anti_repeat": 4,
+        "codex_meta": 1
+      },
+      "unique_commands": 36,
+      "unique_templates": 37,
+      "command_diversity": 0.8181818181818182,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 6,
+      "reward": 2574.25,
+      "highest_phase": "CLOSEOUT",
+      "steps": 19,
+      "ppo_updates": 3,
+      "policy_loss": 0.2175126758714517,
+      "value_loss": 1.8469306826591492,
+      "entropy": 3.065447688102722,
+      "sources": {
+        "ppo": 33,
+        "playbook": 5,
+        "registry": 0,
+        "anti_repeat": 5,
+        "codex_meta": 1
+      },
+      "unique_commands": 42,
+      "unique_templates": 40,
+      "command_diversity": 0.875,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 7,
+      "reward": 2169.25,
+      "highest_phase": "CLOSEOUT",
+      "steps": 17,
+      "ppo_updates": 2,
+      "policy_loss": 0.032750562725899116,
+      "value_loss": 1.7415272121628125,
+      "entropy": 2.5814693073431654,
+      "sources": {
+        "ppo": 27,
+        "playbook": 5,
+        "registry": 0,
+        "anti_repeat": 4,
+        "codex_meta": 1
+      },
+      "unique_commands": 35,
+      "unique_templates": 35,
+      "command_diversity": 0.8333333333333334,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 8,
+      "reward": 2398.25,
+      "highest_phase": "CLOSEOUT",
+      "steps": 20,
+      "ppo_updates": 3,
+      "policy_loss": 0.1844454767803351,
+      "value_loss": 0.8789880639976925,
+      "entropy": 3.054915361934238,
+      "sources": {
+        "ppo": 32,
+        "playbook": 5,
+        "registry": 0,
+        "anti_repeat": 5,
+        "codex_meta": 1
+      },
+      "unique_commands": 38,
+      "unique_templates": 37,
+      "command_diversity": 0.7916666666666666,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 9,
+      "reward": 2810.0,
+      "highest_phase": "CLOSEOUT",
+      "steps": 28,
+      "ppo_updates": 5,
+      "policy_loss": 0.11246099486947059,
+      "value_loss": 3.7975590932369228,
+      "entropy": 2.8440700078010557,
+      "sources": {
+        "ppo": 45,
+        "playbook": 6,
+        "registry": 0,
+        "anti_repeat": 13,
+        "codex_meta": 1
+      },
+      "unique_commands": 53,
+      "unique_templates": 49,
+      "command_diversity": 0.7464788732394366,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    },
+    {
+      "episode": 10,
+      "reward": 2589.5,
+      "highest_phase": "CLOSEOUT",
+      "steps": 19,
+      "ppo_updates": 3,
+      "policy_loss": 0.23616060335189104,
+      "value_loss": 5.174368222554524,
+      "entropy": 3.0653327306111655,
+      "sources": {
+        "ppo": 42,
+        "playbook": 0,
+        "registry": 0,
+        "anti_repeat": 4,
+        "codex_meta": 2
+      },
+      "unique_commands": 41,
+      "unique_templates": 42,
+      "command_diversity": 0.7321428571428571,
+      "total_discoveries": 4,
+      "step_at_first_exploit": 0
+    }
+  ]
+}
