@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260213_112717_3a7655",
+  "timestamp": 1770978468.0298324,
+  "key_outcomes": {
+    "wins": [
+      "Agent maintained a consistent reward stream (77.5) through exploration, indicating robust data collection even without mission completion",
+      "Frequent mentor calls (15) ensured corrective guidance, highlighting responsiveness to real-time feedback"
+    ],
+    "fails": [
+      "0% success rate despite high reward suggests failure to transition from reconnaissance to exploitation/takeover",
+      "Repeated mentor interventions imply difficulty in executing final payload delivery and containment procedures"
+    ],
+    "summary": "Strong reconnaissance performance with ample telemetry but inability to chain findings into successful exploit completion; needs improved operational sequencing post-recon."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance completed but exploitation never initiated, leaving targets unowned",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step23",
+        "ep001_step27",
+        "ep001_step31"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1770978475.9092124,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When discovery yields web servers on uncommon ports",
+      "then_action": "Trigger automated directory/listing enumeration",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step13"
+      ],
+      "created_at": 1770978475.9092283,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When valid credentials identified during credential brute force",
+      "then_action": "Pivot directly to authenticated access escalation steps",
+      "parameters_template": {
+        "creds_source": "brute_force_module",
+        "escalation_path": [
+          "sudo -l",
+          "linpeas"
+        ]
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step21"
+      ],
+      "created_at": 1770978475.9092393,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Handover",
+      "description": "Introduce a gating mechanism that triggers exploitation routines immediately after valid credentials or writeable service is detected to ensure follow-through",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Payload Validation",
+      "description": "Automate validation checks before deployment to ensure payload compatibility and reduce mentor call frequency",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

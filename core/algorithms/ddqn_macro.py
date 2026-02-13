@@ -823,6 +823,8 @@ def compute_macro_reward(
     # R61: Increased from -2.0 to -3.5 to reduce oscillation (R60: 20%+ switch rate)
     if prev_macro is not None and prev_macro != macro.value:
         reward -= 3.5  # Switch cost — encourages macro stability
+    elif prev_macro is not None and prev_macro == macro.value:
+        reward += 1.5  # R66: Macro hold bonus — reinforce stable execution
 
     # ── Forward progression bonus ──
     if prev_phase and prev_phase != phase_name:
