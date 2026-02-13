@@ -62,6 +62,11 @@ class PPOConfig:
     # R68: Phase-gated actor heads (HRL-lite)
     use_phase_gates: bool = True        # 3 phase-specific gate networks modulate actor logits
     num_phase_groups: int = 3           # recon=0, exploit=1, post-exploit=2
+    # R70: Self-Imitation Learning (SIL) + Advantage Clipping
+    advantage_clip: float = 4.0         # Clip normalized advantages to [-clip, +clip]
+    sil_buffer_size: int = 500          # Max entries in SIL replay buffer
+    sil_coef: float = 0.1              # SIL loss coefficient (small, doesn't overpower PPO)
+    sil_epochs: int = 1                 # SIL epochs per PPO update
 
 
 class PPOActorCritic(nn.Module):
@@ -406,6 +411,107 @@ class RolloutBuffer:
         return self.size
 
 
+class SILBuffer:
+    """R70: Self-Imitation Learning buffer.
+
+    Stores (state, action, return) tuples from above-average episodes.
+    During PPO updates, these golden transitions reinforce the best
+    behaviors seen across the entire training run, not just the current
+    rollout. Only stores transitions with POSITIVE advantage (returns
+    above the running mean), ensuring we never imitate bad behavior.
+
+    Reference: Oh et al., "Self-Imitation Learning" (ICML 2018).
+    """
+
+    def __init__(self, capacity: int = 500):
+        self.capacity = capacity
+        self.states: List[torch.Tensor] = []
+        self.actions: List[int] = []
+        self.returns: List[float] = []
+        self._return_baseline = 0.0
+        self._return_count = 0
+
+    def _update_baseline(self, ep_return: float):
+        """Update running baseline (EMA of episode returns)."""
+        self._return_count += 1
+        alpha = min(0.1, 1.0 / self._return_count)
+        self._return_baseline = (1 - alpha) * self._return_baseline + alpha * ep_return
+
+    def add_episode(
+        self,
+        states: List[torch.Tensor],
+        actions: List[int],
+        rewards: List[float],
+        gamma: float = 0.99,
+    ):
+        """Store transitions from an above-average episode.
+
+        Only stores transitions whose discounted return exceeds the
+        running baseline (positive advantage only — core SIL principle).
+
+        Args:
+            states: List of state tensors from the episode.
+            actions: List of action indices.
+            rewards: List of per-step rewards.
+            gamma: Discount factor for computing returns.
+        """
+        ep_return = sum(rewards)
+        self._update_baseline(ep_return)
+
+        # Only store if episode is above average
+        if ep_return <= self._return_baseline:
+            return 0
+
+        # Compute discounted returns for each step
+        n = len(rewards)
+        returns = [0.0] * n
+        running = 0.0
+        for t in reversed(range(n)):
+            running = rewards[t] + gamma * running
+            returns[t] = running
+
+        # Store transitions with positive advantage
+        added = 0
+        for t in range(n):
+            adv = returns[t] - self._return_baseline
+            if adv > 0:
+                self.states.append(states[t].detach().cpu())
+                self.actions.append(actions[t])
+                self.returns.append(returns[t])
+                added += 1
+
+        # Evict oldest if over capacity
+        while len(self.states) > self.capacity:
+            self.states.pop(0)
+            self.actions.pop(0)
+            self.returns.pop(0)
+
+        return added
+
+    def sample(
+        self, batch_size: int, device: torch.device,
+    ) -> Optional[Dict[str, torch.Tensor]]:
+        """Sample a minibatch for SIL update.
+
+        Returns:
+            Dict with states, actions, returns tensors, or None if empty.
+        """
+        if len(self.states) < 4:
+            return None
+
+        n = len(self.states)
+        idx = np.random.choice(n, size=min(batch_size, n), replace=False)
+
+        return {
+            "states": torch.stack([self.states[i] for i in idx]).to(device),
+            "actions": torch.tensor([self.actions[i] for i in idx], dtype=torch.long).to(device),
+            "returns": torch.tensor([self.returns[i] for i in idx], dtype=torch.float32).to(device),
+        }
+
+    def __len__(self):
+        return len(self.states)
+
+
 class PPOAgent:
     """Proximal Policy Optimization agent for Red team.
 
@@ -470,6 +576,9 @@ class PPOAgent:
         self._entropy_adaptive_multiplier: float = 1.0
         self._consecutive_closeouts: int = 0
         self._consecutive_failures: int = 0
+
+        # ── R70: Self-Imitation Learning buffer ──────────────────────
+        self.sil_buffer = SILBuffer(capacity=self.config.sil_buffer_size)
 
     # ── Action Selection ─────────────────────────────────────────────
 
@@ -685,6 +794,13 @@ class PPOAgent:
         if adv_std > 1e-8:
             advantages = (advantages - advantages.mean()) / (adv_std + 1e-8)
 
+        # R70: Clip normalized advantages to prevent gradient explosion
+        # from extreme outlier steps (e.g., root_shell + flag combo = +655 raw)
+        if self.config.advantage_clip > 0:
+            advantages = torch.clamp(
+                advantages, -self.config.advantage_clip, self.config.advantage_clip
+            )
+
         # ── Multi-Epoch PPO ──────────────────────────────────────────
         metrics = {
             "policy_loss": 0.0,
@@ -812,6 +928,40 @@ class PPOAgent:
         )
         self.entropy_coef = base_entropy * self._entropy_adaptive_multiplier
 
+        # ── R70: Self-Imitation Learning update ──────────────────────
+        # After regular PPO update, do 1 epoch of SIL on golden transitions.
+        # SIL loss = -log_prob(action) * clamp(return - baseline, 0, inf)
+        # Only reinforces above-average behavior (positive advantage only).
+        sil_loss_val = 0.0
+        if len(self.sil_buffer) >= 4 and self.config.sil_coef > 0:
+            for _ in range(self.config.sil_epochs):
+                sil_batch = self.sil_buffer.sample(
+                    self.config.minibatch_size, self.device
+                )
+                if sil_batch is not None:
+                    _, sil_log_probs, sil_entropy, sil_values = (
+                        self.network.get_action_and_value(
+                            sil_batch["states"], sil_batch["actions"]
+                        )
+                    )
+                    # SIL advantage: return - value (only positive)
+                    sil_adv = (sil_batch["returns"] - sil_values.detach()).clamp(min=0)
+                    sil_policy_loss = -(sil_log_probs * sil_adv).mean()
+                    sil_value_loss = F.huber_loss(
+                        sil_values, sil_batch["returns"], delta=10.0
+                    )
+                    sil_loss = self.config.sil_coef * (
+                        sil_policy_loss + 0.5 * sil_value_loss
+                    )
+                    self.optimizer.zero_grad()
+                    sil_loss.backward()
+                    nn.utils.clip_grad_norm_(
+                        self.network.parameters(), self.config.max_grad_norm
+                    )
+                    self.optimizer.step()
+                    sil_loss_val = sil_loss.item()
+        metrics["sil_loss"] = sil_loss_val
+
         # Store metrics
         for k, v in metrics.items():
             if k in self.training_metrics:
@@ -823,6 +973,30 @@ class PPOAgent:
         self.buffer.reset()
 
         return metrics
+
+    # ── R70: SIL Episode Storage ─────────────────────────────────────
+
+    def store_sil_episode(
+        self,
+        states: List[torch.Tensor],
+        actions: List[int],
+        rewards: List[float],
+    ) -> int:
+        """Store an episode's transitions in the SIL buffer if above average.
+
+        Called by SmartCoach.end_episode_ppo() after each episode.
+
+        Args:
+            states: List of state tensors from the episode.
+            actions: List of action indices.
+            rewards: List of per-step rewards.
+
+        Returns:
+            Number of transitions stored (0 if below average).
+        """
+        return self.sil_buffer.add_episode(
+            states, actions, rewards, gamma=self.config.gamma
+        )
 
     # ── Persistence ──────────────────────────────────────────────────
 
@@ -855,6 +1029,9 @@ class PPOAgent:
                 },
                 # R68: phase gates config
                 "has_phase_gates": getattr(self.network, 'has_phase_gates', False),
+                # R70: SIL buffer baseline
+                "sil_baseline": self.sil_buffer._return_baseline,
+                "sil_count": self.sil_buffer._return_count,
             },
             path,
         )
@@ -884,6 +1061,10 @@ class PPOAgent:
             self._entropy_adaptive_multiplier = ae.get("multiplier", 1.0)
             self._consecutive_closeouts = ae.get("consecutive_closeouts", 0)
             self._consecutive_failures = ae.get("consecutive_failures", 0)
+        # R70: Restore SIL buffer baseline
+        if "sil_baseline" in ckpt:
+            self.sil_buffer._return_baseline = ckpt["sil_baseline"]
+            self.sil_buffer._return_count = ckpt.get("sil_count", 0)
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -898,6 +1079,8 @@ class PPOAgent:
             "entropy_adaptive_multiplier": self._entropy_adaptive_multiplier,
             "buffer_size": len(self.buffer),
             "has_phase_gates": getattr(self.network, 'has_phase_gates', False),
+            "sil_buffer_size": len(self.sil_buffer),
+            "sil_baseline": round(self.sil_buffer._return_baseline, 2),
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
                 "std": round(math.sqrt(abs(self._reward_var)), 4),

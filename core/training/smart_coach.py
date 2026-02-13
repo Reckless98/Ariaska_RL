@@ -4706,6 +4706,22 @@ class SmartCoach:
                     f"H_coef={self.ppo_agent.entropy_coef:.4f}"
                 )
             
+            # ── R70: Store episode in Self-Imitation Learning buffer ──
+            # Feed trajectory (states, actions, raw rewards) to SIL buffer.
+            # Buffer only stores above-average episodes (positive advantage).
+            if hasattr(self.ppo_agent, 'store_sil_episode') and self._ppo_trajectory:
+                _sil_states = [t["state"] for t in self._ppo_trajectory]
+                _sil_actions = [t["action"] for t in self._ppo_trajectory]
+                _sil_rewards = [t["reward"] for t in self._ppo_trajectory]
+                _sil_added = self.ppo_agent.store_sil_episode(
+                    _sil_states, _sil_actions, _sil_rewards
+                )
+                if _sil_added > 0:
+                    logger.info(
+                        f"[PPO][{self.agent_name}] R70 SIL: stored {_sil_added} "
+                        f"golden transitions (buffer={len(self.ppo_agent.sil_buffer)})"
+                    )
+
             return metrics
         except Exception as e:
             logger.warning(f"PPO update error for {self.agent_name}: {e}")

@@ -357,6 +357,26 @@ class SmartRewardCalculator:
                 _chain_bonus = min(3.0 * _chain_len, 12.0)
                 breakdown.discovery_bonus += _chain_bonus
                 explanations.append(f"⚡ Chain({_chain_len + 1}): +{_chain_bonus:.1f}")
+
+        # 4d. R70: Discovery diversity momentum
+        # If the last 3 discoveries were all DIFFERENT types, boost the
+        # current discovery by 1.5x. Encourages broad exploration rather
+        # than hammering the same discovery type repeatedly.
+        if new_discoveries and breakdown.discovery_bonus > 0:
+            _recent_types = getattr(self, '_recent_discovery_types', [])
+            _current_types = list(new_discoveries.keys())
+            if len(_recent_types) >= 2:
+                _combined = _recent_types[-2:] + _current_types[:1]
+                if len(set(_combined)) == len(_combined):
+                    _diversity_mult = 0.5  # +50% diversity bonus
+                    _div_bonus = breakdown.discovery_bonus * _diversity_mult
+                    _div_bonus = min(_div_bonus, 15.0)
+                    breakdown.discovery_bonus += _div_bonus
+                    explanations.append(f"🎯 Diverse({len(set(_combined))}): +{_div_bonus:.1f}")
+            # Track recent types (rolling window of 5)
+            self._recent_discovery_types = (
+                getattr(self, '_recent_discovery_types', []) + _current_types
+            )[-5:]
         
         # 4b. Phase 6.4: MS2-specific shaped reward bonus
         # Gives extra reward for targeting known MS2 vulnerable services
