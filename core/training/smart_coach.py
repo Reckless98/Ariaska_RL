@@ -466,6 +466,11 @@ class SmartCoach:
         self._r66_coherence: float = 0.5
         self._r66_macro_conf: float = 0.5
         self._r66_env_tag: str = "ms2"  # overridden by orchestrator
+
+        # ─── R67: Reward velocity + adaptive codex budget ────────────
+        self._r67_velocity: float = 0.0      # Injected from orchestrator
+        self._r67_stalling: bool = False      # True when reward velocity stalled
+        self._r67_codex_bonus_budget: int = 0 # Extra codex calls granted by stall
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1276,9 +1281,18 @@ class SmartCoach:
         Budget: 5 calls/episode, 2-step cooldown between calls.
         Only fires for offensive agents (RedAgent is the primary learner).
         """
-        # Budget check
-        if self._codex_meta_calls_episode >= self._codex_meta_max_per_episode:
+        # Budget check — R67: adaptive budget boost when velocity stalls
+        _effective_budget = self._codex_meta_max_per_episode + self._r67_codex_bonus_budget
+        if self._codex_meta_calls_episode >= _effective_budget:
             return None
+
+        # R67: Grant bonus codex budget when reward velocity is stalling
+        if self._r67_stalling and self._r67_codex_bonus_budget < 3:
+            self._r67_codex_bonus_budget += 1
+            logger.info(
+                f"[CODEX-META][{self.agent_name}] R67 velocity stall → "
+                f"bonus budget +1 (now {_effective_budget + 1})"
+            )
 
         # Cooldown check
         if self._codex_meta_cooldown > 0:
@@ -1308,8 +1322,10 @@ class SmartCoach:
         )
         _antirepeat_spike = self._codex_meta_antirepeat_hits >= 3
         _gate_storm = self._codex_meta_gate_overrides >= 3
+        # R67: Reward velocity stall trigger
+        _velocity_stall = self._r67_stalling and self._codex_meta_phase_steps >= 3
 
-        if not (_stagnation_trigger or _antirepeat_spike or _gate_storm):
+        if not (_stagnation_trigger or _antirepeat_spike or _gate_storm or _velocity_stall):
             return None
 
         # Reset spike counters on trigger
@@ -1360,12 +1376,15 @@ class SmartCoach:
             _trigger_reason = "anti-repeat spike (3+ blocked commands in 5 steps)"
         elif _gate_storm:
             _trigger_reason = "phase-gate override storm (3+ overrides in 5 steps)"
+        elif _velocity_stall:
+            _trigger_reason = f"reward velocity stall (v={self._r67_velocity:.1f})"
 
         prompt = (
             f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
             f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
             f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
-            f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n\n"
+            f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n"
+            f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n\n"
             f"Current state:\n"
             f"- Ports discovered: {_ports}\n"
             f"- Services: {_services}\n"
@@ -4184,6 +4203,19 @@ class SmartCoach:
                     if prefix_counts.get(cmd_prefix, 0) >= 3:
                         mask[idx] = False
 
+            # ─── R67: Soft-penalize already-used templates in PPO logits ─
+            # Instead of hard-masking used templates (which causes PPO to never
+            # learn they're bad), apply a logit bias that makes them less likely.
+            # This teaches PPO to deprioritize repeated commands over time.
+            _r67_logit_bias = torch.zeros(self.action_mapper.action_dim)
+            _used_templates = self.episode_used_commands  # set of template names used this ep
+            if _used_templates:
+                for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
+                    if name in _used_templates and mask[idx]:
+                        _use_count = self.command_repeat_count.get(name, 0)
+                        # Progressive penalty: -1.0 per use, up to -4.0
+                        _r67_logit_bias[idx] = -min(4.0, 1.0 * _use_count)
+
             # Phase 6.4: Block commands whose tool is known to not exist on target
             _ft = getattr(self, '_failed_tools', set())
             if _ft:
@@ -4375,9 +4407,10 @@ class SmartCoach:
                             if cmd_tool not in _ut:
                                 mask[idx] = True
 
-            # PPO selects
+            # PPO selects — R67: pass logit_bias for soft-penalizing used commands
             action_idx, log_prob, value = self.ppo_agent.select_action(
                 state_tensor, training=True, action_mask=mask,
+                logit_bias=_r67_logit_bias if _r67_logit_bias.any() else None,
             )
 
             template_name = self.action_mapper.action_to_name(action_idx)
@@ -5172,6 +5205,11 @@ class SmartCoach:
         self._codex_strategic_cooldown = 0
         self._r66_coherence = 0.5
         self._r66_macro_conf = 0.5
+
+        # R67: Reset velocity + adaptive budget
+        self._r67_velocity = 0.0
+        self._r67_stalling = False
+        self._r67_codex_bonus_budget = 0
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0

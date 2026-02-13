@@ -178,6 +178,7 @@ class PPOActorCritic(nn.Module):
     def get_action_and_value(
         self, state: torch.Tensor, action: Optional[torch.Tensor] = None,
         action_mask: Optional[torch.Tensor] = None,
+        logit_bias: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get action, log_prob, entropy, and value.
 
@@ -189,8 +190,17 @@ class PPOActorCritic(nn.Module):
             action: If provided, compute log_prob for this action.
             action_mask: Optional (B, action_dim) or (action_dim,) bool tensor.
                 True = valid action, False = masked out (logit → -inf).
+            logit_bias: Optional (action_dim,) float tensor. Added to logits
+                before softmax. R67: Used for soft-penalizing repeated commands.
         """
         logits, value = self.forward(state)
+
+        # R67: Apply logit bias (soft penalty for used commands)
+        if logit_bias is not None:
+            bias = logit_bias.to(logits.device)
+            if bias.dim() == 1:
+                bias = bias.unsqueeze(0).expand_as(logits)
+            logits = logits + bias
 
         # Apply action mask: invalid actions get logit = -inf
         if action_mask is not None:
@@ -397,6 +407,7 @@ class PPOAgent:
     def select_action(
         self, state_tensor: torch.Tensor, training: bool = True,
         action_mask: Optional[torch.Tensor] = None,
+        logit_bias: Optional[torch.Tensor] = None,
     ) -> Tuple[int, float, float]:
         """Select an action from the current policy with optional masking.
 
@@ -406,6 +417,8 @@ class PPOAgent:
                       If False, take the greedy (argmax) action.
             action_mask: Optional (action_dim,) bool tensor.
                 True = valid, False = masked (logit → -inf).
+            logit_bias: Optional (action_dim,) float tensor. R67: Added to
+                logits before softmax for soft-penalizing repeated commands.
 
         Returns:
             (action_index, log_probability, state_value)
@@ -419,6 +432,11 @@ class PPOAgent:
         if not training:
             # Greedy for evaluation
             logits, v = self.network(state_tensor)
+            if logit_bias is not None:
+                bias = logit_bias.to(logits.device)
+                if bias.dim() == 1:
+                    bias = bias.unsqueeze(0).expand_as(logits)
+                logits = logits + bias
             if action_mask is not None:
                 mask = action_mask.to(logits.device)
                 if mask.dim() == 1:
@@ -430,7 +448,7 @@ class PPOAgent:
             value = v.squeeze(-1)
         else:
             action, log_prob, _entropy, value = self.network.get_action_and_value(
-                state_tensor, action_mask=action_mask,
+                state_tensor, action_mask=action_mask, logit_bias=logit_bias,
             )
 
         self.network.train()

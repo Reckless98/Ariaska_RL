@@ -420,6 +420,24 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"R66: CoherenceTracker init failed: {e}")
         
+        # ─── R67: Reward Velocity Tracker ────────────────────────────
+        self.reward_velocity = None
+        try:
+            from core.analytics.reward_velocity import RewardVelocityTracker
+            self.reward_velocity = RewardVelocityTracker(window_size=8, stall_threshold=15.0)
+            logger.info("R67: RewardVelocityTracker initialized")
+        except Exception as e:
+            logger.warning(f"R67: RewardVelocityTracker init failed: {e}")
+
+        # ─── R67: Shared Discovery Dedup ─────────────────────────────
+        self.shared_discovery = None
+        try:
+            from core.analytics.discovery_dedup import SharedDiscoverySet
+            self.shared_discovery = SharedDiscoverySet()
+            logger.info("R67: SharedDiscoverySet initialized")
+        except Exception as e:
+            logger.warning(f"R67: SharedDiscoverySet init failed: {e}")
+
         # ─── R66: Scan Exposure Randomizer ───────────────────────────
         self.scan_randomizer = None  # Initialized per-run with seed
         
@@ -885,6 +903,12 @@ class SmartOrchestrator:
             self.rnd_curiosity.count = 0
         if hasattr(self, 'scan_randomizer') and self.scan_randomizer is not None:
             self.scan_randomizer.next_episode()
+
+        # ─── R67: Reset reward velocity + shared discovery dedup ─────
+        if hasattr(self, 'reward_velocity') and self.reward_velocity is not None:
+            self.reward_velocity.reset_episode()
+        if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
+            self.shared_discovery.reset_episode()
         
         # Reset environment
         state = self.env.reset()
@@ -1122,6 +1146,19 @@ class SmartOrchestrator:
                 if hasattr(_coach, '_r66_coherence'):
                     _coach._r66_coherence = _r66_coherence
                     _coach._r66_macro_conf = _r66_macro_conf
+
+            # ─── R67: Reward velocity tracking ───────────────────────
+            _r67_velocity = 0.0
+            _r67_stalling = False
+            if hasattr(self, 'reward_velocity') and self.reward_velocity is not None:
+                self.reward_velocity.record(step_reward=env_reward, phase_ord=_phase_ord)
+                _r67_velocity = self.reward_velocity.velocity
+                _r67_stalling = self.reward_velocity.is_stalling
+                # Inject stall signal into coaches for adaptive codex budget
+                for _cn, _coach in self.coaches.items():
+                    if hasattr(_coach, '_r67_velocity'):
+                        _coach._r67_velocity = _r67_velocity
+                        _coach._r67_stalling = _r67_stalling
             
             # JSONL + HUD
             _r66_unique = len(set(
@@ -2556,8 +2593,8 @@ class SmartOrchestrator:
                 and not _is_tool_failure
             )
             
-            # Phase 5.2: Cross-agent discovery deduplication
-            # Only pass genuinely NEW discoveries to record_result for reward
+            # Phase 5.2 + R67: Cross-agent discovery deduplication
+            # R67: Use SharedDiscoverySet for structured dedup with metrics
             deduped_discoveries = {}
             if agent_discoveries:
                 for disc_type, disc_values in agent_discoveries.items():
@@ -2565,19 +2602,35 @@ class SmartOrchestrator:
                         new_vals = []
                         for v in disc_values:
                             key = f"{disc_type}:{v}"
-                            if key not in self._episode_shared_discoveries:
+                            # R67: Try SharedDiscoverySet first, fall back to old set
+                            _is_new = False
+                            if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
+                                _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                            else:
+                                _is_new = key not in self._episode_shared_discoveries
+                            if _is_new:
                                 self._episode_shared_discoveries.add(key)
                                 new_vals.append(v)
                         if new_vals:
                             deduped_discoveries[disc_type] = new_vals
                     elif isinstance(disc_values, bool) and disc_values:
                         key = f"{disc_type}:found"
-                        if key not in self._episode_shared_discoveries:
+                        _is_new = False
+                        if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
+                            _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                        else:
+                            _is_new = key not in self._episode_shared_discoveries
+                        if _is_new:
                             self._episode_shared_discoveries.add(key)
                             deduped_discoveries[disc_type] = disc_values
                     else:
                         key = f"{disc_type}:{disc_values}"
-                        if key not in self._episode_shared_discoveries:
+                        _is_new = False
+                        if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
+                            _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                        else:
+                            _is_new = key not in self._episode_shared_discoveries
+                        if _is_new:
                             self._episode_shared_discoveries.add(key)
                             deduped_discoveries[disc_type] = disc_values
             
