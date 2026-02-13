@@ -1261,9 +1261,21 @@ class SmartOrchestrator:
             # If CLOSEOUT would trigger but we haven't explored enough post-shell,
             # override phase back to POST_EXPLOITATION to let agents explore.
             # Late-shell bypass: if shell obtained after step 28, reduce minimum to 2
+            # R65: Anti-repeat spiral breaker — if >15 anti_repeat decisions in episode,
+            # reduce explore gate to 2 to allow immediate CLOSEOUT (prevents EP8-style 38-step grinding)
             if current_phase == "CLOSEOUT" and self._shell_obtained_step is not None:
                 _steps_since_shell = step - self._shell_obtained_step
+                _ep_anti_repeat_count = sum(
+                    1 for sr_list in step_results for sr in sr_list
+                    if hasattr(sr, 'decision') and sr.decision and sr.decision.source == "anti_repeat"
+                )
                 _min_explore = 2 if self._shell_obtained_step >= 28 else self.POST_SHELL_EXPLORE_STEPS
+                if _ep_anti_repeat_count > 15:
+                    _min_explore = 2  # Spiral breaker: allow immediate CLOSEOUT
+                    logger.info(
+                        f"[R65-SPIRAL-BREAKER] {_ep_anti_repeat_count} anti_repeat decisions — "
+                        f"reducing explore gate to 2 (was {self.POST_SHELL_EXPLORE_STEPS})"
+                    )
                 if _steps_since_shell < _min_explore:
                     from core.environment.cyber_environment import AttackPhase
                     self.attack_context._current_phase = AttackPhase.POST_EXPLOITATION
