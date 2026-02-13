@@ -3941,6 +3941,23 @@ class SmartCoach:
                 # longer episodes = more total reward. Removing the speed incentive
                 # lets PPO optimize for cumulative reward through deeper exploration.
                 # (Was: 5.0 × (25 - traj_len), capped at 50.0)
+                
+                # ── R58 Layer 2b: Fast-completion terminal bonus ────────
+                # Compensate PPO for fewer reward-accumulation steps when
+                # CLOSEOUT is reached efficiently. R57 episodes averaged 18 steps
+                # vs R48's 25, losing ~500 cumulative reward from shorter runs.
+                # This bonus teaches PPO that fast CLOSEOUT is GOOD, not a penalty.
+                # Only applies when CLOSEOUT is actually reached (not for rushers).
+                if highest_phase == "CLOSEOUT" and self._ppo_trajectory:
+                    traj_len = len(self._ppo_trajectory)
+                    _max_steps = 40  # Default max steps per episode
+                    speed_bonus = min(30.0, max(0.0, (_max_steps - traj_len) * 1.0))
+                    if speed_bonus > 0:
+                        self._ppo_trajectory[-1]["reward"] += speed_bonus
+                        logger.debug(
+                            f"[PPO][{self.agent_name}] R58 speed bonus +{speed_bonus:.1f} "
+                            f"(CLOSEOUT in {traj_len} steps)"
+                        )
 
             for t in self._ppo_trajectory:
                 self.ppo_agent.store_transition(
@@ -3965,6 +3982,18 @@ class SmartCoach:
                     f"v={metrics.get('value_loss', 0):.4f} "
                     f"H={metrics.get('entropy', 0):.4f}"
                 )
+            
+            # ── R58 Layer 2c: Signal episode outcome for adaptive entropy ──
+            if hasattr(self.ppo_agent, 'signal_episode_outcome'):
+                _reached_closeout = (highest_phase == "CLOSEOUT")
+                self.ppo_agent.signal_episode_outcome(_reached_closeout)
+                logger.debug(
+                    f"[PPO][{self.agent_name}] R58 adaptive entropy: "
+                    f"closeout={_reached_closeout}, "
+                    f"mult={self.ppo_agent._entropy_adaptive_multiplier:.2f}, "
+                    f"H_coef={self.ppo_agent.entropy_coef:.4f}"
+                )
+            
             return metrics
         except Exception as e:
             logger.warning(f"PPO update error for {self.agent_name}: {e}")
@@ -4394,6 +4423,29 @@ class SmartCoach:
                     f"[PPO][{self.agent_name}] DAgger-lite: PPO shadow learns from "
                     f"mentor decision (reward={ppo_reward:.1f})"
                 )
+            
+            # ── R58 Layer 2a: Macro-aligned PPO reward shaping ──────
+            # When DDQN selects a macro-intent and PPO picks a command,
+            # reward PPO for choosing commands within the macro's allowed
+            # set. This teaches PPO to follow DDQN's strategic direction.
+            if self._active_macro is not None and decision.template_name:
+                try:
+                    from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
+                    macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
+                    if decision.template_name in macro_cmds:
+                        ppo_reward += 3.0  # Aligned with DDQN strategy
+                        logger.debug(
+                            f"[PPO][{self.agent_name}] R58 macro-align +3.0 "
+                            f"({decision.template_name} ∈ {self._active_macro.name})"
+                        )
+                    else:
+                        ppo_reward -= 1.0  # Gentle misalignment penalty
+                        logger.debug(
+                            f"[PPO][{self.agent_name}] R58 macro-misalign -1.0 "
+                            f"({decision.template_name} ∉ {self._active_macro.name})"
+                        )
+                except Exception:
+                    pass  # DDQN not available — skip alignment shaping
             
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],

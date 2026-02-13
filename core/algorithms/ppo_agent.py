@@ -384,6 +384,13 @@ class PPOAgent:
         self._return_var = 1.0
         self._return_count = 0
 
+        # ── R58 Layer 2c: Adaptive entropy ───────────────────────────
+        # Multiplier on base entropy coefficient. Decays on success streaks
+        # (exploit more), grows on failure streaks (explore more).
+        self._entropy_adaptive_multiplier: float = 1.0
+        self._consecutive_closeouts: int = 0
+        self._consecutive_failures: int = 0
+
     # ── Action Selection ─────────────────────────────────────────────
 
     @torch.no_grad()
@@ -515,6 +522,38 @@ class PPOAgent:
         normalized_reward = self.normalize_reward(reward)
         self.buffer.add(state, action, log_prob, normalized_reward, value, done)
         self.total_steps += 1
+
+    # ── R58 Layer 2c: Adaptive Entropy Signaling ─────────────────
+
+    def signal_episode_outcome(self, reached_closeout: bool):
+        """Signal episode success/failure for adaptive entropy annealing.
+
+        R58 Layer 2c: Adjusts ``_entropy_adaptive_multiplier`` based on
+        consecutive outcome streaks:
+          - 3+ consecutive CLOSEOUTs → decay multiplier (exploit more)
+          - 2+ consecutive failures → boost multiplier (explore more)
+
+        Called by SmartCoach.end_episode_ppo() after each episode.
+
+        Args:
+            reached_closeout: Whether CLOSEOUT phase was reached.
+        """
+        if reached_closeout:
+            self._consecutive_closeouts += 1
+            self._consecutive_failures = 0
+            # Accelerate exploitation on success streaks
+            if self._consecutive_closeouts >= 3:
+                self._entropy_adaptive_multiplier = max(
+                    0.5, self._entropy_adaptive_multiplier * 0.85
+                )
+        else:
+            self._consecutive_failures += 1
+            self._consecutive_closeouts = 0
+            # Boost exploration on failure streaks
+            if self._consecutive_failures >= 2:
+                self._entropy_adaptive_multiplier = min(
+                    1.5, self._entropy_adaptive_multiplier * 1.3
+                )
 
     # ── PPO Update ───────────────────────────────────────────────────
 
@@ -669,10 +708,12 @@ class PPOAgent:
         self.updates_done += 1
 
         # Anneal entropy coefficient
+        # R58 Layer 2c: Apply adaptive multiplier on top of base annealing
         progress = min(self.total_steps / self.config.total_timesteps, 1.0)
-        self.entropy_coef = self.config.entropy_coef + progress * (
+        base_entropy = self.config.entropy_coef + progress * (
             self.config.entropy_coef_min - self.config.entropy_coef
         )
+        self.entropy_coef = base_entropy * self._entropy_adaptive_multiplier
 
         # Store metrics
         for k, v in metrics.items():
@@ -709,6 +750,12 @@ class PPOAgent:
                     "return_var": self._return_var,
                     "return_count": self._return_count,
                 },
+                # R58 Layer 2c: adaptive entropy state
+                "adaptive_entropy": {
+                    "multiplier": self._entropy_adaptive_multiplier,
+                    "consecutive_closeouts": self._consecutive_closeouts,
+                    "consecutive_failures": self._consecutive_failures,
+                },
             },
             path,
         )
@@ -732,6 +779,12 @@ class PPOAgent:
             self._return_mean = rn.get("return_mean", 0.0)
             self._return_var = rn.get("return_var", 1.0)
             self._return_count = rn.get("return_count", 0)
+        # R58 Layer 2c: Restore adaptive entropy state
+        if "adaptive_entropy" in ckpt:
+            ae = ckpt["adaptive_entropy"]
+            self._entropy_adaptive_multiplier = ae.get("multiplier", 1.0)
+            self._consecutive_closeouts = ae.get("consecutive_closeouts", 0)
+            self._consecutive_failures = ae.get("consecutive_failures", 0)
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -743,6 +796,7 @@ class PPOAgent:
             "updates_done": self.updates_done,
             "learning_rate": lr,
             "entropy_coef": self.entropy_coef,
+            "entropy_adaptive_multiplier": self._entropy_adaptive_multiplier,
             "buffer_size": len(self.buffer),
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
