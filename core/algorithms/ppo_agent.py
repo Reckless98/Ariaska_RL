@@ -59,6 +59,9 @@ class PPOConfig:
     use_attention: bool = True
     use_residual: bool = True
     dropout_rate: float = 0.05          # Lighter dropout for PPO
+    # R68: Phase-gated actor heads (HRL-lite)
+    use_phase_gates: bool = True        # 3 phase-specific gate networks modulate actor logits
+    num_phase_groups: int = 3           # recon=0, exploit=1, post-exploit=2
 
 
 class PPOActorCritic(nn.Module):
@@ -136,6 +139,27 @@ class PPOActorCritic(nn.Module):
             nn.Linear(final_dim // 2, 1),
         )
 
+        # ── R68: Phase-Gated Actor Heads (HRL-lite) ──────────────────
+        # 3 lightweight gate networks that produce additive logit offsets
+        # per phase group. Shared base actor handles general policy;
+        # phase gates specialize: recon=0, exploit=1, post-exploit=2.
+        # Phase group is extracted from state dims 0-11 (phase one-hot).
+        self.has_phase_gates = config.use_phase_gates
+        if self.has_phase_gates:
+            gate_hidden = max(final_dim // 4, 32)
+            self.phase_gates = nn.ModuleList([
+                nn.Sequential(
+                    nn.Linear(final_dim, gate_hidden),
+                    nn.GELU(),
+                    nn.Linear(gate_hidden, config.action_dim),
+                )
+                for _ in range(config.num_phase_groups)
+            ])
+            # Small init so gates start near-zero (don't disrupt base actor)
+            for gate in self.phase_gates:
+                nn.init.zeros_(gate[-1].weight)
+                nn.init.zeros_(gate[-1].bias)
+
         # Initialize with orthogonal initialization (PPO standard)
         self._init_weights()
 
@@ -151,11 +175,39 @@ class PPOActorCritic(nn.Module):
         # Critic output layer: unit gain
         nn.init.orthogonal_(self.critic[-1].weight, gain=1.0)
 
-    def forward(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    @staticmethod
+    def _extract_phase_group(state: torch.Tensor) -> torch.Tensor:
+        """R68: Extract phase group index from state tensor.
+
+        State dims 0-11 encode the attack phase as one-hot:
+          0-1 → RECON/ENUMERATION       → group 0 (recon)
+          2-3 → EXPLOITATION/PRIV_ESC    → group 1 (exploit)
+          4+  → LATERAL/POST/EXFIL/CLOSE → group 2 (post-exploit)
+
+        Args:
+            state: (..., state_dim) tensor.
+
+        Returns:
+            Long tensor of shape (...) with values in {0, 1, 2}.
+        """
+        phase_one_hot = state[..., :12]
+        phase_idx = phase_one_hot.argmax(dim=-1)
+        group = torch.where(
+            phase_idx <= 1, torch.zeros_like(phase_idx),
+            torch.where(phase_idx <= 3, torch.ones_like(phase_idx),
+                        torch.full_like(phase_idx, 2))
+        )
+        return group
+
+    def forward(
+        self, state: torch.Tensor, phase_group: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning action logits and state value.
 
         Args:
             state: (B, state_dim) tensor.
+            phase_group: Optional (B,) long tensor with phase group ids.
+                If None and use_phase_gates=True, extracted from state.
 
         Returns:
             (action_logits, value) — shapes (B, action_dim), (B, 1).
@@ -172,6 +224,21 @@ class PPOActorCritic(nn.Module):
             x = x + self.residual(x)  # simple skip connection
 
         logits = self.actor(x)
+
+        # R68: Phase-gated modulation
+        if self.has_phase_gates:
+            if phase_group is None:
+                phase_group = self._extract_phase_group(state)
+            # Apply per-sample phase gate
+            if phase_group.dim() == 0:
+                phase_group = phase_group.unsqueeze(0)
+            gate_logits = torch.zeros_like(logits)
+            for g in range(len(self.phase_gates)):
+                mask_g = (phase_group == g)
+                if mask_g.any():
+                    gate_logits[mask_g] = self.phase_gates[g](x[mask_g])
+            logits = logits + gate_logits
+
         value = self.critic(x)
         return logits, value
 
@@ -179,6 +246,7 @@ class PPOActorCritic(nn.Module):
         self, state: torch.Tensor, action: Optional[torch.Tensor] = None,
         action_mask: Optional[torch.Tensor] = None,
         logit_bias: Optional[torch.Tensor] = None,
+        phase_group: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get action, log_prob, entropy, and value.
 
@@ -192,8 +260,10 @@ class PPOActorCritic(nn.Module):
                 True = valid action, False = masked out (logit → -inf).
             logit_bias: Optional (action_dim,) float tensor. Added to logits
                 before softmax. R67: Used for soft-penalizing repeated commands.
+            phase_group: Optional (B,) long tensor. R68: Phase group for
+                phase-gated actor heads. Auto-extracted from state if None.
         """
-        logits, value = self.forward(state)
+        logits, value = self.forward(state, phase_group=phase_group)
 
         # R67: Apply logit bias (soft penalty for used commands)
         if logit_bias is not None:
@@ -408,6 +478,7 @@ class PPOAgent:
         self, state_tensor: torch.Tensor, training: bool = True,
         action_mask: Optional[torch.Tensor] = None,
         logit_bias: Optional[torch.Tensor] = None,
+        phase_group: Optional[int] = None,
     ) -> Tuple[int, float, float]:
         """Select an action from the current policy with optional masking.
 
@@ -419,6 +490,8 @@ class PPOAgent:
                 True = valid, False = masked (logit → -inf).
             logit_bias: Optional (action_dim,) float tensor. R67: Added to
                 logits before softmax for soft-penalizing repeated commands.
+            phase_group: Optional int (0=recon, 1=exploit, 2=post). R68:
+                Phase group for phase-gated heads. Auto-extracted if None.
 
         Returns:
             (action_index, log_probability, state_value)
@@ -429,9 +502,14 @@ class PPOAgent:
 
         state_tensor = state_tensor.to(self.device)
 
+        # R68: Build phase_group tensor if provided as int
+        _pg_tensor = None
+        if phase_group is not None:
+            _pg_tensor = torch.tensor([phase_group], dtype=torch.long, device=self.device)
+
         if not training:
             # Greedy for evaluation
-            logits, v = self.network(state_tensor)
+            logits, v = self.network(state_tensor, phase_group=_pg_tensor)
             if logit_bias is not None:
                 bias = logit_bias.to(logits.device)
                 if bias.dim() == 1:
@@ -449,6 +527,7 @@ class PPOAgent:
         else:
             action, log_prob, _entropy, value = self.network.get_action_and_value(
                 state_tensor, action_mask=action_mask, logit_bias=logit_bias,
+                phase_group=_pg_tensor,
             )
 
         self.network.train()
@@ -774,6 +853,8 @@ class PPOAgent:
                     "consecutive_closeouts": self._consecutive_closeouts,
                     "consecutive_failures": self._consecutive_failures,
                 },
+                # R68: phase gates config
+                "has_phase_gates": getattr(self.network, 'has_phase_gates', False),
             },
             path,
         )
@@ -816,6 +897,7 @@ class PPOAgent:
             "entropy_coef": self.entropy_coef,
             "entropy_adaptive_multiplier": self._entropy_adaptive_multiplier,
             "buffer_size": len(self.buffer),
+            "has_phase_gates": getattr(self.network, 'has_phase_gates', False),
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
                 "std": round(math.sqrt(abs(self._reward_var)), 4),

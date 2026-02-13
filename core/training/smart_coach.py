@@ -471,6 +471,9 @@ class SmartCoach:
         self._r67_velocity: float = 0.0      # Injected from orchestrator
         self._r67_stalling: bool = False      # True when reward velocity stalled
         self._r67_codex_bonus_budget: int = 0 # Extra codex calls granted by stall
+
+        # ─── R68: Phase-gated PPO head override ──────────────────────
+        self._r68_forced_phase_group: Optional[int] = None  # Codex can force phase head
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1497,6 +1500,23 @@ class SmartCoach:
                 f"{current_phase.name} step {self._codex_meta_phase_steps}: "
                 f"template={_chosen_template_name} reason={_codex_reason[:60]} "
                 f"trigger={_trigger_reason[:30]}"
+            )
+
+            # R68: Force PPO to use a different phase-head on next step
+            # When codex breaks stagnation, nudge PPO to think from a
+            # different phase perspective for diversity
+            _PHASE_TO_GROUP = {
+                AttackPhase.RECON: 0, AttackPhase.ENUMERATION: 0,
+                AttackPhase.EXPLOITATION: 1, AttackPhase.PRIVILEGE_ESCALATION: 1,
+                AttackPhase.LATERAL_MOVEMENT: 2, AttackPhase.POST_EXPLOITATION: 2,
+                AttackPhase.EXFILTRATION: 2, AttackPhase.CLOSEOUT: 2,
+            }
+            _current_group = _PHASE_TO_GROUP.get(current_phase, 0)
+            # Rotate to next group (0→1→2→0) for diversity
+            self._r68_forced_phase_group = (_current_group + 1) % 3
+            logger.debug(
+                f"[R68-CODEX][{self.agent_name}] Forcing next PPO phase_group="
+                f"{self._r68_forced_phase_group} (was {_current_group})"
             )
 
             result = SmartDecisionResult(
@@ -4407,10 +4427,36 @@ class SmartCoach:
                             if cmd_tool not in _ut:
                                 mask[idx] = True
 
-            # PPO selects — R67: pass logit_bias for soft-penalizing used commands
+            # ─── R68: Phase-gated head selection ────────────────────────
+            # Map current attack phase to phase group (0=recon, 1=exploit, 2=post)
+            # Codex can override via _r68_forced_phase_group for stagnation breaks
+            _PHASE_TO_GROUP = {
+                AttackPhase.RECON: 0,
+                AttackPhase.ENUMERATION: 0,
+                AttackPhase.EXPLOITATION: 1,
+                AttackPhase.PRIVILEGE_ESCALATION: 1,
+                AttackPhase.LATERAL_MOVEMENT: 2,
+                AttackPhase.POST_EXPLOITATION: 2,
+                AttackPhase.EXFILTRATION: 2,
+                AttackPhase.CLOSEOUT: 2,
+            }
+            _r68_phase_group = _PHASE_TO_GROUP.get(
+                ctx.current_phase, 0
+            )
+            # Codex override: force a different phase head for stagnation breaking
+            _forced = getattr(self, '_r68_forced_phase_group', None)
+            if _forced is not None:
+                _r68_phase_group = _forced
+                self._r68_forced_phase_group = None  # Single-use override
+                logger.debug(
+                    f"[R68-GATE][{self.agent_name}] Codex forced phase_group={_forced}"
+                )
+
+            # PPO selects — R67: logit_bias, R68: phase_group
             action_idx, log_prob, value = self.ppo_agent.select_action(
                 state_tensor, training=True, action_mask=mask,
                 logit_bias=_r67_logit_bias if _r67_logit_bias.any() else None,
+                phase_group=_r68_phase_group,
             )
 
             template_name = self.action_mapper.action_to_name(action_idx)
@@ -5210,6 +5256,9 @@ class SmartCoach:
         self._r67_velocity = 0.0
         self._r67_stalling = False
         self._r67_codex_bonus_budget = 0
+
+        # R68: Reset phase-group override
+        self._r68_forced_phase_group = None
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0
