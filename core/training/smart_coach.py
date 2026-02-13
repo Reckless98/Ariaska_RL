@@ -457,6 +457,15 @@ class SmartCoach:
         self._codex_meta_gate_overrides = 0  # R60: Track PHASE-GATE overrides for storm trigger
         self._codex_meta_antirepeat_hits = 0  # R60: Track anti-repeat hits for spike trigger
         self._codex_meta_used_templates: set = set()  # R62: Track used codex templates for dedup
+
+        # ─── R66: Codex Strategic role (episode-level plan repair) ───
+        self._codex_strategic_calls_episode = 0
+        self._codex_strategic_max_per_episode = 3  # separate budget
+        self._codex_strategic_cooldown = 0
+        # R66: Coherence + macro_conf injected from orchestrator each step
+        self._r66_coherence: float = 0.5
+        self._r66_macro_conf: float = 0.5
+        self._r66_env_tag: str = "ms2"  # overridden by orchestrator
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1353,9 +1362,10 @@ class SmartCoach:
             _trigger_reason = "phase-gate override storm (3+ overrides in 5 steps)"
 
         prompt = (
-            f"STRATEGIC STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
+            f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
             f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
-            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n\n"
+            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
+            f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n\n"
             f"Current state:\n"
             f"- Ports discovered: {_ports}\n"
             f"- Services: {_services}\n"
@@ -1495,7 +1505,166 @@ class SmartCoach:
             logger.debug(f"[CODEX-META][{self.agent_name}] Call failed: {e}")
 
         return None
-    
+
+    def _codex_strategic_check(
+        self,
+        step_ctx: SmartStepContext,
+        current_phase: AttackPhase,
+        filtered_commands: List[CommandTemplate],
+    ) -> Optional[SmartDecisionResult]:
+        """
+        R66 Layer 3b: Codex Strategic — Episode-level plan repair.
+
+        Fires when overall episode progress is poor:
+          - Step ≥ 15 and still in RECON/ENUMERATION
+          - Coherence collapsing (<0.30 for 3+ steps)
+          - Step ≥ 25 and not yet reached POST_EXPLOITATION
+
+        Separate budget from codex_tactical (3 calls/episode, 3-step cooldown).
+        Uses a broader prompt asking for a multi-step attack plan.
+        """
+        if self._codex_strategic_calls_episode >= self._codex_strategic_max_per_episode:
+            return None
+        if self._codex_strategic_cooldown > 0:
+            self._codex_strategic_cooldown -= 1
+            return None
+        # Only for offensive agents
+        if self.agent_role.get("role") != "offensive":
+            return None
+        if self.gpt_manager is None or self.gpt_manager.is_offline():
+            return None
+
+        step_num = step_ctx.step
+        _coherence = self._r66_coherence
+        _phase_order = self.PHASE_ORDER.get(current_phase, 0)
+
+        # Trigger conditions
+        _early_stuck = (step_num >= 15 and _phase_order <= 1)  # RECON/ENUM at step 15+
+        _late_stuck = (step_num >= 25 and _phase_order < 5)  # not POST_EXPLOITATION by step 25
+        _coherence_collapse = (_coherence < 0.30)
+
+        if not (_early_stuck or _late_stuck or _coherence_collapse):
+            return None
+
+        ctx = step_ctx.attack_context
+        discovery_board = step_ctx.state.get("discovery_board", {})
+        recent_cmds = (ctx.command_history or [])[-10:]
+        _ports = sorted(list(discovery_board.get("ports", set())))[:15]
+        _services = sorted(list(discovery_board.get("services", set())))[:10]
+        _creds = list(discovery_board.get("credentials", set()))[:5]
+        _shells = list(discovery_board.get("shells", set()))[:3]
+
+        _trigger = "early_stuck" if _early_stuck else ("late_stuck" if _late_stuck else "coherence_collapse")
+
+        prompt = (
+            f"STRATEGIC PLAN REPAIR — Episode step {step_num}, Phase: {current_phase.name}\n"
+            f"Trigger: {_trigger}. Coherence: {_coherence:.2f}. Macro conf: {self._r66_macro_conf:.2f}\n"
+            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n\n"
+            f"Current state:\n"
+            f"- Ports: {_ports}\n- Services: {_services}\n"
+            f"- Credentials: {_creds if _creds else 'msfadmin:msfadmin (default)'}\n"
+            f"- Shells: {_shells}\n"
+            f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
+            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}\n\n"
+            f"Recent commands (last 10):\n"
+            + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
+            + f"\n\nWe are falling behind. Provide a 3-step attack plan to reach CLOSEOUT.\n"
+            f"For each step, name the template_name from the command registry.\n"
+            f"Respond with ONLY a JSON object (no markdown):\n"
+            '{"plan": [{"template": "name1", "reason": "why"}, '
+            '{"template": "name2", "reason": "why"}, '
+            '{"template": "name3", "reason": "why"}], "confidence": 0.8}\n'
+        )
+
+        try:
+            response = self.gpt_manager.gpt_request(
+                prompt=prompt,
+                task_type="strategic",
+                agent_id=self.agent_name,
+                max_tokens=300,
+            )
+            if not response or not isinstance(response, str) or len(response.strip()) < 5:
+                return None
+
+            import json as _json
+            _clean = response.strip()
+            if _clean.startswith("```"):
+                _clean = _clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            _parsed = _json.loads(_clean)
+            _plan = _parsed.get("plan", [])
+            _codex_conf = min(0.95, max(0.5, float(_parsed.get("confidence", 0.8))))
+
+            if not _plan:
+                return None
+
+            # Use the FIRST template from the plan
+            _chosen_name = _plan[0].get("template", "")
+            _reason = _plan[0].get("reason", "")[:100]
+
+            # Look up in registry
+            _template = COMMAND_REGISTRY.get(_chosen_name)
+            if _template is None:
+                # Fuzzy match
+                _name_lower = _chosen_name.lower().replace("-", "_")
+                for vt_name, vt in COMMAND_REGISTRY.items():
+                    if vt_name.lower() == _name_lower or _name_lower in vt_name.lower():
+                        _template = vt
+                        _chosen_name = vt_name
+                        break
+            if _template is None:
+                # Fallback to a random phase-appropriate template
+                valid_templates = self._CODEX_PHASE_TEMPLATES.get(current_phase, [])
+                _phase_templates = [
+                    COMMAND_REGISTRY.get(t) for t in valid_templates
+                    if COMMAND_REGISTRY.get(t) is not None
+                ]
+                if _phase_templates:
+                    import random
+                    _template = random.choice(_phase_templates)
+                    _chosen_name = _template.name
+                    _reason = f"strategic-fallback: {_reason}"
+                else:
+                    return None
+
+            params = {"target": ctx.target}
+            for param in _template.required_params:
+                if param not in params:
+                    params[param] = self._get_default_param(param, ctx)
+            command = render_command(_template, params)
+
+            self._codex_strategic_calls_episode += 1
+            self._codex_strategic_cooldown = 3
+            self._codex_meta_used_templates.add(_chosen_name)  # shared dedup
+
+            logger.info(
+                f"[CODEX-STRATEGIC][{self.agent_name}] Plan repair at step {step_num}: "
+                f"template={_chosen_name} trigger={_trigger} plan_depth={len(_plan)}"
+            )
+
+            result = SmartDecisionResult(
+                command=command,
+                source="codex_meta",  # Keep source compatible with metrics
+                confidence=_codex_conf,
+                template_name=_chosen_name,
+                params=params,
+                reasoning=(
+                    f"[CODEX-STRATEGIC] {_trigger}: step {step_num} in {current_phase.name}. "
+                    f"Template={_chosen_name}. {_reason}"
+                ),
+                mentor_call=True,
+                model_used="gpt-5.2-codex",
+                mentor_reasoning=(
+                    f"[CODEX-STRATEGIC] Plan repair → {_chosen_name}. "
+                    f"Call {self._codex_strategic_calls_episode}/{self._codex_strategic_max_per_episode}"
+                ),
+                phase=current_phase,
+            )
+            return result
+        except Exception as e:
+            logger.debug(f"[CODEX-STRATEGIC][{self.agent_name}] Call failed: {e}")
+
+        return None
+
     def decide(
         self,
         step_ctx: SmartStepContext,
@@ -1712,17 +1881,40 @@ class SmartCoach:
         # The crossover is controlled by a dynamic mentor_lead_rate that fades
         # from 35% to 15% as PPO builds confidence (Phase 6.5 tuning).
         # 
-        # Decision priority: Skill Library → Playbook → CODEX META → (Mentor OR PPO) → Registry
+        # Decision priority: Skill Library → Playbook → CODEX STRATEGIC → CODEX TACTICAL → (Mentor OR PPO) → Registry
         
         # =====================================================================
-        # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
-        # When stuck in a phase for too long, gpt-5.2-codex provides
-        # strategic guidance to break through. Budget: 3 calls/episode.
-        # Computed BEFORE the decision priority chain so it's available.
+        # R66: ENTROPY GATING — Modulate PPO exploration by coherence + macro_conf
+        # Low coherence → higher entropy (need more exploration)
+        # High macro confidence + high coherence → lower entropy (exploit)
+        # =====================================================================
+        if self.ppo_agent is not None:
+            _coh = self._r66_coherence
+            _mconf = self._r66_macro_conf
+            if _coh < 0.30:
+                # Collapsing coherence → boost exploration
+                self.ppo_agent._entropy_adaptive_multiplier = min(
+                    2.0, self.ppo_agent._entropy_adaptive_multiplier * 1.4
+                )
+            elif _coh > 0.65 and _mconf > 0.70:
+                # High coherence + confident macro → reduce exploration
+                self.ppo_agent._entropy_adaptive_multiplier = max(
+                    0.5, self.ppo_agent._entropy_adaptive_multiplier * 0.85
+                )
+        
+        # =====================================================================
+        # LAYER 3: CODEX META-LAYER — Tactical + Strategic stagnation-breaking
+        # Codex-tactical: phase-level stagnation (existing _codex_meta_check)
+        # Codex-strategic: episode-level plan repair (R66 new)
         # =====================================================================
         codex_meta_result = self._codex_meta_check(
             step_ctx, current_phase, filtered_commands
         )
+        # R66: If tactical didn't fire, try strategic
+        if codex_meta_result is None:
+            codex_meta_result = self._codex_strategic_check(
+                step_ctx, current_phase, filtered_commands
+            )
         
         if skill_result is not None:
             result = skill_result
@@ -3629,12 +3821,35 @@ class SmartCoach:
         rely more on PPO/registry (10%). This provides curriculum-based
         exploration bootstrapping.
 
+        R66: If scan_hints are available from ScanRandomizer and we're
+        in RECON phase (step 0-1), use them for varied initial scans.
+
         Args:
             step_ctx: Current step context.
 
         Returns:
             SmartDecisionResult if playbook has a suggestion, else None.
         """
+        # R66: Scan randomizer override for first 2 RECON steps
+        ctx = step_ctx.attack_context
+        if (ctx and ctx.current_phase == AttackPhase.RECON
+                and step_ctx.step < 2
+                and hasattr(ctx, '_r66_scan_hints')
+                and ctx._r66_scan_hints):
+            _hints = ctx._r66_scan_hints
+            _idx = step_ctx.step
+            if _idx < len(_hints):
+                _cmd = _hints[_idx]
+                return SmartDecisionResult(
+                    command=_cmd,
+                    source="playbook",
+                    confidence=0.85,
+                    template_name="scan_randomizer",
+                    params={"target": ctx.target},
+                    reasoning=f"[R66 ScanRandomizer] Varied initial scan step {_idx}",
+                    phase=ctx.current_phase,
+                )
+
         try:
             from core.knowledge.pentesting_playbooks import (
                 get_playbooks_for_target,
@@ -4951,6 +5166,12 @@ class SmartCoach:
         self._codex_meta_gate_overrides = 0  # R60
         self._codex_meta_antirepeat_hits = 0  # R60
         self._codex_meta_used_templates.clear()  # R62: Reset per-episode dedup
+
+        # R66: Reset codex strategic counters
+        self._codex_strategic_calls_episode = 0
+        self._codex_strategic_cooldown = 0
+        self._r66_coherence = 0.5
+        self._r66_macro_conf = 0.5
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0

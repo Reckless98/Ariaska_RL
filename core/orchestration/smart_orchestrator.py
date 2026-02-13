@@ -399,6 +399,33 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"PHASE 3: PPO init failed (falling back to DQN): {e}")
         
+        # ─── R66: RND Curiosity Module ───────────────────────────────
+        self.rnd_curiosity = None
+        try:
+            from core.algorithms.rnd_curiosity import RNDCuriosity
+            self.rnd_curiosity = RNDCuriosity(
+                state_dim=512, hidden_dim=256, output_dim=128,
+                reward_scale=1.0, reward_cap=5.0, ms3_multiplier=1.5,
+            )
+            logger.info("R66: RND curiosity module initialized")
+        except Exception as e:
+            logger.warning(f"R66: RND init failed: {e}")
+        
+        # ─── R66: Coherence Tracker ──────────────────────────────────
+        self.coherence_tracker = None
+        try:
+            from core.analytics.coherence import CoherenceTracker
+            self.coherence_tracker = CoherenceTracker(window_size=10)
+            logger.info("R66: CoherenceTracker initialized")
+        except Exception as e:
+            logger.warning(f"R66: CoherenceTracker init failed: {e}")
+        
+        # ─── R66: Scan Exposure Randomizer ───────────────────────────
+        self.scan_randomizer = None  # Initialized per-run with seed
+        
+        # ─── R66: JSONL RunLogger ────────────────────────────────────
+        self.run_logger = None  # Initialized per-run with tag
+        
         # ─── PHASE 6.1: Live Command Executor ────────────────────────
         # In LIVE mode, all agent commands are executed via subprocess
         # against the real target. In SIM mode, this stays None and
@@ -719,6 +746,12 @@ class SmartOrchestrator:
                 coach.reward_calculator._ms2_graph = self._exploit_graph
                 coach.reward_calculator.target_profile = self._target_profile
         
+        # R66: Inject scan randomizer hints into attack context for varied initial scans
+        if hasattr(self, 'scan_randomizer') and self.scan_randomizer is not None:
+            self.attack_context._r66_scan_hints = self.scan_randomizer.get_randomized_initial_commands(target)
+        else:
+            self.attack_context._r66_scan_hints = []
+        
         return self.attack_context
     
     def run_episode(
@@ -841,6 +874,17 @@ class SmartOrchestrator:
         # Reset dashboard for new episode
         self.dashboard.reset_episode()
         self.dashboard.current_episode = episode_number
+        
+        # ─── R66: Reset new subsystems per episode ──────────────────
+        self._r66_prev_disc_count = 0  # For delta tracking in step loop
+        if hasattr(self, 'coherence_tracker') and self.coherence_tracker is not None:
+            self.coherence_tracker.reset_episode()
+        if hasattr(self, 'rnd_curiosity') and self.rnd_curiosity is not None:
+            self.rnd_curiosity.running_mean = 0.0
+            self.rnd_curiosity.running_var = 1.0
+            self.rnd_curiosity.count = 0
+        if hasattr(self, 'scan_randomizer') and self.scan_randomizer is not None:
+            self.scan_randomizer.next_episode()
         
         # Reset environment
         state = self.env.reset()
@@ -1012,6 +1056,98 @@ class SmartOrchestrator:
                 reward_breakdown=reward_breakdown_dict,
                 discovery_board=disc_board_display,
             )
+            
+            # ─── R66: Coherence + RND + JSONL + HUD instrumentation ──────
+            _r66_phase = self.attack_context.current_phase.name
+            _r66_macro_name = ""
+            _r66_macro_conf = 0.0
+            _r66_intrinsic = 0.0
+            _r66_source = "unknown"
+            _r66_ar_fired = False
+            _r66_codex_fired = False
+            _r66_tmpl = ""
+            _r66_had_discovery = False
+            
+            if step_agent_results:
+                _r66_src = step_agent_results[0]
+                _r66_source = getattr(_r66_src.decision, 'source', 'unknown') if _r66_src.decision else 'unknown'
+                _r66_ar_fired = _r66_source == "anti_repeat"
+                _r66_codex_fired = _r66_source in ("codex_meta", "codex_tactical", "codex_strategic")
+                _r66_tmpl = getattr(_r66_src.decision, 'template_name', '') or ''
+                # Get macro from coach
+                _red_coach = self.coaches.get("RedAgent")
+                if _red_coach and hasattr(_red_coach, '_active_macro'):
+                    _m = getattr(_red_coach, '_active_macro', None)
+                    _r66_macro_name = _m.name if _m else ""
+                    _r66_macro_conf = getattr(_red_coach, '_ddqn_confidence', 0.0)
+            
+            # RND intrinsic reward
+            if self.rnd_curiosity and state:
+                try:
+                    import torch as _t66
+                    from core.models.state_encoder import encode_state as _enc66
+                    _st66 = _enc66(state, _t66.device("cpu"), current_step=step, max_steps=max_steps)
+                    _r66_intrinsic = self.rnd_curiosity.compute_intrinsic_reward(_st66, phase=_r66_phase)
+                    self.rnd_curiosity.update(_st66)
+                    episode_reward += _r66_intrinsic  # Add intrinsic to total
+                except Exception:
+                    pass
+            
+            # Check for discoveries this step
+            if disc_board_display:
+                _cur_disc_count = sum(
+                    len(v) for k, v in disc_board_display.items()
+                    if isinstance(v, (list, set)) and k not in ("phase", "flags_set")
+                )
+                _prev_disc_count = getattr(self, '_r66_prev_disc_count', 0)
+                _r66_had_discovery = _cur_disc_count > _prev_disc_count
+                self._r66_prev_disc_count = _cur_disc_count
+            
+            # Coherence tracking
+            _phase_ord = {"RECON": 0, "ENUMERATION": 1, "EXPLOITATION": 2,
+                          "PRIVILEGE_ESCALATION": 3, "LATERAL_MOVEMENT": 4,
+                          "POST_EXPLOITATION": 5, "EXFILTRATION": 6, "CLOSEOUT": 7}.get(_r66_phase, 0)
+            if self.coherence_tracker:
+                self.coherence_tracker.record_step(
+                    source=_r66_source,
+                    had_discovery=_r66_had_discovery,
+                    phase_ord=_phase_ord,
+                    success=not _r66_ar_fired,
+                    macro_conf=_r66_macro_conf,
+                )
+            _r66_coherence = self.coherence_tracker.coherence if self.coherence_tracker else 0.5
+            
+            # R66: Inject coherence + macro_conf into all coaches for entropy gating + codex enrichment
+            for _cn, _coach in self.coaches.items():
+                if hasattr(_coach, '_r66_coherence'):
+                    _coach._r66_coherence = _r66_coherence
+                    _coach._r66_macro_conf = _r66_macro_conf
+            
+            # JSONL + HUD
+            _r66_unique = len(set(
+                r.decision.command for sr_list in step_results for r in sr_list
+                if r.decision and r.decision.command
+            ))
+            if self.run_logger:
+                from core.logging.jsonl_logger import StepRecord
+                self.run_logger.log_step(StepRecord(
+                    ep=episode_number, step=step, phase=_r66_phase,
+                    source=_r66_source, macro=_r66_macro_name,
+                    macro_conf=_r66_macro_conf, coherence=_r66_coherence,
+                    reward_delta=env_reward, intrinsic_reward=_r66_intrinsic,
+                    anti_repeat_fired=_r66_ar_fired, codex_fired=_r66_codex_fired,
+                    template_name=_r66_tmpl, agent=step_agent_results[0].agent_name if step_agent_results else "",
+                ))
+                _r66_tag = getattr(self, '_r66_env_tag', 'sim')
+                self.run_logger.print_hud_line(
+                    run_tag=f"R{getattr(self.config, 'seed', '?')} {_r66_tag}",
+                    ep=episode_number, step=step, phase=_r66_phase,
+                    macro=_r66_macro_name, macro_conf=_r66_macro_conf,
+                    coherence=_r66_coherence, source=_r66_source,
+                    reward_delta=env_reward + _r66_intrinsic,
+                    intrinsic=_r66_intrinsic, anti_repeat=_r66_ar_fired,
+                    codex=_r66_codex_fired, unique_cmds=_r66_unique,
+                )
             
             # Phase 6.2: Emit StepEvent to EventBus
             if hasattr(self, 'event_bus'):
@@ -1396,6 +1532,62 @@ class SmartOrchestrator:
         metrics = self._compute_episode_metrics(
             step_results, episode_reward, done, phase_progression
         )
+        
+        # ─── R66: Episode-level JSONL + HUD summary ─────────────────
+        try:
+            if hasattr(self, 'run_logger') and self.run_logger is not None:
+                from core.logging.jsonl_logger import EpisodeSummary
+                _closeout = metrics.get("highest_phase", "RECON") in ("EXFILTRATION", "CLOSEOUT", "POST_EXPLOITATION")
+                _sources = {
+                    "ppo": metrics.get("decisions_ppo", 0),
+                    "registry": metrics.get("decisions_registry", 0),
+                    "anti_repeat": metrics.get("decisions_anti_repeat", 0),
+                    "codex_meta": metrics.get("decisions_codex_meta", 0),
+                    "playbook": metrics.get("decisions_playbook", 0),
+                }
+                _ar_count = _sources.get("anti_repeat", 0)
+                _codex_count = _sources.get("codex_meta", 0)
+                _avg_coh = (
+                    sum(self.run_logger._episode_coherences) / max(len(self.run_logger._episode_coherences), 1)
+                    if self.run_logger._episode_coherences else 0.0
+                )
+                _avg_mconf = (
+                    sum(self.run_logger._episode_macro_confs) / max(len(self.run_logger._episode_macro_confs), 1)
+                    if self.run_logger._episode_macro_confs else 0.0
+                )
+                ep_summary = EpisodeSummary(
+                    ep=episode_number,
+                    total_reward=episode_reward,
+                    steps=len(step_results),
+                    highest_phase=metrics.get("highest_phase", "RECON"),
+                    closeout=_closeout,
+                    sources=_sources,
+                    discoveries=metrics.get("total_discoveries", 0),
+                    unique_commands=metrics.get("unique_commands", 0),
+                    macro_switches=metrics.get("ddqn_switches", 0),
+                    anti_repeat_count=_ar_count,
+                    avg_coherence=_avg_coh,
+                    avg_macro_conf=_avg_mconf,
+                    total_intrinsic=self.run_logger._episode_intrinsic,
+                )
+                self.run_logger.log_episode(ep_summary)
+                self.run_logger.print_episode_summary(
+                    run_tag=self.run_logger.run_tag,
+                    ep=episode_number,
+                    total_reward=episode_reward,
+                    steps=len(step_results),
+                    highest_phase=metrics.get("highest_phase", "RECON"),
+                    sources=_sources,
+                    discoveries=metrics.get("total_discoveries", 0),
+                    unique_cmds=metrics.get("unique_commands", 0),
+                    anti_repeat=_ar_count,
+                    codex_calls=_codex_count,
+                    macro_switches=metrics.get("ddqn_switches", 0),
+                    avg_coherence=_avg_coh,
+                    avg_macro_conf=_avg_mconf,
+                )
+        except Exception as e:
+            logger.debug(f"R66 episode summary error: {e}")
         
         # ─── PHASE 4: Per-Coach PPO Updates ─────────────────────────
         # Each SmartCoach has its own PPOAgent; trigger update at end of episode
@@ -4083,7 +4275,42 @@ class SmartOrchestrator:
         
         target = target_ip or self.config.default_target
         
+        # ─── R66: Initialize per-run components ─────────────────────
+        _env_tag = "ms3" if "172.28.0.11" in str(target) else "ms2"
+        _seed = getattr(self.config, 'seed', 42)
+        
+        # R66: JSONL RunLogger
+        try:
+            from core.logging.jsonl_logger import RunLogger
+            _run_tag = f"r{_seed}_{_env_tag}"
+            self.run_logger = RunLogger(run_tag=_run_tag, log_dir="logs", hud_every=1)
+        except Exception as e:
+            logger.warning(f"R66: RunLogger init failed: {e}")
+            self.run_logger = None
+        
+        # R66: Scan Randomizer
+        try:
+            from core.analytics.scan_randomizer import ScanRandomizer
+            self.scan_randomizer = ScanRandomizer(seed=_seed, env_name=_env_tag)
+        except Exception as e:
+            logger.warning(f"R66: ScanRandomizer init failed: {e}")
+            self.scan_randomizer = None
+        
+        # R66: RND target mode
+        if self.rnd_curiosity:
+            self.rnd_curiosity.set_target_mode(_env_tag)
+        
         logger.info(f"Starting smart training: {episodes} episodes, target={target}")
+        self._r66_env_tag = _env_tag
+        
+        # R66: Set env tag + increased codex budget on coaches
+        for _cn, _coach in self.coaches.items():
+            if hasattr(_coach, '_r66_env_tag'):
+                _coach._r66_env_tag = _env_tag
+            # MS3 gets higher codex budget (harder target)
+            if _env_tag == "ms3" and hasattr(_coach, '_codex_meta_max_per_episode'):
+                _coach._codex_meta_max_per_episode = 8
+                _coach._codex_strategic_max_per_episode = 4
         
         for ep in range(episodes):
             episode_id = f"{self.run_id}_ep{ep:04d}"
