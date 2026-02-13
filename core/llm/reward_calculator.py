@@ -339,6 +339,25 @@ class SmartRewardCalculator:
                 breakdown.discovery_bonus += _thoroughness
                 explanations.append(f"Thoroughness({_new_disc_count}): +{_thoroughness:.1f}")
         
+        # 4c. R69: Discovery chain momentum bonus
+        # When consecutive recent steps produce discoveries, apply an amplifying
+        # chain bonus. This teaches PPO that productive discovery chains are
+        # more valuable than isolated discoveries — reward the *sequence*.
+        # Looks at the last 4 steps in reward_history.
+        if new_discoveries and breakdown.discovery_bonus > 0:
+            _chain_len = 0
+            # Count consecutive recent steps that had discoveries (reward > 5.0
+            # suggests a discovery occurred, since base + progress alone ≈ 3-5)
+            for _prev_r in reversed(self.reward_history[-4:]):
+                if _prev_r > 5.0:
+                    _chain_len += 1
+                else:
+                    break
+            if _chain_len >= 1:
+                _chain_bonus = min(3.0 * _chain_len, 12.0)
+                breakdown.discovery_bonus += _chain_bonus
+                explanations.append(f"⚡ Chain({_chain_len + 1}): +{_chain_bonus:.1f}")
+        
         # 4b. Phase 6.4: MS2-specific shaped reward bonus
         # Gives extra reward for targeting known MS2 vulnerable services
         if self._ms2_graph and new_discoveries:

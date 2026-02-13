@@ -4602,6 +4602,75 @@ class SmartCoach:
                             f"(CLOSEOUT in {traj_len} steps)"
                         )
 
+            # ── R69: Hindsight Trajectory Relabeling (HTR) ──────────
+            # Walk backward through the trajectory: when a step produced
+            # discoveries, retroactively credit prior steps whose commands
+            # ENABLED those discoveries (via precondition chains).
+            # This solves temporal credit assignment: nmap at step 3 that
+            # discovers ports gets credit when exploit at step 8 uses them.
+            #
+            # Also applies chain momentum: consecutive discovery steps get
+            # amplifying retroactive bonuses.
+            # ─────────────────────────────────────────────────────────────
+            _htr_total = 0.0
+            _htr_count = 0
+            HTR_WINDOW = 6       # Look back up to 6 steps
+            HTR_ALPHA = 0.25     # Fraction of discovery reward attributed back
+            HTR_DECAY = 0.85     # Per-step decay within the window
+            
+            # Discovery types → what preconditions they satisfy
+            _DISC_TO_PRECOND = {
+                "open_port": {"ports_discovered"},
+                "service": {"services_discovered", "ports_discovered"},
+                "version_info": {"services_discovered"},
+                "credential": {"credentials_known"},
+                "password": {"credentials_known"},
+                "shell": {"shell_obtained"},
+                "root_shell": {"shell_obtained", "root_obtained"},
+                "hash": {"hash_known"},
+                "vulnerability": {"vulnerability_found"},
+            }
+            
+            traj = self._ppo_trajectory
+            for i in range(len(traj) - 1, 0, -1):
+                disc_types = traj[i].get("_r69_discoveries", [])
+                if not disc_types:
+                    continue
+                
+                # Compute what preconditions this discovery satisfies
+                _satisfied = set()
+                for dt in disc_types:
+                    _satisfied |= _DISC_TO_PRECOND.get(dt, set())
+                
+                if not _satisfied:
+                    continue
+                
+                # Walk backward from i-1 to max(0, i-HTR_WINDOW)
+                _disc_reward = traj[i]["reward"]
+                for j in range(i - 1, max(-1, i - 1 - HTR_WINDOW), -1):
+                    _prior_template = traj[j].get("_r69_template", "")
+                    _prior_preconds = traj[j].get("_r69_preconditions", set())
+                    
+                    # Credit if: (a) prior step has preconditions matching what
+                    # this discovery satisfies (causal link), OR
+                    # (b) prior step itself had discoveries (chain momentum)
+                    _causal = bool(_prior_preconds & _satisfied)
+                    _chain = bool(traj[j].get("_r69_discoveries", []))
+                    
+                    if _causal or _chain:
+                        distance = i - j
+                        bonus = HTR_ALPHA * abs(_disc_reward) * (HTR_DECAY ** distance)
+                        bonus = min(bonus, 10.0)  # Cap per-link bonus
+                        traj[j]["reward"] += bonus
+                        _htr_total += bonus
+                        _htr_count += 1
+            
+            if _htr_count > 0:
+                logger.info(
+                    f"[PPO][{self.agent_name}] R69 HTR: relabeled {_htr_count} "
+                    f"trajectory entries, total bonus +{_htr_total:.1f}"
+                )
+
             for t in self._ppo_trajectory:
                 self.ppo_agent.store_transition(
                     state=t["state"],
@@ -5090,6 +5159,15 @@ class SmartCoach:
                 except Exception:
                     pass  # DDQN not available — skip alignment shaping
             
+            # R69: Tag trajectory entry with discovery + template metadata for HTR
+            _r69_disc_types = []
+            if new_discoveries:
+                for _dt, _dv in new_discoveries.items():
+                    if isinstance(_dv, list):
+                        _r69_disc_types.extend([_dt] * len(_dv))
+                    else:
+                        _r69_disc_types.append(_dt)
+            
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
                 "action": self._ppo_pending["action"],
@@ -5097,6 +5175,13 @@ class SmartCoach:
                 "value": self._ppo_pending["value"],
                 "reward": ppo_reward,
                 "done": done,
+                # R69 HTR metadata (not consumed by PPO directly)
+                "_r69_discoveries": _r69_disc_types,
+                "_r69_template": decision.template_name or "",
+                "_r69_preconditions": set(
+                    (decision.template_name and COMMAND_REGISTRY.get(decision.template_name) or None)
+                    and COMMAND_REGISTRY[decision.template_name].preconditions or set()
+                ) if decision.template_name else set(),
             })
             self._ppo_pending = None
         
