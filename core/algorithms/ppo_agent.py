@@ -67,6 +67,19 @@ class PPOConfig:
     sil_buffer_size: int = 500          # Max entries in SIL replay buffer
     sil_coef: float = 0.1              # SIL loss coefficient (small, doesn't overpower PPO)
     sil_epochs: int = 1                 # SIL epochs per PPO update
+    # R71: Symlog value compression + cosine entropy schedule
+    use_symlog: bool = True             # Compress rewards via sign(x)*log(1+|x|) (DreamerV3)
+    use_cosine_entropy: bool = True     # Cosine entropy annealing (stays high longer)
+    # R72: Prioritized advantage sampling + return-variance entropy coupling
+    use_prioritized_advantages: bool = True  # Sample PPO minibatches by |advantage|
+    return_variance_entropy: bool = True     # Couple entropy decay to return variance
+    # R73: Gradient accumulation + policy ramp-up
+    grad_accum_steps: int = 2            # Accumulate gradients over N mini-batches (effective batch 2×)
+    policy_warmup_updates: int = 3       # Ramp up policy loss over first N PPO updates
+    # R74: KL-adaptive LR + per-phase advantage whitening
+    target_kl: float = 0.01              # Target KL for adaptive LR (OpenAI standard)
+    use_kl_adaptive_lr: bool = True      # Adjust LR based on recent KL divergence
+    use_phase_advantage_whitening: bool = True  # Normalize advantages per phase group
 
 
 class PPOActorCritic(nn.Module):
@@ -379,15 +392,29 @@ class RolloutBuffer:
         advantages: torch.Tensor,
         minibatch_size: int,
         device: torch.device,
+        prioritized: bool = False,
     ):
-        """Yield random minibatches for PPO epochs.
+        """Yield minibatches for PPO epochs.
+
+        R72: When ``prioritized=True``, samples transitions proportional
+        to ``|advantage|`` so the most informative transitions are seen
+        more often. Standard PPO uses uniform sampling; this is a soft
+        prioritization that doesn't change the loss, only the sampling
+        distribution within each epoch.
 
         Yields:
             dict with keys: states, actions, old_log_probs, returns, advantages, values
         """
         n = self.size
-        indices = np.arange(n)
-        np.random.shuffle(indices)
+
+        if prioritized and n > minibatch_size:
+            # R72: Priority sampling by |advantage|
+            adv_abs = np.abs(advantages.numpy()) + 1e-6
+            probs = adv_abs / adv_abs.sum()
+            indices = np.random.choice(n, size=n, replace=True, p=probs)
+        else:
+            indices = np.arange(n)
+            np.random.shuffle(indices)
 
         states_t = torch.stack(self.states, dim=0)
         actions_t = torch.tensor(self.actions, dtype=torch.long)
@@ -699,16 +726,41 @@ class PPOAgent:
         delta2 = ret - self._return_mean
         self._return_var += (delta * delta2 - self._return_var) / max(self._return_count, 2)
 
+    @staticmethod
+    def _symlog(x: float) -> float:
+        """R71: Symmetric logarithm — compresses extreme values.
+
+        Applies sign(x) * log(1 + |x|) which maps (-∞,+∞) to a compressed
+        range while preserving sign and ordering. Used by DreamerV3
+        (Hafner et al., 2023) to stabilize value learning across reward
+        scales that vary by orders of magnitude.
+
+        Our rewards range from -5 to ~230 per step. Symlog compresses:
+          -5   → -1.79
+          +3   → +1.39
+          +75  → +4.33
+          +230 → +5.44
+        This makes the value function's job much easier.
+        """
+        return math.copysign(math.log1p(abs(x)), x)
+
     def normalize_reward(self, reward: float) -> float:
         """Normalize reward using running statistics.
+
+        R71: Optionally applies symlog compression BEFORE normalization.
+        This two-stage pipeline (compress → normalize) prevents extreme
+        rewards (+230 phase advance) from dominating the value function
+        while still tracking overall reward distribution shifts.
 
         Maps rewards to roughly zero-mean unit-variance, which is critical
         for PPO value function convergence. Without this, value loss
         scales with reward magnitude (we saw ~20,000 value loss).
         """
-        self._update_reward_stats(reward)
+        # R71: Symlog compression (DreamerV3)
+        r = self._symlog(reward) if self.config.use_symlog else reward
+        self._update_reward_stats(r)
         std = max(math.sqrt(abs(self._reward_var)), 1e-4)
-        return (reward - self._reward_mean) / std
+        return (r - self._reward_mean) / std
 
     def store_transition(
         self,
@@ -801,6 +853,23 @@ class PPOAgent:
                 advantages, -self.config.advantage_clip, self.config.advantage_clip
             )
 
+        # R74: Per-phase-group advantage whitening
+        # Normalize advantages separately within recon/exploit/post-exploit
+        # groups so exploitation steps don't dominate learning signal.
+        if self.config.use_phase_advantage_whitening and self.buffer.size > 3:
+            try:
+                states_t = torch.stack(self.buffer.states, dim=0)
+                phase_groups = PPOActorCritic._extract_phase_group(states_t)
+                for g in range(3):
+                    mask_g = (phase_groups == g)
+                    if mask_g.sum() > 1:
+                        adv_g = advantages[mask_g]
+                        adv_g_std = adv_g.std()
+                        if adv_g_std > 1e-8:
+                            advantages[mask_g] = (adv_g - adv_g.mean()) / (adv_g_std + 1e-8)
+            except Exception:
+                pass  # Fall back to global normalization
+
         # ── Multi-Epoch PPO ──────────────────────────────────────────
         metrics = {
             "policy_loss": 0.0,
@@ -811,9 +880,16 @@ class PPOAgent:
         }
         num_batches = 0
 
+        # R73: Gradient accumulation — effective batch = minibatch_size × grad_accum_steps
+        _grad_accum = max(1, self.config.grad_accum_steps)
+
         for _epoch in range(self.config.epochs_per_update):
+            self.optimizer.zero_grad()  # R73: Zero once at epoch start
+            _accum_idx = 0
+
             for batch in self.buffer.get_batches(
-                returns, advantages, self.config.minibatch_size, self.device
+                returns, advantages, self.config.minibatch_size, self.device,
+                prioritized=self.config.use_prioritized_advantages,
             ):
                 # Forward pass
                 _, new_log_probs, entropy, new_values = (
@@ -865,19 +941,24 @@ class PPOAgent:
                 entropy_loss = entropy.mean()
 
                 # ── Combined Loss ────────────────────────────────────
+                # R73: Policy ramp-up — let critic calibrate first
+                _policy_ramp = min(1.0, (self.updates_done + 1) / max(self.config.policy_warmup_updates, 1))
                 loss = (
-                    policy_loss
+                    _policy_ramp * policy_loss
                     + self.config.value_loss_coef * value_loss
                     - self.entropy_coef * entropy_loss
                 )
 
-                # ── Backward + Clip ──────────────────────────────────
-                self.optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_norm_(
-                    self.network.parameters(), self.config.max_grad_norm
-                )
-                self.optimizer.step()
+                # ── Backward (R73: gradient accumulation) ────────────
+                (loss / _grad_accum).backward()
+                _accum_idx += 1
+
+                if _accum_idx % _grad_accum == 0:
+                    nn.utils.clip_grad_norm_(
+                        self.network.parameters(), self.config.max_grad_norm
+                    )
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
                 # ── Track Metrics ────────────────────────────────────
                 with torch.no_grad():
@@ -894,6 +975,13 @@ class PPOAgent:
                 metrics["approx_kl"] += approx_kl
                 metrics["clip_fraction"] += clip_frac
                 num_batches += 1
+
+            # R73: Step on any remaining accumulated gradients
+            if _accum_idx % _grad_accum != 0:
+                nn.utils.clip_grad_norm_(
+                    self.network.parameters(), self.config.max_grad_norm
+                )
+                self.optimizer.step()
 
             # Early stopping if KL divergence is too large
             if approx_kl > 0.015:
@@ -920,13 +1008,51 @@ class PPOAgent:
         self.lr_scheduler.step()
         self.updates_done += 1
 
+        # R74: KL-adaptive learning rate
+        # If KL is too low → policy barely changed → increase LR to learn faster.
+        # If KL is too high → policy changed too much → decrease LR for stability.
+        # Standard technique from OpenAI's PPO implementation.
+        if self.config.use_kl_adaptive_lr and num_batches > 0:
+            recent_kl = metrics["approx_kl"]
+            _initial_lr = self.config.learning_rate
+            for pg in self.optimizer.param_groups:
+                if recent_kl < 0.5 * self.config.target_kl:
+                    pg["lr"] = min(pg["lr"] * 1.5, _initial_lr * 2.0)
+                elif recent_kl > 2.0 * self.config.target_kl:
+                    pg["lr"] = max(pg["lr"] * 0.5, self.config.lr_min)
+
         # Anneal entropy coefficient
         # R58 Layer 2c: Apply adaptive multiplier on top of base annealing
+        # R71: Cosine schedule stays high longer then decays smoothly,
+        # providing more exploration in early training vs linear decay.
         progress = min(self.total_steps / self.config.total_timesteps, 1.0)
-        base_entropy = self.config.entropy_coef + progress * (
-            self.config.entropy_coef_min - self.config.entropy_coef
-        )
+        if self.config.use_cosine_entropy:
+            # Cosine: starts at entropy_coef, smoothly decays to entropy_coef_min
+            # cos(0) = 1 → full exploration, cos(π) = -1 → minimum exploration
+            base_entropy = self.config.entropy_coef_min + 0.5 * (
+                self.config.entropy_coef - self.config.entropy_coef_min
+            ) * (1.0 + math.cos(math.pi * progress))
+        else:
+            # Original linear decay
+            base_entropy = self.config.entropy_coef + progress * (
+                self.config.entropy_coef_min - self.config.entropy_coef
+            )
         self.entropy_coef = base_entropy * self._entropy_adaptive_multiplier
+
+        # R72: Return-variance entropy coupling
+        # If return variance is low AND mean return is high, the agent has
+        # found a stable good strategy — decay entropy faster. If variance
+        # is high, keep entropy elevated to encourage further exploration.
+        if self.config.return_variance_entropy and self._return_count > 10:
+            return_std = math.sqrt(abs(self._return_var))
+            return_cv = return_std / max(abs(self._return_mean), 1e-4)
+            if return_cv < 0.3 and self._return_mean > 0:
+                # Stable positive returns — reduce entropy by up to 30%
+                stability_factor = max(0.7, 1.0 - (0.3 - return_cv))
+                self.entropy_coef *= stability_factor
+            elif return_cv > 1.0:
+                # Highly variable — boost entropy by up to 20%
+                self.entropy_coef *= min(1.2, 1.0 + (return_cv - 1.0) * 0.1)
 
         # ── R70: Self-Imitation Learning update ──────────────────────
         # After regular PPO update, do 1 epoch of SIL on golden transitions.
@@ -1032,6 +1158,9 @@ class PPOAgent:
                 # R70: SIL buffer baseline
                 "sil_baseline": self.sil_buffer._return_baseline,
                 "sil_count": self.sil_buffer._return_count,
+                # R71: symlog + cosine entropy config
+                "use_symlog": self.config.use_symlog,
+                "use_cosine_entropy": self.config.use_cosine_entropy,
             },
             path,
         )
@@ -1081,6 +1210,8 @@ class PPOAgent:
             "has_phase_gates": getattr(self.network, 'has_phase_gates', False),
             "sil_buffer_size": len(self.sil_buffer),
             "sil_baseline": round(self.sil_buffer._return_baseline, 2),
+            "symlog_enabled": self.config.use_symlog,
+            "cosine_entropy": self.config.use_cosine_entropy,
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
                 "std": round(math.sqrt(abs(self._reward_var)), 4),

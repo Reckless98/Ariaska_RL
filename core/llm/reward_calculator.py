@@ -377,6 +377,59 @@ class SmartRewardCalculator:
             self._recent_discovery_types = (
                 getattr(self, '_recent_discovery_types', []) + _current_types
             )[-5:]
+
+        # 4e. R71: Temporal reward momentum bonus
+        # When the agent's current reward significantly exceeds its recent
+        # trailing average, award a momentum bonus. This teaches PPO that
+        # continuing a productive action sequence is more valuable than
+        # random switching. Rewards "upswing" behavior.
+        if len(self.reward_history) >= 3:
+            _trail_avg = sum(self.reward_history[-3:]) / 3.0
+            _current_total = (
+                breakdown.base_reward + breakdown.novelty_bonus +
+                breakdown.progress_bonus + breakdown.discovery_bonus +
+                breakdown.efficiency_bonus + breakdown.phase_advance_bonus
+            )
+            if _trail_avg > 2.0 and _current_total > _trail_avg * 1.5:
+                _momentum = min(5.0, (_current_total - _trail_avg) * 0.15)
+                breakdown.efficiency_bonus += _momentum
+                explanations.append(f"📈 Momentum: +{_momentum:.1f}")
+
+        # 4f. R72: Step-efficiency shaping bonus
+        # Decaying bonus that rewards faster episode completion. Early
+        # steps get a larger bonus, teaching PPO that efficient agents
+        # are better than slow thorough ones (they can be both).
+        _step_num = len(self.command_history)
+        if _step_num <= 20:
+            _eff_bonus = max(0.5, 3.0 * (1.0 - _step_num / 25.0))
+            breakdown.efficiency_bonus += _eff_bonus
+            explanations.append(f"⚡ Efficiency(s{_step_num}): +{_eff_bonus:.1f}")
+
+        # 4g. R73: Adaptive discovery scaling
+        # As total discoveries grow, scale new discovery bonuses down
+        # to prevent reward inflation in later episodes. Early discoveries
+        # (0-10 total) get full bonus; later ones get diminishing returns.
+        # This keeps the value function stable as agents become more capable.
+        _total_disc = len(disc_tracker)
+        if _total_disc > 10 and breakdown.discovery_bonus > 0:
+            if _total_disc > 30:
+                _disc_scale = 0.7  # 30%+ reduction for very late discoveries
+            else:
+                _disc_scale = 1.0 - 0.015 * (_total_disc - 10)  # 0.85 at 20, 0.7 at 30
+            _pre_scale = breakdown.discovery_bonus
+            breakdown.discovery_bonus *= _disc_scale
+            explanations.append(f"📉 DiscScale({_total_disc}d): ×{_disc_scale:.2f}")
+
+        # 4h. R74: Stagnation penalty amplifier
+        # If the agent has been in the same phase for > 8 consecutive steps,
+        # amplify the redundancy penalty by 1.5×. Creates urgency to progress
+        # through phases and prevents comfortable stalling.
+        if len(self.phase_history) >= 8 and breakdown.redundancy_penalty > 0:
+            _recent_phases = self.phase_history[-8:]
+            if len(set(p.name for p in _recent_phases)) == 1:
+                _stag_amp = 1.5
+                breakdown.redundancy_penalty *= _stag_amp
+                explanations.append(f"🐌 Stagnation(8s): ×{_stag_amp}")
         
         # 4b. Phase 6.4: MS2-specific shaped reward bonus
         # Gives extra reward for targeting known MS2 vulnerable services
