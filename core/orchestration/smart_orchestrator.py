@@ -803,7 +803,7 @@ class SmartOrchestrator:
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
-        self.POST_SHELL_EXPLORE_STEPS = 8  # R56: 5→8. R55 avg 15.1 steps (R48 had 27). More post-shell exploration extends episodes.
+        self.POST_SHELL_EXPLORE_STEPS = 10  # R64: 8→10. R63 stddev 98 (ALL-TIME) but avg 1987 — 2 more explore steps for discovery+reward accumulation.
         
         # ─── R56: Minimum PRIV_ESC duration gate ────────────────────
         # R55 showed two-mode episodes: organic fast (11 steps, +2004 avg)
