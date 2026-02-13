@@ -1357,10 +1357,23 @@ class PPOAgent:
         )
 
     def load(self, path: str):
-        """Load PPO checkpoint."""
+        """Load PPO checkpoint with architecture migration support."""
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.network.load_state_dict(ckpt["network_state_dict"])
-        self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        # R77/R79: Handle architecture changes (spectral norm, phase predictor)
+        # Old checkpoints have 'critic.0.weight' but new arch has
+        # 'critic.0.weight_orig/u/v' from spectral norm + 'phase_predictor.*'
+        try:
+            self.network.load_state_dict(ckpt["network_state_dict"])
+        except RuntimeError:
+            logger.warning("Architecture mismatch in checkpoint — loading with strict=False")
+            self.network.load_state_dict(ckpt["network_state_dict"], strict=False)
+        try:
+            self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        except (RuntimeError, ValueError):
+            logger.warning("Optimizer state mismatch — reinitializing optimizer")
+            self.optimizer = torch.optim.Adam(
+                self.network.parameters(), lr=self.config.learning_rate
+            )
         if "scheduler_state_dict" in ckpt:
             self.lr_scheduler.load_state_dict(ckpt["scheduler_state_dict"])
         self.total_steps = ckpt.get("total_steps", 0)
@@ -1387,7 +1400,14 @@ class PPOAgent:
             self.sil_buffer._return_count = ckpt.get("sil_count", 0)
         # R75: Restore EMA network
         if "ema_network_state" in ckpt and self.ema_network is not None:
-            self.ema_network.load_state_dict(ckpt["ema_network_state"])
+            try:
+                self.ema_network.load_state_dict(ckpt["ema_network_state"])
+            except RuntimeError:
+                logger.warning("EMA network mismatch — reinitializing from current network")
+                import copy
+                self.ema_network = copy.deepcopy(self.network)
+                for p in self.ema_network.parameters():
+                    p.requires_grad = False
         # R80: Restore adaptive clip state
         if "clip_epsilon_current" in ckpt:
             self.config.clip_epsilon = ckpt["clip_epsilon_current"]
