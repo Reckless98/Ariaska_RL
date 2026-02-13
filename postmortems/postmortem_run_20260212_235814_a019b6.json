@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260212_235814_a019b6",
+  "timestamp": 1770937124.775871,
+  "key_outcomes": {
+    "wins": [
+      "Consistent reconnaissance workflow executed across 1 episode, yielding complete port and service inventory (ep001_step05)",
+      "Pivoted to prioritized high-value target after remaining gaps were identified (ep001_step07)"
+    ],
+    "fails": [
+      "Failed to progress past initial service enumeration within allotted timeframe, resulting in zero successes (ep001_step12)",
+      "No successful compromise attempt despite repeated mentor guidance calls (10 total), indicating gaps in exploitation chaining (ep001_step15)"
+    ],
+    "summary": "Reconnaissance was thorough, but failure to transition from enumeration to exploitation explains the 0% success rate across the single episode."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to identify exploitable entry point after port/service enumeration",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Overreliance on default credential checks without adapting to observed service banners",
+      "frequency": 7,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1770937132.4392707,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service on port 80/443 reveals version info",
+      "then_action": "Fetch directories using gobuster followed by nikto vulnerability scan",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1770937132.4392877,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service enumeration yields high-risk CVEs",
+      "then_action": "Cross-reference exploit-db and attempt targeted metasploit module",
+      "parameters_template": {
+        "service": "identified_service",
+        "cve_list": "detected_cves"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1770937132.4392996,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in gathering SSH-specific data that informs next steps"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Targeted SSH Exploitation Flow",
+      "description": "After running confirmed SSH enumeration, chain identified vulnerabilities with automated bruteforce/exploit attempts while tracking lockouts",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive Credential Strategy",
+      "description": "Incorporate per-service credential lists derived from banners instead of default sets to improve initial access chances",
+      "priority": "medium"
+    },
+    {
+      "title": "Timed Exploitation Trigger",
+      "description": "Introduce decision checkpoint post-enumeration to select highest CVE match and execute metasploit module within mentor call window",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
