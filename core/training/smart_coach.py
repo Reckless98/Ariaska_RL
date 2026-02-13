@@ -456,6 +456,7 @@ class SmartCoach:
         self._codex_meta_last_phase = None
         self._codex_meta_gate_overrides = 0  # R60: Track PHASE-GATE overrides for storm trigger
         self._codex_meta_antirepeat_hits = 0  # R60: Track anti-repeat hits for spike trigger
+        self._codex_meta_used_templates: set = set()  # R62: Track used codex templates for dedup
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1368,11 +1369,12 @@ class SmartCoach:
             + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
             + f"{_chain_hint}\n\n"
             f"AVAILABLE TEMPLATES for {current_phase.name} (choose from these):\n"
-            + ", ".join(valid_templates[:20])
+            + ", ".join(t for t in valid_templates[:20] if t not in self._codex_meta_used_templates)
+            + (f"\n\nALREADY USED THIS EPISODE (DO NOT repeat): {', '.join(self._codex_meta_used_templates)}" if self._codex_meta_used_templates else "")
             + f"\n\nRespond with ONLY a JSON object (no markdown, no backticks):\n"
             '{"recommended_template": "template_name", "reason": "brief why", '
             '"blocked_families": ["families_to_avoid"], "confidence": 0.8}\n'
-            f"Pick the single best template to break stagnation in {current_phase.name}."
+            f"Pick the single best NEW template to break stagnation in {current_phase.name}."
         )
 
         try:
@@ -1454,7 +1456,12 @@ class SmartCoach:
             command = render_command(_template, params)
 
             self._codex_meta_calls_episode += 1
-            self._codex_meta_cooldown = 2  # R60: 4→2 step cooldown
+            # R62: Track used template for dedup; adaptive cooldown
+            if _chosen_template_name in self._codex_meta_used_templates:
+                self._codex_meta_cooldown = 4  # Repeat → longer cooldown
+            else:
+                self._codex_meta_cooldown = 2  # New template → normal cooldown
+            self._codex_meta_used_templates.add(_chosen_template_name)
 
             logger.info(
                 f"[CODEX-META][{self.agent_name}] Stagnation break at "
@@ -4943,6 +4950,7 @@ class SmartCoach:
         self._codex_meta_last_phase = None
         self._codex_meta_gate_overrides = 0  # R60
         self._codex_meta_antirepeat_hits = 0  # R60
+        self._codex_meta_used_templates.clear()  # R62: Reset per-episode dedup
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0
