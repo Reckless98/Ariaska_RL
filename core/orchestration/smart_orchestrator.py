@@ -1453,7 +1453,7 @@ class SmartOrchestrator:
             metrics["ppo_avg_entropy"] = ppo_total_entropy / ppo_updates_fired
         
         # Count decision sources across all step results
-        source_counts = {"ppo": 0, "playbook": 0, "registry": 0, "anti_repeat": 0, "other": 0}
+        source_counts = {"ppo": 0, "playbook": 0, "registry": 0, "anti_repeat": 0, "codex_meta": 0, "other": 0}
         for sr in step_results:
             for ar in sr:
                 src = getattr(ar.decision, "source", "unknown") if ar.decision else "unknown"

