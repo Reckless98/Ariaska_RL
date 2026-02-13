@@ -1963,6 +1963,7 @@ class SmartCoach:
         _stag = getattr(self, '_stagnation_steps', 0)
         _cmd_phase_order = 0
         _cur_phase_order = self.PHASE_ORDER.get(current_phase, 0)
+        cmd_template = None
         
         if result.template_name:
             # Look up the command's phase
