@@ -80,6 +80,26 @@ class PPOConfig:
     target_kl: float = 0.01              # Target KL for adaptive LR (OpenAI standard)
     use_kl_adaptive_lr: bool = True      # Adjust LR based on recent KL divergence
     use_phase_advantage_whitening: bool = True  # Normalize advantages per phase group
+    # R75: EMA target network + value-surprise intrinsic bonus
+    use_ema_anchor: bool = True          # Polyak-averaged target network for stable bootstrapping
+    ema_tau: float = 0.995               # Polyak coefficient: ema = τ*ema + (1-τ)*online
+    value_surprise_coef: float = 0.3     # Intrinsic bonus for value disagreement (capped at 2.0)
+    # R76: Dual-horizon GAE blending
+    use_dual_horizon_gae: bool = True    # Blend long-horizon (λ=0.95) + short-horizon GAE
+    gae_lambda_short: float = 0.70       # Short-horizon GAE lambda for faster credit assignment
+    dual_horizon_blend: float = 0.65     # Weight for long-horizon (0.35 for short)
+    # R77: Spectral normalization on critic + soft advantage clipping
+    use_spectral_norm_critic: bool = True  # Constrain critic Lipschitz constant
+    use_soft_advantage_clip: bool = True   # Tanh-based smooth clip (gradients flow at boundary)
+    # R79: Auxiliary phase prediction head
+    use_phase_prediction_aux: bool = True  # Auxiliary loss predicting attack phase group
+    phase_prediction_coef: float = 0.1     # Auxiliary loss weight (forces phase-aware representations)
+    # R80: Adaptive clip scheduling + entropy rebound
+    use_adaptive_clip: bool = True       # Auto-adjust clip_epsilon from rolling clip_fraction
+    clip_epsilon_min: float = 0.15       # Minimum clip (too narrow → conservative)
+    clip_epsilon_max: float = 0.25       # Maximum clip (too wide → unstable)
+    use_entropy_rebound: bool = True     # Boost entropy if it drops too low for 3+ updates
+    entropy_rebound_threshold: float = 0.5  # Minimum acceptable entropy level
 
 
 class PPOActorCritic(nn.Module):
@@ -157,6 +177,26 @@ class PPOActorCritic(nn.Module):
             nn.Linear(final_dim // 2, 1),
         )
 
+        # ── R77: Spectral normalization on critic ────────────────────
+        # Constrains the Lipschitz constant of the value network,
+        # preventing dramatic value predictions that destabilize PPO.
+        # Applied to linear layers only (GELU/Dropout are unaffected).
+        # NOTE: Applied AFTER _init_weights so orthogonal init works on raw weights,
+        # then spectral norm wraps the initialized weights.
+        self.use_spectral_norm_critic = config.use_spectral_norm_critic
+
+        # ── R79: Auxiliary phase prediction head ─────────────────────
+        # Predicts current attack phase group (recon=0, exploit=1, post=2)
+        # from shared backbone features. Forces the representation to
+        # encode phase information, improving actor and critic quality.
+        self.has_phase_prediction = config.use_phase_prediction_aux
+        if self.has_phase_prediction:
+            self.phase_predictor = nn.Sequential(
+                nn.Linear(final_dim, 32),
+                nn.GELU(),
+                nn.Linear(32, config.num_phase_groups),
+            )
+
         # ── R68: Phase-Gated Actor Heads (HRL-lite) ──────────────────
         # 3 lightweight gate networks that produce additive logit offsets
         # per phase group. Shared base actor handles general policy;
@@ -180,6 +220,12 @@ class PPOActorCritic(nn.Module):
 
         # Initialize with orthogonal initialization (PPO standard)
         self._init_weights()
+
+        # R77: Apply spectral norm AFTER orthogonal init
+        if self.use_spectral_norm_critic:
+            for i, layer in enumerate(self.critic):
+                if isinstance(layer, nn.Linear):
+                    self.critic[i] = nn.utils.spectral_norm(layer)
 
     def _init_weights(self):
         """Orthogonal initialization — standard for PPO networks."""
@@ -240,6 +286,9 @@ class PPOActorCritic(nn.Module):
             x = self.adv_residual(x)  # ResidualBlock with attention + skip
         elif self.has_residual:
             x = x + self.residual(x)  # simple skip connection
+
+        # R79: Cache backbone features for auxiliary heads (phase prediction)
+        self._cached_features = x
 
         logits = self.actor(x)
 
@@ -305,6 +354,31 @@ class PPOActorCritic(nn.Module):
         log_prob = dist.log_prob(action)
         entropy = dist.entropy()
         return action, log_prob, entropy, value.squeeze(-1)
+
+    def predict_phase(self, state: Optional[torch.Tensor] = None) -> Optional[torch.Tensor]:
+        """R79: Predict phase group from cached backbone features.
+
+        Returns logits (B, num_phase_groups) for cross-entropy loss.
+        Uses features cached by the most recent forward() call, so
+        gradients flow back through the shared backbone — the auxiliary
+        loss improves representation quality for both actor and critic.
+
+        Args:
+            state: Optional fallback. If no cached features, runs forward().
+
+        Returns:
+            Phase prediction logits, or None if phase prediction disabled.
+        """
+        if not self.has_phase_prediction:
+            return None
+        features = getattr(self, '_cached_features', None)
+        if features is None:
+            if state is not None:
+                self.forward(state)
+                features = self._cached_features
+            else:
+                return None
+        return self.phase_predictor(features)
 
 
 class RolloutBuffer:
@@ -557,6 +631,16 @@ class PPOAgent:
         # ── Network ──────────────────────────────────────────────────
         self.network = PPOActorCritic(self.config).to(self.device)
 
+        # ── R75: EMA target network ──────────────────────────────────
+        # Polyak-averaged copy for stable value bootstrapping + surprise
+        self.ema_network = None
+        if self.config.use_ema_anchor:
+            import copy
+            self.ema_network = copy.deepcopy(self.network)
+            self.ema_network.eval()
+            for p in self.ema_network.parameters():
+                p.requires_grad = False
+
         # ── Optimizer ────────────────────────────────────────────────
         self.optimizer = torch.optim.Adam(
             self.network.parameters(),
@@ -603,6 +687,10 @@ class PPOAgent:
         self._entropy_adaptive_multiplier: float = 1.0
         self._consecutive_closeouts: int = 0
         self._consecutive_failures: int = 0
+
+        # ── R80: Adaptive clip + entropy rebound tracking ────────────
+        self._clip_fraction_history: List[float] = []
+        self._entropy_below_count: int = 0
 
         # ── R70: Self-Imitation Learning buffer ──────────────────────
         self.sil_buffer = SILBuffer(capacity=self.config.sil_buffer_size)
@@ -744,20 +832,43 @@ class PPOAgent:
         """
         return math.copysign(math.log1p(abs(x)), x)
 
-    def normalize_reward(self, reward: float) -> float:
+    @torch.no_grad()
+    def _get_value_surprise(self, state_tensor: torch.Tensor) -> float:
+        """R75: Compute value disagreement between online and EMA networks.
+
+        High disagreement indicates an uncertain/novel state worth exploring.
+        Returns min(2.0, |V_online - V_ema|) as intrinsic exploration bonus.
+        The cap prevents extreme bonuses from destabilizing reward normalization.
+        """
+        if self.ema_network is None:
+            return 0.0
+        s = state_tensor
+        if s.dim() == 1:
+            s = s.unsqueeze(0)
+        s = s.to(self.device)
+        _, v_online = self.network(s)
+        _, v_ema = self.ema_network(s)
+        surprise = abs(v_online.item() - v_ema.item())
+        return min(2.0, surprise)
+
+    def normalize_reward(self, reward: float, state_tensor: Optional[torch.Tensor] = None) -> float:
         """Normalize reward using running statistics.
 
         R71: Optionally applies symlog compression BEFORE normalization.
-        This two-stage pipeline (compress → normalize) prevents extreme
-        rewards (+230 phase advance) from dominating the value function
-        while still tracking overall reward distribution shifts.
+        R75: Adds value-surprise intrinsic bonus from EMA network disagreement.
 
-        Maps rewards to roughly zero-mean unit-variance, which is critical
-        for PPO value function convergence. Without this, value loss
-        scales with reward magnitude (we saw ~20,000 value loss).
+        This multi-stage pipeline (compress → surprise bonus → normalize)
+        prevents extreme rewards from dominating the value function while
+        encouraging exploration of uncertain states.
         """
         # R71: Symlog compression (DreamerV3)
         r = self._symlog(reward) if self.config.use_symlog else reward
+
+        # R75: Value-surprise intrinsic bonus
+        if self.config.use_ema_anchor and state_tensor is not None and self.ema_network is not None:
+            surprise = self._get_value_surprise(state_tensor)
+            r += surprise * self.config.value_surprise_coef
+
         self._update_reward_stats(r)
         std = max(math.sqrt(abs(self._reward_var)), 1e-4)
         return (r - self._reward_mean) / std
@@ -776,8 +887,9 @@ class PPOAgent:
         Phase 6: Rewards are normalized using running statistics before
         storage, which stabilizes the value function and prevents the
         ~20,000 value loss we saw with raw rewards.
+        R75: State tensor passed for value-surprise intrinsic bonus.
         """
-        normalized_reward = self.normalize_reward(reward)
+        normalized_reward = self.normalize_reward(reward, state_tensor=state)
         self.buffer.add(state, action, log_prob, normalized_reward, value, done)
         self.total_steps += 1
 
@@ -837,6 +949,22 @@ class PPOAgent:
             gae_lambda=self.config.gae_lambda,
         )
 
+        # R76: Dual-horizon GAE blending
+        # Blend long-horizon (λ=0.95, captures delayed rewards) with
+        # short-horizon (λ=0.70, faster credit assignment) advantages.
+        # Short-horizon helps PPO learn immediate cause-effect (discovery
+        # commands → reward), while long-horizon preserves multi-step
+        # planning signal (recon → exploit → root shell chain).
+        if self.config.use_dual_horizon_gae:
+            returns_s, advantages_s = self.buffer.compute_returns_and_advantages(
+                last_value=last_value,
+                gamma=self.config.gamma,
+                gae_lambda=self.config.gae_lambda_short,
+            )
+            blend = self.config.dual_horizon_blend
+            advantages = blend * advantages + (1 - blend) * advantages_s
+            returns = blend * returns + (1 - blend) * returns_s
+
         # Track return statistics for monitoring
         for r in returns.numpy():
             self._update_return_stats(float(r))
@@ -847,11 +975,16 @@ class PPOAgent:
             advantages = (advantages - advantages.mean()) / (adv_std + 1e-8)
 
         # R70: Clip normalized advantages to prevent gradient explosion
-        # from extreme outlier steps (e.g., root_shell + flag combo = +655 raw)
+        # R77: Soft tanh clip — smooth gradients near boundary (vs hard clamp)
         if self.config.advantage_clip > 0:
-            advantages = torch.clamp(
-                advantages, -self.config.advantage_clip, self.config.advantage_clip
-            )
+            if self.config.use_soft_advantage_clip:
+                # tanh(x/c)*c maps to (-c, c) with smooth gradients everywhere
+                _clip = self.config.advantage_clip
+                advantages = _clip * torch.tanh(advantages / _clip)
+            else:
+                advantages = torch.clamp(
+                    advantages, -self.config.advantage_clip, self.config.advantage_clip
+                )
 
         # R74: Per-phase-group advantage whitening
         # Normalize advantages separately within recon/exploit/post-exploit
@@ -949,6 +1082,16 @@ class PPOAgent:
                     - self.entropy_coef * entropy_loss
                 )
 
+                # ── R79: Phase prediction auxiliary loss ─────────────
+                # Predicts phase group from shared features. Gradients
+                # flow back through backbone → better representations.
+                if self.config.use_phase_prediction_aux and self.network.has_phase_prediction:
+                    phase_pred = self.network.predict_phase()
+                    if phase_pred is not None:
+                        phase_targets = PPOActorCritic._extract_phase_group(batch["states"])
+                        phase_aux_loss = F.cross_entropy(phase_pred, phase_targets)
+                        loss = loss + self.config.phase_prediction_coef * phase_aux_loss
+
                 # ── Backward (R73: gradient accumulation) ────────────
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
@@ -959,6 +1102,14 @@ class PPOAgent:
                     )
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+
+                    # R75: Polyak-update EMA target network
+                    if self.ema_network is not None:
+                        _tau = self.config.ema_tau
+                        for p_online, p_ema in zip(
+                            self.network.parameters(), self.ema_network.parameters()
+                        ):
+                            p_ema.data.mul_(_tau).add_(p_online.data, alpha=1 - _tau)
 
                 # ── Track Metrics ────────────────────────────────────
                 with torch.no_grad():
@@ -1021,6 +1172,25 @@ class PPOAgent:
                 elif recent_kl > 2.0 * self.config.target_kl:
                     pg["lr"] = max(pg["lr"] * 0.5, self.config.lr_min)
 
+        # R80: Adaptive clip scheduling
+        # Tracks rolling clip_fraction to auto-adjust clip_epsilon:
+        # - <10% clipping → too conservative → widen clip
+        # - >30% clipping → too aggressive → narrow clip
+        # This keeps the policy update magnitude in the sweet spot.
+        if self.config.use_adaptive_clip and num_batches > 0:
+            self._clip_fraction_history.append(metrics["clip_fraction"])
+            if len(self._clip_fraction_history) > 5:
+                self._clip_fraction_history.pop(0)
+            rolling_clip = sum(self._clip_fraction_history) / len(self._clip_fraction_history)
+            if rolling_clip < 0.1:
+                self.config.clip_epsilon = min(
+                    self.config.clip_epsilon * 1.05, self.config.clip_epsilon_max
+                )
+            elif rolling_clip > 0.3:
+                self.config.clip_epsilon = max(
+                    self.config.clip_epsilon * 0.95, self.config.clip_epsilon_min
+                )
+
         # Anneal entropy coefficient
         # R58 Layer 2c: Apply adaptive multiplier on top of base annealing
         # R71: Cosine schedule stays high longer then decays smoothly,
@@ -1053,6 +1223,21 @@ class PPOAgent:
             elif return_cv > 1.0:
                 # Highly variable — boost entropy by up to 20%
                 self.entropy_coef *= min(1.2, 1.0 + (return_cv - 1.0) * 0.1)
+
+        # R80: Entropy rebound
+        # If entropy drops below threshold for 3+ consecutive updates,
+        # the policy has collapsed to near-deterministic — boost entropy
+        # to prevent premature convergence and re-enable exploration.
+        if self.config.use_entropy_rebound and num_batches > 0:
+            if metrics["entropy"] < self.config.entropy_rebound_threshold:
+                self._entropy_below_count += 1
+                if self._entropy_below_count >= 3:
+                    self.entropy_coef = max(
+                        self.entropy_coef, self.config.entropy_coef * 0.7
+                    )
+                    self._entropy_below_count = 0
+            else:
+                self._entropy_below_count = 0
 
         # ── R70: Self-Imitation Learning update ──────────────────────
         # After regular PPO update, do 1 epoch of SIL on golden transitions.
@@ -1161,6 +1346,12 @@ class PPOAgent:
                 # R71: symlog + cosine entropy config
                 "use_symlog": self.config.use_symlog,
                 "use_cosine_entropy": self.config.use_cosine_entropy,
+                # R75: EMA network state
+                "ema_network_state": self.ema_network.state_dict() if self.ema_network else None,
+                # R80: Adaptive clip + entropy rebound state
+                "clip_epsilon_current": self.config.clip_epsilon,
+                "clip_fraction_history": self._clip_fraction_history,
+                "entropy_below_count": self._entropy_below_count,
             },
             path,
         )
@@ -1194,6 +1385,16 @@ class PPOAgent:
         if "sil_baseline" in ckpt:
             self.sil_buffer._return_baseline = ckpt["sil_baseline"]
             self.sil_buffer._return_count = ckpt.get("sil_count", 0)
+        # R75: Restore EMA network
+        if "ema_network_state" in ckpt and self.ema_network is not None:
+            self.ema_network.load_state_dict(ckpt["ema_network_state"])
+        # R80: Restore adaptive clip state
+        if "clip_epsilon_current" in ckpt:
+            self.config.clip_epsilon = ckpt["clip_epsilon_current"]
+        if "clip_fraction_history" in ckpt:
+            self._clip_fraction_history = ckpt["clip_fraction_history"]
+        if "entropy_below_count" in ckpt:
+            self._entropy_below_count = ckpt["entropy_below_count"]
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
@@ -1212,6 +1413,12 @@ class PPOAgent:
             "sil_baseline": round(self.sil_buffer._return_baseline, 2),
             "symlog_enabled": self.config.use_symlog,
             "cosine_entropy": self.config.use_cosine_entropy,
+            "ema_enabled": self.config.use_ema_anchor,
+            "current_clip_epsilon": round(self.config.clip_epsilon, 4),
+            "entropy_rebound_count": self._entropy_below_count,
+            "dual_horizon_gae": self.config.use_dual_horizon_gae,
+            "spectral_norm_critic": self.config.use_spectral_norm_critic,
+            "phase_prediction_aux": self.config.use_phase_prediction_aux,
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
                 "std": round(math.sqrt(abs(self._reward_var)), 4),

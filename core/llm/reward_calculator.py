@@ -221,6 +221,10 @@ class SmartRewardCalculator:
         self.reward_history = []
         self.last_useful_command_idx = 0
         self.session_start = datetime.now()
+        # R78: Reset per-tool-category tracking
+        self._tool_category_stats = {}
+        # R70: Reset discovery diversity tracking
+        self._recent_discovery_types = []
     
     def calculate_reward(
         self,
@@ -269,6 +273,22 @@ class SmartRewardCalculator:
             base = template.typical_reward if success else 0.0
             breakdown.base_reward = base * REWARD_MULTIPLIER
             explanations.append(f"Base: {breakdown.base_reward:.1f}")
+        
+        # 1c. R79: Hindsight discovery credit
+        # Failed commands that still reveal useful information (ports, services,
+        # credentials visible in output) deserve partial credit. Without this,
+        # a failed exploitation attempt that leaks /etc/passwd contents gets 0
+        # base reward even though it produced valuable intelligence.
+        if not success and template and new_discoveries:
+            _disc_count = sum(
+                len(v) if isinstance(v, list) else 1
+                for v in new_discoveries.values()
+                if v
+            )
+            if _disc_count > 0:
+                _hindsight = template.typical_reward * 0.3 * REWARD_MULTIPLIER
+                breakdown.base_reward = _hindsight
+                explanations.append(f"🔄 Hindsight({_disc_count}d): +{_hindsight:.1f}")
         
         # 1b. Progress bonus - small reward for taking action (not guaranteed success)
         breakdown.progress_bonus = self.progress_bonus_per_step  # Phase 5.1: honest 1.0/step
@@ -430,6 +450,20 @@ class SmartRewardCalculator:
                 _stag_amp = 1.5
                 breakdown.redundancy_penalty *= _stag_amp
                 explanations.append(f"🐌 Stagnation(8s): ×{_stag_amp}")
+
+        # 4i. R76: Phase-progress velocity bonus
+        # Rewards faster-than-baseline phase progression. If the agent
+        # reaches exploitation (order≥2) in fewer steps than expected
+        # (baseline: 5 steps per phase), it gets a velocity bonus.
+        # Teaches PPO that efficient phase advancement is valuable.
+        _step_num_vel = len(self.command_history)
+        _cur_order = self._phase_order(current_phase)
+        if _cur_order >= 2 and _step_num_vel > 0:
+            _expected_step = 5 * _cur_order
+            if _step_num_vel < _expected_step:
+                _velocity = min(5.0, (_expected_step - _step_num_vel) * 0.5)
+                breakdown.efficiency_bonus += _velocity
+                explanations.append(f"🏎️ Phase-velocity: +{_velocity:.1f}")
         
         # 4b. Phase 6.4: MS2-specific shaped reward bonus
         # Gives extra reward for targeting known MS2 vulnerable services
@@ -548,6 +582,24 @@ class SmartRewardCalculator:
             breakdown.novelty_bonus += diversity_bonus
             explanations.append(f"🛠️ New tool ({diversity_count} unique): +{diversity_bonus:.1f}")
         
+        # 7c. R78: Per-tool-category exploration nudge
+        # Track per-tool-prefix usage count and average reward.
+        # Under-explored categories (<2 uses) get a +1.0 exploration nudge.
+        # Over-explored low-reward categories (>5 uses, below avg) get -0.5.
+        # This prevents agents from hammering one tool while ignoring others.
+        if cmd_prefix:
+            _cat_stats = getattr(self, '_tool_category_stats', {})
+            _cat = _cat_stats.get(cmd_prefix, {"count": 0, "total_reward": 0.0})
+            if _cat["count"] <= 1:
+                breakdown.novelty_bonus += 1.0
+                explanations.append(f"🔬 Category-explore({cmd_prefix}): +1.0")
+            elif _cat["count"] > 5:
+                _avg_all = sum(self.reward_history) / max(len(self.reward_history), 1) if self.reward_history else 5.0
+                _cat_avg = _cat["total_reward"] / max(_cat["count"], 1)
+                if _cat_avg < _avg_all * 0.5:
+                    breakdown.failure_penalty += 0.5
+                    explanations.append(f"⚠️ Category-overuse({cmd_prefix}): -0.5")
+        
         # 8. Failure penalty
         if not success:
             # Graduated penalty based on command type
@@ -571,6 +623,17 @@ class SmartRewardCalculator:
         self.template_usage[template_name] += 1
         self.phase_history.append(current_phase)
         self.reward_history.append(breakdown.total)
+        
+        # R78: Update per-tool-category reward tracking
+        if command:
+            _cp = command.strip().split()[0].lower()
+            if _cp:
+                _cat_stats = getattr(self, '_tool_category_stats', {})
+                if _cp not in _cat_stats:
+                    _cat_stats[_cp] = {"count": 0, "total_reward": 0.0}
+                _cat_stats[_cp]["count"] += 1
+                _cat_stats[_cp]["total_reward"] += breakdown.total
+                self._tool_category_stats = _cat_stats
         
         return breakdown
     
