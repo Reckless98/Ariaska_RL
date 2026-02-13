@@ -1468,6 +1468,7 @@ class SmartOrchestrator:
         metrics["decisions_playbook"] = source_counts["playbook"]
         metrics["decisions_registry"] = source_counts["registry"]
         metrics["decisions_anti_repeat"] = source_counts["anti_repeat"]
+        metrics["decisions_codex_meta"] = source_counts["codex_meta"]
 
         # Legacy global PPO (kept for backward compat, no-op if trajectory empty)
         if self.ppo_agent and self._ppo_trajectory:

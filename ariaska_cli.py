@@ -264,6 +264,7 @@ def run_training(
             "playbook": ep_result.get("decisions_playbook", 0),
             "registry": ep_result.get("decisions_registry", 0),
             "anti_repeat": ep_result.get("decisions_anti_repeat", 0),
+            "codex_meta": ep_result.get("decisions_codex_meta", 0),
         }
 
         ep_info = {

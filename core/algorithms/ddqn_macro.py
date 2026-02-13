@@ -404,7 +404,7 @@ class DDQNMacro:
 
         # ── R57 Layer 1: Macro persistence & stagnation detection ──
         self._macro_hold_counter: int = 0            # Steps current macro has been held
-        self._macro_min_hold: int = 3                # Minimum steps before macro switch allowed
+        self._macro_min_hold: int = 4                # R61: 3→4 min steps before macro switch allowed
         self._stagnation_counter: int = 0            # Steps in same phase without discoveries
         self._stagnation_threshold: int = 10         # Trigger stagnation override after N steps
         self._last_phase_name: Optional[str] = None  # Track phase for stagnation
@@ -818,10 +818,11 @@ def compute_macro_reward(
     else:
         reward -= 3.0  # Phase-misaligned (shouldn't happen with masking)
 
-    # ── R57: Macro switch penalty ──
+    # ── R57/R61: Macro switch penalty ──
     # Penalize frequent macro switching to encourage persistence
+    # R61: Increased from -2.0 to -3.5 to reduce oscillation (R60: 20%+ switch rate)
     if prev_macro is not None and prev_macro != macro.value:
-        reward -= 2.0  # Switch cost — encourages macro stability
+        reward -= 3.5  # Switch cost — encourages macro stability
 
     # ── Forward progression bonus ──
     if prev_phase and prev_phase != phase_name:
