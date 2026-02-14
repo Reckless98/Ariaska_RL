@@ -290,6 +290,15 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 7.2: VeniceReasoningLayer init failed: {e}")
         
+        # ─── PHASE 8: DecisionLogger — JSONL decision telemetry ──
+        self.decision_logger = None
+        try:
+            from core.tracing.jsonl_logger import DecisionLogger
+            self.decision_logger = DecisionLogger(log_dir="logs/decisions")
+            logger.info("Phase 8: DecisionLogger initialized (JSONL telemetry)")
+        except Exception as e:
+            logger.warning(f"Phase 8: DecisionLogger init failed: {e}")
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
@@ -869,6 +878,13 @@ class SmartOrchestrator:
         # ─── PHASE 7.2: Reset Venice reasoning layer per episode ─────
         if self.venice_reasoning:
             self.venice_reasoning.reset_episode()
+        
+        # ─── PHASE 8: DecisionLogger episode start ──────────────────
+        if self.decision_logger is not None:
+            try:
+                self.decision_logger.start_episode(episode_number)
+            except Exception:
+                pass
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
@@ -1643,6 +1659,19 @@ class SmartOrchestrator:
                 )
         except Exception as e:
             logger.debug(f"R66 episode summary error: {e}")
+        
+        # ─── PHASE 8: DecisionLogger episode end ────────────────────
+        if self.decision_logger is not None:
+            try:
+                self.decision_logger.end_episode(
+                    metrics={
+                        "total_reward": episode_reward,
+                        "steps": len(step_results),
+                        "highest_phase": metrics.get("highest_phase", "RECON"),
+                    },
+                )
+            except Exception:
+                pass
         
         # ─── PHASE 4: Per-Coach PPO Updates ─────────────────────────
         # Each SmartCoach has its own PPOAgent; trigger update at end of episode
@@ -2708,6 +2737,50 @@ class SmartOrchestrator:
                     self._steps_without_discoveries[result.agent_name] = (
                         self._steps_without_discoveries.get(result.agent_name, 0) + 1
                     )
+                
+                # ─── Phase 8: JSONL decision telemetry ──────────────
+                if self.decision_logger is not None:
+                    try:
+                        from core.tracing.jsonl_logger import DecisionLogEntry
+                        _coach = self.coaches.get(result.agent_name)
+                        _cog_telem = None
+                        if _coach and hasattr(_coach, '_cognition_result') and _coach._cognition_result is not None:
+                            _cog_telem = _coach._cognition_result.to_telemetry()
+                        
+                        log_entry = DecisionLogEntry(
+                            episode=self.current_episode,
+                            step=step,
+                            agent=result.agent_name,
+                            phase=(
+                                self.attack_context.current_phase.name
+                                if self.attack_context else "RECON"
+                            ),
+                            command=result.decision.command[:120] if result.decision.command else "",
+                            template_name=result.decision.template_name or "",
+                            source=result.decision.source or "unknown",
+                            confidence=result.decision.confidence,
+                            reward_total=breakdown.total if breakdown else 0.0,
+                            reward_discovery=breakdown.discovery_bonus if breakdown else 0.0,
+                            reward_progress=breakdown.progress_bonus if breakdown else 0.0,
+                            reward_novelty=breakdown.novelty_bonus if breakdown else 0.0,
+                            reward_redundancy=breakdown.redundancy_penalty if breakdown else 0.0,
+                            success=sim_success or env_reward >= 0,
+                            cognition_brain=(
+                                _cog_telem.get("winning_brain") if _cog_telem else None
+                            ),
+                            cognition_confidence=(
+                                _cog_telem.get("confidence") if _cog_telem else None
+                            ),
+                            rnd_bonus=(
+                                _cog_telem.get("rnd_bonus", 0.0) if _cog_telem else 0.0
+                            ),
+                            macro_intent=(
+                                _cog_telem.get("macro_intent") if _cog_telem else None
+                            ),
+                        )
+                        self.decision_logger.log_decision(log_entry)
+                    except Exception:
+                        pass  # Never let logging break training
         
         # ─── PHASE 8.2 Batch 16: Re-evaluate deferred discoveries ───
         # If post-shell gate is now satisfied, apply previously suppressed
@@ -4408,6 +4481,16 @@ class SmartOrchestrator:
         logger.info(f"Starting smart training: {episodes} episodes, target={target}")
         self._r66_env_tag = _env_tag
         
+        # Phase 8: Start DecisionLogger run
+        if self.decision_logger is not None:
+            try:
+                self.decision_logger.start_run(
+                    run_id=self.run_id,
+                    config={"episodes": episodes, "target": target, "env": _env_tag, "seed": _seed},
+                )
+            except Exception as e:
+                logger.debug(f"DecisionLogger start_run failed: {e}")
+        
         # R66: Set env tag + increased codex budget on coaches
         for _cn, _coach in self.coaches.items():
             if hasattr(_coach, '_r66_env_tag'):
@@ -4455,6 +4538,15 @@ class SmartOrchestrator:
             total_time=total_time,
             final_metrics=final_metrics,
         )
+        
+        # Phase 8: End DecisionLogger run
+        if self.decision_logger is not None:
+            try:
+                self.decision_logger.end_run(
+                    final_metrics={"avg_reward": final_metrics["avg_reward_recent"]},
+                )
+            except Exception:
+                pass
         
         # Return results compatible with existing training system
         return {

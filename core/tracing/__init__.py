@@ -2,6 +2,7 @@
 ARIASKA Tracing Module
 
 Provides structured JSONL logging for training runs.
+Phase 8: Added DecisionLogger for multi-brain telemetry.
 """
 
 from core.tracing.episode_trace import (
@@ -19,6 +20,11 @@ from core.tracing.episode_trace import (
     validate_evidence_refs,
     STEP_TRACE_SCHEMA,
 )
+from core.tracing.jsonl_logger import (
+    DecisionLogEntry,
+    DecisionLogger,
+    create_decision_logger,
+)
 
 __all__ = [
     "StepTrace",
@@ -34,4 +40,8 @@ __all__ = [
     "parse_event_id",
     "validate_evidence_refs",
     "STEP_TRACE_SCHEMA",
+    # Phase 8: Multi-brain decision logger
+    "DecisionLogEntry",
+    "DecisionLogger",
+    "create_decision_logger",
 ]

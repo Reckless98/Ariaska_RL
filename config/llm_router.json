@@ -29,5 +29,59 @@
     "strategic": 1500,
     "advanced": 2000,
     "postmortem": 3000
+  },
+  "codex_personas": {
+    "tactical_advisor": {
+      "description": "Immediate action queries — short horizon (1-3 steps)",
+      "model": "gpt-5.1-codex-mini",
+      "task_type": "tactical",
+      "max_tokens": 200,
+      "temperature": 0.2,
+      "cooldown_steps": 1,
+      "max_per_episode": 8
+    },
+    "strategic_planner": {
+      "description": "Long-term macro/phase sequencing (5-20 steps)",
+      "model": "gpt-5.2-codex",
+      "task_type": "strategic",
+      "max_tokens": 400,
+      "temperature": 0.3,
+      "cooldown_steps": 3,
+      "max_per_episode": 4
+    },
+    "field_researcher": {
+      "description": "Background intel on targets, CVEs, services",
+      "model": "gpt-5.1-codex-mini",
+      "task_type": "tactical",
+      "max_tokens": 300,
+      "temperature": 0.4,
+      "cooldown_steps": 2,
+      "max_per_episode": 6
+    },
+    "ventriloquist_coordinator": {
+      "description": "Cross-agent coherence and final decision fusion",
+      "model": "gpt-5.2-codex",
+      "task_type": "strategic",
+      "max_tokens": 350,
+      "temperature": 0.2,
+      "cooldown_steps": 4,
+      "max_per_episode": 3
+    }
+  },
+  "cognition_node": {
+    "description": "Multi-brain decision fusion (DDQN+PPO+SAC+RND+SIL+EMA)",
+    "macro_override_threshold": 0.70,
+    "ppo_uncertain_threshold": 0.40,
+    "rnd_novelty_high": 2.0,
+    "ema_fast_alpha": 0.15,
+    "ema_slow_alpha": 0.03,
+    "sil_threshold_pct": 0.80,
+    "sil_max_buffer": 500,
+    "initial_brain_weights": {
+      "ppo": 0.50,
+      "sac": 0.20,
+      "ddqn": 0.20,
+      "rnd": 0.10
+    }
   }
 }

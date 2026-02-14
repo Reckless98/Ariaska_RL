@@ -518,6 +518,42 @@ class SmartCoach:
 
         # ─── R68: Phase-gated PPO head override ──────────────────────
         self._r68_forced_phase_group: Optional[int] = None  # Codex can force phase head
+
+        # =====================================================================
+        # PHASE 8: COGNITION NODE — Unified multi-brain decision fusion
+        # Coordinates DDQN(macro) + PPO(micro) + SAC(explore) + RND(curiosity)
+        # + SIL(self-imitation) + EMA(critics) through a learned ConfidenceGate.
+        # =====================================================================
+        self.cognition_node = None
+        try:
+            from core.algorithms.cognition_node import CognitionNode, CognitionConfig
+            if self.ppo_agent is not None:
+                cog_config = CognitionConfig()
+                self.cognition_node = CognitionNode(
+                    config=cog_config,
+                    ppo=self.ppo_agent,
+                    sac=self.sac_agent,
+                    ddqn=self.ddqn_macro,
+                    rnd=getattr(self, '_rnd_curiosity', None),
+                    device="cpu",
+                )
+                logger.info(f"[COGNITION] {agent_name}: Multi-brain node initialized")
+        except Exception as e:
+            logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 8: CODEX PERSONA ROUTER — 4-persona Codex/Claude routing
+        # Tactical, Strategic, Researcher, Ventriloquist personas with
+        # registry-validated outputs.
+        # =====================================================================
+        self.persona_router = None
+        try:
+            from core.llm.codex_personas import CodexPersonaRouter
+            if self.gpt_manager is not None:
+                self.persona_router = CodexPersonaRouter(gpt_manager=self.gpt_manager)
+                logger.info(f"[PERSONAS] {agent_name}: 4-persona router initialized")
+        except Exception as e:
+            logger.debug(f"CodexPersonaRouter init skipped for {agent_name}: {e}")
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -1426,6 +1462,61 @@ class SmartCoach:
         elif _velocity_stall:
             _trigger_reason = f"reward velocity stall (v={self._r67_velocity:.1f})"
 
+        # ─── Phase 8: Try persona router (tactical) first ──────────
+        # Persona router has registry-validated outputs — faster and cleaner.
+        # Falls through to raw GPT prompt if persona call fails/unavailable.
+        if self.persona_router is not None:
+            try:
+                persona_result = self.persona_router.query_tactical(
+                    phase=current_phase.name,
+                    target=ctx.target,
+                    state_flags=dict(ctx.state_flags),
+                    recent_commands=recent_cmds,
+                    discoveries=discovery_board,
+                    agent_name=self.agent_name,
+                )
+                if (persona_result.success
+                        and persona_result.template_name
+                        and persona_result.template_name not in self._codex_meta_used_templates):
+                    _p_template = COMMAND_REGISTRY.get(persona_result.template_name)
+                    if _p_template is not None:
+                        params = {"target": ctx.target}
+                        for param in _p_template.required_params:
+                            if param not in params:
+                                params[param] = self._get_default_param(param, ctx)
+                        command = render_command(_p_template, params)
+                        
+                        self._codex_meta_calls_episode += 1
+                        self._codex_meta_cooldown = 2
+                        self._codex_meta_used_templates.add(persona_result.template_name)
+                        
+                        logger.info(
+                            f"[PERSONA-TACTICAL][{self.agent_name}] "
+                            f"template={persona_result.template_name} "
+                            f"trigger={_trigger_reason}"
+                        )
+                        
+                        return SmartDecisionResult(
+                            command=command,
+                            source="codex_meta",
+                            confidence=persona_result.confidence,
+                            template_name=persona_result.template_name,
+                            params=params,
+                            reasoning=(
+                                f"[PERSONA-TACTICAL] {_trigger_reason}: "
+                                f"{persona_result.reasoning[:100]}"
+                            ),
+                            mentor_call=True,
+                            model_used="persona:tactical",
+                            mentor_reasoning=(
+                                f"[PERSONA-TACTICAL] {persona_result.template_name}. "
+                                f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
+                            ),
+                            phase=current_phase,
+                        )
+            except Exception as e:
+                logger.debug(f"[PERSONA-TACTICAL] Failed, falling through to raw GPT: {e}")
+
         prompt = (
             f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
             f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
@@ -1638,6 +1729,59 @@ class SmartCoach:
         _shells = list(discovery_board.get("shells", set()))[:3]
 
         _trigger = "early_stuck" if _early_stuck else ("late_stuck" if _late_stuck else "coherence_collapse")
+
+        # ─── Phase 8: Try persona router (strategic) first ──────────
+        if self.persona_router is not None:
+            try:
+                persona_result = self.persona_router.query_strategic(
+                    phase=current_phase.name,
+                    target=ctx.target,
+                    state_flags=dict(ctx.state_flags),
+                    discoveries=discovery_board,
+                    episode_history=recent_cmds,
+                    agent_name=self.agent_name,
+                )
+                if (persona_result.success
+                        and persona_result.template_name
+                        and persona_result.template_name not in self._codex_meta_used_templates):
+                    _p_template = COMMAND_REGISTRY.get(persona_result.template_name)
+                    if _p_template is not None:
+                        params = {"target": ctx.target}
+                        for param in _p_template.required_params:
+                            if param not in params:
+                                params[param] = self._get_default_param(param, ctx)
+                        command = render_command(_p_template, params)
+                        
+                        self._codex_strategic_calls_episode += 1
+                        self._codex_strategic_cooldown = 3
+                        self._codex_meta_used_templates.add(persona_result.template_name)
+                        
+                        logger.info(
+                            f"[PERSONA-STRATEGIC][{self.agent_name}] "
+                            f"template={persona_result.template_name} "
+                            f"trigger={_trigger}"
+                        )
+                        
+                        return SmartDecisionResult(
+                            command=command,
+                            source="codex_meta",
+                            confidence=persona_result.confidence,
+                            template_name=persona_result.template_name,
+                            params=params,
+                            reasoning=(
+                                f"[PERSONA-STRATEGIC] {_trigger}: step {step_num}. "
+                                f"{persona_result.reasoning[:100]}"
+                            ),
+                            mentor_call=True,
+                            model_used="persona:strategic",
+                            mentor_reasoning=(
+                                f"[PERSONA-STRATEGIC] Plan repair → {persona_result.template_name}. "
+                                f"Call {self._codex_strategic_calls_episode}/{self._codex_strategic_max_per_episode}"
+                            ),
+                            phase=current_phase,
+                        )
+            except Exception as e:
+                logger.debug(f"[PERSONA-STRATEGIC] Failed, falling through to raw GPT: {e}")
 
         prompt = (
             f"STRATEGIC PLAN REPAIR — Episode step {step_num}, Phase: {current_phase.name}\n"
@@ -1964,7 +2108,7 @@ class SmartCoach:
         # The crossover is controlled by a dynamic mentor_lead_rate that fades
         # from 35% to 15% as PPO builds confidence (Phase 6.5 tuning).
         # 
-        # Decision priority: Skill Library → Playbook → CODEX STRATEGIC → CODEX TACTICAL → (Mentor OR PPO) → Registry
+        # Decision priority: Skill Library → Playbook → CODEX STRATEGIC → CODEX TACTICAL → CognitionNode → (Mentor OR PPO) → Registry
         
         # =====================================================================
         # R66: ENTROPY GATING — Modulate PPO exploration by coherence + macro_conf
@@ -1987,6 +2131,7 @@ class SmartCoach:
         
         # =====================================================================
         # LAYER 3: CODEX META-LAYER — Tactical + Strategic stagnation-breaking
+        # Phase 8: Uses persona router when available for typed reasoning.
         # Codex-tactical: phase-level stagnation (existing _codex_meta_check)
         # Codex-strategic: episode-level plan repair (R66 new)
         # =====================================================================
@@ -1998,6 +2143,104 @@ class SmartCoach:
             codex_meta_result = self._codex_strategic_check(
                 step_ctx, current_phase, filtered_commands
             )
+        
+        # =====================================================================
+        # PHASE 8: COGNITION NODE — Multi-brain decision fusion
+        # When CognitionNode is available, let it fuse DDQN+PPO+SAC+RND
+        # into a single action with learned confidence gating.
+        # Store the CognitionResult for later observe() in record_result().
+        # Falls through to existing pipeline if confidence is too low.
+        # =====================================================================
+        self._cognition_result = None  # Reset per-step
+        cognition_decision = None
+        if (self.cognition_node is not None
+                and codex_meta_result is None
+                and skill_result is None
+                and playbook_result is None):
+            try:
+                import torch as _torch
+                _, _, _, encode_state = _lazy_ppo()
+                if encode_state is not None:
+                    state_dict = step_ctx.state if step_ctx.state else {}
+                    state_tensor = encode_state(
+                        state_dict, _torch.device("cpu"),
+                        current_step=step_ctx.step,
+                        max_steps=250,
+                    )
+                    # Build action mask from filtered_commands
+                    if self.action_mapper is not None:
+                        action_mask = self.action_mapper.get_action_mask_with_counts(
+                            filtered_commands, max_repeats=1,
+                        )
+                        if not isinstance(action_mask, _torch.Tensor):
+                            action_mask = _torch.tensor(action_mask, dtype=_torch.bool)
+                        
+                        # Macro-constrained indices (from DDQN if available)
+                        _macro_indices = None
+                        if self._active_macro is not None and self._ddqn_confidence > 0.5:
+                            try:
+                                from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
+                                macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
+                                _macro_indices = set()
+                                for i, tmpl in enumerate(self.action_mapper.commands):
+                                    if tmpl.name in macro_cmds:
+                                        _macro_indices.add(i)
+                            except Exception:
+                                pass
+                        
+                        phase_name = current_phase.name if current_phase else "RECON"
+                        cog_result = self.cognition_node.think(
+                            state=state_tensor,
+                            action_mask=action_mask,
+                            phase=phase_name,
+                            macro_allowed_indices=_macro_indices,
+                        )
+                        self._cognition_result = cog_result
+                        
+                        # If confidence is strong enough, use the CognitionNode's action
+                        if cog_result.confidence > 0.45 and cog_result.action_idx >= 0:
+                            cmds = self.action_mapper.action_to_commands(
+                                cog_result.action_idx, step_ctx.state,
+                            )
+                            if cmds:
+                                chosen_cmd = cmds[0]
+                                # Look up template
+                                _cog_template = COMMAND_REGISTRY.get(
+                                    self.action_mapper.commands[cog_result.action_idx].name
+                                    if cog_result.action_idx < len(self.action_mapper.commands)
+                                    else ""
+                                )
+                                cognition_decision = SmartDecisionResult(
+                                    command=chosen_cmd,
+                                    source="cognition_node",
+                                    confidence=cog_result.confidence,
+                                    template_name=(
+                                        _cog_template.name if _cog_template else None
+                                    ),
+                                    params={"target": ctx.target},
+                                    reasoning=(
+                                        f"[COGNITION] brain={cog_result.winning_brain} "
+                                        f"conf={cog_result.confidence:.2f} "
+                                        f"rnd={cog_result.rnd_bonus:.2f}"
+                                    ),
+                                    phase=current_phase,
+                                )
+                                # Store PPO trajectory data from CognitionResult
+                                if cog_result.ppo_state is not None:
+                                    self._ppo_pending = {
+                                        "state": cog_result.ppo_state,
+                                        "action": cog_result.ppo_action,
+                                        "log_prob": cog_result.ppo_log_prob,
+                                        "value": cog_result.ppo_value,
+                                    }
+                                logger.debug(
+                                    f"[COGNITION][{self.agent_name}] "
+                                    f"brain={cog_result.winning_brain} "
+                                    f"action={cog_result.action_idx} "
+                                    f"conf={cog_result.confidence:.2f}"
+                                )
+            except Exception as e:
+                logger.debug(f"[COGNITION][{self.agent_name}] think() failed: {e}")
         
         if skill_result is not None:
             result = skill_result
@@ -2020,6 +2263,9 @@ class SmartCoach:
                     except Exception:
                         pass
                 self._ppo_pending = None
+        elif cognition_decision is not None:
+            # PHASE 8: CognitionNode fused a confident action from multi-brain
+            result = cognition_decision
         else:
             # Phase 6.5: Compute dynamic mentor_lead_rate
             # Starts at 35%, decays to 15% over ~50 episodes.
@@ -2264,7 +2510,7 @@ class SmartCoach:
         # Non-PPO decisions (playbook, registry, mentor, skill) still go through
         # the anti-repeat guard as before.
         # =========================================================================
-        ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta") and is_valid_role)
+        ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta", "cognition_node") and is_valid_role)
         
         # =========================================================================
         # PHASE 6.1: FAMILY-BASED ANTI-REPEAT WITH GRADED PENALTIES
@@ -2477,6 +2723,10 @@ class SmartCoach:
             "ppo_bypass": ppo_bypass,
             "mentor_engaged": should_call_gpt,
             "mentor_tier": mentor_engagement.tier.value if mentor_engagement else None,
+            "cognition_brain": (
+                self._cognition_result.winning_brain
+                if self._cognition_result else None
+            ),
         }
 
         # Record decision
@@ -4796,6 +5046,19 @@ class SmartCoach:
                 self._ddqn_pending = None
                 self._ddqn_prev_macro = None  # R57 Layer 1
                 self._last_step_had_discovery = False  # R57 Layer 1
+            
+            # Phase 8: CognitionNode end-of-episode metrics + SAC update
+            if self.cognition_node is not None:
+                try:
+                    cog_metrics = self.cognition_node.end_episode()
+                    logger.info(
+                        f"[COGNITION][{self.agent_name}] Episode end: "
+                        f"wins={cog_metrics.get('brain_wins', {})} "
+                        f"rnd_total={cog_metrics.get('total_rnd_bonus', 0):.1f} "
+                        f"sil_buf={cog_metrics.get('sil_buffer_size', 0)}"
+                    )
+                except Exception as e:
+                    logger.debug(f"CognitionNode end_episode failed: {e}")
     
     def _decide_with_mentor(
         self,
@@ -5299,6 +5562,33 @@ class SmartCoach:
                 logger.debug(f"[DDQN][{self.agent_name}] Transition store failed: {e}")
             self._ddqn_pending = None
         
+        # ─── PHASE 8: CognitionNode observe — update all sub-brains ───
+        if self.cognition_node is not None and self._cognition_result is not None:
+            try:
+                import torch as _torch
+                _, _, _, encode_state = _lazy_ppo()
+                if encode_state is not None:
+                    next_state_dict = {
+                        "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
+                    }
+                    next_state = encode_state(next_state_dict, _torch.device("cpu"))
+                    self.cognition_node.observe(
+                        cognition_result=self._cognition_result,
+                        reward=breakdown.total,
+                        next_state=next_state,
+                        done=done,
+                    )
+            except Exception as e:
+                logger.debug(f"[COGNITION][{self.agent_name}] observe() failed: {e}")
+            self._cognition_result = None
+        
+        # ─── PHASE 8: Tick persona cooldowns ───
+        if self.persona_router is not None:
+            try:
+                self.persona_router.tick_cooldowns()
+            except Exception:
+                pass
+        
         return breakdown
     
     # =====================================================================
@@ -5438,6 +5728,19 @@ class SmartCoach:
         # When SSH consistently fails (key exchange, connection closed),
         # we skip sshpass alternatives in anti-repeat pool
         self._ssh_failures_this_episode: int = 0
+        
+        # Phase 8: Reset CognitionNode + PersonaRouter per episode
+        self._cognition_result = None
+        if self.cognition_node is not None:
+            try:
+                self.cognition_node.reset_episode()
+            except Exception:
+                pass
+        if self.persona_router is not None:
+            try:
+                self.persona_router.reset_episode()
+            except Exception:
+                pass
         
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode
