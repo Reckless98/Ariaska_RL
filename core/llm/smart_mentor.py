@@ -969,7 +969,7 @@ class DualMentor:
         gpt_client: Any,
         venice_client: Optional[Any] = None,
         gpt_model: str = "gpt-5.1-codex-mini",
-        venice_model: str = "venice-uncensored",
+        venice_model: str = "zai-org-glm-4.7-flash",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
         temperature: float = 0.7,
@@ -982,7 +982,7 @@ class DualMentor:
             gpt_client: OpenAI client for GPT
             venice_client: OpenAI-compatible client for Venice
             gpt_model: GPT model to use
-            venice_model: Venice model to use
+            venice_model: Venice model to use (default: zai-org-glm-4.7-flash)
             learned_store: Store for learned commands
             strategy: Mentor selection strategy
             temperature: Sampling temperature
@@ -1283,7 +1283,7 @@ def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
     gpt_model: str = "gpt-5.1-codex-mini",
-    venice_model: str = "venice-uncensored",
+    venice_model: str = "zai-org-glm-4.7-flash",
     strategy: str = "gpt_first",
     temperature: float = 0.7
 ) -> DualMentor:

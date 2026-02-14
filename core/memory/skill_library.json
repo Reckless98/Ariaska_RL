@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1770897396.4747288,
-  "skill_count": 92,
+  "last_updated": 1771098640.0524266,
+  "skill_count": 93,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1292,6 +1292,24 @@
         "ep001_step10"
       ],
       "created_at": 1770897396.4719877,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_enum": {
+      "id": "skill_http_enum",
+      "if_condition": "When HTTP/HTTPS port responds with service banner",
+      "then_action": "Execute directory brute-force and gather server headers",
+      "parameters_template": {
+        "port": 80,
+        "tool": "dirsearch",
+        "options": "--recursive"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771098640.0455294,
       "usage_count": 0,
       "success_rate": 0.0
     }

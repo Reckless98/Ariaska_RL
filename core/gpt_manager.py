@@ -199,6 +199,8 @@ class GPTManager:
         "gpt-5.2": 0.01000,
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
+        # Venice AI models (input: $0.13/M, output: $0.50/M → blended ~$0.315/M)
+        "zai-org-glm-4.7-flash": 0.000315,
     }
     
     def __init__(self, enable_llm: bool = None, require_llm: bool = None, 
@@ -237,7 +239,7 @@ class GPTManager:
         self.venice_base_url = "https://api.venice.ai/api/v1"
         self._venice_client = None  # Lazy-initialized Venice sync client
         self._venice_async_client = None  # Lazy-initialized Venice async client
-        self.venice_model = os.getenv("VENICE_MODEL", "venice-uncensored")
+        self.venice_model = os.getenv("VENICE_MODEL", "zai-org-glm-4.7-flash")
         
         # Dual-mentor strategy settings
         self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
@@ -270,9 +272,9 @@ class GPTManager:
             "tokens_used": 0
         }
         
-        # Token budgeting - per episode and per agent
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "8000"))
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "2500"))
+        # Token budgeting - per episode and per agent (Phase 7: increased for codex reasoning)
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "25000"))
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "8000"))
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None

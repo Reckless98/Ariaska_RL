@@ -55,6 +55,8 @@ _ppo_agent_cls = None
 _ppo_config_cls = None
 _mapper_cls = None
 _encode_state_fn = None
+_sac_agent_cls = None
+_sac_config_cls = None
 
 
 def _lazy_ppo():
@@ -72,6 +74,19 @@ def _lazy_ppo():
         except ImportError as e:
             logger.warning(f"PPO/mapper not available: {e}")
     return _ppo_agent_cls, _ppo_config_cls, _mapper_cls, _encode_state_fn
+
+
+def _lazy_sac():
+    """Lazy-load SAC to avoid import loops."""
+    global _sac_agent_cls, _sac_config_cls
+    if _sac_agent_cls is None:
+        try:
+            from core.algorithms.sac_agent import SACAgent as _sa, SACConfig as _sc
+            _sac_agent_cls = _sa
+            _sac_config_cls = _sc
+        except ImportError as e:
+            logger.warning(f"SAC not available: {e}")
+    return _sac_agent_cls, _sac_config_cls
 
 
 @dataclass
@@ -422,6 +437,35 @@ class SmartCoach:
                     )
         except Exception as e:
             logger.warning(f"PPO init failed for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 7.0: SAC Agent (Soft Actor-Critic) — Entropy-regularized RL
+        # SAC provides better exploration via entropy bonus (MaxEnt RL).
+        # Runs ALONGSIDE PPO — SAC handles exploration-heavy phases,
+        # PPO handles exploitation phases. Off-policy = sample efficient.
+        # =====================================================================
+        self.sac_agent = None
+        self._sac_enabled = True  # Feature flag
+        try:
+            from core.algorithms.sac_agent import SACAgent, SACConfig
+            if self._sac_enabled and self.action_mapper and self.action_mapper.action_dim > 0:
+                sac_config = SACConfig(
+                    state_dim=512,
+                    action_dim=self.action_mapper.action_dim,
+                    hidden_dims=[256, 256, 128],
+                    actor_lr=3e-4,
+                    critic_lr=3e-4,
+                    alpha=0.2,           # Initial entropy temperature
+                    auto_alpha=True,     # Auto-tune for optimal exploration
+                    buffer_size=50000,
+                    batch_size=64,
+                    min_buffer_size=64,
+                    warmup_steps=50,
+                )
+                self.sac_agent = SACAgent(config=sac_config)
+                logger.info(f"[SAC] {agent_name}: action_dim={self.action_mapper.action_dim} α=0.2 (auto)")
+        except Exception as e:
+            logger.debug(f"SAC init skipped for {agent_name}: {e}")
 
         # =====================================================================
         # PHASE 9.0: DDQN Macro-Intent Selector (Hierarchical RL)

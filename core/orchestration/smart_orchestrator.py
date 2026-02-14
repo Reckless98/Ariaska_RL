@@ -276,6 +276,20 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 6.3: OrionPostmortem init failed: {e}")
         
+        # ─── PHASE 7.2: Venice Reasoning Layer — humanlike output analysis ──
+        self.venice_reasoning = None
+        try:
+            from core.llm.venice_reasoning import VeniceReasoningLayer
+            self.venice_reasoning = VeniceReasoningLayer(
+                gpt_manager=gpt_manager,
+                call_budget_per_episode=15,
+                min_output_length=30,
+                enable_cross_episode_memory=True,
+            )
+            logger.info("Phase 7.2: VeniceReasoningLayer initialized (zai-org-glm-4.7-flash)")
+        except Exception as e:
+            logger.warning(f"Phase 7.2: VeniceReasoningLayer init failed: {e}")
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
@@ -851,6 +865,10 @@ class SmartOrchestrator:
             self.watchdog.reset_episode()
         if self.smart_parser:
             self.smart_parser.reset_episode()
+        
+        # ─── PHASE 7.2: Reset Venice reasoning layer per episode ─────
+        if self.venice_reasoning:
+            self.venice_reasoning.reset_episode()
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
@@ -2202,6 +2220,40 @@ class SmartOrchestrator:
             
             # Parse discoveries from this agent's output
             agent_discoveries = self._parse_output_for_discoveries(output_to_parse, command=result.decision.command or "")
+            
+            # ─────────────────────────────────────────────────────────────
+            # PHASE 7.2: VENICE REASONING LAYER — humanlike output analysis
+            # Runs AFTER regex parser, enhances with LLM-extracted insights.
+            # Venice finds discoveries regex missed + generates "aha" moments.
+            # ─────────────────────────────────────────────────────────────
+            if self.venice_reasoning and self.venice_reasoning.can_analyze():
+                try:
+                    venice_insight = self.venice_reasoning.analyze_output(
+                        command=result.decision.command or "",
+                        output=output_to_parse,
+                        phase=self.attack_context.current_phase.name if self.attack_context else "RECON",
+                        known_discoveries={
+                            k: list(v) if isinstance(v, set) else v
+                            for k, v in self.discovery_board.items()
+                        },
+                    )
+                    # Merge Venice-discovered items into agent_discoveries
+                    if venice_insight.has_discoveries:
+                        if not agent_discoveries:
+                            agent_discoveries = {}
+                        for port in venice_insight.discovered_ports:
+                            agent_discoveries.setdefault("ports", []).append(str(port))
+                        for svc in venice_insight.discovered_services:
+                            agent_discoveries.setdefault("services", []).append(svc)
+                        for cred in venice_insight.discovered_credentials:
+                            agent_discoveries.setdefault("credentials", []).append(cred)
+                        for user in venice_insight.discovered_users:
+                            agent_discoveries.setdefault("users", []).append(user)
+                    # Store aha context on the decision for downstream use
+                    if venice_insight.has_aha:
+                        result.decision.reasoning += f" | 💡 Venice: {venice_insight.top_aha.insight[:80]}"
+                except Exception as e:
+                    logger.debug(f"Venice reasoning failed for {result.agent_name}: {e}")
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 6.5: COMMAND-BASED SHELL DETECTION
