@@ -566,6 +566,22 @@ class SmartOrchestrator:
         # ─── R66: Scan Exposure Randomizer ───────────────────────────
         self.scan_randomizer = None  # Initialized per-run with seed
         
+        # ─── Phase 9.7: Telemetry JSONL Logger ──────────────────────
+        self._telemetry_logger = None
+        try:
+            from core.feature_flags import get_feature_flags
+            if get_feature_flags().jsonl_telemetry:
+                from core.telemetry.jsonl_logger import JSONLLogger
+                self._telemetry_logger = JSONLLogger(
+                    run_id="",  # set per-run in run_training()
+                    output_dir="logs/telemetry",
+                    buffer_size=50,
+                    enabled=True,
+                )
+                logger.info("Phase 9.7: Telemetry JSONL logger initialized")
+        except Exception as e:
+            logger.debug(f"Phase 9.7: Telemetry logger init skipped: {e}")
+
         # ─── R66: JSONL RunLogger ────────────────────────────────────
         self.run_logger = None  # Initialized per-run with tag
         
@@ -2146,6 +2162,38 @@ class SmartOrchestrator:
         if self.smart_parser:
             metrics["smart_parser"] = self.smart_parser.get_stats()
         
+        # ─── Phase 9.7: Emit EpisodeEvent telemetry ─────────────────
+        if self._telemetry_logger is not None:
+            try:
+                from core.telemetry.events import EpisodeEvent
+                _parse_stats = {}
+                if self._parse_cache:
+                    _parse_stats = self._parse_cache.get_stats().__dict__ if hasattr(self._parse_cache.get_stats(), '__dict__') else {}
+                ep_ev = EpisodeEvent(
+                    run_id=self.run_id or "",
+                    episode_id=episode_number,
+                    total_steps=len(step_results),
+                    total_reward=episode_reward,
+                    final_phase=highest_phase,
+                    closeout=highest_phase in ("CLOSEOUT", "EXFILTRATION"),
+                    termination=self.episode_termination_reason.name,
+                    unique_commands=metrics.get("unique_commands", 0),
+                    diversity_ratio=metrics.get("diversity_ratio", 0.0),
+                    total_discoveries=metrics.get("total_discoveries", 0),
+                    total_parse_calls=_parse_stats.get("total_calls", 0),
+                    total_parse_cache_hits=_parse_stats.get("hits", 0),
+                    total_ddqn_calls=metrics.get("ddqn_macros", 0),
+                    total_ddqn_cached=0,
+                    anti_repeat_pct=(
+                        source_counts.get("anti_repeat", 0) * 100.0
+                        / max(sum(source_counts.values()), 1)
+                    ),
+                    source_distribution=source_counts,
+                )
+                self._telemetry_logger.log_episode(ep_ev)
+            except Exception:
+                pass  # Never let telemetry break training
+        
         return metrics
     
     # =========================================================================
@@ -3088,6 +3136,63 @@ class SmartOrchestrator:
                         )
                     except Exception:
                         pass
+                
+                # ─── Phase 9.7: Emit StepEvent telemetry ─────────────
+                if self._telemetry_logger is not None:
+                    try:
+                        from core.telemetry.events import StepEvent, AntiRepeatRecord
+                        _ar = AntiRepeatRecord(
+                            triggered=(result.decision.source == "anti_repeat"),
+                            count=getattr(result.decision, 'anti_repeat_count', 0),
+                            action="replace" if result.decision.source == "anti_repeat" else "none",
+                        )
+                        _disc_list = []
+                        if deduped_discoveries:
+                            for dk, dv in deduped_discoveries.items():
+                                if isinstance(dv, list):
+                                    for item in dv:
+                                        _disc_list.append({"type": dk, "value": str(item)})
+                                elif isinstance(dv, bool) and dv:
+                                    _disc_list.append({"type": dk, "value": "true"})
+                        _rb = {}
+                        if breakdown:
+                            _rb = {
+                                "total": round(breakdown.total, 2),
+                                "progress": round(breakdown.progress_bonus, 2),
+                                "discovery": round(breakdown.discovery_bonus, 2),
+                                "novelty": round(breakdown.novelty_bonus, 2),
+                                "redundancy": round(breakdown.redundancy_penalty, 2),
+                            }
+                        _ddqn_sel = 0
+                        _ddqn_cached = 0
+                        _ddqn_eps = 0.0
+                        _coach = self.coaches.get(result.agent_name)
+                        if _coach and hasattr(_coach, 'ddqn_macro') and _coach.ddqn_macro:
+                            _ddqn_sel = getattr(_coach.ddqn_macro, '_select_call_count', 0)
+                            _ddqn_cached = getattr(_coach.ddqn_macro, '_cached_call_count', 0)
+                            _ddqn_eps = getattr(_coach.ddqn_macro, 'epsilon', 0.0)
+                        step_ev = StepEvent(
+                            run_id=self.run_id or "",
+                            episode_id=self.current_episode,
+                            agent=result.agent_name,
+                            step=step,
+                            phase=_step_phase,
+                            selected_template=result.decision.template_name or "",
+                            selected_command=(result.decision.command or "")[:200],
+                            source=result.decision.source or "unknown",
+                            confidence=result.decision.confidence,
+                            discoveries=_disc_list,
+                            discovery_count=len(_disc_list),
+                            reward_breakdown=_rb,
+                            reward_total=breakdown.total if breakdown else 0.0,
+                            anti_repeat=_ar,
+                            ddqn_select_calls=_ddqn_sel,
+                            ddqn_cached_calls=_ddqn_cached,
+                            ddqn_epsilon=_ddqn_eps,
+                        )
+                        self._telemetry_logger.log_step(step_ev)
+                    except Exception:
+                        pass  # Never let telemetry break training
         
         # ─── PHASE 8.2 Batch 16: Re-evaluate deferred discoveries ───
         # If post-shell gate is now satisfied, apply previously suppressed
@@ -4936,6 +5041,12 @@ class SmartOrchestrator:
         self.run_id = f"smart_{uuid.uuid4().hex[:8]}"
         self.total_episodes = episodes
         self.start_time = time.time()
+        
+        # Phase 9.7: Update telemetry logger run_id
+        if self._telemetry_logger is not None:
+            self._telemetry_logger.run_id = self.run_id
+            self._telemetry_logger.close()  # close old file if any
+            self._telemetry_logger._open()  # reopen with new run_id
         
         # Set up dashboard
         self.dashboard.set_run_info(self.run_id, episodes)
