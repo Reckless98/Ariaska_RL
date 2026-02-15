@@ -274,6 +274,15 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 6.3: SmartOutputParser init failed: {e}")
         
+        # ─── Phase 9.5: StepParseCache — dedup parse calls per step ──
+        self._parse_cache = None
+        try:
+            from core.execution.step_parse_cache import StepParseCache
+            self._parse_cache = StepParseCache()
+            logger.info("Phase 9.5: StepParseCache initialized")
+        except Exception as e:
+            logger.debug(f"Phase 9.5: StepParseCache init skipped: {e}")
+        
         # ─── PHASE 7.1: OrionPostmortem — uses gpt-5.2-codex for deep analysis ──
         self.postmortem = None
         try:
@@ -428,6 +437,7 @@ class SmartOrchestrator:
         
         # Episode tracking
         self.current_episode = 0
+        self._current_episode_id = 0  # Phase 9.5: for parse cache keying
         self.current_step = 0
         self.total_episodes = 0
         self.run_id: Optional[str] = None
@@ -914,6 +924,8 @@ class SmartOrchestrator:
         """
         max_steps = max_steps or self.config.max_steps_per_episode
         self.current_episode = episode_number
+        # Phase 9.5: Track episode_id for parse cache keying
+        self._current_episode_id = episode_number
         
         # Reset token budgets
         if self.gpt_manager:
@@ -968,6 +980,9 @@ class SmartOrchestrator:
             self.watchdog.reset_episode()
         if self.smart_parser:
             self.smart_parser.reset_episode()
+        # Phase 9.5: Reset parse cache per episode
+        if self._parse_cache:
+            self._parse_cache.reset_episode()
         
         # ─── PHASE 7.2: Reset Venice reasoning layer per episode ─────
         if self.venice_reasoning:
@@ -1183,7 +1198,11 @@ class SmartOrchestrator:
                 agent_disc = {}
                 if cmd_output:
                     try:
-                        parsed = self._parse_output_for_discoveries(cmd_output, command=result.decision.command or "")
+                        parsed = self._parse_output_for_discoveries(
+                            cmd_output, command=result.decision.command or "",
+                            episode_id=self._current_episode_id,
+                            step_idx=step, agent_id=result.agent_name,
+                        )
                         if parsed:
                             agent_disc = parsed  # dict of {type: [items]}
                     except Exception:
@@ -2466,7 +2485,11 @@ class SmartOrchestrator:
             output_to_parse = result.decision.command_output or ""
             
             # Parse discoveries from this agent's output
-            agent_discoveries = self._parse_output_for_discoveries(output_to_parse, command=result.decision.command or "")
+            agent_discoveries = self._parse_output_for_discoveries(
+                output_to_parse, command=result.decision.command or "",
+                episode_id=self._current_episode_id,
+                step_idx=step, agent_id=result.agent_name,
+            )
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 7.2: VENICE REASONING LAYER — humanlike output analysis
@@ -3101,7 +3124,11 @@ class SmartOrchestrator:
                     agent_name=result.agent_name,
                     command=result.decision.command,
                     command_family=extract_command_family(result.decision.command),
-                    discoveries=self._parse_output_for_discoveries(result.decision.command_output or "", command=result.decision.command or ""),
+                    discoveries=self._parse_output_for_discoveries(
+                        result.decision.command_output or "", command=result.decision.command or "",
+                        episode_id=self._current_episode_id,
+                        step_idx=step, agent_id=result.agent_name,
+                    ),
                     is_live_mode=self._is_live_mode,
                     target_ip=self.config.default_target,
                 )
@@ -3198,7 +3225,10 @@ class SmartOrchestrator:
             if "last_command" in state:
                 ctx.command_history.append(state["last_command"])
     
-    def _parse_output_for_discoveries(self, output: str, command: str = "") -> Dict[str, Any]:
+    def _parse_output_for_discoveries(
+        self, output: str, command: str = "",
+        episode_id: int = 0, step_idx: int = 0, agent_id: str = "",
+    ) -> Dict[str, Any]:
         """Parse command output for new discoveries - rewards good simulated actions.
 
         Phase 5: Expanded with subdomain, dns_record, web_parameter,
@@ -3208,11 +3238,24 @@ class SmartOrchestrator:
         Phase 9.4: SmartOutputParser (regex + nano-LLM) is tried first.
         Falls back to inline regex if SmartOutputParser is unavailable or
         returns no results.
+        Phase 9.5: StepParseCache dedup — if the same output was already parsed
+        this step, returns cached result (avoids triple nano-LLM cost).
         """
         discoveries = {}
         
         if not output or (output.startswith("[SIM]") and len(output) < 30):
             return discoveries
+        
+        # ── Phase 9.5: Check parse cache before parsing ──────────────
+        if self._parse_cache is not None and agent_id:
+            try:
+                from core.feature_flags import get_feature_flags
+                if get_feature_flags().single_parse_cache:
+                    cached = self._parse_cache.get(episode_id, step_idx, agent_id, output)
+                    if cached is not None:
+                        return cached
+            except ImportError:
+                pass
         
         # ── Phase 9.4: SmartOutputParser two-stage pipeline ──────────
         # Try the structured parser first (OutputParser regex + LLM fallback).
@@ -3230,6 +3273,9 @@ class SmartOrchestrator:
                         f"[SMART-PARSER] Found {len(smart_result)} discovery types "
                         f"for '{command[:40]}'"
                     )
+                    # Phase 9.5: Cache before returning
+                    if self._parse_cache is not None and agent_id:
+                        self._parse_cache.put(episode_id, step_idx, agent_id, output, smart_result)
                     return smart_result
             except Exception as e:
                 logger.debug(f"[SMART-PARSER] Error: {e}")
@@ -3641,6 +3687,10 @@ class SmartOrchestrator:
                 discoveries["artifacts_removed"] = True
                 discoveries["closeout_completed"] = True
                 break
+        
+        # Phase 9.5: Cache regex fallback result
+        if self._parse_cache is not None and agent_id:
+            self._parse_cache.put(episode_id, step_idx, agent_id, output, discoveries)
         
         return discoveries
     

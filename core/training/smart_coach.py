@@ -2174,9 +2174,12 @@ class SmartCoach:
                     phase_name = current_phase.name if current_phase else "RECON"
                     # R57 Layer 1: Pass discovery signal for stagnation detection
                     _had_disc = getattr(self, '_last_step_had_discovery', False)
+                    # Phase 9.5: Pass step_id for per-step dedup (prevents double epsilon decay)
+                    _step_id = step_ctx.step if step_ctx else None
                     macro, q_values, confidence = self.ddqn_macro.select_macro(
                         state_tensor, phase_name,
                         had_discovery=_had_disc,
+                        step_id=_step_id,
                     )
                     self._active_macro = macro
                     self._active_macro_q = q_values
@@ -2287,6 +2290,7 @@ class SmartCoach:
                             action_mask=action_mask,
                             phase=phase_name,
                             macro_allowed_indices=_macro_indices,
+                            step_id=step_ctx.step if step_ctx else None,  # Phase 9.5: dedup
                         )
                         self._cognition_result = cog_result
                         
@@ -2764,6 +2768,40 @@ class SmartCoach:
         
         # Store repeat penalty for reward calculation
         result._repeat_penalty = repeat_penalty
+
+        # =====================================================================
+        # Phase 9.5: PPO REWARD ATTRIBUTION FIX
+        # If a PPO-sourced command was replaced by anti-repeat, the original
+        # PPO trajectory must be finalized with a penalty (-3.0) and cleared.
+        # Otherwise the replacement command's reward gets misattributed to the
+        # original PPO log_prob, teaching PPO the wrong signal.
+        # Controlled by FF_PPO_REWARD_ATTRIBUTION_FIX.
+        # =====================================================================
+        if (result.source not in ("ppo", "cognition_node")
+                and self._ppo_pending is not None
+                and not ppo_bypass):
+            try:
+                from core.feature_flags import get_feature_flags
+                if get_feature_flags().ppo_reward_attribution_fix:
+                    if self.ppo_agent is not None:
+                        try:
+                            self.ppo_agent.store_transition(
+                                state=self._ppo_pending["state"],
+                                action=self._ppo_pending["action"],
+                                log_prob=self._ppo_pending["log_prob"],
+                                reward=-3.0,  # Penalty: PPO's choice was overridden
+                                value=self._ppo_pending["value"],
+                                done=False,
+                            )
+                            logger.debug(
+                                f"[PPO-ATTRIB-FIX][{self.agent_name}] Stored -3.0 penalty "
+                                f"for replaced PPO action, clearing _ppo_pending"
+                            )
+                        except Exception:
+                            pass
+                    self._ppo_pending = None
+            except ImportError:
+                pass
 
         # =====================================================================
         # PHASE 7.1: SMART REASONING CHECK (codex-mini)
