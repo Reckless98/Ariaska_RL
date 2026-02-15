@@ -1,0 +1,15 @@
+{
+  "machine": {
+    "machine_name": "Bashed",
+    "target_ip": "10.129.236.215",
+    "description": "",
+    "vulnerabilities": [],
+    "tools": [],
+    "techniques": [],
+    "os": "windows",
+    "cves": []
+  },
+  "sections": [],
+  "total_commands": 0,
+  "extracted_at": "2026-02-15T17:13:31.949208+00:00"
+}

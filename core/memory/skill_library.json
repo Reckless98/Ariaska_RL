@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "last_updated": 1771176464.9495978,
+  "last_updated": 1771188867.4082491,
   "skill_count": 105,
   "skills": {
     "skill_001": {
@@ -1297,21 +1297,21 @@
     },
     "skill_http_enum": {
       "id": "skill_http_enum",
-      "if_condition": "When port 80/443 responds and default headers detected",
-      "then_action": "Execute directory brute-force and enumerate HTTP methods",
+      "if_condition": "When port 80/443 responds with web service",
+      "then_action": "Execute gobuster with common directories + nikto for web-level vulnerabilities",
       "parameters_template": {
         "ports": [
           80,
           443
         ],
-        "wordlist": "common_dirs.txt"
+        "wordlist": "/usr/share/wordlists/common.txt"
       },
-      "confidence": 0.81,
+      "confidence": 0.82,
       "evidence_refs": [
-        "ep001_step05",
-        "ep001_step06"
+        "ep001_step02",
+        "ep001_step05"
       ],
-      "created_at": 1771174330.5414119,
+      "created_at": 1771188867.4059436,
       "usage_count": 0,
       "success_rate": 0.0
     },

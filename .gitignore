@@ -51,6 +51,7 @@ core/memories/
 chroma_data/
 runs/
 data/knowledge_repos/
+data/htb_walkthroughs/
 data/memmap_store/
 data/lmdb_store/
 
@@ -70,11 +71,5 @@ data/lmdb_store/
 # Temporary files
 *~
 .DS_Store
-data/knowledge_candidates_v2/
-data/knowledge_quarantine_v2.jsonl
-data/corpus_audit_report_*.json
-data/corpus_manifest_v2.json
-data/htb_extractions/
-data/knowledge_indices/
 data/knowledge_sources_cache/
 data/knowledge_repos_snapshots/

@@ -1,0 +1,115 @@
+{
+  "run_id": "run_20260215_203407_3f3b60",
+  "timestamp": 1771184063.522,
+  "key_outcomes": {
+    "wins": [
+      "Agent completed all brute-force recon actions without crashing, demonstrating stable interaction with environment (single episode reward 57.50).",
+      "Mentor prompts successfully guided the agent through initial enumeration phases, indicating responsiveness to instruction."
+    ],
+    "fails": [
+      "No successful exploit achieved resulting in zero percent success rate despite completing reconnaissance, highlighting failure to transition to exploitation.",
+      "High mentor dependency (15 calls) suggests insufficient autonomous decision-making for mid-to-late stage actions."
+    ],
+    "summary": "Agent excels in early-stage enumeration but repeatedly stalls before exploitation, relying heavily on mentor input; needs better progression strategy to convert recon data into successful breach steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent establishes recon but fails to chain results into exploitation, repeatedly stopping without executing final payload.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum_01",
+      "if_condition": "When port 22 is open and service banner identifies SSH",
+      "then_action": "Run targeted nmap ssh* enumeration scripts and capture version details",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey,ssh2-enum-algos"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771184070.968922,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_prio_map_01",
+      "if_condition": "When common service ports 22/80/443 are identified with open status",
+      "then_action": "Assign exploitation priority based on CVE prevalence and start vulnerability scan",
+      "parameters_template": {
+        "ports": [
+          22,
+          80,
+          443
+        ],
+        "scan_tool": "nmap_vuln"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step20"
+      ],
+      "created_at": 1771184070.968947,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_payload_transition_01",
+      "if_condition": "When reconnaissance completes without immediate exploit, and exploitable CVEs are flagged",
+      "then_action": "Switch to payload phase by selecting exploit module matching flagged CVE and execute",
+      "parameters_template": {
+        "cve_id": "TBD",
+        "exploit_module": "multi/ssh/..."
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step25",
+        "ep001_step29"
+      ],
+      "created_at": 1771184070.9689639,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum_01",
+      "skill_card_id": "skill_ssh_enum_01",
+      "reason": "High consistency in enumeration actions during guided phases."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_service_prio_map_01",
+      "skill_card_id": "skill_service_prio_map_01",
+      "reason": "Shows promise in prioritizing next steps after identifying services."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous Exploit Transition",
+      "description": "Enable agent to select and execute an exploit module immediately after detecting a CVE-matched service, reducing mentor dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Payload Verification Feedback Loop",
+      "description": "Implement a verification step that ensures the selected payload delivers expected response to confirm exploitation onset.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor Prompt Minimization",
+      "description": "Introduce internal checklist prompting agent to attempt self-directed next action before requesting mentor help.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

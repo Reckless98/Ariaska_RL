@@ -1,0 +1,17 @@
+{
+  "machine": {
+    "machine_name": "Valentine",
+    "target_ip": "10.129.236.216",
+    "description": "",
+    "vulnerabilities": [],
+    "tools": [],
+    "techniques": [],
+    "os": "windows",
+    "cves": [
+      "CVE-2014-0160"
+    ]
+  },
+  "sections": [],
+  "total_commands": 0,
+  "extracted_at": "2026-02-15T17:13:31.970028+00:00"
+}

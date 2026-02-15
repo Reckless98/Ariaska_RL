@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260215_204140_72bdf2",
+  "timestamp": 1771184521.668652,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a high total reward (57.50) in the single episode, indicating some tactical gains despite no full success.",
+      "Successfully executed multiple reconnaissance actions, evidenced by mentor call counts and reward accumulation before critical failure."
+    ],
+    "fails": [
+      "Episode ended without achieving success criteria, suggesting breakdown during exploitation or post-exploitation phase.",
+      "High number of mentor calls (15) indicates reliance on external guidance, pointing to gaps in autonomous decision-making."
+    ],
+    "summary": "Training run yielded strong early reconnaissance performance but failed to transition into successful exploitation, necessitating refinement of later-stage tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to pivot from reconnaissance to exploitation after identifying initial target services, leading to episode termination without capture.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an open Port 80/443 is identified during initial scan",
+      "then_action": "Run targeted HTTP/HTTPS enumeration with nikto and gobuster to map available routes",
+      "parameters_template": {
+        "port": "80,443",
+        "tools": [
+          "nikto",
+          "gobuster"
+        ],
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step9"
+      ],
+      "created_at": 1771184528.418924,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When service banner indicates outdated SSH version after port scan",
+      "then_action": "Execute SSH brute force enumerations with hydra using the identified banner context",
+      "parameters_template": {
+        "username_list": "/opt/userlists/common.txt",
+        "password_list": "/opt/passlists/rockyou.txt",
+        "threads": 4
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771184528.4189413,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When foothold is established but privilege escalation remains unconfirmed",
+      "then_action": "Collect sudoers, SUID binaries, and kernel version before attempting escalation scripts",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "find / -perm -4000 -type f 2>/dev/null",
+          "uname -a"
+        ],
+        "timeout_sec": 120
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step16"
+      ],
+      "created_at": 1771184528.4189541,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent success in reconnaissance phase led to reward accrual, making it a reliable early-stage tactic."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Despite overall failure, privilege escalation preparation appeared structured and warrants reinforcement."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Regimented Exploitation Phase",
+      "description": "After successful reconnaissance, immediately branch into scripted exploitation paths (e.g., known CVEs or weak SSH credentials) to close the loop before timeout.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce Mentor Dependence",
+      "description": "Build decision trees for common escalation scenarios so the agent can autonomously choose the next tool without calling mentors.",
+      "priority": "medium"
+    },
+    {
+      "title": "Tune Reward Shaping",
+      "description": "Adjust reward function to heavily favor completing exploitation and post-exploitation objectives to encourage full-cycle success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

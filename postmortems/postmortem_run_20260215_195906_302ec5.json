@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260215_195906_302ec5",
+  "timestamp": 1771181976.1315958,
+  "key_outcomes": {
+    "wins": [
+      "Consistently enumerated exposed SMB and HTTP targets, collecting application banners and valid host fingerprints across initial reconnaissance phases.",
+      "Achieved measurable reward through thorough service identification that supplied actionable context for follow-on exploitation planning.",
+      "Maintained structured command sequences allowing quick recovery from mentor guidance and preserving situational awareness."
+    ],
+    "fails": [
+      "Failed to escalate privileges despite valid SMB share listings, likely due to missing credential harvesting prior to exploitation attempts.",
+      "Never completed primary mission objective, as post-identification lateral movement strategies were not executed before episode end."
+    ],
+    "summary": "Reconnaissance was strong with reliable enumeration, but execution halted before privilege escalation, leaving objectives unmet."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempts to exploit SMB share permissions proceeded without harvested credentials or valid hashes, causing repeated denial responses.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22",
+        "ep001_step28",
+        "ep001_step35"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 445 and 139 are open on a Windows target with SMB banner detected",
+      "then_action": "Enumerate shares, pull banner data, and collect NTLM hashes using smbclient and impacket scripts",
+      "parameters_template": {
+        "port": 445,
+        "tools": [
+          "smbclient -L",
+          "impacket-secretsdump"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step09",
+        "ep001_step15"
+      ],
+      "created_at": 1771181982.4381073,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP 80/443 responds with login form or API version metadata",
+      "then_action": "Launch directory and parameter fuzzing with customized wordlist and capture cookies for later reuse",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "common_dirs.txt",
+        "cookie_capture": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step11"
+      ],
+      "created_at": 1771181982.4381266,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port is open and authentication fails repeatedly",
+      "then_action": "Capture server banner, note target fingerprint, and switch to low-noise username enumeration with ssh-user-enum",
+      "parameters_template": {
+        "port": 22,
+        "username_list": "svc_accounts.txt",
+        "rate_limit": "5/s"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step20"
+      ],
+      "created_at": 1771181982.4381409,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward correlation with SMB enumeration success suggests this template is critical during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting follow-up experiment",
+      "description": "After SMB share enumeration, immediately trigger NTLM hash capture and reuse in pass-the-hash attempt before escalation window closes.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated HTTP session chaining",
+      "description": "Persist cookies from banner grabbing phase and feed them into authenticated fuzzing to expose hidden API endpoints.",
+      "priority": "medium"
+    },
+    {
+      "title": "Staged SSH username enumeration",
+      "description": "Implement timed, low-noise SSH user enumeration to collect valid usernames prior to brute forcing credentials.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

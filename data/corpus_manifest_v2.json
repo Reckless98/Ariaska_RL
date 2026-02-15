@@ -1,0 +1,200 @@
+{
+  "manifest_version": "2.0",
+  "schema_version": "2.0.0",
+  "generated_at": "2026-02-15T17:11:13.643759+00:00",
+  "corpus_directory": "/home/zer0/Projects/Ariaska_RL/data/knowledge_candidates_v2",
+  "total_candidates": 117864,
+  "total_template_mappable": 84828,
+  "total_size_bytes": 223942809,
+  "total_size_mb": 213.57,
+  "partitions": {
+    "binaries": {
+      "file": "binaries.jsonl",
+      "size_bytes": 1110701,
+      "size_mb": 1.06,
+      "candidates": 679,
+      "template_mappable": 97,
+      "mappable_pct": 14.3
+    },
+    "cheatsheets": {
+      "file": "cheatsheets.jsonl",
+      "size_bytes": 311427,
+      "size_mb": 0.3,
+      "candidates": 150,
+      "template_mappable": 150,
+      "mappable_pct": 100.0
+    },
+    "cloud": {
+      "file": "cloud.jsonl",
+      "size_bytes": 6087328,
+      "size_mb": 5.81,
+      "candidates": 2066,
+      "template_mappable": 1694,
+      "mappable_pct": 82.0
+    },
+    "commands": {
+      "file": "commands.jsonl",
+      "size_bytes": 53176542,
+      "size_mb": 50.71,
+      "candidates": 26616,
+      "template_mappable": 18313,
+      "mappable_pct": 68.8
+    },
+    "ctf": {
+      "file": "ctf.jsonl",
+      "size_bytes": 24722,
+      "size_mb": 0.02,
+      "candidates": 9,
+      "template_mappable": 8,
+      "mappable_pct": 88.9
+    },
+    "cves": {
+      "file": "cves.jsonl",
+      "size_bytes": 54267851,
+      "size_mb": 51.75,
+      "candidates": 30513,
+      "template_mappable": 13689,
+      "mappable_pct": 44.9
+    },
+    "exploitdb": {
+      "file": "exploitdb.jsonl",
+      "size_bytes": 85247672,
+      "size_mb": 81.3,
+      "candidates": 46963,
+      "template_mappable": 46963,
+      "mappable_pct": 100.0
+    },
+    "kill_chains": {
+      "file": "kill_chains.jsonl",
+      "size_bytes": 961658,
+      "size_mb": 0.92,
+      "candidates": 322,
+      "template_mappable": 321,
+      "mappable_pct": 99.7
+    },
+    "methodology": {
+      "file": "methodology.jsonl",
+      "size_bytes": 4544873,
+      "size_mb": 4.33,
+      "candidates": 1762,
+      "template_mappable": 1277,
+      "mappable_pct": 72.5
+    },
+    "payloads": {
+      "file": "payloads.jsonl",
+      "size_bytes": 300337,
+      "size_mb": 0.29,
+      "candidates": 172,
+      "template_mappable": 24,
+      "mappable_pct": 14.0
+    },
+    "privesc_checks": {
+      "file": "privesc_checks.jsonl",
+      "size_bytes": 416433,
+      "size_mb": 0.4,
+      "candidates": 177,
+      "template_mappable": 116,
+      "mappable_pct": 65.5
+    },
+    "privesc_linux": {
+      "file": "privesc_linux.jsonl",
+      "size_bytes": 938726,
+      "size_mb": 0.9,
+      "candidates": 285,
+      "template_mappable": 229,
+      "mappable_pct": 80.4
+    },
+    "privesc_windows": {
+      "file": "privesc_windows.jsonl",
+      "size_bytes": 476050,
+      "size_mb": 0.45,
+      "candidates": 139,
+      "template_mappable": 99,
+      "mappable_pct": 71.2
+    },
+    "services": {
+      "file": "services.jsonl",
+      "size_bytes": 913689,
+      "size_mb": 0.87,
+      "candidates": 317,
+      "template_mappable": 189,
+      "mappable_pct": 59.6
+    },
+    "techniques": {
+      "file": "techniques.jsonl",
+      "size_bytes": 3967968,
+      "size_mb": 3.78,
+      "candidates": 1420,
+      "template_mappable": 1024,
+      "mappable_pct": 72.1
+    },
+    "wadcoms": {
+      "file": "wadcoms.jsonl",
+      "size_bytes": 1420108,
+      "size_mb": 1.35,
+      "candidates": 427,
+      "template_mappable": 380,
+      "mappable_pct": 89.0
+    },
+    "wordlists": {
+      "file": "wordlists.jsonl",
+      "size_bytes": 9776724,
+      "size_mb": 9.32,
+      "candidates": 5847,
+      "template_mappable": 255,
+      "mappable_pct": 4.4
+    }
+  },
+  "origins": {
+    "exploitdb": 46963,
+    "cve": 30513,
+    "commands": 26616,
+    "wordlists": 5847,
+    "cloud": 2066,
+    "methodology": 1762,
+    "atomic-red-team": 1420,
+    "binaries": 679,
+    "wadcoms": 427,
+    "kill_chains": 322,
+    "services": 317,
+    "privesc_linux": 285,
+    "privesc_checks": 177,
+    "payloads": 172,
+    "cheatsheets": 150,
+    "privesc_windows": 139,
+    "ctf": 9
+  },
+  "registry_templates_referenced": 206,
+  "top_templates": {
+    "searchsploit": 35834,
+    "revshell_bash": 19844,
+    "nc_exfil": 19841,
+    "windows_exploit_suggester": 9792,
+    "msfconsole_auto": 9630,
+    "msfconsole_exploit": 9630,
+    "cme_exec_command": 8105,
+    "hydra_ftp": 2364,
+    "ftp_anonymous": 2161,
+    "find_capabilities": 1887,
+    "find_sgid": 1887,
+    "find_suid": 1887,
+    "find_writable_etc": 1887,
+    "hydra_http_form": 1779,
+    "kernel_exploit_check": 1763,
+    "xxe_file_read": 1373,
+    "cmd_inject_blind_sleep": 1244,
+    "ssh_audit": 918,
+    "ssh_key_login": 918,
+    "ssh_lateral": 918,
+    "ssh_login": 918,
+    "nmap_service_version": 824,
+    "sudo_check": 811,
+    "sudo_list": 811,
+    "dig_any": 793,
+    "dig_axfr": 793,
+    "docker_sock_escape": 744,
+    "docker_privesc": 739,
+    "nmap_vuln_scan": 696,
+    "curl_exfil": 626
+  }
+}

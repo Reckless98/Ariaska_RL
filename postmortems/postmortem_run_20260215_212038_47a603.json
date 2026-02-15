@@ -1,0 +1,121 @@
+{
+  "run_id": "run_20260215_212038_47a603",
+  "timestamp": 1771186859.3966765,
+  "key_outcomes": {
+    "wins": [
+      "Consistently completed initial reconnaissance with full port sweep and service identification within time budget",
+      "Maintained session stability, allowing repeated follow-through on enumeration steps"
+    ],
+    "fails": [
+      "Unable to achieve exploitation due to failure in credential validation and privilege escalation",
+      "No successful completion of objective despite high reward, indicating possible reward function misalignment"
+    ],
+    "summary": "Reconnaissance phase executed reliably, but exploitation and success criteria remain unmet; focus on credential handling and privilege maneuvering."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts fail because gathered credentials do not match target service hashes",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration using nmap scripts and banner grabbing",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh-hostkey",
+          "ssh-auth-methods"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771186867.2749708,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_enum",
+      "if_condition": "When unknown service identified on medium-privileged port",
+      "then_action": "Run aggressive service enumeration with version detection and vulnerability check",
+      "parameters_template": {
+        "ports": [
+          8080,
+          8443
+        ],
+        "flags": [
+          "-sV",
+          "--version-light"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771186867.2749875,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_credential_validation",
+      "if_condition": "When credentials sourced from reconnaissance are available",
+      "then_action": "Validate credentials against target service using brute-forced login attempts with delays",
+      "parameters_template": {
+        "userlist": [
+          "admin",
+          "user"
+        ],
+        "pwlist": [
+          "Passw0rd!",
+          "Admin123"
+        ],
+        "delay": 2
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step16"
+      ],
+      "created_at": 1771186867.2749996,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success in capturing SSH details for follow-up steps"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_service_enum",
+      "skill_card_id": "skill_service_enum",
+      "reason": "Reliable service fingerprinting enabled consistent reward accumulation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Targeted credential validation follow-through",
+      "description": "Automate cross-validation of discovered credentials against service-specific login mechanisms before escalation attempts",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation chaining",
+      "description": "Design experiment combining enumeration output with exploit payload selection to close privilege gap",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

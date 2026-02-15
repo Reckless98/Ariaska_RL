@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260215_195803_806256",
+  "timestamp": 1771181906.2656946,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance pace, gathering service banners on all exposed hosts within first 10 steps (ep001_step05)",
+      "Collected usable credential candidates from observed HTTP basic auth prompts and default SSH keys (ep001_step12)"
+    ],
+    "fails": [
+      "Failed to escalate privileges after gaining initial foothold, leaving critical objectives incomplete (ep001_step18)",
+      "Did not achieve mission-level success despite completing reconnaissance tasks, resulting in 0% success rate"
+    ],
+    "summary": "Reconnaissance and credential gathering executed methodically, but inability to pivot beyond initial access prevented mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stalled on limited-path utilities without leveraging local sudo permissions",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step17",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771181914.0600562,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_creds",
+      "if_condition": "When HTTP service responds with basic auth challenge",
+      "then_action": "Attempt common credential list and collect any default banners for further exploitation",
+      "parameters_template": {
+        "service": "http",
+        "mode": "basic-auth",
+        "credential_list": "default_creds_top50"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771181914.0600724,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_osint_enum",
+      "if_condition": "When web application exposes directories or metadata",
+      "then_action": "Capture directory listing and pivot to potential config files for sensitive data",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "common_dirs",
+        "extensions": [
+          "json",
+          "bak"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771181914.0600846,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High utility in initial reconnaissance created consistent evidence of services"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege escalation via sudo misconfigurations",
+      "description": "Enumerate sudo rights after initial access and test commands permitted without password to achieve higher privileges",
+      "priority": "high"
+    },
+    {
+      "title": "Post-auth automated lateral movement",
+      "description": "Use harvested credentials to script SSH ingestion across adjacent hosts and validate persistence strategy",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential reuse validation",
+      "description": "Expand credential list to include service-specific defaults and check reuse across exposed services detected earlier",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

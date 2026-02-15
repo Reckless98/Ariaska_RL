@@ -1,0 +1,584 @@
+{
+  "audit_version": "2.0",
+  "generated_at": "2026-02-15T17:11:13.655778+00:00",
+  "corpus_directory": "/home/zer0/Projects/Ariaska_RL/data/knowledge_candidates_v2",
+  "summary": {
+    "total_candidates": 117864,
+    "total_template_mappable": 84828,
+    "mappable_pct": 72.0,
+    "total_size_bytes": 223942809,
+    "total_size_mb": 213.57,
+    "partitions": 17,
+    "avg_confidence": 0.593,
+    "avg_risk": 0.653,
+    "avg_evidence_coverage": 0.421,
+    "avg_prereq_coverage": 0.381,
+    "duplicate_ids": 5633,
+    "quality_issues": 1
+  },
+  "distributions": {
+    "origins": {
+      "exploitdb": 46963,
+      "cve": 30513,
+      "commands": 26616,
+      "wordlists": 5847,
+      "cloud": 2066,
+      "methodology": 1762,
+      "atomic-red-team": 1420,
+      "binaries": 679,
+      "wadcoms": 427,
+      "kill_chains": 322,
+      "services": 317,
+      "privesc_linux": 285,
+      "privesc_checks": 177,
+      "payloads": 172,
+      "cheatsheets": 150,
+      "privesc_windows": 139,
+      "ctf": 9
+    },
+    "phases": {
+      "EXPLOITATION": 100619,
+      "ENUMERATION": 25278,
+      "RECON": 8817,
+      "PRIVILEGE_ESCALATION": 8125,
+      "EXFILTRATION": 4718,
+      "POST_EXPLOITATION": 3732,
+      "LATERAL_MOVEMENT": 1738,
+      "GENERAL": 11
+    },
+    "killchain_steps": {
+      "foothold": 87881,
+      "recon": 27448,
+      "privesc": 1820,
+      "exfil": 445,
+      "persist": 135,
+      "lateral": 135
+    },
+    "service_archetypes": {
+      "general": 102329,
+      "http": 8347,
+      "database": 1320,
+      "ftp": 1182,
+      "smb": 778,
+      "dns": 745,
+      "ssh": 711,
+      "ldap": 504,
+      "mail": 463,
+      "kerberos": 278,
+      "rpc": 262,
+      "rdp": 164,
+      "snmp": 154,
+      "irc": 123,
+      "tcp": 120,
+      "vnc": 60,
+      "nfs": 55,
+      "winrm": 44,
+      "java-rmi": 31,
+      "readme": 17
+    },
+    "vuln_families": {
+      "unknown": 90532,
+      "buffer-overflow": 8998,
+      "rce": 6707,
+      "authentication-bypass": 3941,
+      "privilege-escalation": 1680,
+      "file-upload": 1592,
+      "sql-injection": 1453,
+      "xss": 1079,
+      "credential-theft": 732,
+      "backdoor": 294,
+      "xxe": 234,
+      "ssrf": 224,
+      "info-disclosure": 166,
+      "lfi": 101,
+      "deserialization": 52,
+      "ssti": 51,
+      "misconfiguration": 27,
+      "rfi": 1
+    },
+    "exploit_archetypes": {
+      "known-exploit": 78422,
+      "manual": 36572,
+      "web-exploit": 1281,
+      "brute-force": 847,
+      "misconfig-exploit": 279,
+      "service-exploit": 217,
+      "credential-reuse": 132,
+      "default-credentials": 94,
+      "command-injection": 12,
+      "kernel-exploit": 8
+    },
+    "tags": {
+      "web": 52947,
+      "persist": 8949,
+      "privesc": 5336,
+      "cloud": 5210,
+      "ad": 2369,
+      "database": 1575,
+      "binary": 1532,
+      "crypto": 1450,
+      "container": 1374,
+      "ftp": 1219,
+      "smb": 790,
+      "ssh": 760,
+      "wireless": 399,
+      "linux": 285,
+      "social": 155,
+      "windows": 139,
+      "0": 128,
+      "cve-2012-1199": 38,
+      "cve-2006-5911": 38,
+      "cve-2008-6543": 36,
+      "cve-2007-0182": 28,
+      "cve-2006-4985": 22,
+      "cve-2014-6271": 21,
+      "cve-2006-4889": 21,
+      "cve-2006-5190": 17,
+      "readme": 17,
+      "cve-2007-0900": 16,
+      "cve-2004-1925": 16,
+      "cve-2014-7196": 15,
+      "cve-2014-7169": 15
+    },
+    "platform_os": {
+      "windows": 71756,
+      "linux": 57482,
+      "php": 22206,
+      "multiple": 3360,
+      "hardware": 2188,
+      "asp": 1549,
+      "cgi": 795,
+      "macos": 630,
+      "unix": 332,
+      "android": 330,
+      "ios": 326,
+      "java": 313,
+      "osx": 310,
+      "jsp": 290,
+      "windows_x86": 219,
+      "solaris": 211,
+      "windows_x86-64": 137,
+      "esxi": 118,
+      "iaas": 108,
+      "network devices": 100,
+      "bsd": 93,
+      "pre": 92,
+      "aix": 87,
+      "freebsd": 83,
+      "none": 82,
+      "office suite": 79,
+      "saas": 71,
+      "xml": 67,
+      "python": 64,
+      "containers": 61,
+      "irix": 59,
+      "cfm": 58,
+      "aspx": 55,
+      "identity provider": 50,
+      "hp-ux": 42,
+      "sco": 40,
+      "novell": 39,
+      "linux_x86-64": 35,
+      "ruby": 31,
+      "openbsd": 26,
+      "linux_x86": 22,
+      "json": 21,
+      "netware": 16,
+      "iaas:aws": 15,
+      "perl": 11,
+      "azure-ad": 11,
+      "qnx": 10,
+      "iaas:azure": 10,
+      "go": 9,
+      "nodejs": 9,
+      "netbsd_x86": 7,
+      "tru64": 7,
+      "office-365": 6,
+      "ashx": 5,
+      "freebsd_x86-64": 5,
+      "linux_mips": 5,
+      "palm_os": 5,
+      "typescript": 5,
+      "iaas:gcp": 5,
+      "arm": 4,
+      "beos": 4,
+      "watchos": 4,
+      "freebsd_x86": 3,
+      "unixware": 3,
+      "office 365": 3,
+      "immunix": 2,
+      "lua": 2,
+      "minix": 2,
+      "solaris_sparc": 2,
+      "ultrix": 2,
+      "alpha": 1,
+      "atheos": 1,
+      "bsd_x86": 1,
+      "linux_sparc": 1,
+      "osx_ppc": 1,
+      "plan9": 1,
+      "solaris_x86": 1,
+      "vxworks": 1,
+      "google-workspace": 1
+    }
+  },
+  "template_coverage": {
+    "unique_templates_referenced": 206,
+    "top_30_templates": {
+      "searchsploit": 35834,
+      "revshell_bash": 19844,
+      "nc_exfil": 19841,
+      "windows_exploit_suggester": 9792,
+      "msfconsole_auto": 9630,
+      "msfconsole_exploit": 9630,
+      "cme_exec_command": 8105,
+      "hydra_ftp": 2364,
+      "ftp_anonymous": 2161,
+      "find_capabilities": 1887,
+      "find_sgid": 1887,
+      "find_suid": 1887,
+      "find_writable_etc": 1887,
+      "hydra_http_form": 1779,
+      "kernel_exploit_check": 1763,
+      "xxe_file_read": 1373,
+      "cmd_inject_blind_sleep": 1244,
+      "ssh_audit": 918,
+      "ssh_key_login": 918,
+      "ssh_lateral": 918,
+      "ssh_login": 918,
+      "nmap_service_version": 824,
+      "sudo_check": 811,
+      "sudo_list": 811,
+      "dig_any": 793,
+      "dig_axfr": 793,
+      "docker_sock_escape": 744,
+      "docker_privesc": 739,
+      "nmap_vuln_scan": 696,
+      "curl_exfil": 626
+    }
+  },
+  "partitions": {
+    "binaries": {
+      "file": "binaries.jsonl",
+      "size_bytes": 1110701,
+      "size_mb": 1.06,
+      "candidates": 679,
+      "template_mappable": 97,
+      "mappable_pct": 14.3
+    },
+    "cheatsheets": {
+      "file": "cheatsheets.jsonl",
+      "size_bytes": 311427,
+      "size_mb": 0.3,
+      "candidates": 150,
+      "template_mappable": 150,
+      "mappable_pct": 100.0
+    },
+    "cloud": {
+      "file": "cloud.jsonl",
+      "size_bytes": 6087328,
+      "size_mb": 5.81,
+      "candidates": 2066,
+      "template_mappable": 1694,
+      "mappable_pct": 82.0
+    },
+    "commands": {
+      "file": "commands.jsonl",
+      "size_bytes": 53176542,
+      "size_mb": 50.71,
+      "candidates": 26616,
+      "template_mappable": 18313,
+      "mappable_pct": 68.8
+    },
+    "ctf": {
+      "file": "ctf.jsonl",
+      "size_bytes": 24722,
+      "size_mb": 0.02,
+      "candidates": 9,
+      "template_mappable": 8,
+      "mappable_pct": 88.9
+    },
+    "cves": {
+      "file": "cves.jsonl",
+      "size_bytes": 54267851,
+      "size_mb": 51.75,
+      "candidates": 30513,
+      "template_mappable": 13689,
+      "mappable_pct": 44.9
+    },
+    "exploitdb": {
+      "file": "exploitdb.jsonl",
+      "size_bytes": 85247672,
+      "size_mb": 81.3,
+      "candidates": 46963,
+      "template_mappable": 46963,
+      "mappable_pct": 100.0
+    },
+    "kill_chains": {
+      "file": "kill_chains.jsonl",
+      "size_bytes": 961658,
+      "size_mb": 0.92,
+      "candidates": 322,
+      "template_mappable": 321,
+      "mappable_pct": 99.7
+    },
+    "methodology": {
+      "file": "methodology.jsonl",
+      "size_bytes": 4544873,
+      "size_mb": 4.33,
+      "candidates": 1762,
+      "template_mappable": 1277,
+      "mappable_pct": 72.5
+    },
+    "payloads": {
+      "file": "payloads.jsonl",
+      "size_bytes": 300337,
+      "size_mb": 0.29,
+      "candidates": 172,
+      "template_mappable": 24,
+      "mappable_pct": 14.0
+    },
+    "privesc_checks": {
+      "file": "privesc_checks.jsonl",
+      "size_bytes": 416433,
+      "size_mb": 0.4,
+      "candidates": 177,
+      "template_mappable": 116,
+      "mappable_pct": 65.5
+    },
+    "privesc_linux": {
+      "file": "privesc_linux.jsonl",
+      "size_bytes": 938726,
+      "size_mb": 0.9,
+      "candidates": 285,
+      "template_mappable": 229,
+      "mappable_pct": 80.4
+    },
+    "privesc_windows": {
+      "file": "privesc_windows.jsonl",
+      "size_bytes": 476050,
+      "size_mb": 0.45,
+      "candidates": 139,
+      "template_mappable": 99,
+      "mappable_pct": 71.2
+    },
+    "services": {
+      "file": "services.jsonl",
+      "size_bytes": 913689,
+      "size_mb": 0.87,
+      "candidates": 317,
+      "template_mappable": 189,
+      "mappable_pct": 59.6
+    },
+    "techniques": {
+      "file": "techniques.jsonl",
+      "size_bytes": 3967968,
+      "size_mb": 3.78,
+      "candidates": 1420,
+      "template_mappable": 1024,
+      "mappable_pct": 72.1
+    },
+    "wadcoms": {
+      "file": "wadcoms.jsonl",
+      "size_bytes": 1420108,
+      "size_mb": 1.35,
+      "candidates": 427,
+      "template_mappable": 380,
+      "mappable_pct": 89.0
+    },
+    "wordlists": {
+      "file": "wordlists.jsonl",
+      "size_bytes": 9776724,
+      "size_mb": 9.32,
+      "candidates": 5847,
+      "template_mappable": 255,
+      "mappable_pct": 4.4
+    }
+  },
+  "sample_candidates": [
+    {
+      "partition": "binaries",
+      "candidate_id": "73f2765518806237",
+      "title": "7z",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "binaries",
+      "candidate_id": "e496c0c5522e986d",
+      "title": "R",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "binaries",
+      "candidate_id": "79804ac1d5170178",
+      "title": "aa-exec",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "cheatsheets",
+      "candidate_id": "3584aa39c75f225f",
+      "title": "Win7Blue",
+      "templates": [
+        "nc_exfil",
+        "revshell_bash"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cheatsheets",
+      "candidate_id": "9a4edf7134b1b2a2",
+      "title": "README",
+      "templates": [
+        "cme_exec_command",
+        "nc_exfil",
+        "revshell_bash"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cheatsheets",
+      "candidate_id": "77d76c28cd078519",
+      "title": "assembly basics",
+      "templates": [
+        "nc_exfil",
+        "revshell_bash"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cloud",
+      "candidate_id": "51e1e37a3f2c70ba",
+      "title": "Why is this useful?",
+      "templates": [
+        "bloodhound_python",
+        "nc_exfil",
+        "revshell_bash"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cloud",
+      "candidate_id": "611bc874feaf0ab4",
+      "title": "Execute against the target instance",
+      "templates": [
+        "hydra_http_form",
+        "nc_exfil",
+        "revshell_bash"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cloud",
+      "candidate_id": "53d27cbcc9a9be24",
+      "title": "BloodHound Transformation",
+      "templates": [
+        "bloodhound_python",
+        "hydra_http_form",
+        "nc_exfil"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "commands",
+      "candidate_id": "f0ac9530041751ca",
+      "title": "Command: git - ### Run HackTricks Locally",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "commands",
+      "candidate_id": "54229fd68d2b7624",
+      "title": "Command: export - ### Run HackTricks Locally",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "commands",
+      "candidate_id": "6af86809cf1d22ef",
+      "title": "Command: docker - ### Run HackTricks Locally",
+      "templates": [
+        "docker_privesc",
+        "docker_sock_escape",
+        "remove_known_hosts"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "ctf",
+      "candidate_id": "8dd7e5b154a545ff",
+      "title": "README",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "ctf",
+      "candidate_id": "8dd7e5b154a545ff",
+      "title": "README",
+      "templates": [
+        "hydra_http_form"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "ctf",
+      "candidate_id": "8dd7e5b154a545ff",
+      "title": "README",
+      "templates": [
+        "hydra_http_form"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cves",
+      "candidate_id": "d70fcfc77356dd03",
+      "title": "CVE-2009-3699: aix",
+      "templates": [
+        "msfconsole_auto",
+        "msfconsole_exploit"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "cves",
+      "candidate_id": "c3c2dcc56dd0364e",
+      "title": "CVE-1999-1015: aix",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "cves",
+      "candidate_id": "6816e127676ca693",
+      "title": "CVE-2003-0087: aix",
+      "templates": [],
+      "template_mappable": false
+    },
+    {
+      "partition": "exploitdb",
+      "candidate_id": "d10e01260ab24c1d",
+      "title": "EDB-16929: AIX Calendar Manager Service Daemon (rpc.cmsd) Opcode 21 - B",
+      "templates": [
+        "msfconsole_auto",
+        "msfconsole_exploit"
+      ],
+      "template_mappable": true
+    },
+    {
+      "partition": "exploitdb",
+      "candidate_id": "c19614e3a9702c27",
+      "title": "EDB-19046: AppleShare IP Mail Server 5.0.3 - Buffer Overflow",
+      "templates": [
+        "searchsploit"
+      ],
+      "template_mappable": true
+    }
+  ],
+  "quality_issues": [
+    {
+      "issue": "5633 duplicate candidate_ids found",
+      "count": 5633
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260215_203436_9a2e2d",
+  "timestamp": 1771184095.2574623,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable operational pacing with full reward capture across the single episode, demonstrating consistent response execution.",
+      "Actively engaged mentor support when uncertain, ensuring training data captured the decision points tied to failed success criteria."
+    ],
+    "fails": [
+      "Unable to complete the core objective; every action ended without success despite positive reward accumulation, indicating misalignment between actions and completion criteria.",
+      "Triggered 10 mentor calls, highlighting repeated uncertainty around objective confirmation and lacked follow-through on remediation steps."
+    ],
+    "summary": "The run showed disciplined action sequencing but repeatedly missed the success gate, necessitating targeted refinements in objective verification and remediation actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective validation was never executed, so despite performing reconnaissance, no completion flag was raised and mentor intervention was required.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a critical service port is detected open but no subsequent validation has run",
+      "then_action": "Execute targeted objective verification scripts (e.g., service health check or flag verification)",
+      "parameters_template": {
+        "port": 8080,
+        "script": "objective-verify"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771184102.8283646,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed three within an episode and no objective completion is logged",
+      "then_action": "Prioritize remediation by reviewing pending validation tasks and flagging the most likely success step",
+      "parameters_template": {
+        "threshold_calls": 3,
+        "action": "review-validation"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step16",
+        "ep001_step20"
+      ],
+      "created_at": 1771184102.8283815,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is high but success status remains false",
+      "then_action": "Reconcile action history against success criteria checklist and enforce mandatory verification task",
+      "parameters_template": {
+        "checklist": [
+          "Objective flag inspected",
+          "Service verification executed"
+        ]
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step25"
+      ],
+      "created_at": 1771184102.8283932,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High relevance in closing the gap between reconnaissance and objective completion"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Effective in identifying reward-success mismatches for corrective action"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Verification Run",
+      "description": "Integrate an explicit step to verify core objective completion immediately after reconnaissance and treat success flag as mandatory.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Threshold Automation",
+      "description": "Implement automated review once mentor calls exceed three, forcing a re-evaluation of pending verification tasks before continuing.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reward vs Success Alignment Audit",
+      "description": "Run a checkpoint that compares cumulative reward against success state in real time, triggering fallback if misaligned.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

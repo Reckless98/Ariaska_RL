@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260215_210606_2580f2",
+  "timestamp": 1771185975.651686,
+  "key_outcomes": {
+    "wins": [
+      "Achieved consistent reward accumulation through scripted interactions, demonstrating stability in action execution.",
+      "Maintained disciplined mentor engagement with 10 mentor calls, ensuring alignment with guidance protocols."
+    ],
+    "fails": [
+      "No episodes succeeded despite full reward accumulation, indicating failure to satisfy defined victory conditions.",
+      "Zero success rate suggests gaps in strategic decision-making or path execution that prevented mission completion."
+    ],
+    "summary": "Training run demonstrated operational consistency but failed to translate into mission success; strategic adjustments are required to convert deterministic actions into goal achievement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to reach success condition despite accumulating reward, indicating missing end-state check or transition action.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step15",
+        "ep001_step20",
+        "ep001_step25",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771185981.0666103,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When target hosts respond to ICMP and service ports are filtered",
+      "then_action": "Execute TCP SYN scan to map filtered ports and follow-up with traceroute",
+      "parameters_template": {
+        "scan_type": "SYN",
+        "ports": "1-1024",
+        "traceroute": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step2",
+        "ep001_step4"
+      ],
+      "created_at": 1771185981.0666254,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials are missing for observed services",
+      "then_action": "Schedule automated brute-force attempts with custom wordlists and adaptive rate limiting",
+      "parameters_template": {
+        "service": "ftp",
+        "wordlist": "custom_common",
+        "rate_limit": "adaptive"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1771185981.0666358,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent port mapping enabled insight into postures"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate victory condition checkpoints",
+      "description": "Insert explicit validations after high-reward actions to confirm mission success criteria are met before ending episodes.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive post-recon strategy",
+      "description": "Following SSH and TCP scans, trigger escalation steps (e.g., targeted exploitation or lateral movement) rather than stopping post-recon.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential fallback workflow",
+      "description": "Implement secondary authentication attempts with curated wordlists after initial brute-force failures to increase service access chances.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

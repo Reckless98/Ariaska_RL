@@ -1,0 +1,19 @@
+{
+  "machine": {
+    "machine_name": "Analytics",
+    "target_ip": "10.129.229.224",
+    "description": "",
+    "vulnerabilities": [],
+    "tools": [],
+    "techniques": [],
+    "os": "windows",
+    "cves": [
+      "CVE-2023-38646",
+      "CVE-2023-32629",
+      "CVE-2023-2640"
+    ]
+  },
+  "sections": [],
+  "total_commands": 0,
+  "extracted_at": "2026-02-15T17:13:31.946819+00:00"
+}

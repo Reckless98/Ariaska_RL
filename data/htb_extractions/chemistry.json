@@ -1,0 +1,103 @@
+{
+  "machine": {
+    "machine_name": "Chemistry",
+    "target_ip": "10.10.10.245",
+    "description": "",
+    "vulnerabilities": [],
+    "tools": [],
+    "techniques": [],
+    "os": "windows",
+    "cves": []
+  },
+  "sections": [
+    {
+      "title": "Task 0 - Deploy machine",
+      "content": "\n🎯 Target IP: `10.10.10.245`\n\nCreate a directory on the Desktop with the machine's name, and inside this directory, create another directory to store the materials and outputs needed to run the machine, including the scans made with nmap.\n",
+      "commands": []
+    },
+    {
+      "title": "Task 1 - Reconnaissance",
+      "content": "\n<pre class=\"language-bash\"><code class=\"lang-bash\">su\n<strong>echo \"10.10.10.245 cap.htb\" >> /etc/hosts\n</strong>\nmkdir -p htb/cap.htb\ncd htb/cap.htb\nmkdir {nmap,content,exploits,scripts}\n# At the end of the room\n# To clean up the last line from the /etc/hosts file\n<strong>sed -i '$ d' /etc/hosts\n</strong></code></pre>\n\nI prefer to start recon by pinging the target, this allows us to check connectivity and get OS info.\n\n```bash\nping -c 3 cap.htb\nPING cap.htb (10.10.10.245) 56(84) bytes of data.\n64 bytes from cap.htb (10.10.10.245): icmp_seq=6 ttl=63 time=77.8 ms\n64 bytes from cap.htb (10.10.10.245): icmp_seq=9 ttl=63 time=80.1 ms\n64 bytes from cap.htb (10.10.10.245): icmp_seq=11 ttl=63 time=51.5 ms\n```\n\nSending these three ICMP packets, we see that the Time To Live (TTL) is \\~64 secs. this indicates that the target should be a **\\*nix** system, while Windows systems usually have a TTL of 128 secs.\n\n### 1.1 - How many TCP ports are open?\n\nLet's start right away with an active port scan",
+      "commands": [
+        "ping -c 3 cap.htb",
+        "PING cap.htb (10.10.10.245) 56(84) bytes of data.",
+        "64 bytes from cap.htb (10.10.10.245): icmp_seq=6 ttl=63 time=77.8 ms",
+        "64 bytes from cap.htb (10.10.10.245): icmp_seq=9 ttl=63 time=80.1 ms",
+        "64 bytes from cap.htb (10.10.10.245): icmp_seq=11 ttl=63 time=51.5 ms",
+        "sudo nmap -p0- -sS -Pn -T4 -vvv cap.htb -oN nmap/tcp_port_scan",
+        "21/tcp open  ftp     syn-ack ttl 63",
+        "22/tcp open  ssh     syn-ack ttl 63",
+        "80/tcp open  http    syn-ack ttl 63",
+        "sudo nmap -sV -sC -p 21,22,80 cap.htb -oN nmap/service_port_scan",
+        "21/tcp open  ftp     vsftpd 3.0.3",
+        "22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.2 (Ubuntu Linux; protocol 2.0)",
+        "80/tcp open  http    gunicorn",
+        "1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :",
+        "SF-Port80-TCP:V=7.94SVN%I=7%D=1/2%Time=67767B84%P=x86_64-pc-linux-gnu%r(Ge",
+        "SF:tRequest,1FBC,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20gunicorn\\r\\nDate:\\x",
+        "SF:20Thu,\\x2002\\x20Jan\\x202025\\x2011:42:21\\x20GMT\\r\\nConnection:\\x20close\\",
+        "SF:r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x201",
+        "SF:9386\\r\\n\\r\\n<!DOCTYPE\\x20html>\\n<html\\x20class=\\\"no-js\\\"\\x20lang=\\\"en\\\"",
+        "SF:>\\n\\n<head>\\n\\x20\\x20\\x20\\x20<meta\\x20charset=\\\"utf-8\\\">\\n\\x20\\x20\\x20\\",
+        "SF:x20<meta\\x20http-equiv=\\\"x-ua-compatible\\\"\\x20content=\\\"ie=edge\\\">\\n\\x2",
+        "SF:0\\x20\\x20\\x20<title>Security\\x20Dashboard</title>\\n\\x20\\x20\\x20\\x20<met",
+        "SF:a\\x20name=\\\"viewport\\\"\\x20content=\\\"width=device-width,\\x20initial-scal",
+        "SF:e=1\\\">\\n\\x20\\x20\\x20\\x20<link\\x20rel=\\\"shortcut\\x20icon\\\"\\x20type=\\\"ima",
+        "SF:ge/png\\\"\\x20href=\\\"/static/images/icon/favicon\\.ico\\\">\\n\\x20\\x20\\x20\\x2",
+        "SF:0<link\\x20rel=\\\"stylesheet\\\"\\x20href=\\\"/static/css/bootstrap\\.min\\.css\\",
+        "SF:\">\\n\\x20\\x20\\x20\\x20<link\\x20rel=\\\"stylesheet\\\"\\x20href=\\\"/static/css/f",
+        "SF:ont-awesome\\.min\\.css\\\">\\n\\x20\\x20\\x20\\x20<link\\x20rel=\\\"stylesheet\\\"\\x",
+        "SF:20href=\\\"/static/css/themify-icons\\.css\\\">\\n\\x20\\x20\\x20\\x20<link\\x20re",
+        "SF:l=\\\"stylesheet\\\"\\x20href=\\\"/static/css/metisMenu\\.css\\\">\\n\\x20\\x20\\x20\\",
+        "SF:x20<link\\x20rel=\\\"stylesheet\\\"\\x20href=\\\"/static/css/owl\\.carousel\\.min",
+        "SF:\\.css\\\">\\n\\x20\\x20\\x20\\x20<link\\x20rel=\\\"stylesheet\\\"\\x20href=\\\"/static",
+        "SF:/css/slicknav\\.min\\.css\\\">\\n\\x20\\x20\\x20\\x20<!--\\x20amchar\")%r(HTTPOpti",
+        "SF:ons,B3,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20gunicorn\\r\\nDate:\\x20Thu,\\",
+        "SF:x2002\\x20Jan\\x202025\\x2011:42:21\\x20GMT\\r\\nConnection:\\x20close\\r\\nCont",
+        "SF:ent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nAllow:\\x20OPTIONS,\\x20GET,\\",
+        "SF:x20HEAD\\r\\nContent-Length:\\x200\\r\\n\\r\\n\")%r(RTSPRequest,121,\"HTTP/1\\.1\\",
+        "SF:x20400\\x20Bad\\x20Request\\r\\nConnection:\\x20close\\r\\nContent-Type:\\x20te",
+        "SF:xt/html\\r\\nContent-Length:\\x20196\\r\\n\\r\\n<html>\\n\\x20\\x20<head>\\n\\x20\\x",
+        "SF:20\\x20\\x20<title>Bad\\x20Request</title>\\n\\x20\\x20</head>\\n\\x20\\x20<body",
+        "SF:>\\n\\x20\\x20\\x20\\x20<h1><p>Bad\\x20Request</p></h1>\\n\\x20\\x20\\x20\\x20Inva",
+        "SF:lid\\x20HTTP\\x20Version\\x20&#x27;Invalid\\x20HTTP\\x20Version:\\x20&#x27;RT",
+        "SF:SP/1\\.0&#x27;&#x27;\\n\\x20\\x20</body>\\n</html>\\n\")%r(FourOhFourRequest,1",
+        "SF:89,\"HTTP/1\\.0\\x20404\\x20NOT\\x20FOUND\\r\\nServer:\\x20gunicorn\\r\\nDate:\\x2",
+        "SF:0Thu,\\x2002\\x20Jan\\x202025\\x2011:42:26\\x20GMT\\r\\nConnection:\\x20close\\r",
+        "SF:\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x2023",
+        "SF:2\\r\\n\\r\\n<!DOCTYPE\\x20HTML\\x20PUBLIC\\x20\\\"-//W3C//DTD\\x20HTML\\x203\\.2\\x",
+        "SF:20Final//EN\\\">\\n<title>404\\x20Not\\x20Found</title>\\n<h1>Not\\x20Found</h",
+        "SF:1>\\n<p>The\\x20requested\\x20URL\\x20was\\x20not\\x20found\\x20on\\x20the\\x20s",
+        "SF:erver\\.\\x20If\\x20you\\x20entered\\x20the\\x20URL\\x20manually\\x20please\\x20",
+        "SF:check\\x20your\\x20spelling\\x20and\\x20try\\x20again\\.</p>\\n\");",
+        "Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel",
+        "whatweb cap.htb",
+        "http://cap.htb [200 OK] Bootstrap, Country[RESERVED][ZZ], HTML5, HTTPServer[gunicorn], IP[10.10.10.245], JQuery[2.2.4], Modernizr[2.8.3.min], Script, Title[Security Dashboard], X-UA-Compatible[ie=edge]",
+        "gobuster dir -u http://cap.htb -w /usr/share/wordlists/dirb/common.txt",
+        "echo \"10.10.10.245 cap.htb\" >> /etc/hosts",
+        "mkdir -p htb/cap.htb",
+        "cd htb/cap.htb",
+        "mkdir {nmap,content,exploits,scripts}",
+        "# At the end of the room",
+        "# To clean up the last line from the /etc/hosts file",
+        "sed -i '$ d' /etc/hosts"
+      ]
+    },
+    {
+      "title": "Task 2 - Exploitation & User Flag",
+      "content": "\n### 2.1 - Are you able to get to other users' scans?\n\nTrying to use the ffuf tool with a wordlist of the most frequent users, I did not get any results.\n\nAn interesting thing to note in the Security Snapshot is the URL scheme when creating a new capture, which is in the format /data/ . The id is incremented for each capture.\n\n<div align=\"left\"><figure><img src=\"../.gitbook/assets/image (8) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure></div>\n\nI tried to insert different parameters and I found the presence of the vulnerability Insecure Direct Object Reference (IDOR) is a vulnerability that arises when attackers can access or modify objects by manipulating identifiers used in a web page.\n\nIt means that server should stores latest scans and it has been packet captures from users before us. I remember that i started to see /data/1, than browsing to /data/0 does indeed reveal a packet capture with multiple packets.\n\n<div align=\"left\"><figure><img",
+      "commands": []
+    },
+    {
+      "title": "Task 3 - Privilege Escalation & Root Flag",
+      "content": "\n### 3.1 - What is the full path to the binary on this machine has special capabilities that can be abused to obtain root privileges?\n\nExecuting `sudo -l` command we can't see commands that user Nathan can execute with sudo privileges:\n\n<div align=\"left\"><figure><img src=\"../.gitbook/assets/image (19) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure></div>\n\nThen first to use automated tools like as Linpeas, and remembering the hint of the question, i want to try to execute some useful commands:\n\n```bash\ncrontab -l\ncat /proc/version\ngetcap -r /2>/dev/null\n```\n\n<div align=\"left\"><figure><img src=\"../.gitbook/assets/image (20) (1) (1) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure></div>\n\nchecking cronjobs, potential kernel version and [capabilities](https://man7.org/linux/man-pages/man7/capabilities.7.html), we got an interesting output from linux capabilities only, so let's go ahead with that!&#x20;\n\nAnalyzing the first string ",
+      "commands": [
+        "crontab -l",
+        "cat /proc/version",
+        "getcap -r /2>/dev/null"
+      ]
+    }
+  ],
+  "total_commands": 65,
+  "extracted_at": "2026-02-15T17:13:31.958274+00:00"
+}

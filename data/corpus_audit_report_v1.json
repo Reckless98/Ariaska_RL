@@ -1,0 +1,795 @@
+{
+  "audit_version": "1.0",
+  "generated_at": "2026-02-15T17:03:49.017556+00:00",
+  "corpus_directory": "/home/zer0/Projects/Ariaska_RL/data/knowledge_base",
+  "summary": {
+    "total_files": 18,
+    "total_entries": 117864,
+    "total_size_bytes": 82618722,
+    "total_size_mb": 78.79,
+    "entries_with_commands": 29593,
+    "entries_with_cves": 57795,
+    "manifest_stale": true,
+    "manifest_stale_reason": "manifest.json claims 0 entries but actual count is 117864"
+  },
+  "files": [
+    {
+      "filename": "ad_attacks.json",
+      "size_bytes": 784411,
+      "sha256_prefix": "037fa29b0a29c4b4",
+      "entry_count": 427,
+      "is_array": true,
+      "sample_keys": [
+        "attack_name",
+        "category",
+        "description",
+        "commands",
+        "tools_used",
+        "prerequisites",
+        "reasoning",
+        "source"
+      ],
+      "categories": {
+        "active-directory": 150,
+        "general": 138,
+        "exploitation": 68,
+        "privilege-escalation": 45,
+        "persistence": 21,
+        "lateral-movement": 5
+      },
+      "sources": {
+        "internal_all_the_things": 260,
+        "wadcoms": 99,
+        "impacket": 68
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 60,
+      "errors": [],
+      "command_entries": 427,
+      "cve_count": 0
+    },
+    {
+      "filename": "binaries.json",
+      "size_bytes": 586600,
+      "sha256_prefix": "12c793cac10d9bbd",
+      "entry_count": 679,
+      "is_array": true,
+      "sample_keys": [
+        "binary_name",
+        "platform",
+        "functions",
+        "description",
+        "reasoning",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "gtfobins": 452,
+        "lolbas": 227
+      },
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 0
+    },
+    {
+      "filename": "cheatsheets.json",
+      "size_bytes": 199768,
+      "sha256_prefix": "80b2f2fb940def45",
+      "entry_count": 150,
+      "is_array": true,
+      "sample_keys": [
+        "tool_or_topic",
+        "section",
+        "content",
+        "commands",
+        "source",
+        "reasoning"
+      ],
+      "categories": {},
+      "sources": {
+        "h4cker": 149,
+        "oscp": 1
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 150,
+      "errors": [],
+      "command_entries": 150,
+      "cve_count": 0
+    },
+    {
+      "filename": "cloud_attacks.json",
+      "size_bytes": 4735224,
+      "sha256_prefix": "71b0c42c628a7bde",
+      "entry_count": 2066,
+      "is_array": true,
+      "sample_keys": [
+        "attack_name",
+        "cloud_provider",
+        "category",
+        "description",
+        "commands",
+        "reasoning",
+        "source"
+      ],
+      "categories": {
+        "general": 1794,
+        "exploitation": 120,
+        "privilege_escalation": 50,
+        "enumeration": 40,
+        "exfiltration": 22,
+        "post_exploitation": 22,
+        "lateral_movement": 14,
+        "recon": 4
+      },
+      "sources": {
+        "hacktricks_cloud": 2066
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 1280,
+      "cve_count": 0
+    },
+    {
+      "filename": "commands.json",
+      "size_bytes": 17207233,
+      "sha256_prefix": "9c5052f630d46ac6",
+      "entry_count": 26616,
+      "is_array": true,
+      "sample_keys": [
+        "tool_name",
+        "command",
+        "description",
+        "phase",
+        "use_case",
+        "expected_output",
+        "reasoning",
+        "related_tools",
+        "source"
+      ],
+      "categories": {
+        "EXPLOITATION": 13929,
+        "ENUMERATION": 4875,
+        "GENERAL": 3828,
+        "PRIVILEGE_ESCALATION": 1583,
+        "POST_EXPLOITATION": 1138,
+        "RECON": 722,
+        "EXFILTRATION": 423,
+        "LATERAL_MOVEMENT": 118
+      },
+      "sources": {
+        "hacktricks": 8804,
+        "metasploit": 4913,
+        "atomic_red_team": 3368,
+        "hacktricks_cloud": 3247,
+        "h4cker": 1286,
+        "internal_all_the_things": 1162,
+        "seclists": 962,
+        "gtfobins": 801,
+        "payloads": 645,
+        "pentest_wiki": 580,
+        "lolbas": 415,
+        "nishang": 132,
+        "wadcoms": 99,
+        "peass_ng": 94,
+        "impacket": 68,
+        "ctf_writeups": 33,
+        "oscp": 7
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 232,
+      "errors": [],
+      "command_entries": 26616,
+      "cve_count": 0
+    },
+    {
+      "filename": "ctf_writeups.json",
+      "size_bytes": 29871,
+      "sha256_prefix": "95ab216a58519b5c",
+      "entry_count": 9,
+      "is_array": true,
+      "sample_keys": [
+        "challenge_name",
+        "category",
+        "difficulty",
+        "description",
+        "solution_steps",
+        "commands",
+        "tools_used",
+        "flag",
+        "reasoning",
+        "source"
+      ],
+      "categories": {
+        "pwn": 3,
+        "web": 3,
+        "misc": 2,
+        "binary": 1
+      },
+      "sources": {
+        "ctf_writeups": 9
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 4,
+      "cve_count": 0
+    },
+    {
+      "filename": "cves.json",
+      "size_bytes": 16795575,
+      "sha256_prefix": "cc96d262204ba9f7",
+      "entry_count": 30513,
+      "is_array": true,
+      "sample_keys": [
+        "cve_id",
+        "description",
+        "affected_software",
+        "affected_versions",
+        "severity",
+        "exploit_methodology",
+        "exploit_commands",
+        "metasploit_module",
+        "reasoning",
+        "references",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "exploitdb": 30513
+      },
+      "has_commands": false,
+      "has_cves": true,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 30513
+    },
+    {
+      "filename": "exploitdb.json",
+      "size_bytes": 30386282,
+      "sha256_prefix": "c417eba463772e3a",
+      "entry_count": 46963,
+      "is_array": true,
+      "sample_keys": [
+        "edb_id",
+        "description",
+        "date_published",
+        "author",
+        "platform",
+        "exploit_type",
+        "port",
+        "cve",
+        "codes",
+        "source_file",
+        "source",
+        "reasoning"
+      ],
+      "categories": {},
+      "sources": {
+        "exploitdb": 46963
+      },
+      "has_commands": false,
+      "has_cves": true,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 27282
+    },
+    {
+      "filename": "kill_chains.json",
+      "size_bytes": 949423,
+      "sha256_prefix": "03b98b4e80f6bc95",
+      "entry_count": 322,
+      "is_array": true,
+      "sample_keys": [
+        "target_service",
+        "target_port",
+        "chain_name",
+        "steps",
+        "total_commands",
+        "end_result",
+        "reasoning",
+        "difficulty",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "vulhub": 308,
+        "hacktricks": 14
+      },
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 322,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 0
+    },
+    {
+      "filename": "methodology.json",
+      "size_bytes": 2379075,
+      "sha256_prefix": "82971d786279be88",
+      "entry_count": 1762,
+      "is_array": true,
+      "sample_keys": [
+        "phase",
+        "title",
+        "steps",
+        "commands",
+        "reasoning",
+        "when_to_use",
+        "common_mistakes",
+        "source",
+        "tags"
+      ],
+      "categories": {
+        "EXPLOITATION": 782,
+        "GENERAL": 652,
+        "ENUMERATION": 151,
+        "PRIVILEGE_ESCALATION": 55,
+        "POST_EXPLOITATION": 48,
+        "RECON": 44,
+        "EXFILTRATION": 27,
+        "LATERAL_MOVEMENT": 3
+      },
+      "sources": {
+        "payloads": 1070,
+        "h4cker": 499,
+        "pentest_wiki": 192,
+        "oscp": 1
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 1762,
+      "errors": [],
+      "command_entries": 374,
+      "cve_count": 0
+    },
+    {
+      "filename": "payloads.json",
+      "size_bytes": 67167,
+      "sha256_prefix": "0e7fc7c41e25d7ae",
+      "entry_count": 172,
+      "is_array": true,
+      "sample_keys": [
+        "vuln_type",
+        "payload",
+        "context",
+        "target_tech",
+        "bypass_technique",
+        "reasoning",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "payloads": 172
+      },
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 172,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 0
+    },
+    {
+      "filename": "ports.json",
+      "size_bytes": 2,
+      "sha256_prefix": "44136fa355b3678a",
+      "entry_count": 0,
+      "is_array": false,
+      "sample_keys": [],
+      "categories": [],
+      "sources": [],
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": []
+    },
+    {
+      "filename": "privesc_checks.json",
+      "size_bytes": 107523,
+      "sha256_prefix": "dc6bd026c1bacf6f",
+      "entry_count": 177,
+      "is_array": true,
+      "sample_keys": [
+        "check_name",
+        "platform",
+        "commands",
+        "source",
+        "reasoning"
+      ],
+      "categories": {},
+      "sources": {
+        "peass_ng": 177
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 177,
+      "errors": [],
+      "command_entries": 177,
+      "cve_count": 0
+    },
+    {
+      "filename": "privesc_linux.json",
+      "size_bytes": 575441,
+      "sha256_prefix": "11b4cdbe6da06428",
+      "entry_count": 285,
+      "is_array": true,
+      "sample_keys": [
+        "technique",
+        "description",
+        "commands",
+        "os",
+        "reasoning",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "hacktricks": 285
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 285,
+      "cve_count": 0
+    },
+    {
+      "filename": "privesc_windows.json",
+      "size_bytes": 296335,
+      "sha256_prefix": "f4293a4e8e3d4a97",
+      "entry_count": 139,
+      "is_array": true,
+      "sample_keys": [
+        "technique",
+        "description",
+        "commands",
+        "os",
+        "reasoning",
+        "source"
+      ],
+      "categories": {},
+      "sources": {
+        "hacktricks": 139
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 139,
+      "cve_count": 0
+    },
+    {
+      "filename": "services.json",
+      "size_bytes": 1656632,
+      "sha256_prefix": "d3e766b2c520a7f5",
+      "entry_count": 317,
+      "is_array": true,
+      "sample_keys": [
+        "service_name",
+        "port",
+        "protocol",
+        "description",
+        "version_info",
+        "enumeration_commands",
+        "exploitation_commands",
+        "default_credentials",
+        "common_vulnerabilities",
+        "privilege_escalation",
+        "methodology",
+        "reasoning",
+        "kill_chain_phase",
+        "source",
+        "tags"
+      ],
+      "categories": {},
+      "sources": {
+        "hacktricks": 189,
+        "pentest_wiki": 128
+      },
+      "has_commands": true,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 128,
+      "errors": [],
+      "command_entries": 141,
+      "cve_count": 0
+    },
+    {
+      "filename": "techniques.json",
+      "size_bytes": 3004362,
+      "sha256_prefix": "b0139be1e5c8d101",
+      "entry_count": 1420,
+      "is_array": true,
+      "sample_keys": [
+        "technique_id",
+        "technique_name",
+        "tactic",
+        "description",
+        "platforms",
+        "atomic_tests",
+        "detection",
+        "prerequisites",
+        "reasoning",
+        "source"
+      ],
+      "categories": {
+        "general": 293,
+        "defense-evasion": 190,
+        "command-and-control": 72,
+        "credential-access": 66,
+        "impact": 63,
+        "collection": 59,
+        "discovery": 59,
+        "persistence": 58,
+        "execution": 56,
+        "persistence, privilege-escalation": 53,
+        "resource-development": 47,
+        "reconnaissance": 45,
+        "initial-access": 39,
+        "exfiltration": 31,
+        "defense-evasion, privilege-escalation": 28,
+        "lateral-movement": 28,
+        "exploitation": 19,
+        "privilege-escalation, persistence": 18,
+        "persistence, privilege-escalation, defense-evasion": 16,
+        "collection, credential-access": 13
+      },
+      "sources": {
+        "mitre_cti": 1094,
+        "atomic_red_team": 326
+      },
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 1,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 0
+    },
+    {
+      "filename": "wordlists_meta.json",
+      "size_bytes": 2857798,
+      "sha256_prefix": "8de7dd027738a8c4",
+      "entry_count": 5847,
+      "is_array": true,
+      "sample_keys": [
+        "name",
+        "path",
+        "category",
+        "type",
+        "size_bytes",
+        "line_count",
+        "description",
+        "reasoning"
+      ],
+      "categories": {
+        "Fuzzing": 4635,
+        "Passwords": 715,
+        "Discovery": 418,
+        "Web-Shells": 56,
+        "Usernames": 14,
+        "Pattern-Matching": 9
+      },
+      "sources": {},
+      "has_commands": false,
+      "has_cves": false,
+      "has_descriptions": true,
+      "empty_descriptions": 0,
+      "errors": [],
+      "command_entries": 0,
+      "cve_count": 0
+    }
+  ],
+  "schema_inventory": {
+    "ad_attacks.json": [
+      "attack_name",
+      "category",
+      "description",
+      "commands",
+      "tools_used",
+      "prerequisites",
+      "reasoning",
+      "source"
+    ],
+    "binaries.json": [
+      "binary_name",
+      "platform",
+      "functions",
+      "description",
+      "reasoning",
+      "source"
+    ],
+    "cheatsheets.json": [
+      "tool_or_topic",
+      "section",
+      "content",
+      "commands",
+      "source",
+      "reasoning"
+    ],
+    "cloud_attacks.json": [
+      "attack_name",
+      "cloud_provider",
+      "category",
+      "description",
+      "commands",
+      "reasoning",
+      "source"
+    ],
+    "commands.json": [
+      "tool_name",
+      "command",
+      "description",
+      "phase",
+      "use_case",
+      "expected_output",
+      "reasoning",
+      "related_tools",
+      "source"
+    ],
+    "ctf_writeups.json": [
+      "challenge_name",
+      "category",
+      "difficulty",
+      "description",
+      "solution_steps",
+      "commands",
+      "tools_used",
+      "flag",
+      "reasoning",
+      "source"
+    ],
+    "cves.json": [
+      "cve_id",
+      "description",
+      "affected_software",
+      "affected_versions",
+      "severity",
+      "exploit_methodology",
+      "exploit_commands",
+      "metasploit_module",
+      "reasoning",
+      "references",
+      "source"
+    ],
+    "exploitdb.json": [
+      "edb_id",
+      "description",
+      "date_published",
+      "author",
+      "platform",
+      "exploit_type",
+      "port",
+      "cve",
+      "codes",
+      "source_file",
+      "source",
+      "reasoning"
+    ],
+    "kill_chains.json": [
+      "target_service",
+      "target_port",
+      "chain_name",
+      "steps",
+      "total_commands",
+      "end_result",
+      "reasoning",
+      "difficulty",
+      "source"
+    ],
+    "methodology.json": [
+      "phase",
+      "title",
+      "steps",
+      "commands",
+      "reasoning",
+      "when_to_use",
+      "common_mistakes",
+      "source",
+      "tags"
+    ],
+    "payloads.json": [
+      "vuln_type",
+      "payload",
+      "context",
+      "target_tech",
+      "bypass_technique",
+      "reasoning",
+      "source"
+    ],
+    "ports.json": [],
+    "privesc_checks.json": [
+      "check_name",
+      "platform",
+      "commands",
+      "source",
+      "reasoning"
+    ],
+    "privesc_linux.json": [
+      "technique",
+      "description",
+      "commands",
+      "os",
+      "reasoning",
+      "source"
+    ],
+    "privesc_windows.json": [
+      "technique",
+      "description",
+      "commands",
+      "os",
+      "reasoning",
+      "source"
+    ],
+    "services.json": [
+      "service_name",
+      "port",
+      "protocol",
+      "description",
+      "version_info",
+      "enumeration_commands",
+      "exploitation_commands",
+      "default_credentials",
+      "common_vulnerabilities",
+      "privilege_escalation",
+      "methodology",
+      "reasoning",
+      "kill_chain_phase",
+      "source",
+      "tags"
+    ],
+    "techniques.json": [
+      "technique_id",
+      "technique_name",
+      "tactic",
+      "description",
+      "platforms",
+      "atomic_tests",
+      "detection",
+      "prerequisites",
+      "reasoning",
+      "source"
+    ],
+    "wordlists_meta.json": [
+      "name",
+      "path",
+      "category",
+      "type",
+      "size_bytes",
+      "line_count",
+      "description",
+      "reasoning"
+    ]
+  },
+  "recommendations": [
+    "Rebuild manifest from actual file scan (do not trust manifest.json)",
+    "Normalize entry schemas to KnowledgeCandidate v2 format",
+    "Map raw commands to COMMAND_REGISTRY templates",
+    "Add evidence gates based on service/port/tool requirements",
+    "Extract CVE references into structured references field"
+  ]
+}
