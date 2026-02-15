@@ -110,6 +110,19 @@ class DecisionLogEntry:
     total_services: int = 0
     total_shells: int = 0
 
+    # ── Phase 10.0: KG + LLM counters ──
+    kg_query_count: int = 0         # KnowledgeRetriever queries this step
+    kg_hit_count: int = 0           # KR queries that returned >0 results
+    kg_candidate_ids: Optional[List[str]] = None  # v2 candidate IDs used
+    llm_calls_total: int = 0        # Total LLM calls this step (all models)
+    llm_tokens_in: int = 0          # Input tokens consumed
+    llm_tokens_out: int = 0         # Output tokens consumed
+    llm_model_used: Optional[str] = None  # Primary model used
+    llm_role_active: Optional[str] = None  # Cloud role that fired (if any)
+    parser_stage: Optional[str] = None     # Parser broker stage that won
+    venice_calls: int = 0           # Venice reasoning calls this step
+    profile: Optional[str] = None   # Runtime profile (CLOUD/OFFLINE/DETERMINISTIC)
+
     def to_json(self) -> str:
         """Serialise to compact JSON string."""
         if not self.timestamp:
@@ -166,7 +179,7 @@ class DecisionLogger:
                 "type": "run_start",
                 "run_id": run_id,
                 "timestamp": datetime.now().isoformat(),
-                "schema_version": "1.0",
+                "schema_version": "10.0",
                 "config": config or {},
                 "fields": [
                     "episode", "step", "agent", "phase", "command",

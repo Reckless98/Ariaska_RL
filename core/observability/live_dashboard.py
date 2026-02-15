@@ -227,6 +227,22 @@ class LiveDashboard:
         self.episode_mentor_calls_total: int = 0
         self.episode_active_steps: int = 0
 
+        # Phase 10.0: KG flow + LLM usage tracking
+        self.kg_queries_total: int = 0
+        self.kg_hits_total: int = 0
+        self.kg_queries_episode: int = 0
+        self.kg_hits_episode: int = 0
+        self.llm_calls_episode: int = 0
+        self.llm_calls_total: int = 0
+        self.llm_tokens_episode: int = 0
+        self.llm_tokens_total: int = 0
+        self.llm_model_usage: Dict[str, int] = {}     # model → call count
+        self.parser_stage_counts: Dict[str, int] = {}  # stage → hit count
+        self.cloud_role_calls: Dict[str, int] = {}     # role → call count
+        self.venice_calls_episode: int = 0
+        self.venice_calls_total: int = 0
+        self.runtime_profile: str = "UNKNOWN"
+
     # ─── Run metadata ────────────────────────────────────────────────────────
 
     def set_run_info(self, run_id: str, total_episodes: int):
@@ -248,6 +264,43 @@ class LiveDashboard:
             timestamp=time.time(), event_type=event_type,
             message=message, agent=agent,
         ))
+
+    # ─── Phase 10.0: KG + LLM usage updates ─────────────────────────────
+
+    def update_kg_stats(self, queries: int = 0, hits: int = 0):
+        """Update knowledge graph query stats."""
+        self.kg_queries_episode += queries
+        self.kg_queries_total += queries
+        self.kg_hits_episode += hits
+        self.kg_hits_total += hits
+
+    def update_llm_stats(
+        self,
+        calls: int = 0,
+        tokens: int = 0,
+        model: str = "",
+        role: str = "",
+        venice_calls: int = 0,
+    ):
+        """Update LLM usage stats."""
+        self.llm_calls_episode += calls
+        self.llm_calls_total += calls
+        self.llm_tokens_episode += tokens
+        self.llm_tokens_total += tokens
+        if model:
+            self.llm_model_usage[model] = self.llm_model_usage.get(model, 0) + calls
+        if role:
+            self.cloud_role_calls[role] = self.cloud_role_calls.get(role, 0) + calls
+        self.venice_calls_episode += venice_calls
+        self.venice_calls_total += venice_calls
+
+    def update_parser_stats(self, stage: str):
+        """Record which parser stage produced a discovery."""
+        self.parser_stage_counts[stage] = self.parser_stage_counts.get(stage, 0) + 1
+
+    def set_runtime_profile(self, profile: str):
+        """Set the detected runtime profile (CLOUD/OFFLINE/DETERMINISTIC)."""
+        self.runtime_profile = profile
 
     def update_env_snapshot(self, env_state: Dict[str, Any]):
         self.env_snapshot = {
@@ -620,6 +673,36 @@ class LiveDashboard:
                 table.add_row("PPO V Loss", f"{ppo_metrics['value_loss']:.4f}", "")
             if ppo_metrics.get("entropy"):
                 table.add_row("PPO Entropy", f"{ppo_metrics['entropy']:.4f}", "")
+
+        # Phase 10.0: KG + LLM usage rows
+        if self.kg_queries_episode > 0:
+            kg_hit_pct = (self.kg_hits_episode / max(self.kg_queries_episode, 1)) * 100
+            table.add_row(
+                "📚 KG Queries",
+                f"{self.kg_queries_episode}",
+                f"hits: {self.kg_hits_episode} ({kg_hit_pct:.0f}%)"
+            )
+        if self.llm_calls_episode > 0:
+            models_str = ", ".join(
+                f"{m}:{c}" for m, c in sorted(self.llm_model_usage.items(), key=lambda x: -x[1])[:3]
+            )
+            table.add_row(
+                "🤖 LLM Calls",
+                f"{self.llm_calls_episode}",
+                f"tokens: {self.llm_tokens_episode:,}  [{models_str}]"
+            )
+        if self.venice_calls_episode > 0:
+            table.add_row("🌊 Venice", f"{self.venice_calls_episode}", "")
+        if self.cloud_role_calls:
+            roles_str = ", ".join(
+                f"{r}:{c}" for r, c in sorted(self.cloud_role_calls.items(), key=lambda x: -x[1])
+            )
+            table.add_row("☁️ Cloud Roles", roles_str, f"profile: {self.runtime_profile}")
+        if self.parser_stage_counts:
+            parser_str = " ".join(
+                f"{s}:{c}" for s, c in sorted(self.parser_stage_counts.items(), key=lambda x: -x[1])
+            )
+            table.add_row("🔍 Parser", parser_str, "")
 
         console.print(table)
 
