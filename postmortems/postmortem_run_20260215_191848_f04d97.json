@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260215_191848_f04d97",
+  "timestamp": 1771179534.158284,
+  "key_outcomes": {
+    "wins": [
+      "Consistently achieved high reward 60.00 indicating efficient execution of learned tactics within one episode.",
+      "Mentor engagement remained high with 10 calls, allowing for iterative guidance and context confirmation."
+    ],
+    "fails": [
+      "Zero success rate despite high reward suggests objectives completed were not aligned with success criteria, possibly due to misclassification of final state.",
+      "Lack of episode variety (only 1) limited opportunity to validate generalization or adapt to failure modes."
+    ],
+    "summary": "Training run delivered strong per-episode performance metrics but failed to register success; recommend validating success conditions and extending exploration to uncover stability."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode concluded with high reward but flagged as failure because final checkpoint metrics were outside acceptable success thresholds.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260215_191848_f04d97_ep001_stepFinal"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When the reconnaissance phase reports a single high-value target with accessible services",
+      "then_action": "Reconsolidate asset data and prioritize attack surface updates before escalating to exploitation modules",
+      "parameters_template": {
+        "phase": "recon",
+        "priority": "high",
+        "service_count": 1
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "run_20260215_191848_f04d97_ep001_step05"
+      ],
+      "created_at": 1771179539.9825609,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor feedback indicates reward accumulation without goal completion",
+      "then_action": "Pause exploitation, re-evaluate success metrics, and inject verification checkpoints before final action",
+      "parameters_template": {
+        "checkpoint_interval": 3,
+        "verify_success": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260215_191848_f04d97_ep001_step08"
+      ],
+      "created_at": 1771179539.9825773,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a single episode provides large reward but no success flag",
+      "then_action": "Trigger targeted diagnostics on success conditions and log discrepancies for policy update",
+      "parameters_template": {
+        "diagnostic_depth": "high",
+        "log_target": "success_flag"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260215_191848_f04d97_ep001_step10"
+      ],
+      "created_at": 1771179539.9825892,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward per episode indicates effective reconnaissance prioritization."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Diagnostics uncovering reason for reward-success mismatch are critical for improving evaluation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate success flags post high reward",
+      "description": "Run a controlled episode replicating reward trajectory while forcing explicit success condition checks at final checkpoint.",
+      "priority": "high"
+    },
+    {
+      "title": "Extend episode diversity",
+      "description": "Introduce additional episodes with variant initial states to test generalization beyond single run.",
+      "priority": "medium"
+    },
+    {
+      "title": "Embed verification checkpoints",
+      "description": "Implement mid-episode success metric validations to detect divergence between reward and success earlier.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,87 @@
+{
+  "run_id": "run_20260215_182715_e41785",
+  "timestamp": 1771176457.2611341,
+  "key_outcomes": {
+    "wins": [
+      "Mapped the entire subnet within first 15 minutes, identifying 12 live hosts and their open ports (ep001_step12).",
+      "Captured banner data for SSH and HTTP services, enabling targeted follow-on actions (ep001_step08).",
+      "Maintained high operational pace despite mentor interventions, yielding a reward of 90."
+    ],
+    "fails": [
+      "Failed to translate reconnaissance into final exploitation\u2014no success condition met despite multiple attempts (ep001_step25).",
+      "Unable to elevate privileges or capture the flag due to missing crafted payloads and timing window misalignment (ep001_step27)."
+    ],
+    "summary": "Strong reconnaissance and service enumeration but inability to finalize exploitation prevented success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeatedly aborted exploitation attempts after service enumeration without adapting payload payloads or timing, leaving opportunities unexploited.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step20",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap version and script detection",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771176464.933777,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_fuzz",
+      "if_condition": "When HTTP service responds with 200-series codes and slow response",
+      "then_action": "Launch directory fuzzing plus header analysis to identify hidden endpoints",
+      "parameters_template": {
+        "wordlist": "medium.txt",
+        "threads": 25
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771176464.9337926,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate during reconnaissance phase and clear replay value"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_http_fuzz",
+      "skill_card_id": "skill_http_fuzz",
+      "reason": "Enabled discovery of hidden endpoints that could feed later exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Controlled exploitation after enumeration",
+      "description": "Follow port/service mapping with tailored exploit attempts using captured banners and headers, focusing on scripting payload delivery to overcome timing gaps.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

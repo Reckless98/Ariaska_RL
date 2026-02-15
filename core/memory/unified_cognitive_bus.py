@@ -468,7 +468,7 @@ class CognitiveBus:
         self._episode_start_time: float = 0.0
 
         # Thread safety
-        self._bus_lock = threading.RLock()  # Must be reentrant: end_episode() calls get_episode_narrative() under lock
+        self._bus_lock = threading.Lock()
 
         logger.info("CognitiveBus initialized (unified cognitive architecture)")
 

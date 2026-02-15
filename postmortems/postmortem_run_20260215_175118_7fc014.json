@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260215_175118_7fc014",
+  "timestamp": 1771174294.9126966,
+  "key_outcomes": {
+    "wins": [
+      "Maintained constant mentor engagement with 10 mentor calls, indicating persistence in seeking guidance.",
+      "Achieved a total reward of 90.00, demonstrating consistent completion of scripted tasks in the episode."
+    ],
+    "fails": [
+      "Success rate remained at 0.00%, suggesting the final objectives were not reached despite actions taken.",
+      "Mentor availability reliance may have masked repeated strategy flaws that prevented mission success."
+    ],
+    "summary": "Run highlighted strong effort and guidance usage, but failed to achieve actionable objectives; need focused improvements on primary goal execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to complete final objective despite repeated mentor guidance, indicating gaps in translating direction into action.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260215_175118_7fc014_ep1_step3",
+        "run_20260215_175118_7fc014_ep1_step5",
+        "run_20260215_175118_7fc014_ep1_step7"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When the target shows a responsive web service and moderate response time",
+      "then_action": "Use automated web spidering with Burp or OWASP ZAP to map endpoints",
+      "parameters_template": {
+        "tool": "burp",
+        "scope": "target_domain",
+        "depth": 2
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "run_20260215_175118_7fc014_ep1_step2",
+        "run_20260215_175118_7fc014_ep1_step4"
+      ],
+      "created_at": 1771174300.4404647,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When basic service enumeration completes without additional leads",
+      "then_action": "Pivot to credential stuffing against identified login portals using curated wordlists",
+      "parameters_template": {
+        "service": "http-login",
+        "wordlist": "medium_creds"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260215_175118_7fc014_ep1_step6"
+      ],
+      "created_at": 1771174300.4404795,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When network gaps appear and success rate stalls despite repeated attempts",
+      "then_action": "Pause and run structured debrief with mentor and replay logs to identify divergence",
+      "parameters_template": {
+        "duration": "5min",
+        "focus": "objective alignment"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260215_175118_7fc014_ep1_step8",
+        "run_20260215_175118_7fc014_ep1_step9"
+      ],
+      "created_at": 1771174300.4404912,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early reconnaissance success helped map services before failure points."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Structured debriefs prevented repeated strategy drift during mentor-heavy runs."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate automated objective checkpointing",
+      "description": "Introduce mid-run checks that validate partial objective metrics and recalibrate approach if goals are not met.",
+      "priority": "high"
+    },
+    {
+      "title": "Formalize credential attack decision trees",
+      "description": "Develop explicit criteria for when to escalate from reconnaissance to credential stuffing to avoid premature busts.",
+      "priority": "medium"
+    },
+    {
+      "title": "Conduct mentor replay sessions post-failure",
+      "description": "Schedule structured reviews immediately after failure to capture actionable insights while context is fresh.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

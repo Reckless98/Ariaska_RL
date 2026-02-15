@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771168509.8555453,
-  "skill_count": 104,
+  "last_updated": 1771176464.9495978,
+  "skill_count": 105,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1297,19 +1297,21 @@
     },
     "skill_http_enum": {
       "id": "skill_http_enum",
-      "if_condition": "When HTTP/HTTPS port responds with service banner",
-      "then_action": "Execute directory brute-force and gather server headers",
+      "if_condition": "When port 80/443 responds and default headers detected",
+      "then_action": "Execute directory brute-force and enumerate HTTP methods",
       "parameters_template": {
-        "port": 80,
-        "tool": "dirsearch",
-        "options": "--recursive"
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common_dirs.txt"
       },
-      "confidence": 0.72,
+      "confidence": 0.81,
       "evidence_refs": [
-        "ep001_step09",
-        "ep001_step11"
+        "ep001_step05",
+        "ep001_step06"
       ],
-      "created_at": 1771098640.0455294,
+      "created_at": 1771174330.5414119,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -1512,6 +1514,23 @@
         "ep001_step09"
       ],
       "created_at": 1771168509.8502405,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_fuzz": {
+      "id": "skill_http_fuzz",
+      "if_condition": "When HTTP service responds with 200-series codes and slow response",
+      "then_action": "Launch directory fuzzing plus header analysis to identify hidden endpoints",
+      "parameters_template": {
+        "wordlist": "medium.txt",
+        "threads": 25
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771176464.9337926,
       "usage_count": 0,
       "success_rate": 0.0
     }
