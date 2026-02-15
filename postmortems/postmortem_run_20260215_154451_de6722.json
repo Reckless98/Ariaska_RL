@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260215_154451_de6722",
+  "timestamp": 1771166709.2086797,
+  "key_outcomes": {
+    "wins": [
+      "Completed reconnaissance sweep with consistent reward gain despite failures",
+      "Maintained persistence through 15 mentor calls reaching final state",
+      "Demonstrated stable reward accumulation strategy across the lone episode"
+    ],
+    "fails": [
+      "Zero successful episode completions indicating inability to achieve final objective",
+      "Mentor intervention required excessively (15 calls) reflecting lack of autonomous progress",
+      "No actionable exploit delivered despite reconnaissance information gathered"
+    ],
+    "summary": "High-reward reconnaissance phase executed but no mission completion; focus needed on chaining initial access into successful exploit."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert reconnaissance data into exploit delivery leading to mission failure",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step45",
+        "ep001_step78"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 and 443 show web services running after scan",
+      "then_action": "Launch targeted web vulnerability scan prioritizing CMS fingerprints",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "scan_profile": "web-cms-full"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step30"
+      ],
+      "created_at": 1771166714.8764164,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH banner indicates OpenSSH 8.x and port 22 open",
+      "then_action": "Perform authenticated brute-force oracle to validate credentials and escalate",
+      "parameters_template": {
+        "port": 22,
+        "forge_list": "default_ssh_creds"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step35"
+      ],
+      "created_at": 1771166714.876434,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When enumeration reveals writable config directories",
+      "then_action": "Extract configuration secrets and attempt privilege escalation chains",
+      "parameters_template": {
+        "paths": [
+          "/etc/",
+          "/var/www/html/"
+        ],
+        "escalation_strategy": "config-leak"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step41",
+        "ep001_step48"
+      ],
+      "created_at": 1771166714.876448,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reward gains when web service enumeration pursued"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH banner detection leading to focused access attempts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Chain reconnaissance into exploit deployment",
+      "description": "After identifying open services, directly apply targeted exploit modules to transition from enumeration to access rather than re-scanning.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependence via scripted response plans",
+      "description": "Automate decision flow for common failure states to cut mentor calls, enabling autonomous recovery from stalled tasks.",
+      "priority": "medium"
+    },
+    {
+      "title": "Test credential reuse on SSH/SMB based on extracted configs",
+      "description": "Use discovered configuration snippets as credential candidates against both SSH and SMB targets to validate escalation pathways.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

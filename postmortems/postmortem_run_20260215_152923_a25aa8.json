@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260215_152923_a25aa8",
+  "timestamp": 1771165786.1040597,
+  "key_outcomes": {
+    "wins": [
+      "Completed automated recon sweep and identified 3 live hosts with open ports within the first episode, enabling focused targeting.",
+      "Successfully documented service versions and OS fingerprints, delivering structured input for downstream exploitation planning."
+    ],
+    "fails": [
+      "Failed to escalate privileges on compromised host due to missing sudo permissions and no fallback exploitation strategy.",
+      "Repeatedly aborted after initial foothold because post-exploitation tooling was not invoked, resulting in 0% success rate despite reconnaissance."
+    ],
+    "summary": "Reconnaissance phase executed effectively, but mission failed after foothold due to lack of privilege escalation and post-exploitation follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation never attempted after initial shell access, leaving mission incomplete despite foothold.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771165793.1623175,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial shell obtained but privileges remain low",
+      "then_action": "Execute automated sudo checks and common local kernel exploit scans",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "linpeas.sh",
+          "linux-exploit-suggester"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771165793.1623325,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When multiple services enumerated on a single host",
+      "then_action": "Chain service-specific exploits starting with highest CVSS severity",
+      "parameters_template": {
+        "services": [
+          {
+            "name": "ssh",
+            "priority": 1
+          },
+          {
+            "name": "http",
+            "priority": 2
+          }
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step07"
+      ],
+      "created_at": 1771165793.1623442,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Needed for addressing repeated privilege escalation gaps"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Implement automated privilege escalation sweep",
+      "description": "After foothold, immediately run scripted sudo checks and local exploit suggestion tools to identify privilege escalation paths before ending episode.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-exploitation workflow integration",
+      "description": "Chain post-exploitation actions (credential harvesting, persistence checks) into single workflow to ensure episode progress beyond initial shell.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
