@@ -1,0 +1,1671 @@
+[
+ {
+  "check_name": "Token theft",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Configuration data leakage",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Environment variable dumping",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Credential reuse",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Token reuse",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Configuration abuse",
+  "platform": "linux",
+  "commands": [
+   "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
+  ],
+  "source": "peass_ng/10_Environment.sh"
+ },
+ {
+  "check_name": "Kernel module loading",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Kernel module replacement",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Kernel module modification",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
+   "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Module signing bypass",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
+   "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Kernel module injection",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
+   "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Kernel module modification",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
+   "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Kernel module replacement",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "print_2title \"Searching Signature verification failed in dmesg\"",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
+   "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
+  ],
+  "source": "peass_ng/11_Dmesg.sh"
+ },
+ {
+  "check_name": "Gatekeeper bypass",
+  "platform": "linux",
+  "commands": [
+   "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
+  ],
+  "source": "peass_ng/12_Macos_os_checks.sh"
+ },
+ {
+  "check_name": "System modification",
+  "platform": "linux",
+  "commands": [
+   "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
+  ],
+  "source": "peass_ng/12_Macos_os_checks.sh"
+ },
+ {
+  "check_name": "Kernel extension injection",
+  "platform": "linux",
+  "commands": [
+   "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
+  ],
+  "source": "peass_ng/12_Macos_os_checks.sh"
+ },
+ {
+  "check_name": "Gatekeeper bypass",
+  "platform": "linux",
+  "commands": [
+   "kextstat 2>/dev/null | grep -Ev \" com.apple.\"",
+   "macosNotSigned /Library/Extensions",
+   "macosNotSigned /System/Library/Extensions"
+  ],
+  "source": "peass_ng/12_Macos_os_checks.sh"
+ },
+ {
+  "check_name": "System modification",
+  "platform": "linux",
+  "commands": [
+   "kextstat 2>/dev/null | grep -Ev \" com.apple.\"",
+   "macosNotSigned /Library/Extensions",
+   "macosNotSigned /System/Library/Extensions"
+  ],
+  "source": "peass_ng/12_Macos_os_checks.sh"
+ },
+ {
+  "check_name": "Authentication bypass",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "Privilege escalation",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "Root access acquisition",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "Race condition exploitation",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "Authentication bypass",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "Privilege escalation",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "System compromise",
+  "platform": "linux",
+  "commands": [
+   "if apt list --installed 2>/dev/null | grep -E 'polkit.*0\\.105-26' | grep -qEv 'ubuntu1\\.[1-9]' || \\",
+   "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
+   "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
+  ],
+  "source": "peass_ng/15_CVE_2021_3560.sh"
+ },
+ {
+  "check_name": "SY) AppArmor",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v aa-status 2>/dev/null || echo -n '')\" ]; then",
+   "aa-status 2>&1 | sed \"s,disabled,${SED_RED},\"",
+   "elif [ \"$(command -v apparmor_status 2>/dev/null || echo -n '')\" ]; then",
+   "apparmor_status 2>&1 | sed \"s,disabled,${SED_RED},\"",
+   "elif [ \"$(ls -d /etc/apparmor* 2>/dev/null)\" ]; then"
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) AppArmor2",
+  "platform": "linux",
+  "commands": [
+   "(cat /proc/self/attr/current 2>/dev/null || echo \"unconfined\") | sed \"s,unconfined,${SED_RED},\" | sed \"s,kernel,${SED_GREEN},\"",
+   "( (uname -a | grep \"s390x\" >/dev/null 2>&1) && echo \"Yes\" || echo_not_found \"s390x\")",
+   "( (uname -r | grep \"\\-grsec\" >/dev/null 2>&1 || grep \"grsecurity\" /etc/sysctl.conf >/dev/null 2>&1) && echo \"Yes\" || echo_not_found \"grsecurity\")",
+   "(command -v paxctl-ng paxctl >/dev/null 2>&1 && echo \"Yes\" || echo_not_found \"PaX\")",
+   "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) LinuxONE",
+  "platform": "linux",
+  "commands": [
+   "( (uname -a | grep \"s390x\" >/dev/null 2>&1) && echo \"Yes\" || echo_not_found \"s390x\")",
+   "( (uname -r | grep \"\\-grsec\" >/dev/null 2>&1 || grep \"grsecurity\" /etc/sysctl.conf >/dev/null 2>&1) && echo \"Yes\" || echo_not_found \"grsecurity\")",
+   "(command -v paxctl-ng paxctl >/dev/null 2>&1 && echo \"Yes\" || echo_not_found \"PaX\")",
+   "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\"",
+   "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) grsecurity",
+  "platform": "linux",
+  "commands": [
+   "( (uname -r | grep \"\\-grsec\" >/dev/null 2>&1 || grep \"grsecurity\" /etc/sysctl.conf >/dev/null 2>&1) && echo \"Yes\" || echo_not_found \"grsecurity\")",
+   "(command -v paxctl-ng paxctl >/dev/null 2>&1 && echo \"Yes\" || echo_not_found \"PaX\")",
+   "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\"",
+   "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\"",
+   "([ \"$(grep Seccomp /proc/self/status 2>/dev/null | grep -v 0)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Execshield",
+  "platform": "linux",
+  "commands": [
+   "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\"",
+   "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\"",
+   "([ \"$(grep Seccomp /proc/self/status 2>/dev/null | grep -v 0)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "if [ \"$(cat /proc/self/uid_map 2>/dev/null)\" ]; then echo \"enabled\" | sed \"s,enabled,${SED_GREEN},\"; else echo \"disabled\" | sed \"s,disabled,${SED_RED},\"; fi",
+   "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) SElinux",
+  "platform": "linux",
+  "commands": [
+   "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\"",
+   "([ \"$(grep Seccomp /proc/self/status 2>/dev/null | grep -v 0)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "if [ \"$(cat /proc/self/uid_map 2>/dev/null)\" ]; then echo \"enabled\" | sed \"s,enabled,${SED_GREEN},\"; else echo \"disabled\" | sed \"s,disabled,${SED_RED},\"; fi",
+   "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\"",
+   "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Seccomp",
+  "platform": "linux",
+  "commands": [
+   "([ \"$(grep Seccomp /proc/self/status 2>/dev/null | grep -v 0)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "if [ \"$(cat /proc/self/uid_map 2>/dev/null)\" ]; then echo \"enabled\" | sed \"s,enabled,${SED_GREEN},\"; else echo \"disabled\" | sed \"s,disabled,${SED_RED},\"; fi",
+   "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\"",
+   "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\"",
+   "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) AppArmor",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(cat /proc/self/uid_map 2>/dev/null)\" ]; then echo \"enabled\" | sed \"s,enabled,${SED_GREEN},\"; else echo \"disabled\" | sed \"s,disabled,${SED_RED},\"; fi",
+   "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\"",
+   "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\"",
+   "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Unprivileged user namespaces",
+  "platform": "linux",
+  "commands": [
+   "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\"",
+   "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\"",
+   "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Unprivileged eBPF",
+  "platform": "linux",
+  "commands": [
+   "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\"",
+   "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"ptrace_scope? .................. \" \"/proc/sys/kernel/yama/ptrace_scope\" \"ptrace_scope\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) cgroup2",
+  "platform": "linux",
+  "commands": [
+   "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
+   "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"ptrace_scope? .................. \" \"/proc/sys/kernel/yama/ptrace_scope\" \"ptrace_scope\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"protected_symlinks? ............ \" \"/proc/sys/fs/protected_symlinks\" \"protected_symlinks\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Kernel hardening sysctls",
+  "platform": "linux",
+  "commands": [
+   "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"ptrace_scope? .................. \" \"/proc/sys/kernel/yama/ptrace_scope\" \"ptrace_scope\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"protected_symlinks? ............ \" \"/proc/sys/fs/protected_symlinks\" \"protected_symlinks\" \"$SED_RED\" \"$SED_GREEN\"",
+   "print_sysctl_eq_zero \"protected_hardlinks? ........... \" \"/proc/sys/fs/protected_hardlinks\" \"protected_hardlinks\" \"$SED_RED\" \"$SED_GREEN\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Kernel hardening config flags",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/boot/config-$(uname -r)\" ]; then",
+   "grep -E 'CONFIG_RANDOMIZE_BASE|CONFIG_STACKPROTECTOR|CONFIG_SLAB_FREELIST_|CONFIG_KASAN' /boot/config-$(uname -r) 2>/dev/null",
+   "elif [ -f \"/proc/config.gz\" ]; then",
+   "zcat /proc/config.gz 2>/dev/null | grep -E 'CONFIG_RANDOMIZE_BASE|CONFIG_STACKPROTECTOR|CONFIG_SLAB_FREELIST_|CONFIG_KASAN'",
+   "(spctl --status 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\""
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Gatekeeper",
+  "platform": "linux",
+  "commands": [
+   "(spctl --status 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\"",
+   "(sysctl vm.swapusage | grep \"encrypted\" | sed \"s,encrypted,${SED_GREEN},\") || echo_no",
+   "(system_profiler SPInstallHistoryDataType 2>/dev/null | grep -A 4 \"XProtectPlistConfigData\" | tail -n 5 | grep -Iv \"^$\") || echo_no",
+   "csrutil status | sed \"s,enabled,${SED_GREEN},\" | sed \"s,enabled,${SED_GREEN},\" | sed \"s,disabled,${SED_RED},\" || echo_no",
+   "diskutil apfs list | grep \"Snapshot Sealed\" | awk -F: '{print $2}' | tr -d '[:space:]' | sed \"s,Yes,${SED_GREEN},\" | sed \"s,No,${SED_RED},\" || echo_not_found"
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Printer",
+  "platform": "linux",
+  "commands": [
+   "(lpstat -a || system_profiler SPPrintersDataType || echo_no) 2>/dev/null",
+   "hypervisorflag=$(grep flags /proc/cpuinfo 2>/dev/null | grep hypervisor)",
+   "if [ \"$(command -v systemd-detect-virt 2>/dev/null || echo -n '')\" ]; then",
+   "detectedvirt=$(systemd-detect-virt)",
+   "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes ($detectedvirt)\"$NC; else printf $GREEN\"No\"$NC; fi"
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "SY) Running in a virtual environment",
+  "platform": "linux",
+  "commands": [
+   "hypervisorflag=$(grep flags /proc/cpuinfo 2>/dev/null | grep hypervisor)",
+   "if [ \"$(command -v systemd-detect-virt 2>/dev/null || echo -n '')\" ]; then",
+   "detectedvirt=$(systemd-detect-virt)",
+   "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes ($detectedvirt)\"$NC; else printf $GREEN\"No\"$NC; fi",
+   "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes\"$NC; else printf $GREEN\"No\"$NC; fi"
+  ],
+  "source": "peass_ng/16_Protections.sh"
+ },
+ {
+  "check_name": "Missing kernel module signing requirements",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/17_Kernel_Modules.sh"
+ },
+ {
+  "check_name": "Exploitation methods:",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/17_Kernel_Modules.sh"
+ },
+ {
+  "check_name": "Highlights kernels built without CONFIG_POSIX_CPU_TIMERS_TASK_WORK",
+  "platform": "linux",
+  "commands": [
+   "gsub(/[^0-9].*/, \"\", val)"
+  ],
+  "source": "peass_ng/18_CVE_2025_38352.sh"
+ },
+ {
+  "check_name": "Flags 6.12.x builds older than the fix commit f90fff1e152dedf52b932240ebbd670d83330eca (first shipped in 6.12.34)",
+  "platform": "linux",
+  "commands": [
+   "gsub(/[^0-9].*/, \"\", val)"
+  ],
+  "source": "peass_ng/18_CVE_2025_38352.sh"
+ },
+ {
+  "check_name": "Provides quick risk scoring so operators can decide whether to attempt the publicly available PoC",
+  "platform": "linux",
+  "commands": [
+   "gsub(/[^0-9].*/, \"\", val)"
+  ],
+  "source": "peass_ng/18_CVE_2025_38352.sh"
+ },
+ {
+  "check_name": "Core requirements for exploitation:",
+  "platform": "linux",
+  "commands": [
+   "gsub(/[^0-9].*/, \"\", val)"
+  ],
+  "source": "peass_ng/18_CVE_2025_38352.sh"
+ },
+ {
+  "check_name": "OS version exploits",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\""
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Distribution-specific vulnerabilities",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Architecture-specific exploits",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Kernel version exploits",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Version-specific payloads",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Distribution-specific attacks",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Architecture-specific techniques",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Kernel exploitation",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
+   "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
+  ],
+  "source": "peass_ng/1_Operative_system.sh"
+ },
+ {
+  "check_name": "Exploitation methods:",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then"
+  ],
+  "source": "peass_ng/2_Sudo_version.sh"
+ },
+ {
+  "check_name": "Heap overflow exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sudo-version\"",
+   "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
+   "else echo_not_found \"sudo\""
+  ],
+  "source": "peass_ng/2_Sudo_version.sh"
+ },
+ {
+  "check_name": "Race conditions",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sudo-version\"",
+   "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
+   "else echo_not_found \"sudo\""
+  ],
+  "source": "peass_ng/2_Sudo_version.sh"
+ },
+ {
+  "check_name": "Memory corruption",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sudo-version\"",
+   "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
+   "else echo_not_found \"sudo\""
+  ],
+  "source": "peass_ng/2_Sudo_version.sh"
+ },
+ {
+  "check_name": "Command injection",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sudo-version\"",
+   "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
+   "else echo_not_found \"sudo\""
+  ],
+  "source": "peass_ng/2_Sudo_version.sh"
+ },
+ {
+  "check_name": "D-Bus method call injection",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\""
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "PolicyKit authentication bypass",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\""
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "Command execution through USB creation",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\"",
+   "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")"
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "D-Bus method spoofing",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\"",
+   "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
+   "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "PolicyKit privilege escalation",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\"",
+   "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
+   "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "USB device creation abuse",
+  "platform": "linux",
+  "commands": [
+   "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\"",
+   "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
+   "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
+  ],
+  "source": "peass_ng/3_USBCreator.sh"
+ },
+ {
+  "check_name": "Replace common binaries (ls, cat, etc.)",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Create malicious executables with common names",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Abuse sudo PATH inheritance",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Binary replacement",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Symbolic link attacks",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "PATH manipulation",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Sudo PATH abuse",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
+  ],
+  "source": "peass_ng/4_Path.sh"
+ },
+ {
+  "check_name": "Time-of-check to time-of-use (TOCTOU)",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Scheduled task abuse",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Cron job timing",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Race condition exploitation",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "TOCTOU attacks",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Scheduled task manipulation",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Cron job abuse",
+  "platform": "linux",
+  "commands": [
+   "warn_exec date 2>/dev/null",
+   "warn_exec uptime 2>/dev/null"
+  ],
+  "source": "peass_ng/5_Date.sh"
+ },
+ {
+  "check_name": "Spectre/Meltdown exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "CPU feature abuse",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "Architecture-specific attacks",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "CPU timing attacks",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "Side-channel attacks",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "CPU feature exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "Architecture-specific techniques",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "CPU timing exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "warn_exec lscpu 2>/dev/null"
+  ],
+  "source": "peass_ng/6_CPU_info.sh"
+ },
+ {
+  "check_name": "Mount point modification",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Filesystem remounting",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Mount option abuse",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Shared mount exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
+   "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Mount point manipulation",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
+   "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Filesystem remounting",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
+   "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Mount option exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
+   "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Shared mount abuse",
+  "platform": "linux",
+  "commands": [
+   "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
+   "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
+  ],
+  "source": "peass_ng/7_Mounts.sh"
+ },
+ {
+  "check_name": "Disk device modification",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "SMB share abuse",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\""
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Storage device access",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Shared disk exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Disk device manipulation",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "SMB share exploitation",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Storage device abuse",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20",
+   "if [ \"$(command -v smbutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Shared disk access",
+  "platform": "linux",
+  "commands": [
+   "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
+   "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
+   "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20",
+   "if [ \"$(command -v smbutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/8_Disks.sh"
+ },
+ {
+  "check_name": "Disk space exhaustion",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Resource starvation",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Storage device abuse",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "System resource manipulation",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Resource exhaustion",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Storage device exploitation",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then",
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "System resource abuse",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then",
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Resource-based attacks",
+  "platform": "linux",
+  "commands": [
+   "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then",
+   "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
+   "(df -h || lsblk) 2>/dev/null || echo_not_found \"df and lsblk\""
+  ],
+  "source": "peass_ng/9_Disks_extra.sh"
+ },
+ {
+  "check_name": "Exploitation methods:",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Runtime escape",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Privilege escalation",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Container breakout",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Tool misconfiguration abuse",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Privileged tool exploitation",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Container escape tool usage",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container related tools present (if any):\""
+  ],
+  "source": "peass_ng/1_Container_tools.sh"
+ },
+ {
+  "check_name": "Runtime escape",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\""
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Privilege escalation",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\""
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Container breakout",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\""
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Network escape",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\"",
+   "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Container misconfiguration abuse",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\"",
+   "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Privileged container exploitation",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\"",
+   "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Container API abuse",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\"",
+   "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then",
+   "if [ -f \"/run/systemd/container\" ]; then"
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Network escape techniques",
+  "platform": "linux",
+  "commands": [
+   "print_2title \"Container details\"",
+   "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then",
+   "if [ -f \"/run/systemd/container\" ]; then",
+   "print_list \"Systemd Container ..............$NC $(cat /run/systemd/container)\""
+  ],
+  "source": "peass_ng/3_Container_details.sh"
+ },
+ {
+  "check_name": "Mount point abuse",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\""
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Capability escalation",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\""
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Namespace escape",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\"",
+   "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\""
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Runtime exploitation",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\"",
+   "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\"",
+   "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then"
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Kernel exploitation",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\"",
+   "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\"",
+   "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then",
+   "print_list \"Container Full ID ..............$NC $(basename $(cat /proc/1/cpuset))\\n\""
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Container escape tool execution",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\"",
+   "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\"",
+   "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then",
+   "print_list \"Container Full ID ..............$NC $(basename $(cat /proc/1/cpuset))\\n\""
+  ],
+  "source": "peass_ng/5_Container_breakout.sh"
+ },
+ {
+  "check_name": "Services running as root that could be exploited",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
+  ],
+  "source": "peass_ng/11_Systemd.sh"
+ },
+ {
+  "check_name": "Services with dangerous capabilities that could be abused",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
+  ],
+  "source": "peass_ng/11_Systemd.sh"
+ },
+ {
+  "check_name": "Services with writable paths that could be used to inject malicious code",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
+  ],
+  "source": "peass_ng/11_Systemd.sh"
+ },
+ {
+  "check_name": "Exploitation methods:",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
+  ],
+  "source": "peass_ng/11_Systemd.sh"
+ },
+ {
+  "check_name": "Writable socket files",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/12_Socket_files.sh"
+ },
+ {
+  "check_name": "Socket files executing writable binaries",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/12_Socket_files.sh"
+ },
+ {
+  "check_name": "Socket files with writable listeners",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/12_Socket_files.sh"
+ },
+ {
+  "check_name": "Socket files with relative paths",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\"",
+   "/*) return 1 ;; # Absolute path"
+  ],
+  "source": "peass_ng/12_Socket_files.sh"
+ },
+ {
+  "check_name": "Socket files with unsafe configurations",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\"",
+   "/*) return 1 ;; # Absolute path"
+  ],
+  "source": "peass_ng/12_Socket_files.sh"
+ },
+ {
+  "check_name": "Listening Unix sockets",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/13_Unix_sockets_listening.sh"
+ },
+ {
+  "check_name": "Socket file permissions",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/13_Unix_sockets_listening.sh"
+ },
+ {
+  "check_name": "Socket ownership",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/13_Unix_sockets_listening.sh"
+ },
+ {
+  "check_name": "Socket connectivity",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/13_Unix_sockets_listening.sh"
+ },
+ {
+  "check_name": "Socket protocol analysis",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
+  ],
+  "source": "peass_ng/13_Unix_sockets_listening.sh"
+ },
+ {
+  "check_name": "D-Bus Service Objects enumeration",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "D-Bus Service Object permissions and ownership",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "D-Bus Configuration files analysis",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "D-Bus Policy analysis",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "D-Bus Method and Interface analysis",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "D-Bus Privilege Escalation Vectors",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
+  ],
+  "source": "peass_ng/14_DBus_analysis.sh"
+ },
+ {
+  "check_name": "Root-run Crontab UI exposed on localhost",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#scheduledcron-jobs\"",
+   "if command -v systemctl >/dev/null 2>&1; then",
+   "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
+  ],
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+ },
+ {
+  "check_name": "Basic-Auth credentials in systemd Environment= (BASIC_AUTH_USER/PWD)",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#scheduledcron-jobs\"",
+   "if command -v systemctl >/dev/null 2>&1; then",
+   "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
+  ],
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+ },
+ {
+  "check_name": "Cron DB path (CRON_DB_PATH) and weak permissions / embedded secrets in jobs",
+  "platform": "linux",
+  "commands": [
+   "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#scheduledcron-jobs\"",
+   "if command -v systemctl >/dev/null 2>&1; then",
+   "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
+  ],
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+ },
+ {
+  "check_name": "SI) Mysql version",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(command -v mysql || echo -n '')\" ] || [ \"$(command -v mysqladmin || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
+   "mysql --version 2>/dev/null || echo_not_found \"mysql\"",
+   "mysqluser=$(systemctl status mysql 2>/dev/null | grep -o \".\\{0,0\\}user.\\{0,50\\}\" | cut -d '=' -f2 | cut -d ' ' -f1)",
+   "print_list \"MySQL connection using default root/root ........... \"",
+   "mysqlconnect=$(mysqladmin -uroot -proot version 2>/dev/null)"
+  ],
+  "source": "peass_ng/Mysql.sh"
+ },
+ {
+  "check_name": "SI) Mysql connection root/root",
+  "platform": "linux",
+  "commands": [
+   "print_list \"MySQL connection using default root/root ........... \"",
+   "mysqlconnect=$(mysqladmin -uroot -proot version 2>/dev/null)",
+   "mysql -u root --password=root -e \"SELECT User,Host,authentication_string FROM mysql.user;\" 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "print_list \"MySQL connection using root/toor ................... \""
+  ],
+  "source": "peass_ng/Mysql.sh"
+ },
+ {
+  "check_name": "SI) Mysql connection root/toor",
+  "platform": "linux",
+  "commands": [
+   "print_list \"MySQL connection using root/toor ................... \"",
+   "mysqlconnect=$(mysqladmin -uroot -ptoor version 2>/dev/null)",
+   "mysql -u root --password=toor -e \"SELECT User,Host,authentication_string FROM mysql.user;\" 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "mysqlconnectnopass=$(mysqladmin -uroot version 2>/dev/null)"
+  ],
+  "source": "peass_ng/Mysql.sh"
+ },
+ {
+  "check_name": "SI) Mysql connection root/NOPASS",
+  "platform": "linux",
+  "commands": [
+   "mysqlconnectnopass=$(mysqladmin -uroot version 2>/dev/null)",
+   "print_list \"MySQL connection using root/NOPASS ................. \"",
+   "mysql -u root -e \"SELECT User,Host,authentication_string FROM mysql.user;\" 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "process_info=$(ps aux | grep '[m]ysqld' | head -n1)"
+  ],
+  "source": "peass_ng/Mysql.sh"
+ },
+ {
+  "check_name": "IPF) Hashes in passwd file",
+  "platform": "linux",
+  "commands": [
+   "if grep -qv '^[^:]*:[x\\*\\!]\\|^#\\|^$' /etc/passwd /etc/master.passwd /etc/group 2>/dev/null; then grep -v '^[^:]*:[x\\*]\\|^#\\|^$' /etc/passwd /etc/pwd.db /etc/master.passwd /etc/group 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "if [ -w \"/etc/passwd\" ]; then echo \"/etc/passwd is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ -w \"/etc/pwd.db\" ]; then echo \"/etc/pwd.db is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ -w \"/etc/master.passwd\" ]; then echo \"/etc/master.passwd is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\""
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) Writable in passwd file",
+  "platform": "linux",
+  "commands": [
+   "if [ -w \"/etc/passwd\" ]; then echo \"/etc/passwd is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ -w \"/etc/pwd.db\" ]; then echo \"/etc/pwd.db is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ -w \"/etc/master.passwd\" ]; then echo \"/etc/master.passwd is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "else echo_no",
+   "print_list \"Credentials in fstab/mtab? ........... \""
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) Credentials in fstab",
+  "platform": "linux",
+  "commands": [
+   "print_list \"Credentials in fstab/mtab? ........... \"",
+   "if grep -qE \"(user|username|login|pass|password|pw|credentials)[=:]\" /etc/fstab /etc/mtab 2>/dev/null; then grep -E \"(user|username|login|pass|password|pw|credentials)[=:]\" /etc/fstab /etc/mtab 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "if [ \"$(cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null)\" ]; then cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no"
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) Read shadow files",
+  "platform": "linux",
+  "commands": [
+   "if [ \"$(cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null)\" ]; then cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
+   "else echo_no",
+   "(for l in /var/db/dslocal/nodes/Default/users/*; do if [ -r \"$l\" ];then echo \"$l\"; defaults read \"$l\"; possible_check=\"1\"; fi; done; if ! [ \"$possible_check\" ]; then echo_no; fi) 2>/dev/null || echo_no",
+   "(for l in /var/db/dslocal/nodes/Default/users/*; do if [ -w \"$l\" ];then echo \"$l\"; possible_check=\"1\"; fi; done; if ! [ \"$possible_check\" ]; then echo_no; fi) 2>/dev/null || echo_no",
+   "if [ -r \"/etc/security/opasswd\" ]; then cat /etc/security/opasswd 2>/dev/null || echo \"\""
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) Read opasswd file",
+  "platform": "linux",
+  "commands": [
+   "if [ -r \"/etc/security/opasswd\" ]; then cat /etc/security/opasswd 2>/dev/null || echo \"\"",
+   "else echo_no",
+   "if ! [ \"$IAMROOT\" ] && [ -w \"/etc/sysconfig/network-scripts/\" ]; then echo \"You have write privileges on /etc/sysconfig/network-scripts/\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ \"$(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -user $USER ')' -or '(' -perm -o=w ')' -or  '(' -perm -g=w -and '(' $wgroups ')' ')' ')' ')' 2>/dev/null)\" ]; then echo \"You have write privileges on $(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -use",
+   "else echo_no"
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) network-scripts",
+  "platform": "linux",
+  "commands": [
+   "if ! [ \"$IAMROOT\" ] && [ -w \"/etc/sysconfig/network-scripts/\" ]; then echo \"You have write privileges on /etc/sysconfig/network-scripts/\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
+   "elif [ \"$(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -user $USER ')' -or '(' -perm -o=w ')' -or  '(' -perm -g=w -and '(' $wgroups ')' ')' ')' ')' 2>/dev/null)\" ]; then echo \"You have write privileges on $(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -use",
+   "else echo_no",
+   "(ls -al /root/ 2>/dev/null | grep -vi \"total 0\") || echo_no"
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IPF) Read root dir",
+  "platform": "linux",
+  "commands": [
+   "(ls -al /root/ 2>/dev/null | grep -vi \"total 0\") || echo_no"
+  ],
+  "source": "peass_ng/10_Read_creds_files.sh"
+ },
+ {
+  "check_name": "IF) Find possible files with passwords",
+  "platform": "linux",
+  "commands": [
+   "timeout 150 find $HOMESEARCH -exec grep -HnRiIE \"($pwd_in_variables1|$pwd_in_variables2|$pwd_in_variables3|$pwd_in_variables4|$pwd_in_variables5|$pwd_in_variables6|$pwd_in_variables7|$pwd_in_variables8|$pwd_in_variables9|$pwd_in_variables10|$pwd_in_variables11).*[=:].+\" '{}' \\; 2>/dev/null | sed '/^",
+   "timeout 150 find /var/www $backup_folders_row /tmp /etc /mnt /private -exec grep -HnRiIE \"($pwd_in_variables1|$pwd_in_variables2|$pwd_in_variables3|$pwd_in_variables4|$pwd_in_variables5|$pwd_in_variables6|$pwd_in_variables7|$pwd_in_variables8|$pwd_in_variables9|$pwd_in_variables10|$pwd_in_variables1"
+  ],
+  "source": "peass_ng/28_Files_with_passwords.sh"
+ },
+ {
+  "check_name": "IF) Find possible conf files with passwords",
+  "platform": "linux",
+  "commands": [
+   "ppicf=$(timeout 150 find $HOMESEARCH /var/www/ /usr/local/www/ /etc /opt /tmp /private /Applications /mnt -name \"*.conf\" -o -name \"*.cnf\" -o -name \"*.config\" -o -name \"*.json\" -o -name \"*.yml\" -o -name \"*.yaml\" 2>/dev/null)",
+   "ppicf=$(timeout 150 find $SEARCH_IN_FOLDER -name \"*.conf\" -o -name \"*.cnf\" -o -name \"*.config\" -o -name \"*.json\" -o -name \"*.yml\" -o -name \"*.yaml\" 2>/dev/null)",
+   "printf \"%s\\n\" \"$ppicf\" | while read f; do",
+   "if grep -qEiI 'passwd.*|creden.*|^kind:\\W?Secret|\\Wenv:|\\Wsecret:|\\WsecretName:|^kind:\\W?EncryptionConfiguration|\\-\\-encryption\\-provider\\-config' \"$f\" 2>/dev/null; then",
+   "grep -HnEiIo 'passwd.*|creden.*|^kind:\\W?Secret|\\Wenv:|\\Wsecret:|\\WsecretName:|^kind:\\W?EncryptionConfiguration|\\-\\-encryption\\-provider\\-config' \"$f\" 2>/dev/null | sed -${E} \"s,[pP][aA][sS][sS][wW]|[cC][rR][eE][dD][eE][nN],${SED_RED},g\""
+  ],
+  "source": "peass_ng/28_Files_with_passwords.sh"
+ },
+ {
+  "check_name": "120‑second wall‑clock timeout",
+  "platform": "linux",
+  "commands": [
+   "if command -v timeout >/dev/null 2>&1; then                 # GNU/BSD timeout",
+   "elif command -v gtimeout >/dev/null 2>&1; then              # Homebrew coreutils (macOS)",
+   "else                                                        # POSIX fall‑back",
+   "( sleep 120 && kill -9 \"$cmdpid\" 2>/dev/null) &",
+   "kill -9 \"$watcher\" 2>/dev/null"
+  ],
+  "source": "peass_ng/execBin.sh"
+ },
+ {
+  "check_name": ") Checks pre-everything (---------#",
+  "platform": "linux",
+  "commands": [
+   "if ([ -f /usr/bin/id ] && [ \"$(/usr/bin/id -u)\" -eq \"0\" ]) || [ \"`whoami 2>/dev/null`\" = \"root\" ]; then",
+   "C=$(printf '\\033')"
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") Colors (----------------#",
+  "platform": "linux",
+  "commands": [
+   "C=$(printf '\\033')"
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") Parsing parameters (----------#",
+  "platform": "linux",
+  "commands": [
+   "if uname 2>/dev/null | grep -q 'Darwin' || /usr/bin/uname 2>/dev/null | grep -q 'Darwin'; then MACPEAS=\"1\"; else MACPEAS=\"\"; fi",
+   "FAST=\"1\" #By default stealth/fast mode",
+   "ROOT_FOLDER=\"/\""
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") FAST - Do not check 1min of procceses and su brute",
+  "platform": "linux",
+  "commands": [
+   "if uname 2>/dev/null | grep -q 'Darwin' || /usr/bin/uname 2>/dev/null | grep -q 'Darwin'; then MACPEAS=\"1\"; else MACPEAS=\"\"; fi",
+   "FAST=\"1\" #By default stealth/fast mode",
+   "ROOT_FOLDER=\"/\""
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") SUPERFAST - FAST & do not search for special filaes in all the folders",
+  "platform": "linux",
+  "commands": [
+   "if uname 2>/dev/null | grep -q 'Darwin' || /usr/bin/uname 2>/dev/null | grep -q 'Darwin'; then MACPEAS=\"1\"; else MACPEAS=\"\"; fi",
+   "FAST=\"1\" #By default stealth/fast mode",
+   "ROOT_FOLDER=\"/\"",
+   "THREADS=\"$( ( (grep -c processor /proc/cpuinfo 2>/dev/null) || ( (command -v lscpu >/dev/null 2>&1) && (lscpu | grep '^CPU(s):' | awk '{print $2}')) || echo -n 2) | tr -d \"\\n\")\""
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") Starting Output (-----------#",
+  "platform": "linux",
+  "commands": [
+   "printf ${BLUE}\"Linux Privesc Checklist: ${YELLOW}https://book.hacktricks.wiki/en/linux-hardening/linux-privilege-escalation-checklist.html\\n\"$NC"
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ },
+ {
+  "check_name": ") Some Basic Info (-----------#",
+  "platform": "linux",
+  "commands": [
+   "(cat /proc/version || uname -a ) 2>/dev/null",
+   "(id || (whoami && groups)) 2>/dev/null",
+   "hostname 2>/dev/null",
+   "FPING=$(command -v fping 2>/dev/null || echo -n '')",
+   "PING=$(command -v ping 2>/dev/null || echo -n '')"
+  ],
+  "source": "peass_ng/0_variables_base.sh"
+ }
+]

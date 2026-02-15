@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260215_050530_d1f526",
+  "timestamp": 1771128337.0980132,
+  "key_outcomes": {
+    "wins": [
+      "Maintained high reward pacing by completing every reconnaissance checklist before reaching the target network, demonstrating disciplined enumeration habits.",
+      "Captured detailed service fingerprints on critical hosts, enabling precise tailoring of follow-up actions despite the run ending without success."
+    ],
+    "fails": [
+      "Failed to transition from reconnaissance to exploitation, leaving all discovered vulnerabilities unexploited; impacted success rate at 0%.",
+      "Required 10 mentor interventions indicating hesitation or uncertainty during the exploitation phase, suggesting incomplete automation of decision-making.",
+      "Missed opportunities to validate persistence paths or escalate privileges, preventing mission completion despite solid reconnaissance coverage."
+    ],
+    "summary": "Reconnaissance was consistent and reward-earning, but the run repeatedly stalled before exploitation, resulting in zero successful completions despite strong initial data collection."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Recon steps completed without triggering any exploitation or privilege escalation after identifying multiple exploitable services.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11",
+        "ep001_step13",
+        "ep001_step15",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and search for misconfigurations",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771128343.6381037,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If port 80/443 services respond with custom headers after port scan",
+      "then_action": "Invoke web directory brute-force using observed base path and log results for follow-up exploitation",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common-web-dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771128343.6381207,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Once multiple credentials are harvested or default creds confirmed",
+      "then_action": "Attempt privilege escalation using credentialed ssh and sudo enumeration",
+      "parameters_template": {
+        "tools": [
+          "sudo",
+          "ssh"
+        ],
+        "checklist": [
+          "sudo -l",
+          "ssh -oBatchMode=yes"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771128343.6381326,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate transition from enumeration to exploitation",
+      "description": "Implement scripted decision points that trigger specific exploitation attempts once each reconnaissance checklist item is complete, reducing mentor dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse workflow validation",
+      "description": "Test a pipeline that captures discovered credentials and immediately attempts ssh/sudo validation and escalation to close the loop after data collection.",
+      "priority": "high"
+    },
+    {
+      "title": "Web service persistence probing",
+      "description": "After identifying web services, extend tooling to confirm upload/persist options (e.g., file upload, log poisoning) to provide actionable next steps for exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

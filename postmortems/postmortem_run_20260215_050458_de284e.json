@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260215_050458_de284e",
+  "timestamp": 1771128319.1716545,
+  "key_outcomes": {
+    "wins": [
+      "Consistently collected high-value intelligence (97.5 reward) indicating strong reconnaissance routines in Episode 1 despite overall failure.",
+      "Maintained agent persistence with 15 mentor calls guiding complex decision-making under uncertainty."
+    ],
+    "fails": [
+      "Agent failed to achieve success criteria across the entire episode, never reaching the mission goal despite high reward accumulation.",
+      "Repeated inability to escalate privileges or secure primary objective after initial reconnaissance, leading to 0% success rate."
+    ],
+    "summary": "Strong reconnaissance phase produced valuable rewards, but the run failed to translate gathered data into decisive action, leaving the mission uncompleted."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to execute privilege escalation after initial reconnaissance despite identifying multiple attack vectors.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "No final objective completion even with high reward indicators, suggesting breakdown during exploitation or cleanup.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1771128326.9474268,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When enumeration reveals writable share",
+      "then_action": "Enumerate share contents and search for credentials/artifacts",
+      "parameters_template": {
+        "share": "C$",
+        "recursion": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step10"
+      ],
+      "created_at": 1771128326.9474413,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web service responds on high-value port",
+      "then_action": "Run targeted HTTP reconnaissance with directory enumeration",
+      "parameters_template": {
+        "port": 8080,
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.79,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step8"
+      ],
+      "created_at": 1771128326.9474523,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase and strong signal for SSH enumeration."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Web reconnaissance consistently identified attack surface opportunities."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Follow-through exploitation",
+      "description": "After robust reconnaissance, immediately trigger privilege escalation chains (e.g., deploying discovered credentials) before losing session momentum.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated pivot planning",
+      "description": "Use gathered share/port data to plan multi-step pivots, prioritizing fastest path to mission goal rather than repeating single reconnaissance steps.",
+      "priority": "medium"
+    },
+    {
+      "title": "Success criteria monitoring",
+      "description": "Implement checkpoints verifying objective progress (e.g., root shell obtained) and re-task if stagnation detected.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

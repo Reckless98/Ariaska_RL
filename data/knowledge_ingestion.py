@@ -5,13 +5,28 @@ data/knowledge_ingestion.py — ARIASKA Knowledge Mega-Ingestion Pipeline v1.0
 Downloads, parses, and structures cybersecurity knowledge from top GitHub repositories
 into a unified JSON knowledge base that Ariaska's agents can query at runtime.
 
-Sources (prioritized):
+Sources (21 repos, prioritized):
     1. HackTricks-wiki/hacktricks        — Per-port/service pentesting guides (LARGEST)
     2. swisskyrepo/PayloadsAllTheThings   — Vuln-specific payloads & methodology
     3. 0xsyr0/OSCP                        — Command-first cheat sheet (6000+ lines)
     4. The-Art-of-Hacking/h4cker          — Methodology + metasploit cheat sheets
     5. vulhub/vulhub                      — CVE reproduction environments
     6. nixawk/pentest-wiki                — Kill-chain organized pentest wiki
+    7. GTFOBins/GTFOBins.github.io        — Unix binary privesc/shell escape
+    8. LOLBAS-Project/LOLBAS-Project.github.io — Windows LOLBins
+    9. WADComs/WADComs.github.io          — Windows/AD command cheatsheet
+   10. redcanaryco/atomic-red-team        — MITRE ATT&CK atomic tests
+   11. mitre/cti                          — MITRE ATT&CK STIX data
+   12. offensive-security/exploitdb       — 45K+ exploit database
+   13. swisskyrepo/InternalAllTheThings   — AD/pivoting/internal pentest
+   14. HackTricks-wiki/hacktricks-cloud   — Cloud attack methodology
+   15. peass-ng/PEASS-ng                  — LinPEAS/WinPEAS privesc detection
+   16. fortra/impacket                    — AD exploitation tools docs
+   17. samratashok/nishang                — PowerShell offensive tools
+   18. Crypto-Cat/CTF                     — Structured CTF writeups
+   19. carlospolop/PEASS-ng               — (alias for peass-ng)
+   20. danielmiessler/SecLists            — Wordlists + fuzzing payloads
+   21. rapid7/metasploit-framework        — Metasploit module docs
 
 Output:
     data/knowledge_base/
@@ -25,6 +40,13 @@ Output:
         ├── privesc_linux.json     — Linux privilege escalation techniques
         ├── privesc_windows.json   — Windows privilege escalation techniques
         ├── cheatsheets.json       — Consolidated cheat sheets
+        ├── techniques.json        — MITRE ATT&CK techniques with commands
+        ├── binaries.json          — GTFOBins/LOLBAS binary abuse methods
+        ├── exploitdb.json         — ExploitDB exploit entries
+        ├── ad_attacks.json        — Active Directory attack methodology
+        ├── cloud_attacks.json     — Cloud (AWS/Azure/GCP) attack patterns
+        ├── ctf_writeups.json      — CTF challenge solutions & reasoning
+        ├── wordlists_meta.json    — Wordlist metadata (names, sizes, contexts)
         └── manifest.json          — Ingestion metadata & stats
 
 Usage:
@@ -92,6 +114,91 @@ REPOS = {
         "url": "https://github.com/nixawk/pentest-wiki.git",
         "desc": "Kill-chain organized pentest methodology",
         "priority": 6,
+        "shallow": True,
+    },
+    # ─── Phase 9.2: Expanded repos (15 new) ─────────────────────────
+    "gtfobins": {
+        "url": "https://github.com/GTFOBins/GTFOBins.github.io.git",
+        "desc": "Unix binary privesc/shell escape methods (~200 binaries)",
+        "priority": 7,
+        "shallow": True,
+    },
+    "lolbas": {
+        "url": "https://github.com/LOLBAS-Project/LOLBAS-Project.github.io.git",
+        "desc": "Windows living-off-the-land binaries",
+        "priority": 8,
+        "shallow": True,
+    },
+    "wadcoms": {
+        "url": "https://github.com/WADComs/WADComs.github.io.git",
+        "desc": "Windows/Active Directory command cheatsheet (YAML)",
+        "priority": 9,
+        "shallow": True,
+    },
+    "atomic_red_team": {
+        "url": "https://github.com/redcanaryco/atomic-red-team.git",
+        "desc": "MITRE ATT&CK atomic tests (~1500 techniques with commands)",
+        "priority": 10,
+        "shallow": True,
+    },
+    "mitre_cti": {
+        "url": "https://github.com/mitre/cti.git",
+        "desc": "MITRE ATT&CK STIX data (techniques, tactics, procedures)",
+        "priority": 11,
+        "shallow": True,
+    },
+    "exploitdb": {
+        "url": "https://gitlab.com/exploit-database/exploitdb.git",
+        "desc": "45K+ exploit database with metadata CSV",
+        "priority": 12,
+        "shallow": True,
+    },
+    "internal_all_the_things": {
+        "url": "https://github.com/swisskyrepo/InternalAllTheThings.git",
+        "desc": "Active Directory, pivoting, internal pentest methodology",
+        "priority": 13,
+        "shallow": True,
+    },
+    "hacktricks_cloud": {
+        "url": "https://github.com/HackTricks-wiki/hacktricks-cloud.git",
+        "desc": "AWS/Azure/GCP cloud attack methodology",
+        "priority": 14,
+        "shallow": True,
+    },
+    "peass_ng": {
+        "url": "https://github.com/peass-ng/PEASS-ng.git",
+        "desc": "LinPEAS/WinPEAS privilege escalation detection scripts",
+        "priority": 15,
+        "shallow": True,
+    },
+    "impacket": {
+        "url": "https://github.com/fortra/impacket.git",
+        "desc": "Python AD exploitation tools with documentation",
+        "priority": 16,
+        "shallow": True,
+    },
+    "nishang": {
+        "url": "https://github.com/samratashok/nishang.git",
+        "desc": "PowerShell offensive security scripts",
+        "priority": 17,
+        "shallow": True,
+    },
+    "ctf_writeups": {
+        "url": "https://github.com/Crypto-Cat/CTF.git",
+        "desc": "Structured CTF writeups with solutions",
+        "priority": 18,
+        "shallow": True,
+    },
+    "seclists": {
+        "url": "https://github.com/danielmiessler/SecLists.git",
+        "desc": "Wordlists, fuzzing payloads, usernames, passwords",
+        "priority": 19,
+        "shallow": True,
+    },
+    "metasploit": {
+        "url": "https://github.com/rapid7/metasploit-framework.git",
+        "desc": "Metasploit modules with documentation",
+        "priority": 20,
         "shallow": True,
     },
 }
@@ -195,6 +302,88 @@ class CheatsheetEntry:
     section: str = ""
     content: str = ""
     commands: List[Dict[str, str]] = field(default_factory=list)
+    source: str = ""
+
+
+@dataclass
+class TechniqueEntry:
+    """MITRE ATT&CK technique with atomic tests and commands."""
+    technique_id: str          # e.g. T1059.001
+    technique_name: str = ""
+    tactic: str = ""           # e.g. execution, persistence, privilege-escalation
+    description: str = ""
+    platforms: List[str] = field(default_factory=list)  # windows, linux, macos
+    atomic_tests: List[Dict[str, str]] = field(default_factory=list)  # name, command, cleanup
+    detection: str = ""
+    prerequisites: List[str] = field(default_factory=list)
+    reasoning: str = ""        # WHY this technique works
+    source: str = ""
+
+
+@dataclass
+class BinaryEntry:
+    """GTFOBins/LOLBAS binary abuse method."""
+    binary_name: str
+    platform: str = "linux"    # linux or windows
+    functions: List[Dict[str, Any]] = field(default_factory=list)  # shell, file-read, suid, sudo, etc.
+    description: str = ""
+    reasoning: str = ""
+    source: str = ""
+
+
+@dataclass
+class ExploitDBEntry:
+    """Exploit from ExploitDB."""
+    edb_id: str
+    description: str = ""
+    date_published: str = ""
+    author: str = ""
+    platform: str = ""
+    exploit_type: str = ""     # local, remote, webapps, dos
+    port: int = 0
+    cve: str = ""
+    codes: List[str] = field(default_factory=list)
+    source_file: str = ""
+    source: str = "exploitdb"
+
+
+@dataclass
+class ADAttackEntry:
+    """Active Directory attack methodology."""
+    attack_name: str
+    category: str = ""         # enumeration, credential-access, lateral-movement, persistence
+    description: str = ""
+    commands: List[Dict[str, str]] = field(default_factory=list)
+    tools_used: List[str] = field(default_factory=list)
+    prerequisites: List[str] = field(default_factory=list)
+    reasoning: str = ""
+    source: str = ""
+
+
+@dataclass
+class CloudAttackEntry:
+    """Cloud attack methodology (AWS/Azure/GCP)."""
+    attack_name: str
+    cloud_provider: str = ""   # aws, azure, gcp
+    category: str = ""
+    description: str = ""
+    commands: List[Dict[str, str]] = field(default_factory=list)
+    reasoning: str = ""
+    source: str = ""
+
+
+@dataclass
+class CTFWriteupEntry:
+    """CTF challenge writeup with solution."""
+    challenge_name: str
+    category: str = ""         # web, pwn, crypto, forensics, misc, rev
+    difficulty: str = ""
+    description: str = ""
+    solution_steps: List[str] = field(default_factory=list)
+    commands: List[Dict[str, str]] = field(default_factory=list)
+    tools_used: List[str] = field(default_factory=list)
+    flag: str = ""
+    reasoning: str = ""
     source: str = ""
 
 
@@ -979,6 +1168,1224 @@ class PentestWikiParser:
         return stats
 
 
+# ─── Phase 9.2: NEW PARSERS (15 repos) ─────────────────────────────────────
+
+class GTFOBinsParser:
+    """Parse GTFOBins — Unix binary privesc/shell escape methods."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.binaries: List[BinaryEntry] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing GTFOBins...")
+        stats = {"files": 0, "binaries": 0, "commands": 0}
+        # GTFOBins stores YAML + markdown in _gtfobins/ directory
+        bins_dir = self.repo_dir / "_gtfobins"
+        if not bins_dir.exists():
+            # Try alternate structure
+            for alt in ["gtfobins", "GTFOBins"]:
+                alt_dir = self.repo_dir / alt
+                if alt_dir.exists():
+                    bins_dir = alt_dir
+                    break
+
+        if not bins_dir.exists():
+            # Parse any .md files at root
+            bins_dir = self.repo_dir
+
+        # GTFOBins files are extensionless YAML files (not .md)
+        candidates = list(sorted(bins_dir.iterdir()))
+        for entry_file in candidates:
+            if not entry_file.is_file():
+                continue
+            if entry_file.name.startswith(("_", ".")) or entry_file.suffix:
+                continue  # Skip dotfiles, underscored, and files WITH extensions
+            try:
+                text = entry_file.read_text(encoding="utf-8", errors="ignore")
+                binary_name = entry_file.name  # extensionless filename IS the binary name
+                functions = []
+
+                # GTFOBins files are pure YAML with functions: dict
+                try:
+                    import yaml
+                    data = yaml.safe_load(text)
+                    if isinstance(data, dict) and "functions" in data:
+                        func_data = data["functions"]
+                        if isinstance(func_data, dict):
+                            for func_name, func_entries in func_data.items():
+                                if isinstance(func_entries, list):
+                                    for entry in func_entries:
+                                        code = entry.get("code", "") if isinstance(entry, dict) else str(entry)
+                                        desc = entry.get("description", "") if isinstance(entry, dict) else ""
+                                        functions.append({
+                                            "type": func_name,
+                                            "code": code,
+                                            "description": desc,
+                                        })
+                                        if code:
+                                            self.commands.append(CommandEntry(
+                                                tool_name=binary_name,
+                                                command=code,
+                                                description=f"GTFOBins {func_name}: {desc}" if desc else f"GTFOBins {func_name}",
+                                                phase="PRIVILEGE_ESCALATION" if func_name in ("suid", "sudo", "capabilities") else "EXPLOITATION",
+                                                use_case=f"Abuse {binary_name} for {func_name}",
+                                                reasoning=f"Binary {binary_name} can be abused via {func_name} function to escalate privileges or escape restricted shells",
+                                                source=f"gtfobins/{binary_name}",
+                                            ))
+                except ImportError:
+                    pass  # No yaml module
+                except Exception:
+                    pass
+
+                if functions:
+                    self.binaries.append(BinaryEntry(
+                        binary_name=binary_name,
+                        platform="linux",
+                        functions=functions,
+                        description=f"GTFOBins: {binary_name} — {len(functions)} abuse methods",
+                        source="gtfobins",
+                    ))
+                    stats["binaries"] += 1
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"GTFOBins: {stats}")
+        return stats
+
+
+class LOLBASParser:
+    """Parse LOLBAS — Windows Living Off The Land Binaries."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.binaries: List[BinaryEntry] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing LOLBAS...")
+        stats = {"files": 0, "binaries": 0, "commands": 0}
+
+        # LOLBAS stores YAML-frontmatter .md files in _lolbas/ directory
+        lolbas_dir = self.repo_dir / "_lolbas"
+        if not lolbas_dir.exists():
+            # Try alternate dirs
+            for alt in ["yml", "_data"]:
+                alt_dir = self.repo_dir / alt
+                if alt_dir.exists():
+                    lolbas_dir = alt_dir
+                    break
+
+        if not lolbas_dir.exists():
+            logger.warning("LOLBAS _lolbas/ directory not found")
+            return stats
+
+        for md_file in sorted(lolbas_dir.rglob("*.md")):
+            if md_file.name in ("README.md", "NOTICE.md") or ".git" in str(md_file):
+                continue
+            try:
+                text = md_file.read_text(encoding="utf-8", errors="ignore")
+                if not text.startswith("---"):
+                    continue
+
+                parts = text.split("---", 2)
+                if len(parts) < 3:
+                    continue
+
+                import yaml
+                data = yaml.safe_load(parts[1])
+                if not isinstance(data, dict):
+                    continue
+
+                binary_name = data.get("Name", md_file.stem)
+                desc = data.get("Description", "")
+                functions = []
+
+                commands_data = data.get("Commands", [])
+                if isinstance(commands_data, list):
+                    for cmd_entry in commands_data:
+                        if not isinstance(cmd_entry, dict):
+                            continue
+                        cmd_str = cmd_entry.get("Command", "")
+                        cmd_desc = cmd_entry.get("Description", "")
+                        usecase = cmd_entry.get("Usecase", "")
+                        category = cmd_entry.get("Category", "")
+                        mitre_id = cmd_entry.get("MitreID", "")
+
+                        if cmd_str:
+                            functions.append({
+                                "type": category or "generic",
+                                "code": cmd_str,
+                                "description": cmd_desc,
+                                "usecase": usecase,
+                                "mitre_id": mitre_id,
+                            })
+                            self.commands.append(CommandEntry(
+                                tool_name=binary_name,
+                                command=cmd_str,
+                                description=f"LOLBAS {category}: {cmd_desc}" if cmd_desc else f"LOLBAS {binary_name}",
+                                phase=self._category_to_phase(category),
+                                use_case=usecase,
+                                reasoning=f"Windows LOLBin {binary_name} — legitimate binary abusable for {category}",
+                                source=f"lolbas/{binary_name}",
+                            ))
+
+                if functions:
+                    self.binaries.append(BinaryEntry(
+                        binary_name=binary_name,
+                        platform="windows",
+                        functions=functions,
+                        description=desc[:500],
+                        source="lolbas",
+                    ))
+                    stats["binaries"] += 1
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"LOLBAS: {stats}")
+        return stats
+
+    @staticmethod
+    def _category_to_phase(cat: str) -> str:
+        cat_l = cat.lower()
+        if any(w in cat_l for w in ["execute", "awl bypass"]):
+            return "EXPLOITATION"
+        if any(w in cat_l for w in ["download", "upload", "copy"]):
+            return "EXFILTRATION"
+        if any(w in cat_l for w in ["recon", "discover"]):
+            return "ENUMERATION"
+        if "compile" in cat_l:
+            return "POST_EXPLOITATION"
+        return "EXPLOITATION"
+
+
+class WADComsParser:
+    """Parse WADComs — Windows/AD command cheatsheet."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.ad_attacks: List[ADAttackEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing WADComs...")
+        stats = {"files": 0, "commands": 0, "ad_attacks": 0}
+
+        # WADComs uses _wadcoms/ with YAML-frontmatter markdown files
+        wadcoms_dir = self.repo_dir / "_wadcoms"
+        if not wadcoms_dir.exists():
+            wadcoms_dir = self.repo_dir
+
+        for md_file in sorted(wadcoms_dir.rglob("*.md")):
+            if md_file.name.startswith(("_", ".")):
+                continue
+            try:
+                text = md_file.read_text(encoding="utf-8", errors="ignore")
+                # Parse YAML front matter
+                if text.startswith("---"):
+                    parts = text.split("---", 2)
+                    if len(parts) >= 3:
+                        try:
+                            import yaml
+                            data = yaml.safe_load(parts[1])
+                            if isinstance(data, dict):
+                                title = data.get("title", md_file.stem)
+                                desc = data.get("description", "")
+                                command = data.get("command", "")
+                                items = data.get("items", [])
+
+                                if command:
+                                    self.commands.append(CommandEntry(
+                                        tool_name=title.split()[0] if title else md_file.stem,
+                                        command=command,
+                                        description=desc,
+                                        phase="EXPLOITATION",
+                                        use_case=f"AD attack: {title}",
+                                        reasoning=f"Active Directory attack using {title}",
+                                        source=f"wadcoms/{md_file.stem}",
+                                    ))
+
+                                # Build AD attack entry
+                                tools = [it for it in items if isinstance(it, str)] if isinstance(items, list) else []
+                                body = parts[2] if len(parts) > 2 else ""
+                                body_cmds = extract_commands_from_markdown(body)
+                                all_cmds = [{"command": command}] if command else []
+                                all_cmds.extend(body_cmds)
+
+                                for bc in body_cmds:
+                                    self.commands.append(CommandEntry(
+                                        tool_name=bc["command"].split()[0] if bc["command"].split() else title,
+                                        command=bc["command"],
+                                        description=bc.get("heading", title),
+                                        phase="EXPLOITATION",
+                                        source=f"wadcoms/{md_file.stem}",
+                                    ))
+
+                                self.ad_attacks.append(ADAttackEntry(
+                                    attack_name=title,
+                                    category="active-directory",
+                                    description=desc,
+                                    commands=all_cmds[:10],
+                                    tools_used=tools[:10],
+                                    source=f"wadcoms/{md_file.stem}",
+                                ))
+                                stats["ad_attacks"] += 1
+                        except ImportError:
+                            pass
+                        except Exception:
+                            pass
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"WADComs: {stats}")
+        return stats
+
+
+class AtomicRedTeamParser:
+    """Parse Atomic Red Team — MITRE ATT&CK technique tests."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.techniques: List[TechniqueEntry] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing Atomic Red Team...")
+        stats = {"files": 0, "techniques": 0, "commands": 0}
+
+        atomics_dir = self.repo_dir / "atomics"
+        if not atomics_dir.exists():
+            logger.warning("atomics/ directory not found")
+            return stats
+
+        for tech_dir in sorted(atomics_dir.iterdir()):
+            if not tech_dir.is_dir() or not tech_dir.name.startswith("T"):
+                continue
+
+            yaml_file = tech_dir / f"{tech_dir.name}.yaml"
+            if not yaml_file.exists():
+                yaml_file = tech_dir / f"{tech_dir.name}.yml"
+            if not yaml_file.exists():
+                continue
+
+            try:
+                import yaml
+                data = yaml.safe_load(yaml_file.read_text(encoding="utf-8", errors="ignore"))
+                if not isinstance(data, dict):
+                    continue
+
+                tech_id = data.get("attack_technique", tech_dir.name)
+                tech_name = data.get("display_name", "")
+                atomic_tests = data.get("atomic_tests", [])
+
+                technique_tests = []
+                for test in atomic_tests:
+                    if not isinstance(test, dict):
+                        continue
+                    test_name = test.get("name", "")
+                    test_desc = test.get("description", "")
+                    platforms = test.get("supported_platforms", [])
+                    executor = test.get("executor", {})
+                    command = executor.get("command", "") if isinstance(executor, dict) else ""
+                    cleanup = executor.get("cleanup_command", "") if isinstance(executor, dict) else ""
+
+                    if command:
+                        # Clean the command — remove #{...} input placeholders with defaults
+                        input_args = test.get("input_arguments", {})
+                        if isinstance(input_args, dict):
+                            for arg_name, arg_data in input_args.items():
+                                if isinstance(arg_data, dict):
+                                    default = str(arg_data.get("default", arg_name))
+                                    command = command.replace(f"#{{{arg_name}}}", default)
+
+                        technique_tests.append({
+                            "name": test_name,
+                            "command": command[:1000],
+                            "cleanup": cleanup[:500] if cleanup else "",
+                            "platforms": platforms,
+                            "description": test_desc[:500],
+                        })
+
+                        # Extract individual command lines
+                        for line in command.split("\n"):
+                            line = line.strip()
+                            if line and not line.startswith("#") and len(line) > 5:
+                                phase = classify_phase(test_desc + " " + test_name)
+                                self.commands.append(CommandEntry(
+                                    tool_name=line.split()[0] if line.split() else tech_id,
+                                    command=line[:500],
+                                    description=f"ATT&CK {tech_id}: {test_name}",
+                                    phase=phase if phase != "GENERAL" else "EXPLOITATION",
+                                    use_case=test_desc[:300],
+                                    reasoning=f"MITRE ATT&CK technique {tech_id} ({tech_name}) — {test_name}",
+                                    source=f"atomic_red_team/{tech_id}",
+                                ))
+
+                if technique_tests:
+                    self.techniques.append(TechniqueEntry(
+                        technique_id=tech_id,
+                        technique_name=tech_name,
+                        tactic=classify_phase(tech_name).lower(),
+                        description=f"{tech_name}: {len(technique_tests)} atomic tests",
+                        platforms=list(set(p for t in technique_tests for p in t.get("platforms", []))),
+                        atomic_tests=technique_tests,
+                        source="atomic_red_team",
+                    ))
+                    stats["techniques"] += 1
+
+                stats["files"] += 1
+            except ImportError:
+                break  # No yaml
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"Atomic Red Team: {stats}")
+        return stats
+
+
+class MITRECTIParser:
+    """Parse MITRE CTI — ATT&CK STIX data (techniques, tactics, procedures)."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.techniques: List[TechniqueEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing MITRE CTI (STIX)...")
+        stats = {"files": 0, "techniques": 0}
+
+        # MITRE CTI stores STIX JSON bundles
+        for domain_dir in ["enterprise-attack", "mobile-attack", "ics-attack"]:
+            attack_dir = self.repo_dir / domain_dir
+            if not attack_dir.exists():
+                continue
+
+            # The main bundle file
+            bundle_file = attack_dir / f"{domain_dir}.json"
+            if not bundle_file.exists():
+                # Try alternate path
+                for jf in attack_dir.rglob("*.json"):
+                    if jf.stat().st_size > 100_000:
+                        bundle_file = jf
+                        break
+
+            if not bundle_file.exists():
+                continue
+
+            try:
+                data = json.loads(bundle_file.read_text(encoding="utf-8", errors="ignore"))
+                objects = data.get("objects", [])
+
+                for obj in objects:
+                    if obj.get("type") != "attack-pattern":
+                        continue
+
+                    ext_refs = obj.get("external_references", [])
+                    tech_id = ""
+                    for ref in ext_refs:
+                        if ref.get("source_name") == "mitre-attack":
+                            tech_id = ref.get("external_id", "")
+                            break
+
+                    if not tech_id:
+                        continue
+
+                    name = obj.get("name", "")
+                    desc = obj.get("description", "")
+                    platforms = obj.get("x_mitre_platforms", [])
+                    kill_chain = obj.get("kill_chain_phases", [])
+                    tactics = [kc.get("phase_name", "") for kc in kill_chain] if kill_chain else []
+
+                    # Clean markdown from description
+                    desc_clean = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', desc)  # Remove links
+                    desc_clean = re.sub(r'<[^>]+>', '', desc_clean)  # Remove HTML
+
+                    self.techniques.append(TechniqueEntry(
+                        technique_id=tech_id,
+                        technique_name=name,
+                        tactic=", ".join(tactics) if tactics else "",
+                        description=desc_clean[:2000],
+                        platforms=platforms,
+                        detection=obj.get("x_mitre_detection", "")[:1000],
+                        reasoning=f"MITRE ATT&CK {tech_id}: {name} — used in {', '.join(tactics)}",
+                        source=f"mitre_cti/{domain_dir}",
+                    ))
+                    stats["techniques"] += 1
+
+                stats["files"] += 1
+            except Exception as e:
+                logger.debug(f"MITRE CTI parse error: {e}")
+
+        logger.info(f"MITRE CTI: {stats}")
+        return stats
+
+
+class ExploitDBParser:
+    """Parse ExploitDB — 45K+ exploits with CSV metadata."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.exploits: List[ExploitDBEntry] = []
+        self.cves: List[CVEEntry] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing ExploitDB...")
+        stats = {"files": 0, "exploits": 0, "cves": 0, "commands": 0}
+
+        # ExploitDB has files_exploits.csv with metadata
+        csv_file = self.repo_dir / "files_exploits.csv"
+        if not csv_file.exists():
+            logger.warning("files_exploits.csv not found in ExploitDB repo")
+            # Try parsing exploit files directly
+            return self._parse_exploits_dir(stats)
+
+        try:
+            import csv
+            with open(csv_file, "r", encoding="utf-8", errors="ignore") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    edb_id = row.get("id", "")
+                    desc = row.get("description", "")
+                    date = row.get("date_published", "")
+                    author = row.get("author", "")
+                    platform = row.get("platform", "")
+                    etype = row.get("type", "")
+                    port_str = row.get("port", "0")
+                    codes_str = row.get("codes", "")
+
+                    try:
+                        port = int(port_str) if port_str and port_str.isdigit() else 0
+                    except ValueError:
+                        port = 0
+
+                    # Extract CVEs from codes field
+                    cves_found = []
+                    if codes_str:
+                        cves_found = [c.strip() for c in codes_str.split(";") if c.strip().startswith("CVE-")]
+
+                    self.exploits.append(ExploitDBEntry(
+                        edb_id=edb_id,
+                        description=desc[:500],
+                        date_published=date,
+                        author=author,
+                        platform=platform,
+                        exploit_type=etype,
+                        port=port,
+                        cve=cves_found[0] if cves_found else "",
+                        codes=cves_found,
+                    ))
+
+                    # Create CVE entries for found CVEs
+                    for cve_id in cves_found:
+                        self.cves.append(CVEEntry(
+                            cve_id=cve_id,
+                            description=desc[:500],
+                            affected_software=platform,
+                            severity="unknown",
+                            exploit_methodology=f"ExploitDB EDB-{edb_id}: {desc[:200]}",
+                            source=f"exploitdb/EDB-{edb_id}",
+                        ))
+
+                    stats["exploits"] += 1
+                    if stats["exploits"] % 10000 == 0:
+                        logger.info(f"  ExploitDB progress: {stats['exploits']:,} exploits...")
+
+        except Exception as e:
+            logger.error(f"ExploitDB CSV parse error: {e}")
+
+        stats["cves"] = len(self.cves)
+        stats["commands"] = len(self.commands)
+        logger.info(f"ExploitDB: {stats}")
+        return stats
+
+    def _parse_exploits_dir(self, stats):
+        """Fallback: parse exploit files directly from exploits/ directory."""
+        exploits_dir = self.repo_dir / "exploits"
+        if not exploits_dir.exists():
+            return stats
+        count = 0
+        for efile in exploits_dir.rglob("*"):
+            if not efile.is_file() or efile.suffix not in (".py", ".rb", ".c", ".txt", ".pl", ".sh"):
+                continue
+            if count >= 50000:
+                break
+            try:
+                text = efile.read_text(encoding="utf-8", errors="ignore")[:5000]
+                cves = extract_cves(text)
+                desc = efile.stem.replace("-", " ").replace("_", " ")
+                self.exploits.append(ExploitDBEntry(
+                    edb_id=efile.stem,
+                    description=desc[:500],
+                    platform=efile.parent.name,
+                    cve=cves[0] if cves else "",
+                    codes=cves,
+                    source_file=str(efile.relative_to(self.repo_dir)),
+                ))
+                count += 1
+                stats["exploits"] += 1
+            except Exception:
+                continue
+        return stats
+
+
+class InternalAllTheThingsParser:
+    """Parse InternalAllTheThings — AD, pivoting, internal pentest methodology."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.ad_attacks: List[ADAttackEntry] = []
+        self.methodology: List[MethodologyEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing InternalAllTheThings...")
+        stats = {"files": 0, "commands": 0, "ad_attacks": 0}
+
+        ad_categories = {
+            "active-directory": "active-directory",
+            "kerberos": "credential-access",
+            "ldap": "enumeration",
+            "ntlm": "credential-access",
+            "privilege-escalation": "privilege-escalation",
+            "persistence": "persistence",
+            "lateral-movement": "lateral-movement",
+            "pivoting": "lateral-movement",
+            "port-forwarding": "lateral-movement",
+            "tunneling": "lateral-movement",
+        }
+
+        for md_file in sorted(self.repo_dir.rglob("*.md")):
+            if ".git" in str(md_file) or md_file.name.startswith("_"):
+                continue
+            try:
+                text = md_file.read_text(encoding="utf-8", errors="ignore")
+                if len(text) < 100:
+                    continue
+
+                rel_path = str(md_file.relative_to(self.repo_dir)).lower()
+                sections = split_markdown_sections(text)
+                cmds = extract_commands_from_markdown(text)
+
+                # Determine AD category from path
+                category = "general"
+                for key, cat in ad_categories.items():
+                    if key in rel_path:
+                        category = cat
+                        break
+
+                for c in cmds[:30]:
+                    phase = classify_phase(c.get("context", "") + " " + c.get("heading", ""))
+                    if phase == "GENERAL":
+                        phase = "EXPLOITATION"
+                    self.commands.append(CommandEntry(
+                        tool_name=c["command"].split()[0] if c["command"].split() else "",
+                        command=c["command"],
+                        description=c.get("heading", md_file.stem),
+                        phase=phase,
+                        use_case=c.get("context", ""),
+                        reasoning=f"Internal pentest technique: {category}",
+                        source=f"internal_all_the_things/{rel_path}",
+                    ))
+
+                # Build AD attack entries from substantial sections
+                for heading, content, level in sections:
+                    if len(content) > 200:
+                        section_cmds = extract_commands_from_markdown(content)
+                        if section_cmds:
+                            tools = list(set(c["command"].split()[0] for c in section_cmds if c["command"].split()))[:10]
+                            self.ad_attacks.append(ADAttackEntry(
+                                attack_name=heading,
+                                category=category,
+                                description=content[:1000],
+                                commands=section_cmds[:10],
+                                tools_used=tools,
+                                reasoning=content[:500],
+                                source=f"internal_all_the_things/{rel_path}",
+                            ))
+                            stats["ad_attacks"] += 1
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"InternalAllTheThings: {stats}")
+        return stats
+
+
+class HackTricksCloudParser:
+    """Parse HackTricks Cloud — AWS/Azure/GCP attack methodology."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.cloud_attacks: List[CloudAttackEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing HackTricks Cloud...")
+        stats = {"files": 0, "commands": 0, "cloud_attacks": 0}
+
+        cloud_providers = {"aws": "aws", "azure": "azure", "gcp": "gcp", "google": "gcp"}
+
+        for base in [self.repo_dir, self.repo_dir / "src"]:
+            for md_file in sorted(base.rglob("*.md")):
+                if ".git" in str(md_file) or md_file.name in ("SUMMARY.md", "README.md"):
+                    continue
+                try:
+                    text = md_file.read_text(encoding="utf-8", errors="ignore")
+                    if len(text) < 100:
+                        continue
+
+                    rel_path = str(md_file.relative_to(self.repo_dir)).lower()
+
+                    # Determine cloud provider
+                    provider = ""
+                    for key, prov in cloud_providers.items():
+                        if key in rel_path:
+                            provider = prov
+                            break
+
+                    cmds = extract_commands_from_markdown(text)
+                    sections = split_markdown_sections(text)
+
+                    for c in cmds[:20]:
+                        self.commands.append(CommandEntry(
+                            tool_name=c["command"].split()[0] if c["command"].split() else "",
+                            command=c["command"],
+                            description=c.get("heading", md_file.stem),
+                            phase=classify_phase(c.get("context", "")),
+                            use_case=f"Cloud attack ({provider}): {c.get('heading', '')}",
+                            source=f"hacktricks_cloud/{rel_path}",
+                        ))
+
+                    for heading, content, level in sections:
+                        if len(content) > 300:
+                            section_cmds = extract_commands_from_markdown(content)
+                            if section_cmds or any(w in content.lower() for w in ["exploit", "attack", "abuse", "escalat"]):
+                                self.cloud_attacks.append(CloudAttackEntry(
+                                    attack_name=heading,
+                                    cloud_provider=provider or "multi",
+                                    category=classify_phase(heading).lower(),
+                                    description=content[:1500],
+                                    commands=section_cmds[:10],
+                                    reasoning=content[:500],
+                                    source=f"hacktricks_cloud/{rel_path}",
+                                ))
+                                stats["cloud_attacks"] += 1
+
+                    stats["files"] += 1
+                except Exception:
+                    continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"HackTricks Cloud: {stats}")
+        return stats
+
+
+class PEASSParser:
+    """Parse PEASS-ng — LinPEAS/WinPEAS privilege escalation checks."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.privesc_checks: List[Dict[str, Any]] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing PEASS-ng...")
+        stats = {"files": 0, "commands": 0, "checks": 0}
+
+        # Parse linPEAS — extract check descriptions and commands from shell scripts
+        for script_dir in [self.repo_dir / "linPEAS", self.repo_dir / "winPEAS"]:
+            if not script_dir.exists():
+                continue
+            platform = "linux" if "lin" in script_dir.name.lower() else "windows"
+
+            for efile in sorted(script_dir.rglob("*")):
+                if not efile.is_file():
+                    continue
+                if efile.suffix not in (".sh", ".bat", ".ps1", ".py", ".rb", ".md"):
+                    continue
+                try:
+                    text = efile.read_text(encoding="utf-8", errors="ignore")
+                    if len(text) < 50:
+                        continue
+
+                    # Extract check descriptions from comments
+                    check_pattern = re.compile(r'#\s*[-=]+\s*(.+?)[-=]*\s*$', re.MULTILINE)
+                    for match in check_pattern.finditer(text):
+                        check_name = match.group(1).strip()
+                        if len(check_name) > 10 and not check_name.startswith("#"):
+                            # Get the command block following this check
+                            block_start = match.end()
+                            block_end = min(block_start + 2000, len(text))
+                            block = text[block_start:block_end]
+
+                            # Extract commands from block
+                            cmd_lines = []
+                            for line in block.split("\n")[:20]:
+                                line = line.strip()
+                                if line and not line.startswith("#") and not line.startswith("echo") and len(line) > 5:
+                                    if any(c in line for c in ["$(", "|", "/", "grep", "find", "cat", "ls"]):
+                                        cmd_lines.append(line[:300])
+
+                            if cmd_lines:
+                                self.privesc_checks.append({
+                                    "check_name": check_name,
+                                    "platform": platform,
+                                    "commands": cmd_lines[:5],
+                                    "source": f"peass_ng/{efile.name}",
+                                })
+                                stats["checks"] += 1
+
+                                for cmd in cmd_lines[:3]:
+                                    self.commands.append(CommandEntry(
+                                        tool_name=cmd.split()[0] if cmd.split() else "check",
+                                        command=cmd,
+                                        description=f"PEASS {platform} check: {check_name}",
+                                        phase="PRIVILEGE_ESCALATION",
+                                        use_case=f"Privesc detection: {check_name}",
+                                        reasoning=f"Automated privilege escalation check from {'LinPEAS' if platform == 'linux' else 'WinPEAS'}",
+                                        source=f"peass_ng/{efile.name}",
+                                    ))
+
+                    stats["files"] += 1
+                except Exception:
+                    continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"PEASS-ng: {stats}")
+        return stats
+
+
+class ImpacketParser:
+    """Parse Impacket — Python AD exploitation tools."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.ad_attacks: List[ADAttackEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing Impacket...")
+        stats = {"files": 0, "commands": 0, "tools": 0}
+
+        # Parse impacket tool scripts (examples/ directory)
+        examples_dir = self.repo_dir / "examples"
+        if not examples_dir.exists():
+            examples_dir = self.repo_dir / "impacket" / "examples"
+
+        if examples_dir.exists():
+            for py_file in sorted(examples_dir.glob("*.py")):
+                try:
+                    text = py_file.read_text(encoding="utf-8", errors="ignore")
+                    # Extract docstring/description from header
+                    desc = ""
+                    desc_match = re.search(r'"""(.*?)"""', text[:3000], re.DOTALL)
+                    if not desc_match:
+                        desc_match = re.search(r"'''(.*?)'''", text[:3000], re.DOTALL)
+                    if desc_match:
+                        desc = desc_match.group(1).strip()[:500]
+
+                    tool_name = py_file.stem
+                    # Generate typical usage command
+                    usage_cmd = f"python {tool_name}.py -target-ip TARGET DOMAIN/USER:PASS"
+                    usage_match = re.search(r'usage.*?:\s*(.+)', text[:5000], re.IGNORECASE)
+                    if usage_match:
+                        usage_cmd = usage_match.group(1).strip()[:300]
+
+                    self.commands.append(CommandEntry(
+                        tool_name=tool_name,
+                        command=usage_cmd,
+                        description=f"Impacket {tool_name}: {desc[:200]}",
+                        phase="EXPLOITATION",
+                        use_case=f"AD exploitation tool: {tool_name}",
+                        reasoning=f"Impacket tool {tool_name} — {desc[:200]}",
+                        source=f"impacket/{tool_name}",
+                    ))
+
+                    self.ad_attacks.append(ADAttackEntry(
+                        attack_name=f"impacket-{tool_name}",
+                        category="exploitation",
+                        description=desc[:500],
+                        commands=[{"command": usage_cmd, "description": desc[:200]}],
+                        tools_used=[f"impacket/{tool_name}"],
+                        source=f"impacket/{tool_name}",
+                    ))
+
+                    stats["tools"] += 1
+                    stats["files"] += 1
+                except Exception:
+                    continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"Impacket: {stats}")
+        return stats
+
+
+class NishangParser:
+    """Parse Nishang — PowerShell offensive security scripts."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing Nishang...")
+        stats = {"files": 0, "commands": 0, "scripts": 0}
+
+        for ps1_file in sorted(self.repo_dir.rglob("*.ps1")):
+            if ".git" in str(ps1_file):
+                continue
+            try:
+                text = ps1_file.read_text(encoding="utf-8", errors="ignore")
+                if len(text) < 50:
+                    continue
+
+                script_name = ps1_file.stem
+                rel_path = str(ps1_file.relative_to(self.repo_dir))
+
+                # Extract synopsis/description from PowerShell help comments
+                desc = ""
+                synopsis_match = re.search(r'\.SYNOPSIS\s*\n(.+?)(?:\n\.|$)', text[:3000], re.DOTALL)
+                if synopsis_match:
+                    desc = synopsis_match.group(1).strip()[:500]
+
+                # Extract example usage
+                examples = []
+                for ex_match in re.finditer(r'\.EXAMPLE\s*\n(.+?)(?:\n\.|$)', text[:5000], re.DOTALL):
+                    ex_text = ex_match.group(1).strip()
+                    if ex_text:
+                        examples.append(ex_text[:300])
+
+                # Determine category from directory
+                parent = ps1_file.parent.name.lower()
+                phase = "EXPLOITATION"
+                if "gather" in parent or "recon" in parent:
+                    phase = "ENUMERATION"
+                elif "escalat" in parent or "privesc" in parent:
+                    phase = "PRIVILEGE_ESCALATION"
+                elif "backdoor" in parent or "persist" in parent:
+                    phase = "POST_EXPLOITATION"
+                elif "shell" in parent or "reverse" in parent:
+                    phase = "EXPLOITATION"
+
+                usage = f"Import-Module .\\{script_name}.ps1; {script_name}"
+                if examples:
+                    usage = examples[0]
+
+                self.commands.append(CommandEntry(
+                    tool_name=script_name,
+                    command=usage,
+                    description=f"Nishang {script_name}: {desc[:200]}",
+                    phase=phase,
+                    use_case=desc[:300],
+                    reasoning=f"PowerShell offensive tool from Nishang — {parent}/{script_name}",
+                    source=f"nishang/{rel_path}",
+                ))
+                stats["scripts"] += 1
+
+                # Add example commands
+                for ex in examples[1:3]:
+                    self.commands.append(CommandEntry(
+                        tool_name=script_name,
+                        command=ex,
+                        description=f"Nishang {script_name} example",
+                        phase=phase,
+                        source=f"nishang/{rel_path}",
+                    ))
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"Nishang: {stats}")
+        return stats
+
+
+class CTFWriteupsParser:
+    """Parse CTF writeups — challenge solutions with reasoning."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.writeups: List[CTFWriteupEntry] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing CTF writeups...")
+        stats = {"files": 0, "writeups": 0, "commands": 0}
+
+        ctf_categories = {"web", "pwn", "crypto", "forensics", "misc", "rev", "reversing",
+                          "binary", "network", "stego", "steganography", "osint"}
+
+        for md_file in sorted(self.repo_dir.rglob("*.md")):
+            if ".git" in str(md_file):
+                continue
+            try:
+                text = md_file.read_text(encoding="utf-8", errors="ignore")
+                if len(text) < 200:
+                    continue
+
+                rel_path = str(md_file.relative_to(self.repo_dir)).lower()
+
+                # Determine category from path
+                category = "misc"
+                for cat in ctf_categories:
+                    if cat in rel_path:
+                        category = cat
+                        break
+
+                challenge_name = md_file.stem.replace("-", " ").replace("_", " ")
+                sections = split_markdown_sections(text)
+                cmds = extract_commands_from_markdown(text)
+                tools = list(set(c["command"].split()[0] for c in cmds if c["command"].split()))[:10]
+
+                # Extract solution steps from sections
+                solution_steps = []
+                for heading, content, level in sections:
+                    if any(w in heading.lower() for w in ["solution", "solve", "step", "approach", "exploit", "payload"]):
+                        solution_steps.append(f"{heading}: {content[:500]}")
+
+                if cmds or solution_steps:
+                    self.writeups.append(CTFWriteupEntry(
+                        challenge_name=challenge_name,
+                        category=category,
+                        description=text[:500],
+                        solution_steps=solution_steps[:10],
+                        commands=[c for c in cmds[:15]],
+                        tools_used=tools,
+                        reasoning="\n".join(solution_steps[:3])[:1000] if solution_steps else "",
+                        source=f"ctf_writeups/{rel_path}",
+                    ))
+                    stats["writeups"] += 1
+
+                for c in cmds[:10]:
+                    self.commands.append(CommandEntry(
+                        tool_name=c["command"].split()[0] if c["command"].split() else "",
+                        command=c["command"],
+                        description=f"CTF {category}: {c.get('heading', challenge_name)}",
+                        phase=classify_phase(c.get("context", "")),
+                        source=f"ctf_writeups/{rel_path}",
+                    ))
+
+                stats["files"] += 1
+            except Exception:
+                continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"CTF Writeups: {stats}")
+        return stats
+
+
+class SecListsParser:
+    """Parse SecLists — Extract wordlist metadata (not the full wordlists)."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.wordlists_meta: List[Dict[str, Any]] = []
+        self.commands: List[CommandEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing SecLists (metadata extraction)...")
+        stats = {"files": 0, "wordlists": 0, "commands": 0}
+
+        # Index all wordlist files with metadata (don't load content — too large)
+        categories = {
+            "Passwords": "credentials",
+            "Usernames": "enumeration",
+            "Discovery": "enumeration",
+            "Fuzzing": "exploitation",
+            "Web-Shells": "exploitation",
+            "Pattern-Matching": "analysis",
+        }
+
+        for category_dir, cat_type in categories.items():
+            cat_path = self.repo_dir / category_dir
+            if not cat_path.exists():
+                continue
+
+            for wl_file in sorted(cat_path.rglob("*")):
+                if not wl_file.is_file():
+                    continue
+                if ".git" in str(wl_file) or wl_file.name.startswith("."):
+                    continue
+
+                try:
+                    size = wl_file.stat().st_size
+                    # Count lines for small files, estimate for large
+                    line_count = 0
+                    if size < 10_000_000:  # < 10MB
+                        try:
+                            with open(wl_file, "r", encoding="utf-8", errors="ignore") as f:
+                                line_count = sum(1 for _ in f)
+                        except Exception:
+                            line_count = size // 20  # Estimate
+                    else:
+                        line_count = size // 20
+
+                    rel_path = str(wl_file.relative_to(self.repo_dir))
+
+                    self.wordlists_meta.append({
+                        "name": wl_file.name,
+                        "path": rel_path,
+                        "category": category_dir,
+                        "type": cat_type,
+                        "size_bytes": size,
+                        "line_count": line_count,
+                        "description": f"{category_dir}/{wl_file.name} — {line_count:,} entries",
+                    })
+                    stats["wordlists"] += 1
+
+                    # Generate usage commands for notable wordlists
+                    if line_count > 100:
+                        if "password" in rel_path.lower() or category_dir == "Passwords":
+                            self.commands.append(CommandEntry(
+                                tool_name="hydra",
+                                command=f"hydra -L users.txt -P {rel_path} TARGET ssh",
+                                description=f"Brute-force with {wl_file.name} ({line_count:,} passwords)",
+                                phase="EXPLOITATION",
+                                use_case=f"Password brute-force using {wl_file.name}",
+                                source="seclists",
+                            ))
+                        elif "directory" in rel_path.lower() or "discovery" in rel_path.lower():
+                            self.commands.append(CommandEntry(
+                                tool_name="gobuster",
+                                command=f"gobuster dir -u http://TARGET -w {rel_path}",
+                                description=f"Directory brute-force with {wl_file.name} ({line_count:,} entries)",
+                                phase="ENUMERATION",
+                                source="seclists",
+                            ))
+                        elif "fuzz" in rel_path.lower():
+                            self.commands.append(CommandEntry(
+                                tool_name="ffuf",
+                                command=f"ffuf -u http://TARGET/FUZZ -w {rel_path}",
+                                description=f"Fuzzing with {wl_file.name} ({line_count:,} patterns)",
+                                phase="EXPLOITATION",
+                                source="seclists",
+                            ))
+
+                    stats["files"] += 1
+                except Exception:
+                    continue
+
+        stats["commands"] = len(self.commands)
+        logger.info(f"SecLists: {stats}")
+        return stats
+
+
+class MetasploitParser:
+    """Parse Metasploit Framework — extract module metadata from Ruby files."""
+
+    def __init__(self, repo_dir: Path):
+        self.repo_dir = repo_dir
+        self.commands: List[CommandEntry] = []
+        self.cves: List[CVEEntry] = []
+
+    def parse(self) -> Dict[str, Any]:
+        logger.info("Parsing Metasploit Framework modules...")
+        stats = {"files": 0, "modules": 0, "cves": 0, "commands": 0}
+
+        modules_dir = self.repo_dir / "modules"
+        if not modules_dir.exists():
+            logger.warning("modules/ directory not found in Metasploit")
+            return stats
+
+        # Parse module Ruby files for metadata
+        for rb_file in sorted(modules_dir.rglob("*.rb")):
+            if ".git" in str(rb_file):
+                continue
+            try:
+                text = rb_file.read_text(encoding="utf-8", errors="ignore")
+                if len(text) < 100:
+                    continue
+
+                rel_path = str(rb_file.relative_to(modules_dir))
+                module_path = rel_path.replace(".rb", "").replace("/", "/")
+
+                # Extract metadata from module info hash
+                name = ""
+                desc = ""
+                author = ""
+                cves = []
+                platform = ""
+                port = 0
+
+                name_match = re.search(r"['\"]Name['\"]\s*=>\s*['\"](.+?)['\"]", text)
+                if name_match:
+                    name = name_match.group(1)
+
+                desc_match = re.search(r"['\"]Description['\"]\s*=>\s*['\"](.+?)['\"]", text, re.DOTALL)
+                if not desc_match:
+                    desc_match = re.search(r"['\"]Description['\"]\s*=>\s*%q\{(.+?)\}", text, re.DOTALL)
+                if desc_match:
+                    desc = desc_match.group(1).strip()[:500]
+
+                cve_matches = CVE_PATTERN.findall(text)
+                cves = list(set(cve_matches))
+
+                port_match = re.search(r"['\"]RPORT['\"]\s*=>\s*(\d+)", text)
+                if port_match:
+                    port = int(port_match.group(1))
+
+                platform_match = re.search(r"['\"]Platform['\"]\s*=>\s*['\"](.+?)['\"]", text)
+                if platform_match:
+                    platform = platform_match.group(1)
+
+                if name or desc:
+                    # Generate MSF usage command
+                    msf_cmd = f"use {module_path}"
+                    phase = "EXPLOITATION"
+                    if "auxiliary" in module_path:
+                        phase = "ENUMERATION"
+                    elif "post" in module_path:
+                        phase = "POST_EXPLOITATION"
+
+                    self.commands.append(CommandEntry(
+                        tool_name="msfconsole",
+                        command=msf_cmd,
+                        description=f"MSF: {name}" if name else f"MSF module: {module_path}",
+                        phase=phase,
+                        use_case=desc[:300],
+                        reasoning=f"Metasploit module targeting {'port ' + str(port) if port else platform or 'multi'}",
+                        related_tools=["metasploit"],
+                        source=f"metasploit/{module_path}",
+                    ))
+                    stats["modules"] += 1
+
+                    for cve_id in cves:
+                        self.cves.append(CVEEntry(
+                            cve_id=cve_id,
+                            description=f"{name}: {desc[:200]}",
+                            affected_software=platform,
+                            metasploit_module=module_path,
+                            source=f"metasploit/{module_path}",
+                        ))
+
+                    stats["files"] += 1
+                    if stats["modules"] % 1000 == 0:
+                        logger.info(f"  Metasploit progress: {stats['modules']:,} modules...")
+
+            except Exception:
+                continue
+
+        stats["cves"] = len(self.cves)
+        stats["commands"] = len(self.commands)
+        logger.info(f"Metasploit: {stats}")
+        return stats
+
+
 # ─── Deduplication & Quality ────────────────────────────────────────────────
 
 def deduplicate_commands(commands: List[Dict[str, Any]], key: str = "command") -> List[Dict[str, Any]]:
@@ -1056,7 +2463,7 @@ def run_ingestion(repos: Optional[List[str]] = None, quick: bool = False):
     repo_list = repos or list(REPOS.keys())
     logger.info(f"Starting knowledge ingestion for: {repo_list}")
 
-    # Aggregated knowledge
+    # Aggregated knowledge — original
     all_services: List[Dict] = []
     all_cves: List[Dict] = []
     all_payloads: List[Dict] = []
@@ -1066,6 +2473,15 @@ def run_ingestion(repos: Optional[List[str]] = None, quick: bool = False):
     all_cheatsheets: List[Dict] = []
     all_privesc_linux: List[Dict] = []
     all_privesc_windows: List[Dict] = []
+    # Phase 9.2 — expanded knowledge types
+    all_techniques: List[Dict] = []       # MITRE ATT&CK + Atomic Red Team
+    all_binaries: List[Dict] = []         # GTFOBins + LOLBAS
+    all_exploitdb: List[Dict] = []        # ExploitDB entries
+    all_ad_attacks: List[Dict] = []       # AD attack chains (WADComs, Internal, Impacket)
+    all_cloud_attacks: List[Dict] = []    # Cloud attack chains (HackTricks Cloud)
+    all_ctf_writeups: List[Dict] = []     # CTF writeups with reasoning
+    all_wordlists_meta: List[Dict] = []   # SecLists wordlist metadata
+    all_privesc_checks: List[Dict] = []   # PEASS privesc check enumeration
 
     manifest = {
         "version": "1.0",
@@ -1139,6 +2555,96 @@ def run_ingestion(repos: Optional[List[str]] = None, quick: bool = False):
                 all_kill_chains.extend(asdict(k) for k in parser.kill_chains)
                 all_services.extend(asdict(s) for s in parser.services)
 
+            # ─── Phase 9.2: New Repo Parsers ───
+
+            elif repo_name == "gtfobins":
+                parser = GTFOBinsParser(repo_dir)
+                stats = parser.parse()
+                all_binaries.extend(asdict(b) for b in parser.binaries)
+                all_commands.extend(asdict(c) for c in parser.commands)
+
+            elif repo_name == "lolbas":
+                parser = LOLBASParser(repo_dir)
+                stats = parser.parse()
+                all_binaries.extend(asdict(b) for b in parser.binaries)
+                all_commands.extend(asdict(c) for c in parser.commands)
+
+            elif repo_name == "wadcoms":
+                parser = WADComsParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_ad_attacks.extend(asdict(a) for a in parser.ad_attacks)
+
+            elif repo_name == "atomic_red_team":
+                parser = AtomicRedTeamParser(repo_dir)
+                stats = parser.parse()
+                all_techniques.extend(asdict(t) for t in parser.techniques)
+                all_commands.extend(asdict(c) for c in parser.commands)
+
+            elif repo_name == "mitre_cti":
+                parser = MITRECTIParser(repo_dir)
+                stats = parser.parse()
+                all_techniques.extend(asdict(t) for t in parser.techniques)
+
+            elif repo_name == "exploitdb":
+                parser = ExploitDBParser(repo_dir)
+                stats = parser.parse()
+                all_exploitdb.extend(asdict(e) for e in parser.exploits)
+                all_cves.extend(asdict(c) for c in parser.cves)
+                all_commands.extend(asdict(c) for c in parser.commands)
+
+            elif repo_name == "internal_all_the_things":
+                parser = InternalAllTheThingsParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_ad_attacks.extend(asdict(a) for a in parser.ad_attacks)
+                all_methodology.extend(asdict(m) for m in parser.methodology)
+
+            elif repo_name == "hacktricks_cloud":
+                parser = HackTricksCloudParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_cloud_attacks.extend(asdict(a) for a in parser.cloud_attacks)
+
+            elif repo_name == "peass_ng":
+                parser = PEASSParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_privesc_checks.extend(parser.privesc_checks)
+
+            elif repo_name == "impacket":
+                parser = ImpacketParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_ad_attacks.extend(asdict(a) for a in parser.ad_attacks)
+
+            elif repo_name == "nishang":
+                parser = NishangParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+
+            elif repo_name == "ctf_writeups":
+                parser = CTFWriteupsParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_ctf_writeups.extend(asdict(w) for w in parser.writeups)
+
+            elif repo_name == "seclists":
+                parser = SecListsParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_wordlists_meta.extend(parser.wordlists_meta)
+
+            elif repo_name == "metasploit":
+                parser = MetasploitParser(repo_dir)
+                stats = parser.parse()
+                all_commands.extend(asdict(c) for c in parser.commands)
+                all_cves.extend(asdict(c) for c in parser.cves)
+
+            else:
+                logger.warning(f"[{repo_name}] No parser implemented, skipping")
+                stats = {"skipped": True}
+
             manifest["repos_processed"].append(repo_name)
             manifest["stats"][repo_name] = stats
 
@@ -1186,6 +2692,15 @@ def run_ingestion(repos: Optional[List[str]] = None, quick: bool = False):
         "cheatsheets.json": all_cheatsheets,
         "privesc_linux.json": all_privesc_linux,
         "privesc_windows.json": all_privesc_windows,
+        # Phase 9.2 — expanded
+        "techniques.json": all_techniques,
+        "binaries.json": all_binaries,
+        "exploitdb.json": all_exploitdb,
+        "ad_attacks.json": all_ad_attacks,
+        "cloud_attacks.json": all_cloud_attacks,
+        "ctf_writeups.json": all_ctf_writeups,
+        "wordlists_meta.json": all_wordlists_meta,
+        "privesc_checks.json": all_privesc_checks,
     }
 
     total_size = 0
@@ -1220,6 +2735,14 @@ def run_ingestion(repos: Optional[List[str]] = None, quick: bool = False):
         f"  Cheatsheets:     {len(all_cheatsheets):,}\n"
         f"  Privesc Linux:   {len(all_privesc_linux):,}\n"
         f"  Privesc Windows: {len(all_privesc_windows):,}\n"
+        f"  Techniques:      {len(all_techniques):,}\n"
+        f"  Binaries:        {len(all_binaries):,}\n"
+        f"  ExploitDB:       {len(all_exploitdb):,}\n"
+        f"  AD Attacks:      {len(all_ad_attacks):,}\n"
+        f"  Cloud Attacks:   {len(all_cloud_attacks):,}\n"
+        f"  CTF Writeups:    {len(all_ctf_writeups):,}\n"
+        f"  Wordlists Meta:  {len(all_wordlists_meta):,}\n"
+        f"  Privesc Checks:  {len(all_privesc_checks):,}\n"
         f"  Total size:      {manifest['total_size_mb']:.1f} MB\n"
         f"  Duration:        {manifest['duration_seconds']:.0f}s\n"
         f"{'=' * 60}"

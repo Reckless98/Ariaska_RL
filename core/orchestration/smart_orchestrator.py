@@ -308,6 +308,39 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 9: CognitiveBus init failed: {e}")
         
+        # ─── PHASE 9.2: Knowledge Graph — LMDB-backed attack knowledge ──
+        self.knowledge_graph = None
+        try:
+            from core.knowledge.kg_manager import KnowledgeGraph
+            self.knowledge_graph = KnowledgeGraph(db_path="data/kg_store")
+            KnowledgeGraph.set_instance(self.knowledge_graph)
+            _kg_stats = self.knowledge_graph.stats
+            if _kg_stats.get("total_nodes", 0) == 0:
+                # First run — load from knowledge base
+                self.knowledge_graph.load_from_knowledge_base()
+                logger.info(f"Phase 9.2: KnowledgeGraph loaded from KB "
+                            f"({self.knowledge_graph.stats.get('total_nodes', 0)} nodes)")
+            else:
+                logger.info(f"Phase 9.2: KnowledgeGraph restored from LMDB "
+                            f"({_kg_stats.get('total_nodes', 0)} nodes)")
+        except Exception as e:
+            logger.warning(f"Phase 9.2: KnowledgeGraph init failed: {e}")
+        
+        # ─── PHASE 9.2: ReflectiveCortex — batch meta-learning ──
+        self.reflective_cortex = None
+        try:
+            from core.llm.reflective_cortex import ReflectiveCortex
+            self.reflective_cortex = ReflectiveCortex(
+                gpt_manager=gpt_manager,
+                knowledge_graph=self.knowledge_graph,
+                reflect_interval=10,
+                max_history_episodes=20,
+                enable_llm=True,
+            )
+            logger.info("Phase 9.2: ReflectiveCortex initialized (batch meta-learning)")
+        except Exception as e:
+            logger.warning(f"Phase 9.2: ReflectiveCortex init failed: {e}")
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
@@ -4758,6 +4791,29 @@ class SmartOrchestrator:
             # Update skill library size in dashboard
             if self.skill_library:
                 self.dashboard.set_skill_library_size(len(self.skill_library))
+            
+            # ─── Phase 9.2: ReflectiveCortex — accumulate & reflect ───
+            if self.reflective_cortex:
+                try:
+                    self.reflective_cortex.accumulate_episode(metrics)
+                    if self.reflective_cortex.should_reflect(ep):
+                        reflection = self.reflective_cortex.reflect(current_episode=ep)
+                        if reflection.insights:
+                            # Apply insights to coaches and mentors
+                            _first_coach = next(iter(self.coaches.values()), None)
+                            _mentor = getattr(_first_coach, '_mentor', None) if _first_coach else None
+                            self.reflective_cortex.apply_insights(
+                                reflection,
+                                smart_coach=_first_coach,
+                                mentor=_mentor,
+                                knowledge_graph=self.knowledge_graph,
+                            )
+                            logger.info(
+                                f"Phase 9.2: Reflection cycle {reflection.cycle_id}: "
+                                f"{len(reflection.insights)} insights applied"
+                            )
+                except Exception as e:
+                    logger.debug(f"Phase 9.2: Reflection failed: {e}")
         
         # Compute final metrics
         total_time = time.time() - self.start_time

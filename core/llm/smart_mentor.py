@@ -226,6 +226,9 @@ class SmartMentor:
         self.model = model
         self.temperature = temperature
         self.max_retries = max_retries
+        
+        # Phase 9.2: ReflectiveCortex insight injection point
+        self._reflective_insights: List[str] = []
     
     def _build_system_prompt(self) -> str:
         """Build the system prompt with dynamic knowledge injection from knowledge_packs."""
@@ -282,6 +285,34 @@ class SmartMentor:
             if mentor_ctx:
                 venice_aha_context = "\n=== COGNITIVE BUS — CROSS-EPISODE INSIGHTS ===\n"
                 venice_aha_context += mentor_ctx
+        except Exception:
+            pass
+
+        # Phase 9.2: ReflectiveCortex insights — inject meta-learning insights
+        reflective_insights_text = ""
+        try:
+            from core.llm.reflective_cortex import ReflectiveCortex
+            # Check if cortex has active insights (injected by SmartOrchestrator)
+            if hasattr(self, '_reflective_insights') and self._reflective_insights:
+                reflective_insights_text = "\n=== REFLECTIVE CORTEX — META-LEARNING INSIGHTS ===\n"
+                for insight in self._reflective_insights[:3]:
+                    reflective_insights_text += f"• {insight}\n"
+        except Exception:
+            pass
+
+        # Phase 9.2: Knowledge Graph context — exploit paths for current target
+        kg_exploit_context = ""
+        try:
+            from core.knowledge.kg_manager import KnowledgeGraph
+            kg = KnowledgeGraph.get_instance()
+            if kg:
+                attack_surface = kg.get_attack_surface(limit=8)
+                if attack_surface:
+                    kg_exploit_context = "\n=== KNOWLEDGE GRAPH — ATTACK SURFACE ===\n"
+                    for node_id, data in attack_surface[:8]:
+                        label = data.get("label", node_id)
+                        ntype = data.get("node_type", "")
+                        kg_exploit_context += f"  • [{ntype}] {label}\n"
         except Exception:
             pass
 
@@ -447,6 +478,10 @@ After exfiltration, ALWAYS close out professionally:
 {web_exploit_reference}
 
 {venice_aha_context}
+
+{reflective_insights_text}
+
+{kg_exploit_context}
 """
     
     def _build_user_prompt(

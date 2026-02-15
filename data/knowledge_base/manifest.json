@@ -1,13 +1,26 @@
 {
   "version": "1.0",
-  "timestamp": "2026-02-15 03:17:19",
+  "timestamp": "2026-02-15 04:49:39",
   "repos_processed": [
     "hacktricks",
     "payloads",
     "oscp",
     "h4cker",
     "vulhub",
-    "pentest_wiki"
+    "pentest_wiki",
+    "gtfobins",
+    "lolbas",
+    "wadcoms",
+    "atomic_red_team",
+    "mitre_cti",
+    "internal_all_the_things",
+    "hacktricks_cloud",
+    "peass_ng",
+    "impacket",
+    "nishang",
+    "ctf_writeups",
+    "seclists",
+    "metasploit"
   ],
   "stats": {
     "hacktricks": {
@@ -40,17 +53,82 @@
       "commands": 748,
       "methodology": 192
     },
+    "gtfobins": {
+      "files": 472,
+      "binaries": 452,
+      "commands": 810
+    },
+    "lolbas": {
+      "files": 227,
+      "binaries": 227,
+      "commands": 451
+    },
+    "wadcoms": {
+      "files": 100,
+      "commands": 99,
+      "ad_attacks": 99
+    },
+    "atomic_red_team": {
+      "files": 328,
+      "techniques": 326,
+      "commands": 5310
+    },
+    "mitre_cti": {
+      "files": 3,
+      "techniques": 1094
+    },
+    "internal_all_the_things": {
+      "files": 169,
+      "commands": 2291,
+      "ad_attacks": 260
+    },
+    "hacktricks_cloud": {
+      "files": 790,
+      "commands": 8980,
+      "cloud_attacks": 2066
+    },
+    "peass_ng": {
+      "files": 294,
+      "commands": 355,
+      "checks": 177
+    },
+    "impacket": {
+      "files": 68,
+      "commands": 68,
+      "tools": 68
+    },
+    "nishang": {
+      "files": 87,
+      "commands": 134,
+      "scripts": 87
+    },
+    "ctf_writeups": {
+      "files": 20,
+      "writeups": 9,
+      "commands": 38
+    },
+    "seclists": {
+      "files": 5847,
+      "wordlists": 5847,
+      "commands": 962
+    },
+    "metasploit": {
+      "files": 4925,
+      "modules": 4925,
+      "cves": 1341,
+      "commands": 4925
+    },
     "services.json": {
       "entries": 317,
-      "size_bytes": 1645339
+      "size_bytes": 1645353
     },
     "ports.json": {
       "entries": 158,
-      "size_bytes": 543725
+      "size_bytes": 543721
     },
     "cves.json": {
-      "entries": 360,
-      "size_bytes": 2409054
+      "entries": 1701,
+      "size_bytes": 3236904
     },
     "payloads.json": {
       "entries": 172,
@@ -61,8 +139,8 @@
       "size_bytes": 2379075
     },
     "commands.json": {
-      "entries": 13868,
-      "size_bytes": 6397048
+      "entries": 31375,
+      "size_bytes": 16123301
     },
     "kill_chains.json": {
       "entries": 322,
@@ -79,9 +157,41 @@
     "privesc_windows.json": {
       "entries": 139,
       "size_bytes": 260484
+    },
+    "techniques.json": {
+      "entries": 1420,
+      "size_bytes": 2931275
+    },
+    "binaries.json": {
+      "entries": 679,
+      "size_bytes": 376205
+    },
+    "exploitdb.json": {
+      "entries": 0,
+      "size_bytes": 2
+    },
+    "ad_attacks.json": {
+      "entries": 427,
+      "size_bytes": 760934
+    },
+    "cloud_attacks.json": {
+      "entries": 2066,
+      "size_bytes": 4735224
+    },
+    "ctf_writeups.json": {
+      "entries": 9,
+      "size_bytes": 29687
+    },
+    "wordlists_meta.json": {
+      "entries": 5847,
+      "size_bytes": 1544984
+    },
+    "privesc_checks.json": {
+      "entries": 177,
+      "size_bytes": 69047
     }
   },
-  "total_size_bytes": 15333813,
-  "total_size_mb": 14.6,
-  "duration_seconds": 4.2
+  "total_size_bytes": 36335284,
+  "total_size_mb": 34.7,
+  "duration_seconds": 120.1
 }

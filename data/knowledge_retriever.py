@@ -73,7 +73,7 @@ class KnowledgeRetriever:
         self._tool_index: Dict[str, List[Dict]] = defaultdict(list)
         self._vuln_type_index: Dict[str, List[Dict]] = defaultdict(list)
 
-        # Raw data
+        # Raw data — original (Phase 9.0)
         self._services: List[Dict] = []
         self._ports: Dict[int, Dict] = {}
         self._cves: List[Dict] = []
@@ -84,6 +84,19 @@ class KnowledgeRetriever:
         self._cheatsheets: List[Dict] = []
         self._privesc_linux: List[Dict] = []
         self._privesc_windows: List[Dict] = []
+
+        # Raw data — Phase 9.2 expanded knowledge
+        self._techniques: List[Dict] = []
+        self._binaries: List[Dict] = []
+        self._ad_attacks: List[Dict] = []
+        self._cloud_attacks: List[Dict] = []
+        self._privesc_checks: List[Dict] = []
+        self._exploit_modules: List[Dict] = []
+
+        # Phase 9.2 extended indices
+        self._technique_id_index: Dict[str, List[Dict]] = defaultdict(list)
+        self._binary_index: Dict[str, List[Dict]] = defaultdict(list)
+        self._tactic_index: Dict[str, List[Dict]] = defaultdict(list)
 
         # Search cache
         self._search_corpus: List[Tuple[str, Dict, str]] = []  # (text, entry, category)
@@ -118,6 +131,13 @@ class KnowledgeRetriever:
             "cheatsheets.json": ("_cheatsheets", list),
             "privesc_linux.json": ("_privesc_linux", list),
             "privesc_windows.json": ("_privesc_windows", list),
+            # Phase 9.2 expanded knowledge files
+            "techniques.json": ("_techniques", list),
+            "binaries.json": ("_binaries", list),
+            "ad_attacks.json": ("_ad_attacks", list),
+            "cloud_attacks.json": ("_cloud_attacks", list),
+            "privesc_checks.json": ("_privesc_checks", list),
+            "exploit_modules.json": ("_exploit_modules", list),
         }
 
         total_entries = 0
@@ -259,6 +279,100 @@ class KnowledgeRetriever:
             self._search_corpus.append(
                 (f"windows privesc {pe.get('technique', '')} {pe.get('description', '')[:300]}".lower(),
                  pe, "privesc_windows")
+            )
+
+        # ─── Phase 9.2: Index expanded knowledge ───────────────────────
+        # Techniques (MITRE ATT&CK + Atomic Red Team)
+        for tech in self._techniques:
+            tech_id = tech.get("technique_id", tech.get("id", "")).upper()
+            if tech_id:
+                self._technique_id_index[tech_id].append(tech)
+            # Map tactics to phases
+            for tactic in tech.get("tactics", []):
+                tactic_lower = tactic.lower()
+                self._tactic_index[tactic_lower].append(tech)
+                # Map MITRE tactics to kill chain phases
+                tactic_phase_map = {
+                    "reconnaissance": "RECON",
+                    "discovery": "ENUMERATION",
+                    "initial-access": "EXPLOITATION",
+                    "execution": "EXPLOITATION",
+                    "privilege-escalation": "PRIVILEGE_ESCALATION",
+                    "lateral-movement": "LATERAL_MOVEMENT",
+                    "persistence": "POST_EXPLOITATION",
+                    "exfiltration": "EXFILTRATION",
+                    "credential-access": "EXPLOITATION",
+                    "defense-evasion": "LATERAL_MOVEMENT",
+                    "collection": "POST_EXPLOITATION",
+                }
+                mapped_phase = tactic_phase_map.get(tactic_lower, "")
+                if mapped_phase:
+                    self._phase_index[mapped_phase].append(tech)
+            self._search_corpus.append(
+                (f"{tech_id} {tech.get('name', '')} {' '.join(tech.get('tactics', []))} "
+                 f"{tech.get('description', '')[:400]}".lower(), tech, "technique")
+            )
+
+        # Binaries (GTFOBins + LOLBAS)
+        for binary in self._binaries:
+            bin_name = binary.get("binary_name", binary.get("binary", binary.get("name", ""))).lower()
+            if bin_name:
+                self._binary_index[bin_name].append(binary)
+                self._tool_index[bin_name].append(binary)
+            # Index by function type (file-read, suid, shell, etc.)
+            for func in binary.get("functions", []):
+                func_type = func.get("type", func.get("function", "")).lower()
+                if func_type:
+                    self._binary_index[func_type].append(binary)
+            self._search_corpus.append(
+                (f"binary lolbin gtfobin {bin_name} "
+                 f"{binary.get('description', '')[:200]}".lower(), binary, "binary")
+            )
+
+        # AD Attacks (WADComs + InternalAllTheThings)
+        for ad in self._ad_attacks:
+            tool_name = ad.get("tool", ad.get("name", "")).lower()
+            if tool_name:
+                self._tool_index[tool_name].append(ad)
+            self._phase_index.setdefault("LATERAL_MOVEMENT", []).append(ad)
+            self._search_corpus.append(
+                (f"active directory ad attack {tool_name} "
+                 f"{ad.get('description', '')[:200]} "
+                 f"{' '.join(ad.get('tags', []))}".lower(), ad, "ad_attack")
+            )
+
+        # Cloud Attacks (HackTricks Cloud)
+        for cloud in self._cloud_attacks:
+            platform = cloud.get("platform", "").lower()
+            self._search_corpus.append(
+                (f"cloud {platform} {cloud.get('title', '')} "
+                 f"{cloud.get('content', '')[:300]}".lower(), cloud, "cloud_attack")
+            )
+
+        # Privesc Checks (PEASS-ng)
+        for check in self._privesc_checks:
+            self._phase_index["PRIVILEGE_ESCALATION"].append(check)
+            self._search_corpus.append(
+                (f"privesc check {check.get('name', '')} "
+                 f"{check.get('description', '')[:200]}".lower(), check, "privesc_check")
+            )
+
+        # Exploit Modules (Metasploit)
+        for mod in self._exploit_modules:
+            mod_name = mod.get("name", mod.get("module_name", "")).lower()
+            if mod_name:
+                self._tool_index[mod_name].append(mod)
+            # Index by CVE
+            for cve_id in mod.get("cves", []):
+                self._cve_index[cve_id.upper()].append(mod)
+            # Index by port if available
+            mod_port = mod.get("port", 0)
+            if mod_port:
+                self._port_index[mod_port].append(mod)
+            self._search_corpus.append(
+                (f"metasploit module exploit {mod_name} "
+                 f"{' '.join(mod.get('cves', []))} "
+                 f"{mod.get('description', '')[:200]}".lower(), mod, "exploit_module")
             )
 
         logger.debug(
@@ -569,6 +683,67 @@ class KnowledgeRetriever:
 
         return "\n".join(parts)
 
+    # ─── Phase 9.2: Extended Query Methods ───────────────────────────────
+
+    def by_technique(self, technique_id: str, max_results: int = 10) -> List[Dict]:
+        """Get MITRE ATT&CK technique details by ID (e.g., T1059)."""
+        self._ensure_loaded()
+        return self._technique_id_index.get(technique_id.upper(), [])[:max_results]
+
+    def by_tactic(self, tactic: str, max_results: int = 20) -> List[Dict]:
+        """Get techniques for a MITRE tactic (e.g., 'lateral-movement')."""
+        self._ensure_loaded()
+        return self._tactic_index.get(tactic.lower(), [])[:max_results]
+
+    def by_binary(self, binary_name: str, max_results: int = 10) -> List[Dict]:
+        """Get GTFOBins/LOLBAS data for a binary (e.g., 'python', 'wget')."""
+        self._ensure_loaded()
+        return self._binary_index.get(binary_name.lower(), [])[:max_results]
+
+    def get_ad_attacks(self, tool: str = "", max_results: int = 20) -> List[Dict]:
+        """Get Active Directory attack techniques, optionally filtered by tool."""
+        self._ensure_loaded()
+        if tool:
+            return [a for a in self._ad_attacks
+                    if tool.lower() in a.get("tool", "").lower()][:max_results]
+        return self._ad_attacks[:max_results]
+
+    def get_cloud_attacks(self, platform: str = "", max_results: int = 20) -> List[Dict]:
+        """Get cloud attack techniques, optionally filtered by platform."""
+        self._ensure_loaded()
+        if platform:
+            return [a for a in self._cloud_attacks
+                    if platform.lower() in a.get("platform", "").lower()][:max_results]
+        return self._cloud_attacks[:max_results]
+
+    def get_exploit_modules(self, service: str = "", cve: str = "",
+                            max_results: int = 15) -> List[Dict]:
+        """Get Metasploit exploit modules by service or CVE."""
+        self._ensure_loaded()
+        results = []
+        for mod in self._exploit_modules:
+            if cve and cve.upper() in [c.upper() for c in mod.get("cves", [])]:
+                results.append(mod)
+            elif service:
+                mod_name = mod.get("name", mod.get("module_name", "")).lower()
+                desc = mod.get("description", "").lower()
+                if service.lower() in mod_name or service.lower() in desc:
+                    results.append(mod)
+        return results[:max_results]
+
+    def get_gtfobins_for_privesc(self, max_results: int = 15) -> List[Dict]:
+        """Get GTFOBins binaries useful for privilege escalation (SUID, sudo, shell)."""
+        self._ensure_loaded()
+        results = []
+        for binary in self._binaries:
+            funcs = binary.get("functions", [])
+            for func in funcs:
+                ftype = func.get("type", func.get("function", "")).lower()
+                if ftype in ("suid", "sudo", "shell", "capabilities", "limited-suid"):
+                    results.append(binary)
+                    break
+        return results[:max_results]
+
     # ─── Statistics ─────────────────────────────────────────────────────────
 
     def stats(self) -> Dict[str, int]:
@@ -585,6 +760,13 @@ class KnowledgeRetriever:
             "cheatsheets": len(self._cheatsheets),
             "privesc_linux": len(self._privesc_linux),
             "privesc_windows": len(self._privesc_windows),
+            # Phase 9.2 expanded
+            "techniques": len(self._techniques),
+            "binaries": len(self._binaries),
+            "ad_attacks": len(self._ad_attacks),
+            "cloud_attacks": len(self._cloud_attacks),
+            "privesc_checks": len(self._privesc_checks),
+            "exploit_modules": len(self._exploit_modules),
             "searchable_entries": len(self._search_corpus),
         }
 
