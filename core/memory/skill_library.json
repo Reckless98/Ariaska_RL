@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771122481.4851887,
-  "skill_count": 97,
+  "last_updated": 1771158691.1533906,
+  "skill_count": 98,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1382,6 +1382,29 @@
         "run_20260215_032732_d57f9c_episode_01_step_12"
       ],
       "created_at": 1771122481.4815633,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_enum": {
+      "id": "skill_web_enum",
+      "if_condition": "When HTTP/HTTPS port returns 200 and includes application-specific headers",
+      "then_action": "Deploy web directory brute-force and banner grabbing to map application entry points",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step10"
+      ],
+      "created_at": 1771158691.1344435,
       "usage_count": 0,
       "success_rate": 0.0
     }

@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260215_144003_3f4837",
+  "timestamp": 1771162810.2791946,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward accumulation across the single episode, indicating stable action selection despite mission failure.",
+      "Used all 10 mentor calls effectively to explore different tactics, generating a diverse set of reconnaissance observations."
+    ],
+    "fails": [
+      "Zero percent success rate: final objective was never met, suggesting critical gaps in exploitation or persistence phases.",
+      "Mentor guidance did not translate into adaptive strategy changes, causing repeated inability to close the attack loop."
+    ],
+    "summary": "Strong reconnaissance persistence but ineffective transition to goal completion; needs better exploitation/persistence follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to exploit identified host even after successful service enumeration, leaving mission incomplete.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step19",
+        "ep001_step23"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected during initial scan",
+      "then_action": "Run SSH enumeration with targeted nmap scripts to capture banner details and identify potential username patterns.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771162817.5397556,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH connection attempts fail with default credentials",
+      "then_action": "Cascade to password spraying using harvested username list and keep trial window synchronized with lockout thresholds.",
+      "parameters_template": {
+        "username_list": "identified_usernames.txt",
+        "password_list": "common_passwords.txt",
+        "delay_seconds": 3
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771162817.5397725,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance identifies a second open service after SSH",
+      "then_action": "Shift focus to multi-service correlation by mapping inter-service dependencies before committing to exploitation.",
+      "parameters_template": {
+        "services": [
+          "ssh",
+          "http"
+        ],
+        "mapping_tool": "service_mapper.py"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step16"
+      ],
+      "created_at": 1771162817.5397844,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success in identifying SSH properties and gathering contextual data for downstream actions."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Effective follow-up attempts after initial authentication failure, indicating readiness for automated spraying."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate Post-Enumeration Pivot Strategy",
+      "description": "After SSH enumeration, test pivoting into detected ancillary services (HTTP/DB) before attempting exploitation to ensure readiness.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive Credential Strategy",
+      "description": "Introduce timed variation in credential spraying (vary delay/payload) to bypass potential adaptive lockouts observed in failure run.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
