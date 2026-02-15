@@ -126,6 +126,12 @@ class FakeGPTManager:
             "tokens_used_total": 0
         }
         
+        # Attributes that real GPTManager exposes
+        self.tokens_by_agent: Dict[str, int] = {}
+        self.current_episode_id: Optional[str] = None
+        self.token_limit_per_agent = 1000
+        self._episode_cost_usd = 0.0
+        
         logger.info(f"FakeGPTManager initialized with seed={seed}")
     
     def is_configured(self) -> bool:
@@ -280,6 +286,33 @@ class FakeGPTManager:
                          agent_id: str) -> str:
         """Get training hint (deterministic)."""
         return self.gpt_request(f"Hint for {phase}", "tactical", agent_id)
+    
+    def reset_episode(self, episode_id: Optional[int] = None, agent_name: Optional[str] = None) -> None:
+        """Reset token counters for a new episode (mirrors real GPTManager)."""
+        if agent_name:
+            self.tokens_by_agent[agent_name] = 0
+        else:
+            self.tokens_used = 0
+            self.tokens_by_agent = {}
+            self.current_episode_id = str(episode_id) if episode_id is not None else None
+    
+    def reset_episode_tokens(self) -> None:
+        """Reset per-episode token counters."""
+        self.tokens_used = 0
+        self.tokens_by_agent.clear()
+        self._episode_cost_usd = 0.0
+    
+    def has_venice(self) -> bool:
+        """Fake manager has no Venice integration."""
+        return False
+    
+    def get_budget_status(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get budget status (always within budget for fake)."""
+        return {
+            "within_budget": True,
+            "tokens_used": self.tokens_used,
+            "tokens_remaining": max(0, self.token_limit - self.tokens_used),
+        }
     
     def cleanup(self):
         """Clean shutdown (no-op for fake)."""
