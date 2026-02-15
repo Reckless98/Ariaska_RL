@@ -405,6 +405,9 @@ class SmartCoach:
         # ─── PHASE 6.6: Difficulty preset (set externally by orchestrator) ───
         self.difficulty_preset = None  # Set via set_difficulty_preset()
 
+        # ─── Phase 9: CognitiveBus reference (lazy singleton) ────────────
+        self._cognitive_bus = None  # Lazy-loaded via _get_cognitive_bus()
+
         # =====================================================================
         # PHASE 4: Per-role PPO agent + CommandActionMapper
         # PPO drives command selection within each role's action pool.
@@ -1255,6 +1258,20 @@ class SmartCoach:
                              f"services={_team_services}, creds={_team_creds}, "
                              f"shells={_team_shells}")
         
+        # Phase 9: CognitiveBus context for mentor — unified timeline insights
+        _cognitive_ctx = ""
+        try:
+            bus = self._get_cognitive_bus()
+            if bus is not None:
+                _cognitive_ctx = bus.get_mentor_context(
+                    agent_id=self.agent_name,
+                    phase=ctx.current_phase.name if ctx.current_phase else "",
+                )
+                if _cognitive_ctx:
+                    _cognitive_ctx = f"\n{_cognitive_ctx}"
+        except Exception:
+            pass
+        
         compact_prompt = (
             f"You are a senior penetration tester coordinating a team of 5 agents "
             f"(Red=offense, Scout=recon, Shadow=stealth, Blue=defense, Orion=strategy) "
@@ -1265,7 +1282,7 @@ class SmartCoach:
             f"Creds: {'msfadmin:msfadmin' if ctx.state_flags.get('credentials_known') else 'unknown'} | "
             f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'} | "
             f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}"
-            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}\n"
+            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}\n"
             f"\nMS3 KILL CHAINS (proven paths):\n"
             f"1. SSH: nmap→ssh_login msfadmin:msfadmin→sudo su→dump /etc/shadow→exfil\n"
             f"2. ProFTPD: nmap→ftp_anon 21→proftpd_exploit→shell→privesc→exfil\n"
@@ -1517,12 +1534,28 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[PERSONA-TACTICAL] Failed, falling through to raw GPT: {e}")
 
+        # Phase 9: CognitiveBus codex context for tactical analysis
+        _codex_ctx = ""
+        try:
+            bus = self._get_cognitive_bus()
+            if bus is not None:
+                _codex_ctx = bus.get_codex_context(
+                    agent_id=self.agent_name,
+                    persona="tactical",
+                    phase=current_phase.name,
+                )
+                if _codex_ctx:
+                    _codex_ctx = f"\n{_codex_ctx}\n"
+        except Exception:
+            pass
+
         prompt = (
             f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
             f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
             f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
             f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n"
-            f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n\n"
+            f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n"
+            f"{_codex_ctx}\n"
             f"Current state:\n"
             f"- Ports discovered: {_ports}\n"
             f"- Services: {_services}\n"
@@ -1783,10 +1816,26 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[PERSONA-STRATEGIC] Failed, falling through to raw GPT: {e}")
 
+        # Phase 9: CognitiveBus codex context for strategic plan repair
+        _codex_strat_ctx = ""
+        try:
+            bus = self._get_cognitive_bus()
+            if bus is not None:
+                _codex_strat_ctx = bus.get_codex_context(
+                    agent_id=self.agent_name,
+                    persona="strategic",
+                    phase=current_phase.name,
+                )
+                if _codex_strat_ctx:
+                    _codex_strat_ctx = f"\n{_codex_strat_ctx}\n"
+        except Exception:
+            pass
+
         prompt = (
             f"STRATEGIC PLAN REPAIR — Episode step {step_num}, Phase: {current_phase.name}\n"
             f"Trigger: {_trigger}. Coherence: {_coherence:.2f}. Macro conf: {self._r66_macro_conf:.2f}\n"
-            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n\n"
+            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
+            f"{_codex_strat_ctx}\n"
             f"Current state:\n"
             f"- Ports: {_ports}\n- Services: {_services}\n"
             f"- Credentials: {_creds if _creds else 'msfadmin:msfadmin (default)'}\n"
@@ -2732,6 +2781,24 @@ class SmartCoach:
         # Record decision
         self.decisions.append(result)
         
+        # Phase 9: Record reasoning trace to CognitiveBus
+        try:
+            bus = self._get_cognitive_bus()
+            if bus is not None:
+                from core.memory.unified_cognitive_bus import ReasoningTrace
+                bus.record_reasoning(ReasoningTrace(
+                    agent_id=self.agent_name,
+                    step=step_ctx.step,
+                    command=result.command or "",
+                    why=result.reasoning or f"Pipeline source: {result.source}",
+                    when_context=f"Phase={current_phase.name}, step={step_ctx.step}",
+                    how_execution=result.source,
+                    expected_outcome=f"conf={confidence:.2f}",
+                    reasoning_source=result.source,
+                ))
+        except Exception:
+            pass
+
         # Log mentor call if applicable
         if result.mentor_call and self.mentor_log_path:
             self._log_mentor_call(step_ctx, proposed_action, result)
@@ -3327,6 +3394,16 @@ class SmartCoach:
         "last", "knock",
     }
     
+    def _get_cognitive_bus(self):
+        """Lazy-load the CognitiveBus singleton (Phase 9)."""
+        if self._cognitive_bus is None:
+            try:
+                from core.memory.unified_cognitive_bus import get_cognitive_bus
+                self._cognitive_bus = get_cognitive_bus()
+            except Exception:
+                pass
+        return self._cognitive_bus
+
     def _check_tool_availability(self) -> None:
         """One-time check: which tool binaries are installed on this system."""
         import shutil
@@ -5039,6 +5116,14 @@ class SmartCoach:
             self._ppo_trajectory.clear()
             self._ppo_pending = None
             
+            # Phase 9: Signal CognitiveBus episode end for this agent
+            try:
+                bus = self._get_cognitive_bus()
+                if bus is not None:
+                    bus.end_episode()
+            except Exception:
+                pass
+
             # Phase 9.0: Reset DDQN episode state
             if self.ddqn_macro is not None:
                 self.ddqn_macro.reset_episode()

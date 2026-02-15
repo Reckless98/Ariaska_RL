@@ -1,0 +1,105 @@
+{
+  "run_id": "run_20260215_004735_5ae058",
+  "timestamp": 1771112874.981175,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode with total reward 67.5, demonstrating ability to progress through initial stages",
+      "Maintained consistent reward trend (single entry) without catastrophic drops, showing stable baseline performance"
+    ],
+    "fails": [
+      "Success rate remains 0% due to failure to complete the primary objective of the episode",
+      "Required 15 mentor calls indicating frequent uncertainty or breakdowns in autonomous decision-making"
+    ],
+    "summary": "Run exhibits stable reward accumulation but falls short on mission completion, highlighting need for reinforced decision routines and autonomous control."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to finalize primary objective, leading to episode termination without success despite stable reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260215_004735_5ae058_episode1_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260215_004735_5ae058_episode1_step12"
+      ],
+      "created_at": 1771112881.1191378,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service scan returns multiple high-risk services",
+      "then_action": "Prioritize credential brute-force attempts using authenticated wordlists",
+      "parameters_template": {
+        "service_priority": [
+          "ssh",
+          "rdp"
+        ],
+        "wordlist": "common_creds"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260215_004735_5ae058_episode1_step18"
+      ],
+      "created_at": 1771112881.119157,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor calls spike above 10 before mission completion",
+      "then_action": "Trigger checkpoint review and adapt plan to minimize reliance on guidance",
+      "parameters_template": {
+        "mentor_threshold": 10,
+        "review_action": "reassess_route"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260215_004735_5ae058_episode1_step25"
+      ],
+      "created_at": 1771112881.1191692,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent detection of SSH banner warrants reusable enumeration routine"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve autonomous objective closure",
+      "description": "Introduce a verification checkpoint that ensures primary objective is retried with adjusted tactics when initial attempt fails",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Add confidence scoring to decision tree to decline mentor calls unless facing uncharted states, aiming to stay within episode autonomy",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate adaptive reconnaissance",
+      "description": "Test dynamic scanning prioritization based on real-time service risk to accelerate exploitation readiness",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260215_014105_52245a",
+  "timestamp": 1771116084.192605,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward generation (47.5) throughout the single episode despite lack of overall success",
+      "Used mentor guidance proactively across 15 calls, showing engagement with suggested tactics"
+    ],
+    "fails": [
+      "Episode failed to reach success condition; target objectives remain unmet",
+      "Persistent inability to escalate privileges after initial foothold, leading to mission abort"
+    ],
+    "summary": "Training run provided steady reward feedback but did not achieve mission success; focus should shift to reliable post-exploitation actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently failed due to missing sudo rights after initial access",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step25"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner shows OpenSSH 8.x",
+      "then_action": "Run targeted SSH enumeration with nmap --script ssh-auth-methods,ssh2-enum-algos",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771116092.0532646,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "Upon successful initial shell and missing sudo access",
+      "then_action": "Identify writable cron jobs and scheduled tasks to attempt privilege escalation",
+      "parameters_template": {
+        "checks": [
+          "cat /etc/crontab",
+          "ls -al /etc/cron.d"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step22"
+      ],
+      "created_at": 1771116092.0532806,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Post-initial access with no immediate sensitive files",
+      "then_action": "Enumerate cached credentials and configuration files in home directories",
+      "parameters_template": {
+        "paths": [
+          "/home/*/.ssh",
+          "/etc/ssh"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step14"
+      ],
+      "created_at": 1771116092.0532918,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration consistently gathers actionable data when OpenSSH service detected"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Fallback privilege escalation actions needed after repeated sudo failure"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expand credential harvesting scope",
+      "description": "Automate scanning of user directories for saved keys/configs and attempt to use them for privileged access",
+      "priority": "high"
+    },
+    {
+      "title": "Automate cron/job write detection",
+      "description": "Integrate scripts that automatically search for writable cron entries to exploit for privilege escalation",
+      "priority": "medium"
+    },
+    {
+      "title": "Hybrid enumeration follow-up",
+      "description": "After SSH identification, immediately chain in nmap scripts to pull banner and auth info before moving laterally",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260215_002515_f401df",
+  "timestamp": 1771111533.5049622,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent high-reward reconnaissance coverage across the single episode, collecting full banner and port data before executing actions",
+      "10 mentor calls leveraged effectively for guided pivoting decisions, showing strong adherence to analyst feedback loops"
+    ],
+    "fails": [
+      "Never achieved objective success within the run, culminating in a 0% success rate despite high coverage reward",
+      "Final exploit phase failed due to insufficient privilege escalation vector, leaving sensitive artifacts unattained"
+    ],
+    "summary": "Reconnaissance phase was thorough and well-guided, but exploitation efforts stalled, preventing overall mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts repeatedly failed after initial reconnaissance, indicating a gap in lateral movement tooling or missing credentials",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step21",
+        "ep001_step24",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates outdated version",
+      "then_action": "Run targeted SSH enumeration using nmap ssh-auth-methods and ssh-hostkey scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh-auth-methods",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771111538.4043753,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When multiple SMB shares enumerate but access denied",
+      "then_action": "Deploy credentialed SMB enumeration with rpcclient and look for writable shares",
+      "parameters_template": {
+        "tool": "rpcclient",
+        "options": [
+          "enumdomusers",
+          "lookupnames",
+          "srvinfo"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771111538.4043906,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance yields Windows hosts with outdated PSExec availability",
+      "then_action": "Gather cleartext credentials from captured LLMNR/NBNS responses and attempt PSExec execution",
+      "parameters_template": {
+        "captures": [
+          "llmnr",
+          "nbns"
+        ],
+        "tool": "PsExec"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step16"
+      ],
+      "created_at": 1771111538.404401,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting via LLMNR/NBNS spoofing",
+      "description": "Deploy Responder or Inveigh to capture cleartext credentials on Windows hosts before retrying privilege escalation pathways",
+      "priority": "high"
+    },
+    {
+      "title": "Automated post-exploitation discovery workflow",
+      "description": "Sequence BloodHound data collection with SharpHound to identify precise lateral movement routes after initial foothold",
+      "priority": "medium"
+    },
+    {
+      "title": "SSH brute-force with adaptive wordlist",
+      "description": "After banner enumeration, implement conditional Hydra attacks with priority wordlists and rate limiting when initial credentials fail",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

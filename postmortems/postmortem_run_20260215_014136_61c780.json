@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260215_014136_61c780",
+  "timestamp": 1771116102.9163156,
+  "key_outcomes": {
+    "wins": [
+      "Completed the single episode with total reward of 20, demonstrating ability to reach end state despite failure rate",
+      "Leaderboard indicates consistent policy execution, evidenced by 10 mentor calls used to adjust actions"
+    ],
+    "fails": [
+      "Success rate remains at 0% despite positive reward, indicating the agent did not achieve primary mission objectives",
+      "High number of mentor interventions (10) suggests decision-making is unreliable without guidance"
+    ],
+    "summary": "The agent managed to collect reward but consistently failed to meet criteria for success, necessitating targeted training on executing final objectives autonomously."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent repeatedly reached terminal state without satisfying mission success conditions, requiring mentor override before execution",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17",
+        "ep001_step19"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When positive reward accrues but mission success flag remains unset",
+      "then_action": "Pause and evaluate outstanding mission criteria before proceeding",
+      "parameters_template": {
+        "check_list": [
+          "Primary objective status",
+          "Secondary objective status"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step18"
+      ],
+      "created_at": 1771116109.9724946,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor call used to correct action path",
+      "then_action": "Log corrective decision and reinforce corresponding policy weights via imitation replay",
+      "parameters_template": {
+        "log_level": "detailed",
+        "imitation_weight": 0.6
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step13"
+      ],
+      "created_at": 1771116109.9725168,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When last action results in reward but agent still off-target",
+      "then_action": "Trigger constrained exploration to align future steps with final objective",
+      "parameters_template": {
+        "exploration_radius": 2,
+        "constraint_factor": 0.9
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step16"
+      ],
+      "created_at": 1771116109.9725275,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Mentor-guided corrections correlate with improved next-step selection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Verification Before Terminal Action",
+      "description": "Implement a gating check that verifies all mission-critical flags before executing terminal moves to avoid false positive reward states.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Replay Augmentation",
+      "description": "Use mentor call transcripts to augment replay buffer entries and retrain the policy on corrected decision windows.",
+      "priority": "medium"
+    },
+    {
+      "title": "Constrained Exploration Near Goal",
+      "description": "Introduce localized exploration constraints when near final objectives to prevent deviation after reward accrual.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

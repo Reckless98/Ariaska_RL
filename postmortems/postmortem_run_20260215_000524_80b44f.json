@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260215_000524_80b44f",
+  "timestamp": 1771110344.5124736,
+  "key_outcomes": {
+    "wins": [
+      "Completed reconnaissance tasks within expected time windows with accurate service enumeration.",
+      "Demonstrated consistent logging and reporting through each mentor interaction, ensuring traceability."
+    ],
+    "fails": [
+      "Episode failed to achieve objective due to inability to exploit the identified vulnerability before session timeout.",
+      "Heavy reliance on mentor calls (15 total) indicated missed automation opportunities, lowering autonomous decision-making."
+    ],
+    "summary": "Reconnaissance was solid, but the run stalled during exploitation and lacked autonomous offensive progression."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated failure to chain SSH credentials after enumeration completed but before time limit.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22",
+        "ep001_step27"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts to confirm service versions",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771110351.3674288,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH credentials fail on initial connection",
+      "then_action": "Invoke credential spraying sequence with locked retry limits",
+      "parameters_template": {
+        "username_list": "common_users.txt",
+        "password_list": "baseline_creds.txt",
+        "max_attempts": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step16"
+      ],
+      "created_at": 1771110351.3674438,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When remote service enumeration has completed but no payload delivered",
+      "then_action": "Queue privilege escalation tools with session rescue fallbacks",
+      "parameters_template": {
+        "tools": [
+          "linpeas.sh",
+          "pspy"
+        ],
+        "timeout": 180
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step25"
+      ],
+      "created_at": 1771110351.367455,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in identifying SSH services and preparing follow-up actions"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate SSH credential spraying with adaptive delays",
+      "description": "Test scripted credential attempts with dynamic sleep intervals to reduce lockouts and improve success chances.",
+      "priority": "high"
+    },
+    {
+      "title": "Enhance post-enum payload delivery",
+      "description": "Streamline privilege escalation by connecting enumeration outputs directly to payload selection, reducing downtime between steps.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor dependency via guided checks",
+      "description": "Introduce automated pre-call diagnostics that verify enumerations and validate readiness before requesting mentor assistance.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

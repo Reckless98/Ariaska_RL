@@ -1,0 +1,80 @@
+{
+  "run_id": "run_20260215_000555_41b483",
+  "timestamp": 1771110360.7998574,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance execution, accumulating 60 reward points despite failing the success criteria, which highlights reliable baseline behavior."
+    ],
+    "fails": [
+      "Cannot transition from reconnaissance to exploitation: the final privilege escalation/vector refinement step never completes, leaving the session unresolved."
+    ],
+    "summary": "Reconnaissance routines run reliably but the agent fails to chain results into exploitation, so focus should shift to credential/application pivot steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "After initial scanning, the workflow stops without reusing captured credentials or pivoting to adjacent services, so exploitation never executes.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When service scan identifies SSH (port 22) with an accessible banner",
+      "then_action": "Perform deep SSH enumeration including version detection and targeted script probing",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timeout": "30s"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771110367.5463638,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "After identifying a web service that exposes directory listings",
+      "then_action": "Run directory brute-force and capture artifacts for potential credential harvest",
+      "parameters_template": {
+        "wordlist": "common_dirs.txt",
+        "extensions": [
+          ".php",
+          ".bak"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771110367.5463798,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High consistency in executing SSH reconnaissance lays the groundwork for future credential-based exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential reuse verification",
+      "description": "After harvesting directories/web files, replay discovered credentials against SSH and web services with a retry policy to progress exploitation.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

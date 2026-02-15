@@ -1098,7 +1098,28 @@ class SkillLibrary:
             if self.promote(skill, reason="Phase 6.7: Pre-seeded from knowledge packs"):
                 promoted += 1
 
-        logger.info(f"Seeded {promoted} expert skill cards into library")
+        # ─── Phase 9: Massive knowledge pre-seed from HTB/THM/OSCP patterns ──
+        try:
+            from core.knowledge.massive_knowledge_seed import get_all_preseed_cards
+            phase9_cards = get_all_preseed_cards()
+            for card_data in phase9_cards:
+                try:
+                    skill = SkillCard(
+                        id=card_data["id"],
+                        if_condition=card_data["if_condition"],
+                        then_action=card_data["then_action"],
+                        confidence=card_data.get("confidence", 0.85),
+                        evidence_refs=[card_data.get("source", "phase9_preseed")],
+                    )
+                    if self.promote(skill, reason="Phase 9: Massive HTB/THM/OSCP knowledge pre-seed"):
+                        promoted += 1
+                except Exception:
+                    pass  # Skip malformed cards
+            logger.info(f"Phase 9: Added {len(phase9_cards)} HTB/THM/OSCP skill cards")
+        except Exception as e:
+            logger.warning(f"Phase 9: Massive knowledge pre-seed failed: {e}")
+
+        logger.info(f"Seeded {promoted} expert skill cards into library (including Phase 9)")
         return promoted
 
 

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771098640.0524266,
-  "skill_count": 93,
+  "last_updated": 1771111511.1875856,
+  "skill_count": 96,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1310,6 +1310,61 @@
         "ep001_step11"
       ],
       "created_at": 1771098640.0455294,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_rs_ssh_banner": {
+      "id": "skill_rs_ssh_banner",
+      "if_condition": "When SSH service responds with identifiable banner and open port 22",
+      "then_action": "Run targeted SSH enumeration with nmap ssh scripts and follow up with credential bruteforce where allowed",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771111324.4954214,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_priv_esc_linux": {
+      "id": "skill_priv_esc_linux",
+      "if_condition": "When Linux host identified and user access obtained but no privilege escalation",
+      "then_action": "Check sudo permissions and kernel exploits using linpeas/Tmux automated checks",
+      "parameters_template": {
+        "tool": "linpeas.sh",
+        "check": "sudo -l"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771111324.495439,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_smb_hash_capture": {
+      "id": "skill_smb_hash_capture",
+      "if_condition": "When SMB shares accessible and creds unknown",
+      "then_action": "Use smbclient enumeration and hashdump scripts to capture credential artifacts",
+      "parameters_template": {
+        "tool": "smbclient",
+        "options": [
+          "-L",
+          "-U",
+          "guest"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771111511.1746194,
       "usage_count": 0,
       "success_rate": 0.0
     }

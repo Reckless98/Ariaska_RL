@@ -266,6 +266,25 @@ class SmartMentor:
             decision_rules_text = ""
             cve_text = ""
 
+        # Phase 9: Web exploitation reference from massive knowledge seed
+        try:
+            from core.knowledge.massive_knowledge_seed import get_web_attack_reference
+            web_exploit_reference = get_web_attack_reference()
+        except Exception:
+            web_exploit_reference = ""
+        
+        # Phase 9: Venice aha context — inject cross-episode insights
+        venice_aha_context = ""
+        try:
+            from core.memory.unified_cognitive_bus import CognitiveBus
+            bus = CognitiveBus.get_instance()
+            mentor_ctx = bus.get_mentor_context(max_items=5)
+            if mentor_ctx:
+                venice_aha_context = "\n=== COGNITIVE BUS — CROSS-EPISODE INSIGHTS ===\n"
+                venice_aha_context += mentor_ctx
+        except Exception:
+            pass
+
         return f"""You are an expert penetration tester and red team operator with deep knowledge of:
 - Network reconnaissance and enumeration
 - Web application security testing
@@ -424,6 +443,10 @@ After exfiltration, ALWAYS close out professionally:
 {cve_text}
 
 {phase_reasoning_text}
+
+{web_exploit_reference}
+
+{venice_aha_context}
 """
     
     def _build_user_prompt(

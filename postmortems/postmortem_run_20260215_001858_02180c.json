@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260215_001858_02180c",
+  "timestamp": 1771111144.8943944,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward (40.0) across the only episode despite lack of success, indicating steady execution of initial tasks",
+      "Completed all 10 mentor calls, ensuring guided intervention and opportunity for course correction"
+    ],
+    "fails": [
+      "Zero percent success rate points to critical failure in achieving mission objective despite high reward",
+      "Frequent reliance on mentor calls without subsequent success suggests misalignment between guidance and applied tactics"
+    ],
+    "summary": "Run produced reliable task execution but failed to deliver mission success; focus on closing gaps between reconnaissance data and decisive action."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to transition from reconnaissance to exploitation after gathering initial data",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial scanning identifies target services with version info",
+      "then_action": "Validate vulnerabilities with focused enumeration scripts to determine exploitability",
+      "parameters_template": {
+        "scan_tool": "nmap",
+        "version_detection": true,
+        "scripts": [
+          "vuln",
+          "default"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771111152.887919,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When commands confirm remote service stability but no credentials retrieved",
+      "then_action": "Trigger automated bruteforce/backdoor detection workflow before calling mentors",
+      "parameters_template": {
+        "service": "ssh",
+        "tool": "hydra",
+        "wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step13"
+      ],
+      "created_at": 1771111152.8879418,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor interventions are required repeatedly",
+      "then_action": "Document and replay failed command sequences to isolate operational gaps",
+      "parameters_template": {
+        "logfile": "/tmp/replay.log",
+        "replay_tool": "script"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step11"
+      ],
+      "created_at": 1771111152.8879564,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in initial reconnaissance despite no mission success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate vulnerability validation loop",
+      "description": "Integrate nmap version detection output with targeted exploit attempts to reduce manual lag between recon and exploitation phases",
+      "priority": "high"
+    },
+    {
+      "title": "Brute-force credential automation before mentor calls",
+      "description": "Run scripted credential checks (hydra/medusa) immediately after services identify authentication barriers to avoid repeated help requests",
+      "priority": "medium"
+    },
+    {
+      "title": "Replay and analyze failed command sequences",
+      "description": "Use scripted session replay to spot inconsistencies or missed steps that prevent mission completion despite high reward accumulation",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

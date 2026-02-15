@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260215_005746_1880cb",
+  "timestamp": 1771113487.5522475,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance pacing with high-reward actions, evidenced by a one-episode reward of 77.5 despite repeated guidance.",
+      "Leveraged mentor calls effectively to explore alternative attack vectors quickly, keeping decision latency low."
+    ],
+    "fails": [
+      "Failed to achieve mission objectives across the single episode, resulting in a 0% success rate despite high reward actions.",
+      "Repeatedly missed post-exploitation cleanup steps, leaving services unstable and forcing rollback after each mentor-guided move."
+    ],
+    "summary": "The agent demonstrated strong reward-seeking behavior and tactical adaptability but consistently missed the critical objectives required for success, pointing to procedural gaps post-reconnaissance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-compromise verification steps were skipped after initial exploitation, preventing persistence and mission completion.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771113494.303243,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH login succeeds with default credentials",
+      "then_action": "Deploy automated privilege escalation checklist",
+      "parameters_template": {
+        "checklist": [
+          "sudo -l",
+          "searchsploit kernel",
+          "linpeas"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771113494.303258,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After establishing foothold and discovering writable directories",
+      "then_action": "Execute persistence configuration and document success path",
+      "parameters_template": {
+        "directories": [
+          "/tmp",
+          "/var/tmp"
+        ],
+        "persistence_methods": [
+          "cron",
+          "systemd"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771113494.3032691,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Shows pathway to elevated access when default credentials are present"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reinforce Post-Exploitation Procedures",
+      "description": "Introduce explicit steps to verify persistence and cleanup after exploitation to ensure mission objectives complete after high reward actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Privilege Escalation Validation",
+      "description": "Test chaining of skill_002 with scripted linpeas and sudo checks to ensure escalation path triggers reliably.",
+      "priority": "medium"
+    },
+    {
+      "title": "Service Stability Monitoring",
+      "description": "Track service states after each major action to detect and correct instability introduced during exploitation.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
