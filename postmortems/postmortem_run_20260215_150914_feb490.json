@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260215_150914_feb490",
+  "timestamp": 1771164570.7333355,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a high total reward (90) in the episode, demonstrating strong reconnaissance and scoring potential.",
+      "Executed multiple mentor-guided actions, indicating willingness to leverage guidance under uncertainty."
+    ],
+    "fails": [
+      "Success rate remained 0%, revealing failure to complete the final objective despite the positive reward accumulation.",
+      "Ten mentor calls indicate repeated reliance on guidance without converting it into autonomous completion."
+    ],
+    "summary": "Run delivered strong situational value but consistently fell short of mission completion; refine final objective steps and reduce mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Final objective was not achieved after completing reconnaissance and intermediate actions, suggesting missing consolidation steps.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When open ports are discovered on target and version data retrieved",
+      "then_action": "Correlate service versions with known exploits and prioritize highest-risk services.",
+      "parameters_template": {
+        "port_list": "[22, 80, 443]",
+        "source": "service_version"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771164578.6098878,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If SSH banner indicates outdated OpenSSH release",
+      "then_action": "Run targeted nmap sshv1/sshv2 scripts and capture host keys for fingerprint comparison.",
+      "parameters_template": {
+        "port": 22,
+        "scripts": [
+          "ssh2-enum-algos",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771164578.6099062,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After reconnaissance and flagged misconfigurations, but before final exploit",
+      "then_action": "Formulate concise remediation checklist and verify each prerequisite before attempting exploitation.",
+      "parameters_template": {
+        "prerequisites": [
+          "validated services",
+          "confirmed credentials"
+        ],
+        "verification_method": "manual checklist"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771164578.6099188,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance success establishes this priority pattern as a core asset."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate final objective steps with reduced mentor reliance",
+      "description": "Re-run the scenario and explicitly document each final objective action before asking mentorship to ensure autonomous completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Formalize exploitation checklist",
+      "description": "Implement checklist-driven transitions between reconnaissance and exploitation to capture missing prerequisites.",
+      "priority": "medium"
+    },
+    {
+      "title": "Streamline mentor call usage",
+      "description": "Track context for each mentor call to identify which decision branches consistently fail to progress after guidance.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

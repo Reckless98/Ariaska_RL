@@ -1,0 +1,78 @@
+{
+  "run_id": "run_20260215_151748_83fa3d",
+  "timestamp": 1771165074.416518,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode with highest available reward of 60 indicating ability to reach terminal state",
+      "Engaged mentorship 10 times, demonstrating willingness to seek guidance and adapt"
+    ],
+    "fails": [
+      "Success rate remained at 0%, showing inability to satisfy mission objective despite full episode completion",
+      "Reliance on repeated mentor calls without implementing autonomous fixes implies gaps in operational decision-making"
+    ],
+    "summary": "Agent completed episode but failed to achieve objectives; frequent mentor intervention highlights need for better autonomous planning especially around mission-critical actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to reach mission objectives despite completing episode actions, implying failure to chain required actions correctly",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When mission objective remains unmet after preliminary network reconnaissance",
+      "then_action": "Re-validate asset discovery results and prioritize next exploit path instead of proceeding with default sequence",
+      "parameters_template": {
+        "recon_phase": "complete",
+        "objective_status": "unmet"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step12"
+      ],
+      "created_at": 1771165079.9581916,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When multiple mentor calls are required without measurable progress",
+      "then_action": "Pause execution, summarize outstanding gaps, and re-plan sequence before continuing",
+      "parameters_template": {
+        "mentor_calls": 3,
+        "progress_delta": "minimal"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step9"
+      ],
+      "created_at": 1771165079.95821,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High relevance for transitioning from reconnaissance to exploit planning after incomplete objective execution"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Re-planning",
+      "description": "Introduce mid-episode check that evaluates whether mission goals have been satisfied and, if not, triggers a re-plan focusing on missing actions instead of advancing blindly.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

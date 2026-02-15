@@ -410,6 +410,12 @@ class DDQNMacro:
         self._last_phase_name: Optional[str] = None  # Track phase for stagnation
         self._per_macro_success: Dict[int, Dict[str, float]] = {}  # macro_idx → {hits, total, reward_sum}
 
+        # ── Phase 9.5: Per-step select cache (prevents double-call side effects) ──
+        self._step_call_id: Optional[int] = None    # Last step_id that called select_macro
+        self._step_call_cache: Optional[tuple] = None  # Cached (macro, q_values, confidence)
+        self._select_call_count: int = 0  # Total select_macro calls (for metrics)
+        self._cached_call_count: int = 0  # Calls that returned cached (for metrics)
+
         logger.info(
             f"DDQNMacro initialized: state_dim={self.config.state_dim}, "
             f"num_macros={self.config.num_macros}, "
@@ -422,6 +428,7 @@ class DDQNMacro:
         phase_name: str = "RECON",
         force_macro: Optional[MacroIntent] = None,
         had_discovery: bool = False,
+        step_id: Optional[int] = None,
     ) -> Tuple[MacroIntent, torch.Tensor, float]:
         """Select a macro-intent using epsilon-greedy Double DQN.
         
@@ -430,16 +437,43 @@ class DDQNMacro:
           - Stagnation detection: force forward macro after 10 steps without discoveries
           - Per-macro success tracking for future biasing
         
+        Phase 9.5: step_id parameter enables per-step caching. If the same
+        step_id calls select_macro twice (e.g. SmartCoach Layer 9 + CognitionNode
+        Layer 12), the second call returns cached result WITHOUT side effects
+        (no epsilon decay, no total_steps increment). Controlled by
+        FF_DDQN_SINGLE_SELECT_PER_STEP feature flag.
+        
         Args:
             state: (state_dim,) state tensor.
             phase_name: Current attack phase name for masking.
             force_macro: If set, force this macro-intent (for testing/mentor override).
             had_discovery: Whether the previous step produced any new discoveries.
+            step_id: Unique step identifier for dedup. If same step_id as last call,
+                     returns cached result without side effects.
             
         Returns:
             (macro_intent, q_values, confidence) where confidence is
             the normalized Q-value separation between best and second-best.
         """
+        self._select_call_count += 1
+
+        # ── Phase 9.5: Per-step dedup guard ──
+        # If called with the same step_id as last call, return cached result
+        # without epsilon decay or step counter increment.
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            if _ff.ddqn_single_select and step_id is not None:
+                if self._step_call_id == step_id and self._step_call_cache is not None:
+                    self._cached_call_count += 1
+                    logger.debug(
+                        f"[DDQN] Returning cached select_macro for step_id={step_id} "
+                        f"(avoided double epsilon decay)"
+                    )
+                    return self._step_call_cache
+        except ImportError:
+            pass  # feature_flags not available, proceed normally
+
         # ── R57: Update stagnation counter ──
         if phase_name == self._last_phase_name:
             if had_discovery:
@@ -460,7 +494,11 @@ class DDQNMacro:
             self._episode_macros.append(force_macro.value)
             self.total_steps += 1
             self._decay_epsilon()
-            return force_macro, q_dummy, 1.0
+            result = (force_macro, q_dummy, 1.0)
+            if step_id is not None:
+                self._step_call_id = step_id
+                self._step_call_cache = result
+            return result
 
         # Get phase-valid macro mask
         allowed = PHASE_MACRO_ALLOWLIST.get(phase_name, list(MacroIntent))
@@ -538,7 +576,13 @@ class DDQNMacro:
         # Decay epsilon
         self._decay_epsilon()
 
-        return macro, q_values.cpu(), confidence
+        # ── Phase 9.5: Cache result for per-step dedup ──
+        result = (macro, q_values.cpu(), confidence)
+        if step_id is not None:
+            self._step_call_id = step_id
+            self._step_call_cache = result
+
+        return result
 
     def _decay_epsilon(self):
         """Decay epsilon toward minimum."""
@@ -663,6 +707,9 @@ class DDQNMacro:
         self._macro_hold_counter = 0
         self._stagnation_counter = 0
         self._last_phase_name = None
+        # Phase 9.5: Reset per-step cache
+        self._step_call_id = None
+        self._step_call_cache = None
 
     def get_macro_stats(self) -> Dict[str, Any]:
         """Get statistics about macro-intent selection this episode.

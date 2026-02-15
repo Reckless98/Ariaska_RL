@@ -1,0 +1,122 @@
+{
+  "run_id": "run_20260215_145516_1a748a",
+  "timestamp": 1771163737.9898796,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full reconnaissance and enumeration cycle yielding 57.5 reward points despite single-episode run",
+      "Mentor calls leveraged effectively (15 total) to navigate initial footholds and adjust tactics in real time"
+    ],
+    "fails": [
+      "Zero percent success rate indicates mission objective(s) never achieved; final access/control not maintained",
+      "Repeated trimming of actions due to lack of persistence or payload delivery, undermining exploitation stage"
+    ],
+    "summary": "Reconnaissance phase produced actionable intelligence, but exploitation and persistence steps failed to convert into mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Persistence attempts terminated before completing payload delivery, reverting to reconnaissance without finalizing objectives",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step16",
+        "ep001_step20",
+        "ep001_step25",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timeout": "30s"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771163744.6385405,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_harvest",
+      "if_condition": "When harvested credentials appear in default credential list",
+      "then_action": "Attempt credential reuse across identified services using automated retry logic",
+      "parameters_template": {
+        "credential_source": "harvested",
+        "retry_limit": 3,
+        "services": [
+          "SSH",
+          "SMB",
+          "RDP"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771163744.638558,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_post_exfil",
+      "if_condition": "If shell established but final objective not met",
+      "then_action": "Upload lightweight persistence binary and schedule periodic beacon",
+      "parameters_template": {
+        "binary": "stager.exe",
+        "schedule": "every 15m",
+        "cleanup": true
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step22"
+      ],
+      "created_at": 1771163744.6385694,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate in early reconnaissance, enabling further options"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_cred_harvest",
+      "skill_card_id": "skill_cred_harvest",
+      "reason": "Credential reuse attempts regularly surfaced potential lateral movement paths"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Persistence chaining with lightweight beacon",
+      "description": "After initial shell, immediately deploy a scheduled beacon that can survive reconnection attempts, then verify retention over multiple steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated credential replay across services",
+      "description": "Use harvested credentials from SSH enumeration to attempt access to SMB/RDP, validating reuse logic and documenting access variance.",
+      "priority": "medium"
+    },
+    {
+      "title": "Continuous monitoring of mentor call impact",
+      "description": "Log recommendations from mentor calls, apply them, and track whether each yields measurable reward gain to prioritize future guidance.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

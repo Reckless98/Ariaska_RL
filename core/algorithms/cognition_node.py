@@ -274,6 +274,7 @@ class CognitionNode:
         action_mask: torch.Tensor,
         phase: str = "RECON",
         macro_allowed_indices: Optional[Set[int]] = None,
+        step_id: Optional[int] = None,
     ) -> CognitionResult:
         """
         Run all sub-brains, fuse their votes, and select a single action.
@@ -285,6 +286,7 @@ class CognitionNode:
             macro_allowed_indices: If DDQN picked a macro, indices of
                 commands in that macro's command set (already filtered
                 by action_mask).
+            step_id: Unique step identifier for DDQN per-step dedup (Phase 9.5).
 
         Returns:
             CognitionResult with fused action and full telemetry.
@@ -296,7 +298,7 @@ class CognitionNode:
         s = state.unsqueeze(0).to(self.device) if state.dim() == 1 else state.to(self.device)
 
         # ── 1. DDQN Macro ──
-        ddqn_vote = self._vote_ddqn(s, phase)
+        ddqn_vote = self._vote_ddqn(s, phase, step_id=step_id)
         if ddqn_vote is not None:
             votes.append(ddqn_vote)
             result.macro_intent = ddqn_vote.metadata.get("macro_name")
@@ -524,13 +526,20 @@ class CognitionNode:
 
     def _vote_ddqn(
         self, state: torch.Tensor, phase: str,
+        step_id: Optional[int] = None,
     ) -> Optional[BrainVote]:
-        """Get DDQN macro-level vote."""
+        """Get DDQN macro-level vote.
+        
+        Phase 9.5: step_id forwarded to select_macro() for per-step dedup.
+        If SmartCoach already called select_macro() this step, the cached
+        result is returned without epsilon decay.
+        """
         if self.ddqn is None:
             return None
         try:
             macro, q_values, confidence = self.ddqn.select_macro(
                 state.squeeze(0), phase,
+                step_id=step_id,
             )
             return BrainVote(
                 brain_name="ddqn",

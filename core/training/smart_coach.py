@@ -2174,9 +2174,12 @@ class SmartCoach:
                     phase_name = current_phase.name if current_phase else "RECON"
                     # R57 Layer 1: Pass discovery signal for stagnation detection
                     _had_disc = getattr(self, '_last_step_had_discovery', False)
+                    # Phase 9.5: Pass step_id for per-step dedup (prevents double epsilon decay)
+                    _step_id = step_ctx.step if step_ctx else None
                     macro, q_values, confidence = self.ddqn_macro.select_macro(
                         state_tensor, phase_name,
                         had_discovery=_had_disc,
+                        step_id=_step_id,
                     )
                     self._active_macro = macro
                     self._active_macro_q = q_values
@@ -2287,6 +2290,7 @@ class SmartCoach:
                             action_mask=action_mask,
                             phase=phase_name,
                             macro_allowed_indices=_macro_indices,
+                            step_id=step_ctx.step if step_ctx else None,  # Phase 9.5: dedup
                         )
                         self._cognition_result = cog_result
                         
@@ -2490,79 +2494,89 @@ class SmartCoach:
         # =========================================================================
         _tactical_assessment = None
         if self.tactical_cortex is not None:
+            # Phase 9.7: Feature-flag guard for TC gate
+            _tc_enabled = True
             try:
-                _tc_template = COMMAND_REGISTRY.get(result.template_name) if result.template_name else None
-                _tc_phase_name = (
-                    current_phase.name if hasattr(current_phase, 'name')
-                    else str(current_phase)
-                )
-                _tc_detection = ctx.state_flags.get("detection_risk", 0.0)
-                _tc_board = {}
-                if hasattr(ctx, 'discovery_board'):
-                    _tc_board = ctx.discovery_board or {}
-                elif hasattr(self, '_last_discovery_board'):
-                    _tc_board = self._last_discovery_board or {}
+                from core.feature_flags import get_feature_flags
+                _tc_enabled = get_feature_flags().tactical_cortex_gate
+            except Exception:
+                pass
+            if not _tc_enabled:
+                logger.debug(f"[{self.agent_name}] TacticalCortex gate OFF (FF)")
+            else:
+                try:
+                    _tc_template = COMMAND_REGISTRY.get(result.template_name) if result.template_name else None
+                    _tc_phase_name = (
+                        current_phase.name if hasattr(current_phase, 'name')
+                        else str(current_phase)
+                    )
+                    _tc_detection = ctx.state_flags.get("detection_risk", 0.0)
+                    _tc_board = {}
+                    if hasattr(ctx, 'discovery_board'):
+                        _tc_board = ctx.discovery_board or {}
+                    elif hasattr(self, '_last_discovery_board'):
+                        _tc_board = self._last_discovery_board or {}
 
-                _tactical_assessment = self.tactical_cortex.assess(
-                    command=result.command or "",
-                    template=_tc_template,
-                    state=ctx.state_flags if ctx.state_flags else {},
-                    agent_role=self.agent_role.get("role", "red"),
-                    discovery_board=_tc_board,
-                    current_phase=_tc_phase_name,
-                    detection_risk=float(_tc_detection),
-                    step=step_ctx.step,
-                )
+                    _tactical_assessment = self.tactical_cortex.assess(
+                        command=result.command or "",
+                        template=_tc_template,
+                        state=ctx.state_flags if ctx.state_flags else {},
+                        agent_role=self.agent_role.get("role", "red"),
+                        discovery_board=_tc_board,
+                        current_phase=_tc_phase_name,
+                        detection_risk=float(_tc_detection),
+                        step=step_ctx.step,
+                    )
 
-                if _tactical_assessment and not _tactical_assessment.approved:
-                    if ppo_bypass:
-                        # PPO/CognitionNode decisions: attach warning but don't override
-                        result.mentor_reasoning = (
-                            f"[TACTICAL-WARN:{_tactical_assessment.verdict.name}] "
-                            f"{_tactical_assessment.reasoning[:150]} | "
-                            f"{result.mentor_reasoning or ''}"
-                        )
-                        logger.debug(
-                            f"[{self.agent_name}] TacticalCortex warning (PPO-bypass): "
-                            f"{_tactical_assessment.verdict.name} — "
-                            f"{_tactical_assessment.reasoning[:100]}"
-                        )
-                    else:
-                        # Non-PPO decisions: respect BLOCK/REDIRECT verdicts
-                        if _tactical_assessment.alternative:
-                            logger.info(
-                                f"[{self.agent_name}] TacticalCortex "
-                                f"{_tactical_assessment.verdict.name}: "
-                                f"'{result.template_name}' → "
-                                f"'{_tactical_assessment.alternative_template}'"
-                            )
-                            # Store negative PPO trajectory for the blocked command
-                            if self._ppo_pending is not None:
-                                self._store_ppo_negative_reward(
-                                    -3.0, f"tactical_{_tactical_assessment.verdict.name.lower()}"
-                                )
-                            result.command = _tactical_assessment.alternative
-                            result.template_name = _tactical_assessment.alternative_template or result.template_name
-                            result.source = "tactical_cortex"
-                            result.confidence = _tactical_assessment.confidence
+                    if _tactical_assessment and not _tactical_assessment.approved:
+                        if ppo_bypass:
+                            # PPO/CognitionNode decisions: attach warning but don't override
                             result.mentor_reasoning = (
-                                f"[TACTICAL:{_tactical_assessment.verdict.name}] "
-                                f"{_tactical_assessment.reasoning[:200]}"
-                            )
-                        else:
-                            # No alternative available — attach warning only
-                            result.mentor_reasoning = (
-                                f"[TACTICAL-{_tactical_assessment.verdict.name}] "
+                                f"[TACTICAL-WARN:{_tactical_assessment.verdict.name}] "
                                 f"{_tactical_assessment.reasoning[:150]} | "
                                 f"{result.mentor_reasoning or ''}"
                             )
-                elif _tactical_assessment and _tactical_assessment.approved:
-                    logger.debug(
-                        f"[{self.agent_name}] TacticalCortex APPROVED: "
-                        f"'{result.template_name}' (conf={_tactical_assessment.confidence:.2f})"
-                    )
-            except Exception as e:
-                logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
+                            logger.debug(
+                                f"[{self.agent_name}] TacticalCortex warning (PPO-bypass): "
+                                f"{_tactical_assessment.verdict.name} — "
+                                f"{_tactical_assessment.reasoning[:100]}"
+                            )
+                        else:
+                            # Non-PPO decisions: respect BLOCK/REDIRECT verdicts
+                            if _tactical_assessment.alternative:
+                                logger.info(
+                                    f"[{self.agent_name}] TacticalCortex "
+                                    f"{_tactical_assessment.verdict.name}: "
+                                    f"'{result.template_name}' → "
+                                    f"'{_tactical_assessment.alternative_template}'"
+                                )
+                                # Store negative PPO trajectory for the blocked command
+                                if self._ppo_pending is not None:
+                                    self._store_ppo_negative_reward(
+                                        -3.0, f"tactical_{_tactical_assessment.verdict.name.lower()}"
+                                    )
+                                result.command = _tactical_assessment.alternative
+                                result.template_name = _tactical_assessment.alternative_template or result.template_name
+                                result.source = "tactical_cortex"
+                                result.confidence = _tactical_assessment.confidence
+                                result.mentor_reasoning = (
+                                    f"[TACTICAL:{_tactical_assessment.verdict.name}] "
+                                    f"{_tactical_assessment.reasoning[:200]}"
+                                )
+                            else:
+                                # No alternative available — attach warning only
+                                result.mentor_reasoning = (
+                                    f"[TACTICAL-{_tactical_assessment.verdict.name}] "
+                                    f"{_tactical_assessment.reasoning[:150]} | "
+                                    f"{result.mentor_reasoning or ''}"
+                                )
+                    elif _tactical_assessment and _tactical_assessment.approved:
+                        logger.debug(
+                            f"[{self.agent_name}] TacticalCortex APPROVED: "
+                            f"'{result.template_name}' (conf={_tactical_assessment.confidence:.2f})"
+                        )
+                except Exception as e:
+                    logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
 
         # =========================================================================
         # PHASE 6.6: DIFFICULTY GATE — Block commands banned by current preset
@@ -2764,6 +2778,40 @@ class SmartCoach:
         
         # Store repeat penalty for reward calculation
         result._repeat_penalty = repeat_penalty
+
+        # =====================================================================
+        # Phase 9.5: PPO REWARD ATTRIBUTION FIX
+        # If a PPO-sourced command was replaced by anti-repeat, the original
+        # PPO trajectory must be finalized with a penalty (-3.0) and cleared.
+        # Otherwise the replacement command's reward gets misattributed to the
+        # original PPO log_prob, teaching PPO the wrong signal.
+        # Controlled by FF_PPO_REWARD_ATTRIBUTION_FIX.
+        # =====================================================================
+        if (result.source not in ("ppo", "cognition_node")
+                and self._ppo_pending is not None
+                and not ppo_bypass):
+            try:
+                from core.feature_flags import get_feature_flags
+                if get_feature_flags().ppo_reward_attribution_fix:
+                    if self.ppo_agent is not None:
+                        try:
+                            self.ppo_agent.store_transition(
+                                state=self._ppo_pending["state"],
+                                action=self._ppo_pending["action"],
+                                log_prob=self._ppo_pending["log_prob"],
+                                reward=-3.0,  # Penalty: PPO's choice was overridden
+                                value=self._ppo_pending["value"],
+                                done=False,
+                            )
+                            logger.debug(
+                                f"[PPO-ATTRIB-FIX][{self.agent_name}] Stored -3.0 penalty "
+                                f"for replaced PPO action, clearing _ppo_pending"
+                            )
+                        except Exception:
+                            pass
+                    self._ppo_pending = None
+            except ImportError:
+                pass
 
         # =====================================================================
         # PHASE 7.1: SMART REASONING CHECK (codex-mini)
