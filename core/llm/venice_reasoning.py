@@ -122,7 +122,7 @@ class VeniceReasoningLayer:
     def __init__(
         self,
         gpt_manager: "GPTManager",
-        call_budget_per_episode: int = 15,
+        call_budget_per_episode: int = 30,  # Phase 9.1: doubled for deeper output analysis
         min_output_length: int = 30,
         enable_cross_episode_memory: bool = True,
     ):

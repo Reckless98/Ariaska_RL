@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771111511.1875856,
-  "skill_count": 96,
+  "last_updated": 1771122481.4851887,
+  "skill_count": 97,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1365,6 +1365,23 @@
         "ep001_step09"
       ],
       "created_at": 1771111511.1746194,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_mentor_sync": {
+      "id": "skill_mentor_sync",
+      "if_condition": "When mentor guidance is active",
+      "then_action": "Log instructions and verify compliance before next action",
+      "parameters_template": {
+        "mentor_call_id": "auto",
+        "compliance_check": true
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "run_20260215_032732_d57f9c_episode_01_step_02",
+        "run_20260215_032732_d57f9c_episode_01_step_12"
+      ],
+      "created_at": 1771122481.4815633,
       "usage_count": 0,
       "success_rate": 0.0
     }

@@ -273,8 +273,8 @@ class GPTManager:
         }
         
         # Token budgeting - per episode and per agent (Phase 7: increased for codex reasoning)
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "25000"))
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "8000"))
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "50000"))  # Phase 9.1: doubled for knowledge-augmented learning
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "16000"))  # Phase 9.1: doubled for deeper reasoning
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None

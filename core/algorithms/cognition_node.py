@@ -458,6 +458,31 @@ class CognitionNode:
         # led to positive reward, reinforce its weight; else suppress.
         self._train_gate(cognition_result, total_reward)
 
+        # ── Phase 9.1: Mirror to HybridMemory ──
+        # All transitions from all brains flow into the shared 3-tier memory
+        # for cross-algorithm replay (DDQN, SAC, SIL can all sample from it).
+        try:
+            from core.memory.hybrid_memory import get_hybrid_memory
+            hm = get_hybrid_memory()
+            if hm is not None and cognition_result.ppo_state is not None:
+                _state_np = cognition_result.ppo_state.detach().cpu().numpy().flatten()
+                _next_np = next_state.detach().cpu().numpy().flatten() if next_state is not None else _state_np
+                hm.store_transition(
+                    state=_state_np,
+                    action=cognition_result.action_idx,
+                    reward=total_reward,
+                    next_state=_next_np,
+                    done=done,
+                    metadata={
+                        "source": f"cognition:{cognition_result.winning_brain}",
+                        "rnd_bonus": cognition_result.rnd_bonus,
+                        "sil_bonus": cognition_result.sil_bonus,
+                    },
+                    priority=abs(total_reward) + cognition_result.rnd_bonus + 0.01,
+                )
+        except Exception:
+            pass  # HybridMemory not available — continue
+
     # ─────────────────────────────────────────────────────────────────────
     # Episode lifecycle
     # ─────────────────────────────────────────────────────────────────────

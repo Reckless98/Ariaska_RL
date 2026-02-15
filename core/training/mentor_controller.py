@@ -91,7 +91,7 @@ class MentorControllerConfig:
     warmup_rate: float = 0.55         # Phase 8.2: 55% call rate during warmup
 
     # Per-episode hard limit
-    max_calls_per_episode: int = 25   # Phase 8.2: 25 max — more tokens for LIVE mode
+    max_calls_per_episode: int = 50   # Phase 9.1: doubled from 25 — knowledge-augmented learning needs more guidance
 
     # Cooldown between consecutive mentor calls (steps)
     cooldown_steps: int = 1             # Phase 7.3: Reduced from 2 → 1 for live mode responsiveness

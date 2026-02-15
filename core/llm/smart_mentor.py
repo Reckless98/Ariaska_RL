@@ -547,6 +547,24 @@ After exfiltration, ALWAYS close out professionally:
                 lines.append(rag_context)
         except Exception:
             pass  # RAG is optional — graceful degradation
+
+        # Phase 9.1: MEGA KNOWLEDGE BASE injection — 14.6 MB across 6 repos
+        try:
+            from data.knowledge_retriever import get_knowledge_retriever
+            kr = get_knowledge_retriever()
+            # Build state dict for knowledge retriever
+            kb_state = {
+                "phase": context.current_phase.name if context.current_phase else "RECON",
+                "discovered_ports": list(context.discoveries.get("ports", set())),
+                "discovered_services": list(context.discoveries.get("services", set())),
+                "target_ip": context.target or "",
+            }
+            kb_context = kr.for_mentor_prompt(kb_state, max_tokens=1500)
+            if kb_context and len(kb_context) > 50:
+                lines.append("")
+                lines.append(kb_context)
+        except Exception:
+            pass  # Knowledge base is optional — graceful degradation
         
         # Instruction
         lines.append("=== YOUR TASK ===")

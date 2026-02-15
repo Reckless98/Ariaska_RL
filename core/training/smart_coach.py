@@ -408,6 +408,9 @@ class SmartCoach:
         # ─── Phase 9: CognitiveBus reference (lazy singleton) ────────────
         self._cognitive_bus = None  # Lazy-loaded via _get_cognitive_bus()
 
+        # ─── Phase 9.1: HybridMemory reference (lazy singleton) ─────────
+        self._hybrid_memory = None  # Lazy-loaded via _get_hybrid_memory()
+
         # =====================================================================
         # PHASE 4: Per-role PPO agent + CommandActionMapper
         # PPO drives command selection within each role's action pool.
@@ -3404,6 +3407,16 @@ class SmartCoach:
                 pass
         return self._cognitive_bus
 
+    def _get_hybrid_memory(self):
+        """Lazy-load the HybridMemory singleton (Phase 9.1)."""
+        if self._hybrid_memory is None:
+            try:
+                from core.memory.hybrid_memory import get_hybrid_memory
+                self._hybrid_memory = get_hybrid_memory()
+            except Exception:
+                pass
+        return self._hybrid_memory
+
     def _check_tool_availability(self) -> None:
         """One-time check: which tool binaries are installed on this system."""
         import shutil
@@ -3589,6 +3602,47 @@ class SmartCoach:
         
         # Apply role-based filtering
         filtered_commands = self._filter_commands_for_role(valid_commands)
+
+        # ─── Phase 9.1: Inject knowledge-base suggestions ──────────────
+        # Query the knowledge retriever for commands appropriate to the
+        # current phase/ports/services, then check if the registry has
+        # matching templates. This surfaces real-world exploit paths that
+        # the curriculum might not cover.
+        try:
+            from data.knowledge_retriever import get_knowledge_retriever
+            kr = get_knowledge_retriever(lazy=True)
+            if kr._loaded:
+                _kb_phase_name = (
+                    ctx.current_phase.name
+                    if ctx and ctx.current_phase else "RECON"
+                )
+                # Get knowledge suggestions for discovered ports/services
+                _kb_suggestions = set()
+                _discovered_ports = list(ctx.state_flags.keys()) if ctx else []
+                for _flag in _discovered_ports:
+                    if _flag.startswith("port_"):
+                        try:
+                            _pnum = int(_flag.replace("port_", ""))
+                            _svc_entries = kr.by_port(_pnum, limit=3)
+                            for _se in _svc_entries:
+                                if hasattr(_se, "commands") and _se.commands:
+                                    _kb_suggestions.update(_se.commands[:2])
+                        except (ValueError, AttributeError):
+                            pass
+
+                # Match KB suggestions against registry templates
+                if _kb_suggestions and filtered_commands is not None:
+                    _existing_names = {c.name for c in filtered_commands}
+                    for _vc in valid_commands:
+                        if _vc.name not in _existing_names:
+                            _template_lower = _vc.template.lower()
+                            for _kbs in _kb_suggestions:
+                                if _kbs.split()[0].lower() in _template_lower:
+                                    filtered_commands.append(_vc)
+                                    _existing_names.add(_vc.name)
+                                    break
+        except Exception:
+            pass  # Knowledge base not available — continue without
         
         # =====================================================================
         # PHASE 4: PPO-DRIVEN SELECTION (BEFORE fallback)
@@ -5102,6 +5156,25 @@ class SmartCoach:
             total_ep_reward = sum(t.get("reward", 0) for t in self._ppo_trajectory)
             self._save_episode_chain(total_ep_reward, highest_phase)
             self._reset_episode_chain()
+
+            # Phase 9.1: Signal HybridMemory episode end with summary
+            hm = self._get_hybrid_memory()
+            if hm is not None:
+                try:
+                    hm.end_episode(
+                        episode_id=self.current_episode,
+                        summary={
+                            "agent": self.agent_name,
+                            "total_reward": total_ep_reward,
+                            "highest_phase": highest_phase or "RECON",
+                            "steps": len(self._ppo_trajectory),
+                            "unique_actions": len(set(
+                                t.get("action", 0) for t in self._ppo_trajectory
+                            )) if self._ppo_trajectory else 0,
+                        },
+                    )
+                except Exception:
+                    pass
             
             # Phase 8.1: Log learning progress for hypothesis-test-learn cycle
             if self._ppo_trajectory:
@@ -5673,6 +5746,48 @@ class SmartCoach:
                 self.persona_router.tick_cooldowns()
             except Exception:
                 pass
+
+        # ─── Phase 9.1: Store transition to HybridMemory ───────────────
+        # Mirrors all transitions to the unified 3-tier memory so PPO, SAC,
+        # DDQN, and CognitionNode can sample from a shared replay buffer.
+        hm = self._get_hybrid_memory()
+        if hm is not None:
+            try:
+                import torch as _hm_torch
+                _, _, _, encode_state = _lazy_ppo()
+                if encode_state is not None:
+                    _hm_state_dict = {
+                        "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
+                    }
+                    _hm_state = encode_state(_hm_state_dict, _hm_torch.device("cpu"))
+                    _hm_state_np = _hm_state.detach().cpu().numpy().flatten()
+
+                    # Action index: use PPO action if available, else hash command
+                    _hm_action = 0
+                    if self._ppo_trajectory and self._ppo_trajectory[-1].get("action") is not None:
+                        _hm_action = int(self._ppo_trajectory[-1]["action"])
+                    elif decision.command:
+                        _hm_action = hash(decision.command) % 256
+
+                    hm.store_transition(
+                        state=_hm_state_np,
+                        action=_hm_action,
+                        reward=breakdown.total,
+                        next_state=_hm_state_np,  # Current state (next will overwrite on next step)
+                        done=done,
+                        metadata={
+                            "agent_id": self.agent_name,
+                            "source": decision.source or "unknown",
+                            "command": decision.command or "",
+                            "template": decision.template_name or "",
+                            "phase": (self.attack_context.current_phase.name
+                                      if self.attack_context and self.attack_context.current_phase
+                                      else "RECON"),
+                        },
+                        priority=abs(breakdown.total) + 0.01,
+                    )
+            except Exception as e:
+                logger.debug(f"[HYBRID_MEM][{self.agent_name}] store failed: {e}")
         
         return breakdown
     
@@ -5743,6 +5858,14 @@ class SmartCoach:
         self.current_episode = episode
         self.mentor_policy.reset_episode(episode)
         self.reward_calculator.reset()
+
+        # Phase 9.1: Signal HybridMemory episode start
+        hm = self._get_hybrid_memory()
+        if hm is not None:
+            try:
+                hm.start_episode(episode)
+            except Exception:
+                pass
         
         # Reset episode-level command tracking for variety
         self.episode_used_commands.clear()

@@ -79,7 +79,7 @@ PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
         max_tokens=200,
         temperature=0.2,
         cooldown_steps=1,
-        max_per_episode=8,
+        max_per_episode=16,  # Phase 9.1: doubled for knowledge-augmented tactical reasoning
         system_prompt=(
             "You are a TACTICAL ADVISOR for an autonomous red-team agent. "
             "Given the agent's current state, phase, and recent actions, "
@@ -98,7 +98,7 @@ PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
         max_tokens=400,
         temperature=0.3,
         cooldown_steps=3,
-        max_per_episode=4,
+        max_per_episode=8,  # Phase 9.1: doubled for deeper strategic planning
         system_prompt=(
             "You are a STRATEGIC PLANNER for an autonomous red-team agent attacking "
             "Metasploitable 2/3 (Linux). Plan a sequence of 5-10 macro-level actions "
@@ -124,7 +124,7 @@ PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
         max_tokens=300,
         temperature=0.4,
         cooldown_steps=2,
-        max_per_episode=6,
+        max_per_episode=12,  # Phase 9.1: doubled for knowledge-base-powered research
         system_prompt=(
             "You are a FIELD RESEARCHER for an autonomous red-team agent. "
             "Given a discovered service or vulnerability, provide concise "
@@ -145,7 +145,7 @@ PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
         max_tokens=350,
         temperature=0.2,
         cooldown_steps=4,
-        max_per_episode=3,
+        max_per_episode=6,  # Phase 9.1: doubled for multi-agent coherence
         system_prompt=(
             "You are a VENTRILOQUIST COORDINATOR overseeing 5 autonomous agents: "
             "Red (offensive), Blue (defensive), Scout (recon), Shadow (stealth), "
@@ -369,6 +369,31 @@ class CodexPersonaRouter:
             f"Provide: known CVEs, default credentials, exploitation templates "
             f"from the approved command registry."
         )
+
+        # Phase 9.1: Inject knowledge base context for richer research
+        try:
+            from data.knowledge_retriever import get_knowledge_retriever
+            kr = get_knowledge_retriever()
+            kb_entries = kr.by_port(port, max_results=3)
+            if not kb_entries:
+                kb_entries = kr.by_service(service, max_results=3)
+            if kb_entries:
+                kb_context = "\n\n=== KNOWLEDGE BASE REFERENCE ===\n"
+                for entry in kb_entries[:2]:
+                    if isinstance(entry, dict):
+                        kb_context += f"Service: {entry.get('service_name', service)}\n"
+                        creds = entry.get("default_credentials", [])
+                        if creds:
+                            kb_context += f"Credentials: {creds[:3]}\n"
+                        vulns = entry.get("common_vulnerabilities", [])
+                        if vulns:
+                            kb_context += f"CVEs: {vulns[:5]}\n"
+                        reasoning = entry.get("reasoning", "")
+                        if reasoning:
+                            kb_context += f"Notes: {reasoning[:300]}\n"
+                prompt += kb_context
+        except Exception:
+            pass  # Knowledge base is optional
 
         result = self._query_persona(CodexPersona.RESEARCHER, prompt, agent_name)
 

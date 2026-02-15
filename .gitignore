@@ -50,6 +50,9 @@ db.sqlite
 core/memories/
 chroma_data/
 runs/
+data/knowledge_repos/
+data/memmap_store/
+data/lmdb_store/
 
 # API keys and secrets
 .env

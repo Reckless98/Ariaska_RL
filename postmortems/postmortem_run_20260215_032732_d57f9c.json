@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260215_032732_d57f9c",
+  "timestamp": 1771122474.4152794,
+  "key_outcomes": {
+    "wins": [
+      "Achieved maximum reward of 100.00 on single episode, indicating full completion of measured objectives.",
+      "Mentor interactions (15 calls) were consistent, suggesting adherence to guidance protocols throughout the run."
+    ],
+    "fails": [
+      "Success Rate remained at 0.00%, indicating the core objective criteria were not satisfied despite high reward.",
+      "Absence of repeated successful patterns that translate into mission completion strategies."
+    ],
+    "summary": "Episode completed with perfect reward yet scored 0% success; indicates reward design misalignment or missing success condition met."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to trigger the success condition despite collecting maximum reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260215_032732_d57f9c_episode_01"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration using nmap+ssh scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260215_032732_d57f9c_episode_01_step_04"
+      ],
+      "created_at": 1771122481.4815352,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_banner_assess",
+      "if_condition": "When a service banner indicates outdated software",
+      "then_action": "Correlate banner versions with vulnerability database and prioritize exploits",
+      "parameters_template": {
+        "banner_field": "version",
+        "priority_score": "cvss>=7"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260215_032732_d57f9c_episode_01_step_09"
+      ],
+      "created_at": 1771122481.4815521,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_mentor_sync",
+      "if_condition": "When mentor guidance is active",
+      "then_action": "Log instructions and verify compliance before next action",
+      "parameters_template": {
+        "mentor_call_id": "auto",
+        "compliance_check": true
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "run_20260215_032732_d57f9c_episode_01_step_02",
+        "run_20260215_032732_d57f9c_episode_01_step_12"
+      ],
+      "created_at": 1771122481.4815633,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High applicability across reconnaissance steps with mentor alignment."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_mentor_sync",
+      "skill_card_id": "skill_mentor_sync",
+      "reason": "Consistent mentor call adherence improves guidance fidelity."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate success condition thresholds",
+      "description": "Identify and explicitly trigger the mission success flag to align reward with success rate; test variations where banner exploitation yields success.",
+      "priority": "high"
+    },
+    {
+      "title": "Enhance SSH enumeration refinement",
+      "description": "Run deeper credential and version checks after initial SSH detection to determine if unexploited access leads to success criteria.",
+      "priority": "medium"
+    },
+    {
+      "title": "Map mentor guidance compliance to outcomes",
+      "description": "Log deviations from mentor instructions and compare against reward/success to ensure adherence correlates with mission success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
