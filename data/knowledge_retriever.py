@@ -40,6 +40,8 @@ logger = logging.getLogger("ariaska.knowledge_retriever")
 
 BASE_DIR = Path(__file__).parent
 KB_DIR = BASE_DIR / "knowledge_base"
+V2_DIR = BASE_DIR / "knowledge_candidates_v2"
+INDEX_DIR = BASE_DIR / "knowledge_indices"
 
 
 class KnowledgeRetriever:
@@ -63,7 +65,11 @@ class KnowledgeRetriever:
         if self._initialized:
             return
         self._kb_dir = kb_dir or KB_DIR
+        self._v2_dir = V2_DIR
+        self._index_dir = INDEX_DIR
         self._loaded = False
+        self._v2_loaded = False
+        self._v2_candidates: List[Dict] = []  # Phase 10.0: v2 candidate store
 
         # Indices
         self._port_index: Dict[int, List[Dict]] = defaultdict(list)
@@ -154,11 +160,54 @@ class KnowledgeRetriever:
                 except Exception as e:
                     logger.error(f"  Failed to load {fname}: {e}")
 
-        # Build indices
+        # Build indices from v1 data
         self._build_indices()
+
+        # Phase 10.0: Load v2 pre-built indices if available
+        v2_count = self._load_v2_indices()
+        total_entries += v2_count
+
         self._loaded = True
         logger.info(f"Knowledge base loaded: {total_entries:,} total entries across "
-                     f"{len(file_loaders)} files")
+                     f"{len(file_loaders)} files (+ {v2_count:,} v2 indexed)")
+
+    def _load_v2_indices(self) -> int:
+        """Load pre-built v2 indices from data/knowledge_indices/."""
+        if not self._index_dir.exists():
+            logger.debug("No v2 indices found, skipping")
+            return 0
+
+        v2_count = 0
+        index_files = {
+            "by_port": self._port_index,
+            "by_service": self._service_index,
+            "by_cve": self._cve_index,
+            "by_phase": self._phase_index,
+            "by_tag": self._tool_index,  # tags → tool index for search
+        }
+
+        for idx_name, target_index in index_files.items():
+            idx_path = self._index_dir / f"{idx_name}.json"
+            if idx_path.exists():
+                try:
+                    data = json.loads(idx_path.read_text())
+                    for key, refs in data.items():
+                        # Convert refs to lightweight entries
+                        for ref in refs:
+                            target_index[key].append({
+                                "source": "v2",
+                                "candidate_id": ref.get("candidate_id", ""),
+                                "title": ref.get("title", ""),
+                            })
+                            v2_count += 1
+                except Exception as e:
+                    logger.debug(f"Failed to load v2 index {idx_name}: {e}")
+
+        if v2_count > 0:
+            self._v2_loaded = True
+            logger.info(f"  V2 indices loaded: {v2_count:,} index entries from {self._index_dir}")
+
+        return v2_count
 
     def _build_indices(self):
         """Build fast lookup indices from raw data."""
@@ -768,6 +817,9 @@ class KnowledgeRetriever:
             "privesc_checks": len(self._privesc_checks),
             "exploit_modules": len(self._exploit_modules),
             "searchable_entries": len(self._search_corpus),
+            # Phase 10.0: v2 corpus
+            "v2_loaded": self._v2_loaded,
+            "v2_candidates": len(self._v2_candidates),
         }
 
     @classmethod
