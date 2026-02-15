@@ -18,7 +18,6 @@ from rich.columns import Columns
 from rich.text import Text
 from rich import box
 from rich.rule import Rule
-from rich.tree import Tree
 
 console = Console()
 

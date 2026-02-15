@@ -74,6 +74,13 @@ def build_indices(candidates: list) -> dict:
                 port_str = req.replace("port_", "").replace("_open", "")
                 indices["by_port"][port_str].append(ref)
 
+        # Port index (secondary: from execution.parameters.port)
+        param_port = exe.get("parameters", {}).get("port", "")
+        if param_port:
+            p_str = str(param_port)
+            if ref not in indices["by_port"].get(p_str, []):
+                indices["by_port"][p_str].append(ref)
+
         # Service index
         svc = tax.get("service_archetype", "")
         if svc and svc != "general":

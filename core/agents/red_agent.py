@@ -1084,28 +1084,6 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 
             return reward
             
-            # If external redundancy detector provided, use it
-            if detect_redundancy and self.command_history:
-                if detect_redundancy(self.command_history[:-1], command):
-                    # Only apply additional penalty if not already penalized
-                    if not redundancy_applied:
-                        reward *= self.redundancy_penalty
-                        redundancy_applied = True
-            
-            # Track this reward for feedback in future steps
-            self.last_reward = reward
-            
-            # Track statistics
-            if hasattr(self, "stats_monitor") and self.stats_monitor:
-                self.stats_monitor.log_step(
-                    self.agent_id, 
-                    reward, 
-                    command=command, 
-                    redundancy=1 if redundancy_applied else 0
-                )
-                
-            return reward
-            
         except Exception as e:
             # Safety fallback - never crash on reward calculation
             if hasattr(self, "verbosity") and self.verbosity not in ["quiet", "silent"]:

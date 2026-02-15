@@ -619,7 +619,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             agents: List of all agents in the system
         """
         # Import here to avoid circular imports
-        from core.logic.redundancy_detector import detect_redundancy_batch, suggest_memory_pruning
+        from core.logic.redundancy_detector import detect_redundancy_batch
         
         for agent in agents:
             if hasattr(agent, "replay_buffer") and hasattr(agent.replay_buffer, "prune_redundancy"):

@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Any, Optional, Set
 from collections import deque, defaultdict
 from dataclasses import dataclass, asdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 from core.gpt_manager import GPTManager
 from core.multiagent.memory_router import MemoryRouter

@@ -54,7 +54,6 @@ import atexit
 import json
 import logging
 import os
-import struct
 import threading
 import time
 from collections import deque

@@ -4531,7 +4531,6 @@ class SmartCoach:
         try:
             from core.knowledge.pentesting_playbooks import (
                 get_playbooks_for_target,
-                get_next_playbook_command,
             )
         except ImportError:
             return None

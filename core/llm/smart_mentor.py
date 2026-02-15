@@ -19,7 +19,6 @@ from ..commands.command_registry import (
     get_valid_commands_for_state,
     get_phase_from_state,
     render_command,
-    get_command_names_for_prompt
 )
 from ..commands.learned_commands import (
     LearnedCommandStore,

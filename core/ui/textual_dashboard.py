@@ -41,7 +41,6 @@ try:
         TabPane,
     )
     from textual.reactive import reactive
-    from textual import work
 
     TEXTUAL_AVAILABLE = True
 except ImportError:
