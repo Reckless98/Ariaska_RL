@@ -2494,79 +2494,89 @@ class SmartCoach:
         # =========================================================================
         _tactical_assessment = None
         if self.tactical_cortex is not None:
+            # Phase 9.7: Feature-flag guard for TC gate
+            _tc_enabled = True
             try:
-                _tc_template = COMMAND_REGISTRY.get(result.template_name) if result.template_name else None
-                _tc_phase_name = (
-                    current_phase.name if hasattr(current_phase, 'name')
-                    else str(current_phase)
-                )
-                _tc_detection = ctx.state_flags.get("detection_risk", 0.0)
-                _tc_board = {}
-                if hasattr(ctx, 'discovery_board'):
-                    _tc_board = ctx.discovery_board or {}
-                elif hasattr(self, '_last_discovery_board'):
-                    _tc_board = self._last_discovery_board or {}
+                from core.feature_flags import get_feature_flags
+                _tc_enabled = get_feature_flags().tactical_cortex_gate
+            except Exception:
+                pass
+            if not _tc_enabled:
+                logger.debug(f"[{self.agent_name}] TacticalCortex gate OFF (FF)")
+            else:
+                try:
+                    _tc_template = COMMAND_REGISTRY.get(result.template_name) if result.template_name else None
+                    _tc_phase_name = (
+                        current_phase.name if hasattr(current_phase, 'name')
+                        else str(current_phase)
+                    )
+                    _tc_detection = ctx.state_flags.get("detection_risk", 0.0)
+                    _tc_board = {}
+                    if hasattr(ctx, 'discovery_board'):
+                        _tc_board = ctx.discovery_board or {}
+                    elif hasattr(self, '_last_discovery_board'):
+                        _tc_board = self._last_discovery_board or {}
 
-                _tactical_assessment = self.tactical_cortex.assess(
-                    command=result.command or "",
-                    template=_tc_template,
-                    state=ctx.state_flags if ctx.state_flags else {},
-                    agent_role=self.agent_role.get("role", "red"),
-                    discovery_board=_tc_board,
-                    current_phase=_tc_phase_name,
-                    detection_risk=float(_tc_detection),
-                    step=step_ctx.step,
-                )
+                    _tactical_assessment = self.tactical_cortex.assess(
+                        command=result.command or "",
+                        template=_tc_template,
+                        state=ctx.state_flags if ctx.state_flags else {},
+                        agent_role=self.agent_role.get("role", "red"),
+                        discovery_board=_tc_board,
+                        current_phase=_tc_phase_name,
+                        detection_risk=float(_tc_detection),
+                        step=step_ctx.step,
+                    )
 
-                if _tactical_assessment and not _tactical_assessment.approved:
-                    if ppo_bypass:
-                        # PPO/CognitionNode decisions: attach warning but don't override
-                        result.mentor_reasoning = (
-                            f"[TACTICAL-WARN:{_tactical_assessment.verdict.name}] "
-                            f"{_tactical_assessment.reasoning[:150]} | "
-                            f"{result.mentor_reasoning or ''}"
-                        )
-                        logger.debug(
-                            f"[{self.agent_name}] TacticalCortex warning (PPO-bypass): "
-                            f"{_tactical_assessment.verdict.name} — "
-                            f"{_tactical_assessment.reasoning[:100]}"
-                        )
-                    else:
-                        # Non-PPO decisions: respect BLOCK/REDIRECT verdicts
-                        if _tactical_assessment.alternative:
-                            logger.info(
-                                f"[{self.agent_name}] TacticalCortex "
-                                f"{_tactical_assessment.verdict.name}: "
-                                f"'{result.template_name}' → "
-                                f"'{_tactical_assessment.alternative_template}'"
-                            )
-                            # Store negative PPO trajectory for the blocked command
-                            if self._ppo_pending is not None:
-                                self._store_ppo_negative_reward(
-                                    -3.0, f"tactical_{_tactical_assessment.verdict.name.lower()}"
-                                )
-                            result.command = _tactical_assessment.alternative
-                            result.template_name = _tactical_assessment.alternative_template or result.template_name
-                            result.source = "tactical_cortex"
-                            result.confidence = _tactical_assessment.confidence
+                    if _tactical_assessment and not _tactical_assessment.approved:
+                        if ppo_bypass:
+                            # PPO/CognitionNode decisions: attach warning but don't override
                             result.mentor_reasoning = (
-                                f"[TACTICAL:{_tactical_assessment.verdict.name}] "
-                                f"{_tactical_assessment.reasoning[:200]}"
-                            )
-                        else:
-                            # No alternative available — attach warning only
-                            result.mentor_reasoning = (
-                                f"[TACTICAL-{_tactical_assessment.verdict.name}] "
+                                f"[TACTICAL-WARN:{_tactical_assessment.verdict.name}] "
                                 f"{_tactical_assessment.reasoning[:150]} | "
                                 f"{result.mentor_reasoning or ''}"
                             )
-                elif _tactical_assessment and _tactical_assessment.approved:
-                    logger.debug(
-                        f"[{self.agent_name}] TacticalCortex APPROVED: "
-                        f"'{result.template_name}' (conf={_tactical_assessment.confidence:.2f})"
-                    )
-            except Exception as e:
-                logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
+                            logger.debug(
+                                f"[{self.agent_name}] TacticalCortex warning (PPO-bypass): "
+                                f"{_tactical_assessment.verdict.name} — "
+                                f"{_tactical_assessment.reasoning[:100]}"
+                            )
+                        else:
+                            # Non-PPO decisions: respect BLOCK/REDIRECT verdicts
+                            if _tactical_assessment.alternative:
+                                logger.info(
+                                    f"[{self.agent_name}] TacticalCortex "
+                                    f"{_tactical_assessment.verdict.name}: "
+                                    f"'{result.template_name}' → "
+                                    f"'{_tactical_assessment.alternative_template}'"
+                                )
+                                # Store negative PPO trajectory for the blocked command
+                                if self._ppo_pending is not None:
+                                    self._store_ppo_negative_reward(
+                                        -3.0, f"tactical_{_tactical_assessment.verdict.name.lower()}"
+                                    )
+                                result.command = _tactical_assessment.alternative
+                                result.template_name = _tactical_assessment.alternative_template or result.template_name
+                                result.source = "tactical_cortex"
+                                result.confidence = _tactical_assessment.confidence
+                                result.mentor_reasoning = (
+                                    f"[TACTICAL:{_tactical_assessment.verdict.name}] "
+                                    f"{_tactical_assessment.reasoning[:200]}"
+                                )
+                            else:
+                                # No alternative available — attach warning only
+                                result.mentor_reasoning = (
+                                    f"[TACTICAL-{_tactical_assessment.verdict.name}] "
+                                    f"{_tactical_assessment.reasoning[:150]} | "
+                                    f"{result.mentor_reasoning or ''}"
+                                )
+                    elif _tactical_assessment and _tactical_assessment.approved:
+                        logger.debug(
+                            f"[{self.agent_name}] TacticalCortex APPROVED: "
+                            f"'{result.template_name}' (conf={_tactical_assessment.confidence:.2f})"
+                        )
+                except Exception as e:
+                    logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
 
         # =========================================================================
         # PHASE 6.6: DIFFICULTY GATE — Block commands banned by current preset
