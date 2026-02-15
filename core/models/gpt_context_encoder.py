@@ -21,7 +21,7 @@ class GPTContextEncoder:
         os.makedirs(self.cache_dir, exist_ok=True)
         self.cache_file = os.path.join(self.cache_dir, "context_vectors.json")
         self.cache = self._load_cache()
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         console.print(f"[green]✔ ContextEncoder Ready — Cached: {len(self.cache)}[/green]")
 
     def _load_cache(self):

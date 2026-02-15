@@ -250,6 +250,16 @@ class SmartOrchestrator:
         except Exception as e:
             logger.warning(f"Phase 6.3: Watchdog init failed: {e}")
         
+        # ─── PHASE 10: KnowledgeRetriever — JSON knowledge base queries ──
+        # Initialized early so downstream components can reference it.
+        self.knowledge_retriever = None
+        try:
+            from data.knowledge_retriever import KnowledgeRetriever
+            self.knowledge_retriever = KnowledgeRetriever(lazy=True)
+            logger.info("Phase 10: KnowledgeRetriever initialized (lazy-loaded)")
+        except Exception as e:
+            logger.debug(f"Phase 10: KnowledgeRetriever init skipped: {e}")
+        
         # ─── PHASE 6.3: Smart Output Parser — regex + nano-LLM fallback ──
         self.smart_parser = None
         try:
@@ -258,6 +268,7 @@ class SmartOrchestrator:
                 gpt_manager=gpt_manager,
                 enable_llm=True,
                 max_llm_calls_per_episode=20,
+                knowledge_retriever=self.knowledge_retriever,
             )
             logger.info("Phase 6.3: SmartOutputParser initialized (regex + nano-LLM)")
         except Exception as e:
@@ -340,6 +351,45 @@ class SmartOrchestrator:
             logger.info("Phase 9.2: ReflectiveCortex initialized (batch meta-learning)")
         except Exception as e:
             logger.warning(f"Phase 9.2: ReflectiveCortex init failed: {e}")
+        
+        # ─── PHASE 10: TacticalCortex — per-step quality gate ──
+        self.tactical_cortex = None
+        try:
+            from core.cortex.tactical_cortex import TacticalCortex
+            self.tactical_cortex = TacticalCortex(
+                gpt_manager=gpt_manager,
+                max_llm_calls=5,
+                enable_llm=True,
+                knowledge_retriever=self.knowledge_retriever,
+            )
+            logger.info("Phase 10: TacticalCortex initialized (per-step quality gate)")
+        except Exception as e:
+            logger.warning(f"Phase 10: TacticalCortex init failed: {e}")
+        
+        # ─── PHASE 10: ExecutiveCortex — episode-level strategic planner ──
+        self.executive_cortex = None
+        try:
+            from core.cortex.executive_cortex import ExecutiveCortex
+            self.executive_cortex = ExecutiveCortex(
+                gpt_manager=gpt_manager,
+                max_llm_calls=3,
+                enable_llm=True,
+                knowledge_retriever=self.knowledge_retriever,
+            )
+            logger.info("Phase 10: ExecutiveCortex initialized (episode-level planner)")
+        except Exception as e:
+            logger.warning(f"Phase 10: ExecutiveCortex init failed: {e}")
+        
+        # ─── PHASE 10: TargetProfiler — service archetype classification ──
+        self.target_profiler = None
+        try:
+            from core.knowledge.target_profiler import TargetProfiler
+            self.target_profiler = TargetProfiler(
+                knowledge_graph=self.knowledge_graph,
+            )
+            logger.info("Phase 10: TargetProfiler initialized (service archetype classification)")
+        except Exception as e:
+            logger.warning(f"Phase 10: TargetProfiler init failed: {e}")
         
         # Initialize agents
         self.agents: Dict[str, Any] = {}
@@ -747,6 +797,8 @@ class SmartOrchestrator:
                 reward_calculator=reward_calc,
                 mentor_log_path=None,
                 model=self.config.model,
+                tactical_cortex=self.tactical_cortex,
+                executive_cortex=self.executive_cortex,
             )
         
         # Phase 6.6: Inject difficulty preset into all coaches
@@ -1039,6 +1091,43 @@ class SmartOrchestrator:
         self._phase_start_step = {_initial_phase: 0}
         phase_progression: List[str] = [_initial_phase]
         done = False
+        
+        # ─── PHASE 10: Executive & Tactical Cortex episode setup ─────
+        if self.tactical_cortex:
+            try:
+                self.tactical_cortex.reset_episode()
+            except Exception as e:
+                logger.debug(f"Phase 10: TacticalCortex reset failed: {e}")
+        
+        if self.executive_cortex:
+            try:
+                self.executive_cortex.reset_episode()
+                # Detect target type for plan creation
+                _target_type = "unknown"
+                _target_ip = target or self.config.default_target
+                if _target_ip == "172.28.0.10":
+                    _target_type = "ms2"
+                elif _target_ip == "172.28.0.11":
+                    _target_type = "ms3"
+                elif self.target_profiler:
+                    try:
+                        _tp = self.target_profiler.classify_target(_target_ip, state)
+                        _target_type = getattr(_tp, "target_type", "unknown")
+                    except Exception:
+                        pass
+                self._episode_plan = self.executive_cortex.create_plan(
+                    initial_state=state,
+                    target_ip=_target_ip,
+                    target_type=_target_type,
+                    max_steps=max_steps,
+                )
+                logger.info(
+                    f"Phase 10: AttackPlan created ({len(self._episode_plan.objectives)} "
+                    f"objectives, type={_target_type})"
+                )
+            except Exception as e:
+                logger.debug(f"Phase 10: ExecutiveCortex plan creation failed: {e}")
+                self._episode_plan = None
         total_mentor_calls = 0
         
         for step in range(max_steps):
@@ -1589,6 +1678,18 @@ class SmartOrchestrator:
                 self._phase_start_step[new_phase] = step
                 if new_phase not in phase_progression:
                     phase_progression.append(new_phase)
+                
+                # ─── PHASE 10: ExecutiveCortex plan revision on phase transition ─
+                if self.executive_cortex and hasattr(self, '_episode_plan') and self._episode_plan:
+                    try:
+                        self.executive_cortex.revise_plan(
+                            new_phase=new_phase,
+                            discovery_board=self.discovery_board,
+                            old_phase=_pre_step_phase,
+                            step=step,
+                        )
+                    except Exception as e:
+                        logger.debug(f"Phase 10: ExecutiveCortex revise_plan failed: {e}")
             
             # =========================================================================
             # PHASE 6.9.3: CLOSEOUT COMPLETE → END EPISODE
@@ -1657,6 +1758,20 @@ class SmartOrchestrator:
         metrics = self._compute_episode_metrics(
             step_results, episode_reward, done, phase_progression
         )
+        
+        # ─── PHASE 10: End-of-episode cortex metrics ─────────────────
+        if self.executive_cortex:
+            try:
+                exec_metrics = self.executive_cortex.end_episode()
+                metrics["executive_cortex"] = exec_metrics
+            except Exception as e:
+                logger.debug(f"Phase 10: ExecutiveCortex end_episode failed: {e}")
+        if self.tactical_cortex:
+            try:
+                tac_stats = self.tactical_cortex.get_stats()
+                metrics["tactical_cortex"] = tac_stats
+            except Exception as e:
+                logger.debug(f"Phase 10: TacticalCortex get_stats failed: {e}")
         
         # ─── R66: Episode-level JSONL + HUD summary ─────────────────
         try:
@@ -2918,6 +3033,38 @@ class SmartOrchestrator:
                         )
                     except Exception:
                         pass  # Never let bus break training
+                
+                # ─── Phase 9.4: Cortex step recording ────────────────
+                # Record step outcomes in TacticalCortex and ExecutiveCortex
+                # for future assessments and plan tracking.
+                _had_disc = bool(deduped_discoveries)
+                _step_phase = (
+                    self.attack_context.current_phase.name
+                    if self.attack_context else "RECON"
+                )
+                _step_template = result.decision.template_name or ""
+                
+                if self.tactical_cortex is not None:
+                    try:
+                        self.tactical_cortex.record_step(
+                            command=result.decision.command or "",
+                            template_name=_step_template,
+                            had_discovery=_had_disc,
+                            step=step,
+                        )
+                    except Exception:
+                        pass
+                
+                if self.executive_cortex is not None:
+                    try:
+                        self.executive_cortex.record_step(
+                            phase=_step_phase,
+                            template_name=_step_template,
+                            had_discovery=_had_disc,
+                            discovery_board=self.discovery_board,
+                        )
+                    except Exception:
+                        pass
         
         # ─── PHASE 8.2 Batch 16: Re-evaluate deferred discoveries ───
         # If post-shell gate is now satisfied, apply previously suppressed
@@ -3058,11 +3205,36 @@ class SmartOrchestrator:
         api_endpoint, version_info discovery types for deeper reward signal.
         Phase 7.3: Added command-aware filtering to prevent false discoveries
         from non-scanner commands (searchsploit, msfvenom, msfconsole search).
+        Phase 9.4: SmartOutputParser (regex + nano-LLM) is tried first.
+        Falls back to inline regex if SmartOutputParser is unavailable or
+        returns no results.
         """
         discoveries = {}
         
         if not output or (output.startswith("[SIM]") and len(output) < 30):
             return discoveries
+        
+        # ── Phase 9.4: SmartOutputParser two-stage pipeline ──────────
+        # Try the structured parser first (OutputParser regex + LLM fallback).
+        # If it finds discoveries, return them directly — they're already in
+        # the canonical format used by the reward system.
+        if self.smart_parser is not None:
+            try:
+                smart_result = self.smart_parser.parse(
+                    command=command,
+                    output=output,
+                    agent_name="orchestrator",
+                )
+                if smart_result:
+                    logger.debug(
+                        f"[SMART-PARSER] Found {len(smart_result)} discovery types "
+                        f"for '{command[:40]}'"
+                    )
+                    return smart_result
+            except Exception as e:
+                logger.debug(f"[SMART-PARSER] Error: {e}")
+        
+        # ── Fallback: inline regex parsing (original logic) ──────────
         
         # Phase 5.2: Reject outputs dominated by error messages
         output_lines = output.strip().split('\n')

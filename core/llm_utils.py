@@ -23,8 +23,8 @@ def get_gpt_manager():
     if _gpt_manager is None:
         try:
             from core.gpt_manager import GPTManager
-            _gpt_manager = GPTManager()
-            logger.info("✅ GPTManager (GPT-4o-mini) initialized")
+            _gpt_manager = GPTManager.get_instance()
+            logger.info("✅ GPTManager singleton initialized")
         except Exception as e:
             logger.error(f"❌ Failed to initialize GPTManager: {e}")
             _gpt_manager = None

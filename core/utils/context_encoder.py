@@ -253,7 +253,7 @@ Format your response as a JSON object with these fields:
         # Try to use GPTManager if available
         if GPTManager:
             try:
-                gpt = GPTManager()
+                gpt = GPTManager.get_instance()
                 response = gpt.gpt_request(
                     prompt=prompt,
                     system="You are an expert cybersecurity AI assistant that creates concise summaries of agent activities.",

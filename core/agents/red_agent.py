@@ -213,9 +213,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.gpt_tokens_used = 0
         self.gpt_token_limit = self.GPT_TOKEN_LIMIT
         self.gpt_response_cache = {}
-        # PHASE 0 FIX: Use injected GPTManager or create one if not provided
-        # AgentManager will override this with the shared instance via _sync_gpt_context
-        self.gpt_manager = self._injected_gpt_manager if self._injected_gpt_manager is not None else GPTManager()
+        # PHASE 0 FIX: Use injected GPTManager or singleton
+        self.gpt_manager = self._injected_gpt_manager if self._injected_gpt_manager is not None else GPTManager.get_instance()
         self.redagent_brain = RedAgentBrain()
         self.total_reward = 0.0  # Add missing total_reward attribute
         self.replay_buffer = ReplayBuffer(

@@ -45,7 +45,7 @@ class GPTDistiller:
         self.memory_dir = Path(memory_dir)
         self.output_dir = Path(output_dir)
         self.verbosity = verbosity
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         # All LLM functionality now handled by gpt_manager
         self.output_dir.mkdir(parents=True, exist_ok=True)
         

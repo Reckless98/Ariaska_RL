@@ -1139,6 +1139,29 @@ class GPTManager:
                 "platform": platform.system()
             }
     
+    # ─── Singleton pattern ────────────────────────────────────────────
+    _instance: Optional["GPTManager"] = None
+    _lock = threading.Lock()
+
+    @classmethod
+    def get_instance(cls, **kwargs) -> "GPTManager":
+        """Get or create the singleton GPTManager instance.
+        
+        Thread-safe. First call creates the instance with any provided kwargs.
+        Subsequent calls return the same instance (kwargs ignored).
+        """
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls(**kwargs)
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        """Reset singleton — ONLY for tests."""
+        with cls._lock:
+            cls._instance = None
+
     def cleanup(self):
         """Clean shutdown - save cache and stats"""
         self._save_cache()
@@ -1148,8 +1171,5 @@ class GPTManager:
 _gpt_manager_instance = None
 
 def get_gpt_manager() -> GPTManager:
-    """Get singleton GPTManager instance"""
-    global _gpt_manager_instance
-    if _gpt_manager_instance is None:
-        _gpt_manager_instance = GPTManager()
-    return _gpt_manager_instance
+    """Get singleton GPTManager instance (legacy compat — prefers classmethod)."""
+    return GPTManager.get_instance()

@@ -61,7 +61,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         self.llm_router = LLMOrchestrator(cache_dir="cache/shadow_agent_responses")
         
         # Initialize GPT manager for fallback
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         
         # Stealth monitoring parameters
         self.alert_threshold = 50.0  # Alert level threshold for intervention

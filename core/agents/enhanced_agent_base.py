@@ -66,7 +66,7 @@ class EnhancedAgentBase(ABC):
         self.agent_type = config.agent_type
         
         # Core components
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         self.memory_sync = memory_sync
         
         # Neural networks

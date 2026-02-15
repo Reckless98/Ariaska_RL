@@ -218,7 +218,7 @@ class OrionPostmortem:
         """Lazy-initialize GPTManager on first use."""
         if self._gpt_manager is None and self.enable_llm:
             from core.gpt_manager import GPTManager
-            self._gpt_manager = GPTManager()
+            self._gpt_manager = GPTManager.get_instance()
         return self._gpt_manager
     
     def is_llm_available(self) -> bool:

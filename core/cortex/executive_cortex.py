@@ -304,11 +304,13 @@ class ExecutiveCortex:
         target_profile: Optional[TargetProfile] = None,
         max_llm_calls: int = 3,
         enable_llm: bool = True,
+        knowledge_retriever: Optional[Any] = None,
     ):
         self._gpt_manager = gpt_manager
         self._target_profile = target_profile
         self._max_llm_calls = max_llm_calls
         self._enable_llm = enable_llm
+        self._knowledge_retriever = knowledge_retriever
         self._llm_calls_this_episode = 0
         self._plan: Optional[AttackPlan] = None
         self._phase_step_counts: Dict[str, int] = defaultdict(int)
@@ -531,7 +533,31 @@ class ExecutiveCortex:
             "recommended_commands": recommended[:10],
             "step_budget": total_budget,
             "focus": focus,
+            "kr_enriched": self._kr_enrich_recommendations(
+                current_phase, recommended,
+            ),
         }
+
+    def _kr_enrich_recommendations(
+        self,
+        phase: str,
+        existing: List[str],
+    ) -> List[str]:
+        """Enrich command recommendations using KnowledgeRetriever."""
+        if self._knowledge_retriever is None:
+            return []
+        try:
+            phase_entries = self._knowledge_retriever.by_phase(phase, max_results=5)
+            kr_commands = []
+            for entry in phase_entries:
+                cmds = entry.get("commands", []) or entry.get("exploitation_commands", [])
+                for cmd in cmds[:2]:
+                    template_name = cmd.get("template_name", "")
+                    if template_name and template_name not in existing and template_name not in kr_commands:
+                        kr_commands.append(template_name)
+            return kr_commands[:5]
+        except Exception:
+            return []
 
     def record_step(
         self,

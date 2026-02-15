@@ -68,7 +68,7 @@ class ValueNet(nn.Module):
         # GPT Context Encoder
         self.context_encoder = GPTContextEncoder()
 
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
 
         self.to(self.device)
         self._init_weights()

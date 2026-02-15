@@ -45,11 +45,13 @@ class SmartOutputParser:
         gpt_manager: Optional["GPTManager"] = None,
         enable_llm: bool = True,
         max_llm_calls_per_episode: int = 20,
+        knowledge_retriever: Optional[Any] = None,
     ):
         self._gpt = gpt_manager
         self._enable_llm = enable_llm and gpt_manager is not None
         self._max_llm_calls = max_llm_calls_per_episode
         self._llm_calls_this_episode: int = 0
+        self._knowledge_retriever = knowledge_retriever
         
         # Wrap existing OutputParser for regex stage
         self._regex_parser: Optional[Any] = None
@@ -101,6 +103,9 @@ class SmartOutputParser:
         
         if regex_discoveries:
             self._stats["regex_hits"] += 1
+            # Phase 9.4: Enrich with KnowledgeRetriever port lookups
+            if self._knowledge_retriever is not None:
+                regex_discoveries = self._kr_enrich(regex_discoveries)
             return regex_discoveries
         
         # ── Stage 2: LLM fallback (nano model) ─────────────────────
@@ -231,6 +236,42 @@ JSON:"""
             logger.debug(f"[SMART-PARSER-LLM] Parse failed: {e}")
         
         return None
+
+    # ------------------------------------------------------------------
+    # KnowledgeRetriever enrichment
+    # ------------------------------------------------------------------
+
+    def _kr_enrich(self, discoveries: Dict[str, Any]) -> Dict[str, Any]:
+        """Enrich parsed discoveries with KnowledgeRetriever port/service data.
+        
+        If we found open ports, look up associated vulnerabilities and
+        exploitation methods from the knowledge base.
+        """
+        if self._knowledge_retriever is None:
+            return discoveries
+        try:
+            ports = discoveries.get("open_port", [])
+            for port in ports[:5]:
+                port_num = int(port) if isinstance(port, str) else port
+                entries = self._knowledge_retriever.by_port(port_num, max_results=1)
+                if entries:
+                    entry = entries[0]
+                    # Add version info if KB knows the default service
+                    if "version_info" not in discoveries:
+                        svc = entry.get("service_name", "")
+                        ver = entry.get("version", "")
+                        if svc and ver:
+                            discoveries.setdefault("version_info", []).append(
+                                f"{svc} {ver}"
+                            )
+                    # Add CVEs if KB has them
+                    cves = entry.get("common_vulnerabilities", [])
+                    if cves and "cve" not in discoveries:
+                        discoveries["cve"] = cves[:3]
+                        discoveries["vulnerability"] = True
+        except Exception as e:
+            logger.debug(f"[SMART-PARSER-KR] Enrichment error: {e}")
+        return discoveries
 
     # ------------------------------------------------------------------
     # Helpers

@@ -58,7 +58,7 @@ class LLMOrchestrator:
         """Initialize GPT-4o-mini manager."""
         try:
             from core.gpt_manager import GPTManager
-            self.gpt_manager = GPTManager()
+            self.gpt_manager = GPTManager.get_instance()
             logger.info("Checkmark: GPT-4o-mini manager initialized")
         except Exception as e:
             logger.error(f"X Failed to initialize GPT manager: {e}")

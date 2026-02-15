@@ -117,7 +117,7 @@ class HyperparamTuner:
 # ─────────────────────────────────────────────
 class GPTAdvisor:
     def __init__(self, gpt_manager=None, config_path="config/gpt_advisor.json"):
-        self.gpt_manager = gpt_manager or GPTManager()
+        self.gpt_manager = gpt_manager or GPTManager.get_instance()
         self.config_path = config_path
         self.config = self._load_config()
         self.last_call = 0

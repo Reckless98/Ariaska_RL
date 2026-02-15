@@ -62,7 +62,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         self.llm_router = LLMOrchestrator(cache_dir="cache/scout_agent_responses")
         
         # Initialize GPT manager for fallback and advanced reasoning
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         
         # Store recent scan plans and discoveries
         self.scan_history = []

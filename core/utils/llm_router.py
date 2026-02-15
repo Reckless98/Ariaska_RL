@@ -68,7 +68,7 @@ class LLMRouter:
         """Initialize GPT-4o-mini backend."""
         try:
             from core.gpt_manager import GPTManager
-            self.gpt_manager = GPTManager()
+            self.gpt_manager = GPTManager.get_instance()
             logger.info("Checkmark: GPT-4o-mini backend initialized")
         except Exception as e:
             logger.error(f"❌ Failed to initialize GPT-4o-mini: {e}")

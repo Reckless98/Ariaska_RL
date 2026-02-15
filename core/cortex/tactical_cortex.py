@@ -164,10 +164,12 @@ class TacticalCortex:
         gpt_manager: Optional[GPTManager] = None,
         max_llm_calls: int = 5,
         enable_llm: bool = True,
+        knowledge_retriever: Optional[Any] = None,
     ):
         self._gpt_manager = gpt_manager
         self._max_llm_calls = max_llm_calls
         self._enable_llm = enable_llm
+        self._knowledge_retriever = knowledge_retriever
         self._llm_calls_this_episode = 0
         self._episode_history: List[str] = []       # Command names this episode
         self._episode_templates: List[str] = []     # Template names this episode
@@ -531,7 +533,11 @@ class TacticalCortex:
         state: Dict[str, Any],
         discovery_board: Dict[str, Any],
     ) -> Optional[str]:
-        """Find high-value exploits whose preconditions are met."""
+        """Find high-value exploits whose preconditions are met.
+        
+        Phase 9.4: Also queries KnowledgeRetriever by discovered ports
+        to find exploitation paths from the knowledge base.
+        """
         try:
             from core.commands.command_registry import COMMAND_REGISTRY
         except ImportError:
@@ -555,6 +561,24 @@ class TacticalCortex:
             if tmpl.preconditions and not tmpl.preconditions.issubset(state_flags):
                 continue
             return hvt_name
+
+        # Phase 9.4: KR-enriched port-based exploit suggestion
+        if self._knowledge_retriever is not None and ports:
+            try:
+                for port in list(ports)[:5]:
+                    port_num = int(port) if isinstance(port, str) else port
+                    suggestions = self._knowledge_retriever.suggest_next(
+                        port=port_num, phase="EXPLOITATION",
+                    )
+                    if suggestions:
+                        for sugg in suggestions[:2]:
+                            tmpl_name = sugg.get("template_name", "")
+                            if tmpl_name and tmpl_name not in self._episode_templates:
+                                tmpl = COMMAND_REGISTRY.get(tmpl_name)
+                                if tmpl and (not tmpl.preconditions or tmpl.preconditions.issubset(state_flags)):
+                                    return tmpl_name
+            except Exception:
+                pass
 
         return None
 

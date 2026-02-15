@@ -134,7 +134,7 @@ def run_training(
         env.live_mode = True
         env.live_target_ip = target_ip
 
-    gpt = GPTManager()
+    gpt = GPTManager.get_instance()
 
     config = SmartOrchestratorConfig(
         model="gpt-5.1-codex-mini",

@@ -194,7 +194,7 @@ class LLMParser(BaseParser):
         # Optionally use LLM for ambiguous output parsing
         try:
             from core.gpt_manager import GPTManager
-            gpt = GPTManager()
+            gpt = GPTManager.get_instance()
             prompt = f"Analyze this command output and summarize: {output[:500]}"
             summary = gpt.gpt_request(prompt, task_type="output_parse")
             return ParsedResult(

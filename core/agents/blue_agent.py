@@ -126,9 +126,8 @@ class BlueAgent(AgentInterface, MemorySyncInterface):
         self.repeat_steps = 0
         self.gpt_calls_this_episode = 0
         self.gpt_call_limit = 10
-        # PHASE 0 FIX: Use injected GPTManager or create one if not provided
-        # AgentManager will override this with the shared instance via _sync_gpt_context
-        self.gpt_manager = gpt_manager if gpt_manager is not None else GPTManager()
+        # PHASE 0 FIX: Use injected GPTManager or singleton
+        self.gpt_manager = gpt_manager if gpt_manager is not None else GPTManager.get_instance()
         self.replay_buffer = ReplayBuffer(
             capacity=self.replay_memory_size,
             alpha=0.6,

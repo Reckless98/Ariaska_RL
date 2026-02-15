@@ -8,7 +8,7 @@ class GPTCacheHandler:
     """
     def __init__(self):
         self.cache = {}
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
 
     def query(self, prompt, model="gpt-5.1-codex-mini", agent_id=None):
         """

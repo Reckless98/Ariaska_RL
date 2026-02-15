@@ -553,7 +553,7 @@ if __name__ == "__main__":
     
     # Import GPTManager for embedding
     from core.gpt_manager import GPTManager
-    gpt_manager = GPTManager()
+    gpt_manager = GPTManager.get_instance()
     
     store = ChromaMemoryStore(gpt_manager=gpt_manager)
     

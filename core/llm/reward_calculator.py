@@ -48,11 +48,15 @@ class RewardBreakdown:
     explanation: str = ""
     
     def calculate_total(self) -> float:
-        """Calculate the total reward from components with a per-step floor.
+        """Calculate the total reward from components with symmetric capping.
 
-        Industry standard: a floor prevents catastrophic negative spirals
-        that make PPO's value function diverge.  The agent still feels
-        pain from redundancy, but not unbounded pain.
+        Phase 9.4: Symmetric reward range [-15.0, +50.0] (3.3:1 ratio).
+        Previously was [-5.0, +75.0] (15:1), causing PPO value function
+        to overfit to positive outcomes and ignore negative signals.
+        
+        The ratio is intentionally not 1:1 because positive discoveries
+        are rarer than neutral/negative steps, so they need slightly
+        higher magnitude to register in PPO's advantage estimation.
         """
         raw_total = (
             self.base_reward +
@@ -64,10 +68,11 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
-        # PHASE 8.0: Floor at -5.0, ceiling at 75.0 per step
-        # Raised from 50.0 to allow full phase advance bonuses (60.0)
-        # to flow through without clipping. Still prevents extreme outliers.
-        self.total = max(min(raw_total, 75.0), -5.0)
+        # Phase 9.4: Symmetric capping
+        # Floor: -15.0 (agent feels real pain from bad decisions)
+        # Ceiling: +50.0 (enough to signal major achievements clearly)
+        # Ratio: 3.3:1 — much more balanced than previous 15:1
+        self.total = max(min(raw_total, 50.0), -15.0)
         return self.total
     
     def to_dict(self) -> Dict[str, float]:
@@ -264,9 +269,10 @@ class SmartRewardCalculator:
         template = COMMAND_REGISTRY.get(template_name)
         
         # REWARD MULTIPLIER: Scale POSITIVE rewards, keep penalties real
-        # Phase 6: Reduced 2.5 → 1.5 to prevent reward inflation
-        # Combined with tighter ceiling (50.0), keeps value function stable
-        REWARD_MULTIPLIER = 1.5
+        # Phase 9.4: Reduced 1.5 → 1.0 for honest reward scaling.
+        # The original multiplier inflated rewards, making PPO's value
+        # function struggle with non-stationary targets.
+        REWARD_MULTIPLIER = 1.0
         
         # 1. Base reward from template 
         if template:

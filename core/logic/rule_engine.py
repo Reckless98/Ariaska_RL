@@ -31,10 +31,10 @@ _gpt_manager: Optional[GPTManager] = None
 
 
 def get_gpt_manager() -> GPTManager:
-    """Lazy getter for GPTManager. Ensures runtime_flags are set before init."""
+    """Lazy getter for GPTManager. Uses singleton."""
     global _gpt_manager
     if _gpt_manager is None:
-        _gpt_manager = GPTManager()
+        _gpt_manager = GPTManager.get_instance()
     return _gpt_manager
 
 # ─────────────────────────────────────────────

@@ -177,7 +177,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         # Initialize LLM systems
         self.llm_orchestrator = LLMOrchestrator(cache_dir="core/memory/llm_cache/orion_responses")
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         # All LLM functionality now handled by self.gpt_manager
 
         # Strategic parameters

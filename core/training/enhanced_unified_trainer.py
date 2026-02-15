@@ -472,7 +472,7 @@ class EnhancedUnifiedTrainer:
         
         # Initialize environment and agents
         self.environment = CybersecurityEnvironment()
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         
         # Create intelligent agents
         self.agents = {

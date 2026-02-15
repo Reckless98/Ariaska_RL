@@ -35,7 +35,7 @@ class VectorSearch:
         self.gpt_trigger_threshold = 0.4
         self.gpt_model = "gpt-5.1-codex-mini"
         self.database = self._load_database()
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         console.print(
             f"[green]✔ VectorSearch v12.0 initialized with {len(self.database)} entries[/green]"
         )

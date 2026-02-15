@@ -50,7 +50,7 @@ class EnhancedMemorySync:
     def __init__(self, agents: Dict[str, Any], sync_interval: float = 5.0):
         self.agents = agents
         self.sync_interval = sync_interval
-        self.gpt_manager = GPTManager()
+        self.gpt_manager = GPTManager.get_instance()
         self.memory_router = MemoryRouter()
         
         # Memory stores
