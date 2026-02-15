@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260215_160758_d6aed9",
+  "timestamp": 1771168096.3726363,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a high reward (80.00) in the single episode, indicating partial progress toward the objective.",
+      "Engaged mentor support 10 times, demonstrating active troubleshooting and guidance utilization."
+    ],
+    "fails": [
+      "Success rate remained at 0%, showing the episode did not reach the final objective despite the reward.",
+      "High mentor dependency hints at unstable automation decisions during critical stages.",
+      "No follow-through on closing the loop after reconnaissance, leaving exploitable paths unexploited."
+    ],
+    "summary": "Strong initial progress (80 reward) but no completion; reliance on mentor support and repeated misses on executing final exploitation need targeted fixes."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to transition from reconnaissance data to exploitation, leaving discovered services untouched.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260215_160758_d6aed9_ep1_step08",
+        "run_20260215_160758_d6aed9_ep1_step12",
+        "run_20260215_160758_d6aed9_ep1_step15",
+        "run_20260215_160758_d6aed9_ep1_step18",
+        "run_20260215_160758_d6aed9_ep1_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH",
+      "then_action": "Run targeted SSH enumeration using nmap scripting and collect version info.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260215_160758_d6aed9_ep1_step05",
+        "run_20260215_160758_d6aed9_ep1_step09"
+      ],
+      "created_at": 1771168103.11447,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB port 445 responds but login fails",
+      "then_action": "Gather SMB share list and attempt anonymous access before escalating privileges.",
+      "parameters_template": {
+        "port": 445,
+        "command": "smbclient -L"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260215_160758_d6aed9_ep1_step11",
+        "run_20260215_160758_d6aed9_ep1_step14"
+      ],
+      "created_at": 1771168103.114486,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance yields credentials or tokens in cleartext",
+      "then_action": "Prioritize credential validation and pivot attempts before further scanning.",
+      "parameters_template": {
+        "sources": [
+          "config files",
+          "logs"
+        ],
+        "validation_tool": "hydra"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260215_160758_d6aed9_ep1_step16",
+        "run_20260215_160758_d6aed9_ep1_step19"
+      ],
+      "created_at": 1771168103.1145077,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase when SSH detected, enabling more reliable follow-on actions."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SMB enumeration consistently produced actionable share visibility before failure points."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Lockstep enumeration-to-exploitation pipeline",
+      "description": "Automate a transition step that, upon identifying SSH/SMB services, immediately triggers credential attacks or exploitation scripts to avoid manual delays.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor dependency reduction via adaptive heuristics",
+      "description": "Implement adaptive decision thresholds that reduce mentor calls by escalating automation when repeated failures occur on the same service.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential discovery validation loop",
+      "description": "After collecting potential credentials from logs, validate in a sandbox before progressing to ensure only verified credentials guide exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

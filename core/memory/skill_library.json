@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771166200.1093247,
-  "skill_count": 102,
+  "last_updated": 1771168509.8555453,
+  "skill_count": 104,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -1478,6 +1478,40 @@
         "ep001_step15"
       ],
       "created_at": 1771166200.1001105,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_103": {
+      "id": "skill_103",
+      "if_condition": "When SSH banner indicates outdated OpenSSH version",
+      "then_action": "Run targeted nmap ssh enumeration scripts to identify known CVE vectors",
+      "parameters_template": {
+        "port": 22,
+        "script": "sshv1,ssh2-enum-algos"
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1771168509.850277,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_101": {
+      "id": "skill_101",
+      "if_condition": "When port 443 is open with TLS certificate anomalies",
+      "then_action": "Capture TLS handshake with nmap --script ssl-cert and log SAN differences for replay",
+      "parameters_template": {
+        "port": 443,
+        "script": "ssl-cert"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771168509.8502405,
       "usage_count": 0,
       "success_rate": 0.0
     }
