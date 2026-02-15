@@ -566,6 +566,20 @@ class SmartCoach:
                 logger.info(f"[PERSONAS] {agent_name}: 4-persona router initialized")
         except Exception as e:
             logger.debug(f"CodexPersonaRouter init skipped for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 10.0: Cloud LLM Roles — feature-flagged acceleration
+        # 5 roles: StrategicPlanner, TacticalAdvisor, JudgeRanker,
+        # PostmortemSkillExtractor, DAggerCorrector.
+        # All OFF by default. resolve_profile() flips ON when CLOUD detected.
+        # =====================================================================
+        self._cloud_roles_initialized = False
+        self._strategic_planner = None
+        self._tactical_advisor = None
+        self._judge_ranker = None
+        self._postmortem_extractor = None
+        self._dagger_corrector = None
+        self._init_cloud_roles()
     
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -597,7 +611,32 @@ class SmartCoach:
                 logger.debug(f"No LLM client available, SmartMentor disabled")
         except Exception as e:
             logger.warning(f"Failed to init SmartMentor: {e}")
-    
+
+    def _init_cloud_roles(self):
+        """Phase 10.0: Initialize cloud LLM acceleration roles.
+
+        Each role checks its own feature flag. If profile is CLOUD and
+        flags are ON, roles are live. Otherwise they return None from
+        get_role() and all call sites gracefully skip.
+        """
+        try:
+            from core.llm.cloud_roles import get_role, LLMRole
+            self._strategic_planner = get_role(LLMRole.STRATEGIC_PLANNER, self.gpt_manager)
+            self._tactical_advisor = get_role(LLMRole.TACTICAL_ADVISOR, self.gpt_manager)
+            self._judge_ranker = get_role(LLMRole.JUDGE_RANKER, self.gpt_manager)
+            self._postmortem_extractor = get_role(LLMRole.POSTMORTEM_SKILLS, self.gpt_manager)
+            self._dagger_corrector = get_role(LLMRole.DAGGER_CORRECTOR, self.gpt_manager)
+            active = sum(1 for r in [
+                self._strategic_planner, self._tactical_advisor,
+                self._judge_ranker, self._postmortem_extractor,
+                self._dagger_corrector
+            ] if r is not None)
+            if active > 0:
+                logger.info(f"[CLOUD-ROLES] {self.agent_name}: {active}/5 roles active")
+            self._cloud_roles_initialized = True
+        except Exception as e:
+            logger.debug(f"Cloud roles init skipped for {self.agent_name}: {e}")
+
     def has_dual_mentor(self) -> bool:
         """Check if dual mentor (GPT + Venice) is available."""
         return hasattr(self, 'dual_mentor') and self.dual_mentor is not None
@@ -5392,6 +5431,38 @@ class SmartCoach:
                     )
                 except Exception as e:
                     logger.debug(f"CognitionNode end_episode failed: {e}")
+
+            # Phase 10.0: Cloud role — PostmortemSkillExtractor at episode end
+            if self._postmortem_extractor and self._postmortem_extractor.can_call():
+                try:
+                    transcript = "\n".join(
+                        f"[{t.get('_r69_template', '?')}] r={t.get('reward', 0):.1f}"
+                        for t in (self._ppo_trajectory or [])[-20:]
+                    )
+                    skills = self._postmortem_extractor.extract_skills(
+                        transcript=transcript,
+                        total_reward=total_ep_reward,
+                        highest_phase=highest_phase or "RECON",
+                    )
+                    if skills:
+                        logger.info(
+                            f"[CLOUD-ROLE][{self.agent_name}] PostmortemExtractor: "
+                            f"{len(skills)} skill cards extracted"
+                        )
+                except Exception as e:
+                    logger.debug(f"PostmortemExtractor failed: {e}")
+
+            # Phase 10.0: Cloud role — Reset episode counters for all roles
+            for role in [
+                self._strategic_planner, self._tactical_advisor,
+                self._judge_ranker, self._postmortem_extractor,
+                self._dagger_corrector,
+            ]:
+                if role is not None:
+                    try:
+                        role.reset_episode()
+                    except Exception:
+                        pass
     
     def _decide_with_mentor(
         self,
@@ -5753,6 +5824,35 @@ class SmartCoach:
         # Phase 6.2: Record outcome with MentorController
         if self.mentor_controller is not None:
             self.mentor_controller.record_outcome(breakdown.total)
+
+        # ─── Phase 10.0: Cloud role — DAggerCorrector on poor rewards ───
+        if (
+            self._dagger_corrector
+            and self._dagger_corrector.can_call()
+            and breakdown.total < -5.0
+            and decision.source == "ppo"
+        ):
+            try:
+                state_desc = f"Phase: {decision.phase}, discoveries: {len(new_discoveries or {})}"
+                available = [
+                    t.name for t in self._get_phase_commands(
+                        self.attack_context.current_phase if self.attack_context else None
+                    )[:10]
+                ] if hasattr(self, '_get_phase_commands') else []
+                correction = self._dagger_corrector.get_correction(
+                    state_description=state_desc,
+                    ppo_action=decision.command[:100],
+                    ppo_reward=breakdown.total,
+                    phase=str(decision.phase),
+                    available_commands=available,
+                )
+                if correction:
+                    logger.info(
+                        f"[CLOUD-ROLE][{self.agent_name}] DAgger correction: "
+                        f"'{correction.get('expert_command', '')[:60]}'"
+                    )
+            except Exception as e:
+                logger.debug(f"DAgger correction failed: {e}")
 
         # ─── Phase 8.0: Record to cross-episode chain memory ────────
         if decision.command:
