@@ -18,6 +18,7 @@ Rollback:
     export FF_SINGLE_PARSE_CACHE=0             # revert to triple-parse
 """
 
+import logging
 import os
 import threading
 from dataclasses import dataclass, field
@@ -110,6 +111,72 @@ def reset_feature_flags() -> None:
     global _ff
     with _lock:
         _ff = FeatureFlags()
+
+
+# ── Phase 10.0: Profile Resolver ────────────────────────────────────────────
+
+def resolve_profile() -> str:
+    """
+    Auto-detect runtime profile and flip feature flags accordingly.
+
+    Profiles:
+      CLOUD          — OPENAI_API_KEY present → turn ON all 5 LLM role flags
+      DETERMINISTIC  — Running under pytest → all LLM flags OFF (safe)
+      OFFLINE        — No API key → all LLM flags OFF
+
+    DOES NOT modify token budgets, call limits, or LLM model routing.
+    Only flips the 5 feature flags: llm_strategic_planner, llm_tactical_advisor,
+    llm_judge_ranker, llm_postmortem_skills, dagger_corrections.
+
+    Returns the detected profile name.
+    """
+    global _ff
+    import sys
+
+    # Detect if running under pytest
+    is_pytest = (
+        "pytest" in sys.modules
+        or "_pytest" in sys.modules
+        or os.environ.get("ARIASKA_DRY_RUN", "") == "1"
+        or os.environ.get("PYTEST_CURRENT_TEST", "") != ""
+    )
+
+    has_api_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+
+    if is_pytest:
+        profile = "DETERMINISTIC"
+    elif has_api_key:
+        profile = "CLOUD"
+    else:
+        profile = "OFFLINE"
+
+    llm_flags = [
+        "llm_strategic_planner",
+        "llm_tactical_advisor",
+        "llm_judge_ranker",
+        "llm_postmortem_skills",
+        "dagger_corrections",
+    ]
+
+    with _lock:
+        if profile == "CLOUD":
+            for flag in llm_flags:
+                if not _env_bool(f"FF_{flag.upper()}", True):
+                    # Explicit env override says OFF — respect it
+                    continue
+                setattr(_ff, flag, True)
+        else:
+            for flag in llm_flags:
+                setattr(_ff, flag, False)
+
+    logger.info(f"[PROFILE] Resolved profile: {profile} "
+                f"(api_key={'yes' if has_api_key else 'no'}, "
+                f"pytest={'yes' if is_pytest else 'no'})")
+    return profile
+
+
+# Module-level logger
+logger = logging.getLogger("ariaska.feature_flags")
 
 
 # Convenience alias
