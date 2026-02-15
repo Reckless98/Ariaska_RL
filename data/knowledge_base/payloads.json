@@ -32,7 +32,7 @@
   "context": "Bypass With Variable Expansion",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for CMDI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/command injection/readme.md"
  },
  {
@@ -41,7 +41,7 @@
   "context": "Bypass With Variable Expansion",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for CMDI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/command injection/readme.md"
  },
  {
@@ -131,7 +131,7 @@
   "context": "Double Encoding",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -140,7 +140,7 @@
   "context": "UTF-8 Encoding",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -185,7 +185,7 @@
   "context": "Filter Bypass",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -194,7 +194,7 @@
   "context": "Filter Bypass",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -203,7 +203,7 @@
   "context": "Filter Bypass",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -212,7 +212,7 @@
   "context": "Null Byte",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for LFI vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/file inclusion/readme.md"
  },
  {
@@ -275,7 +275,7 @@
   "context": "Methodology",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/insecure source code management/subversion.md"
  },
  {
@@ -284,7 +284,7 @@
   "context": "Executing XSS via redirect_uri",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/oauth misconfiguration/readme.md"
  },
  {
@@ -491,7 +491,7 @@
   "context": "SSRF URL for Docker",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for SSRF vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
  },
  {
@@ -500,7 +500,7 @@
   "context": "SSRF URL for Docker",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for SSRF vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
  },
  {
@@ -509,7 +509,7 @@
   "context": "SSRF URL for Rancher",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for SSRF vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side request forgery/ssrf-cloud-instances.md"
  },
  {
@@ -518,7 +518,7 @@
   "context": "Jinjava - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/java.md"
  },
  {
@@ -527,7 +527,7 @@
   "context": "Jinjava - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/java.md"
  },
  {
@@ -536,7 +536,7 @@
   "context": "Django - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -545,7 +545,7 @@
   "context": "Django - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -554,7 +554,7 @@
   "context": "Django - Cross-Site Scripting",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -563,7 +563,7 @@
   "context": "Django - Cross-Site Scripting",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -572,7 +572,7 @@
   "context": "Django - Leaking App's Secret Key",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -581,7 +581,7 @@
   "context": "Jinja2 - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -590,7 +590,7 @@
   "context": "Jinja2 - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -599,7 +599,7 @@
   "context": "Jinja2 - Basic Injection",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -608,7 +608,7 @@
   "context": "Jinja2 - Template Format",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -617,7 +617,7 @@
   "context": "Jinja2 - Dump All Used Classes",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -626,7 +626,7 @@
   "context": "Jinja2 - Dump All Used Classes",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -635,7 +635,7 @@
   "context": "Jinja2 - Dump All Used Classes",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -653,7 +653,7 @@
   "context": "Jinja2 - Dump All Config Variables",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -662,7 +662,7 @@
   "context": "Jinja2 - Dump All Config Variables",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -671,7 +671,7 @@
   "context": "Jinja2 - Write Into Remote File",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -680,7 +680,7 @@
   "context": "Exploit The SSTI By Calling os.popen().read()",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {
@@ -788,7 +788,7 @@
   "context": "Exploit The SSTI By Calling Popen Without Guessing The Offset",
   "target_tech": "",
   "bypass_technique": "",
-  "reasoning": "",
+  "reasoning": "Payload for GENERAL vulnerability. Test in a controlled environment first. Modify payload for target-specific filters.",
   "source": "payloads/server side template injection/python.md"
  },
  {

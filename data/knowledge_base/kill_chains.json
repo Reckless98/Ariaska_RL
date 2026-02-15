@@ -143,7 +143,7 @@
   ],
   "total_commands": 2,
   "end_result": "access",
-  "reasoning": "",
+  "reasoning": "Complete exploitation chain for distcc on port 3632. Achieves: access. Follow the 2-step sequence from recon to exploitation. Each step builds on the previous — skipping steps may cause failures.",
   "difficulty": "",
   "source": "hacktricks"
  },
@@ -280,7 +280,7 @@
   ],
   "total_commands": 1,
   "end_result": "shell",
-  "reasoning": "",
+  "reasoning": "Complete exploitation chain for adb on port 5555. Achieves: shell. Follow the 1-step sequence from recon to exploitation. Each step builds on the previous — skipping steps may cause failures.",
   "difficulty": "",
   "source": "hacktricks"
  },
@@ -592,7 +592,7 @@
   ],
   "total_commands": 12,
   "end_result": "access",
-  "reasoning": "",
+  "reasoning": "Complete exploitation chain for 9000 pentesting fastcgi on port 9000. Achieves: access. Follow the 12-step sequence from recon to exploitation. Each step builds on the previous — skipping steps may cause failures.",
   "difficulty": "",
   "source": "hacktricks"
  },

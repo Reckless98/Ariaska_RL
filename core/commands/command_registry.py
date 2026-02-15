@@ -65,6 +65,9 @@ class CommandTemplate:
     follows_after: List[str] = field(default_factory=list)  # Typical predecessors
     enables: List[str] = field(default_factory=list)  # What this unlocks
     
+    # Agent assignment — which agents should use this command
+    assigned_agents: List[str] = field(default_factory=list)  # e.g. ["red", "scout"]
+    
     def get_usage_context(self) -> str:
         """Get a formatted string describing when/why to use this command."""
         parts = [self.description]
@@ -78,6 +81,8 @@ class CommandTemplate:
             parts.append(f"FOLLOWS: {', '.join(self.follows_after)}")
         if self.enables:
             parts.append(f"ENABLES: {', '.join(self.enables)}")
+        if self.assigned_agents:
+            parts.append(f"AGENTS: {', '.join(self.assigned_agents)}")
         return " | ".join(parts)
 
 
@@ -3461,6 +3466,21 @@ def get_command_names_for_prompt(
         result.append(f"{cmd.name} (params: {params_str}) - {cmd.description[:60]}...")
     
     return result
+
+
+# =============================================================================
+# AUTO-ENRICHMENT ON IMPORT
+# =============================================================================
+
+def _auto_enrich_registry():
+    """Enrich all commands with agents, not_when, follows_after, enables."""
+    try:
+        from core.commands.command_enrichment import enrich_registry
+        enrich_registry(COMMAND_REGISTRY)
+    except Exception:
+        pass  # Silently skip if enrichment module not available
+
+_auto_enrich_registry()
 
 
 # =============================================================================

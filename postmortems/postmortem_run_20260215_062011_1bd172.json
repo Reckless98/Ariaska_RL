@@ -1,0 +1,107 @@
+{
+  "run_id": "run_20260215_062011_1bd172",
+  "timestamp": 1771132829.7274697,
+  "key_outcomes": {
+    "wins": [
+      "Completed entire episode without crashing, allowing full environment exploration.",
+      "Consistently invoked mentor guidance 15 times to validate approach and avoid missteps."
+    ],
+    "fails": [
+      "Zero percent success rate; key objectives remain unmet despite full episode completion.",
+      "Mentor interventions indicate repeated tactical errors, particularly in privilege escalation choices."
+    ],
+    "summary": "Run executed with thorough observation but failed to achieve mission success; focus next on clarifying goal states and reducing reliance on mentor support."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed privilege escalation attempts after initial foothold, leading to stalled progress.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is reachable with non-filtered response",
+      "then_action": "Run targeted nmap SSH scripts to enumerate valid accounts and banners",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey,ssh-run"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771132836.2746992,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial foothold achieved but no privileged shell",
+      "then_action": "Escalate using SUID binary enumeration and sudo permissions analysis",
+      "parameters_template": {
+        "binary_search": "find / -perm -4000 -type f 2>/dev/null",
+        "sudoers_check": "sudo -l"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step20"
+      ],
+      "created_at": 1771132836.2747145,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web server on port 80/443 responds",
+      "then_action": "Enumerate web directories and vulnerable endpoints with gobuster and nikto",
+      "parameters_template": {
+        "gobuster_mode": "dir",
+        "wordlist": "/usr/share/seclists/Discovery/Web-Content/common.txt"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771132836.2747247,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH recon reliably identifies accessible services and informs next actions."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege escalation audit",
+      "description": "Systematically run sudo -l and SUID searches immediately after foothold to identify escalation vectors before proceeding.",
+      "priority": "high"
+    },
+    {
+      "title": "Web misconfiguration recon",
+      "description": "Automate discovery of web directories and parameters to uncover initial entry points without waiting for manual prompts.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor dependency reduction",
+      "description": "Document common mentor hints to create reusable playbook and decrease call frequency to under 5 next run.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

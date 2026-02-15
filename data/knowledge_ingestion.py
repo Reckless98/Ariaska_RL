@@ -151,7 +151,7 @@ REPOS = {
         "url": "https://gitlab.com/exploit-database/exploitdb.git",
         "desc": "45K+ exploit database with metadata CSV",
         "priority": 12,
-        "shallow": True,
+        "shallow": False,
     },
     "internal_all_the_things": {
         "url": "https://github.com/swisskyrepo/InternalAllTheThings.git",

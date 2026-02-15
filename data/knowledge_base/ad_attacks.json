@@ -12,7 +12,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: ADCSEnumaration. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/ADCSEnumaration"
  },
  {
@@ -29,7 +29,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: BloodHound.py-Remote-Ingestion-Creds. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/BloodHound.py-Remote-Ingestion-Creds"
  },
  {
@@ -45,7 +45,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: BloodHound.py-Remote-Ingestion. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/BloodHound.py-Remote-Ingestion"
  },
  {
@@ -63,7 +63,7 @@
    "Exploitation"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: CredDumpWithoutMimilkatz. Category: active-directory. Tools: Shell, PrivEsc, Exploitation. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/CredDumpWithoutMimilkatz"
  },
  {
@@ -80,7 +80,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Dementor. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Dementor"
  },
  {
@@ -97,7 +97,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Enum4Linux-Creds. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Enum4Linux-Creds"
  },
  {
@@ -113,7 +113,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Enum4Linux-NoCreds. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Enum4Linux-NoCreds"
  },
  {
@@ -130,7 +130,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Evil-WinRM-PTH. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Evil-WinRM-PTH"
  },
  {
@@ -147,7 +147,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Evil-WinRM. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Evil-WinRM"
  },
  {
@@ -163,7 +163,7 @@
    "PFX"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Evil-Winrm-PKINIT. Category: active-directory. Tools: PFX. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Evil-Winrm-PKINIT"
  },
  {
@@ -181,7 +181,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: FindUncommonShares. Category: active-directory. Tools: Password, Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/FindUncommonShares"
  },
  {
@@ -198,7 +198,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-DCOMExec. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-DCOMExec"
  },
  {
@@ -216,7 +216,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-Get-GPPPassword. Category: active-directory. Tools: Password, Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-Get-GPPPassword"
  },
  {
@@ -233,7 +233,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-GetADUsers. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-GetADUsers"
  },
  {
@@ -249,7 +249,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-GetNPUsers. Category: active-directory. Tools: Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-GetNPUsers"
  },
  {
@@ -266,7 +266,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-GetUserSPNs. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-GetUserSPNs"
  },
  {
@@ -283,7 +283,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-GoldenTicket. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-GoldenTicket"
  },
  {
@@ -300,7 +300,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-LookUpSID. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-LookUpSID"
  },
  {
@@ -316,7 +316,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-NTLMRelayX-Socks. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-NTLMRelayX-Socks"
  },
  {
@@ -332,7 +332,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-NTLMRelayX-WPAD. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-NTLMRelayX-WPAD"
  },
  {
@@ -348,7 +348,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-NTLMRelayX. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-NTLMRelayX"
  },
  {
@@ -365,7 +365,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-PsExec-PassTheTicket. Category: active-directory. Tools: TGS, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-PsExec-PassTheTicket"
  },
  {
@@ -382,7 +382,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-PsExec. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-PsExec"
  },
  {
@@ -399,7 +399,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-RBCD. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-RBCD"
  },
  {
@@ -416,7 +416,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-RPCDump. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-RPCDump"
  },
  {
@@ -433,7 +433,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-Reg. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-Reg"
  },
  {
@@ -450,7 +450,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SAMRDump. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SAMRDump"
  },
  {
@@ -467,7 +467,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SMBClient. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SMBClient"
  },
  {
@@ -484,7 +484,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SMBExec. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SMBExec"
  },
  {
@@ -501,7 +501,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SecretsDump-NTDS. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SecretsDump-NTDS"
  },
  {
@@ -518,7 +518,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SecretsDump. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SecretsDump"
  },
  {
@@ -535,7 +535,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-Services. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-Services"
  },
  {
@@ -552,7 +552,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-SilverTicket. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-SilverTicket"
  },
  {
@@ -569,7 +569,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-WMIExec. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-WMIExec"
  },
  {
@@ -586,7 +586,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-addcomputer-LDAPS. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-addcomputer-LDAPS"
  },
  {
@@ -603,7 +603,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-addcomputer-SMB. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-addcomputer-SMB"
  },
  {
@@ -620,7 +620,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-atexec-Creds. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-atexec-Creds"
  },
  {
@@ -637,7 +637,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-atexec-Hash. Category: active-directory. Tools: Hash, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-atexec-Hash"
  },
  {
@@ -654,7 +654,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-getST-Creds. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-getST-Creds"
  },
  {
@@ -671,7 +671,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-getST-Hash. Category: active-directory. Tools: Hash, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-getST-Hash"
  },
  {
@@ -688,7 +688,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Impacket-getTGT. Category: active-directory. Tools: Hash, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Impacket-getTGT"
  },
  {
@@ -704,7 +704,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Kerbrute-BruteForce. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Kerbrute-BruteForce"
  },
  {
@@ -720,7 +720,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Kerbrute-BruteUser. Category: active-directory. Tools: Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Kerbrute-BruteUser"
  },
  {
@@ -736,7 +736,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Kerbrute-PasswordSpray. Category: active-directory. Tools: Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Kerbrute-PasswordSpray"
  },
  {
@@ -752,7 +752,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Kerbrute-UserEnum. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Kerbrute-UserEnum"
  },
  {
@@ -769,7 +769,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: LDAPSearch-Creds. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/LDAPSearch-Creds"
  },
  {
@@ -785,7 +785,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: LDAPSearch-NoCreds. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/LDAPSearch-NoCreds"
  },
  {
@@ -801,7 +801,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Mitm6. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Mitm6"
  },
  {
@@ -818,7 +818,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Creds-coerce_plus. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Creds-coerce_plus"
  },
  {
@@ -835,7 +835,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Enum-LDAP. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Enum-LDAP"
  },
  {
@@ -851,7 +851,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Enum-SMB-Anonymous. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Enum-SMB-Anonymous"
  },
  {
@@ -867,7 +867,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Enum-SMB-Null. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Enum-SMB-Null"
  },
  {
@@ -883,7 +883,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Enum-SMB-Relay-List. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Enum-SMB-Relay-List"
  },
  {
@@ -900,7 +900,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Enum-SMB. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Enum-SMB"
  },
  {
@@ -917,7 +917,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-Exec-SMB. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-Exec-SMB"
  },
  {
@@ -934,7 +934,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-LDAP-ASREPRoasting. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-LDAP-ASREPRoasting"
  },
  {
@@ -952,7 +952,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-LDAP-Kerberoasting. Category: active-directory. Tools: Username, Password, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-LDAP-Kerberoasting"
  },
  {
@@ -968,7 +968,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-SMB-Password-Spray. Category: active-directory. Tools: Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-SMB-Password-Spray"
  },
  {
@@ -985,7 +985,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: NetExec-SMB-Timeroasting. Category: active-directory. Tools: Hash, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/NetExec-SMB-Timeroasting"
  },
  {
@@ -1001,7 +1001,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Nmap-Krb5-Enum-Users. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Nmap-Krb5-Enum-Users"
  },
  {
@@ -1017,7 +1017,7 @@
    "TGT"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PKINIT-getnthash. Category: active-directory. Tools: TGT. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PKINIT-getnthash"
  },
  {
@@ -1035,7 +1035,7 @@
    "PFX"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PKINIT-gettgtpkinit. Category: active-directory. Tools: Username, Password, PFX. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PKINIT-gettgtpkinit"
  },
  {
@@ -1051,7 +1051,7 @@
    "powershell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PSADmodule-Kerbaroasting. Category: active-directory. Tools: powershell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PSADmodule-Kerbaroasting"
  },
  {
@@ -1068,7 +1068,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PetitPotam. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PetitPotam"
  },
  {
@@ -1082,7 +1082,7 @@
   ],
   "tools_used": [],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Powershell-ADModule-enum. Category: active-directory. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Powershell-ADModule-enum"
  },
  {
@@ -1098,7 +1098,7 @@
    "PowerShell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PwshADmodule-DelegationAttack-Enum. Category: active-directory. Tools: PowerShell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PwshADmodule-DelegationAttack-Enum"
  },
  {
@@ -1112,7 +1112,7 @@
   ],
   "tools_used": [],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PwshADmodule-Initial-Enum. Category: active-directory. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PwshADmodule-Initial-Enum"
  },
  {
@@ -1130,7 +1130,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PyLDAPmonitor. Category: active-directory. Tools: Password, Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PyLDAPmonitor"
  },
  {
@@ -1147,7 +1147,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: PyWhisker. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/PyWhisker"
  },
  {
@@ -1163,7 +1163,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: RPCClient-Anonymous. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/RPCClient-Anonymous"
  },
  {
@@ -1179,7 +1179,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Regexe-Persistence. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Regexe-Persistence"
  },
  {
@@ -1195,7 +1195,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Responder-Analyze. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Responder-Analyze"
  },
  {
@@ -1211,7 +1211,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Rubeus-ASREPRoast. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Rubeus-ASREPRoast"
  },
  {
@@ -1228,7 +1228,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Rubeus-AskTGT. Category: active-directory. Tools: Hash, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Rubeus-AskTGT"
  },
  {
@@ -1244,7 +1244,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Rubeus-Brute. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Rubeus-Brute"
  },
  {
@@ -1260,7 +1260,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Rubeus-Kerberoast. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Rubeus-Kerberoast"
  },
  {
@@ -1276,7 +1276,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBClient-Enum-Share-Anonymous. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBClient-Enum-Share-Anonymous"
  },
  {
@@ -1293,7 +1293,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBClient-Enum-Share. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBClient-Enum-Share"
  },
  {
@@ -1310,7 +1310,7 @@
    "Hash"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBClient-List-Share-PTH. Category: active-directory. Tools: Username, Hash. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBClient-List-Share-PTH"
  },
  {
@@ -1326,7 +1326,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBClient-List-Shares-Anonymous. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBClient-List-Shares-Anonymous"
  },
  {
@@ -1343,7 +1343,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBClient-List-Shares. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBClient-List-Shares"
  },
  {
@@ -1360,7 +1360,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBMap-Enum-File. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBMap-Enum-File"
  },
  {
@@ -1376,7 +1376,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBMap-Enum-Share-Anonymous. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBMap-Enum-Share-Anonymous"
  },
  {
@@ -1393,7 +1393,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SMBMap-Enum-Share. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SMBMap-Enum-Share"
  },
  {
@@ -1409,7 +1409,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SafetyKatz. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SafetyKatz"
  },
  {
@@ -1425,7 +1425,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Seatbelt. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Seatbelt"
  },
  {
@@ -1441,7 +1441,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpDump. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpDump"
  },
  {
@@ -1459,7 +1459,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpHound-LDAP. Category: active-directory. Tools: Shell, Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpHound-LDAP"
  },
  {
@@ -1475,7 +1475,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpHound. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpHound"
  },
  {
@@ -1492,7 +1492,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpLDAPmonitor. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpLDAPmonitor"
  },
  {
@@ -1508,7 +1508,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpUp. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpUp"
  },
  {
@@ -1524,7 +1524,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: SharpWMI. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/SharpWMI"
  },
  {
@@ -1540,7 +1540,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Snaffler. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Snaffler"
  },
  {
@@ -1557,7 +1557,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: Windapsearch. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/Windapsearch"
  },
  {
@@ -1574,7 +1574,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: bloodyAD-Wite-Properties. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/bloodyAD-Wite-Properties"
  },
  {
@@ -1590,7 +1590,7 @@
    "No_Creds"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: enum4linux-ng. Category: active-directory. Tools: No_Creds. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/enum4linux-ng"
  },
  {
@@ -1607,7 +1607,7 @@
    "Password"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: lsassy-credsdump. Category: active-directory. Tools: Username, Password. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/lsassy-credsdump"
  },
  {
@@ -1624,7 +1624,7 @@
    "Username"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: targetedKerberoast. Category: active-directory. Tools: Password, Username. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/targetedKerberoast"
  },
  {
@@ -1640,7 +1640,7 @@
    "Shell"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: winPEAS. Category: active-directory. Tools: Shell. Ensure you have valid domain credentials before attempting.",
   "source": "wadcoms/winPEAS"
  },
  {
@@ -11843,7 +11843,7 @@
    "impacket/CheckLDAPStatus"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-CheckLDAPStatus. Category: exploitation. Tools: impacket/CheckLDAPStatus. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/CheckLDAPStatus"
  },
  {
@@ -11860,7 +11860,7 @@
    "impacket/DumpNTLMInfo"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-DumpNTLMInfo. Category: exploitation. Tools: impacket/DumpNTLMInfo. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/DumpNTLMInfo"
  },
  {
@@ -11877,7 +11877,7 @@
    "impacket/Get-GPPPassword"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-Get-GPPPassword. Category: exploitation. Tools: impacket/Get-GPPPassword. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/Get-GPPPassword"
  },
  {
@@ -11894,7 +11894,7 @@
    "impacket/GetADComputers"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-GetADComputers. Category: exploitation. Tools: impacket/GetADComputers. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/GetADComputers"
  },
  {
@@ -11911,7 +11911,7 @@
    "impacket/GetADUsers"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-GetADUsers. Category: exploitation. Tools: impacket/GetADUsers. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/GetADUsers"
  },
  {
@@ -11928,7 +11928,7 @@
    "impacket/GetLAPSPassword"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-GetLAPSPassword. Category: exploitation. Tools: impacket/GetLAPSPassword. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/GetLAPSPassword"
  },
  {
@@ -11945,7 +11945,7 @@
    "impacket/GetNPUsers"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-GetNPUsers. Category: exploitation. Tools: impacket/GetNPUsers. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/GetNPUsers"
  },
  {
@@ -11962,7 +11962,7 @@
    "impacket/GetUserSPNs"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-GetUserSPNs. Category: exploitation. Tools: impacket/GetUserSPNs. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/GetUserSPNs"
  },
  {
@@ -11979,7 +11979,7 @@
    "impacket/addcomputer"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-addcomputer. Category: exploitation. Tools: impacket/addcomputer. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/addcomputer"
  },
  {
@@ -11996,7 +11996,7 @@
    "impacket/atexec"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-atexec. Category: exploitation. Tools: impacket/atexec. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/atexec"
  },
  {
@@ -12013,7 +12013,7 @@
    "impacket/attrib"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-attrib. Category: exploitation. Tools: impacket/attrib. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/attrib"
  },
  {
@@ -12030,7 +12030,7 @@
    "impacket/badsuccessor"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-badsuccessor. Category: exploitation. Tools: impacket/badsuccessor. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/badsuccessor"
  },
  {
@@ -12047,7 +12047,7 @@
    "impacket/changepasswd"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-changepasswd. Category: exploitation. Tools: impacket/changepasswd. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/changepasswd"
  },
  {
@@ -12064,7 +12064,7 @@
    "impacket/dacledit"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-dacledit. Category: exploitation. Tools: impacket/dacledit. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/dacledit"
  },
  {
@@ -12081,7 +12081,7 @@
    "impacket/dcomexec"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-dcomexec. Category: exploitation. Tools: impacket/dcomexec. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/dcomexec"
  },
  {
@@ -12098,7 +12098,7 @@
    "impacket/describeTicket"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-describeTicket. Category: exploitation. Tools: impacket/describeTicket. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/describeTicket"
  },
  {
@@ -12115,7 +12115,7 @@
    "impacket/dpapi"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-dpapi. Category: exploitation. Tools: impacket/dpapi. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/dpapi"
  },
  {
@@ -12132,7 +12132,7 @@
    "impacket/esentutl"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-esentutl. Category: exploitation. Tools: impacket/esentutl. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/esentutl"
  },
  {
@@ -12149,7 +12149,7 @@
    "impacket/exchanger"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-exchanger. Category: exploitation. Tools: impacket/exchanger. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/exchanger"
  },
  {
@@ -12166,7 +12166,7 @@
    "impacket/filetime"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-filetime. Category: exploitation. Tools: impacket/filetime. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/filetime"
  },
  {
@@ -12183,7 +12183,7 @@
    "impacket/findDelegation"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-findDelegation. Category: exploitation. Tools: impacket/findDelegation. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/findDelegation"
  },
  {
@@ -12200,7 +12200,7 @@
    "impacket/getArch"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-getArch. Category: exploitation. Tools: impacket/getArch. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/getArch"
  },
  {
@@ -12217,7 +12217,7 @@
    "impacket/getPac"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-getPac. Category: exploitation. Tools: impacket/getPac. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/getPac"
  },
  {
@@ -12234,7 +12234,7 @@
    "impacket/getST"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-getST. Category: exploitation. Tools: impacket/getST. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/getST"
  },
  {
@@ -12251,7 +12251,7 @@
    "impacket/getTGT"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-getTGT. Category: exploitation. Tools: impacket/getTGT. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/getTGT"
  },
  {
@@ -12268,7 +12268,7 @@
    "impacket/goldenPac"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-goldenPac. Category: exploitation. Tools: impacket/goldenPac. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/goldenPac"
  },
  {
@@ -12285,7 +12285,7 @@
    "impacket/karmaSMB"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-karmaSMB. Category: exploitation. Tools: impacket/karmaSMB. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/karmaSMB"
  },
  {
@@ -12302,7 +12302,7 @@
    "impacket/keylistattack"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-keylistattack. Category: exploitation. Tools: impacket/keylistattack. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/keylistattack"
  },
  {
@@ -12319,7 +12319,7 @@
    "impacket/kintercept"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-kintercept. Category: exploitation. Tools: impacket/kintercept. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/kintercept"
  },
  {
@@ -12336,7 +12336,7 @@
    "impacket/lookupsid"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-lookupsid. Category: exploitation. Tools: impacket/lookupsid. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/lookupsid"
  },
  {
@@ -12353,7 +12353,7 @@
    "impacket/machine_role"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-machine_role. Category: exploitation. Tools: impacket/machine_role. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/machine_role"
  },
  {
@@ -12370,7 +12370,7 @@
    "impacket/mimikatz"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-mimikatz. Category: exploitation. Tools: impacket/mimikatz. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/mimikatz"
  },
  {
@@ -12387,7 +12387,7 @@
    "impacket/mqtt_check"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-mqtt_check. Category: exploitation. Tools: impacket/mqtt_check. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/mqtt_check"
  },
  {
@@ -12404,7 +12404,7 @@
    "impacket/mssqlclient"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-mssqlclient. Category: exploitation. Tools: impacket/mssqlclient. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/mssqlclient"
  },
  {
@@ -12421,7 +12421,7 @@
    "impacket/mssqlinstance"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-mssqlinstance. Category: exploitation. Tools: impacket/mssqlinstance. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/mssqlinstance"
  },
  {
@@ -12438,7 +12438,7 @@
    "impacket/net"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-net. Category: exploitation. Tools: impacket/net. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/net"
  },
  {
@@ -12455,7 +12455,7 @@
    "impacket/netview"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-netview. Category: exploitation. Tools: impacket/netview. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/netview"
  },
  {
@@ -12472,7 +12472,7 @@
    "impacket/ntfs-read"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ntfs-read. Category: exploitation. Tools: impacket/ntfs-read. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ntfs-read"
  },
  {
@@ -12489,7 +12489,7 @@
    "impacket/ntlmrelayx"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ntlmrelayx. Category: exploitation. Tools: impacket/ntlmrelayx. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ntlmrelayx"
  },
  {
@@ -12506,7 +12506,7 @@
    "impacket/owneredit"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-owneredit. Category: exploitation. Tools: impacket/owneredit. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/owneredit"
  },
  {
@@ -12523,7 +12523,7 @@
    "impacket/ping"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ping. Category: exploitation. Tools: impacket/ping. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ping"
  },
  {
@@ -12540,7 +12540,7 @@
    "impacket/ping6"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ping6. Category: exploitation. Tools: impacket/ping6. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ping6"
  },
  {
@@ -12557,7 +12557,7 @@
    "impacket/psexec"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-psexec. Category: exploitation. Tools: impacket/psexec. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/psexec"
  },
  {
@@ -12574,7 +12574,7 @@
    "impacket/raiseChild"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-raiseChild. Category: exploitation. Tools: impacket/raiseChild. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/raiseChild"
  },
  {
@@ -12591,7 +12591,7 @@
    "impacket/rbcd"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-rbcd. Category: exploitation. Tools: impacket/rbcd. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/rbcd"
  },
  {
@@ -12608,7 +12608,7 @@
    "impacket/rdp_check"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-rdp_check. Category: exploitation. Tools: impacket/rdp_check. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/rdp_check"
  },
  {
@@ -12625,7 +12625,7 @@
    "impacket/reg"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-reg. Category: exploitation. Tools: impacket/reg. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/reg"
  },
  {
@@ -12642,7 +12642,7 @@
    "impacket/registry-read"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-registry-read. Category: exploitation. Tools: impacket/registry-read. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/registry-read"
  },
  {
@@ -12659,7 +12659,7 @@
    "impacket/regsecrets"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-regsecrets. Category: exploitation. Tools: impacket/regsecrets. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/regsecrets"
  },
  {
@@ -12676,7 +12676,7 @@
    "impacket/rpcdump"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-rpcdump. Category: exploitation. Tools: impacket/rpcdump. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/rpcdump"
  },
  {
@@ -12693,7 +12693,7 @@
    "impacket/rpcmap"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-rpcmap. Category: exploitation. Tools: impacket/rpcmap. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/rpcmap"
  },
  {
@@ -12710,7 +12710,7 @@
    "impacket/sambaPipe"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-sambaPipe. Category: exploitation. Tools: impacket/sambaPipe. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/sambaPipe"
  },
  {
@@ -12727,7 +12727,7 @@
    "impacket/samedit"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-samedit. Category: exploitation. Tools: impacket/samedit. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/samedit"
  },
  {
@@ -12744,7 +12744,7 @@
    "impacket/samrdump"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-samrdump. Category: exploitation. Tools: impacket/samrdump. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/samrdump"
  },
  {
@@ -12761,7 +12761,7 @@
    "impacket/secretsdump"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-secretsdump. Category: exploitation. Tools: impacket/secretsdump. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/secretsdump"
  },
  {
@@ -12778,7 +12778,7 @@
    "impacket/services"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-services. Category: exploitation. Tools: impacket/services. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/services"
  },
  {
@@ -12795,7 +12795,7 @@
    "impacket/smbclient"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-smbclient. Category: exploitation. Tools: impacket/smbclient. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/smbclient"
  },
  {
@@ -12812,7 +12812,7 @@
    "impacket/smbexec"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-smbexec. Category: exploitation. Tools: impacket/smbexec. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/smbexec"
  },
  {
@@ -12829,7 +12829,7 @@
    "impacket/smbserver"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-smbserver. Category: exploitation. Tools: impacket/smbserver. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/smbserver"
  },
  {
@@ -12846,7 +12846,7 @@
    "impacket/sniff"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-sniff. Category: exploitation. Tools: impacket/sniff. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/sniff"
  },
  {
@@ -12863,7 +12863,7 @@
    "impacket/sniffer"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-sniffer. Category: exploitation. Tools: impacket/sniffer. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/sniffer"
  },
  {
@@ -12880,7 +12880,7 @@
    "impacket/split"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-split. Category: exploitation. Tools: impacket/split. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/split"
  },
  {
@@ -12897,7 +12897,7 @@
    "impacket/ticketConverter"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ticketConverter. Category: exploitation. Tools: impacket/ticketConverter. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ticketConverter"
  },
  {
@@ -12914,7 +12914,7 @@
    "impacket/ticketer"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-ticketer. Category: exploitation. Tools: impacket/ticketer. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/ticketer"
  },
  {
@@ -12931,7 +12931,7 @@
    "impacket/tstool"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-tstool. Category: exploitation. Tools: impacket/tstool. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/tstool"
  },
  {
@@ -12948,7 +12948,7 @@
    "impacket/wmiexec"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-wmiexec. Category: exploitation. Tools: impacket/wmiexec. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/wmiexec"
  },
  {
@@ -12965,7 +12965,7 @@
    "impacket/wmipersist"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-wmipersist. Category: exploitation. Tools: impacket/wmipersist. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/wmipersist"
  },
  {
@@ -12982,7 +12982,7 @@
    "impacket/wmiquery"
   ],
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "AD attack: impacket-wmiquery. Category: exploitation. Tools: impacket/wmiquery. Ensure you have valid domain credentials before attempting.",
   "source": "impacket/wmiquery"
  }
 ]

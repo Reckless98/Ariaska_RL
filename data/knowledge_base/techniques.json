@@ -39,7 +39,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1001.002: Data Obfuscation via Steganography. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -117,7 +117,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003: OS Credential Dumping. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -249,7 +249,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.001: OS Credential Dumping: LSASS Memory. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -336,7 +336,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.002: OS Credential Dumping: Security Account Manager. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -450,7 +450,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.003: OS Credential Dumping: NTDS. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -483,7 +483,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.004: OS Credential Dumping: LSA Secrets. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -507,7 +507,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.005: OS Credential Dumping: Cached Domain Credentials. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -540,7 +540,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.006: OS Credential Dumping: DCSync. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -591,7 +591,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.007: OS Credential Dumping: Proc Filesystem. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -651,7 +651,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1003.008: OS Credential Dumping: /etc/passwd, /etc/master.passwd and /etc/shadow. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -695,7 +695,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1005: Data from Local System. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -719,7 +719,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1006: Direct Volume Access. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -808,7 +808,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1007: System Service Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -832,7 +832,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1010: Application Window Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -901,7 +901,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1012: Query Registry. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -952,7 +952,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1014: Rootkit. Tactic: privilege_escalation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1051,7 +1051,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1016: System Network Configuration Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1114,7 +1114,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1016.001: System Network Configuration Discovery: Internet Connection Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1138,7 +1138,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1016.002: System Network Configuration Discovery: Wi-Fi Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1355,7 +1355,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1018: Remote System Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1388,7 +1388,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1020: Automated Exfiltration. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1439,7 +1439,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.001: Remote Services: Remote Desktop Protocol. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1490,7 +1490,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.002: Remote Services: SMB/Windows Admin Shares. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1523,7 +1523,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.003: Remote Services: Distributed Component Object Model. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1556,7 +1556,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.004: Remote Services: SSH. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1580,7 +1580,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.005: Remote Services:VNC. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1622,7 +1622,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1021.006: Remote Services: Windows Remote Management. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1646,7 +1646,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1025: Data from Removable Media. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1745,7 +1745,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027: Obfuscated Files or Information. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1781,7 +1781,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.001: Obfuscated Files or Information: Binary Padding. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1833,7 +1833,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.002: Obfuscated Files or Information: Software Packing. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1898,7 +1898,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.004: Obfuscated Files or Information: Compile After Delivery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1922,7 +1922,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.006: HTML Smuggling. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1946,7 +1946,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.007: Obfuscated Files or Information: Dynamic API Resolution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -1985,7 +1985,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1027.013: Obfuscated Files or Information: Encrypted/Encoded File. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2021,7 +2021,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1030: Data Transfer Size Limits. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2102,7 +2102,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1033: System Owner/User Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2135,7 +2135,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036: Masquerading. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2223,7 +2223,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036.003: Masquerading: Rename System Utilities. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2275,7 +2275,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036.004: Masquerading: Masquerade Task or Service. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2320,7 +2320,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036.005: Masquerading: Match Legitimate Name or Location. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2346,7 +2346,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036.006: Masquerading: Space after Filename. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2370,7 +2370,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1036.007: Masquerading: Double File Extension. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2394,7 +2394,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1037.001: Boot or Logon Initialization Scripts: Logon Script (Windows). Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2437,7 +2437,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1037.004: Boot or Logon Initialization Scripts: Rc.common. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2479,7 +2479,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1037.005: Boot or Logon Initialization Scripts: Startup Items. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2512,7 +2512,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1039: Data from Network Shared Drive. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2673,7 +2673,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1040: Network Sniffing. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2706,7 +2706,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1041: Exfiltration Over C2 Channel. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2835,7 +2835,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1046: Network Service Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2940,7 +2940,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1047: Windows Management Instrumentation. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -2996,7 +2996,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1048: Exfiltration Over Alternative Protocol. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3050,7 +3050,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1048.002: Exfiltration Over Alternative Protocol - Exfiltration Over Asymmetric Encrypted Non-C2 Protocol. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3120,7 +3120,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1048.003: Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted/Obfuscated Non-C2 Protocol. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3202,7 +3202,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1049: System Network Connections Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3246,7 +3246,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1053.002: Scheduled Task/Job: At. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3300,7 +3300,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1053.003: Scheduled Task/Job: Cron. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3423,7 +3423,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1053.005: Scheduled Task/Job: Scheduled Task. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3465,7 +3465,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1053.006: Scheduled Task/Job: Systemd Timers. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3498,7 +3498,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1053.007: Kubernetes Cronjob. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3630,7 +3630,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055: Process Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3663,7 +3663,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.001: Process Injection: Dynamic-link Library Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3687,7 +3687,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.002: Process Injection: Portable Executable Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3711,7 +3711,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.003: Thread Execution Hijacking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3753,7 +3753,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.004: Process Injection: Asynchronous Procedure Call. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3777,7 +3777,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.011: Process Injection: Extra Window Memory Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3828,7 +3828,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.012: Process Injection: Process Hollowing. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3852,7 +3852,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1055.015: Process Injection: ListPlanting. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3941,7 +3941,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1056.001: Input Capture: Keylogging. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -3984,7 +3984,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1056.002: Input Capture: GUI Input Capture. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4008,7 +4008,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1056.004: Input Capture: Credential API Hooking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4107,7 +4107,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1057: Process Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4131,7 +4131,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059: Command and Scripting Interpreter. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4335,7 +4335,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.001: Command and Scripting Interpreter: PowerShell. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4359,7 +4359,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.002: Command and Scripting Interpreter: AppleScript. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4428,7 +4428,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.003: Command and Scripting Interpreter: Windows Command Shell. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4602,7 +4602,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.004: Command and Scripting Interpreter: Bash. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4644,7 +4644,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.005: Command and Scripting Interpreter: Visual Basic. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4695,7 +4695,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.006: Command and Scripting Interpreter: Python. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4728,7 +4728,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.007: Command and Scripting Interpreter: JavaScript. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4752,7 +4752,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1059.010: Command and Scripting Interpreter: AutoHotKey & AutoIT. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4834,7 +4834,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1069.001: Permission Groups Discovery: Local Groups. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -4985,7 +4985,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1069.002: Permission Groups Discovery: Domain Groups. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5018,7 +5018,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070: Indicator Removal on Host. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5060,7 +5060,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.001: Indicator Removal on Host: Clear Windows Event Logs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5257,7 +5257,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.002: Indicator Removal on Host: Clear FreeBSD, Linux or Mac System Logs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5406,7 +5406,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.003: Indicator Removal on Host: Clear Command History. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5524,7 +5524,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.004: Indicator Removal on Host: File Deletion. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5584,7 +5584,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.005: Indicator Removal on Host: Network Share Connection Removal. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5695,7 +5695,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.006: Indicator Removal on Host: Timestomp. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5766,7 +5766,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1070.008: Email Collection: Mailbox Manipulation. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5790,7 +5790,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1071: Application Layer Protocol. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5835,7 +5835,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1071.001: Application Layer Protocol: Web Protocols. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5886,7 +5886,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1071.004: Application Layer Protocol: DNS. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5928,7 +5928,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1072: Software Deployment Tools. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -5973,7 +5973,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1074.001: Data Staged: Local Data Staging. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6016,7 +6016,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1078.001: Valid Accounts: Default Accounts. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6150,7 +6150,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1078.003: Valid Accounts: Local Accounts. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6195,7 +6195,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1078.004: Valid Accounts: Cloud Accounts. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6576,7 +6576,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1082: System Information Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6676,7 +6676,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1083: File and Directory Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -6796,7 +6796,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1087.001: Account Discovery: Local Account. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7028,7 +7028,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1087.002: Account Discovery: Domain Account. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7073,7 +7073,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1090.001: Proxy: Internal Proxy. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7126,7 +7126,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1090.003: Proxy: Multi-hop Proxy. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7150,7 +7150,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1091: Replication Through Removable Media. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7192,7 +7192,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1095: Non-Application Layer Protocol. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7364,7 +7364,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1098: Account Manipulation. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7407,7 +7407,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1098.001: Account Manipulation: Additional Cloud Credentials. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7431,7 +7431,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1098.002: Account Manipulation: Additional Email Delegate Permissions. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7464,7 +7464,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1098.003: Account Manipulation: Additional Cloud Roles. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7490,7 +7490,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1098.004: SSH Authorized Keys. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7866,7 +7866,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1105: Ingress Tool Transfer. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -7926,7 +7926,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1106: Native API. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -8015,7 +8015,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1110.001: Brute Force: Password Guessing. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -8039,7 +8039,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1110.002: Brute Force: Password Cracking. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -8137,7 +8137,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1110.003: Brute Force: Password Spraying. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -8190,7 +8190,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1110.004: Brute Force: Credential Stuffing. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9015,7 +9015,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1112: Modify Registry. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9122,7 +9122,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1113: Screen Capture. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9146,7 +9146,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1114.001: Email Collection: Local Email Collection. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9170,7 +9170,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1114.002: Email Collection: Remote Email Collection. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9194,7 +9194,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1114.003: Email Collection: Email Forwarding Rule. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9256,7 +9256,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1115: Clipboard Data. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9307,7 +9307,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1119: Automated Collection. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9358,7 +9358,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1120: Peripheral Device Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9401,7 +9401,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1123: Audio Capture. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9473,7 +9473,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1124: System Time Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9497,7 +9497,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1125: Video Capture. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9530,7 +9530,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1127: Trusted Developer Utilities Proxy Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9563,7 +9563,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1127.001: Trusted Developer Utilities Proxy Execution: MSBuild. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9587,7 +9587,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1129: Server Software Component. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9632,7 +9632,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1132.001: Data Encoding: Standard Encoding. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9656,7 +9656,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1133: External Remote Services. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9716,7 +9716,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1134.001: Access Token Manipulation: Token Impersonation/Theft. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9749,7 +9749,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1134.002: Create Process with Token. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9809,7 +9809,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1134.004: Access Token Manipulation: Parent PID Spoofing. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9833,7 +9833,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1134.005: Access Token Manipulation: SID-History Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -9958,7 +9958,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1135: Network Share Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10066,7 +10066,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1136.001: Create Account: Local Account. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10127,7 +10127,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1136.002: Create Account: Domain Account. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10170,7 +10170,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1136.003: Create Account: Cloud Account. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10194,7 +10194,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1137: Office Application Startup. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10218,7 +10218,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1137.001: Office Application Startup: Office Template Macros.. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10242,7 +10242,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1137.002: Office Application Startup: Office Test. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10266,7 +10266,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1137.004: Office Application Startup: Outlook Home Page. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10326,7 +10326,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1137.006: Office Application Startup: Add-ins. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10448,7 +10448,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1140: Deobfuscate/Decode Files or Information. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10472,7 +10472,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1176: Browser Extensions. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10514,7 +10514,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1187: Forced Authentication. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10538,7 +10538,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1195: Supply Chain Compromise. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10564,7 +10564,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1195.002: Compromise Software Supply Chain. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10615,7 +10615,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1197: BITS Jobs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10741,7 +10741,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1201: Password Policy Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10801,7 +10801,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1202: Indirect Command Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10933,7 +10933,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1204.002: User Execution: Malicious File. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10957,7 +10957,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1204.003: User Execution: Malicious Image. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -10981,7 +10981,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1207: Rogue Domain Controller. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11014,7 +11014,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1216: Signed Script Proxy Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11038,7 +11038,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1216.001: Signed Script Proxy Execution: Pubprn. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11154,7 +11154,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1217: Browser Bookmark Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11313,7 +11313,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218: Signed Binary Proxy Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11400,7 +11400,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.001: Signed Binary Proxy Execution: Compiled HTML File. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11424,7 +11424,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.002: Signed Binary Proxy Execution: Control Panel. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11457,7 +11457,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.003: Signed Binary Proxy Execution: CMSTP. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11544,7 +11544,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.004: Signed Binary Proxy Execution: InstallUtil. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11649,7 +11649,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.005: Signed Binary Proxy Execution: Mshta. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11763,7 +11763,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.007: Signed Binary Proxy Execution: Msiexec. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11796,7 +11796,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.008: Signed Binary Proxy Execution: Odbcconf. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11829,7 +11829,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.009: Signed Binary Proxy Execution: Regsvcs/Regasm. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -11889,7 +11889,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.010: Signed Binary Proxy Execution: Regsvr32. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12048,7 +12048,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1218.011: Signed Binary Proxy Execution: Rundll32. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12198,7 +12198,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1219: Remote Access Software. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12249,7 +12249,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1220: XSL Script Processing. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12273,7 +12273,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1221: Template Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12315,7 +12315,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1222: File and Directory Permissions Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12384,7 +12384,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1222.001: File and Directory Permissions Modification: Windows File and Directory Permissions Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12537,7 +12537,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1222.002: File and Directory Permissions Modification: FreeBSD, Linux and Mac File and Directory Permissions Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12624,7 +12624,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1482: Domain Trust Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12657,7 +12657,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1484.001: Domain Policy Modification: Group Policy Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12681,7 +12681,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1484.002: Domain Trust Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12745,7 +12745,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1485: Data Destruction. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12852,7 +12852,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1486: Data Encrypted for Impact. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -12940,7 +12940,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1489: Service Stop. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13073,7 +13073,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1490: Inhibit System Recovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13124,7 +13124,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1491.001: Defacement: Internal Defacement. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13160,7 +13160,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1496: Resource Hijacking. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13249,7 +13249,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1497.001: Virtualization/Sandbox Evasion: System Checks. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13275,7 +13275,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1497.003: Time Based Evasion. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13299,7 +13299,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1505.002: Server Software Component: Transport Agent. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13323,7 +13323,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1505.003: Server Software Component: Web Shell. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13356,7 +13356,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1505.004: IIS Components. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13389,7 +13389,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1505.005: Server Software Component: Terminal Services DLL. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13459,7 +13459,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1518: Software Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13575,7 +13575,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1518.001: Software Discovery: Security Software Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13618,7 +13618,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1526: Cloud Service Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13651,7 +13651,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1528: Steal Application Access Token. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13815,7 +13815,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1529: System Shutdown/Reboot. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13849,7 +13849,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1530: Data from Cloud Storage Object. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -13940,7 +13940,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1531: Account Access Removal. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14001,7 +14001,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1539: Steal Web Session Cookie. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14025,7 +14025,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1542.001: Pre-OS Boot: System Firmware. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14067,7 +14067,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1543.001: Create or Modify System Process: Launch Agent. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14109,7 +14109,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1543.002: Create or Modify System Process: SysV/Systemd Service. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14178,7 +14178,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1543.003: Create or Modify System Process: Windows Service. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14202,7 +14202,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1543.004: Create or Modify System Process: Launch Daemon. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14298,7 +14298,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546: Event Triggered Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14322,7 +14322,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.001: Event Triggered Execution: Change Default File Association. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14346,7 +14346,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.002: Event Triggered Execution: Screensaver. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14388,7 +14388,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.003: Event Triggered Execution: Windows Management Instrumentation Event Subscription. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14469,7 +14469,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.004: Event Triggered Execution: .bash_profile .bashrc and .shrc. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14523,7 +14523,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.005: Event Triggered Execution: Trap. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14547,7 +14547,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.007: Event Triggered Execution: Netsh Helper DLL. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14652,7 +14652,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.008: Event Triggered Execution: Accessibility Features. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14676,7 +14676,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.009: Event Triggered Execution: AppCert DLLs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14700,7 +14700,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.010: Event Triggered Execution: AppInit DLLs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14742,7 +14742,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.011: Event Triggered Execution: Application Shimming. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14784,7 +14784,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.012: Event Triggered Execution: Image File Execution Options Injection. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14808,7 +14808,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.013: Event Triggered Execution: PowerShell Profile. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14832,7 +14832,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.014: Event Triggered Execution: Emond. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14883,7 +14883,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.015: Event Triggered Execution: Component Object Model Hijacking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14946,7 +14946,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1546.018: Event Triggered Execution: Python Startup Hooks. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -14988,7 +14988,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547: Boot or Logon Autostart Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15183,7 +15183,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.001: Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15207,7 +15207,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.002: Authentication Package. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15240,7 +15240,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.003: Time Providers. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15300,7 +15300,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.004: Boot or Logon Autostart Execution: Winlogon Helper DLL. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15333,7 +15333,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.005: Boot or Logon Autostart Execution: Security Support Provider. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15386,7 +15386,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.006: Boot or Logon Autostart Execution: Kernel Modules and Extensions. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15428,7 +15428,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.007: Boot or Logon Autostart Execution: Re-opened Applications. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15452,7 +15452,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.008: Boot or Logon Autostart Execution: LSASS Driver. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15485,7 +15485,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.009: Boot or Logon Autostart Execution: Shortcut Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15509,7 +15509,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.010: Boot or Logon Autostart Execution: Port Monitors. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15533,7 +15533,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.012: Boot or Logon Autostart Execution: Print Processors. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15575,7 +15575,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.014: Active Setup. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15609,7 +15609,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1547.015: Boot or Logon Autostart Execution: Login Items. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15718,7 +15718,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1548.001: Abuse Elevation Control Mechanism: Setuid and Setgid. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -15976,7 +15976,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1548.002: Abuse Elevation Control Mechanism: Bypass User Account Control. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16049,7 +16049,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1548.003: Abuse Elevation Control Mechanism: Sudo and Sudo Caching. Tactic: privilege_escalation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16091,7 +16091,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1550.002: Use Alternate Authentication Material: Pass the Hash. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16124,7 +16124,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1550.003: Use Alternate Authentication Material: Pass the Ticket. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16162,7 +16162,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552: Unsecured Credentials. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16338,7 +16338,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.001: Unsecured Credentials: Credentials In Files. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16371,7 +16371,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.002: Unsecured Credentials: Credentials in Registry. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16406,7 +16406,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.003: Unsecured Credentials: Bash History. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16552,7 +16552,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.004: Unsecured Credentials: Private Keys. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16586,7 +16586,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.005: Unsecured Credentials: Cloud Instance Metadata API. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16619,7 +16619,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.006: Unsecured Credentials: Group Policy Preferences. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16662,7 +16662,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1552.007: Kubernetes List Secrets. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16686,7 +16686,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1553.001: Subvert Trust Controls: Gatekeeper Bypass. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16710,7 +16710,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1553.003: Subvert Trust Controls: SIP and Trust Provider Hijacking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16790,7 +16790,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1553.004: Subvert Trust Controls: Install Root Certificate. Tactic: privilege_escalation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16841,7 +16841,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1553.005: Subvert Trust Controls: Mark-of-the-Web Bypass. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16865,7 +16865,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1553.006: Subvert Trust Controls: Code Signing Policy Modification. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -16952,7 +16952,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1555: Credentials from Password Stores. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17003,7 +17003,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1555.001: Credentials from Password Stores: Keychain. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17173,7 +17173,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1555.003: Credentials from Password Stores: Credentials from Web Browsers. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17206,7 +17206,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1555.004: Credentials from Password Stores: Windows Credential Manager. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17230,7 +17230,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1555.006: Credentials from Password Stores: Cloud Secrets Management Stores. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17263,7 +17263,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1556.002: Modify Authentication Process: Password Filter DLL. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17305,7 +17305,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1556.003: Modify Authentication Process: Pluggable Authentication Modules. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17329,7 +17329,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1557.001: Adversary-in-the-Middle: LLMNR/NBT-NS Poisoning and SMB Relay. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17362,7 +17362,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1558.001: Steal or Forge Kerberos Tickets: Golden Ticket. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17386,7 +17386,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1558.002: Steal or Forge Kerberos Tickets: Silver Ticket. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17464,7 +17464,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1558.003: Steal or Forge Kerberos Tickets: Kerberoasting. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17506,7 +17506,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1558.004: Steal or Forge Kerberos Tickets: AS-REP Roasting. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17566,7 +17566,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1559: Inter-Process Communication. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17590,7 +17590,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1559.002: Inter-Process Communication: Dynamic Data Exchange. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17614,7 +17614,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1560: Archive Collected Data. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17744,7 +17744,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1560.001: Archive Collected Data: Archive via Utility. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17795,7 +17795,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1560.002: Archive Collected Data: Archive via Library. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -17838,7 +17838,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562: Impair Defenses. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -18389,7 +18389,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.001: Impair Defenses: Disable or Modify Tools. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -18494,7 +18494,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.002: Impair Defenses: Disable Windows Event Logging. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -18611,7 +18611,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.003: Impair Defenses: Impair Command History Logging. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -18852,7 +18852,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.004: Impair Defenses: Disable or Modify System Firewall. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -18994,7 +18994,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.006: Impair Defenses: Indicator Blocking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19110,7 +19110,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.008: Impair Defenses: Disable Cloud Logs. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19134,7 +19134,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.009: Impair Defenses: Safe Boot Mode. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19177,7 +19177,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.010: Impair Defenses: Downgrade Attack. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19210,7 +19210,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1562.012: Impair Defenses: Disable or Modify Linux Audit System. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19234,7 +19234,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1563.002: Remote Service Session Hijacking: RDP Hijacking. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19294,7 +19294,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564: Hide Artifacts. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19402,7 +19402,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.001: Hide Artifacts: Hidden Files and Directories. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19445,7 +19445,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.002: Hide Artifacts: Hidden Users. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19487,7 +19487,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.003: Hide Artifacts: Hidden Window. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19547,7 +19547,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.004: Hide Artifacts: NTFS File Attributes. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19589,7 +19589,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.006: Run Virtual Instance. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19613,7 +19613,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1564.008: Hide Artifacts: Email Hiding Rules. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19646,7 +19646,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1566.001: Phishing: Spearphishing Attachment. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19670,7 +19670,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1566.002: Phishing: Spearphishing Link. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19706,7 +19706,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1567.002: Exfiltration Over Web Service: Exfiltration to Cloud Storage. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19730,7 +19730,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1567.003: Exfiltration Over Web Service: Exfiltration to Text Storage Sites. Tactic: exfiltration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19754,7 +19754,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1569.001: System Services: Launchctl. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19842,7 +19842,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1569.002: System Services: Service Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19875,7 +19875,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1570: Lateral Tool Transfer. Tactic: lateral_movement. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19911,7 +19911,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1571: Non-Standard Port. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -19994,7 +19994,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1572: Protocol Tunneling. Tactic: lateral_movement. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20018,7 +20018,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1573: Encrypted Channel. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20087,7 +20087,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.001: Hijack Execution Flow: DLL. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20130,7 +20130,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.006: Hijack Execution Flow: LD_PRELOAD. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20154,7 +20154,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.008: Hijack Execution Flow: Path Interception by Search Order Hijacking. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20178,7 +20178,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.009: Hijack Execution Flow: Path Interception by Unquoted Path. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20211,7 +20211,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.011: Hijack Execution Flow: Services Registry Permissions Weakness. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20253,7 +20253,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1574.012: Hijack Execution Flow: COR_PROFILER. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20297,7 +20297,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1578.001: Modify Cloud Compute Infrastructure: Create Snapshot. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20334,7 +20334,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1580: Cloud Infrastructure Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20358,7 +20358,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1592.001: Gather Victim Host Information: Hardware. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20386,7 +20386,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1595.003: Active Scanning: Wordlist Scanning. Tactic: enumeration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20410,7 +20410,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1606.002: Forge Web Credentials: SAML token. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20443,7 +20443,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1609: Kubernetes Exec Into Container. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20467,7 +20467,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1610: Deploy a container. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20509,7 +20509,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1611: Escape to Host. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20533,7 +20533,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1612: Build Image on Host. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20566,7 +20566,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1613: Container and Resource Discovery. Tactic: exploitation. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20602,7 +20602,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1614: System Location Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20708,7 +20708,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1614.001: System Location Discovery: System Language Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20768,7 +20768,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1615: Group Policy Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20820,7 +20820,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1619: Cloud Storage Object Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20844,7 +20844,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1620: Reflective Code Loading. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20868,7 +20868,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1622: Debugger Evasion. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20892,7 +20892,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1648: Serverless Execution. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20916,7 +20916,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1649: Steal or Forge Authentication Certificates. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -20940,7 +20940,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1651: Cloud Administration Command. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -21002,7 +21002,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1652: Device Driver Discovery. Tactic: general. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {
@@ -21035,7 +21035,7 @@
   ],
   "detection": "",
   "prerequisites": [],
-  "reasoning": "",
+  "reasoning": "MITRE ATT&CK T1654: Log Enumeration. Tactic: enumeration. Understanding this technique helps identify attack patterns and develop detection rules. Use the atomic tests to validate detection capabilities.",
   "source": "atomic_red_team"
  },
  {

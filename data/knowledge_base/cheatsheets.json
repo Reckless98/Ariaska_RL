@@ -40,7 +40,8 @@
     "heading": ""
    }
   ],
-  "source": "oscp"
+  "source": "oscp",
+  "reasoning": "Cheatsheet: Win7Blue. Contains 7 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -68,7 +69,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/README.md"
+  "source": "h4cker/buffer-overflow-examples/README.md",
+  "reasoning": "Cheatsheet: README — Running Your First Example. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "assembly basics",
@@ -91,7 +93,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/assembly-basics.md"
+  "source": "h4cker/buffer-overflow-examples/basics/assembly-basics.md",
+  "reasoning": "Cheatsheet: assembly basics — Examples. Contains 3 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "assembly basics",
@@ -124,7 +127,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/assembly-basics.md"
+  "source": "h4cker/buffer-overflow-examples/basics/assembly-basics.md",
+  "reasoning": "Cheatsheet: assembly basics — Reversing a Simple C Program. Contains 5 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -227,7 +231,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Memory Layout of a Process. Contains 19 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -290,7 +295,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Stack Growth Direction. Contains 11 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -383,7 +389,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Stack Frame Anatomy. Contains 17 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -411,7 +418,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Before the Call (in main). Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -454,7 +462,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Step 1: Push Arguments (if any). Contains 7 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -502,7 +511,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Step 2: Execute CALL Instruction. Contains 8 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -585,7 +595,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Step 3: Function Prologue. Contains 15 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -653,7 +664,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Normal Case. Contains 12 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -771,7 +783,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — Overflow Case. Contains 22 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -819,7 +832,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — 1. Control the Return Address. Contains 8 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "memory and stack",
@@ -837,7 +851,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md"
+  "source": "h4cker/buffer-overflow-examples/basics/memory-and-stack.md",
+  "reasoning": "Cheatsheet: memory and stack — 2. Inject Malicious Code. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "registers",
@@ -920,7 +935,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/registers.md"
+  "source": "h4cker/buffer-overflow-examples/basics/registers.md",
+  "reasoning": "Cheatsheet: registers — Register Relationships in Stack Frames. Contains 15 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "registers",
@@ -933,7 +949,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/registers.md"
+  "source": "h4cker/buffer-overflow-examples/basics/registers.md",
+  "reasoning": "Cheatsheet: registers — Easy: just overflow to return address. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "registers",
@@ -971,7 +988,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/basics/registers.md"
+  "source": "h4cker/buffer-overflow-examples/basics/registers.md",
+  "reasoning": "Cheatsheet: registers — GDB Commands for Registers. Contains 6 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "secure coding",
@@ -999,7 +1017,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/defenses/secure-coding.md"
+  "source": "h4cker/buffer-overflow-examples/defenses/secure-coding.md",
+  "reasoning": "Cheatsheet: secure coding — The Security Triangle. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1027,7 +1046,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Normal Usage. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1120,7 +1140,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Before `scanf()` Call. Contains 17 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1213,7 +1234,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md",
+  "reasoning": "Cheatsheet: README — After Overflow with \"AAAA...AAAA\" (40 bytes). Contains 17 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1231,7 +1253,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md",
+  "reasoning": "Cheatsheet: README — How to Fix This Vulnerability. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1269,7 +1292,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/01-simple-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Modern Protections. Contains 6 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1342,7 +1366,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md",
+  "reasoning": "Cheatsheet: README — Stack Layout Before Overflow. Contains 13 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1415,7 +1440,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md",
+  "reasoning": "Cheatsheet: README — Stack Layout After Overflow. Contains 13 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1428,7 +1454,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md",
+  "reasoning": "Cheatsheet: README — Challenge 1: Crash the Program (Easy). Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1441,7 +1468,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/02-strcpy-examples/README.md",
+  "reasoning": "Cheatsheet: README — What an Attacker Sees. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1454,7 +1482,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Create the Example. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1467,7 +1496,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Pattern 1: Direct Argument Copy. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1480,7 +1510,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Pattern 2: Multiple Argument Concatenation. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1493,7 +1524,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/03-cli-overflow/README.md",
+  "reasoning": "Cheatsheet: README — Pattern 3: Format String + Argument. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1506,7 +1538,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md",
+  "reasoning": "Cheatsheet: README — Vulnerability Analysis. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1519,7 +1552,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md",
+  "reasoning": "Cheatsheet: README — How the Exploit Works. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1532,7 +1566,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md",
+  "reasoning": "Cheatsheet: README — Keep adjusting until it works. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "README",
@@ -1545,7 +1580,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md"
+  "source": "h4cker/buffer-overflow-examples/examples/04-advanced-stack/README.md",
+  "reasoning": "Cheatsheet: README — Look for your NOP sled (0x90909090). Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "shellcode basics",
@@ -1608,7 +1644,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md",
+  "reasoning": "Cheatsheet: shellcode basics — The Execution Flow. Contains 11 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "shellcode basics",
@@ -1626,7 +1663,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md",
+  "reasoning": "Cheatsheet: shellcode basics — execve() System Call. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "shellcode basics",
@@ -1639,7 +1677,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md",
+  "reasoning": "Cheatsheet: shellcode basics — Example: 64-bit execve Shellcode. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "shellcode basics",
@@ -1652,7 +1691,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/shellcode-basics.md",
+  "reasoning": "Cheatsheet: shellcode basics — Alphanumeric Shellcode. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1680,7 +1720,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Phase 1: Reconnaissance and Analysis. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1708,7 +1749,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Phase 2: Exploitation. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1731,7 +1773,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Phase 3: Weaponization (Ethical Testing Only). Contains 3 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1744,7 +1787,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Use static analysis tools. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1757,7 +1801,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — List functions. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1770,7 +1815,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Re-enable when done. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1783,7 +1829,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Method 3: Python script. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1796,7 +1843,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Output: [*] Exact match at offset 76. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1809,7 +1857,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Once you see 0x42424242 in EIP, you found the offset!. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1822,7 +1871,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Create payload with controlled return address. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1835,7 +1885,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — $1 = {<text variable, no debug info>} 0x8048456 <win>. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1848,7 +1899,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Or examine stack:. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1861,7 +1913,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Write to stdout. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1874,7 +1927,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Build payload. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1887,7 +1941,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Or adjust offset by ~200 bytes. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1900,7 +1955,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Solution 3: Use ROP to build address on stack. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1913,7 +1969,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Stage 3: Exploit with calculated addresses. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "writing exploits",
@@ -1931,7 +1988,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md"
+  "source": "h4cker/buffer-overflow-examples/exploitation/writing-exploits.md",
+  "reasoning": "Cheatsheet: writing exploits — Python Libraries. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "external platforms",
@@ -1949,7 +2007,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md"
+  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md",
+  "reasoning": "Cheatsheet: external platforms — pwndbg Docker. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "external platforms",
@@ -1967,7 +2026,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md"
+  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md",
+  "reasoning": "Cheatsheet: external platforms — Exploit Education Docker Images. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "external platforms",
@@ -2000,7 +2060,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md"
+  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md",
+  "reasoning": "Cheatsheet: external platforms — Good Questions Format. Contains 5 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "external platforms",
@@ -2133,7 +2194,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md"
+  "source": "h4cker/buffer-overflow-examples/resources/external-platforms.md",
+  "reasoning": "Cheatsheet: external platforms — Recommended Progression. Contains 25 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2146,7 +2208,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Arch Linux. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2159,7 +2222,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Common commands. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2182,7 +2246,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — pwndbg. Contains 3 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2195,7 +2260,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — GEF (GDB Enhanced Features). Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2238,7 +2304,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — PEDA (Python Exploit Development Assistance). Contains 7 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2251,7 +2318,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Extract and run:. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2264,7 +2332,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or via package manager. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2277,7 +2346,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Common commands. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2290,7 +2360,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or standalone. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2303,7 +2374,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or from source. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2326,7 +2398,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Metasploit Framework. Contains 3 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2339,7 +2412,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or from source. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2352,7 +2426,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or with Capstone support. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2370,7 +2445,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — hexedit. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2388,7 +2464,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Bless (GUI). Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2406,7 +2483,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — UndefinedBehaviorSanitizer (UBSan). Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2419,7 +2497,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Or build from source. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tools",
@@ -2432,7 +2511,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/buffer-overflow-examples/resources/tools.md"
+  "source": "h4cker/buffer-overflow-examples/resources/tools.md",
+  "reasoning": "Cheatsheet: tools — Find offset. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "NMAP cheat sheet",
@@ -2445,7 +2525,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/NMAP_cheat_sheet.md"
+  "source": "h4cker/cheat-sheets/NMAP_cheat_sheet.md",
+  "reasoning": "Cheatsheet: NMAP cheat sheet — Basic Syntax. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ORGANIZATION",
@@ -2578,7 +2659,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/ORGANIZATION.md"
+  "source": "h4cker/cheat-sheets/ORGANIZATION.md",
+  "reasoning": "Cheatsheet: ORGANIZATION — 🗂️ New Directory Structure. Contains 25 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2591,7 +2673,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Installation. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2664,7 +2747,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Checking status. Contains 13 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2692,7 +2776,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Enable and disable. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2740,7 +2825,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Deleting rules. Contains 8 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2873,7 +2959,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Logging. Contains 25 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2976,7 +3063,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — SSH. Contains 19 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -2999,7 +3087,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — More complex usage. Contains 3 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -3077,7 +3166,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Source and Destination. Contains 14 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "ufw",
@@ -3135,7 +3225,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/firewall/ufw.md"
+  "source": "h4cker/cheat-sheets/firewall/ufw.md",
+  "reasoning": "Cheatsheet: ufw — Protocol only. Contains 10 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "user management",
@@ -3153,7 +3244,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/linux/user_management.md"
+  "source": "h4cker/cheat-sheets/linux/user_management.md",
+  "reasoning": "Cheatsheet: user management — User Management Basic Commands. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "netcat",
@@ -3166,7 +3258,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/netcat.md"
+  "source": "h4cker/cheat-sheets/networking/netcat.md",
+  "reasoning": "Cheatsheet: netcat — Basic Syntax. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "nmap",
@@ -3179,7 +3272,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/nmap.md"
+  "source": "h4cker/cheat-sheets/networking/nmap.md",
+  "reasoning": "Cheatsheet: nmap — Basic Syntax. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tcpdump",
@@ -3192,7 +3286,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tcpdump.md"
+  "source": "h4cker/cheat-sheets/networking/tcpdump.md",
+  "reasoning": "Cheatsheet: tcpdump — Basic Syntax. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3205,7 +3300,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — List interfaces on which Tshark can capture. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3218,7 +3314,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — Capture Packets with Tshark. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3231,7 +3328,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — Read a Pcap with Tshark. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3244,7 +3342,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — Filtering Packets from One Host. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3257,7 +3356,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — HTTP Analysis with Tshark. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "tshark",
@@ -3275,7 +3375,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/tshark.md"
+  "source": "h4cker/cheat-sheets/networking/tshark.md",
+  "reasoning": "Cheatsheet: tshark — Manipulating other Fields. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "wireshark filters",
@@ -3303,7 +3404,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/networking/wireshark-filters.md"
+  "source": "h4cker/cheat-sheets/networking/wireshark-filters.md",
+  "reasoning": "Cheatsheet: wireshark filters — Basic Syntax. Contains 4 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "python security",
@@ -3351,7 +3453,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/scripting/python-security.md"
+  "source": "h4cker/cheat-sheets/scripting/python-security.md",
+  "reasoning": "Cheatsheet: python security — Exception Handling. Contains 8 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "python security",
@@ -3469,7 +3572,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/cheat-sheets/scripting/python-security.md"
+  "source": "h4cker/cheat-sheets/scripting/python-security.md",
+  "reasoning": "Cheatsheet: python security — Subdomain Enumeration. Contains 22 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3482,7 +3586,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a Windows User (joker):. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3495,7 +3600,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a user to the Administrators groups. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3508,7 +3614,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a user to the Remote Desktop user group. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3521,7 +3628,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Starting the Remote Desktop service. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3534,7 +3642,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Verifying if the Remote Desktop Service is active and running. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3547,7 +3656,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Permanently enable Terminal Services. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3560,7 +3670,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/post-exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Enabling Terminal services via the registry. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3573,7 +3684,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Reverse TCP Meterpreter Shell - Payload for Windows. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3586,7 +3698,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple HTTP Payload for Windows. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3599,7 +3712,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Shell for Linux. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3612,7 +3726,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Shell for Mac. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3625,7 +3740,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Payload for Android. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3638,7 +3754,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for PHP. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3651,7 +3768,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for ASP. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3664,7 +3782,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for Javascrip. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3677,7 +3796,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for WAR. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3690,7 +3810,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Lists all avalaible encoder. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3703,7 +3824,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Binds an exe with a Payload (Backdoors an exe). Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3716,7 +3838,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP payload with shikata_ga_nai encoder. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3729,7 +3852,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Binds an exe with a Payload and encodes it. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3782,7 +3906,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/post-exploitation/msfvenom.md"
+  "source": "h4cker/post-exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Getting a Metepreter Shell. Contains 9 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "exfil scapy",
@@ -3800,7 +3925,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/programming-and-scripting-for-cybersecurity/post_exploitation/exfil-scapy.md"
+  "source": "h4cker/programming-and-scripting-for-cybersecurity/post_exploitation/exfil-scapy.md",
+  "reasoning": "Cheatsheet: exfil scapy — Example of Exfiltration over IPv6 Using Scapy. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "exfil scapy",
@@ -3813,7 +3939,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/programming-and-scripting-for-cybersecurity/post_exploitation/exfil-scapy.md"
+  "source": "h4cker/programming-and-scripting-for-cybersecurity/post_exploitation/exfil-scapy.md",
+  "reasoning": "Cheatsheet: exfil scapy — tcpdump -s0 -l -X -i eth0 'ip6 and not icmp6'. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3826,7 +3953,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a Windows User (joker):. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3839,7 +3967,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a user to the Administrators groups. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3852,7 +3981,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Adding a user to the Remote Desktop user group. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3865,7 +3995,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Starting the Remote Desktop service. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3878,7 +4009,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Verifying if the Remote Desktop Service is active and running. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3891,7 +4023,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Permanently enable Terminal Services. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "misc windows post exploitation",
@@ -3904,7 +4037,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/misc-windows-post-exploitation.md",
+  "reasoning": "Cheatsheet: misc windows post exploitation — Enabling Terminal services via the registry. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3917,7 +4051,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Reverse TCP Meterpreter Shell - Payload for Windows. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3930,7 +4065,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple HTTP Payload for Windows. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3943,7 +4079,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Shell for Linux. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3956,7 +4093,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Shell for Mac. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3969,7 +4107,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP Payload for Android. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3982,7 +4121,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for PHP. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -3995,7 +4135,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for ASP. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4008,7 +4149,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for Javascrip. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4021,7 +4163,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a Simple TCP Shell for WAR. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4034,7 +4177,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Lists all avalaible encoder. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4047,7 +4191,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Binds an exe with a Payload (Backdoors an exe). Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4060,7 +4205,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Creates a simple TCP payload with shikata_ga_nai encoder. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4073,7 +4219,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Binds an exe with a Payload and encodes it. Contains 1 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "msfvenom",
@@ -4126,7 +4273,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md"
+  "source": "h4cker/temp/Ethical_Hacking/Post_Exploitation_and_Lateral_Movement/Persistence/post_exploitation/msfvenom.md",
+  "reasoning": "Cheatsheet: msfvenom — Getting a Metepreter Shell. Contains 9 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "exfil scapy",
@@ -4144,7 +4292,8 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Reconnaissance_and_Enumeration/Scripting_for_Recon_and_Enumeration/programming_and_scripting_for_cybersecurity/post_exploitation/exfil-scapy.md"
+  "source": "h4cker/temp/Ethical_Hacking/Reconnaissance_and_Enumeration/Scripting_for_Recon_and_Enumeration/programming_and_scripting_for_cybersecurity/post_exploitation/exfil-scapy.md",
+  "reasoning": "Cheatsheet: exfil scapy — Example of Exfiltration over IPv6 Using Scapy. Contains 2 commands. Reference during enumeration and exploitation phases."
  },
  {
   "tool_or_topic": "exfil scapy",
@@ -4157,6 +4306,7 @@
     "heading": ""
    }
   ],
-  "source": "h4cker/temp/Ethical_Hacking/Reconnaissance_and_Enumeration/Scripting_for_Recon_and_Enumeration/programming_and_scripting_for_cybersecurity/post_exploitation/exfil-scapy.md"
+  "source": "h4cker/temp/Ethical_Hacking/Reconnaissance_and_Enumeration/Scripting_for_Recon_and_Enumeration/programming_and_scripting_for_cybersecurity/post_exploitation/exfil-scapy.md",
+  "reasoning": "Cheatsheet: exfil scapy — tcpdump -s0 -l -X -i eth0 'ip6 and not icmp6'. Contains 1 commands. Reference during enumeration and exploitation phases."
  }
 ]

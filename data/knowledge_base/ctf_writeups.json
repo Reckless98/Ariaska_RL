@@ -137,7 +137,7 @@
    "ffuf-dir(){"
   ],
   "flag": "",
-  "reasoning": "",
+  "reasoning": "CTF writeup: my bash aliases. Category: misc. Tools used: if, ssm(){, alias, webdavup(){, wpscanz(){. Study the solution steps to learn attack methodology and creative problem-solving.",
   "source": "ctf_writeups/my_bash_aliases.md"
  },
  {

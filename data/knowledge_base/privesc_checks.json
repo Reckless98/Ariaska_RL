@@ -5,7 +5,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Token theft. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Configuration data leakage",
@@ -13,7 +14,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Configuration data leakage. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Environment variable dumping",
@@ -21,7 +23,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Environment variable dumping. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Credential reuse",
@@ -29,7 +32,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Credential reuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Token reuse",
@@ -37,7 +41,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Token reuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Configuration abuse",
@@ -45,7 +50,8 @@
   "commands": [
    "(env || printenv || set) 2>/dev/null | grep -Eiv \"$NoEnvVars\" | sed -${E} \"s,$EnvVarsRed,${SED_RED},g\" || echo_not_found \"env || set\""
   ],
-  "source": "peass_ng/10_Environment.sh"
+  "source": "peass_ng/10_Environment.sh",
+  "reasoning": "PEASS privesc check: Configuration abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Environment.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module loading",
@@ -54,7 +60,8 @@
    "if [ \"$(command -v dmesg 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then",
    "print_2title \"Searching Signature verification failed in dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module loading. Platform: linux. Runs 2 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module replacement",
@@ -64,7 +71,8 @@
    "print_2title \"Searching Signature verification failed in dmesg\"",
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module replacement. Platform: linux. Runs 3 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module modification",
@@ -75,7 +83,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
    "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module modification. Platform: linux. Runs 4 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Module signing bypass",
@@ -86,7 +95,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
    "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Module signing bypass. Platform: linux. Runs 4 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module injection",
@@ -97,7 +107,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
    "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module injection. Platform: linux. Runs 4 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module modification",
@@ -108,7 +119,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
    "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module modification. Platform: linux. Runs 4 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel module replacement",
@@ -119,7 +131,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#dmesg-signature-verification-failed\"",
    "(dmesg 2>/dev/null | grep \"signature\") || echo_not_found \"dmesg\""
   ],
-  "source": "peass_ng/11_Dmesg.sh"
+  "source": "peass_ng/11_Dmesg.sh",
+  "reasoning": "PEASS privesc check: Kernel module replacement. Platform: linux. Runs 4 check command(s). Source: peass_ng/11_Dmesg.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Gatekeeper bypass",
@@ -127,7 +140,8 @@
   "commands": [
    "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
   ],
-  "source": "peass_ng/12_Macos_os_checks.sh"
+  "source": "peass_ng/12_Macos_os_checks.sh",
+  "reasoning": "PEASS privesc check: Gatekeeper bypass. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Macos_os_checks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "System modification",
@@ -135,7 +149,8 @@
   "commands": [
    "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
   ],
-  "source": "peass_ng/12_Macos_os_checks.sh"
+  "source": "peass_ng/12_Macos_os_checks.sh",
+  "reasoning": "PEASS privesc check: System modification. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Macos_os_checks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel extension injection",
@@ -143,7 +158,8 @@
   "commands": [
    "kextstat 2>/dev/null | grep -Ev \" com.apple.\""
   ],
-  "source": "peass_ng/12_Macos_os_checks.sh"
+  "source": "peass_ng/12_Macos_os_checks.sh",
+  "reasoning": "PEASS privesc check: Kernel extension injection. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Macos_os_checks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Gatekeeper bypass",
@@ -153,7 +169,8 @@
    "macosNotSigned /Library/Extensions",
    "macosNotSigned /System/Library/Extensions"
   ],
-  "source": "peass_ng/12_Macos_os_checks.sh"
+  "source": "peass_ng/12_Macos_os_checks.sh",
+  "reasoning": "PEASS privesc check: Gatekeeper bypass. Platform: linux. Runs 3 check command(s). Source: peass_ng/12_Macos_os_checks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "System modification",
@@ -163,7 +180,8 @@
    "macosNotSigned /Library/Extensions",
    "macosNotSigned /System/Library/Extensions"
   ],
-  "source": "peass_ng/12_Macos_os_checks.sh"
+  "source": "peass_ng/12_Macos_os_checks.sh",
+  "reasoning": "PEASS privesc check: System modification. Platform: linux. Runs 3 check command(s). Source: peass_ng/12_Macos_os_checks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Authentication bypass",
@@ -173,7 +191,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Authentication bypass. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privilege escalation",
@@ -183,7 +202,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Privilege escalation. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Root access acquisition",
@@ -193,7 +213,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Root access acquisition. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Race condition exploitation",
@@ -203,7 +224,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Race condition exploitation. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Authentication bypass",
@@ -213,7 +235,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Authentication bypass. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privilege escalation",
@@ -223,7 +246,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: Privilege escalation. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "System compromise",
@@ -233,7 +257,8 @@
    "yum list installed 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)' || \\",
    "rpm -qa 2>/dev/null | grep -qE 'polkit.*\\(0\\.117-2\\|0\\.115-6\\|0\\.11[3-9]\\)'; then"
   ],
-  "source": "peass_ng/15_CVE_2021_3560.sh"
+  "source": "peass_ng/15_CVE_2021_3560.sh",
+  "reasoning": "PEASS privesc check: System compromise. Platform: linux. Runs 3 check command(s). Source: peass_ng/15_CVE_2021_3560.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) AppArmor",
@@ -245,7 +270,8 @@
    "apparmor_status 2>&1 | sed \"s,disabled,${SED_RED},\"",
    "elif [ \"$(ls -d /etc/apparmor* 2>/dev/null)\" ]; then"
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) AppArmor. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) AppArmor2",
@@ -257,7 +283,8 @@
    "(command -v paxctl-ng paxctl >/dev/null 2>&1 && echo \"Yes\" || echo_not_found \"PaX\")",
    "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) AppArmor2. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) LinuxONE",
@@ -269,7 +296,8 @@
    "(grep \"exec-shield\" /etc/sysctl.conf 2>/dev/null || echo_not_found \"Execshield\") | sed \"s,=0,${SED_RED},\"",
    "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) LinuxONE. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) grsecurity",
@@ -281,7 +309,8 @@
    "(sestatus 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\"",
    "([ \"$(grep Seccomp /proc/self/status 2>/dev/null | grep -v 0)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) grsecurity. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Execshield",
@@ -293,7 +322,8 @@
    "if [ \"$(cat /proc/self/uid_map 2>/dev/null)\" ]; then echo \"enabled\" | sed \"s,enabled,${SED_GREEN},\"; else echo \"disabled\" | sed \"s,disabled,${SED_RED},\"; fi",
    "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Execshield. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) SElinux",
@@ -305,7 +335,8 @@
    "print_sysctl_eq_zero \"unpriv_userns_clone? ........... \" \"/proc/sys/kernel/unprivileged_userns_clone\" \"unpriv_userns_clone\" \"$SED_GREEN\" \"$SED_RED\"",
    "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) SElinux. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Seccomp",
@@ -317,7 +348,8 @@
    "print_sysctl_eq_zero \"unpriv_bpf_disabled? ........... \" \"/proc/sys/kernel/unprivileged_bpf_disabled\" \"unpriv_bpf_disabled\" \"$SED_RED\" \"$SED_GREEN\"",
    "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Seccomp. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) AppArmor",
@@ -329,7 +361,8 @@
    "([ \"$(grep cgroup2 /proc/filesystems 2>/dev/null)\" ] && echo \"enabled\" || echo \"disabled\") | sed \"s,disabled,${SED_RED},\" | sed \"s,enabled,${SED_GREEN},\"",
    "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) AppArmor. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Unprivileged user namespaces",
@@ -341,7 +374,8 @@
    "print_sysctl_eq_zero \"kptr_restrict? ................. \" \"/proc/sys/kernel/kptr_restrict\" \"kptr_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
    "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Unprivileged user namespaces. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Unprivileged eBPF",
@@ -353,7 +387,8 @@
    "print_sysctl_eq_zero \"dmesg_restrict? ................ \" \"/proc/sys/kernel/dmesg_restrict\" \"dmesg_restrict\" \"$SED_RED\" \"$SED_GREEN\"",
    "print_sysctl_eq_zero \"ptrace_scope? .................. \" \"/proc/sys/kernel/yama/ptrace_scope\" \"ptrace_scope\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Unprivileged eBPF. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) cgroup2",
@@ -365,7 +400,8 @@
    "print_sysctl_eq_zero \"ptrace_scope? .................. \" \"/proc/sys/kernel/yama/ptrace_scope\" \"ptrace_scope\" \"$SED_RED\" \"$SED_GREEN\"",
    "print_sysctl_eq_zero \"protected_symlinks? ............ \" \"/proc/sys/fs/protected_symlinks\" \"protected_symlinks\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) cgroup2. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Kernel hardening sysctls",
@@ -377,7 +413,8 @@
    "print_sysctl_eq_zero \"protected_symlinks? ............ \" \"/proc/sys/fs/protected_symlinks\" \"protected_symlinks\" \"$SED_RED\" \"$SED_GREEN\"",
    "print_sysctl_eq_zero \"protected_hardlinks? ........... \" \"/proc/sys/fs/protected_hardlinks\" \"protected_hardlinks\" \"$SED_RED\" \"$SED_GREEN\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Kernel hardening sysctls. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Kernel hardening config flags",
@@ -389,7 +426,8 @@
    "zcat /proc/config.gz 2>/dev/null | grep -E 'CONFIG_RANDOMIZE_BASE|CONFIG_STACKPROTECTOR|CONFIG_SLAB_FREELIST_|CONFIG_KASAN'",
    "(spctl --status 2>/dev/null || echo_not_found \"sestatus\") | sed \"s,disabled,${SED_RED},\""
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Kernel hardening config flags. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Gatekeeper",
@@ -401,7 +439,8 @@
    "csrutil status | sed \"s,enabled,${SED_GREEN},\" | sed \"s,enabled,${SED_GREEN},\" | sed \"s,disabled,${SED_RED},\" || echo_no",
    "diskutil apfs list | grep \"Snapshot Sealed\" | awk -F: '{print $2}' | tr -d '[:space:]' | sed \"s,Yes,${SED_GREEN},\" | sed \"s,No,${SED_RED},\" || echo_not_found"
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Gatekeeper. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Printer",
@@ -413,7 +452,8 @@
    "detectedvirt=$(systemd-detect-virt)",
    "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes ($detectedvirt)\"$NC; else printf $GREEN\"No\"$NC; fi"
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Printer. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SY) Running in a virtual environment",
@@ -425,7 +465,8 @@
    "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes ($detectedvirt)\"$NC; else printf $GREEN\"No\"$NC; fi",
    "if [ \"$hypervisorflag\" ]; then printf $RED\"Yes\"$NC; else printf $GREEN\"No\"$NC; fi"
   ],
-  "source": "peass_ng/16_Protections.sh"
+  "source": "peass_ng/16_Protections.sh",
+  "reasoning": "PEASS privesc check: SY) Running in a virtual environment. Platform: linux. Runs 5 check command(s). Source: peass_ng/16_Protections.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Missing kernel module signing requirements",
@@ -433,7 +474,8 @@
   "commands": [
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/17_Kernel_Modules.sh"
+  "source": "peass_ng/17_Kernel_Modules.sh",
+  "reasoning": "PEASS privesc check: Missing kernel module signing requirements. Platform: linux. Runs 1 check command(s). Source: peass_ng/17_Kernel_Modules.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Exploitation methods:",
@@ -441,7 +483,8 @@
   "commands": [
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/17_Kernel_Modules.sh"
+  "source": "peass_ng/17_Kernel_Modules.sh",
+  "reasoning": "PEASS privesc check: Exploitation methods:. Platform: linux. Runs 1 check command(s). Source: peass_ng/17_Kernel_Modules.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Highlights kernels built without CONFIG_POSIX_CPU_TIMERS_TASK_WORK",
@@ -449,7 +492,8 @@
   "commands": [
    "gsub(/[^0-9].*/, \"\", val)"
   ],
-  "source": "peass_ng/18_CVE_2025_38352.sh"
+  "source": "peass_ng/18_CVE_2025_38352.sh",
+  "reasoning": "PEASS privesc check: Highlights kernels built without CONFIG_POSIX_CPU_TIMERS_TASK_WORK. Platform: linux. Runs 1 check command(s). Source: peass_ng/18_CVE_2025_38352.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Flags 6.12.x builds older than the fix commit f90fff1e152dedf52b932240ebbd670d83330eca (first shipped in 6.12.34)",
@@ -457,7 +501,8 @@
   "commands": [
    "gsub(/[^0-9].*/, \"\", val)"
   ],
-  "source": "peass_ng/18_CVE_2025_38352.sh"
+  "source": "peass_ng/18_CVE_2025_38352.sh",
+  "reasoning": "PEASS privesc check: Flags 6.12.x builds older than the fix commit f90fff1e152dedf52b932240ebbd670d83330eca (first shipped in 6.12.34). Platform: linux. Runs 1 check command(s). Source: peass_ng/18_CVE_2025_38352.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Provides quick risk scoring so operators can decide whether to attempt the publicly available PoC",
@@ -465,7 +510,8 @@
   "commands": [
    "gsub(/[^0-9].*/, \"\", val)"
   ],
-  "source": "peass_ng/18_CVE_2025_38352.sh"
+  "source": "peass_ng/18_CVE_2025_38352.sh",
+  "reasoning": "PEASS privesc check: Provides quick risk scoring so operators can decide whether to attempt the publicly available PoC. Platform: linux. Runs 1 check command(s). Source: peass_ng/18_CVE_2025_38352.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Core requirements for exploitation:",
@@ -473,7 +519,8 @@
   "commands": [
    "gsub(/[^0-9].*/, \"\", val)"
   ],
-  "source": "peass_ng/18_CVE_2025_38352.sh"
+  "source": "peass_ng/18_CVE_2025_38352.sh",
+  "reasoning": "PEASS privesc check: Core requirements for exploitation:. Platform: linux. Runs 1 check command(s). Source: peass_ng/18_CVE_2025_38352.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "OS version exploits",
@@ -481,7 +528,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\""
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: OS version exploits. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Distribution-specific vulnerabilities",
@@ -490,7 +538,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Distribution-specific vulnerabilities. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Architecture-specific exploits",
@@ -499,7 +548,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Architecture-specific exploits. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel version exploits",
@@ -508,7 +558,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Kernel version exploits. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Version-specific payloads",
@@ -517,7 +568,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Version-specific payloads. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Distribution-specific attacks",
@@ -526,7 +578,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Distribution-specific attacks. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Architecture-specific techniques",
@@ -535,7 +588,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Architecture-specific techniques. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel exploitation",
@@ -544,7 +598,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#kernel-exploits\"",
    "(cat /proc/version || uname -a ) 2>/dev/null | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_1,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_2,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_3,${SED_RED_YELLOW},\" | sed -${E} \"s,$kernelDCW_Ubuntu_Precise_4,${SED_RED_YELLOW},\" | s"
   ],
-  "source": "peass_ng/1_Operative_system.sh"
+  "source": "peass_ng/1_Operative_system.sh",
+  "reasoning": "PEASS privesc check: Kernel exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/1_Operative_system.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Exploitation methods:",
@@ -552,7 +607,8 @@
   "commands": [
    "if [ \"$(command -v sudo 2>/dev/null || echo -n '')\" ]; then"
   ],
-  "source": "peass_ng/2_Sudo_version.sh"
+  "source": "peass_ng/2_Sudo_version.sh",
+  "reasoning": "PEASS privesc check: Exploitation methods:. Platform: linux. Runs 1 check command(s). Source: peass_ng/2_Sudo_version.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Heap overflow exploitation",
@@ -563,7 +619,8 @@
    "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
    "else echo_not_found \"sudo\""
   ],
-  "source": "peass_ng/2_Sudo_version.sh"
+  "source": "peass_ng/2_Sudo_version.sh",
+  "reasoning": "PEASS privesc check: Heap overflow exploitation. Platform: linux. Runs 4 check command(s). Source: peass_ng/2_Sudo_version.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Race conditions",
@@ -574,7 +631,8 @@
    "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
    "else echo_not_found \"sudo\""
   ],
-  "source": "peass_ng/2_Sudo_version.sh"
+  "source": "peass_ng/2_Sudo_version.sh",
+  "reasoning": "PEASS privesc check: Race conditions. Platform: linux. Runs 4 check command(s). Source: peass_ng/2_Sudo_version.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Memory corruption",
@@ -585,7 +643,8 @@
    "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
    "else echo_not_found \"sudo\""
   ],
-  "source": "peass_ng/2_Sudo_version.sh"
+  "source": "peass_ng/2_Sudo_version.sh",
+  "reasoning": "PEASS privesc check: Memory corruption. Platform: linux. Runs 4 check command(s). Source: peass_ng/2_Sudo_version.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Command injection",
@@ -596,7 +655,8 @@
    "sudo -V 2>/dev/null | grep \"Sudo ver\" | sed -${E} \"s,$sudovB,${SED_RED},\"",
    "else echo_not_found \"sudo\""
   ],
-  "source": "peass_ng/2_Sudo_version.sh"
+  "source": "peass_ng/2_Sudo_version.sh",
+  "reasoning": "PEASS privesc check: Command injection. Platform: linux. Runs 4 check command(s). Source: peass_ng/2_Sudo_version.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus method call injection",
@@ -605,7 +665,8 @@
    "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\""
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: D-Bus method call injection. Platform: linux. Runs 2 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "PolicyKit authentication bypass",
@@ -614,7 +675,8 @@
    "if (busctl list 2>/dev/null | grep -q com.ubuntu.USBCreator) || [ \"$DEBUG\" ]; then",
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\""
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: PolicyKit authentication bypass. Platform: linux. Runs 2 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Command execution through USB creation",
@@ -624,7 +686,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/d-bus-enumeration-and-command-injection-privilege-escalation.html\"",
    "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")"
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: Command execution through USB creation. Platform: linux. Runs 3 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus method spoofing",
@@ -635,7 +698,8 @@
    "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
    "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: D-Bus method spoofing. Platform: linux. Runs 4 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "PolicyKit privilege escalation",
@@ -646,7 +710,8 @@
    "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
    "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: PolicyKit privilege escalation. Platform: linux. Runs 4 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "USB device creation abuse",
@@ -657,7 +722,8 @@
    "pc_version=$(dpkg -l 2>/dev/null | grep policykit-desktop-privileges | grep -oP \"[0-9][0-9a-zA-Z\\.]+\")",
    "pc_version=$(apt-cache policy policykit-desktop-privileges 2>/dev/null | grep -oP \"\\*\\*\\*.*\" | cut -d\" \" -f2)"
   ],
-  "source": "peass_ng/3_USBCreator.sh"
+  "source": "peass_ng/3_USBCreator.sh",
+  "reasoning": "PEASS privesc check: USB device creation abuse. Platform: linux. Runs 4 check command(s). Source: peass_ng/3_USBCreator.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Replace common binaries (ls, cat, etc.)",
@@ -665,7 +731,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Replace common binaries (ls, cat, etc.). Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Create malicious executables with common names",
@@ -673,7 +740,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Create malicious executables with common names. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Abuse sudo PATH inheritance",
@@ -681,7 +749,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Abuse sudo PATH inheritance. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Binary replacement",
@@ -689,7 +758,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Binary replacement. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Symbolic link attacks",
@@ -697,7 +767,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Symbolic link attacks. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "PATH manipulation",
@@ -705,7 +776,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: PATH manipulation. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Sudo PATH abuse",
@@ -713,7 +785,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#writable-path-abuses\""
   ],
-  "source": "peass_ng/4_Path.sh"
+  "source": "peass_ng/4_Path.sh",
+  "reasoning": "PEASS privesc check: Sudo PATH abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/4_Path.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Time-of-check to time-of-use (TOCTOU)",
@@ -721,7 +794,8 @@
   "commands": [
    "warn_exec date 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Time-of-check to time-of-use (TOCTOU). Platform: linux. Runs 1 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Scheduled task abuse",
@@ -730,7 +804,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Scheduled task abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Cron job timing",
@@ -739,7 +814,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Cron job timing. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Race condition exploitation",
@@ -748,7 +824,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Race condition exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "TOCTOU attacks",
@@ -757,7 +834,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: TOCTOU attacks. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Scheduled task manipulation",
@@ -766,7 +844,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Scheduled task manipulation. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Cron job abuse",
@@ -775,7 +854,8 @@
    "warn_exec date 2>/dev/null",
    "warn_exec uptime 2>/dev/null"
   ],
-  "source": "peass_ng/5_Date.sh"
+  "source": "peass_ng/5_Date.sh",
+  "reasoning": "PEASS privesc check: Cron job abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Date.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Spectre/Meltdown exploitation",
@@ -783,7 +863,8 @@
   "commands": [
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: Spectre/Meltdown exploitation. Platform: linux. Runs 1 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "CPU feature abuse",
@@ -791,7 +872,8 @@
   "commands": [
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: CPU feature abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Architecture-specific attacks",
@@ -800,7 +882,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: Architecture-specific attacks. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "CPU timing attacks",
@@ -809,7 +892,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: CPU timing attacks. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Side-channel attacks",
@@ -818,7 +902,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: Side-channel attacks. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "CPU feature exploitation",
@@ -827,7 +912,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: CPU feature exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Architecture-specific techniques",
@@ -836,7 +922,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: Architecture-specific techniques. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "CPU timing exploitation",
@@ -845,7 +932,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "warn_exec lscpu 2>/dev/null"
   ],
-  "source": "peass_ng/6_CPU_info.sh"
+  "source": "peass_ng/6_CPU_info.sh",
+  "reasoning": "PEASS privesc check: CPU timing exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/6_CPU_info.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Mount point modification",
@@ -853,7 +941,8 @@
   "commands": [
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Mount point modification. Platform: linux. Runs 1 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Filesystem remounting",
@@ -861,7 +950,8 @@
   "commands": [
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Filesystem remounting. Platform: linux. Runs 1 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Mount option abuse",
@@ -869,7 +959,8 @@
   "commands": [
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Mount option abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Shared mount exploitation",
@@ -878,7 +969,8 @@
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
    "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Shared mount exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Mount point manipulation",
@@ -887,7 +979,8 @@
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
    "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Mount point manipulation. Platform: linux. Runs 2 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Filesystem remounting",
@@ -896,7 +989,8 @@
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
    "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Filesystem remounting. Platform: linux. Runs 2 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Mount option exploitation",
@@ -905,7 +999,8 @@
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
    "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Mount option exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Shared mount abuse",
@@ -914,7 +1009,8 @@
    "if [ -f \"/etc/fstab\" ] || [ \"$DEBUG\" ]; then",
    "grep -v \"^#\" /etc/fstab 2>/dev/null | grep -Ev \"\\W+\\#|^#\" | sed -${E} \"s,$mountG,${SED_GREEN},g\" | sed -${E} \"s,$notmounted,${SED_RED},g\" | sed -${E} \"s%$mounted%${SED_BLUE}%g\" | sed -${E} \"s,$Wfolders,${SED_RED},\" | sed -${E} \"s,$mountpermsB,${SED_RED},g\" | sed -${E} \"s,$mountpermsG,${SED_GREEN},g\""
   ],
-  "source": "peass_ng/7_Mounts.sh"
+  "source": "peass_ng/7_Mounts.sh",
+  "reasoning": "PEASS privesc check: Shared mount abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/7_Mounts.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Disk device modification",
@@ -922,7 +1018,8 @@
   "commands": [
    "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Disk device modification. Platform: linux. Runs 1 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SMB share abuse",
@@ -931,7 +1028,8 @@
    "if [ -d \"/dev\" ] || [ \"$DEBUG\" ] ; then",
    "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\""
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: SMB share abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Storage device access",
@@ -941,7 +1039,8 @@
    "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Storage device access. Platform: linux. Runs 3 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Shared disk exploitation",
@@ -951,7 +1050,8 @@
    "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Shared disk exploitation. Platform: linux. Runs 3 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Disk device manipulation",
@@ -961,7 +1061,8 @@
    "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Disk device manipulation. Platform: linux. Runs 3 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SMB share exploitation",
@@ -971,7 +1072,8 @@
    "print_2title \"Any sd*/disk* disk in /dev? (limit 20)\"",
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: SMB share exploitation. Platform: linux. Runs 3 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Storage device abuse",
@@ -982,7 +1084,8 @@
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20",
    "if [ \"$(command -v smbutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Storage device abuse. Platform: linux. Runs 4 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Shared disk access",
@@ -993,7 +1096,8 @@
    "ls /dev 2>/dev/null | grep -Ei \"^sd|^disk\" | sed \"s,crypt,${SED_RED},\" | head -n 20",
    "if [ \"$(command -v smbutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/8_Disks.sh"
+  "source": "peass_ng/8_Disks.sh",
+  "reasoning": "PEASS privesc check: Shared disk access. Platform: linux. Runs 4 check command(s). Source: peass_ng/8_Disks.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Disk space exhaustion",
@@ -1001,7 +1105,8 @@
   "commands": [
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Disk space exhaustion. Platform: linux. Runs 1 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Resource starvation",
@@ -1009,7 +1114,8 @@
   "commands": [
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Resource starvation. Platform: linux. Runs 1 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Storage device abuse",
@@ -1017,7 +1123,8 @@
   "commands": [
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Storage device abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "System resource manipulation",
@@ -1025,7 +1132,8 @@
   "commands": [
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: System resource manipulation. Platform: linux. Runs 1 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Resource exhaustion",
@@ -1033,7 +1141,8 @@
   "commands": [
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Resource exhaustion. Platform: linux. Runs 1 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Storage device exploitation",
@@ -1042,7 +1151,8 @@
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then",
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Storage device exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "System resource abuse",
@@ -1051,7 +1161,8 @@
    "if ([ \"$(command -v diskutil 2>/dev/null || echo -n '')\" ] || [ \"$DEBUG\" ]) && [ \"$EXTRA_CHECKS\" ]; then",
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then"
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: System resource abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Resource-based attacks",
@@ -1061,7 +1172,8 @@
    "if [ \"$EXTRA_CHECKS\" ] || [ \"$DEBUG\" ]; then",
    "(df -h || lsblk) 2>/dev/null || echo_not_found \"df and lsblk\""
   ],
-  "source": "peass_ng/9_Disks_extra.sh"
+  "source": "peass_ng/9_Disks_extra.sh",
+  "reasoning": "PEASS privesc check: Resource-based attacks. Platform: linux. Runs 3 check command(s). Source: peass_ng/9_Disks_extra.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Exploitation methods:",
@@ -1069,7 +1181,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Exploitation methods:. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Runtime escape",
@@ -1077,7 +1190,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Runtime escape. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privilege escalation",
@@ -1085,7 +1199,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Privilege escalation. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container breakout",
@@ -1093,7 +1208,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Container breakout. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Tool misconfiguration abuse",
@@ -1101,7 +1217,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Tool misconfiguration abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privileged tool exploitation",
@@ -1109,7 +1226,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Privileged tool exploitation. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container escape tool usage",
@@ -1117,7 +1235,8 @@
   "commands": [
    "print_2title \"Container related tools present (if any):\""
   ],
-  "source": "peass_ng/1_Container_tools.sh"
+  "source": "peass_ng/1_Container_tools.sh",
+  "reasoning": "PEASS privesc check: Container escape tool usage. Platform: linux. Runs 1 check command(s). Source: peass_ng/1_Container_tools.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Runtime escape",
@@ -1125,7 +1244,8 @@
   "commands": [
    "print_2title \"Container details\""
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Runtime escape. Platform: linux. Runs 1 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privilege escalation",
@@ -1133,7 +1253,8 @@
   "commands": [
    "print_2title \"Container details\""
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Privilege escalation. Platform: linux. Runs 1 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container breakout",
@@ -1141,7 +1262,8 @@
   "commands": [
    "print_2title \"Container details\""
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Container breakout. Platform: linux. Runs 1 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Network escape",
@@ -1150,7 +1272,8 @@
    "print_2title \"Container details\"",
    "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Network escape. Platform: linux. Runs 2 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container misconfiguration abuse",
@@ -1159,7 +1282,8 @@
    "print_2title \"Container details\"",
    "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Container misconfiguration abuse. Platform: linux. Runs 2 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Privileged container exploitation",
@@ -1168,7 +1292,8 @@
    "print_2title \"Container details\"",
    "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then"
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Privileged container exploitation. Platform: linux. Runs 2 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container API abuse",
@@ -1178,7 +1303,8 @@
    "if [ -e \"/proc/vz\" ] && ! [ -e \"/proc/bc\" ]; then",
    "if [ -f \"/run/systemd/container\" ]; then"
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Container API abuse. Platform: linux. Runs 3 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Network escape techniques",
@@ -1189,7 +1315,8 @@
    "if [ -f \"/run/systemd/container\" ]; then",
    "print_list \"Systemd Container ..............$NC $(cat /run/systemd/container)\""
   ],
-  "source": "peass_ng/3_Container_details.sh"
+  "source": "peass_ng/3_Container_details.sh",
+  "reasoning": "PEASS privesc check: Network escape techniques. Platform: linux. Runs 4 check command(s). Source: peass_ng/3_Container_details.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Mount point abuse",
@@ -1197,7 +1324,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\""
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Mount point abuse. Platform: linux. Runs 1 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Capability escalation",
@@ -1205,7 +1333,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\""
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Capability escalation. Platform: linux. Runs 1 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Namespace escape",
@@ -1214,7 +1343,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/docker-security/docker-breakout-privilege-escalation/index.html\"",
    "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\""
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Namespace escape. Platform: linux. Runs 2 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Runtime exploitation",
@@ -1224,7 +1354,8 @@
    "print_list \"Container ID ...................$NC $(cat /etc/hostname && echo -n '\\n')\"",
    "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then"
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Runtime exploitation. Platform: linux. Runs 3 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Kernel exploitation",
@@ -1235,7 +1366,8 @@
    "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then",
    "print_list \"Container Full ID ..............$NC $(basename $(cat /proc/1/cpuset))\\n\""
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Kernel exploitation. Platform: linux. Runs 4 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Container escape tool execution",
@@ -1246,7 +1378,8 @@
    "if [ -f \"/proc/1/cpuset\" ] && echo \"$containerType\" | grep -qi \"docker\"; then",
    "print_list \"Container Full ID ..............$NC $(basename $(cat /proc/1/cpuset))\\n\""
   ],
-  "source": "peass_ng/5_Container_breakout.sh"
+  "source": "peass_ng/5_Container_breakout.sh",
+  "reasoning": "PEASS privesc check: Container escape tool execution. Platform: linux. Runs 4 check command(s). Source: peass_ng/5_Container_breakout.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Services running as root that could be exploited",
@@ -1254,7 +1387,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
   ],
-  "source": "peass_ng/11_Systemd.sh"
+  "source": "peass_ng/11_Systemd.sh",
+  "reasoning": "PEASS privesc check: Services running as root that could be exploited. Platform: linux. Runs 1 check command(s). Source: peass_ng/11_Systemd.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Services with dangerous capabilities that could be abused",
@@ -1262,7 +1396,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
   ],
-  "source": "peass_ng/11_Systemd.sh"
+  "source": "peass_ng/11_Systemd.sh",
+  "reasoning": "PEASS privesc check: Services with dangerous capabilities that could be abused. Platform: linux. Runs 1 check command(s). Source: peass_ng/11_Systemd.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Services with writable paths that could be used to inject malicious code",
@@ -1270,7 +1405,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
   ],
-  "source": "peass_ng/11_Systemd.sh"
+  "source": "peass_ng/11_Systemd.sh",
+  "reasoning": "PEASS privesc check: Services with writable paths that could be used to inject malicious code. Platform: linux. Runs 1 check command(s). Source: peass_ng/11_Systemd.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Exploitation methods:",
@@ -1278,7 +1414,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#systemd-path---relative-paths\""
   ],
-  "source": "peass_ng/11_Systemd.sh"
+  "source": "peass_ng/11_Systemd.sh",
+  "reasoning": "PEASS privesc check: Exploitation methods:. Platform: linux. Runs 1 check command(s). Source: peass_ng/11_Systemd.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Writable socket files",
@@ -1286,7 +1423,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/12_Socket_files.sh"
+  "source": "peass_ng/12_Socket_files.sh",
+  "reasoning": "PEASS privesc check: Writable socket files. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Socket_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket files executing writable binaries",
@@ -1294,7 +1432,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/12_Socket_files.sh"
+  "source": "peass_ng/12_Socket_files.sh",
+  "reasoning": "PEASS privesc check: Socket files executing writable binaries. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Socket_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket files with writable listeners",
@@ -1302,7 +1441,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/12_Socket_files.sh"
+  "source": "peass_ng/12_Socket_files.sh",
+  "reasoning": "PEASS privesc check: Socket files with writable listeners. Platform: linux. Runs 1 check command(s). Source: peass_ng/12_Socket_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket files with relative paths",
@@ -1311,7 +1451,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\"",
    "/*) return 1 ;; # Absolute path"
   ],
-  "source": "peass_ng/12_Socket_files.sh"
+  "source": "peass_ng/12_Socket_files.sh",
+  "reasoning": "PEASS privesc check: Socket files with relative paths. Platform: linux. Runs 2 check command(s). Source: peass_ng/12_Socket_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket files with unsafe configurations",
@@ -1320,7 +1461,8 @@
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\"",
    "/*) return 1 ;; # Absolute path"
   ],
-  "source": "peass_ng/12_Socket_files.sh"
+  "source": "peass_ng/12_Socket_files.sh",
+  "reasoning": "PEASS privesc check: Socket files with unsafe configurations. Platform: linux. Runs 2 check command(s). Source: peass_ng/12_Socket_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Listening Unix sockets",
@@ -1328,7 +1470,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/13_Unix_sockets_listening.sh"
+  "source": "peass_ng/13_Unix_sockets_listening.sh",
+  "reasoning": "PEASS privesc check: Listening Unix sockets. Platform: linux. Runs 1 check command(s). Source: peass_ng/13_Unix_sockets_listening.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket file permissions",
@@ -1336,7 +1479,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/13_Unix_sockets_listening.sh"
+  "source": "peass_ng/13_Unix_sockets_listening.sh",
+  "reasoning": "PEASS privesc check: Socket file permissions. Platform: linux. Runs 1 check command(s). Source: peass_ng/13_Unix_sockets_listening.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket ownership",
@@ -1344,7 +1488,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/13_Unix_sockets_listening.sh"
+  "source": "peass_ng/13_Unix_sockets_listening.sh",
+  "reasoning": "PEASS privesc check: Socket ownership. Platform: linux. Runs 1 check command(s). Source: peass_ng/13_Unix_sockets_listening.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket connectivity",
@@ -1352,7 +1497,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/13_Unix_sockets_listening.sh"
+  "source": "peass_ng/13_Unix_sockets_listening.sh",
+  "reasoning": "PEASS privesc check: Socket connectivity. Platform: linux. Runs 1 check command(s). Source: peass_ng/13_Unix_sockets_listening.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Socket protocol analysis",
@@ -1360,7 +1506,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#sockets\""
   ],
-  "source": "peass_ng/13_Unix_sockets_listening.sh"
+  "source": "peass_ng/13_Unix_sockets_listening.sh",
+  "reasoning": "PEASS privesc check: Socket protocol analysis. Platform: linux. Runs 1 check command(s). Source: peass_ng/13_Unix_sockets_listening.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Service Objects enumeration",
@@ -1368,7 +1515,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Service Objects enumeration. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Service Object permissions and ownership",
@@ -1376,7 +1524,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Service Object permissions and ownership. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Configuration files analysis",
@@ -1384,7 +1533,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Configuration files analysis. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Policy analysis",
@@ -1392,7 +1542,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Policy analysis. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Method and Interface analysis",
@@ -1400,7 +1551,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Method and Interface analysis. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "D-Bus Privilege Escalation Vectors",
@@ -1408,7 +1560,8 @@
   "commands": [
    "print_info \"https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#d-bus\""
   ],
-  "source": "peass_ng/14_DBus_analysis.sh"
+  "source": "peass_ng/14_DBus_analysis.sh",
+  "reasoning": "PEASS privesc check: D-Bus Privilege Escalation Vectors. Platform: linux. Runs 1 check command(s). Source: peass_ng/14_DBus_analysis.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Root-run Crontab UI exposed on localhost",
@@ -1418,7 +1571,8 @@
    "if command -v systemctl >/dev/null 2>&1; then",
    "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
   ],
-  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh",
+  "reasoning": "PEASS privesc check: Root-run Crontab UI exposed on localhost. Platform: linux. Runs 3 check command(s). Source: peass_ng/16_Crontab_UI_misconfig.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Basic-Auth credentials in systemd Environment= (BASIC_AUTH_USER/PWD)",
@@ -1428,7 +1582,8 @@
    "if command -v systemctl >/dev/null 2>&1; then",
    "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
   ],
-  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh",
+  "reasoning": "PEASS privesc check: Basic-Auth credentials in systemd Environment= (BASIC_AUTH_USER/PWD). Platform: linux. Runs 3 check command(s). Source: peass_ng/16_Crontab_UI_misconfig.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "Cron DB path (CRON_DB_PATH) and weak permissions / embedded secrets in jobs",
@@ -1438,7 +1593,8 @@
    "if command -v systemctl >/dev/null 2>&1; then",
    "candidates=$(systemctl list-units --type=service --all 2>/dev/null | awk '{print $1}' | grep -Ei '^crontab-ui\\.service$' 2>/dev/null)"
   ],
-  "source": "peass_ng/16_Crontab_UI_misconfig.sh"
+  "source": "peass_ng/16_Crontab_UI_misconfig.sh",
+  "reasoning": "PEASS privesc check: Cron DB path (CRON_DB_PATH) and weak permissions / embedded secrets in jobs. Platform: linux. Runs 3 check command(s). Source: peass_ng/16_Crontab_UI_misconfig.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SI) Mysql version",
@@ -1450,7 +1606,8 @@
    "print_list \"MySQL connection using default root/root ........... \"",
    "mysqlconnect=$(mysqladmin -uroot -proot version 2>/dev/null)"
   ],
-  "source": "peass_ng/Mysql.sh"
+  "source": "peass_ng/Mysql.sh",
+  "reasoning": "PEASS privesc check: SI) Mysql version. Platform: linux. Runs 5 check command(s). Source: peass_ng/Mysql.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SI) Mysql connection root/root",
@@ -1462,7 +1619,8 @@
    "else echo_no",
    "print_list \"MySQL connection using root/toor ................... \""
   ],
-  "source": "peass_ng/Mysql.sh"
+  "source": "peass_ng/Mysql.sh",
+  "reasoning": "PEASS privesc check: SI) Mysql connection root/root. Platform: linux. Runs 5 check command(s). Source: peass_ng/Mysql.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SI) Mysql connection root/toor",
@@ -1474,7 +1632,8 @@
    "else echo_no",
    "mysqlconnectnopass=$(mysqladmin -uroot version 2>/dev/null)"
   ],
-  "source": "peass_ng/Mysql.sh"
+  "source": "peass_ng/Mysql.sh",
+  "reasoning": "PEASS privesc check: SI) Mysql connection root/toor. Platform: linux. Runs 5 check command(s). Source: peass_ng/Mysql.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "SI) Mysql connection root/NOPASS",
@@ -1486,7 +1645,8 @@
    "else echo_no",
    "process_info=$(ps aux | grep '[m]ysqld' | head -n1)"
   ],
-  "source": "peass_ng/Mysql.sh"
+  "source": "peass_ng/Mysql.sh",
+  "reasoning": "PEASS privesc check: SI) Mysql connection root/NOPASS. Platform: linux. Runs 5 check command(s). Source: peass_ng/Mysql.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Hashes in passwd file",
@@ -1498,7 +1658,8 @@
    "elif [ -w \"/etc/pwd.db\" ]; then echo \"/etc/pwd.db is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\"",
    "elif [ -w \"/etc/master.passwd\" ]; then echo \"/etc/master.passwd is writable\" | sed -${E} \"s,.*,${SED_RED_YELLOW},\""
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Hashes in passwd file. Platform: linux. Runs 5 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Writable in passwd file",
@@ -1510,7 +1671,8 @@
    "else echo_no",
    "print_list \"Credentials in fstab/mtab? ........... \""
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Writable in passwd file. Platform: linux. Runs 5 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Credentials in fstab",
@@ -1522,7 +1684,8 @@
    "if [ \"$(cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null)\" ]; then cat /etc/shadow /etc/shadow- /etc/shadow~ /etc/gshadow /etc/gshadow- /etc/master.passwd /etc/spwd.db 2>/dev/null | sed -${E} \"s,.*,${SED_RED},\"",
    "else echo_no"
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Credentials in fstab. Platform: linux. Runs 5 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Read shadow files",
@@ -1534,7 +1697,8 @@
    "(for l in /var/db/dslocal/nodes/Default/users/*; do if [ -w \"$l\" ];then echo \"$l\"; possible_check=\"1\"; fi; done; if ! [ \"$possible_check\" ]; then echo_no; fi) 2>/dev/null || echo_no",
    "if [ -r \"/etc/security/opasswd\" ]; then cat /etc/security/opasswd 2>/dev/null || echo \"\""
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Read shadow files. Platform: linux. Runs 5 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Read opasswd file",
@@ -1546,7 +1710,8 @@
    "elif [ \"$(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -user $USER ')' -or '(' -perm -o=w ')' -or  '(' -perm -g=w -and '(' $wgroups ')' ')' ')' ')' 2>/dev/null)\" ]; then echo \"You have write privileges on $(find /etc/sysconfig/network-scripts/ '(' -not -type l -and '(' '(' -use",
    "else echo_no"
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Read opasswd file. Platform: linux. Runs 5 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) network-scripts",
@@ -1557,7 +1722,8 @@
    "else echo_no",
    "(ls -al /root/ 2>/dev/null | grep -vi \"total 0\") || echo_no"
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) network-scripts. Platform: linux. Runs 4 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IPF) Read root dir",
@@ -1565,7 +1731,8 @@
   "commands": [
    "(ls -al /root/ 2>/dev/null | grep -vi \"total 0\") || echo_no"
   ],
-  "source": "peass_ng/10_Read_creds_files.sh"
+  "source": "peass_ng/10_Read_creds_files.sh",
+  "reasoning": "PEASS privesc check: IPF) Read root dir. Platform: linux. Runs 1 check command(s). Source: peass_ng/10_Read_creds_files.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IF) Find possible files with passwords",
@@ -1574,7 +1741,8 @@
    "timeout 150 find $HOMESEARCH -exec grep -HnRiIE \"($pwd_in_variables1|$pwd_in_variables2|$pwd_in_variables3|$pwd_in_variables4|$pwd_in_variables5|$pwd_in_variables6|$pwd_in_variables7|$pwd_in_variables8|$pwd_in_variables9|$pwd_in_variables10|$pwd_in_variables11).*[=:].+\" '{}' \\; 2>/dev/null | sed '/^",
    "timeout 150 find /var/www $backup_folders_row /tmp /etc /mnt /private -exec grep -HnRiIE \"($pwd_in_variables1|$pwd_in_variables2|$pwd_in_variables3|$pwd_in_variables4|$pwd_in_variables5|$pwd_in_variables6|$pwd_in_variables7|$pwd_in_variables8|$pwd_in_variables9|$pwd_in_variables10|$pwd_in_variables1"
   ],
-  "source": "peass_ng/28_Files_with_passwords.sh"
+  "source": "peass_ng/28_Files_with_passwords.sh",
+  "reasoning": "PEASS privesc check: IF) Find possible files with passwords. Platform: linux. Runs 2 check command(s). Source: peass_ng/28_Files_with_passwords.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "IF) Find possible conf files with passwords",
@@ -1586,7 +1754,8 @@
    "if grep -qEiI 'passwd.*|creden.*|^kind:\\W?Secret|\\Wenv:|\\Wsecret:|\\WsecretName:|^kind:\\W?EncryptionConfiguration|\\-\\-encryption\\-provider\\-config' \"$f\" 2>/dev/null; then",
    "grep -HnEiIo 'passwd.*|creden.*|^kind:\\W?Secret|\\Wenv:|\\Wsecret:|\\WsecretName:|^kind:\\W?EncryptionConfiguration|\\-\\-encryption\\-provider\\-config' \"$f\" 2>/dev/null | sed -${E} \"s,[pP][aA][sS][sS][wW]|[cC][rR][eE][dD][eE][nN],${SED_RED},g\""
   ],
-  "source": "peass_ng/28_Files_with_passwords.sh"
+  "source": "peass_ng/28_Files_with_passwords.sh",
+  "reasoning": "PEASS privesc check: IF) Find possible conf files with passwords. Platform: linux. Runs 5 check command(s). Source: peass_ng/28_Files_with_passwords.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": "120‑second wall‑clock timeout",
@@ -1598,7 +1767,8 @@
    "( sleep 120 && kill -9 \"$cmdpid\" 2>/dev/null) &",
    "kill -9 \"$watcher\" 2>/dev/null"
   ],
-  "source": "peass_ng/execBin.sh"
+  "source": "peass_ng/execBin.sh",
+  "reasoning": "PEASS privesc check: 120‑second wall‑clock timeout. Platform: linux. Runs 5 check command(s). Source: peass_ng/execBin.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") Checks pre-everything (---------#",
@@ -1607,7 +1777,8 @@
    "if ([ -f /usr/bin/id ] && [ \"$(/usr/bin/id -u)\" -eq \"0\" ]) || [ \"`whoami 2>/dev/null`\" = \"root\" ]; then",
    "C=$(printf '\\033')"
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) Checks pre-everything (---------#. Platform: linux. Runs 2 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") Colors (----------------#",
@@ -1615,7 +1786,8 @@
   "commands": [
    "C=$(printf '\\033')"
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) Colors (----------------#. Platform: linux. Runs 1 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") Parsing parameters (----------#",
@@ -1625,7 +1797,8 @@
    "FAST=\"1\" #By default stealth/fast mode",
    "ROOT_FOLDER=\"/\""
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) Parsing parameters (----------#. Platform: linux. Runs 3 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") FAST - Do not check 1min of procceses and su brute",
@@ -1635,7 +1808,8 @@
    "FAST=\"1\" #By default stealth/fast mode",
    "ROOT_FOLDER=\"/\""
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) FAST - Do not check 1min of procceses and su brute. Platform: linux. Runs 3 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") SUPERFAST - FAST & do not search for special filaes in all the folders",
@@ -1646,7 +1820,8 @@
    "ROOT_FOLDER=\"/\"",
    "THREADS=\"$( ( (grep -c processor /proc/cpuinfo 2>/dev/null) || ( (command -v lscpu >/dev/null 2>&1) && (lscpu | grep '^CPU(s):' | awk '{print $2}')) || echo -n 2) | tr -d \"\\n\")\""
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) SUPERFAST - FAST & do not search for special filaes in all the folders. Platform: linux. Runs 4 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") Starting Output (-----------#",
@@ -1654,7 +1829,8 @@
   "commands": [
    "printf ${BLUE}\"Linux Privesc Checklist: ${YELLOW}https://book.hacktricks.wiki/en/linux-hardening/linux-privilege-escalation-checklist.html\\n\"$NC"
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) Starting Output (-----------#. Platform: linux. Runs 1 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  },
  {
   "check_name": ") Some Basic Info (-----------#",
@@ -1666,6 +1842,7 @@
    "FPING=$(command -v fping 2>/dev/null || echo -n '')",
    "PING=$(command -v ping 2>/dev/null || echo -n '')"
   ],
-  "source": "peass_ng/0_variables_base.sh"
+  "source": "peass_ng/0_variables_base.sh",
+  "reasoning": "PEASS privesc check: ) Some Basic Info (-----------#. Platform: linux. Runs 5 check command(s). Source: peass_ng/0_variables_base.sh. This automated check identifies potential privilege escalation vectors."
  }
 ]
