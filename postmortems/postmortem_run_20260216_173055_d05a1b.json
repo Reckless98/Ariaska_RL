@@ -1,0 +1,123 @@
+{
+  "run_id": "run_20260216_173055_d05a1b",
+  "timestamp": 1771259475.0598643,
+  "key_outcomes": {
+    "wins": [
+      "Achieved consistent intermediate reward (67.5) indicating partial completion of reconnaissance and foothold activities despite not completing the episode.",
+      "Executed 15 mentor calls, providing ample feedback loops to guide adjustments in strategy."
+    ],
+    "fails": [
+      "Failure to achieve final success in the single episode, leaving overall success rate at 0%.",
+      "High reliance on mentor calls suggests repeated uncertainty in attack progression and decision making."
+    ],
+    "summary": "The agent made measurable progress through reconnaissance stages but stalled before executing a successful exploit, requiring refinement of exploit sequencing and decision thresholds."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to escalate from reconnaissance into a successful exploit before episode timeout.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step10",
+        "ep001_step15",
+        "ep001_step20",
+        "ep001_step25"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 is open and HTTP service responds with server header",
+      "then_action": "Launch targeted Dirb scan and capture response headers for vulnerability hints",
+      "parameters_template": {
+        "port": 80,
+        "tool": "dirb",
+        "wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step11"
+      ],
+      "created_at": 1771259483.44713,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 443 is open and TLS fingerprint matches known vulnerable version",
+      "then_action": "Run SSLyze to enumerate supported ciphers and protocols",
+      "parameters_template": {
+        "port": 443,
+        "tool": "sslyze",
+        "modules": [
+          "certinfo",
+          "cipher_suites"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ],
+      "created_at": 1771259483.4471428,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port 22 is detected with generic banner",
+      "then_action": "Execute nmap ssh-brute and banner enumeration scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh-hostkey",
+          "ssh-brute"
+        ]
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step14"
+      ],
+      "created_at": 1771259483.447152,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward contribution via consistent enumeration of HTTP services."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Frequent detection of HTTPS services yields actionable TLS data."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate exploit chaining after reconnaissance",
+      "description": "After successful HTTP and SSH enumeration, immediately attempt the most promising exploit (e.g., HTTP RCE or SSH credential reuse) within the same episode to close the win.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency with decision thresholds",
+      "description": "Introduce heuristics triggering auto-continue when reward stagnates but reconnaissance has gathered sufficient data, lowering mentor calls.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate TLS vulnerability indicators",
+      "description": "Run automated checks against captured TLS fingerprints to decide whether to escalate to specific CVEs before attempting intrusive scans.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

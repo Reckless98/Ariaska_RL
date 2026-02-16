@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260216_173158_ffe32b",
+  "timestamp": 1771259525.5441453,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with full reward capture (40.00) indicating consistent scoring actions were executed."
+    ],
+    "fails": [
+      "Success rate remained at 0%, meaning critical objectives such as persistent access or flag capture were not achieved despite reward accumulation.",
+      "High mentor call volume (10) suggests repeated uncertainty or missteps in key decision points."
+    ],
+    "summary": "The run demonstrated execution capability but failed to translate actions into mission success; focus must shift to closing objectives rather than just accumulating reward."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to complete final objective after reconnaissance and initial exploitation phases.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When SSH port 22 is open and SSH banner leakage is detected",
+      "then_action": "Run targeted nmap SSH enumeration with ssh2-enum-algos and ssh-hostkey scripts",
+      "parameters_template": {
+        "ports": [
+          22
+        ],
+        "scripts": [
+          "ssh2-enum-algos",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1771259532.9093332,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_privilege_escalation_audit",
+      "if_condition": "When initial shell is obtained but privilege is low",
+      "then_action": "Collect sudoers, kernel version, systemd unit files, and compare with known CVEs; attempt privilege escalation exploits that match findings",
+      "parameters_template": {
+        "collections": [
+          "sudoers",
+          "uname -a",
+          "systemd unit status"
+        ],
+        "exploit_focus": "kernel/capability-mismatch CVEs"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771259532.9093418,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_persistence_detection",
+      "if_condition": "When persistence mechanisms are absent after exploitation",
+      "then_action": "Deploy scheduled task detection and hidden service enumeration, then establish encrypted reverse shell to surviving host",
+      "parameters_template": {
+        "tasks": [
+          "schtasks /query /fo LIST /v"
+        ],
+        "services": [
+          "sc query type= service state= all"
+        ]
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step18"
+      ],
+      "created_at": 1771259532.909347,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High reliability in information gathering stage for SSH targets"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_privilege_escalation_audit",
+      "skill_card_id": "skill_privilege_escalation_audit",
+      "reason": "Repeated failure to escalate privileges indicates prioritizing this skill will address key bottleneck"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Focus",
+      "description": "Execute the full kill chain end-to-end with emphasis on persistence and mission flag retrieval; reduce reward-only actions and verify each milestone against success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Dependency Reduction",
+      "description": "Create a checklist for frequent mentor inquiries (recon, exploit selection, post-exploitation) and validate it in a controlled run to reduce calls.",
+      "priority": "medium"
+    },
+    {
+      "title": "Privilege Escalation Path Exploration",
+      "description": "Systematically test local privilege escalation techniques identified from the audited kernel/configuration data to establish a reliable escalation strategy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

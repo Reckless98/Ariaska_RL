@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-core/observability/live_dashboard.py — ARIASKA Live Training Dashboard v4.0
+core/observability/live_dashboard.py — ARIASKA Live Training Dashboard v5.0
 
-Phase 10.2: Polished unified Rich terminal UI with algorithm visualization:
+Phase 11.0: Full Visibility upgrade with teaching annotations:
   • Per-agent commands with full output, reasoning, discoveries
   • ASCII sparkline reward trends across episodes
   • Phase progression timeline with kill chain bar
@@ -18,8 +18,14 @@ Phase 10.2: Polished unified Rich terminal UI with algorithm visualization:
   • Discovery board heatmap panel
   • Agent coordination matrix display
   • Enhanced run summary with algorithm trend analysis
+  ─── NEW in v5.0 (Phase 11.0) ───
+  • Teaching points inline annotations
+  • Budget pressure indicator with color-coded status
+  • Parse explanation annotations per discovery
+  • Phase ladder state display
+  • Unified step trace integration
 
-Author: Filip Volf — Phase 6.5 → Phase 10.2
+Author: Filip Volf — Phase 6.5 → Phase 11.0
 """
 
 import time
@@ -839,6 +845,11 @@ class LiveDashboard:
         discovery_board: Optional[Dict[str, Any]] = None,
         parser_stats: Optional[Dict[str, Any]] = None,
         reasoning_events: Optional[List[Dict[str, str]]] = None,
+        # Phase 11.0: New parameters
+        teaching_points: Optional[List[str]] = None,
+        budget_snapshot: Optional[Dict[str, Any]] = None,
+        parse_explanations: Optional[List[Dict[str, Any]]] = None,
+        phase_state: Optional[Dict[str, Any]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -1060,6 +1071,57 @@ class LiveDashboard:
                     qa_table.add_row(_agent, _q, _a)
                 console.print(f"  [bright_yellow]💬 LLM Communication:[/bright_yellow]")
                 console.print(qa_table)
+
+        # ── PHASE 11.0: TEACHING POINTS ──────────────────────────────
+        if teaching_points:
+            for tp in teaching_points[:3]:
+                console.print(f"  [bright_yellow]📚 Teaching:[/bright_yellow] [dim]{tp[:120]}[/dim]")
+
+        # ── PHASE 11.0: BUDGET PRESSURE ──────────────────────────────
+        if budget_snapshot:
+            pressure = budget_snapshot.get("budget_pressure", 0)
+            mentor_rem = budget_snapshot.get("mentor_remaining", 0)
+            mentor_tot = budget_snapshot.get("mentor_total", 0)
+            venice_rem = budget_snapshot.get("venice_remaining", 0)
+            if pressure > 0.8:
+                p_style = "bold red"
+                p_icon = "🔴"
+            elif pressure > 0.5:
+                p_style = "yellow"
+                p_icon = "🟡"
+            else:
+                p_style = "green"
+                p_icon = "🟢"
+            console.print(
+                f"  [{p_style}]{p_icon} Budget:[/{p_style}] "
+                f"[dim]pressure:{pressure:.0%} │ "
+                f"mentor:{mentor_rem}/{mentor_tot} │ "
+                f"venice:{venice_rem}[/dim]"
+            )
+
+        # ── PHASE 11.0: PARSE EXPLANATIONS ───────────────────────────
+        if parse_explanations:
+            for pe in parse_explanations[:3]:
+                stage = pe.get("stage", "?")
+                dtype = pe.get("discovery_type", "?")
+                dval = pe.get("discovery_value", "?")
+                reason = pe.get("reasoning", "")[:80]
+                console.print(
+                    f"  [dim]🔬 Parse ({stage}):[/dim] "
+                    f"[green]{dtype}={dval}[/green] [dim]{reason}[/dim]"
+                )
+
+        # ── PHASE 11.0: PHASE LADDER STATE ───────────────────────────
+        if phase_state:
+            steps_in = phase_state.get("steps_in_phase", 0)
+            min_req = phase_state.get("min_steps_required", 0)
+            tp = phase_state.get("teaching_point", "")
+            if min_req > 0 and steps_in < min_req:
+                console.print(
+                    f"  [yellow]🪜 Phase Ladder:[/yellow] "
+                    f"[dim]{steps_in}/{min_req} steps in {phase_state.get('current_phase', '?')}[/dim]"
+                    + (f" — [yellow]{tp[:80]}[/yellow]" if tp else "")
+                )
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()

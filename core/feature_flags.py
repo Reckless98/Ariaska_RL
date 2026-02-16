@@ -103,6 +103,16 @@ class FeatureFlags:
     payload_encoding: bool = field(
         default_factory=lambda: _env_bool("FF_PAYLOAD_ENCODING", False))
 
+    # ── Phase 11.0: Full Visibility & Step Discipline ───────────────
+    parser_mode: str = field(
+        default_factory=lambda: os.environ.get("FF_PARSER_MODE", "fast"))
+    strict_phase_ladder: bool = field(
+        default_factory=lambda: _env_bool("FF_STRICT_PHASE_LADDER", False))
+    adaptive_budget: bool = field(
+        default_factory=lambda: _env_bool("FF_ADAPTIVE_BUDGET", True))
+    learning_signal_export: bool = field(
+        default_factory=lambda: _env_bool("FF_LEARNING_SIGNAL_EXPORT", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()
@@ -182,9 +192,17 @@ def resolve_profile() -> str:
                     # Explicit env override says OFF — respect it
                     continue
                 setattr(_ff, flag, True)
+            # Phase 11.0: CLOUD profile gets full-parse mode by default
+            if not os.environ.get("FF_PARSER_MODE"):
+                _ff.parser_mode = "intelligent_fullparse"
         else:
             for flag in llm_flags:
                 setattr(_ff, flag, False)
+            # Phase 11.0: Non-cloud profiles stay in fast mode
+            if profile == "DETERMINISTIC":
+                _ff.strict_phase_ladder = False
+                _ff.adaptive_budget = False
+                _ff.learning_signal_export = False
 
     logger.info(f"[PROFILE] Resolved profile: {profile} "
                 f"(api_key={'yes' if has_api_key else 'no'}, "

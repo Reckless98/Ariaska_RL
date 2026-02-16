@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260216_173125_035085",
+  "timestamp": 1771259506.9066544,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a consistent reward signal (100.0) across the single episode, suggesting the policy explored the environment thoroughly before failure.",
+      "The agent requested mentor guidance 10 times, providing ample opportunities to collect feedback for future tuning."
+    ],
+    "fails": [
+      "Despite the high reward, the episode did not reach a success condition, indicating execution stalled before the success criterion could be verified.",
+      "Excessive mentor calls without convergence point to weak decision boundaries during critical actions (e.g., privilege escalation)."
+    ],
+    "summary": "Training run shows strong exploration (high reward) but zero success rate, signaling that the agent is performing actions without triggering the success condition; focus next on aligning actions with task success criteria."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent repeatedly attempts reconnaissance without translating findings into post-exploitation steps (e.g., multiple SSH banner reads but no privilege escalation).",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration with nmap scripts to capture versions and auth hints",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771259515.8092828,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_priv_escalation",
+      "if_condition": "When low-priv user shell is available but sudoers file accessible",
+      "then_action": "Audit sudo permissions and attempt controlled sudo escalate with no-password entries",
+      "parameters_template": {
+        "user": "current_user",
+        "command": "sudo -l"
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771259515.809295,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_capture_evidence",
+      "if_condition": "When agent identifies potential sensitive file (e.g., credentials.txt)",
+      "then_action": "Copy file to staging area and log hash for verification",
+      "parameters_template": {
+        "source": "/home/user/credentials.txt",
+        "destination": "/tmp/evidence"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step16"
+      ],
+      "created_at": 1771259515.809303,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High reward contributions during reconnaissance phase and consistent detection of SSH service."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_priv_escalation",
+      "skill_card_id": "skill_priv_escalation",
+      "reason": "Repeated attempts to escalate privileges indicate the skill can be tuned for success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Align post-exploitation with success criteria",
+      "description": "Force the agent to validate that captured credentials or escalated shells fulfill the explicit success metric (e.g., capture flag) before ending the episode.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor call dependency",
+      "description": "Limit mentor interventions during privilege escalation steps to encourage autonomous decision-making and refine failure detection heuristics.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reward shaping around success markers",
+      "description": "Introduce intermediate rewards for completing identifiable tasks (SSH enum, sudo enumeration, evidence collection) to better align policy gradients.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

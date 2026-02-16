@@ -1,0 +1,98 @@
+{
+  "run_id": "phase5_ep0000",
+  "timestamp": 1771257493.0780423,
+  "key_outcomes": {
+    "wins": [
+      "Achieved 100% success rate in the single episode",
+      "High total reward indicates effective policy execution",
+      "Zero mentor calls suggests autonomous completion"
+    ],
+    "fails": [],
+    "summary": "Strong single-episode performance with no observed failures; additional runs needed to validate consistency."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery returns at least one open TCP port",
+      "then_action": "Perform focused service enumeration on detected ports",
+      "parameters_template": {
+        "scan_type": "service_enumeration",
+        "timing": "balanced"
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep0000_step3"
+      ],
+      "created_at": 1771257503.9263468,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Run web fingerprinting and directory discovery",
+      "parameters_template": {
+        "fingerprinting": true,
+        "dir_discovery": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep0000_step6"
+      ],
+      "created_at": 1771257503.9263585,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When authentication prompt is encountered",
+      "then_action": "Collect credential-related hints and prioritize non-intrusive checks",
+      "parameters_template": {
+        "hint_collection": true,
+        "intrusive": false
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep0000_step8"
+      ],
+      "created_at": 1771257503.926366,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Effective early reconnaissance contributed to successful outcome"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a repeatable high-value step"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Stability Across Seeds",
+      "description": "Run 10+ episodes with varied seeds to confirm performance stability and variance in reward.",
+      "priority": "high"
+    },
+    {
+      "title": "Ablation of Recon Steps",
+      "description": "Disable specific reconnaissance actions to measure their marginal contribution to reward and success.",
+      "priority": "medium"
+    },
+    {
+      "title": "Time-Budget Sensitivity",
+      "description": "Evaluate performance under tighter time constraints to test efficiency of the decision policy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -408,6 +408,68 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("TargetProfiler", "warn", str(e)[:40]))
         
+        # ─── PHASE 11.0: ParserBroker v2.0 — dual-mode parsing pipeline ──
+        self.parser_broker = None
+        try:
+            from core.execution.parser_broker import ParserBroker
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            self.parser_broker = ParserBroker(
+                gpt_manager=gpt_manager,
+                venice=self.venice_reasoning,
+                enable_venice=True,
+                enable_gpt=True,
+                max_llm_calls_per_episode=20,
+                max_venice_calls_per_episode=15,
+                default_mode=_ff.parser_mode,
+            )
+            _init_modules.append(("ParserBroker", "ok", f"v2.0 mode={_ff.parser_mode}"))
+        except Exception as e:
+            _init_modules.append(("ParserBroker", "warn", str(e)[:40]))
+        
+        # ─── PHASE 11.0: AdaptiveBudgetController ──
+        self.budget_controller = None
+        try:
+            from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            if _ff.adaptive_budget:
+                self.budget_controller = AdaptiveBudgetController(
+                    config=BudgetConfig(
+                        mentor_budget_total=30,
+                        venice_budget_total=15,
+                        token_budget_total=50_000,
+                    )
+                )
+                _init_modules.append(("AdaptiveBudget", "ok", "adaptive pacing"))
+        except Exception as e:
+            _init_modules.append(("AdaptiveBudget", "warn", str(e)[:40]))
+        
+        # ─── PHASE 11.0: LearningSignalExporter ──
+        self.learning_exporter = None
+        try:
+            from core.telemetry.learning_signal_exporter import LearningSignalExporter
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            if _ff.learning_signal_export:
+                self.learning_exporter = LearningSignalExporter(
+                    run_id=getattr(self.config, 'run_id', ''),
+                    output_dir="logs",
+                    enabled=True,
+                )
+                _init_modules.append(("LearningExporter", "ok", "JSONL signals"))
+        except Exception as e:
+            _init_modules.append(("LearningExporter", "warn", str(e)[:40]))
+        
+        # ─── PHASE 11.0: ToolValidator ──
+        self.tool_validator = None
+        try:
+            from core.commands.tool_validator import ToolValidator
+            self.tool_validator = ToolValidator(check_availability=False)
+            _init_modules.append(("ToolValidator", "ok", "privilege checks"))
+        except Exception as e:
+            _init_modules.append(("ToolValidator", "warn", str(e)[:40]))
+        
         # Initialize agents
         self.agents: Dict[str, Any] = {}
         self._init_agents()
@@ -1238,6 +1300,15 @@ class SmartOrchestrator:
             except Exception as e:
                 logger.debug(f"Phase 10: ExecutiveCortex plan creation failed: {e}")
                 self._episode_plan = None
+        
+        # ─── PHASE 11.0: Reset per-episode controllers ───────────────
+        if self.budget_controller:
+            self.budget_controller.reset_episode(max_steps=max_steps)
+        if self.parser_broker:
+            self.parser_broker.reset_episode()
+        if self.learning_exporter:
+            self.learning_exporter.start_episode(episode_id=episode_number)
+        
         total_mentor_calls = 0
         
         for step in range(max_steps):
@@ -1268,6 +1339,21 @@ class SmartOrchestrator:
             agent_infos = []         # New AgentStepInfo for print_step
             skipped_agents = {}      # Agents that didn't fire this step
             
+            # Phase 11.0: Collect step traces and teaching points
+            _step_traces = []
+            _step_teaching_points: list = []
+            _step_parse_explanations: list = []
+            _step_budget_snapshot = None
+            _step_phase_state = None
+            
+            # Phase 11.0: Budget controller tick
+            if self.budget_controller:
+                self.budget_controller.step_tick(step)
+                _step_budget_snapshot = self.budget_controller.get_snapshot()
+            
+            # Phase 11.0: Phase ladder state
+            _current_phase_name = self.attack_context.current_phase.name if self.attack_context else "RECON"
+            
             # Determine which agents were active vs skipped
             active_agent_names = {r.agent_name for r in step_agent_results}
             all_agent_names = list(self.coaches.keys())
@@ -1291,17 +1377,97 @@ class SmartOrchestrator:
                 # Parse discoveries from this agent's output
                 cmd_output = result.decision.command_output or ""
                 agent_disc = {}
+                _agent_parse_explanations = []
+                _agent_parse_latency = 0.0
+                _agent_parse_stage = 0
                 if cmd_output:
                     try:
-                        parsed = self._parse_output_for_discoveries(
-                            cmd_output, command=result.decision.command or "",
-                            episode_id=self._current_episode_id,
-                            step_idx=step, agent_id=result.agent_name,
-                        )
-                        if parsed:
-                            agent_disc = parsed  # dict of {type: [items]}
+                        # Phase 11.0: Use ParserBroker v2.0 if available
+                        if self.parser_broker:
+                            _events, _explanations, _latency, _stage = (
+                                self.parser_broker.parse_with_explanations(
+                                    command=result.decision.command or "",
+                                    output=cmd_output,
+                                    agent_name=result.agent_name,
+                                )
+                            )
+                            if _events:
+                                from core.execution.discovery_event import DiscoveryEvent
+                                agent_disc = DiscoveryEvent.to_flat_discoveries(_events)
+                            _agent_parse_explanations = _explanations
+                            _agent_parse_latency = _latency
+                            _agent_parse_stage = _stage
+                        else:
+                            # Fallback to legacy SmartOutputParser
+                            parsed = self._parse_output_for_discoveries(
+                                cmd_output, command=result.decision.command or "",
+                                episode_id=self._current_episode_id,
+                                step_idx=step, agent_id=result.agent_name,
+                            )
+                            if parsed:
+                                agent_disc = parsed
                     except Exception:
                         pass
+                
+                # Phase 11.0: Build UnifiedStepTrace
+                _trace = None
+                try:
+                    from core.telemetry.unified_trace import UnifiedStepTrace, BudgetSnapshot, PhaseState
+                    _trace = UnifiedStepTrace.from_decision_result(
+                        decision=result.decision,
+                        episode_id=self._current_episode_id,
+                        step=step,
+                    )
+                    _trace.agent_name = result.agent_name
+                    _trace.raw_output = cmd_output[:2000] if cmd_output else ""
+                    _trace.execution_mode = "live" if self._is_live_mode else "simulated"
+                    _trace.discoveries = agent_disc
+                    _trace.discovery_count = sum(
+                        len(v) if isinstance(v, (list, set)) else (1 if v else 0)
+                        for v in agent_disc.values()
+                    ) if agent_disc else 0
+                    _trace.parse_explanations = _agent_parse_explanations
+                    _trace.parse_latency_ms = _agent_parse_latency
+                    _trace.parse_stage_reached = _agent_parse_stage
+                    _trace.reward_total = env_reward
+                    
+                    # Budget snapshot
+                    if _step_budget_snapshot:
+                        _trace.budget_snapshot = BudgetSnapshot(**_step_budget_snapshot)
+                    
+                    # Phase state
+                    _coach = self.coaches.get(result.agent_name)
+                    if _coach and hasattr(_coach, '_phase_step_counts'):
+                        _steps_in = _coach._phase_step_counts.get(_current_phase_name, 0)
+                        _min_req = _coach.PHASE_LADDER_MIN_STEPS.get(_current_phase_name, 1)
+                        _trace.phase_state = PhaseState(
+                            current_phase=_current_phase_name,
+                            steps_in_phase=_steps_in,
+                            min_steps_required=_min_req,
+                            can_advance=_steps_in >= _min_req,
+                        )
+                        _step_phase_state = _trace.phase_state.to_dict()
+                    
+                    _step_traces.append(_trace)
+                    
+                    # Collect parse explanations for dashboard
+                    for _pe in _agent_parse_explanations:
+                        _step_parse_explanations.append(_pe.to_dict() if hasattr(_pe, 'to_dict') else _pe)
+                except Exception:
+                    pass
+                
+                # Phase 11.0: Record to learning signal exporter
+                if self.learning_exporter and _trace:
+                    try:
+                        self.learning_exporter.record_step(_trace)
+                    except Exception:
+                        pass
+                
+                # Phase 11.0: Budget tracking for mentor calls
+                if self.budget_controller and result.decision.mentor_call:
+                    self.budget_controller.record_mentor_call(tokens_used=tokens_for_step)
+                elif self.budget_controller:
+                    self.budget_controller.record_no_call()
                 
                 dashboard_results.append({
                     "agent": result.agent_name,
@@ -1360,9 +1526,11 @@ class SmartOrchestrator:
             else:
                 disc_board_display = None
             
-            # Phase 10.3: Collect parser stats + reasoning events for dashboard
+            # Phase 10.3 + 11.0: Collect parser stats + reasoning events
             _parser_stats = None
-            if hasattr(self, 'smart_parser') and self.smart_parser:
+            if self.parser_broker:
+                _parser_stats = self.parser_broker.get_stats()
+            elif hasattr(self, 'smart_parser') and self.smart_parser:
                 _raw = self.smart_parser.get_stats()
                 # Map SmartOutputParser keys → dashboard-expected keys
                 _parser_stats = {
@@ -1378,6 +1546,11 @@ class SmartOrchestrator:
             for _coach_name, _coach in self.coaches.items():
                 if hasattr(_coach, 'get_step_reasoning'):
                     _reasoning_events.extend(_coach.get_step_reasoning())
+                # Phase 11.0: Collect teaching points from phase ladder
+                if hasattr(_coach, '_step_reasoning_log'):
+                    for _ev in _coach._step_reasoning_log:
+                        if _ev.get("event") == "phase_ladder":
+                            _step_teaching_points.append(_ev.get("detail", ""))
             
             self.dashboard.print_step(
                 step=step,
@@ -1391,6 +1564,11 @@ class SmartOrchestrator:
                 discovery_board=disc_board_display,
                 parser_stats=_parser_stats,
                 reasoning_events=_reasoning_events if _reasoning_events else None,
+                # Phase 11.0: New dashboard parameters
+                teaching_points=_step_teaching_points if _step_teaching_points else None,
+                budget_snapshot=_step_budget_snapshot,
+                parse_explanations=_step_parse_explanations if _step_parse_explanations else None,
+                phase_state=_step_phase_state,
             )
             
             # ─── R66: Coherence + RND + JSONL + HUD instrumentation ──────

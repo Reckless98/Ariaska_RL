@@ -135,6 +135,19 @@ class StepEvent:
     proxy_events_ingested: int = 0
     payload_transform_used: str = ""
 
+    # Phase 11.0: Full Visibility telemetry
+    parse_mode: str = ""                     # "fast" | "intelligent_fullparse"
+    parse_latency_ms: float = 0.0
+    parse_stage_reached: int = 0             # 1-4
+    teaching_points: List[str] = field(default_factory=list)
+    budget_pressure: float = 0.0             # 0.0-1.0
+    mentor_budget_remaining: int = 0
+    venice_budget_remaining: int = 0
+    phase_steps_in_current: int = 0
+    phase_ladder_blocked: bool = False
+    tool_privilege_state: str = ""           # "user" | "sudo" | "root"
+    tool_validation_passed: bool = True
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to JSON-safe dict matching JSONL schema."""
         return {
@@ -179,6 +192,18 @@ class StepEvent:
             "knock_success": self.knock_success,
             "proxy_events_ingested": self.proxy_events_ingested,
             "payload_transform_used": self.payload_transform_used,
+            # Phase 11.0
+            "parse_mode": self.parse_mode,
+            "parse_latency_ms": round(self.parse_latency_ms, 2),
+            "parse_stage_reached": self.parse_stage_reached,
+            "teaching_points": self.teaching_points,
+            "budget_pressure": round(self.budget_pressure, 3),
+            "mentor_budget_remaining": self.mentor_budget_remaining,
+            "venice_budget_remaining": self.venice_budget_remaining,
+            "phase_steps_in_current": self.phase_steps_in_current,
+            "phase_ladder_blocked": self.phase_ladder_blocked,
+            "tool_privilege_state": self.tool_privilege_state,
+            "tool_validation_passed": self.tool_validation_passed,
         }
 
 
@@ -217,6 +242,14 @@ class EpisodeEvent:
     total_proxy_events: int = 0
     total_payload_transforms: int = 0
 
+    # Phase 11.0: Episode-level aggregates
+    avg_budget_pressure: float = 0.0
+    total_teaching_points: int = 0
+    total_phase_ladder_blocks: int = 0
+    total_tool_validation_failures: int = 0
+    parse_mode_used: str = ""
+    avg_parse_latency_ms: float = 0.0
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "ts": self.ts or _now_iso(),
@@ -250,6 +283,13 @@ class EpisodeEvent:
             "total_knock_attempts": self.total_knock_attempts,
             "total_proxy_events": self.total_proxy_events,
             "total_payload_transforms": self.total_payload_transforms,
+            # Phase 11.0
+            "avg_budget_pressure": round(self.avg_budget_pressure, 3),
+            "total_teaching_points": self.total_teaching_points,
+            "total_phase_ladder_blocks": self.total_phase_ladder_blocks,
+            "total_tool_validation_failures": self.total_tool_validation_failures,
+            "parse_mode_used": self.parse_mode_used,
+            "avg_parse_latency_ms": round(self.avg_parse_latency_ms, 2),
         }
 
 

@@ -1,43 +1,51 @@
 #!/usr/bin/env python3
 """
-core/execution/parser_broker.py — Phase 10.0: 4-Stage Parser Broker
+core/execution/parser_broker.py — Phase 11.0: Intelligent Parser Broker v2.0
 
-Unified discovery parsing pipeline:
-  Stage 1: Regex (OutputParser)     — free, handles 80%+
-  Stage 2: SmartOutputParser (SOP)  — existing nano-LLM fallback
-  Stage 3: Venice rationaliser      — GLM 4.7 Flash (or Codex Mini fallback)
-  Stage 4: GPT finaliser            — gpt-5-nano for edge cases
+Dual-mode discovery parsing pipeline:
+
+  MODE 1: "fast" (default)
+    Stage 1: Regex (OutputParser) — free, handles 80%+
+    Skips LLM stages entirely. Fast, deterministic.
+
+  MODE 2: "intelligent_fullparse"
+    Stage 1: Regex           — free, pattern matching
+    Stage 2: SOP LLM         — nano-LLM fallback
+    Stage 3: Venice           — GLM 4.7 Flash rationaliser
+    Stage 4: GPT finaliser    — gpt-5-nano for edge cases
 
 Each stage only fires if prior stages found nothing meaningful.
-All stages emit DiscoveryEvent objects.
+All stages emit DiscoveryEvent objects with ParseExplanation annotations.
 
-The Venice rationaliser validates and enriches discoveries, not extract.
-It receives Stage 1/2 output + command context and says:
-  "Given this output, are the extracted discoveries correct? What's missing?"
-
-Author: Filip Volf / Ariaska System
+Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 11.0
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from core.execution.discovery_event import DiscoveryEvent, DiscoveryType
 
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
+    from core.telemetry.unified_trace import ParseExplanation
 
 logger = logging.getLogger("ariaska.parser_broker")
 
 
 class ParserBroker:
     """
-    4-stage output parsing pipeline.
+    Dual-mode output parsing pipeline (v2.0).
+
+    Modes:
+      "fast" — regex only, zero LLM calls, ~1ms latency
+      "intelligent_fullparse" — 4-stage cascade with LLM enrichment
 
     Usage:
         broker = ParserBroker(gpt_manager=gpt, venice=venice_layer)
-        events = broker.parse(command, output, agent_name)
+        events, explanations = broker.parse(command, output, agent_name)
         flat = DiscoveryEvent.to_flat_discoveries(events)  # backward compat
     """
 
@@ -49,6 +57,7 @@ class ParserBroker:
         enable_gpt: bool = True,
         max_llm_calls_per_episode: int = 20,
         max_venice_calls_per_episode: int = 15,
+        default_mode: str = "fast",
     ):
         self._gpt = gpt_manager
         self._venice = venice
@@ -56,6 +65,7 @@ class ParserBroker:
         self._enable_gpt = enable_gpt and gpt_manager is not None
         self._max_llm_calls = max_llm_calls_per_episode
         self._max_venice_calls = max_venice_calls_per_episode
+        self._default_mode = default_mode
         self._llm_calls: int = 0
         self._venice_calls: int = 0
 
@@ -80,6 +90,8 @@ class ParserBroker:
             "stage4_hits": 0,    # GPT finaliser
             "empty_outputs": 0,
             "total_events": 0,
+            "fast_calls": 0,
+            "fullparse_calls": 0,
         }
 
     def reset_episode(self) -> None:
@@ -94,28 +106,121 @@ class ParserBroker:
         command: str,
         output: str,
         agent_name: str = "unknown",
+        mode: Optional[str] = None,
     ) -> List[DiscoveryEvent]:
         """
-        Run the 4-stage pipeline and return DiscoveryEvents.
+        Run the parsing pipeline and return DiscoveryEvents.
 
         Args:
             command: The command that was executed
             output: Raw command output text
             agent_name: Which agent ran this
+            mode: Override parse mode ("fast" or "intelligent_fullparse")
 
         Returns:
             List of DiscoveryEvent objects
         """
+        effective_mode = mode or self._default_mode
         self._stats["total_calls"] += 1
 
         if not output or len(output.strip()) < 5:
             self._stats["empty_outputs"] += 1
             return []
 
-        # ── Stage 1+2: SmartOutputParser (regex + nano-LLM) ───────
+        if effective_mode == "intelligent_fullparse":
+            self._stats["fullparse_calls"] += 1
+            return self._parse_fullparse(command, output, agent_name)
+        else:
+            self._stats["fast_calls"] += 1
+            return self._parse_fast(command, output, agent_name)
+
+    def parse_with_explanations(
+        self,
+        command: str,
+        output: str,
+        agent_name: str = "unknown",
+        mode: Optional[str] = None,
+    ) -> tuple:
+        """
+        Parse and return (events, explanations, latency_ms, stage_reached).
+
+        This is the v2.0 API used by UnifiedStepTrace building.
+        Returns a tuple of:
+          - List[DiscoveryEvent]
+          - List[ParseExplanation]
+          - float (total latency in ms)
+          - int (highest stage number reached, 1-4)
+        """
+        from core.telemetry.unified_trace import ParseExplanation
+
+        effective_mode = mode or self._default_mode
+        t0 = time.time()
+
+        events = self.parse(command, output, agent_name, mode=effective_mode)
+
+        latency_ms = (time.time() - t0) * 1000
+
+        # Build explanations from events
+        explanations = []
+        stage_reached = 0
+        for ev in events:
+            stage_num = {"regex": 1, "sop_llm": 2, "venice": 3, "gpt_finaliser": 4}.get(
+                ev.source_stage, 0
+            )
+            stage_reached = max(stage_reached, stage_num)
+            explanations.append(ParseExplanation(
+                stage=ev.source_stage,
+                stage_number=stage_num,
+                discovery_type=ev.discovery_type.value if ev.discovery_type else "",
+                discovery_value=str(ev.value),
+                confidence=ev.confidence,
+                reasoning=f"Stage {stage_num} ({ev.source_stage}) found {ev.discovery_type.value}: {ev.value}",
+                raw_match=ev.raw_evidence[:200] if ev.raw_evidence else "",
+                latency_ms=latency_ms / max(len(events), 1),
+            ))
+
+        return events, explanations, latency_ms, stage_reached
+
+    def _parse_fast(
+        self,
+        command: str,
+        output: str,
+        agent_name: str,
+    ) -> List[DiscoveryEvent]:
+        """Fast mode: regex only, zero LLM calls."""
         flat_discoveries = {}
         source_stage = "regex"
 
+        if self._sop:
+            # Use SOP but only the regex path (disable LLM)
+            flat_discoveries = self._sop.parse(
+                command=command,
+                output=output,
+                agent_name=agent_name,
+            )
+            if flat_discoveries:
+                self._stats["stage1_hits"] += 1
+
+        events = DiscoveryEvent.from_flat_discoveries(
+            discoveries=flat_discoveries,
+            source_stage=source_stage,
+            command=command,
+            agent=agent_name,
+        )
+        self._stats["total_events"] += len(events)
+        return events
+
+    def _parse_fullparse(
+        self,
+        command: str,
+        output: str,
+        agent_name: str,
+    ) -> List[DiscoveryEvent]:
+        """Intelligent fullparse: 4-stage cascade with LLM enrichment."""
+        flat_discoveries = {}
+        source_stage = "regex"
+
+        # ── Stage 1+2: SmartOutputParser (regex + nano-LLM) ───────
         if self._sop:
             flat_discoveries = self._sop.parse(
                 command=command,
@@ -123,7 +228,6 @@ class ParserBroker:
                 agent_name=agent_name,
             )
             if flat_discoveries:
-                # Determine which stage produced the result
                 sop_stats = self._sop.get_stats()
                 if sop_stats.get("llm_discoveries", 0) > 0:
                     source_stage = "sop_llm"

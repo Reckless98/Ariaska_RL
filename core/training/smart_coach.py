@@ -2075,6 +2075,19 @@ class SmartCoach:
         if ctx and ctx.current_phase == AttackPhase.CLOSEOUT:
             return self._decide_closeout_only(step_ctx)
         
+        # =====================================================================
+        # PHASE 11.0: STRICT PHASE LADDER GATE
+        # Prevents phase-skipping by enforcing minimum steps per phase.
+        # When enabled, commands targeting phases ahead of minimum completion
+        # are replaced with phase-appropriate alternatives.
+        # =====================================================================
+        ladder_teaching = self._phase_ladder_gate(step_ctx)
+        if ladder_teaching:
+            self._step_reasoning_log.append({
+                "event": "phase_ladder",
+                "detail": ladder_teaching,
+            })
+        
         # ─── PHASE 5.2+: Skill Library query ────────────────────────
         # Before main pipeline, check if skill library has a high-confidence match
         skill_result = self._query_skill_library(step_ctx)
@@ -4403,6 +4416,67 @@ class SmartCoach:
         "generate_report":
             "echo === ARIASKA ENGAGEMENT REPORT === Target cleaned. All artifacts removed. REPORT_GENERATED",
     }
+
+    # =====================================================================
+    # PHASE 11.0: STRICT PHASE LADDER GATE
+    # =====================================================================
+
+    # Minimum steps per phase before advancement is allowed
+    PHASE_LADDER_MIN_STEPS = {
+        "RECON": 3,
+        "ENUMERATION": 3,
+        "EXPLOITATION": 2,
+        "PRIVILEGE_ESCALATION": 2,
+        "LATERAL_MOVEMENT": 1,
+        "POST_EXPLOITATION": 1,
+        "EXFILTRATION": 1,
+        "CLOSEOUT": 1,
+    }
+
+    def _phase_ladder_gate(self, step_ctx: "SmartStepContext") -> str:
+        """
+        Phase ladder enforcement. Tracks steps per phase and returns a
+        teaching point if the agent hasn't met the minimum step requirement.
+
+        Returns:
+            Teaching point string, or empty string if no gate triggered.
+        """
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+        if not ff.strict_phase_ladder:
+            return ""
+
+        ctx = step_ctx.attack_context
+        if not ctx or not ctx.current_phase:
+            return ""
+
+        phase_name = ctx.current_phase.name
+
+        # Initialize step tracking per phase if needed
+        if not hasattr(self, '_phase_step_counts'):
+            self._phase_step_counts: Dict[str, int] = {}
+        if not hasattr(self, '_phase_ladder_last_phase'):
+            self._phase_ladder_last_phase: str = ""
+
+        # Detect phase change
+        if phase_name != self._phase_ladder_last_phase:
+            self._phase_ladder_last_phase = phase_name
+
+        # Increment step count for current phase
+        self._phase_step_counts[phase_name] = self._phase_step_counts.get(phase_name, 0) + 1
+
+        # Check if minimum met
+        min_steps = self.PHASE_LADDER_MIN_STEPS.get(phase_name, 1)
+        current_steps = self._phase_step_counts.get(phase_name, 0)
+
+        if current_steps < min_steps:
+            teaching = (
+                f"Phase {phase_name}: step {current_steps}/{min_steps} minimum. "
+                f"Complete {min_steps - current_steps} more steps before advancing."
+            )
+            return teaching
+
+        return ""
 
     def _decide_closeout_only(
         self,

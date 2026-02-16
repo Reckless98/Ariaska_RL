@@ -640,6 +640,21 @@ def main():
     train_p.add_argument("--no-seed-skills", dest="seed_skills", action="store_false",
                          help="Disable pre-seeding of SkillLibrary")
 
+    # Phase 11.0: Full Visibility & Step Discipline
+    train_p.add_argument("--parser-mode", type=str, default="fast",
+                         choices=["fast", "intelligent_fullparse"],
+                         help="Parser mode: fast=regex only, intelligent_fullparse=4-stage cascade (default: fast)")
+    train_p.add_argument("--strict-ladder", action="store_true", default=False,
+                         help="Enable strict phase ladder enforcement (min steps per phase)")
+    train_p.add_argument("--adaptive-budget", action="store_true", default=True,
+                         help="Enable adaptive LLM budget controller (default: ON)")
+    train_p.add_argument("--no-adaptive-budget", dest="adaptive_budget", action="store_false",
+                         help="Disable adaptive budget controller")
+    train_p.add_argument("--learning-signals", action="store_true", default=True,
+                         help="Export learning signal JSONL (default: ON)")
+    train_p.add_argument("--no-learning-signals", dest="learning_signals", action="store_false",
+                         help="Disable learning signal export")
+
     # Legacy positional support: smart-train <episodes> [env_flag]
     train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
     train_p.add_argument("pos_env", nargs="?", type=str, default=None)
@@ -697,6 +712,16 @@ def main():
         if preset["mode"] == "live":
             os.environ["ARIASKA_LIVE_MODE"] = "true"
             os.environ["ARIASKA_TARGET_IP"] = target_ip
+
+        # Phase 11.0: Apply CLI flags to feature flags
+        try:
+            from core.feature_flags import get_feature_flags, set_feature_flag
+            set_feature_flag("parser_mode", args.parser_mode)
+            set_feature_flag("strict_phase_ladder", args.strict_ladder)
+            set_feature_flag("adaptive_budget", args.adaptive_budget)
+            set_feature_flag("learning_signal_export", args.learning_signals)
+        except Exception:
+            pass  # Feature flags module may not be loaded yet
 
         try:
             results = run_training(
