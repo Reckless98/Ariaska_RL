@@ -1318,6 +1318,14 @@ class SmartCoach:
         if not self.gpt_manager or self.gpt_manager.is_offline():
             return None
         
+        # Phase 11.0: Budget gate — record token usage for reasoning calls
+        if self.budget_controller is not None:
+            _phase = step_ctx.attack_context.current_phase
+            _pname = _phase.name if hasattr(_phase, 'name') else str(_phase)
+            if not self.budget_controller.can_call_mentor(_pname):
+                logger.debug(f"[{self.agent_name}] Reasoning call suppressed by budget gate")
+                return None
+        
         ctx = step_ctx.attack_context
         # Phase 8.0: Rich reasoning context with chain memory + failures
         _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
@@ -1410,6 +1418,9 @@ class SmartCoach:
                 self._reasoning_hypotheses.append(clean[:100])
                 if len(self._reasoning_hypotheses) > 5:
                     self._reasoning_hypotheses = self._reasoning_hypotheses[-5:]
+                # Phase 11.0: Record this LLM call in budget controller
+                if self.budget_controller is not None:
+                    self.budget_controller.record_mentor_call(tokens_used=150)
                 return clean
         except Exception as e:
             logger.debug(f"Mentor reasoning check failed: {e}")
@@ -1481,6 +1492,13 @@ class SmartCoach:
         _effective_budget = self._codex_meta_max_per_episode + self._r67_codex_bonus_budget
         if self._codex_meta_calls_episode >= _effective_budget:
             return None
+        
+        # Phase 11.0: Centralized budget gate for codex meta calls
+        if self.budget_controller is not None:
+            _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+            if not self.budget_controller.can_call_mentor(_pname):
+                logger.debug(f"[{self.agent_name}] Codex meta suppressed by budget gate")
+                return None
 
         # R67: Grant bonus codex budget when reward velocity is stalling
         if self._r67_stalling and self._r67_codex_bonus_budget < 3:
@@ -1836,6 +1854,13 @@ class SmartCoach:
             return None
         if self.gpt_manager is None or self.gpt_manager.is_offline():
             return None
+        
+        # Phase 11.0: Centralized budget gate for codex strategic calls
+        if self.budget_controller is not None:
+            _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+            if not self.budget_controller.can_call_mentor(_pname):
+                logger.debug(f"[{self.agent_name}] Codex strategic suppressed by budget gate")
+                return None
 
         step_num = step_ctx.step
         _coherence = self._r66_coherence
@@ -2163,12 +2188,25 @@ class SmartCoach:
         else:
             # Fallback: legacy 3-condition gating (Phase 6.1 compat)
             stagnation_steps = getattr(self, '_stagnation_steps', 0)
+            
+            if prev_phase is not None and current_phase != prev_phase:
+                should_call_gpt = True
+                gpt_reason = f"phase_transition:{prev_phase.name}->{current_phase.name}"
+                self._stagnation_steps = 0
+            elif stagnation_steps > 5 and self.reward_calculator.is_stuck():
+                should_call_gpt = True
+                gpt_reason = f"hard_stagnation(steps={stagnation_steps})"
+                self._stagnation_steps = 0
+            elif force_mentor:
+                should_call_gpt = True
+                gpt_reason = "forced_mentor"
         
         # =================================================================
         # PHASE 11.0: ADAPTIVE BUDGET GATE
         # After MentorController decides engagement intent, enforce hard
         # budget limits via AdaptiveBudgetController.can_call_mentor().
         # This preserves intent tracking while preventing budget overrun.
+        # Runs AFTER both controller and legacy paths have set should_call_gpt.
         # =================================================================
         if should_call_gpt and self.budget_controller is not None:
             _phase_name = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
@@ -2183,18 +2221,6 @@ class SmartCoach:
                 self._step_reasoning_log.append(
                     f"📊 Budget pressure {_pressure:.0%} — mentor call suppressed for phase {_phase_name}"
                 )
-            
-            if prev_phase is not None and current_phase != prev_phase:
-                should_call_gpt = True
-                gpt_reason = f"phase_transition:{prev_phase.name}->{current_phase.name}"
-                self._stagnation_steps = 0
-            elif stagnation_steps > 5 and self.reward_calculator.is_stuck():
-                should_call_gpt = True
-                gpt_reason = f"hard_stagnation(steps={stagnation_steps})"
-                self._stagnation_steps = 0
-            elif force_mentor:
-                should_call_gpt = True
-                gpt_reason = "forced_mentor"
         
         # Check if GPT is available
         gpt_available = (
@@ -2608,16 +2634,6 @@ class SmartCoach:
                         logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
         
         # =========================================================================
-        # PHASE 11.0: Record budget outcome at decision point
-        # =========================================================================
-        if self.budget_controller is not None:
-            if getattr(result, 'mentor_call', False):
-                _tokens = getattr(result, 'tokens_used', 0)
-                self.budget_controller.record_mentor_call(tokens_used=_tokens)
-            else:
-                self.budget_controller.record_no_call()
-        
-        # =========================================================================
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
         # =========================================================================
         is_valid_role = self._validate_command_for_role(result.command)
@@ -2930,6 +2946,18 @@ class SmartCoach:
         
         # Store repeat penalty for reward calculation
         result._repeat_penalty = repeat_penalty
+
+        # =========================================================================
+        # PHASE 11.0: Record budget outcome AFTER anti-repeat guard
+        # Recording here ensures we count the FINAL command, not a pre-replacement
+        # mentor result that was overridden by anti-repeat or TacticalCortex.
+        # =========================================================================
+        if self.budget_controller is not None:
+            if getattr(result, 'mentor_call', False):
+                _tokens = getattr(result, 'tokens_used', 0)
+                self.budget_controller.record_mentor_call(tokens_used=_tokens)
+            else:
+                self.budget_controller.record_no_call()
 
         # =====================================================================
         # Phase 9.5: PPO REWARD ATTRIBUTION FIX

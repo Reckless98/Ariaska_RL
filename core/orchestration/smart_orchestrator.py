@@ -1464,11 +1464,8 @@ class SmartOrchestrator:
                     except Exception:
                         pass
                 
-                # Phase 11.0: Budget tracking for mentor calls
-                if self.budget_controller and result.decision.mentor_call:
-                    self.budget_controller.record_mentor_call(tokens_used=tokens_for_step)
-                elif self.budget_controller:
-                    self.budget_controller.record_no_call()
+                # Phase 11.0: Budget recording now lives in SmartCoach.decide()
+                # (after anti-repeat guard) to avoid double-count.
                 
                 dashboard_results.append({
                     "agent": result.agent_name,

@@ -604,3 +604,87 @@ class TestBudgetGateWiring:
         # Budget fully exhausted (hard cap check: calls >= total)
         assert bc.can_call_mentor("EXPLOITATION") is False
         assert bc.can_call_mentor("RECON") is False
+
+    # ─── Audit Fix Tests ─────────────────────────────────────────────────
+
+    def test_absolute_reserve_floor(self):
+        """Fix D1: >=90% of any resource consumed → pressure >= 0.8."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(
+            mentor_budget_total=30, token_budget_total=50_000,
+        ))
+        bc.reset_episode(max_steps=40)
+        # Use 29 of 30 calls at step 39 of 40 — consistent overspend
+        for _ in range(29):
+            bc.record_mentor_call(tokens_used=100)
+        bc.step_tick(39)
+        pressure = bc.get_pressure()
+        # Before fix: pressure ≈ 0.59 (below soft throttle)
+        # After fix: pressure >= 0.8 (hard throttle territory)
+        assert pressure >= 0.8, f"Reserve floor failed: pressure={pressure:.3f} (expected >= 0.8)"
+
+    def test_absolute_reserve_floor_token_trigger(self):
+        """Fix D1: Token-based reserve floor triggers at >=90% token usage."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(
+            mentor_budget_total=30, token_budget_total=10_000,
+        ))
+        bc.reset_episode(max_steps=40)
+        # Use 5 calls with heavy tokens: 5*1800 = 9000 tokens (90%)
+        for _ in range(5):
+            bc.record_mentor_call(tokens_used=1800)
+        bc.step_tick(5)
+        pressure = bc.get_pressure()
+        assert pressure >= 0.8, f"Token reserve floor failed: pressure={pressure:.3f}"
+
+    def test_reserve_floor_not_triggered_below_threshold(self):
+        """Reserve floor should NOT trigger when resource usage < 90%."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(
+            mentor_budget_total=30, token_budget_total=50_000,
+        ))
+        bc.reset_episode(max_steps=40)
+        # Use 26 of 30 calls (86.7% < 90%) at step 39
+        for _ in range(26):
+            bc.record_mentor_call(tokens_used=100)
+        bc.step_tick(39)
+        pressure = bc.get_pressure()
+        # Should NOT be forced to 0.8 — natural pressure applies
+        # (It may or may not be >= 0.8 naturally, but the floor didn't force it)
+        # 26/30 = 0.867 call_frac, 2600/50000 = 0.052 token_frac
+        # Neither >= 0.9, so floor doesn't apply
+        assert pressure < 0.8, f"Reserve floor should not trigger at 86.7% usage: {pressure:.3f}"
+
+    def test_no_double_recording(self):
+        """Fix B1: Budget is recorded in SmartCoach only, not orchestrator."""
+        from core.orchestration.smart_orchestrator import SmartOrchestrator
+        import inspect
+        source = inspect.getsource(SmartOrchestrator._run_step)
+        # The orchestrator step method should NOT contain record_mentor_call
+        assert "record_mentor_call" not in source, \
+            "Orchestrator should not record mentor calls (double-recording bug)"
+
+    def test_mentor_reasoning_respects_budget(self):
+        """Fix A3: _ask_mentor_reasoning checks budget before calling GPT."""
+        from core.training.smart_coach import SmartCoach
+        from core.testing.fake_gpt_manager import FakeGPTManager
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        from unittest.mock import MagicMock
+        gpt = FakeGPTManager(seed=42)
+        bc = AdaptiveBudgetController(config=BudgetConfig(mentor_budget_total=2))
+        coach = SmartCoach(
+            agent_name="RedAgent",
+            gpt_manager=gpt,
+            budget_controller=bc,
+        )
+        bc.reset_episode(max_steps=40)
+        # Exhaust the budget
+        bc.record_mentor_call(tokens_used=100)
+        bc.record_mentor_call(tokens_used=100)
+        bc.step_tick(3)
+        # Build a minimal step_ctx with attack_context.current_phase
+        step_ctx = MagicMock()
+        step_ctx.attack_context.current_phase = "RECON"
+        # _ask_mentor_reasoning should return None when budget exhausted
+        result = coach._ask_mentor_reasoning(step_ctx, "Should I advance phase?")
+        assert result is None, "Mentor reasoning should be blocked when budget exhausted"

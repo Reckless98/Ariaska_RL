@@ -187,6 +187,14 @@ class AdaptiveBudgetController:
 
         # Normalize to 0-1 range
         pressure = min(1.0, max(0.0, resource_pressure * 0.6 + (pace_ratio - 1.0) * 0.4))
+
+        # Absolute-reserve floor: if ≥90% of ANY resource is consumed,
+        # ensure pressure is at least 0.8 regardless of pacing.
+        # This prevents the "consistent overspend" blind spot where
+        # 29/30 calls at step 39/40 produces pressure 0.59.
+        if call_frac >= 0.9 or token_frac >= 0.9:
+            pressure = max(pressure, 0.8)
+
         return pressure
 
     def get_spend_rate(self) -> float:
