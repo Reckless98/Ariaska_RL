@@ -127,9 +127,9 @@ class StatsMonitor:
         self.orion_insight = None
         
         if RICH_AVAILABLE:
-            console.print(f"[green]✓ StatsMonitor initialized with Rich UI support[/green]")
+            pass  # Suppress init noise — shown in system init table
         else:
-            print("✓ StatsMonitor initialized with basic console output")
+            pass  # Silent init
     
     def _get_agent_stats(self, agent_id: str) -> StatsDict:
         """Get or create agent stats."""

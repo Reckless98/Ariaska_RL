@@ -1,0 +1,84 @@
+{
+  "run_id": "run_20260216_153513_de4884",
+  "timestamp": 1771252534.30114,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent high reward (90) despite single episode, indicating systematic action selection.",
+      "Used available mentor guidance efficiently across 10 calls to probe environment."
+    ],
+    "fails": [
+      "Unable to complete objective; episode ended with 0% success despite numerous mentor interventions.",
+      "Lack of consolidation on critical path decisions prevented closing the loop on target remediation."
+    ],
+    "summary": "Agent showed disciplined exploration but failed to translate reconnaissance into successful completion; focus on closing decision-action gaps is needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to finalize exploit chain after initial reconnaissance, leading to episode termination before goal achievement.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is discovered open with banner response",
+      "then_action": "Run targeted SSH enumeration with nmap scripts to capture host keys, versions, and supported ciphers",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh2-enum-algos,sshv1"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771252541.457268,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial banner grab shows service mismatch or unexpected version",
+      "then_action": "Trigger service-specific secondary scans to confirm patch level before proceeding",
+      "parameters_template": {
+        "scanner": "nmap",
+        "flags": "-sV --version-all"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step07"
+      ],
+      "created_at": 1771252541.4572759,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High consistency in reconnaissance phase when SSH services appeared, providing reliable intelligence."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Bridge reconnaissance to exploitation",
+      "description": "Design a follow-up run that locks in on one discovered service (e.g., SSH) and chains targeted exploit attempts immediately after banner validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate decision gating for mentor insights",
+      "description": "Capture mentor-suggested steps in structured tags to ensure their guidance directly updates the action queue instead of being advisory only.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,123 @@
+{
+  "run_id": "run_20260216_051041_c39f06",
+  "timestamp": 1771215050.19789,
+  "key_outcomes": {
+    "wins": [
+      "Consistently completed the reconnaissance phase by mapping 100% of accessible hosts without crashes.",
+      "Maintained reliable telemetry with 10 mentor call hand-offs handled smoothly."
+    ],
+    "fails": [
+      "Failed to escalate privileges beyond user level for the single episode, resulting in 0% success rate.",
+      "Repeated misalignment with the mission objective despite gathering relevant intelligence."
+    ],
+    "summary": "Reconnaissance and stability were solid, but follow-on exploitation and objective completion need targeted refinement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stalled after initial foothold due to missing post-exploit toolset.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host scanning reveals open ports {22, 80, 443}",
+      "then_action": "Run protocol-specific enumeration using nmap service/version scripts",
+      "parameters_template": {
+        "ports": [
+          22,
+          80,
+          443
+        ],
+        "scripts": [
+          "default",
+          "banner",
+          "vuln"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771215055.92414,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH responders return identifiable banner strings",
+      "then_action": "Deploy SSH user enumeration and timing scans to refine credential list",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-brute",
+        "timeout": 5
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771215055.9241562,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Windows services list permits remote SMB interaction",
+      "then_action": "Invoke smbclient scripts to list shares and identify writable targets",
+      "parameters_template": {
+        "share": "IPC$",
+        "action": "list",
+        "verbose": true
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771215055.9241664,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in mapping attacker surface early in the episode."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent detection of SSH banner variants indicated structured enumeration workflows."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Deploy lightweight privilege escalation scripts after reconnaissance",
+      "description": "Introduce vetted escalation payloads (e.g., linpeas/winpeas) immediately after service enumeration to bridge recon and exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Integrate conditional automation for post-scan decision points",
+      "description": "Implement logic to branch into exploitation when open ports match documented exploitation criteria, reducing manual delays.",
+      "priority": "medium"
+    },
+    {
+      "title": "Expand telemetry for objective alignment",
+      "description": "Log mission objective relevance per action to highlight drift and enable rapid corrective prompts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

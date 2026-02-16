@@ -400,7 +400,7 @@ class SmartCoach:
         self._reasoning_plan: Optional[str] = None  # Current attack plan from mentor
         self._exploration_score: float = 1.0  # Decays as we repeat actions, resets on new discovery
         
-        logger.info(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
+        logger.debug(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
         # ─── PHASE 7.4: Tool availability check (one-time at init) ───────────
         # Cache which tool binaries exist on the system so we don't waste
@@ -475,7 +475,7 @@ class SmartCoach:
                     warmup_steps=50,
                 )
                 self.sac_agent = SACAgent(config=sac_config)
-                logger.info(f"[SAC] {agent_name}: action_dim={self.action_mapper.action_dim} α=0.2 (auto)")
+                logger.debug(f"[SAC] {agent_name}: action_dim={self.action_mapper.action_dim} α=0.2 (auto)")
         except Exception as e:
             logger.debug(f"SAC init skipped for {agent_name}: {e}")
 
@@ -549,7 +549,7 @@ class SmartCoach:
                     rnd=getattr(self, '_rnd_curiosity', None),
                     device="cpu",
                 )
-                logger.info(f"[COGNITION] {agent_name}: Multi-brain node initialized")
+                logger.debug(f"[COGNITION] {agent_name}: Multi-brain node initialized")
         except Exception as e:
             logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
 
@@ -563,7 +563,7 @@ class SmartCoach:
             from core.llm.codex_personas import CodexPersonaRouter
             if self.gpt_manager is not None:
                 self.persona_router = CodexPersonaRouter(gpt_manager=self.gpt_manager)
-                logger.info(f"[PERSONAS] {agent_name}: 4-persona router initialized")
+                logger.debug(f"[PERSONAS] {agent_name}: 4-persona router initialized")
         except Exception as e:
             logger.debug(f"CodexPersonaRouter init skipped for {agent_name}: {e}")
 
@@ -1393,6 +1393,12 @@ class SmartCoach:
                     f"[MENTOR-REASONING] {self.agent_name}: Q={question[:60]} → "
                     f"A={response[:100]}"
                 )
+                # Phase 10.3: Log reasoning for dashboard
+                self._step_reasoning_log.append({
+                    "type": "mentor_reason",
+                    "agent": self.agent_name,
+                    "message": f"Q={question[:40]} → A={response[:80]}",
+                })
                 # Phase 8.0: Store reasoning as hypothesis/plan for context
                 clean = response.strip()
                 if "should" in clean.lower() or "try" in clean.lower() or "use" in clean.lower():
@@ -2057,6 +2063,9 @@ class SmartCoach:
         confidence = confidence if confidence is not None else 0.5
         ctx = step_ctx.attack_context
         
+        # Phase 10.3: Collect reasoning events for dashboard visibility
+        self._step_reasoning_log: List[Dict[str, str]] = []
+        
         # =====================================================================
         # PHASE 6.9: CLOSEOUT HARD GATE
         # Once phase transitions to CLOSEOUT, ONLY closeout commands are allowed.
@@ -2566,6 +2575,9 @@ class SmartCoach:
         # =========================================================================
         is_valid_role = self._validate_command_for_role(result.command)
         
+        # Pre-compute ppo_bypass flag — needed by TacticalCortex and anti-repeat
+        ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta", "cognition_node") and is_valid_role)
+        
         # =========================================================================
         # PHASE 9.4: TACTICAL CORTEX QUALITY GATE
         # Evaluates the proposed command against 7 rule categories:
@@ -2634,6 +2646,15 @@ class SmartCoach:
                                     f"'{result.template_name}' → "
                                     f"'{_tactical_assessment.alternative_template}'"
                                 )
+                                # Phase 10.3: Log reasoning for dashboard
+                                self._step_reasoning_log.append({
+                                    "type": "tc_block",
+                                    "agent": self.agent_name,
+                                    "message": (
+                                        f"'{result.template_name}' → "
+                                        f"'{_tactical_assessment.alternative_template}'"
+                                    ),
+                                })
                                 # Store negative PPO trajectory for the blocked command
                                 if self._ppo_pending is not None:
                                     self._store_ppo_negative_reward(
@@ -2995,6 +3016,15 @@ class SmartCoach:
                             f"[PHASE-GATE] {self.agent_name}: Replaced backward command "
                             f"with {alt_template.name} (phase={alt_template.phase.name})"
                         )
+                        # Phase 10.3: Log reasoning for dashboard
+                        self._step_reasoning_log.append({
+                            "type": "phase_gate",
+                            "agent": self.agent_name,
+                            "message": (
+                                f"Backward cmd → {alt_template.name} "
+                                f"(phase={alt_template.phase.name})"
+                            ),
+                        })
                         # R60: Track gate overrides for codex meta storm trigger
                         self._codex_meta_gate_overrides = getattr(
                             self, '_codex_meta_gate_overrides', 0
@@ -3199,7 +3229,7 @@ class SmartCoach:
         # Update best chain
         if self._best_chain is None or total_reward > self._best_chain["total_reward"]:
             self._best_chain = chain
-            logger.info(
+            logger.debug(
                 f"[CHAIN-MEM] {self.agent_name}: New best chain! "
                 f"reward={total_reward:.1f}, cmds={len(chain['commands'])}, "
                 f"unique={chain['unique_commands']}, phase={highest_phase}"
@@ -5349,7 +5379,7 @@ class SmartCoach:
                         _htr_count += 1
             
             if _htr_count > 0:
-                logger.info(
+                logger.debug(
                     f"[PPO][{self.agent_name}] R69 HTR: relabeled {_htr_count} "
                     f"trajectory entries, total bonus +{_htr_total:.1f}"
                 )
@@ -5400,7 +5430,7 @@ class SmartCoach:
                     _sil_states, _sil_actions, _sil_rewards
                 )
                 if _sil_added > 0:
-                    logger.info(
+                    logger.debug(
                         f"[PPO][{self.agent_name}] R70 SIL: stored {_sil_added} "
                         f"golden transitions (buffer={len(self.ppo_agent.sil_buffer)})"
                     )
@@ -5467,7 +5497,7 @@ class SmartCoach:
             if self.cognition_node is not None:
                 try:
                     cog_metrics = self.cognition_node.end_episode()
-                    logger.info(
+                    logger.debug(
                         f"[COGNITION][{self.agent_name}] Episode end: "
                         f"wins={cog_metrics.get('brain_wins', {})} "
                         f"rnd_total={cog_metrics.get('total_rnd_bonus', 0):.1f} "
@@ -5553,6 +5583,12 @@ class SmartCoach:
                 mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
                 provider_used = "gpt"
                 tokens_used = getattr(mentor_response, 'tokens_used', 0)
+            
+            # VALIDATE: Reject offline placeholders masquerading as commands
+            from core.gpt_manager import GPTManager as _GPTMgr
+            if _GPTMgr.is_offline_placeholder(mentor_response.command):
+                logger.debug(f"[{self.agent_name}] Mentor returned offline placeholder, falling back to registry")
+                return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # VALIDATE: Check if mentor's command violates role exclusivity (belt & suspenders)
             mentor_cmd = mentor_response.command.lower()
@@ -6309,6 +6345,15 @@ class SmartCoach:
         except Exception as e:
             logger.debug(f"Failed to log mentor call: {e}")
     
+    def get_step_reasoning(self) -> List[Dict[str, str]]:
+        """Get reasoning events from the last decide() call for dashboard display.
+        
+        Returns:
+            List of {"type": str, "agent": str, "message": str} dicts.
+            Types: tc_block, phase_gate, mentor_reason, codex_meta
+        """
+        return getattr(self, '_step_reasoning_log', [])
+
     def get_stats(self) -> Dict[str, Any]:
         """Get coach statistics."""
         return {

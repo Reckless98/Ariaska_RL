@@ -416,7 +416,7 @@ class DDQNMacro:
         self._select_call_count: int = 0  # Total select_macro calls (for metrics)
         self._cached_call_count: int = 0  # Calls that returned cached (for metrics)
 
-        logger.info(
+        logger.debug(
             f"DDQNMacro initialized: state_dim={self.config.state_dim}, "
             f"num_macros={self.config.num_macros}, "
             f"params={sum(p.numel() for p in self.online_net.parameters()):,}"
@@ -781,7 +781,7 @@ class DDQNMacro:
         self.epsilon = state.get("epsilon", self.config.epsilon_start)
         self.total_steps = state.get("total_steps", 0)
         self.update_count = state.get("update_count", 0)
-        logger.info(
+        logger.debug(
             f"DDQNMacro loaded: steps={self.total_steps}, "
             f"updates={self.update_count}, ε={self.epsilon:.3f}"
         )

@@ -263,7 +263,7 @@ class KnowledgeGraph:
                     self._add_node_internal(node["node_id"], node)
                 for edge in data.get("edges", []):
                     self._add_edge_internal(edge["source_id"], edge["target_id"], edge)
-                logger.info(f"KG loaded from JSON snapshot: {self.node_count} nodes")
+                logger.debug(f"KG loaded from JSON snapshot: {self.node_count} nodes")
             except Exception as e:
                 logger.debug(f"JSON snapshot load failed: {e}")
 
@@ -628,7 +628,7 @@ class KnowledgeGraph:
                         description=svc.get("description", "")[:500],
                         source="knowledge_base",
                     )
-            logger.info(f"  Services loaded: {len(self._type_index[NodeType.SERVICE])}")
+            logger.debug(f"  Services loaded: {len(self._type_index[NodeType.SERVICE])}")
 
         # Load CVEs
         cves_file = kb_path / "cves.json"
@@ -660,7 +660,7 @@ class KnowledgeGraph:
                                     f"cve:{cve_id}", svc_id,
                                     EdgeType.FOUND_ON, source="inference",
                                 )
-            logger.info(f"  CVEs loaded: {len(self._type_index[NodeType.CVE])}")
+            logger.debug(f"  CVEs loaded: {len(self._type_index[NodeType.CVE])}")
 
         # Load techniques (MITRE ATT&CK)
         tech_file = kb_path / "techniques.json"
@@ -705,7 +705,7 @@ class KnowledgeGraph:
                                 f"technique:{tid}", f"phase:{phase}",
                                 EdgeType.PHASE_OF, source="mitre_mapping",
                             )
-            logger.info(f"  Techniques loaded: {len(self._type_index[NodeType.TECHNIQUE])}")
+            logger.debug(f"  Techniques loaded: {len(self._type_index[NodeType.TECHNIQUE])}")
 
         # Load binaries (GTFOBins/LOLBAS)
         bin_file = kb_path / "binaries.json"
@@ -736,7 +736,7 @@ class KnowledgeGraph:
                                 EdgeType.PHASE_OF, source="gtfobins_mapping",
                             )
                             break
-            logger.info(f"  Binaries loaded: {len(self._type_index[NodeType.BINARY])}")
+            logger.debug(f"  Binaries loaded: {len(self._type_index[NodeType.BINARY])}")
 
         # Load ExploitDB
         edb_file = kb_path / "exploitdb.json"
@@ -775,7 +775,7 @@ class KnowledgeGraph:
                                     f"exploit:EDB-{eid}", svc_id,
                                     EdgeType.FOUND_ON, source="exploitdb",
                                 )
-            logger.info(f"  Exploits loaded: {len(self._type_index[NodeType.EXPLOIT])}")
+            logger.debug(f"  Exploits loaded: {len(self._type_index[NodeType.EXPLOIT])}")
 
         # Load tools from commands.json
         cmds_file = kb_path / "commands.json"
@@ -800,7 +800,7 @@ class KnowledgeGraph:
                                 f"tool:{tool}", f"phase:{phase}",
                                 EdgeType.PHASE_OF, source="commands",
                             )
-            logger.info(f"  Tools loaded: {len(self._type_index[NodeType.TOOL])}")
+            logger.debug(f"  Tools loaded: {len(self._type_index[NodeType.TOOL])}")
 
         elapsed = time.time() - start
         logger.info(
@@ -885,7 +885,7 @@ class KnowledgeGraph:
             try:
                 from sentence_transformers import SentenceTransformer
                 self._embedder = SentenceTransformer(self.embedding_model_name)
-                logger.info(f"Loaded embedding model: {self.embedding_model_name}")
+                logger.debug(f"Loaded embedding model: {self.embedding_model_name}")
             except ImportError:
                 logger.warning("sentence-transformers not installed")
                 self.enable_embeddings = False

@@ -1,0 +1,122 @@
+{
+  "run_id": "run_20260216_055850_fc7d6e",
+  "timestamp": 1771217957.8813858,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent high reward feedback (80) throughout the single episode, indicating effective early-stage reconnaissance when guided by mentors.",
+      "Successfully identified and documented exposed services during the reconnaissance window, providing structured intel for future exploitation attempts."
+    ],
+    "fails": [
+      "Could not convert reconnaissance success into mission achievement, as the episode ended with success rate 0% and no exploit chain completed.",
+      "Dependency on mentor calls (10 total) suggests insufficient autonomous decision-making when advancing beyond discovery."
+    ],
+    "summary": "Reconnaissance remains strong and rewarded; however, failure to escalate beyond detection prevents mission success, highlighting a need for more independent exploitation planning."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to craft or execute a viable exploit after identifying vulnerable services, stalling progress before any objective completion.",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When reconnaissance reveals port 22 open with identifiable SSH banner",
+      "then_action": "Run SSH-specific nmap scripts to fingerprint service and enumerate supported authentication mechanisms",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh-hostkey",
+          "ssh-auth-methods",
+          "ssh2-enum-algos"
+        ],
+        "timeout": "30s"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771217965.554155,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_mapping",
+      "if_condition": "When port scans return multiple service banners with version info",
+      "then_action": "Log each service in structured table, correlate versions with known exploits, prioritize high-risk mismatches",
+      "parameters_template": {
+        "scan_output": "nmap_service_list",
+        "priority_metric": "CVSS score",
+        "notes": "Include potential exploit references"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771217965.5541675,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_autonomous_next_steps",
+      "if_condition": "When mentor suggestions exceed 3 calls without actionable follow-up",
+      "then_action": "Initiate autonomous hypothesis: select highest CVSS vector, attempt exploit or credential reuse without waiting for further prompts",
+      "parameters_template": {
+        "mentor_threshold": 3,
+        "action_plan": "Execute prioritized exploit",
+        "feedback_check": "Step completion or failure"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step20"
+      ],
+      "created_at": 1771217965.5541773,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High reward correlation observed when SSH enumeration initiated promptly after discovery."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_service_mapping",
+      "skill_card_id": "skill_service_mapping",
+      "reason": "Consistent documentation of services enables rapid triage for future exploitation attempts."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous Exploit Hypothesis Trigger",
+      "description": "After reconnaissance, immediately attempt prioritized exploit chain without mentor guidance, using the highest CVSS service info captured; monitor success rate change.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit Feedback Loop",
+      "description": "Implement feedback that records exploit attempts and outcomes, then adjusts subsequent action plans to reduce repeated failure cycles shown in this run.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce Mentor Dependency",
+      "description": "Cap mentor calls to 3 and enforce self-selected action plan thereafter, logging deviations for later review.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

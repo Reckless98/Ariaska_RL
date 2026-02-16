@@ -52,14 +52,14 @@ class LLMOrchestrator:
         self._load_cache()
         self._init_gpt_manager()
         
-        logger.info("Target: LLM Orchestrator (GPT-4o-mini only) initialized")
+        logger.debug("LLM Orchestrator (GPT-4o-mini only) initialized")
     
     def _init_gpt_manager(self):
         """Initialize GPT-4o-mini manager."""
         try:
             from core.gpt_manager import GPTManager
             self.gpt_manager = GPTManager.get_instance()
-            logger.info("Checkmark: GPT-4o-mini manager initialized")
+            logger.debug("GPT-4o-mini manager initialized")
         except Exception as e:
             logger.error(f"X Failed to initialize GPT manager: {e}")
             self.gpt_manager = None

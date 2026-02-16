@@ -2,6 +2,7 @@
 # 🧠 Policy Network & Value Network Architecture | 🎯 Double DQN | ⚡ Dueling Networks
 
 import os
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,6 +11,7 @@ from typing import List, Dict, Tuple, Any, Optional, Union
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger("ariaska.dqn")
 
 class DQNNetwork(nn.Module):
     """
@@ -203,11 +205,7 @@ class DQN:
         # Set up replay buffer
         self.replay_buffer = replay_buffer
         
-        console.print(f"[green]✓ DQN Agent initialized on {device}[/green]")
-        if self.dueling:
-            console.print("[cyan]Using Dueling Network Architecture[/cyan]")
-        if self.double_q:
-            console.print("[cyan]Using Double Q-Learning[/cyan]")
+        logger.debug(f"DQN Agent initialized on {device}, dueling={self.dueling}, double_q={self.double_q}")
     
     def select_action(self, state: Union[np.ndarray, torch.Tensor], eval_mode: bool = False) -> int:
         """Select action using epsilon-greedy policy."""

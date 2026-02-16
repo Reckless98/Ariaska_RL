@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260216_164918_1cc273",
+  "timestamp": 1771256977.266427,
+  "key_outcomes": {
+    "wins": [
+      "Achieved steady reward accumulation (47.5) indicating consistent action evaluation despite zero mission success.",
+      "Actively engaged mentor support through 15 calls, providing rich contextual feedback for future improvements."
+    ],
+    "fails": [
+      "Failed to convert reconnaissance into successful mission completion, leading to 0% success rate.",
+      "Mentor-driven guidance was insufficient to overcome recurring exploitation roadblocks within the single episode."
+    ],
+    "summary": "Training episode demonstrated disciplined data gathering and mentor engagement but repeatedly failed to translate reconnaissance into a successful exploit chain."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert initial service discovery into exploit attempts due to skipped vulnerability confirmation steps.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07",
+        "ep001_step11"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 is detected with HTTP headers present",
+      "then_action": "Run targeted web enumeration using gobuster and nikto",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771256985.1374092,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open and banner reveals version information",
+      "then_action": "Initiate SSH version-specific enumeration with nmap --script ssh2-enum-algos and check logins",
+      "parameters_template": {
+        "port": 22,
+        "nmap_scripts": [
+          "ssh2-enum-algos"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step08"
+      ],
+      "created_at": 1771256985.1374185,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When legitimate credentials are obtained from reconnaissance",
+      "then_action": "Attempt authenticated enumeration and privilege escalation via sudo -l",
+      "parameters_template": {
+        "credential_source": "recon",
+        "commands": [
+          "sudo -l",
+          "id"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771256985.1374247,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable value in structured web reconnaissance before exploitation attempts."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focus on automated vulnerability confirmation",
+      "description": "Chain reconnaissance outputs into quick automated vulnerability validation scripts to ensure exploit readiness before moving to lateral phases.",
+      "priority": "high"
+    },
+    {
+      "title": "Integrate credential capitalisation workflow",
+      "description": "After successful SSH/HTTP scans, immediately test gathered credentials against sudo permissions and scheduled tasks to avoid dead-end reconnaissance.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

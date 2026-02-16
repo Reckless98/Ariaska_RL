@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260216_020811_5072ee",
+  "timestamp": 1771204097.8078084,
+  "key_outcomes": {
+    "wins": [
+      "Achieved maximum reward of 37.5 in the single episode by successfully reaching the mid-stage reconnaissance checkpoint despite incomplete mission success.",
+      "Maintained consistent mentor guidance (15 calls) to capture tactical adjustments, indicating strong situational awareness and responsiveness."
+    ],
+    "fails": [
+      "Success rate remains at 0% due to failure to complete the final objective, indicating a recurring inability to transition from reconnaissance to exploitation.",
+      "No automated exploit paths were finalized, leading to mission termination before persistence or data capture phases."
+    ],
+    "summary": "Reconnaissance phase executed effectively, but the run repeatedly stalls before exploitation, resulting in zero mission successes despite high reward accumulation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to pivot from initial port enumeration to targeted exploitation, leaving services unexploited despite reconnaissance data.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771204105.8193474,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service lists directory indexing and a login form is present",
+      "then_action": "Invoke wget/curl to fetch directory listing and brute-force login with curated password list",
+      "parameters_template": {
+        "url": "http://TARGET/",
+        "wordlist": "common_web_creds.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771204105.8193598,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial reconnaissance identifies exposed file shares or SMB services",
+      "then_action": "Launch smbclient enumeration followed by targeted credential spraying",
+      "parameters_template": {
+        "service": "SMB",
+        "tool": "smbclient"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step13"
+      ],
+      "created_at": 1771204105.8193686,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High utility during initial SSH reconnaissance; consistently enabled follow-on observations."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Directory and login discovery path surfaced repeatedly, justifying focused exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit transition drill",
+      "description": "Follow SSH and HTTP enumeration successes with an automated exploit module (e.g., Hydra, Metasploit) to verify final compromise capability before episode end.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse snapshot",
+      "description": "Capture and replay credentials discovered in reconnaissance against SMB and FTP services to validate lateral movement readiness.",
+      "priority": "medium"
+    },
+    {
+      "title": "Timeout reduction in exploitation phase",
+      "description": "Shorten wait timers between reconnaissance completion and exploit launch to prevent mentor intervention delays.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

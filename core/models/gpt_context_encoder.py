@@ -4,12 +4,14 @@
 import os
 import json
 import hashlib
+import logging
 import subprocess
 from typing import List
 from rich.console import Console
 from core.gpt_manager import GPTManager
 
 console = Console()
+logger = logging.getLogger("ariaska.context_encoder")
 
 class GPTContextEncoder:
     """
@@ -22,7 +24,7 @@ class GPTContextEncoder:
         self.cache_file = os.path.join(self.cache_dir, "context_vectors.json")
         self.cache = self._load_cache()
         self.gpt_manager = GPTManager.get_instance()
-        console.print(f"[green]✔ ContextEncoder Ready — Cached: {len(self.cache)}[/green]")
+        logger.debug(f"ContextEncoder Ready — Cached: {len(self.cache)}")
 
     def _load_cache(self):
         if os.path.exists(self.cache_file):

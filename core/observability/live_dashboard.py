@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 """
-core/observability/live_dashboard.py — ARIASKA Live Training Dashboard v3.0
+core/observability/live_dashboard.py — ARIASKA Live Training Dashboard v4.0
 
-Phase 6.5: Unified Rich terminal UI showing EVERYTHING:
+Phase 10.2: Polished unified Rich terminal UI with algorithm visualization:
   • Per-agent commands with full output, reasoning, discoveries
   • ASCII sparkline reward trends across episodes
-  • Phase progression timeline
+  • Phase progression timeline with kill chain bar
   • Strategic agent activation display (who acts and why)
   • Discovery board with real-time updates
   • Improvement tracking with block-char bar charts
+  ─── NEW in v4.0 ───
+  • Training start banner with full configuration display
+  • Unified algorithm panel (PPO + DDQN + CognitionNode + SIL + RND)
+  • Decision pipeline visualization (4-stage: Playbook → PPO → Registry → GPT)
+  • Per-coach PPO training metrics (policy loss, value loss, entropy sparklines)
+  • DDQN macro-intent distribution chart
+  • Discovery board heatmap panel
+  • Agent coordination matrix display
+  • Enhanced run summary with algorithm trend analysis
 
-Author: Filip Volf — Phase 6.5
+Author: Filip Volf — Phase 6.5 → Phase 10.2
 """
 
 import time
@@ -18,10 +27,12 @@ from typing import Dict, Any, List, Optional, Set
 from dataclasses import dataclass, field
 from collections import deque
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
+from rich.columns import Columns
+from rich.layout import Layout
 from rich import box
 
 # Force Rich terminal rendering — ensures full Rich UI even if accidentally piped
@@ -49,6 +60,7 @@ AGENT_ICONS = {
 SOURCE_STYLES = {
     "ppo": ("🤖", "green"),
     "mentor": ("📡", "yellow"),
+    "dual_mentor": ("📡", "bright_yellow"),
     "playbook": ("📖", "cyan"),
     "registry": ("📦", "blue"),
     "anti_repeat": ("🔁", "red"),
@@ -61,8 +73,23 @@ SOURCE_STYLES = {
     "closeout": ("🧹", "green"),
     "difficulty_gate": ("🛡️", "blue"),
     "difficul": ("🛡️", "blue"),
+    "codex_meta": ("🧬", "bright_magenta"),
+    "codex_me": ("🧬", "bright_magenta"),
+    "sil": ("💎", "bright_green"),
+    "ddqn": ("🎲", "bright_cyan"),
+    "cognition": ("🧠", "bright_white"),
     "fallback": ("⚡", "dim"),
     "unknown": ("❓", "dim"),
+}
+
+# Algorithm icons for the unified algorithm panel
+ALGO_ICONS = {
+    "PPO": ("🤖", "green", "Proximal Policy Optimization"),
+    "DDQN": ("🎲", "cyan", "Double DQN Macro-Actions"),
+    "CognitionNode": ("🧠", "bright_white", "Cognitive Architecture"),
+    "SIL": ("💎", "bright_green", "Self-Imitation Learning"),
+    "RND": ("🔮", "magenta", "Random Network Distillation"),
+    "SAC": ("🌊", "blue", "Soft Actor-Critic"),
 }
 
 
@@ -243,6 +270,19 @@ class LiveDashboard:
         self.venice_calls_total: int = 0
         self.runtime_profile: str = "UNKNOWN"
 
+        # Phase 10.2: Algorithm-level tracking for unified display
+        self.ppo_loss_history: Dict[str, deque] = {}   # coach → deque of policy losses
+        self.ppo_vloss_history: Dict[str, deque] = {}  # coach → deque of value losses
+        self.ppo_entropy_history: Dict[str, deque] = {}  # coach → deque of entropies
+        self.ddqn_history: deque = deque(maxlen=50)  # macro distribution per episode
+        self.decision_source_history: List[Dict[str, int]] = []  # per-episode source counts
+        self.discovery_board_snapshot: Dict[str, set] = {}
+        self.algo_active: Dict[str, bool] = {  # which algorithms are active
+            "PPO": False, "DDQN": False, "CognitionNode": False,
+            "SIL": False, "RND": False, "SAC": False,
+        }
+        self.training_config: Dict[str, Any] = {}  # stored at training start
+
     # ─── Run metadata ────────────────────────────────────────────────────────
 
     def set_run_info(self, run_id: str, total_episodes: int):
@@ -314,6 +354,476 @@ class LiveDashboard:
         }
 
     # =========================================================================
+    # INIT PROGRESS — Rich module loading display
+    # =========================================================================
+    def print_init_progress(self, modules: list):
+        """
+        Print a compact Rich table showing all initialized modules.
+
+        Args:
+            modules: List of (name, status, detail) tuples.
+                     status: 'ok', 'warn', 'fail', 'skip'
+        """
+        STATUS_ICONS = {
+            "ok": "[green]✅[/green]",
+            "warn": "[yellow]⚠️[/yellow]",
+            "fail": "[red]❌[/red]",
+            "skip": "[dim]⏭️[/dim]",
+        }
+
+        table = Table(
+            box=box.ROUNDED, show_header=True, header_style="bold cyan",
+            padding=(0, 1), expand=False, title="Module Initialization",
+            title_style="bold white",
+        )
+        table.add_column("", width=3, justify="center")
+        table.add_column("Module", style="white", width=28)
+        table.add_column("Detail", style="dim", max_width=55)
+
+        ok_count = warn_count = fail_count = 0
+        for name, status, detail in modules:
+            icon = STATUS_ICONS.get(status, STATUS_ICONS["ok"])
+            if status == "ok":
+                ok_count += 1
+            elif status == "warn":
+                warn_count += 1
+            elif status == "fail":
+                fail_count += 1
+            # Truncate detail to keep table compact
+            detail_str = str(detail)[:48] if detail else ""
+            table.add_row(icon, name, detail_str)
+
+        summary_parts = [f"[green]{ok_count} loaded[/green]"]
+        if warn_count:
+            summary_parts.append(f"[yellow]{warn_count} warnings[/yellow]")
+        if fail_count:
+            summary_parts.append(f"[red]{fail_count} failed[/red]")
+
+        panel = Panel(
+            Group(table, Text.from_markup(f"\n  {' │ '.join(summary_parts)}", style="bold")),
+            title="⚡ Ariaska System Init",
+            border_style="bright_blue",
+            padding=(0, 1),
+        )
+        console.print(panel)
+
+    # =========================================================================
+    # TRAINING START BANNER — Phase 10.2
+    # =========================================================================
+    def print_training_start(
+        self,
+        config: Dict[str, Any],
+        agents: List[str],
+        algorithms: Dict[str, bool],
+        target: str = "",
+    ):
+        """Print a polished training start banner with full system overview.
+
+        Shows all agents, active algorithms, configuration, and target info
+        in a professional multi-panel layout.
+
+        Args:
+            config: Training configuration dict (episodes, steps, seed, env, etc.)
+            agents: List of active agent names
+            algorithms: Dict of algorithm name → active boolean
+            target: Target IP/hostname
+        """
+        self.training_config = config
+        self.algo_active.update(algorithms)
+
+        # ── ARIASKA BANNER ───────────────────────────────────────────
+        self.print_ariaska_banner()
+
+        # ── CONFIG + AGENTS PANEL (side by side) ─────────────────────
+        # Left: Training Configuration
+        config_lines = []
+        config_lines.append(f"[bold cyan]Target:[/bold cyan]      {target or config.get('target', '?')}")
+        config_lines.append(f"[bold cyan]Episodes:[/bold cyan]    {config.get('episodes', '?')}")
+        config_lines.append(f"[bold cyan]Steps/Ep:[/bold cyan]    {config.get('steps_per_episode', 40)}")
+        config_lines.append(f"[bold cyan]Seed:[/bold cyan]        {config.get('seed', '?')}")
+        config_lines.append(f"[bold cyan]Environment:[/bold cyan] {config.get('env', 'simulation')}")
+        config_lines.append(f"[bold cyan]Difficulty:[/bold cyan]  {config.get('difficulty', 'medium')}")
+        config_lines.append(f"[bold cyan]Mode:[/bold cyan]        {'[bold green]LIVE[/bold green]' if config.get('live', False) else '[yellow]SIMULATION[/yellow]'}")
+        if config.get('mentor_budget'):
+            config_lines.append(f"[bold cyan]Mentor:[/bold cyan]      {config.get('mentor_budget')}% budget")
+        config_panel = Panel(
+            "\n".join(config_lines),
+            title="[bold]⚙️  Configuration[/bold]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+
+        # Right: Active Agents
+        agent_lines = []
+        for agent_name in agents:
+            icon, role, style = AGENT_ICONS.get(agent_name, ("🤖", "Agent", "dim"))
+            agent_lines.append(f"[{style}]{icon} {agent_name:<14}[/{style}] │ {role}")
+        agent_panel = Panel(
+            "\n".join(agent_lines) if agent_lines else "[dim]No agents[/dim]",
+            title=f"[bold]🎯  Agents ({len(agents)})[/bold]",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+
+        console.print(Columns([config_panel, agent_panel], equal=True, expand=True))
+
+        # ── ALGORITHM STACK ──────────────────────────────────────────
+        algo_table = Table(
+            title="[bold]🧬  Unified Algorithm Stack[/bold]",
+            show_header=True, header_style="bold white on dark_blue",
+            border_style="bright_blue", box=box.HEAVY_EDGE,
+            expand=True, padding=(0, 1),
+        )
+        algo_table.add_column("Algorithm", style="bold", width=20)
+        algo_table.add_column("Status", width=10, justify="center")
+        algo_table.add_column("Role", width=40)
+        algo_table.add_column("Config", width=40)
+
+        algo_configs = {
+            "PPO": "clip=0.2, γ=0.99, λ=0.97, lr=3e-4→1e-5",
+            "DDQN": "macro-actions, ε-greedy, target network",
+            "CognitionNode": "multi-brain arbitration (PPO/SAC/DDQN)",
+            "SIL": "500-entry golden buffer, top-K replay",
+            "RND": "intrinsic motivation, novelty bonus",
+            "SAC": "entropy-regularized, dual Q-networks",
+        }
+
+        for algo_name, (icon, color, description) in ALGO_ICONS.items():
+            active = algorithms.get(algo_name, False)
+            status = f"[bold green]● ACTIVE[/bold green]" if active else "[dim]○ idle[/dim]"
+            cfg = algo_configs.get(algo_name, "")
+            algo_table.add_row(
+                f"[{color}]{icon} {algo_name}[/{color}]",
+                status,
+                description,
+                f"[dim]{cfg}[/dim]",
+            )
+
+        console.print(algo_table)
+
+        # ── DECISION PIPELINE ────────────────────────────────────────
+        pipeline = (
+            "[bold cyan]📖 PLAYBOOK[/bold cyan] (60→10%) "
+            "[dim]→[/dim] "
+            "[bold green]🤖 PPO[/bold green] (RL) "
+            "[dim]→[/dim] "
+            "[bold blue]📦 REGISTRY[/bold blue] (144+) "
+            "[dim]→[/dim] "
+            "[bold yellow]📡 MENTOR[/bold yellow] (GPT) "
+            "[dim]→[/dim] "
+            "[bold red]🔁 ANTI-REPEAT[/bold red]"
+        )
+        console.print(Panel(
+            pipeline,
+            title="[bold]🔄  4-Stage Decision Pipeline[/bold]",
+            border_style="bright_white",
+            padding=(0, 2),
+        ))
+
+        # ── KILL CHAIN PHASES ────────────────────────────────────────
+        phase_parts = []
+        for phase_name, icon in PHASE_ICONS.items():
+            phase_parts.append(f"[dim]{icon} {phase_name[:5]}[/dim]")
+        chain = " → ".join(phase_parts)
+        console.print(f"  [bold]Kill Chain:[/bold] {chain}")
+        console.print()
+        console.rule("[bold green]▶ Training Started", style="green")
+        console.print()
+
+    # =========================================================================
+    # ALGORITHM METRICS PANELS — Phase 10.2
+    # =========================================================================
+    def _build_ppo_panel(
+        self,
+        ppo_metrics: Optional[Dict[str, Any]] = None,
+        per_coach_ppo: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> Panel:
+        """Build a Rich panel showing PPO training metrics with sparklines.
+
+        Args:
+            ppo_metrics: Aggregate PPO metrics (updates, avg losses, entropy)
+            per_coach_ppo: Per-coach PPO breakdown {coach_name: {policy_loss, value_loss, entropy}}
+
+        Returns:
+            Rich Panel with PPO visualization
+        """
+        lines = []
+
+        if ppo_metrics:
+            updates = ppo_metrics.get("updates", 0)
+            pi_loss = ppo_metrics.get("avg_policy_loss", 0.0)
+            v_loss = ppo_metrics.get("avg_value_loss", 0.0)
+            entropy = ppo_metrics.get("avg_entropy", 0.0)
+
+            lines.append(f"[bold]Updates:[/bold]      {updates}")
+            pi_color = "green" if pi_loss < 0.1 else "yellow" if pi_loss < 0.5 else "red"
+            lines.append(f"[bold]π Loss:[/bold]       [{pi_color}]{pi_loss:.6f}[/{pi_color}]")
+            v_color = "green" if v_loss < 1.0 else "yellow" if v_loss < 5.0 else "red"
+            lines.append(f"[bold]V Loss:[/bold]       [{v_color}]{v_loss:.6f}[/{v_color}]")
+            ent_color = "green" if entropy > 0.5 else "yellow" if entropy > 0.1 else "red"
+            lines.append(f"[bold]Entropy:[/bold]      [{ent_color}]{entropy:.6f}[/{ent_color}]")
+        else:
+            lines.append("[dim]No PPO updates this episode[/dim]")
+
+        # Per-coach breakdown with sparkline trends
+        if per_coach_ppo:
+            lines.append("")
+            lines.append("[bold underline]Per-Coach Breakdown:[/bold underline]")
+            for coach_name, metrics in sorted(per_coach_ppo.items()):
+                icon = AGENT_ICONS.get(coach_name, ("🤖", "", "dim"))[0]
+                pi = metrics.get("policy_loss", 0.0)
+                vl = metrics.get("value_loss", 0.0)
+                ent = metrics.get("entropy", 0.0)
+
+                # Track history for sparklines
+                if coach_name not in self.ppo_loss_history:
+                    self.ppo_loss_history[coach_name] = deque(maxlen=20)
+                    self.ppo_vloss_history[coach_name] = deque(maxlen=20)
+                    self.ppo_entropy_history[coach_name] = deque(maxlen=20)
+                self.ppo_loss_history[coach_name].append(pi)
+                self.ppo_vloss_history[coach_name].append(vl)
+                self.ppo_entropy_history[coach_name].append(ent)
+
+                pi_spark = sparkline(list(self.ppo_loss_history[coach_name]))
+                short = coach_name.replace("Agent", "")
+                lines.append(
+                    f"  {icon} [bold]{short:<8}[/bold] "
+                    f"π:{pi:.5f} V:{vl:.4f} H:{ent:.4f}  {pi_spark}"
+                )
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold green]🤖  PPO Actor-Critic[/bold green]",
+            border_style="green",
+            padding=(0, 1),
+        )
+
+    def _build_ddqn_panel(
+        self,
+        ddqn_metrics: Optional[Dict[str, Any]] = None,
+    ) -> Panel:
+        """Build a Rich panel showing DDQN macro-action metrics.
+
+        Args:
+            ddqn_metrics: DDQN stats (macros, switches, epsilon, distribution)
+
+        Returns:
+            Rich Panel with DDQN visualization
+        """
+        lines = []
+
+        if ddqn_metrics and ddqn_metrics.get("macros", 0) > 0:
+            macros = ddqn_metrics.get("macros", 0)
+            switches = ddqn_metrics.get("switches", 0)
+            epsilon = ddqn_metrics.get("epsilon", 0.0)
+            dist = ddqn_metrics.get("distribution", {})
+
+            eps_color = "green" if epsilon < 0.3 else "yellow" if epsilon < 0.7 else "red"
+            lines.append(f"[bold]Macros:[/bold]     {macros}")
+            lines.append(f"[bold]Switches:[/bold]   {switches}")
+            lines.append(f"[bold]Epsilon:[/bold]    [{eps_color}]{epsilon:.3f}[/{eps_color}]")
+
+            # Distribution bar chart
+            if dist:
+                lines.append("")
+                lines.append("[bold underline]Macro Distribution:[/bold underline]")
+                total = sum(dist.values()) or 1
+                max_count = max(dist.values()) if dist else 1
+                for macro_name, count in sorted(dist.items(), key=lambda x: -x[1]):
+                    pct = count / total * 100
+                    bar_len = max(int(count / max_count * 20), 1)
+                    lines.append(
+                        f"  {macro_name[:14]:<14} [cyan]{'█' * bar_len}[/cyan] {count} ({pct:.0f}%)"
+                    )
+
+            self.ddqn_history.append(dist)
+        else:
+            lines.append("[dim]No DDQN macro-actions this episode[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold cyan]🎲  DDQN Macro-Actions[/bold cyan]",
+            border_style="cyan",
+            padding=(0, 1),
+        )
+
+    def _build_decision_pipeline_panel(
+        self,
+        source_counts: Optional[Dict[str, int]] = None,
+    ) -> Panel:
+        """Build a visualization of the 4-stage decision pipeline distribution.
+
+        Args:
+            source_counts: Decision source → count mapping
+
+        Returns:
+            Rich Panel with pipeline visualization
+        """
+        lines = []
+
+        if source_counts:
+            total = sum(source_counts.values()) or 1
+            # Store for trend tracking
+            self.decision_source_history.append(dict(source_counts))
+
+            # Pipeline stages in order
+            stage_order = ["playbook", "ppo", "registry", "mentor", "dual_mentor",
+                           "anti_repeat", "codex_meta", "sil", "fallback"]
+            max_count = max(source_counts.values()) if source_counts else 1
+
+            for src in stage_order:
+                count = source_counts.get(src, 0)
+                if count == 0:
+                    continue
+                pct = count / total * 100
+                bar_len = max(int(count / max_count * 25), 1)
+                src_icon, src_style = SOURCE_STYLES.get(src, ("❓", "dim"))
+                lines.append(
+                    f"  {src_icon} [{src_style}]{src:<12}[/{src_style}] "
+                    f"[{src_style}]{'█' * bar_len}[/{src_style}] {count:3d} ({pct:4.1f}%)"
+                )
+
+            # Other sources not in the standard list
+            for src, count in sorted(source_counts.items(), key=lambda x: -x[1]):
+                if src not in stage_order and count > 0:
+                    pct = count / total * 100
+                    bar_len = max(int(count / max_count * 25), 1)
+                    lines.append(
+                        f"  ❓ [dim]{src:<12}[/dim] [dim]{'█' * bar_len}[/dim] {count:3d} ({pct:4.1f}%)"
+                    )
+
+            # Trend comparison with previous episode
+            if len(self.decision_source_history) >= 2:
+                prev = self.decision_source_history[-2]
+                lines.append("")
+                shifts = []
+                for src in stage_order:
+                    curr = source_counts.get(src, 0)
+                    prev_c = prev.get(src, 0)
+                    if curr != prev_c and (curr > 0 or prev_c > 0):
+                        delta = curr - prev_c
+                        arrow = "↑" if delta > 0 else "↓"
+                        color = "green" if (src == "ppo" and delta > 0) or (src == "anti_repeat" and delta < 0) else "yellow"
+                        shifts.append(f"[{color}]{src}:{arrow}{abs(delta)}[/{color}]")
+                if shifts:
+                    lines.append(f"  [dim]Δ[/dim] {' '.join(shifts[:5])}")
+        else:
+            lines.append("[dim]No decision data[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold bright_white]🔄  Decision Pipeline[/bold bright_white]",
+            border_style="bright_white",
+            padding=(0, 1),
+        )
+
+    def _build_discovery_board_panel(
+        self,
+        discovery_board: Optional[Dict[str, Any]] = None,
+    ) -> Panel:
+        """Build a visual discovery board showing all findings.
+
+        Args:
+            discovery_board: Current discovery board state
+
+        Returns:
+            Rich Panel with discovery heatmap
+        """
+        lines = []
+
+        if discovery_board:
+            # Snapshot for trending
+            self.discovery_board_snapshot = {
+                k: set(v) if isinstance(v, (set, list)) else v
+                for k, v in discovery_board.items()
+                if k != "phase"
+            }
+
+            DISC_ICONS = {
+                "ports": ("🔓", "cyan"),
+                "services": ("⚙️", "blue"),
+                "credentials": ("🔑", "yellow"),
+                "vulns": ("💀", "red"),
+                "shells": ("💥", "bright_red"),
+                "users": ("👤", "magenta"),
+                "web_paths": ("🌐", "bright_cyan"),
+                "flags_set": ("🏁", "bright_green"),
+            }
+
+            for key, (icon, color) in DISC_ICONS.items():
+                items = discovery_board.get(key, set())
+                if isinstance(items, (set, list)):
+                    count = len(items)
+                    if count > 0:
+                        # Show items (up to 6)
+                        item_strs = [str(i)[:20] for i in sorted(items) if str(i)][:6]
+                        suffix = f" (+{count - 6})" if count > 6 else ""
+                        lines.append(
+                            f"  {icon} [{color}]{key:<12}[/{color}] "
+                            f"[bold]{count:3d}[/bold]  "
+                            f"[dim]{', '.join(item_strs)}{suffix}[/dim]"
+                        )
+                    else:
+                        lines.append(
+                            f"  {icon} [dim]{key:<12} {'—':>3}[/dim]"
+                        )
+
+            # Current phase
+            phase = discovery_board.get("phase", "RECON")
+            phase_icon = PHASE_ICONS.get(str(phase).upper(), "❓")
+            lines.append(f"\n  [bold]Phase:[/bold] {phase_icon} {phase}")
+        else:
+            lines.append("[dim]No discoveries yet[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold bright_green]🗺️  Discovery Board[/bold bright_green]",
+            border_style="bright_green",
+            padding=(0, 1),
+        )
+
+    def _build_algo_activity_bar(
+        self,
+        source: str,
+        ppo_conf: float = 0.0,
+        ddqn_macro: str = "",
+    ) -> str:
+        """Build a compact algorithm activity indicator for per-step display.
+
+        Args:
+            source: Decision source string
+            ppo_conf: PPO confidence/value estimate
+            ddqn_macro: Current DDQN macro name
+
+        Returns:
+            Formatted string showing algorithm activity
+        """
+        parts = []
+        src_icon, src_style = SOURCE_STYLES.get(source, SOURCE_STYLES.get(source[:8], ("❓", "dim")))
+
+        if source == "ppo":
+            parts.append(f"[green]🤖 PPO[/green]")
+            if ppo_conf > 0:
+                parts.append(f"[dim]v={ppo_conf:.2f}[/dim]")
+        elif source == "playbook":
+            parts.append(f"[cyan]📖 PLAY[/cyan]")
+        elif source in ("mentor", "dual_mentor"):
+            parts.append(f"[yellow]📡 GPT[/yellow]")
+        elif source == "registry":
+            parts.append(f"[blue]📦 REG[/blue]")
+        elif source == "anti_repeat":
+            parts.append(f"[red]🔁 A/R[/red]")
+        elif source == "codex_meta":
+            parts.append(f"[bright_magenta]🧬 CDX[/bright_magenta]")
+        else:
+            parts.append(f"[{src_style}]{src_icon}[/{src_style}]")
+
+        if ddqn_macro:
+            parts.append(f"[cyan]🎲{ddqn_macro[:6]}[/cyan]")
+
+        return " ".join(parts)
+
+    # =========================================================================
     # UNIFIED STEP DISPLAY — The one and only step printer (Phase 6.5)
     # =========================================================================
     def print_step(
@@ -327,6 +837,8 @@ class LiveDashboard:
         done: bool,
         reward_breakdown: Optional[Dict[str, Any]] = None,
         discovery_board: Optional[Dict[str, Any]] = None,
+        parser_stats: Optional[Dict[str, Any]] = None,
+        reasoning_events: Optional[List[Dict[str, str]]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -374,13 +886,12 @@ class LiveDashboard:
             box=box.SIMPLE_HEAVY, show_header=True,
             header_style="bold", padding=(0, 1), expand=True,
         )
-        table.add_column("Agent", style="bold", width=12)
-        table.add_column("Source", width=12)
-        table.add_column("Command", width=34, no_wrap=True)
-        table.add_column("Output", width=30, no_wrap=True)
+        table.add_column("Agent", style="bold", width=14)
+        table.add_column("Source", width=14)
+        table.add_column("Command", width=36, no_wrap=True, overflow="ellipsis")
+        table.add_column("Output", width=32, no_wrap=True, overflow="ellipsis")
         table.add_column("Reward", width=8, justify="right")
-        table.add_column("Conf", width=5, justify="center")
-        table.add_column("Discoveries", width=18)
+        table.add_column("Discoveries", width=22, no_wrap=True, overflow="ellipsis")
 
         # Active agents
         active = [a for a in agent_infos if not a.skipped]
@@ -401,16 +912,16 @@ class LiveDashboard:
             )
 
             agent_label = f"{icon} {a.agent_name.replace('Agent', '')}"
-            source_label = f"{src_icon}{src_raw[:9]}"
+            source_label = f"{src_icon}{src_raw[:11]}"
             if a.mentor_call:
                 source_label += " 📡"
 
-            cmd = (a.command or "(none)")[:32]
+            cmd = (a.command or "(none)")[:34]
 
             # Output: flatten to single line, truncate
             out = ""
             if a.command_output:
-                out = a.command_output.strip().replace("\n", " │ ")[:28]
+                out = a.command_output.strip().replace("\n", " │ ")[:30]
 
             # Reward display
             if a.reward > 0:
@@ -419,15 +930,6 @@ class LiveDashboard:
                 r_str = f"[red]{a.reward:+.1f}[/red]"
             else:
                 r_str = "[dim]-[/dim]"
-
-            # Confidence display
-            conf = a.confidence
-            if conf >= 0.7:
-                conf_str = f"[green]{conf:.0%}[/green]"
-            elif conf >= 0.4:
-                conf_str = f"[yellow]{conf:.0%}[/yellow]"
-            else:
-                conf_str = f"[red]{conf:.0%}[/red]"
 
             # Discoveries
             disc = ""
@@ -440,7 +942,7 @@ class LiveDashboard:
                         )
                     elif items and isinstance(items, str):
                         parts.append(f"{dtype}:{items}")
-                disc = "; ".join(parts)[:18] if parts else ""
+                disc = "; ".join(parts)[:22] if parts else ""
 
             table.add_row(
                 f"[{style}]{agent_label}[/{style}]",
@@ -448,7 +950,6 @@ class LiveDashboard:
                 f"[white]{cmd}[/white]",
                 f"[dim]{out}[/dim]",
                 r_str,
-                conf_str,
                 f"[green]{disc}[/green]" if disc else "[dim]-[/dim]",
             )
 
@@ -459,7 +960,7 @@ class LiveDashboard:
                 f"[dim]{icon} {name.replace('Agent', '')}[/dim]",
                 "[dim]💤 skip[/dim]",
                 f"[dim]{reason}[/dim]",
-                "", "", "", "",
+                "", "", "",
             )
 
         console.print(table)
@@ -490,6 +991,75 @@ class LiveDashboard:
 
         if footer:
             console.print(f"  [dim]{' │ '.join(footer)}[/dim]")
+
+        # ── PARSER STAGE VISIBILITY (Phase 10.3) ─────────────────────
+        if parser_stats:
+            total = parser_stats.get("total_calls", 0)
+            if total > 0:
+                parts = [f"[dim]calls:{total}[/dim]"]
+                stage1 = parser_stats.get("stage1_hits", 0)
+                stage2 = parser_stats.get("stage2_hits", 0)
+                if stage1:
+                    parts.append(f"🔍regex:{stage1}")
+                if stage2:
+                    parts.append(f"🧠nano-LLM:{stage2}")
+                empty = parser_stats.get("empty_outputs", 0)
+                fallback = total - stage1 - stage2 - empty
+                if fallback > 0:
+                    parts.append(f"[dim]→inline:{fallback}[/dim]")
+                if empty:
+                    parts.append(f"[dim]empty:{empty}[/dim]")
+                console.print(f"  [dim]🔬 Parser:[/dim] {' │ '.join(parts)}")
+
+        # ── DECISION REASONING VISIBILITY (Phase 10.3) ───────────────
+        if reasoning_events:
+            # Separate mentor Q/A events from other events
+            _mentor_events = [ev for ev in reasoning_events if ev.get("type") == "mentor_reason"]
+            _other_events = [ev for ev in reasoning_events if ev.get("type") != "mentor_reason"]
+            
+            # Render non-mentor events as colored lines
+            for ev in _other_events[:3]:
+                ev_type = ev.get("type", "")
+                agent = ev.get("agent", "")
+                msg = ev.get("message", "")[:100]
+                if ev_type == "tc_block":
+                    console.print(f"  [yellow]🛡️ [{agent}] TC Block:[/yellow] [dim]{msg}[/dim]")
+                elif ev_type == "phase_gate":
+                    console.print(f"  [cyan]🚪 [{agent}] Phase Gate:[/cyan] [dim]{msg}[/dim]")
+                elif ev_type == "codex_meta":
+                    console.print(f"  [bright_magenta]🧬 [{agent}] Codex:[/bright_magenta] [dim]{msg}[/dim]")
+                else:
+                    console.print(f"  [dim]📎 [{agent}] {ev_type}: {msg}[/dim]")
+            
+            # Render LLM Q/A as Rich table (Phase 10.4)
+            if _mentor_events:
+                qa_table = Table(
+                    box=box.SIMPLE_HEAVY,
+                    show_header=True,
+                    header_style="bold bright_yellow",
+                    width=136,
+                    padding=(0, 1),
+                )
+                qa_table.add_column("Agent", style="bold cyan", width=12, no_wrap=True)
+                qa_table.add_column("Q (Prompt)", style="white", width=50)
+                qa_table.add_column("A (LLM Response)", style="bright_green", width=70)
+                for ev in _mentor_events[:3]:
+                    _agent = ev.get("agent", "")[:12]
+                    _msg = ev.get("message", "")
+                    # Parse Q=... → A=... format from mentor reasoning
+                    if "→ A=" in _msg:
+                        _q_part, _a_part = _msg.split("→ A=", 1)
+                        _q = _q_part.replace("Q=", "").strip()[:48]
+                        _a = _a_part.strip()[:68]
+                    elif "Q=" in _msg:
+                        _q = _msg.replace("Q=", "").strip()[:48]
+                        _a = "-"
+                    else:
+                        _q = _msg[:48]
+                        _a = "-"
+                    qa_table.add_row(_agent, _q, _a)
+                console.print(f"  [bright_yellow]💬 LLM Communication:[/bright_yellow]")
+                console.print(qa_table)
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
@@ -573,6 +1143,10 @@ class LiveDashboard:
         mentor_calls: int,
         highest_phase: str = "",
         ppo_metrics: Optional[Dict[str, float]] = None,
+        per_coach_ppo: Optional[Dict[str, Dict[str, float]]] = None,
+        ddqn_metrics: Optional[Dict[str, Any]] = None,
+        decision_sources: Optional[Dict[str, int]] = None,
+        discovery_board: Optional[Dict[str, Any]] = None,
     ):
         self.current_episode = episode
         self.episode_rewards.append(total_reward)
@@ -706,6 +1280,53 @@ class LiveDashboard:
 
         console.print(table)
 
+        # ── PHASE 10.2: UNIFIED ALGORITHM PANELS ─────────────────────
+        # Side-by-side algorithm visualization panels
+        algo_panels = []
+
+        # PPO Panel (always show if we have any PPO data)
+        ppo_panel_data = ppo_metrics
+        if ppo_panel_data or per_coach_ppo:
+            algo_panels.append(self._build_ppo_panel(ppo_panel_data, per_coach_ppo))
+
+        # DDQN Panel
+        if ddqn_metrics:
+            algo_panels.append(self._build_ddqn_panel(ddqn_metrics))
+
+        # Print algorithm panels side-by-side (2 per row)
+        if algo_panels:
+            if len(algo_panels) >= 2:
+                console.print(Columns(algo_panels[:2], equal=True, expand=True))
+                if len(algo_panels) > 2:
+                    console.print(Columns(algo_panels[2:], equal=True, expand=True))
+            else:
+                console.print(algo_panels[0])
+
+        # Decision Pipeline + Discovery Board side-by-side
+        bottom_panels = []
+        # Build decision sources from param or from tracked agent_stats
+        eff_sources = decision_sources
+        if not eff_sources:
+            eff_sources = {}
+            for stats in self.agent_stats.values():
+                for src, cnt in stats.get("decision_sources", {}).items():
+                    eff_sources[src] = eff_sources.get(src, 0) + cnt
+        if eff_sources:
+            bottom_panels.append(self._build_decision_pipeline_panel(eff_sources))
+
+        # Discovery board from param or from episode discoveries
+        eff_disc = discovery_board
+        if not eff_disc and self.episode_discoveries:
+            eff_disc = dict(self.episode_discoveries)
+        if eff_disc:
+            bottom_panels.append(self._build_discovery_board_panel(eff_disc))
+
+        if bottom_panels:
+            if len(bottom_panels) >= 2:
+                console.print(Columns(bottom_panels[:2], equal=True, expand=True))
+            elif bottom_panels:
+                console.print(bottom_panels[0])
+
         # ── PHASE TIMELINE ───────────────────────────────────────────
         if self.phase_timeline:
             parts = []
@@ -804,30 +1425,118 @@ class LiveDashboard:
         console.print()
         self.print_ariaska_banner()
         console.rule("[bold green]🏁 Training Complete", style="green")
+
+        # ── MAIN METRICS TABLE ───────────────────────────────────────
         table = Table(title=f"[bold]Run: {run_id}[/bold]",
                       show_header=True, header_style="bold cyan", box=box.ROUNDED)
-        table.add_column("Metric", style="bold", width=20)
-        table.add_column("Value", justify="right", width=15)
-        table.add_row("Total Episodes", str(total_episodes))
-        table.add_row("Time", f"{total_time:.1f}s ({total_time/max(total_episodes,1):.1f}s/ep)")
-        table.add_row("Avg Reward", f"{final_metrics.get('avg_reward_recent', 0):+.2f}")
-        table.add_row("Best Reward", f"{max(self.episode_rewards) if self.episode_rewards else 0:+.1f}")
-        table.add_row("Tokens", str(self.tokens_total))
+        table.add_column("Metric", style="bold", width=22)
+        table.add_column("Value", justify="right", width=18)
+        table.add_column("Trend", width=30)
+        table.add_row("Total Episodes", str(total_episodes), "")
+        table.add_row("Time", f"{total_time:.1f}s ({total_time/max(total_episodes,1):.1f}s/ep)", "")
+        avg_r = final_metrics.get('avg_reward_recent', 0)
+        best_r = max(self.episode_rewards) if self.episode_rewards else 0
+        table.add_row("Avg Reward", f"{avg_r:+.2f}",
+                       sparkline(self.episode_rewards, 20) if self.episode_rewards else "")
+        table.add_row("Best Reward", f"{best_r:+.1f}", "")
+        table.add_row("Tokens", f"{self.tokens_total:,}", "")
+
+        # Learning quality metrics
+        if self.episode_rewards and len(self.episode_rewards) >= 2:
+            first_half = self.episode_rewards[:len(self.episode_rewards)//2]
+            second_half = self.episode_rewards[len(self.episode_rewards)//2:]
+            improvement = (
+                (sum(second_half)/len(second_half)) - (sum(first_half)/len(first_half))
+                if first_half else 0
+            )
+            imp_color = "green" if improvement > 0 else "red" if improvement < 0 else "dim"
+            table.add_row("Learning Δ", f"[{imp_color}]{improvement:+.1f}[/{imp_color}]",
+                           f"1st→2nd half reward improvement")
+
+        # Skill library
+        if self.skill_library_size:
+            table.add_row("Skill Library", str(self.skill_library_size), "persistent skills")
+
         console.print(table)
 
+        # ── ALGORITHM TREND ANALYSIS ─────────────────────────────────
+        if self.ppo_loss_history or self.ddqn_history or self.decision_source_history:
+            algo_lines = []
+
+            # PPO loss trends
+            if self.ppo_loss_history:
+                algo_lines.append("[bold underline]PPO Training Curves:[/bold underline]")
+                for coach, losses in sorted(self.ppo_loss_history.items()):
+                    icon = AGENT_ICONS.get(coach, ("🤖", "", "dim"))[0]
+                    loss_list = list(losses)
+                    vloss_list = list(self.ppo_vloss_history.get(coach, []))
+                    ent_list = list(self.ppo_entropy_history.get(coach, []))
+                    pi_spark = sparkline(loss_list, 15) if loss_list else ""
+                    v_spark = sparkline(vloss_list, 15) if vloss_list else ""
+                    h_spark = sparkline(ent_list, 15) if ent_list else ""
+                    short = coach.replace("Agent", "")
+                    algo_lines.append(f"  {icon} [bold]{short}[/bold]")
+                    if loss_list:
+                        algo_lines.append(f"    π loss: {loss_list[-1]:.5f} {pi_spark}")
+                    if vloss_list:
+                        algo_lines.append(f"    V loss: {vloss_list[-1]:.4f}  {v_spark}")
+                    if ent_list:
+                        algo_lines.append(f"    Entropy: {ent_list[-1]:.4f} {h_spark}")
+
+            # Decision source evolution
+            if self.decision_source_history:
+                algo_lines.append("")
+                algo_lines.append("[bold underline]Decision Source Evolution:[/bold underline]")
+                # Aggregate across episodes
+                for src in ["ppo", "playbook", "registry", "anti_repeat", "mentor", "codex_meta"]:
+                    vals = [d.get(src, 0) for d in self.decision_source_history]
+                    if any(v > 0 for v in vals):
+                        src_icon = SOURCE_STYLES.get(src, ("❓", "dim"))[0]
+                        spark = sparkline(list(map(float, vals)), 15)
+                        total_uses = sum(vals)
+                        algo_lines.append(
+                            f"  {src_icon} {src:<12} total:{total_uses:4d}  {spark}"
+                        )
+
+            if algo_lines:
+                console.print(Panel(
+                    "\n".join(algo_lines),
+                    title="[bold]🧬  Algorithm Performance Across Training[/bold]",
+                    border_style="bright_blue",
+                    padding=(0, 2),
+                ))
+
+        # ── REWARD CHART ─────────────────────────────────────────────
         if self.episode_rewards:
             console.print(Panel(self._ascii_reward_chart(),
                                 title="[bold]Final Reward Trend[/bold]",
                                 border_style="yellow"))
+
+        # ── TOKENS + COST ────────────────────────────────────────────
         if self.tokens_by_agent:
             tt = Table(title="[bold]Tokens by Agent[/bold]", box=box.SIMPLE)
             tt.add_column("Agent", style="bold")
             tt.add_column("Tokens", justify="right")
-            for ag, tok in sorted(self.tokens_by_agent.items()):
-                tt.add_row(ag, str(tok))
+            tt.add_column("Share", justify="right")
+            total_tok = sum(self.tokens_by_agent.values()) or 1
+            for ag, tok in sorted(self.tokens_by_agent.items(), key=lambda x: -x[1]):
+                pct = tok / total_tok * 100
+                icon = AGENT_ICONS.get(ag, ("🤖", "", ""))[0]
+                tt.add_row(f"{icon} {ag}", f"{tok:,}", f"{pct:.0f}%")
             console.print(tt)
+
+        # ── ACTIVE ALGORITHMS SUMMARY ────────────────────────────────
+        active_algos = [name for name, active in self.algo_active.items() if active]
+        if active_algos:
+            algo_str = " │ ".join(
+                f"{ALGO_ICONS.get(a, ('🔧', 'dim', ''))[0]} {a}"
+                for a in active_algos
+            )
+            console.print(f"  [bold]Active Algorithms:[/bold] {algo_str}")
+
         self.print_cost_ticker(self.tokens_total)
-        console.rule(style="green")
+        console.rule("[bold green]✨ ARIASKA Training Session Complete ✨", style="green")
+        console.print()
 
     # =========================================================================
     # INTERNAL HELPERS
@@ -848,6 +1557,12 @@ class LiveDashboard:
         self.phase_timeline.clear()
         self.episode_mentor_calls_total = 0
         self.episode_active_steps = 0
+        # Phase 10.0: Reset KG/LLM episode counters
+        self.kg_queries_episode = 0
+        self.kg_hits_episode = 0
+        self.llm_calls_episode = 0
+        self.llm_tokens_episode = 0
+        self.venice_calls_episode = 0
 
     def reset_episode(self):
         self.step_counter = 0

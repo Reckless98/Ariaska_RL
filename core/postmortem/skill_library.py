@@ -70,7 +70,7 @@ class SkillLibrary:
         self.skills: Dict[str, SkillCard] = {}
         self._load_library()
         
-        logger.info(f"SkillLibrary initialized with {len(self.skills)} skills")
+        logger.debug(f"SkillLibrary initialized with {len(self.skills)} skills")
     
     def _load_library(self):
         """Load skill library from disk."""
@@ -82,12 +82,12 @@ class SkillLibrary:
                 for skill_id, skill_data in data.get("skills", {}).items():
                     self.skills[skill_id] = SkillCard.from_dict(skill_data)
                 
-                logger.info(f"Loaded {len(self.skills)} skills from library")
+                logger.debug(f"Loaded {len(self.skills)} skills from library")
             except Exception as e:
                 logger.error(f"Failed to load skill library: {e}")
                 self.skills = {}
         else:
-            logger.info("No existing skill library found, starting fresh")
+            logger.debug("No existing skill library found, starting fresh")
     
     def _save_library(self):
         """Save skill library to disk."""
@@ -145,10 +145,10 @@ class SkillLibrary:
                         success=True
                     ))
                     self._save_library()
-                    logger.info(f"Updated skill {skill.id} (confidence: {existing.confidence:.2f} -> {skill.confidence:.2f})")
+                    logger.debug(f"Updated skill {skill.id} (confidence: {existing.confidence:.2f} -> {skill.confidence:.2f})")
                     return True
                 else:
-                    logger.info(f"Skill {skill.id} already exists with higher confidence, skipping")
+                    logger.debug(f"Skill {skill.id} already exists with higher confidence, skipping")
                     return False
             
             # Add new skill
@@ -169,7 +169,7 @@ class SkillLibrary:
             ))
             
             self._save_library()
-            logger.info(f"Promoted skill {skill.id} to library")
+            logger.debug(f"Promoted skill {skill.id} to library")
             return True
             
         except Exception as e:
@@ -1115,11 +1115,11 @@ class SkillLibrary:
                         promoted += 1
                 except Exception:
                     pass  # Skip malformed cards
-            logger.info(f"Phase 9: Added {len(phase9_cards)} HTB/THM/OSCP skill cards")
+            logger.debug(f"Phase 9: Added {len(phase9_cards)} HTB/THM/OSCP skill cards")
         except Exception as e:
             logger.warning(f"Phase 9: Massive knowledge pre-seed failed: {e}")
 
-        logger.info(f"Seeded {promoted} expert skill cards into library (including Phase 9)")
+        logger.debug(f"Seeded {promoted} expert skill cards into library (including Phase 9)")
         return promoted
 
 

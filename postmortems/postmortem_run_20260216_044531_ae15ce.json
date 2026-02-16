@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260216_044531_ae15ce",
+  "timestamp": 1771213556.0400293,
+  "key_outcomes": {
+    "wins": [
+      "Achieved 80 reward within single episode indicating efficient sub-task progression",
+      "Engaged mentor assistance proactively throughout training (10 calls) to clarify objectives"
+    ],
+    "fails": [
+      "Failed to complete the primary mission objective resulting in 0% success rate",
+      "No successful exploitation after reconnaissance, suggesting weakness in post-enumeration actions"
+    ],
+    "summary": "Run delivered strong reward accumulation but consistently missed the breakthrough action that would mark objective completion; further refinement on exploit chaining is necessary."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-enumeration action never completed, leaving target in locked state",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH banner indicates OpenSSH 8.x and host key scanning succeeds",
+      "then_action": "Run ssh2-enum-algos and ssh-auth-methods scripts to identify potential misconfigurations",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos",
+        "timeout": 60
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771213562.177002,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_004",
+      "if_condition": "When port 80 or 443 open and HTTP response contains uncommon headers",
+      "then_action": "Execute Nikto scan followed by targeted curl requests to confirm injection vectors",
+      "parameters_template": {
+        "endpoint": "/",
+        "modules": [
+          "nikto",
+          "curl --data"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771213562.1770115,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_005",
+      "if_condition": "When initial exploit attempt fails but service still responsive",
+      "then_action": "Retry with modified payload parameters and escalate to memory corruption checks",
+      "parameters_template": {
+        "retry_count": 2,
+        "payload_adjustment": "increase NOP sled"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step11"
+      ],
+      "created_at": 1771213562.1770167,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "High success in enclave enumeration gave reliable reconnaissance foundation"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_004",
+      "skill_card_id": "skill_004",
+      "reason": "Consistent discovery of interesting headers prompted further inspection attempts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate exploit retry strategy",
+      "description": "After successful enumeration, automate payload variation with persistence to trigger objective completion instead of aborting on first failure",
+      "priority": "high"
+    },
+    {
+      "title": "Enhance detection of HTTP injection points",
+      "description": "Introduce multi-method scanning (Nikto + custom curl) with adaptive parameter tuning to uncover exploitable vectors missed in scaffolding passes",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

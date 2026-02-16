@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260216_153318_55a082",
+  "timestamp": 1771252418.6781514,
+  "key_outcomes": {
+    "wins": [
+      "Reached total episode reward of 90.0 indicating aggressive progression despite failure.",
+      "Mentor calls (10) were leveraged to iterate quickly, reflecting active learning engagement."
+    ],
+    "fails": [
+      "0% success rate due to failure to complete final objective for the only episode.",
+      "Repeated inability to consolidate foothold even after high reward actions suggests gaps in persistence phase."
+    ],
+    "summary": "Run displayed strong engagement and high reward accumulation but consistently failed to achieve mission success, indicating strategic gaps between reconnaissance and exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to escalate privileges after initial reconnaissance steps, never bridging into final objective.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260216_153318_55a082_ep001_step12",
+        "run_20260216_153318_55a082_ep001_step17",
+        "run_20260216_153318_55a082_ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial nmap reconnaissance yields a productive service list",
+      "then_action": "Prioritize targeted enumeration to identify privilege escalation vectors",
+      "parameters_template": {
+        "scan_depth": "service_versions",
+        "scripts": [
+          "default",
+          "vuln"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260216_153318_55a082_ep001_step5",
+        "run_20260216_153318_55a082_ep001_step8"
+      ],
+      "created_at": 1771252425.1369028,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH service is available but access is denied",
+      "then_action": "Deploy brute-force policy with wordlist from mentor + log outcomes for manual review",
+      "parameters_template": {
+        "port": 22,
+        "mode": "credential_harvest",
+        "timeout_minutes": 10
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260216_153318_55a082_ep001_step10",
+        "run_20260216_153318_55a082_ep001_step14"
+      ],
+      "created_at": 1771252425.1369128,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When privilege escalation exploit fails on first attempt",
+      "then_action": "Pivot to secondary known exploit chain while documenting failed vector for analysis",
+      "parameters_template": {
+        "primary_exploit": "local_logged",
+        "secondary_exploit": "sudo_bypass"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "run_20260216_153318_55a082_ep001_step18",
+        "run_20260216_153318_55a082_ep001_step20"
+      ],
+      "created_at": 1771252425.136918,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance parsing and reward accumulation justifies priority use."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expand privilege escalation coverage",
+      "description": "Attempt multiple escalation chains sequentially (sudo abuse, kernel exploit) instead of repeating the same vector to overcome the final objective barrier.",
+      "priority": "high"
+    },
+    {
+      "title": "Structured post-recon persistence",
+      "description": "After enumeration, immediately map credential reuse opportunities and automate persistence checks to avoid losing control before objective.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

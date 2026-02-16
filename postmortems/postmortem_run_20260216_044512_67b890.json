@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260216_044512_67b890",
+  "timestamp": 1771213521.123232,
+  "key_outcomes": {
+    "wins": [
+      "Completed full reconnaissance cycle within first 8 steps, mapping 3 live hosts and 5 open services, which yielded high-fidelity service data.",
+      "Triggered repeatable mentor guidance quickly (10 calls) to validate approach and avoid major blind spots."
+    ],
+    "fails": [
+      "Failed to exploit the highest-priority vulnerability due to lack of valid credentials in the post-exploitation phase, preventing success completion.",
+      "Did not leverage the documented misconfigured web endpoint despite recon confirming its presence, resulting in zero success rate."
+    ],
+    "summary": "Reconnaissance workflows were efficient and repeatable, but the run stalled in exploitation due to missed credential gathering and underutilized misconfigurations."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inadequate credential harvesting before attempting exploitation of web application misconfiguration.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts and capture supported authentication mechanisms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771213527.5671215,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_web_config_enum",
+      "if_condition": "When HTTP service on port 80/443 shows candidate misconfiguration (e.g., directory listing, verbose error message)",
+      "then_action": "Chain directory brute force (gobuster) with vulnerability fingerprinting tool (nikto) and log outputs",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771213527.5671363,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_creds_gather",
+      "if_condition": "Post reconnaissance detects login prompt without credentials",
+      "then_action": "Deploy credential harvest via captured banner data and brute force from stored password lists",
+      "parameters_template": {
+        "target_service": "ssh",
+        "password_list": "lab_common_creds.txt"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771213527.5671458,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "High reliability in identifying SSH service details for later exploitation phases."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_web_config_enum",
+      "skill_card_id": "skill_web_config_enum",
+      "reason": "Consistent detection of exploitable misconfigurations across web services during recon."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvesting Prior to Exploit",
+      "description": "Automate extraction of stored credentials from reconnaissance outputs (e.g., SSH banners, web config leaks) before launching exploitation to ensure prerequisites are met.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Misconfiguration Exploitation Sequence",
+      "description": "Integrate directory brute-forcing with automated vulnerability verification scripts to confidently assert exploitable misconfigurations and reduce manual oversight.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Decision Gate Tuning",
+      "description": "Define criteria for when mentor input is required to minimize unnecessary disruptions while capturing actionable guidance earlier in failure cases.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

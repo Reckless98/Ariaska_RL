@@ -284,13 +284,14 @@ class OrionPostmortem:
         result.model_used = model
         
         try:
-            # Make GPT request
+            # Make GPT request — postmortem needs longer timeout for deep analysis
             response = self.gpt_manager.gpt_request(
                 prompt,
                 task_type=task_type,
                 agent_id="OrionPostmortem",
                 max_tokens=2000,
-                model=model
+                model=model,
+                timeout=30,  # Postmortem analysis needs more than default 8s
             )
             
             result.raw_response = response

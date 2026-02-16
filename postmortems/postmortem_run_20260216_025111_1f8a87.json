@@ -1,0 +1,85 @@
+{
+  "run_id": "run_20260216_025111_1f8a87",
+  "timestamp": 1771206679.954799,
+  "key_outcomes": {
+    "wins": [
+      "Accumulated full episode reward through efficient reconnaissance despite no documented success condition being met (ep001_step20).",
+      "Maintained consistent engagement with mentor guidance, indicating proactive troubleshooting (mentor calls: 10)."
+    ],
+    "fails": [
+      "Failed to convert reconnaissance into successful exploitation, resulting in 0% success rate for the run.",
+      "Mentor call volume suggests repeated inability to resolve access blockers during exploitation phase."
+    ],
+    "summary": "Reconnaissance was carried out thoroughly, but the transition to exploitation failed repeatedly, requiring targeted adjustments in execution strategy."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempts to escalate privileges stalled after initial scanning, suggesting overlooked misconfigurations in exploitation payloads.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step25",
+        "ep001_step32",
+        "ep001_step40"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771206685.6809177,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial scanning reveals high port variability with limited banners",
+      "then_action": "Follow with targeted service version checks via masscan results",
+      "parameters_template": {
+        "tool": "masscan",
+        "rate": 1000
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step12"
+      ],
+      "created_at": 1771206685.6809347,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High confidence and clear value during reconnaissance to identify SSH services quickly"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Streamline Exploit Triage",
+      "description": "Integrate credential stuffing and SSH key harvesting after confirming SSH banner to improve exploitation success.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Service Version Validation",
+      "description": "Run targeted version-scanning scripts automatically after reconnaissance to reduce time spent manually verifying services.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

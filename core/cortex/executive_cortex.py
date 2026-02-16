@@ -398,7 +398,7 @@ class ExecutiveCortex:
             self._llm_calls_this_episode += 1
 
         self._plan = plan
-        logger.info(
+        logger.debug(
             f"[EXECUTIVE] Created plan: {len(plan.objectives)} objectives, "
             f"target={target_type}, llm={plan.llm_enhanced}"
         )

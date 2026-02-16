@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260216_060118_f24043",
+  "timestamp": 1771218104.0046408,
+  "key_outcomes": {
+    "wins": [
+      "Completed comprehensive reconnaissance including full TCP port sweep and basic service enumeration within the single episode, providing consistent visibility on available services.",
+      "Mentor guidance triggered early remediation attempts, ensuring learning moments around service interrogation prior to privilege escalation attempts."
+    ],
+    "fails": [
+      "Unable to achieve overall success despite significant reward, indicating that critical post-recon phases (e.g., exploitation/persistence) did not complete.",
+      "Privilege escalation attempts repeatedly failed, suggesting missing credentials or improper targeting of vulnerable binaries."
+    ],
+    "summary": "Reconnaissance executed thoroughly, but exploitation and follow-on phases stalled repeatedly, preventing mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts using discovered binaries failed due to insufficient credentials or incompatible exploit paths.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260216_060118_f24043_ep001_step12",
+        "run_20260216_060118_f24043_ep001_step14",
+        "run_20260216_060118_f24043_ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP scan reveals both SSH (22) and HTTP (80/443) open on a target host",
+      "then_action": "Perform focused service enumeration (nmap -sV) and initiate SSH banner grab to capture service versions",
+      "parameters_template": {
+        "ports": [
+          22,
+          80,
+          443
+        ],
+        "options": "-sV --version-intensity 5"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260216_060118_f24043_ep001_step04",
+        "run_20260216_060118_f24043_ep001_step05"
+      ],
+      "created_at": 1771218112.6018343,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service exposes a login portal or easily enumerated directories",
+      "then_action": "Use automated directory fuzzing (gobuster/ffuf) followed by credential spraying against discovered endpoints",
+      "parameters_template": {
+        "wordlist": "common_dirs.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "run_20260216_060118_f24043_ep001_step07",
+        "run_20260216_060118_f24043_ep001_step08"
+      ],
+      "created_at": 1771218112.6018488,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial exploitation fails with common payloads",
+      "then_action": "Switch to manual validation via interactive debugging (e.g., gdb/radare2) to confirm binary compatibility before retrying",
+      "parameters_template": {
+        "debug_tool": "gdb",
+        "retry_limit": 2
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260216_060118_f24043_ep001_step12",
+        "run_20260216_060118_f24043_ep001_step15"
+      ],
+      "created_at": 1771218112.6018603,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent success in identifying services under values of reconnaissance, enabling downstream engagement planning"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Directory discovery reliably produced actionable entry points for authentication efforts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential reuse from web service to SSH",
+      "description": "Capture valid web credentials, verify reuse against SSH via automated scripts before manual exploitation, replacing brute-force attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Binary compatibility verification flow",
+      "description": "Add a debugging step for suspected exploit binaries by parsing symbols and confirming vulnerable function addresses before payload delivery.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence robustness check",
+      "description": "After privilege escalation, immediately verify persistence mechanisms (cron entries, startup scripts) to prevent immediate attrition.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

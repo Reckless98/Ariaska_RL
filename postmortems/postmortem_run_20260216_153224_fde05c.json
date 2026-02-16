@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260216_153224_fde05c",
+  "timestamp": 1771252367.7858808,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a high average reward per episode (87.5) indicating effectiveness of reconnaissance and lateral movement heuristics despite overall failure.",
+      "Captured detailed artifact timelines and service fingerprints during mentor interventions, providing rich telemetry for post-mortem analysis.",
+      "Mentor calls successfully kept environment stable enough to reach post-exploitation phase, preserving data for further training."
+    ],
+    "fails": [
+      "Failed to transition from initial access to privilege escalation; attack chain stalled before obtaining root/sensitive data.",
+      "Repeated misalignment between chosen payloads and service context leading to execution errors in exploitation attempts.",
+      "No run episodes classified as success, pointing to systemic gaps in exploitation reliability."
+    ],
+    "summary": "Strong reconnaissance rewarded by high cumulative score, but build still falls short of completing end-to-end compromise; exploitation modules need tuning to translate gains into success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation attempts repeatedly failed after service enumeration due to choosing mismatched payloads or insufficient privilege context.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260216_153224_fde05c_ep1_step12",
+        "run_20260216_153224_fde05c_ep1_step17",
+        "run_20260216_153224_fde05c_ep1_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH 8.x",
+      "then_action": "Run targeted SSH enumeration with nmap ssh-* scripts to shortlist supported algorithms and authentication methods",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timeout": "10s"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260216_153224_fde05c_ep1_step5",
+        "run_20260216_153224_fde05c_ep1_step8"
+      ],
+      "created_at": 1771252376.5898576,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB port 445 exposes Samba 4.17, but anonymous login is blocked",
+      "then_action": "Invoke SMB signing and enumeration scripts to harvest share names and user lists before brute-force attempts",
+      "parameters_template": {
+        "port": 445,
+        "script": "smb-enum*",
+        "user": "null",
+        "password": "null"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260216_153224_fde05c_ep1_step11",
+        "run_20260216_153224_fde05c_ep1_step14"
+      ],
+      "created_at": 1771252376.5898693,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web server responds with PHP metadata and writeable upload directory",
+      "then_action": "Cluster PHP webshell templates and test via stealthy POST requests before attempting privilege escalation",
+      "parameters_template": {
+        "method": "POST",
+        "paths": [
+          "/upload.php",
+          "/contact.php"
+        ],
+        "payload": "php_shell"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260216_153224_fde05c_ep1_step19",
+        "run_20260216_153224_fde05c_ep1_step23"
+      ],
+      "created_at": 1771252376.5898767,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently collected accurate SSH service data that later fed into decision pipelines"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit payload-context matching",
+      "description": "Evaluate exploitation modules with more precise service metadata to avoid mismatched payloads, focusing on the services that previously failed after high-quality enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation logic validation",
+      "description": "Run focused tests on privilege escalation sequences triggered after successful webshell deployment to ensure the last phase executes reliably.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated fallback paths",
+      "description": "Introduce automated fallback workflows when initial exploitation fails, such as re-enumerating services or rotating payloads without manual mentor intervention.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -41,6 +41,9 @@ def test_online_makes_mentor_calls(project_root):
         pytest.skip("Virtual environment not found. Run 'make venv' first.")
     
     # Run training in online mode (no --offline flag)
+    # Explicitly remove ARIASKA_DRY_RUN to prevent leakage from other test fixtures
+    env = os.environ.copy()
+    env.pop("ARIASKA_DRY_RUN", None)
     result = subprocess.run(
         [
             str(python),
@@ -54,6 +57,7 @@ def test_online_makes_mentor_calls(project_root):
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
     
     # Check exit code
@@ -108,6 +112,8 @@ def test_mentor_calls_logged_correctly(project_root):
         pytest.skip("Virtual environment not found. Run 'make venv' first.")
     
     # Run quick online training
+    env = os.environ.copy()
+    env.pop("ARIASKA_DRY_RUN", None)
     result = subprocess.run(
         [
             str(python),
@@ -120,6 +126,7 @@ def test_mentor_calls_logged_correctly(project_root):
         capture_output=True,
         text=True,
         timeout=120,
+        env=env,
     )
     
     if result.returncode != 0:

@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260216_055435_795867",
+  "timestamp": 1771217699.3178322,
+  "key_outcomes": {
+    "wins": [
+      "Established initial reconnaissance and vulnerability identification quickly despite limited episodes.",
+      "Successfully gathered contextual data to justify follow-up automated enumeration attempts."
+    ],
+    "fails": [
+      "Unable to convert reconnaissance data into a confirmed successful exploit, leaving mission status at 0% success.",
+      "Persistent reliance on mentor calls (10 total) indicates gaps in autonomous decision pathways."
+    ],
+    "summary": "Run generated useful reconnaissance data but failed to convert it into a successful compromise, revealing repeated decision bottlenecks during exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempted exploitation without validated credentials caused repeated rejection of privileged actions",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When port 22 is open and SSH banner indicates a Linux host",
+      "then_action": "Run targeted SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-brute,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771217704.9463494,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_wrong_creds_checkpoint",
+      "if_condition": "When authentication attempts fail repeatedly with default credentials",
+      "then_action": "Mount a quick credential list update from golden data and re-evaluate success metrics before exploitation",
+      "parameters_template": {
+        "credential_source": "golden_credlist_v3",
+        "retry_limit": 3
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771217704.9463577,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_post_enum_update",
+      "if_condition": "When enumeration yields configuration details but no active exploits succeed",
+      "then_action": "Log findings, refresh attack graph, and prioritize alternate CVEs linked to the service versions",
+      "parameters_template": {
+        "service": "ssh",
+        "version_field": "banner_version"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1771217704.946363,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "High success rate during reconnaissance phase indicates consistent applicability."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential pivoting experiment",
+      "description": "Introduce policy for iteratively refreshing credential lists after each failed authentication to avoid repeated lockouts and measure success impact.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive exploitation sequencing",
+      "description": "Implement a decision gate that defers exploitation attempts until validation routines confirm viable credentials, reducing wasted actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

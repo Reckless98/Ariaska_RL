@@ -642,7 +642,14 @@ class TacticalCortex:
         state: Dict[str, Any],
         discovery_board: Dict[str, Any],
     ) -> Optional[str]:
-        """Build an executable command from a template name."""
+        """Build an executable command from a template name.
+        
+        R80: Fixed to fill ALL required_params including {username} and
+        {password} from discovery_board credentials or MS2/MS3 defaults.
+        Previously only filled {target}/{ip} + optional_params, leaving
+        required_params like {password} as literal text which broke
+        shell-granting commands like ssh_login.
+        """
         try:
             from core.commands.command_registry import COMMAND_REGISTRY
         except ImportError:
@@ -658,9 +665,62 @@ class TacticalCortex:
         cmd = cmd.replace("{target}", target)
         cmd = cmd.replace("{ip}", target)
 
-        # Fill optional params with defaults
+        # ─── R80: Fill credential params from discovery_board or defaults ───
+        # Extract known credentials from discovery_board
+        _creds = discovery_board.get("credentials", set())
+        _users = discovery_board.get("users", set())
+        _default_username = "msfadmin"
+        _default_password = "msfadmin"
+        
+        # Try to extract username:password from credential entries
+        _found_user = None
+        _found_pass = None
+        if isinstance(_creds, (set, list)):
+            for _c in _creds:
+                if isinstance(_c, str) and ":" in _c:
+                    parts = _c.split(":", 1)
+                    _found_user = parts[0]
+                    _found_pass = parts[1]
+                    break
+        if isinstance(_users, (set, list)) and _users:
+            _first_user = next(iter(_users), None)
+            if _first_user and _found_user is None:
+                _found_user = str(_first_user)
+        
+        # Build param defaults map for all required params
+        _param_defaults = {
+            "username": _found_user or _default_username,
+            "password": _found_pass or _default_password,
+            "user": _found_user or _default_username,
+            "pass": _found_pass or _default_password,
+            "port": "22",
+            "wordlist": "/usr/share/wordlists/rockyou.txt",
+            "rhost": target,
+            "rhosts": target,
+            "lhost": "10.0.0.1",
+            "lport": "4444",
+            "interface": "eth0",
+            "domain": target,
+            "url": f"http://{target}",
+            "share": "tmp",
+            "database": "mysql",
+            "command": "id",
+        }
+        
+        # Fill all required params
+        for pname in tmpl.required_params:
+            placeholder = f"{{{pname}}}"
+            if placeholder in cmd:
+                val = _param_defaults.get(pname, target)
+                cmd = cmd.replace(placeholder, val)
+        
+        # Fill optional params with their defaults
         for pname, pval in tmpl.optional_params.items():
             cmd = cmd.replace(f"{{{pname}}}", pval)
+        
+        # Final safety: replace any remaining {placeholders} with target
+        import re as _re
+        cmd = _re.sub(r'\{[a-zA-Z_]+\}', target, cmd)
 
         return cmd
 

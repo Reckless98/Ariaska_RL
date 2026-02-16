@@ -2,6 +2,7 @@
 # 🕵️ Stealth Monitor | Action Override System | Alert Prevention Specialist
 
 import os
+import logging
 import time
 import random
 from typing import Dict, Any, List, Optional, Tuple, Union
@@ -16,6 +17,7 @@ from core.gpt_manager import GPTManager
 from core.multiagent.memory_router import MemoryRouter
 
 console = Console()
+logger = logging.getLogger("ariaska.shadow_agent")
 
 class ShadowAgent(AgentInterface, MemorySyncInterface):
     """
@@ -120,7 +122,7 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
             ]
         }
         
-        console.print(f"[green]✓ {self.agent_id} initialized[/green]")
+        logger.debug(f"{self.agent_id} initialized")
         
     def _init_multiagent_links(self):
         """Initialize links to other agents in the system"""

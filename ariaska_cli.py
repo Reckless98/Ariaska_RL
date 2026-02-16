@@ -164,10 +164,8 @@ def run_training(
     # Load checkpoint if exists
     if resume_path and os.path.exists(resume_path):
         orch.load_ppo_checkpoints(resume_path)
-        console.print(f"[green]✅ Resumed from checkpoint: {resume_path}[/green]")
     elif os.path.exists(checkpoint_path):
         orch.load_ppo_checkpoints(checkpoint_path)
-        console.print(f"[green]✅ Loaded PPO checkpoint from {checkpoint_path}[/green]")
     
     # Phase 6.2: Initialize CheckpointManager for atomic saves
     from core.training.checkpoint_manager import CheckpointManager, CheckpointConfig
@@ -205,15 +203,54 @@ def run_training(
         log_rotator=LogRotator(),
     )
 
-    console.print(Panel(
-        f"[bold cyan]ARIASKA Smart Training v6.9 — CLOSEOUT Enforced[/bold cyan]\n\n"
-        f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
-        f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
-        f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
-        f"Verbosity: {verbosity}  |  Checkpoint: {checkpoint_path}",
-        title="🚀 Training Start",
-        border_style="cyan",
-    ))
+    # ── Phase 10.2: Polished Training Start Banner with Algorithm Stack ──
+    try:
+        algo_status = {
+            "PPO": orch.ppo_agent is not None,
+            "DDQN": any(
+                hasattr(c, 'ddqn_macro') and c.ddqn_macro is not None
+                for c in orch.coaches.values()
+            ),
+            "CognitionNode": any(
+                hasattr(c, 'cognition_node') and c.cognition_node is not None
+                for c in orch.coaches.values()
+            ),
+            "SIL": any(
+                hasattr(c, '_sil_buffer') and c._sil_buffer is not None
+                for c in orch.coaches.values()
+            ),
+            "RND": orch.rnd_curiosity is not None,
+            "SAC": any(
+                hasattr(c, 'sac_agent') and c.sac_agent is not None
+                for c in orch.coaches.values()
+            ),
+        }
+        orch.dashboard.print_training_start(
+            config={
+                "episodes": episodes,
+                "steps_per_episode": max_steps,
+                "seed": seed,
+                "env": "ms3" if "172.28.0.11" in target_ip else "ms2" if "172.28.0.10" in target_ip else "sim",
+                "target": target_ip,
+                "difficulty": difficulty_preset,
+                "live": mode == "live",
+                "mentor_budget": int(mentor_budget * 100),
+            },
+            agents=list(orch.agents.keys()),
+            algorithms=algo_status,
+            target=target_ip,
+        )
+    except Exception as e:
+        # Fallback to legacy banner
+        console.print(Panel(
+            f"[bold cyan]ARIASKA Smart Training v6.9 — CLOSEOUT Enforced[/bold cyan]\n\n"
+            f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
+            f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
+            f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
+            f"Verbosity: {verbosity}  |  Checkpoint: {checkpoint_path}",
+            title="🚀 Training Start",
+            border_style="cyan",
+        ))
 
     # Phase 6.7: Pre-seed SkillLibrary with expert knowledge
     if seed_skills:
@@ -221,13 +258,32 @@ def run_training(
             from core.postmortem.skill_library import SkillLibrary
             skill_lib = SkillLibrary()
             count = skill_lib.seed_skills()
-            console.print(f"[green]🧠 Pre-seeded {count} expert skill cards into SkillLibrary[/green]")
         except Exception as e:
             console.print(f"[yellow]⚠️ Skill seeding failed: {e}[/yellow]")
 
     # Phase 6.7: Store anti-forensics config on orchestrator
     orch.anti_forensics_enabled = anti_forensics
     orch.ethics_mode = ethics_mode
+
+    # Phase 10.3: Suppress noisy INFO loggers during training — all relevant
+    # information is shown via Rich dashboard panels. Raw logger.info() lines
+    # between steps (TacticalCortex, MENTOR-REASONING, PHASE-GATE, GPT empty
+    # response warnings) break the clean UI flow. We raise them to WARNING+
+    # selectively and restore after training.
+    _noisy_loggers = [
+        "ariaska.smart_coach", "ariaska.smart_orchestrator",
+        "core.gpt_manager", "ariaska.trainer", "ariaska.parser_broker",
+        "ariaska.ppo", "ariaska.ddqn_macro", "ariaska.cognition_node",
+        "ariaska.skill_library", "ariaska.reward_calculator",
+        "ariaska.telemetry",
+    ]
+    _saved_levels = {}
+    for _lg_name in _noisy_loggers:
+        _lg = _logging.getLogger(_lg_name)
+        _saved_levels[_lg_name] = _lg.level
+        # core.gpt_manager emits WARNING-level noise (empty GPT responses),
+        # so raise it to ERROR; raise all others to WARNING.
+        _lg.setLevel(_logging.ERROR if _lg_name == "core.gpt_manager" else _logging.WARNING)
 
     # Phase 6.9: NO Rich Progress wrapper — it causes carriage-return interleaving
     # with Python logging, producing the "glued monster line" UI bug.
@@ -339,6 +395,10 @@ def run_training(
             )
 
     elapsed = time.time() - start_time
+
+    # Phase 10.3: Restore logger levels after training
+    for _lg_name, _orig_level in _saved_levels.items():
+        _logging.getLogger(_lg_name).setLevel(_orig_level)
 
     # Save PPO checkpoint
     os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)

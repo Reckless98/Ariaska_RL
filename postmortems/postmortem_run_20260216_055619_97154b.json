@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260216_055619_97154b",
+  "timestamp": 1771217801.4119582,
+  "key_outcomes": {
+    "wins": [
+      "Completed comprehensive reconnaissance covering all accessible hosts and services within first 5 steps",
+      "Maintained consistent reward until mentor guidance, indicating stable learning input"
+    ],
+    "fails": [
+      "Failed to achieve mission objectives in single episode despite high reward hinting at non-critical wins",
+      "Zero percent mission success suggests repeated inability to apply exploit chain to compromise target",
+      "Dependence on mentor calls (10) indicates lack of autonomous decision making"
+    ],
+    "summary": "Training run shows solid reconnaissance and stabilized reward intake but fails to translate findings into successful exploitation; needs focus on automated intrusion steps and reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts repeatedly stalled due to missing credential validation and network context verification before executing payloads",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14",
+        "ep001_step19",
+        "ep001_step24",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner indicates supported ciphers",
+      "then_action": "Run targeted SSH enumeration with nmap ssh scripts and check for weak ciphers/version detections",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos"
+      },
+      "confidence": 0.73,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771217807.7557216,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_service_cascade",
+      "if_condition": "When initial reconnaissance maps multiple services but exploit stage fails",
+      "then_action": "Re-run service-specific scripted scans to validate versions and available exploits, adjusting payload timing",
+      "parameters_template": {
+        "targets": "$current_hosts",
+        "modules": [
+          "service_version_scan",
+          "exploit_suggestion"
+        ]
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step18"
+      ],
+      "created_at": 1771217807.7557309,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_priv_esc_check",
+      "if_condition": "When privilege escalation attempt is about to run without confirmed credentials/privileges",
+      "then_action": "Pause and run automated credential validation plus sudo checks before executing escalation payloads",
+      "parameters_template": {
+        "verification_commands": [
+          "id",
+          "sudo -l"
+        ],
+        "timeout": 15
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step27"
+      ],
+      "created_at": 1771217807.755736,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_priv_esc_check",
+      "skill_card_id": "skill_priv_esc_check",
+      "reason": "Consistently prevented blind escalation attempts and kept failed payloads from derailing run"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential validation before escalation",
+      "description": "Add automated checks to confirm user privileges and available sudo commands prior to running privilege escalation scripts",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific exploitation chaining",
+      "description": "Chain service version discovery with matching exploit modules to ensure alignment between reconnaissance output and exploitation inputs",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

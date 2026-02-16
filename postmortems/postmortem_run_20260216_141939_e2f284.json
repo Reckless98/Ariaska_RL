@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260216_141939_e2f284",
+  "timestamp": 1771248005.682747,
+  "key_outcomes": {
+    "wins": [
+      "Agent achieved the only episode reward of 77.5 by reaching a mid-stage objective, demonstrating reliable maneuvering through the perimeter controls.",
+      "Mentor guidance usage (15 calls) kept the agent focused on sequential task decomposition, allowing recovery from minor setbacks.",
+      "Reward profile indicates consistent progress despite overall failure, suggesting foundational strategies are viable."
+    ],
+    "fails": [
+      "Success rate remained at 0% because the final persistence objective was never achieved; the agent stopped at privilege escalation and could not stabilize.",
+      "Multiple mentor interventions were required, suggesting the agent lacked autonomy in decision-making during critical transitions.",
+      "Agent repeatedly ignored systematic enumeration outputs, leading to blind privilege escalation attempts and eventual failure."
+    ],
+    "summary": "Agent demonstrates promising intermediate capability (reflected in reward) but consistently fails to reach final success criteria due to poor exploitation sequencing; focus should shift to codifying exploitation logic and reducing reliance on mentor overrides."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent exits immediately after partial privilege escalation attempts without verifying persistence artifacts.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step19",
+        "ep001_step25"
+      ]
+    },
+    {
+      "pattern": "Agent fails to correlate reconnaissance data with exploit selection, repeatedly launching generic payloads.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07",
+        "ep001_step14",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When the host responds on port 22 with an SSH banner",
+      "then_action": "Run targeted SSH enumeration using Nmap ssh-auth-methods and ssh-hostkey scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey",
+        "timeout": 5
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771248013.8965225,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port scanning finds only TCP 80 and 443 open",
+      "then_action": "Launch HTTP enumeration and directory brute-force before attempting exploits",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step13"
+      ],
+      "created_at": 1771248013.8965313,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential-based access is achieved via SSH or HTTP",
+      "then_action": "Perform post-auth enumeration with linpeas or winpeas before execution of privilege escalation exploits",
+      "parameters_template": {
+        "script": "linpeas.sh",
+        "upload_tool": "curl",
+        "destination": "/tmp"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step16"
+      ],
+      "created_at": 1771248013.8965366,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration reliably surfaces exploitation vectors critical to progression."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Post-auth enumeration prevents blind escalation, aligning with mentor guidance successes."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate persistence verification",
+      "description": "Add a verification stage post-privilege escalation where the agent checks for stable persistence (e.g., cron jobs, service creation) before concluding success.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit selection refinement",
+      "description": "Tie reconnaissance outputs to exploit templates so the agent only executes payloads matching discovered services/versions.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Train a decision policy that relies on skill cards for routine choices and track reduction in mentor calls by 50%.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

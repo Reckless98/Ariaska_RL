@@ -1,0 +1,105 @@
+{
+  "run_id": "run_20260216_135650_28bf83",
+  "timestamp": 1771246617.3387845,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent logging of mentor interactions across all 10 calls, ensuring traceability for future review."
+    ],
+    "fails": [
+      "Episode failed to reach the objective, resulting in a 0% success rate despite earning 40 reward points.",
+      "Unable to pivot past initial access due to incomplete enumeration, preventing exploitation phase."
+    ],
+    "summary": "Training run produced reward but failed the mission objective, highlighting a need for deeper enumeration and pivot capabilities before exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Enumeration halted after port scans, with no further vulnerability verification leading to mission failure.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripting engine to gather user list and version info",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771246626.2394264,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial reconnaissance reveals accessible web interface on port 80/443",
+      "then_action": "Execute targeted HTTP enumeration to enumerate directories and technology stack",
+      "parameters_template": {
+        "port": 80,
+        "tools": "gobuster,nikto"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1771246626.2394392,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials from enumeration are available but not confirmed",
+      "then_action": "Validate credentials immediately using credential stuffing module before exploitation",
+      "parameters_template": {
+        "method": "hydra",
+        "service": "ssh"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771246626.239448,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration consistently highlighted as critical next step when port revealed."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve conditional enumeration pipeline",
+      "description": "Automate follow-on enumeration once open ports are confirmed to ensure full coverage before stopping.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential validation phase",
+      "description": "Integrate credential validation immediately after discovery to unlock exploitation opportunities more quickly.",
+      "priority": "medium"
+    },
+    {
+      "title": "Expand mentor call utilization",
+      "description": "Document mentor feedback to create checkpoints guiding enumeration depth and pivot strategies.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

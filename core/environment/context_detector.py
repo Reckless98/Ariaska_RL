@@ -3,11 +3,13 @@
 
 import os
 import json
+import logging
 import random
 from typing import Dict, Any, Optional, List
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger("ariaska.context_detector")
 
 class EnvironmentContextDetector:
     """
@@ -45,7 +47,7 @@ class EnvironmentContextDetector:
             "difficulty": self.curriculum_stage
         }
         
-        console.print(f"[green]✓ Environment Context Detector initialized: Mode={self.current_mode}, Curriculum Stage={self.curriculum_stage}[/green]")
+        logger.debug(f"Environment Context Detector initialized: Mode={self.current_mode}, Curriculum Stage={self.curriculum_stage}")
         
     def _load_config(self) -> Dict[str, Any]:
         """

@@ -1235,7 +1235,7 @@ def get_all_preseed_cards() -> List[Dict[str, Any]]:
     all_cards.extend(generate_htb_skill_cards())
     all_cards.extend(generate_web_attack_skill_cards())
     all_cards.extend(generate_privesc_skill_cards())
-    logger.info(f"Generated {len(all_cards)} total pre-seed skill cards "
+    logger.debug(f"Generated {len(all_cards)} total pre-seed skill cards "
                 f"(HTB/THM machines + web attacks + privesc)")
     return all_cards
 

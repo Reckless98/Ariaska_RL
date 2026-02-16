@@ -465,8 +465,6 @@ class RedAgentBrain:
                 with open(self.command_hash_path, "r") as f:
                     hashes = json.load(f)
                     self.command_hashes.update(hashes)
-                    
-            console.print(f"[blue]📂 RedAgentBrain: Loaded {len(self.steps)} steps, {len(self.command_history)} commands[/blue]")
         except Exception as e:
             console.print(f"[yellow]⚠ RedAgentBrain: Failed to load logs: {e}[/yellow]")
 

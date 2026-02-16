@@ -124,7 +124,7 @@ class KnowledgeRetriever:
             self._loaded = True
             return
 
-        logger.info(f"Loading knowledge base from {self._kb_dir}...")
+        logger.debug(f"Loading knowledge base from {self._kb_dir}...")
 
         file_loaders = {
             "services.json": ("_services", list),
@@ -168,7 +168,7 @@ class KnowledgeRetriever:
         total_entries += v2_count
 
         self._loaded = True
-        logger.info(f"Knowledge base loaded: {total_entries:,} total entries across "
+        logger.debug(f"Knowledge base loaded: {total_entries:,} total entries across "
                      f"{len(file_loaders)} files (+ {v2_count:,} v2 indexed)")
 
     def _load_v2_indices(self) -> int:
@@ -205,7 +205,7 @@ class KnowledgeRetriever:
 
         if v2_count > 0:
             self._v2_loaded = True
-            logger.info(f"  V2 indices loaded: {v2_count:,} index entries from {self._index_dir}")
+            logger.debug(f"  V2 indices loaded: {v2_count:,} index entries from {self._index_dir}")
 
         return v2_count
 

@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260216_061129_e2404c",
+  "timestamp": 1771218710.8500493,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reconnaissance pace without triggering premature detection, as indicated by consistent reward accumulation of 70.",
+      "Successfully executed initial scanning workflow and collected useful open port data within first mentor call window."
+    ],
+    "fails": [
+      "Failed to achieve goal objective despite full episode execution, resulting in 0% success rate and high mentor intervention (10 calls).",
+      "Repeated inability to chain post-scan actions into a viable exploit pathway, stalling progress after reconnaissance."
+    ],
+    "summary": "Episode demonstrated reliable scanning discipline but repeatedly stalled once transitioning into exploitation, preventing mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Transition from reconnaissance to exploitation stalls; no payload delivered after initial scanning.",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step25",
+        "ep001_step37"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner identified",
+      "then_action": "Run targeted SSH enumeration with nmap ssh-* scripts to gather host keys and service versions",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step11"
+      ],
+      "created_at": 1771218716.8698266,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If port 80 or 443 served and HTTP server detected",
+      "then_action": "Execute aggressive HTTP enumeration (dirb, nikto) to enumerate accessible directories",
+      "parameters_template": {
+        "targets": [
+          "http://target",
+          "https://target"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step20"
+      ],
+      "created_at": 1771218716.869839,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance completes without valid exploit path",
+      "then_action": "Review collected service banners and apply matching exploit database entries before attempting payload delivery",
+      "parameters_template": {
+        "analysis": "banner_vs_exploit-db",
+        "timeout": 60
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step28",
+        "ep001_step33"
+      ],
+      "created_at": 1771218716.8698475,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance success when SSH target identified supports reuse"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Effective HTTP enumeration steps captured actionable service details"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate exploit suggestion step after reconnaissance",
+      "description": "Introduce automated exploit-selection module that maps enumerated banners to candidate exploits and tests safe delivery paths to avoid stalling.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency by scripting follow-up actions",
+      "description": "Implement macro that chains scanning outputs into baseline exploitation attempts, targeting repeated stalling points.",
+      "priority": "medium"
+    },
+    {
+      "title": "Simulate rapid service change detection",
+      "description": "Run scenarios with fluctuating service states to ensure adaptation paths remain effective under dynamic conditions.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -4,6 +4,7 @@
 import os
 import random
 import json
+import logging
 import time
 import numpy as np
 import torch
@@ -12,6 +13,7 @@ from rich.console import Console
 from typing import Dict, List, Any, Union, Tuple, Optional
 
 console = Console()
+logger = logging.getLogger("ariaska.replay_buffer")
 
 class ReplayBuffer:
     """
@@ -90,7 +92,7 @@ class ReplayBuffer:
         self.dupes_filtered = 0
         self.gpt_tokens = {}  # Track token usage per experience
         
-        console.print(f"[green]✓ ReplayBuffer initialized for {agent_id or 'agent'}[/green]")
+        logger.debug(f"ReplayBuffer initialized for {agent_id or 'agent'}")
     
     def _get_fingerprint(self, experience: Dict[str, Any]) -> str:
         """Generate a unique fingerprint for experience deduplication."""

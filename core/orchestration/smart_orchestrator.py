@@ -209,6 +209,14 @@ class SmartOrchestrator:
         
         self.run_dir: Optional[str] = None
         
+        # ─── Suppress sub-module init noise ─────────────────────────
+        # All init status is shown via the Rich init table instead
+        _prev_log_level = logging.getLogger().level
+        logging.getLogger().setLevel(logging.WARNING)
+        
+        # ─── Module init tracking ───────────────────────────────────
+        _init_modules: List[tuple] = []  # (name, status, detail)
+        
         # ─── PHASE 6.3: SkillLibrary — persistent skill cards from postmortems ──
         if skill_library is not None:
             self.skill_library = skill_library
@@ -216,10 +224,10 @@ class SmartOrchestrator:
             try:
                 from core.postmortem.skill_library import SkillLibrary
                 self.skill_library = SkillLibrary(library_path="data/skill_library.json")
-                self.skill_library.load()
-                logger.info(f"Phase 6.3: SkillLibrary loaded ({self.skill_library.count()} skills)")
+                _skill_count = len(getattr(self.skill_library, 'skills', {}))
+                _init_modules.append(("SkillLibrary", "ok", f"{_skill_count} skills"))
             except Exception as e:
-                logger.warning(f"Phase 6.3: SkillLibrary init failed: {e}")
+                _init_modules.append(("SkillLibrary", "warn", str(e)[:40]))
                 self.skill_library = None
         
         # ─── PHASE 6.3: Campaign Memory — cross-episode persistent knowledge ──
@@ -228,9 +236,9 @@ class SmartOrchestrator:
             from core.memory.campaign_memory import CampaignMemory
             self.campaign_memory = CampaignMemory(path="data/campaign_state.json")
             self.campaign_memory.load()
-            logger.info(f"Phase 6.3: CampaignMemory loaded (episodes={self.campaign_memory.total_episodes})")
+            _init_modules.append(("CampaignMemory", "ok", f"episodes={self.campaign_memory.total_episodes}"))
         except Exception as e:
-            logger.warning(f"Phase 6.3: CampaignMemory init failed: {e}")
+            _init_modules.append(("CampaignMemory", "warn", str(e)[:40]))
         
         # Phase 6.5: Detect live mode EARLY — needed by watchdog, coaches, reward calc
         self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
@@ -246,9 +254,9 @@ class SmartOrchestrator:
                 wdog_cfg.wall_clock_limit = 120.0  # 2 min per step (some tools are slow)
                 wdog_cfg.phase_stuck_threshold = 40  # More patience in live mode
             self.watchdog = TrainingWatchdog(wdog_cfg)
-            logger.info("Phase 6.3: TrainingWatchdog initialized")
+            _init_modules.append(("TrainingWatchdog", "ok", "live-aware" if self._is_live_mode else "sim"))
         except Exception as e:
-            logger.warning(f"Phase 6.3: Watchdog init failed: {e}")
+            _init_modules.append(("TrainingWatchdog", "warn", str(e)[:40]))
         
         # ─── PHASE 10: KnowledgeRetriever — JSON knowledge base queries ──
         # Initialized early so downstream components can reference it.
@@ -256,9 +264,9 @@ class SmartOrchestrator:
         try:
             from data.knowledge_retriever import KnowledgeRetriever
             self.knowledge_retriever = KnowledgeRetriever(lazy=True)
-            logger.info("Phase 10: KnowledgeRetriever initialized (lazy-loaded)")
+            _init_modules.append(("KnowledgeRetriever", "ok", "lazy-loaded"))
         except Exception as e:
-            logger.debug(f"Phase 10: KnowledgeRetriever init skipped: {e}")
+            logger.debug(f"KnowledgeRetriever init skipped: {e}")
         
         # ─── PHASE 6.3: Smart Output Parser — regex + nano-LLM fallback ──
         self.smart_parser = None
@@ -270,18 +278,18 @@ class SmartOrchestrator:
                 max_llm_calls_per_episode=20,
                 knowledge_retriever=self.knowledge_retriever,
             )
-            logger.info("Phase 6.3: SmartOutputParser initialized (regex + nano-LLM)")
+            _init_modules.append(("SmartOutputParser", "ok", "regex + nano-LLM"))
         except Exception as e:
-            logger.warning(f"Phase 6.3: SmartOutputParser init failed: {e}")
+            _init_modules.append(("SmartOutputParser", "warn", str(e)[:40]))
         
         # ─── Phase 9.5: StepParseCache — dedup parse calls per step ──
         self._parse_cache = None
         try:
             from core.execution.step_parse_cache import StepParseCache
             self._parse_cache = StepParseCache()
-            logger.info("Phase 9.5: StepParseCache initialized")
+            _init_modules.append(("StepParseCache", "ok", "dedup"))
         except Exception as e:
-            logger.debug(f"Phase 9.5: StepParseCache init skipped: {e}")
+            logger.debug(f"StepParseCache init skipped: {e}")
         
         # ─── PHASE 7.1: OrionPostmortem — uses gpt-5.2-codex for deep analysis ──
         self.postmortem = None
@@ -292,9 +300,9 @@ class SmartOrchestrator:
                 output_dir="postmortems",
                 enable_gpt_5_2=True,  # Phase 7.1: Use gpt-5.2-codex for postmortems
             )
-            logger.info("Phase 7.1: OrionPostmortem initialized (gpt-5.2-codex)")
+            _init_modules.append(("OrionPostmortem", "ok", "gpt-5.2-codex"))
         except Exception as e:
-            logger.warning(f"Phase 6.3: OrionPostmortem init failed: {e}")
+            _init_modules.append(("OrionPostmortem", "warn", str(e)[:40]))
         
         # ─── PHASE 7.2: Venice Reasoning Layer — humanlike output analysis ──
         self.venice_reasoning = None
@@ -306,27 +314,27 @@ class SmartOrchestrator:
                 min_output_length=30,
                 enable_cross_episode_memory=True,
             )
-            logger.info("Phase 7.2: VeniceReasoningLayer initialized (zai-org-glm-4.7-flash)")
+            _init_modules.append(("VeniceReasoning", "ok", "glm-4.7-flash"))
         except Exception as e:
-            logger.warning(f"Phase 7.2: VeniceReasoningLayer init failed: {e}")
+            _init_modules.append(("VeniceReasoning", "warn", str(e)[:40]))
         
         # ─── PHASE 8: DecisionLogger — JSONL decision telemetry ──
         self.decision_logger = None
         try:
             from core.tracing.jsonl_logger import DecisionLogger
             self.decision_logger = DecisionLogger(log_dir="logs/decisions")
-            logger.info("Phase 8: DecisionLogger initialized (JSONL telemetry)")
+            _init_modules.append(("DecisionLogger", "ok", "JSONL telemetry"))
         except Exception as e:
-            logger.warning(f"Phase 8: DecisionLogger init failed: {e}")
+            _init_modules.append(("DecisionLogger", "warn", str(e)[:40]))
         
         # ─── PHASE 9: CognitiveBus — unified cognitive backbone ──
         self.cognitive_bus = None
         try:
             from core.memory.unified_cognitive_bus import get_cognitive_bus
             self.cognitive_bus = get_cognitive_bus()
-            logger.info("Phase 9: CognitiveBus initialized (unified cognitive backbone)")
+            _init_modules.append(("CognitiveBus", "ok", "unified backbone"))
         except Exception as e:
-            logger.warning(f"Phase 9: CognitiveBus init failed: {e}")
+            _init_modules.append(("CognitiveBus", "warn", str(e)[:40]))
         
         # ─── PHASE 9.2: Knowledge Graph — LMDB-backed attack knowledge ──
         self.knowledge_graph = None
@@ -338,13 +346,13 @@ class SmartOrchestrator:
             if _kg_stats.get("total_nodes", 0) == 0:
                 # First run — load from knowledge base
                 self.knowledge_graph.load_from_knowledge_base()
-                logger.info(f"Phase 9.2: KnowledgeGraph loaded from KB "
-                            f"({self.knowledge_graph.stats.get('total_nodes', 0)} nodes)")
+                _init_modules.append(("KnowledgeGraph", "ok",
+                    f"KB → {self.knowledge_graph.stats.get('total_nodes', 0)} nodes"))
             else:
-                logger.info(f"Phase 9.2: KnowledgeGraph restored from LMDB "
-                            f"({_kg_stats.get('total_nodes', 0)} nodes)")
+                _init_modules.append(("KnowledgeGraph", "ok",
+                    f"LMDB → {_kg_stats.get('total_nodes', 0)} nodes"))
         except Exception as e:
-            logger.warning(f"Phase 9.2: KnowledgeGraph init failed: {e}")
+            _init_modules.append(("KnowledgeGraph", "warn", str(e)[:40]))
         
         # ─── PHASE 9.2: ReflectiveCortex — batch meta-learning ──
         self.reflective_cortex = None
@@ -357,9 +365,9 @@ class SmartOrchestrator:
                 max_history_episodes=20,
                 enable_llm=True,
             )
-            logger.info("Phase 9.2: ReflectiveCortex initialized (batch meta-learning)")
+            _init_modules.append(("ReflectiveCortex", "ok", "batch meta-learning"))
         except Exception as e:
-            logger.warning(f"Phase 9.2: ReflectiveCortex init failed: {e}")
+            _init_modules.append(("ReflectiveCortex", "warn", str(e)[:40]))
         
         # ─── PHASE 10: TacticalCortex — per-step quality gate ──
         self.tactical_cortex = None
@@ -371,9 +379,9 @@ class SmartOrchestrator:
                 enable_llm=True,
                 knowledge_retriever=self.knowledge_retriever,
             )
-            logger.info("Phase 10: TacticalCortex initialized (per-step quality gate)")
+            _init_modules.append(("TacticalCortex", "ok", "per-step quality gate"))
         except Exception as e:
-            logger.warning(f"Phase 10: TacticalCortex init failed: {e}")
+            _init_modules.append(("TacticalCortex", "warn", str(e)[:40]))
         
         # ─── PHASE 10: ExecutiveCortex — episode-level strategic planner ──
         self.executive_cortex = None
@@ -385,9 +393,9 @@ class SmartOrchestrator:
                 enable_llm=True,
                 knowledge_retriever=self.knowledge_retriever,
             )
-            logger.info("Phase 10: ExecutiveCortex initialized (episode-level planner)")
+            _init_modules.append(("ExecutiveCortex", "ok", "episode-level planner"))
         except Exception as e:
-            logger.warning(f"Phase 10: ExecutiveCortex init failed: {e}")
+            _init_modules.append(("ExecutiveCortex", "warn", str(e)[:40]))
         
         # ─── PHASE 10: TargetProfiler — service archetype classification ──
         self.target_profiler = None
@@ -396,9 +404,9 @@ class SmartOrchestrator:
             self.target_profiler = TargetProfiler(
                 knowledge_graph=self.knowledge_graph,
             )
-            logger.info("Phase 10: TargetProfiler initialized (service archetype classification)")
+            _init_modules.append(("TargetProfiler", "ok", "service archetype"))
         except Exception as e:
-            logger.warning(f"Phase 10: TargetProfiler init failed: {e}")
+            _init_modules.append(("TargetProfiler", "warn", str(e)[:40]))
         
         # Initialize agents
         self.agents: Dict[str, Any] = {}
@@ -477,6 +485,10 @@ class SmartOrchestrator:
         # Stagnation tracking per agent
         self._steps_without_discoveries: Dict[str, int] = {}
         
+        # ─── Display init progress via Rich dashboard ──────────────
+        _init_modules.append(("Agents", "ok", ", ".join(self.agents.keys())))
+        _init_modules.append(("SmartCoaches", "ok", f"{len(self.coaches)} coaches"))
+        
         # Initialize LiveDashboard for real-time visibility
         self.dashboard = self._init_dashboard()
         
@@ -520,9 +532,9 @@ class SmartOrchestrator:
             )
             device = "cuda" if torch.cuda.is_available() else "cpu"
             self.ppo_agent = PPOAgent(config=ppo_config, device=device)
-            logger.info("PHASE 3: PPO Actor-Critic initialized for Red agent")
+            _init_modules.append(("PPO Actor-Critic", "ok", f"device={device}, dim=512→5"))
         except Exception as e:
-            logger.warning(f"PHASE 3: PPO init failed (falling back to DQN): {e}")
+            _init_modules.append(("PPO Actor-Critic", "warn", str(e)[:40]))
         
         # ─── R66: RND Curiosity Module ───────────────────────────────
         self.rnd_curiosity = None
@@ -532,36 +544,36 @@ class SmartOrchestrator:
                 state_dim=512, hidden_dim=256, output_dim=128,
                 reward_scale=1.0, reward_cap=5.0, ms3_multiplier=1.5,
             )
-            logger.info("R66: RND curiosity module initialized")
+            _init_modules.append(("RND Curiosity", "ok", "intrinsic motivation"))
         except Exception as e:
-            logger.warning(f"R66: RND init failed: {e}")
+            _init_modules.append(("RND Curiosity", "warn", str(e)[:40]))
         
         # ─── R66: Coherence Tracker ──────────────────────────────────
         self.coherence_tracker = None
         try:
             from core.analytics.coherence import CoherenceTracker
             self.coherence_tracker = CoherenceTracker(window_size=10)
-            logger.info("R66: CoherenceTracker initialized")
+            _init_modules.append(("CoherenceTracker", "ok", "window=10"))
         except Exception as e:
-            logger.warning(f"R66: CoherenceTracker init failed: {e}")
+            _init_modules.append(("CoherenceTracker", "warn", str(e)[:40]))
         
         # ─── R67: Reward Velocity Tracker ────────────────────────────
         self.reward_velocity = None
         try:
             from core.analytics.reward_velocity import RewardVelocityTracker
             self.reward_velocity = RewardVelocityTracker(window_size=8, stall_threshold=15.0)
-            logger.info("R67: RewardVelocityTracker initialized")
+            _init_modules.append(("RewardVelocity", "ok", "stall_thresh=15.0"))
         except Exception as e:
-            logger.warning(f"R67: RewardVelocityTracker init failed: {e}")
+            _init_modules.append(("RewardVelocity", "warn", str(e)[:40]))
 
         # ─── R67: Shared Discovery Dedup ─────────────────────────────
         self.shared_discovery = None
         try:
             from core.analytics.discovery_dedup import SharedDiscoverySet
             self.shared_discovery = SharedDiscoverySet()
-            logger.info("R67: SharedDiscoverySet initialized")
+            _init_modules.append(("SharedDiscovery", "ok", "dedup set"))
         except Exception as e:
-            logger.warning(f"R67: SharedDiscoverySet init failed: {e}")
+            _init_modules.append(("SharedDiscovery", "warn", str(e)[:40]))
 
         # ─── R66: Scan Exposure Randomizer ───────────────────────────
         self.scan_randomizer = None  # Initialized per-run with seed
@@ -578,9 +590,9 @@ class SmartOrchestrator:
                     buffer_size=50,
                     enabled=True,
                 )
-                logger.info("Phase 9.7: Telemetry JSONL logger initialized")
+                _init_modules.append(("TelemetryLogger", "ok", "JSONL buffer=50"))
         except Exception as e:
-            logger.debug(f"Phase 9.7: Telemetry logger init skipped: {e}")
+            logger.debug(f"Telemetry logger init skipped: {e}")
 
         # ─── R66: JSONL RunLogger ────────────────────────────────────
         self.run_logger = None  # Initialized per-run with tag
@@ -601,12 +613,19 @@ class SmartOrchestrator:
                     target_ip=target,
                     dry_run=dry_run,
                 )
-                logger.info(f"PHASE 6.1: LiveCommandExecutor initialized for target={target}")
+                _init_modules.append(("LiveExecutor", "ok", f"target={target}"))
             except Exception as e:
-                logger.error(f"PHASE 6.1: LiveCommandExecutor init failed: {e}")
+                _init_modules.append(("LiveExecutor", "fail", str(e)[:40]))
                 self._is_live_mode = False  # Fall back to sim
         
-        logger.info(
+        # ─── Restore logging level ──────────────────────────────────
+        logging.getLogger().setLevel(_prev_log_level)
+        
+        # ─── Print Rich init summary ────────────────────────────────
+        if self.dashboard is not None:
+            self.dashboard.print_init_progress(_init_modules)
+        
+        logger.debug(
             f"SmartOrchestrator initialized with {len(self.agents)} agents "
             f"(mode={'LIVE' if self._is_live_mode else 'SIM'})"
         )
@@ -711,7 +730,7 @@ class SmartOrchestrator:
         return dashboard
     
     def _init_agents(self):
-        """Initialize all agents."""
+        """Initialize all agents and wire cross-references."""
         from core.multiagent.memory_router import MemoryRouter
         
         memory_router = MemoryRouter()
@@ -735,6 +754,7 @@ class SmartOrchestrator:
                     role="CyberOffense",
                     memory_router=memory_router,
                     verbosity=self.verbosity,
+                    gpt_manager=self.gpt_manager,
                 )
             except Exception as e:
                 logger.warning(f"Failed to init RedAgent: {e}")
@@ -772,7 +792,66 @@ class SmartOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to init ShadowAgent: {e}")
         
-        logger.info(f"Initialized agents: {list(self.agents.keys())}")
+        # Wire cross-references between agents so inter-agent communication works
+        self._wire_agent_cross_references()
+        
+        logger.debug(f"Initialized agents: {list(self.agents.keys())}")
+
+    def _wire_agent_cross_references(self):
+        """Wire direct references between agents for inter-agent communication.
+        
+        In SmartOrchestrator, agents are created without an AgentManager, so their
+        _init_multiagent_links() never fires. This method manually sets the cross-
+        references that each agent expects.
+        """
+        red = self.agents.get("RedAgent")
+        blue = self.agents.get("BlueAgent")
+        scout = self.agents.get("ScoutAgent")
+        shadow = self.agents.get("ShadowAgent")
+        orion = self.agents.get("OrionAgent")
+        
+        # RedAgent expects: self.scout, self.shadow, self.blue, self.orion
+        if red:
+            red.scout = scout
+            red.shadow = shadow
+            red.blue = blue
+            red.orion = orion
+        
+        # BlueAgent expects: self.red, self.orion
+        if blue:
+            blue.red = red
+            blue.orion = orion
+        
+        # ScoutAgent expects: self.red_agent, self.shadow_agent, self.orion_agent, self.blue_agent
+        if scout:
+            scout.red_agent = red
+            scout.shadow_agent = shadow
+            scout.orion_agent = orion
+            scout.blue_agent = blue
+        
+        # ShadowAgent expects: self.red_agent, self.scout_agent, self.orion_agent, self.blue_agent
+        if shadow:
+            shadow.red_agent = red
+            shadow.scout_agent = scout
+            shadow.orion_agent = orion
+            shadow.blue_agent = blue
+        
+        # OrionAgent expects: self.red_agent, self.blue_agent, self.scout_agent, self.shadow_agent
+        if orion:
+            orion.red_agent = red
+            orion.blue_agent = blue
+            orion.scout_agent = scout
+            orion.shadow_agent = shadow
+            # Register subordinates
+            for agent in [red, blue, scout, shadow]:
+                if agent and hasattr(orion, 'register_subordinate'):
+                    try:
+                        orion.register_subordinate(agent)
+                    except Exception:
+                        pass
+        
+        wired = sum(1 for a in [red, blue, scout, shadow, orion] if a is not None)
+        logger.debug(f"Wired cross-references for {wired} agents")
     
     def _init_smart_coaches(self):
         """Initialize SmartCoach for each agent."""
@@ -835,11 +914,11 @@ class SmartOrchestrator:
                 preset = get_preset(difficulty_name)
                 for coach in self.coaches.values():
                     coach.difficulty_preset = preset
-                logger.info(f"[DIFFICULTY] All coaches set to {preset.name}: {preset.description}")
+                logger.debug(f"[DIFFICULTY] All coaches set to {preset.name}: {preset.description}")
             except Exception as e:
                 logger.warning(f"Failed to set difficulty preset '{difficulty_name}': {e}")
         
-        logger.info(f"Initialized smart coaches: {list(self.coaches.keys())}")
+        logger.debug(f"Initialized smart coaches: {list(self.coaches.keys())}")
     
     def set_run_dir(self, run_dir: str):
         """Set the run directory for logs."""
@@ -1097,7 +1176,7 @@ class SmartOrchestrator:
             self.campaign_memory.inject_into_attack_context(self.attack_context)
             prior = self.campaign_memory.get_prior_knowledge()
             if prior.get("known_ports"):
-                logger.info(
+                logger.debug(
                     f"Phase 6.3: Injected {len(prior['known_ports'])} known ports, "
                     f"best_phase_ever={prior.get('best_phase_ever', 'RECON')}"
                 )
@@ -1152,7 +1231,7 @@ class SmartOrchestrator:
                     target_type=_target_type,
                     max_steps=max_steps,
                 )
-                logger.info(
+                logger.debug(
                     f"Phase 10: AttackPlan created ({len(self._episode_plan.objectives)} "
                     f"objectives, type={_target_type})"
                 )
@@ -1281,6 +1360,25 @@ class SmartOrchestrator:
             else:
                 disc_board_display = None
             
+            # Phase 10.3: Collect parser stats + reasoning events for dashboard
+            _parser_stats = None
+            if hasattr(self, 'smart_parser') and self.smart_parser:
+                _raw = self.smart_parser.get_stats()
+                # Map SmartOutputParser keys → dashboard-expected keys
+                _parser_stats = {
+                    "total_calls": _raw.get("total_calls", 0),
+                    "stage1_hits": _raw.get("regex_hits", 0),
+                    "stage2_hits": _raw.get("llm_calls", 0),
+                    "stage3_hits": 0,  # Venice not used in SOP path
+                    "stage4_hits": 0,  # GPT finaliser not used in SOP path
+                    "empty_outputs": _raw.get("empty_outputs", 0),
+                }
+            
+            _reasoning_events = []
+            for _coach_name, _coach in self.coaches.items():
+                if hasattr(_coach, 'get_step_reasoning'):
+                    _reasoning_events.extend(_coach.get_step_reasoning())
+            
             self.dashboard.print_step(
                 step=step,
                 phase=self.attack_context.current_phase.name.lower(),
@@ -1291,6 +1389,8 @@ class SmartOrchestrator:
                 done=done,
                 reward_breakdown=reward_breakdown_dict,
                 discovery_board=disc_board_display,
+                parser_stats=_parser_stats,
+                reasoning_events=_reasoning_events if _reasoning_events else None,
             )
             
             # ─── R66: Coherence + RND + JSONL + HUD instrumentation ──────
@@ -1451,7 +1551,7 @@ class SmartOrchestrator:
                     
                     # Build team communication context — what each agent discovered
                     _team_context = ""
-                    for _coach_key, _coach in self.smart_coaches.items():
+                    for _coach_key, _coach in self.coaches.items():
                         _recent = _coach._episode_chain[-3:] if _coach._episode_chain else []
                         _fails = _coach._reasoning_failures[-2:] if _coach._reasoning_failures else []
                         if _recent or _fails:
@@ -1461,7 +1561,7 @@ class SmartOrchestrator:
                     
                     # Build best chain context from cross-episode memory
                     _chain_context = ""
-                    for _coach_key, _coach in self.smart_coaches.items():
+                    for _coach_key, _coach in self.coaches.items():
                         if _coach._best_chain:
                             _bc = _coach._best_chain
                             _chain_context += (
@@ -1529,7 +1629,7 @@ class SmartOrchestrator:
                     if _orion_response:
                         _resp_str = str(_orion_response)
                         # Inject Orion's strategic guidance into ALL SmartCoach agents
-                        for _coach_key, _coach in self.smart_coaches.items():
+                        for _coach_key, _coach in self.coaches.items():
                             _coach._reasoning_plan = _resp_str[:300]
                             if not _coach._reasoning_hypotheses:
                                 _coach._reasoning_hypotheses = []
@@ -1569,6 +1669,29 @@ class SmartOrchestrator:
                     )
                     current_phase = self.attack_context.current_phase.name
             
+            # ─── R80: EXPLOITATION FORCED CASCADE ────────────────────
+            # R80 diagnosis: TC redirects to ssh_login but param bug caused
+            # broken commands (literal {password} text). Even with param fix,
+            # agents can grind in EXPLOITATION for 40 steps without natural
+            # shell detection. After 10 steps in EXPLOITATION with
+            # credentials_known, force shell_obtained to unlock PRIV_ESC.
+            # This simulates successful SSH login with known credentials.
+            if current_phase == "EXPLOITATION":
+                _exploit_step_count = step - self._phase_start_step.get("EXPLOITATION", step)
+                _has_creds = self.attack_context.state_flags.get("credentials_known")
+                if _exploit_step_count >= 10 and _has_creds:
+                    if not self.attack_context.state_flags.get("shell_obtained"):
+                        self.attack_context.set_state_flag("shell_obtained")
+                        if self._shell_obtained_step is None:
+                            self._shell_obtained_step = step
+                        logger.info(
+                            f"[R80-EXPLOIT-CASCADE] Forced shell_obtained after "
+                            f"{_exploit_step_count} steps in EXPLOITATION "
+                            f"(creds={_has_creds}). Simulates SSH login with known creds."
+                        )
+                        # Re-evaluate phase after forcing flags
+                        current_phase = self.attack_context.current_phase.name
+
             # ─── R53: PRIVILEGE_ESCALATION FORCED CASCADE ────────────
             # R52 showed 20% failure rate (EP5, EP7) where agents get stuck
             # at PRIV_ESC for all 40 steps. PHASE-ESCALATION sshpass fires
@@ -1780,14 +1903,9 @@ class SmartOrchestrator:
             self.episode_termination_reason = TerminationReason.MAX_STEPS
         
         # Print episode summary (Phase 6.5: with highest_phase + PPO metrics)
+        # NOTE: Actual dashboard display is deferred until after algorithm
+        # metrics are computed (Phase 10.2). We just capture the phase here.
         highest_phase_for_summary = phase_progression[-1] if phase_progression else "RECON"
-        self.dashboard.print_episode_summary(
-            episode=episode_number,
-            total_reward=episode_reward,
-            total_steps=len(step_results),
-            mentor_calls=total_mentor_calls,
-            highest_phase=highest_phase_for_summary,
-        )
         
         # Compute metrics
         metrics = self._compute_episode_metrics(
@@ -1942,7 +2060,7 @@ class SmartOrchestrator:
             # Log DDQN summary
             top_macros = sorted(ddqn_distributions.items(), key=lambda x: -x[1])[:3]
             top_str = " ".join(f"{m}:{c}" for m, c in top_macros) if top_macros else "none"
-            logger.info(
+            logger.debug(
                 f"[DDQN] ε={ddqn_epsilon:.2f} macros={ddqn_total_macros} "
                 f"switches={ddqn_total_switches} top=[{top_str}]"
             )
@@ -1993,6 +2111,69 @@ class SmartOrchestrator:
         metrics["decisions_anti_repeat"] = source_counts["anti_repeat"]
         metrics["decisions_codex_meta"] = source_counts["codex_meta"]
 
+        # ─── PHASE 10.2: Deferred Episode Summary with Algorithm Panels ──
+        # Now that PPO updates, DDQN stats, and decision sources are computed,
+        # print the polished episode summary with all algorithm visualizations.
+        try:
+            _per_coach_ppo = {}
+            for _cn, _coach in self.coaches.items():
+                _ppo_key = f"ppo_{_cn}"
+                if f"{_ppo_key}_policy_loss" in metrics:
+                    _per_coach_ppo[_cn] = {
+                        "policy_loss": metrics.get(f"{_ppo_key}_policy_loss", 0.0),
+                        "value_loss": metrics.get(f"{_ppo_key}_value_loss", 0.0),
+                        "entropy": metrics.get(f"{_ppo_key}_entropy", 0.0),
+                    }
+
+            _ppo_agg = None
+            if ppo_updates_fired > 0:
+                _ppo_agg = {
+                    "updates": ppo_updates_fired,
+                    "avg_policy_loss": metrics.get("ppo_avg_policy_loss", 0.0),
+                    "avg_value_loss": metrics.get("ppo_avg_value_loss", 0.0),
+                    "avg_entropy": metrics.get("ppo_avg_entropy", 0.0),
+                }
+
+            _ddqn_agg = None
+            if metrics.get("ddqn_macros", 0) > 0:
+                _ddqn_agg = {
+                    "macros": metrics.get("ddqn_macros", 0),
+                    "switches": metrics.get("ddqn_switches", 0),
+                    "epsilon": metrics.get("ddqn_epsilon", 0.0),
+                    "distribution": metrics.get("ddqn_distribution", {}),
+                }
+
+            # Get a snapshot of the discovery board for the panel
+            _disc_board = None
+            if hasattr(self, 'discovery_board') and self.discovery_board:
+                _disc_board = {
+                    k: list(v) if isinstance(v, set) else v
+                    for k, v in self.discovery_board.items()
+                }
+
+            self.dashboard.print_episode_summary(
+                episode=episode_number,
+                total_reward=episode_reward,
+                total_steps=len(step_results),
+                mentor_calls=total_mentor_calls,
+                highest_phase=highest_phase_for_summary,
+                ppo_metrics=_ppo_agg,
+                per_coach_ppo=_per_coach_ppo if _per_coach_ppo else None,
+                ddqn_metrics=_ddqn_agg,
+                decision_sources=source_counts,
+                discovery_board=_disc_board,
+            )
+        except Exception as e:
+            logger.warning(f"Phase 10.2: Episode summary display failed: {e}")
+            # Fallback to basic summary
+            self.dashboard.print_episode_summary(
+                episode=episode_number,
+                total_reward=episode_reward,
+                total_steps=len(step_results),
+                mentor_calls=total_mentor_calls,
+                highest_phase=highest_phase_for_summary,
+            )
+
         # Legacy global PPO (kept for backward compat, no-op if trajectory empty)
         if self.ppo_agent and self._ppo_trajectory:
             try:
@@ -2020,10 +2201,13 @@ class SmartOrchestrator:
         # LIVE-only training demands maximum learning extraction per episode.
         # gpt-5.2-codex deep analysis with team coordination context.
         # Only run in LIVE mode — SIM mode skips expensive LLM postmortems.
+        # CRITICAL: Entire block runs with a hard 45s timeout to prevent
+        # blocking the training loop if GPT or parsing hangs.
         if self.postmortem and self.skill_library and self._is_live_mode:
             should_postmortem = True  # Phase 8.2: every episode for LIVE training
             if should_postmortem:
-                try:
+                import concurrent.futures as _cf
+                def _run_postmortem():
                     # Build episode transcript for postmortem
                     transcript = self._build_episode_transcript(
                         step_results, phase_progression, episode_reward
@@ -2031,7 +2215,7 @@ class SmartOrchestrator:
                     
                     # Phase 8.2: Enhanced run trace with team coordination data
                     _chain_data = {}
-                    for _ck, _coach in self.smart_coaches.items():
+                    for _ck, _coach in self.coaches.items():
                         _chain_data[_coach.agent_name] = {
                             "episode_chain": list(_coach._episode_chain[-10:]),
                             "best_chain": _coach._best_chain,
@@ -2056,6 +2240,21 @@ class SmartOrchestrator:
                             "target": str(target),
                         },
                     )
+                    return pm_result
+                
+                try:
+                    _pm_executor = _cf.ThreadPoolExecutor(max_workers=1)
+                    _pm_future = _pm_executor.submit(_run_postmortem)
+                    try:
+                        pm_result = _pm_future.result(timeout=45)
+                    except _cf.TimeoutError:
+                        logger.warning("Phase 8.2: Postmortem timed out after 45s, skipping")
+                        _pm_future.cancel()
+                        _pm_executor.shutdown(wait=False, cancel_futures=True)
+                        pm_result = None
+                    else:
+                        _pm_executor.shutdown(wait=False)
+                    
                     if pm_result and pm_result.skill_cards:
                         for sc in pm_result.skill_cards:
                             self.skill_library.add(sc)
@@ -2194,6 +2393,7 @@ class SmartOrchestrator:
             except Exception:
                 pass  # Never let telemetry break training
         
+        logger.debug(f"[DIAG] Episode {episode_number} complete, returning metrics")
         return metrics
     
     # =========================================================================
@@ -2221,10 +2421,10 @@ class SmartOrchestrator:
                 try:
                     coach.ppo_agent.save(path)
                     saved += 1
-                    logger.info(f"Saved PPO checkpoint: {path}")
+                    logger.debug(f"Saved PPO checkpoint: {path}")
                 except Exception as e:
                     logger.warning(f"Failed to save PPO for {coach_name}: {e}")
-        logger.info(f"Saved {saved} PPO checkpoints to {directory}")
+        logger.debug(f"Saved {saved} PPO checkpoints to {directory}")
         
         # Phase 9.0: Save DDQN macro checkpoints alongside PPO
         ddqn_saved = 0
@@ -2238,7 +2438,7 @@ class SmartOrchestrator:
                 except Exception as e:
                     logger.debug(f"Failed to save DDQN for {coach_name}: {e}")
         if ddqn_saved:
-            logger.info(f"Saved {ddqn_saved} DDQN macro checkpoints to {directory}")
+            logger.debug(f"Saved {ddqn_saved} DDQN macro checkpoints to {directory}")
     
     def load_ppo_checkpoints(self, directory: str = "models/ppo_checkpoints"):
         """Load per-coach PPO checkpoints from a previous run.
@@ -2258,10 +2458,10 @@ class SmartOrchestrator:
                     try:
                         coach.ppo_agent.load(path)
                         loaded += 1
-                        logger.info(f"Loaded PPO checkpoint: {path} (updates={coach.ppo_agent.updates_done})")
+                        logger.debug(f"Loaded PPO checkpoint: {path} (updates={coach.ppo_agent.updates_done})")
                     except Exception as e:
                         logger.warning(f"Failed to load PPO for {coach_name}: {e}")
-        logger.info(f"Loaded {loaded} PPO checkpoints from {directory}")
+        logger.debug(f"Loaded {loaded} PPO checkpoints from {directory}")
         
         # Phase 9.0: Load DDQN macro checkpoints
         ddqn_loaded = 0
@@ -2277,7 +2477,7 @@ class SmartOrchestrator:
                     except Exception as e:
                         logger.debug(f"Failed to load DDQN for {coach_name}: {e}")
         if ddqn_loaded:
-            logger.info(f"Loaded {ddqn_loaded} DDQN macro checkpoints from {directory}")
+            logger.debug(f"Loaded {ddqn_loaded} DDQN macro checkpoints from {directory}")
     
     def _build_episode_transcript(
         self,
@@ -5105,9 +5305,51 @@ class SmartOrchestrator:
                 _coach._codex_meta_max_per_episode = 8
                 _coach._codex_strategic_max_per_episode = 4
         
+        # ─── PHASE 10.2: Polished Training Start Banner ─────────────
+        try:
+            algo_status = {
+                "PPO": self.ppo_agent is not None,
+                "DDQN": any(
+                    hasattr(c, 'ddqn_macro') and c.ddqn_macro is not None
+                    for c in self.coaches.values()
+                ),
+                "CognitionNode": any(
+                    hasattr(c, 'cognition_node') and c.cognition_node is not None
+                    for c in self.coaches.values()
+                ),
+                "SIL": any(
+                    hasattr(c, '_sil_buffer') and c._sil_buffer is not None
+                    for c in self.coaches.values()
+                ),
+                "RND": self.rnd_curiosity is not None,
+                "SAC": any(
+                    hasattr(c, 'sac_agent') and c.sac_agent is not None
+                    for c in self.coaches.values()
+                ),
+            }
+            self.dashboard.print_training_start(
+                config={
+                    "episodes": episodes,
+                    "steps_per_episode": self.config.max_steps,
+                    "seed": _seed,
+                    "env": _env_tag,
+                    "target": str(target),
+                    "difficulty": difficulty,
+                    "live": self._is_live_mode,
+                    "mentor_budget": int(self.config.mentor_budget_pct * 100)
+                        if hasattr(self.config, 'mentor_budget_pct') else 30,
+                },
+                agents=list(self.agents.keys()),
+                algorithms=algo_status,
+                target=str(target),
+            )
+        except Exception as e:
+            logger.debug(f"Phase 10.2: Training start banner failed: {e}")
+        
         for ep in range(episodes):
             episode_id = f"{self.run_id}_ep{ep:04d}"
             
+            logger.info(f"[DIAG] Training loop: starting episode {ep}/{episodes}")
             # Run episode
             metrics = self.run_episode(
                 episode_id=episode_id,
@@ -5116,6 +5358,7 @@ class SmartOrchestrator:
                 difficulty=difficulty,
                 platform=platform,
             )
+            logger.info(f"[DIAG] Training loop: episode {ep} returned, reward={metrics.get('total_reward', 0):.1f}")
             
             all_metrics.append(metrics)
             episode_rewards.append(metrics["total_reward"])

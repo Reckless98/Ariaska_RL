@@ -1,48 +1,48 @@
 {
-  "timestamp": "2026-02-14T06:56:35.702706",
+  "timestamp": "2026-02-16T15:14:55.581719",
   "episodes": 1,
-  "max_steps": 80,
+  "max_steps": 10,
   "seed": 42,
-  "target_ip": "10.129.3.71",
+  "target_ip": "172.28.0.11",
   "mode": "live",
-  "duration_s": 1654.6572353839874,
-  "avg_reward": 4130.94,
-  "last10_avg": 4130.94,
-  "max_reward": 4130.94,
-  "min_reward": 4130.94,
-  "exfil_pct": 100.0,
-  "closeout_pct": 100.0,
+  "duration_s": 253.7303729057312,
+  "avg_reward": 686.68,
+  "last10_avg": 686.68,
+  "max_reward": 686.68,
+  "min_reward": 686.68,
+  "exfil_pct": 0.0,
+  "closeout_pct": 0.0,
   "phase_distribution": {
-    "CLOSEOUT": 1
+    "EXPLOITATION": 1
   },
   "decision_sources": {
-    "ppo": 60,
-    "playbook": 6,
+    "ppo": 13,
+    "playbook": 0,
     "registry": 0,
-    "anti_repeat": 29,
-    "codex_meta": 5
+    "anti_repeat": 8,
+    "codex_meta": 0
   },
   "episode_data": [
     {
       "episode": 1,
-      "reward": 4130.94,
-      "highest_phase": "CLOSEOUT",
-      "steps": 42,
-      "ppo_updates": 5,
-      "policy_loss": 0.2674366960922877,
-      "value_loss": 8.929951071739197,
-      "entropy": 2.7654473225275678,
+      "reward": 686.68,
+      "highest_phase": "EXPLOITATION",
+      "steps": 10,
+      "ppo_updates": 0,
+      "policy_loss": 0.0,
+      "value_loss": 0.0,
+      "entropy": 0.0,
       "sources": {
-        "ppo": 60,
-        "playbook": 6,
+        "ppo": 13,
+        "playbook": 0,
         "registry": 0,
-        "anti_repeat": 29,
-        "codex_meta": 5
+        "anti_repeat": 8,
+        "codex_meta": 0
       },
-      "unique_commands": 80,
-      "unique_templates": 70,
-      "command_diversity": 0.6779661016949152,
-      "total_discoveries": 5,
+      "unique_commands": 19,
+      "unique_templates": 11,
+      "command_diversity": 0.76,
+      "total_discoveries": 2,
       "step_at_first_exploit": 0
     }
   ]

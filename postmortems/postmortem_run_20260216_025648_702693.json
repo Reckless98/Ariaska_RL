@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260216_025648_702693",
+  "timestamp": 1771207030.6856768,
+  "key_outcomes": {
+    "wins": [
+      "Completed in-depth initial reconnaissance within single episode window, yielding a 57.5 reward despite no defined success criteria.",
+      "Maintained stability with zero execution errors or crashes across all 15 mentor interventions."
+    ],
+    "fails": [
+      "Failed to transition from reconnaissance to objective completion, resulting in 0.00% success despite gathered intelligence.",
+      "Mentor calls did not translate into actionable decisions, indicating a gap between guidance and execution."
+    ],
+    "summary": "Reconnaissance phase shows disciplined scanning and logging, but transition to exploitation/objective achievement remains unestablished."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to escalate beyond information gathering to exploit or objective completion within episode, causing success rate to stay at 0%.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260216_025648_702693_ep001_step12",
+        "run_20260216_025648_702693_ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 or 443 responds but no service fingerprinted yet",
+      "then_action": "Conduct targeted HTTP service enumeration with built-in scripts to identify potential vulnerabilities.",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "scripts": [
+          "http-title",
+          "http-methods"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260216_025648_702693_ep001_step05"
+      ],
+      "created_at": 1771207038.6675923,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH (port 22) is open and banner is captured",
+      "then_action": "Run ssh enumeration scripts to verify supported authentication methods and weak ciphers.",
+      "parameters_template": {
+        "port": 22,
+        "scripts": [
+          "ssh-hostkey",
+          "ssh-auth-methods"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260216_025648_702693_ep001_step09"
+      ],
+      "created_at": 1771207038.667601,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Nmap host discovery indicates multiple hosts responsive but service mapping incomplete",
+      "then_action": "Trigger automated multi-host service sweep (SYN scan + version detection) to expand coverage.",
+      "parameters_template": {
+        "scan_type": "syn",
+        "version_detection": true
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "run_20260216_025648_702693_ep001_step03"
+      ],
+      "created_at": 1771207038.6676066,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success during reconnaissance phase and quick adjustments when HTTP ports responded."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH banner capture yielded actionable enumeration paths that can expedite future exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot from reconnaissance to exploitation",
+      "description": "Use the enumerated services to identify at least one credential leak or default credential to attempt controlled access.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate mentorship recommendations",
+      "description": "Integrate mentor guidance checkpoints into decision tree so the agent executes explicitly suggested actions instead of only logging them.",
+      "priority": "medium"
+    },
+    {
+      "title": "Expand service fingerprint coverage",
+      "description": "Run service-focused scripts on all detected ports before concluding reconnaissance to avoid missing exploitable vectors.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

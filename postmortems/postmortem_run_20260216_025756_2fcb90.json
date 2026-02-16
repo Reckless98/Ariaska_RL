@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260216_025756_2fcb90",
+  "timestamp": 1771207100.2191913,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent average reward (80.00) across single episode, indicating actions were at least validly reaching reward thresholds.",
+      "Engaged mentor guidance 10 times, ensuring feedback loop for potential corrective steps."
+    ],
+    "fails": [
+      "Zero percent success rate despite high reward implies episode terminated without achieving primary goal.",
+      "Multiple steps likely focused on incorrect target, preventing mission completion even though reward signals were triggered."
+    ],
+    "summary": "Training run achieved intermediate rewards but failed to produce successful outcome; repeated dependence on mentor guidance and lack of goal completion highlight need to refine attack path selection."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attack execution stalled after initial reconnaissance; no prioritized exploitation target selected leading to episode timeout/fail.",
+      "frequency": 7,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step24",
+        "ep001_step36"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_banner_enumeration",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step9"
+      ],
+      "created_at": 1771207106.766426,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_banner_recon",
+      "if_condition": "When HTTP service responds with unique banner keywords",
+      "then_action": "Collect headers and run directory brute-force",
+      "parameters_template": {
+        "target": "http",
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771207106.7664416,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_vuln_prioritization",
+      "if_condition": "When multiple services have CVEs with high base scores",
+      "then_action": "Prioritize highest CVSS service for targeted exploit",
+      "parameters_template": {
+        "threshold": 7.0,
+        "exploit_type": "remote_code_execution"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step27"
+      ],
+      "created_at": 1771207106.7664535,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_banner_enumeration",
+      "skill_card_id": "skill_ssh_banner_enumeration",
+      "reason": "High success rate in reconnaissance phase when SSH banner present"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_http_banner_recon",
+      "skill_card_id": "skill_http_banner_recon",
+      "reason": "Consistently gathered actionable leads when HTTP banners varied"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate exploitation priorities",
+      "description": "Test targeting highest-CVSS service immediately after reconnaissance instead of additional scanning to assess if direct exploitation yields success.",
+      "priority": "high"
+    },
+    {
+      "title": "Limit mentor dependencies",
+      "description": "Attempt episode execution with reduced mentor calls by relying on promoted skill cards, tracking whether success rate improves.",
+      "priority": "medium"
+    },
+    {
+      "title": "Refine recon-to-exploit switch",
+      "description": "Introduce explicit transition rule from reconnaissance skill to exploitation based on CVE-tracked service readiness.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

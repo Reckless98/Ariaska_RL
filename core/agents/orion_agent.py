@@ -253,7 +253,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             ],
         }
 
-        console.print(f"[green]✓ {self.agent_id} initialized[/green]")
+        logger.debug(f"{self.agent_id} initialized")
         
         # Add environment and stats monitor for main.py compatibility
         from core.environment.cyber_environment import CyberEnvironment
@@ -279,10 +279,9 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         """Register an agent as a subordinate to Orion."""
         if agent and hasattr(agent, "agent_id"):
             self.subordinate_agents[agent.agent_id] = agent
-            if self.verbosity not in ["quiet", "silent"]:
-                console.print(
-                    f"[blue]👁️ Orion registered subordinate: {agent.agent_id}[/blue]"
-                )
+            logger.debug(
+                f"Orion registered subordinate: {agent.agent_id}"
+            )
 
     def issue_directive(
         self,

@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260216_055832_342df9",
+  "timestamp": 1771217920.9181974,
+  "key_outcomes": {
+    "wins": [
+      "Detailed reconnaissance produced a prioritized asset list and service inventory for the target network, enabling focused follow-up actions.",
+      "Mentor calls documented precise mitigation hypotheses, improving the situational narrative despite the overall failed run."
+    ],
+    "fails": [
+      "Zero successful episodes: exploitation chain collapsed at the privilege escalation phase after valid SSH credentials were never obtained.",
+      "Persistent inability to pivot to the secondary subnet prevented access to high-value assets and achievement of mission goals."
+    ],
+    "summary": "Reconnaissance succeeded in cataloguing assets and services, but exploitation efforts stalled due to missing credentials and pivot capability, resulting in no successful completions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to escalate privileges because valid SSH credentials were absent and no alternative vector was pursued.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771217927.871333,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_config",
+      "if_condition": "When HTTP service (port 80/443) returns Apache/nginx banner",
+      "then_action": "Execute nikto and gobuster for directory enumeration, then pivot to CVE lookup",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "nikto",
+          "gobuster"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771217927.871345,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_collection",
+      "if_condition": "When SSH login fails multiple times and SSH enumeration revealed valid users",
+      "then_action": "Search for credential artifacts from open shares or leaked configuration files before brute forcing",
+      "parameters_template": {
+        "targets": [
+          "SMB share",
+          "public code repo"
+        ],
+        "focus": "credential artifacts"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step22"
+      ],
+      "created_at": 1771217927.8713539,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "SSH enumeration reliably produced key user and method data in reconnaissance phase."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expand credential harvesting pathways",
+      "description": "Integrate automated parsing of SMB shares and config files identified during recon to find reusable credentials before attempting SSH brute force.",
+      "priority": "high"
+    },
+    {
+      "title": "Develop fallback pivot tactic",
+      "description": "Prepare a pivot plan using identified HTTP services and stored XSS/CORS vectors to access secondary subnet if SSH escalation is blocked.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

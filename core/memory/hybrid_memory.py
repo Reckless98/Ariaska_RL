@@ -332,7 +332,7 @@ class LMDBStore:
                     self._db_sil = self._env.open_db(b"sil_traces", txn=txn)
                     self._db_meta = self._env.open_db(b"metadata", txn=txn)
                     self._db_agent = self._env.open_db(b"agent_data", txn=txn)
-                logger.info("L2: LMDB initialized")
+                logger.debug("L2: LMDB initialized")
             except Exception as e:
                 logger.error(f"L2: LMDB init failed, using JSON fallback: {e}")
                 self._env = None
@@ -615,7 +615,7 @@ class HybridMemory:
         atexit.register(self._shutdown)
 
         self._initialized = True
-        logger.info(f"HybridMemory initialized: L0={self.config.l0_capacity}, "
+        logger.debug(f"HybridMemory initialized: L0={self.config.l0_capacity}, "
                      f"L1={self.config.l1_capacity}, L2={'LMDB' if HAS_LMDB else 'JSON'}, "
                      f"async={'on' if self._writer else 'off'}")
 

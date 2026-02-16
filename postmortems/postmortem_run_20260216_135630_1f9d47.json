@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260216_135630_1f9d47",
+  "timestamp": 1771246596.8553908,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance pacing to accumulate a total reward of 60 despite repeated mentor interventions.",
+      "Identified initial foothold artifacts quickly enough to capture early indicators, suggesting solid scanning procedures."
+    ],
+    "fails": [
+      "Primary objective never achieved (0% success rate) due to inability to progress beyond initial access, triggering 10 mentor calls.",
+      "Privilege escalation attempts repeatedly stalled because credential validation was not confirmed before exploiting services."
+    ],
+    "summary": "Reconnaissance phase was steady and well-paced, but inability to validate credentials and move past initial access prevented mission success; needs focused escalation strategy."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation stalls because credentials were not confirmed before attempting service exploits.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260216_135630_1f9d47_ep1_step12",
+        "run_20260216_135630_1f9d47_ep1_step18",
+        "run_20260216_135630_1f9d47_ep1_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260216_135630_1f9d47_ep1_step5",
+        "run_20260216_135630_1f9d47_ep1_step9"
+      ],
+      "created_at": 1771246606.8764455,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When valid credentials are obtained but privilege escalation not attempted",
+      "then_action": "Execute credential validation via su/sudo checks before escalating",
+      "parameters_template": {
+        "credential_method": "sudo -l",
+        "check": "validate prompt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260216_135630_1f9d47_ep1_step14",
+        "run_20260216_135630_1f9d47_ep1_step16"
+      ],
+      "created_at": 1771246606.8764539,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service enumeration yields versioned binaries",
+      "then_action": "Map known exploits via vulnerability database lookup before execution",
+      "parameters_template": {
+        "db": "nvd",
+        "version_field": "service_version"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260216_135630_1f9d47_ep1_step7",
+        "run_20260216_135630_1f9d47_ep1_step11"
+      ],
+      "created_at": 1771246606.8764594,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential validation before escalation",
+      "description": "Introduce an explicit credential validation step (e.g., sudo -l, su -c) before attempting privilege escalation to prevent stalling.",
+      "priority": "high"
+    },
+    {
+      "title": "Structured evidence-driven exploit mapping",
+      "description": "Capture service versions and automatically cross-reference with trusted vulnerability feeds before selecting exploits.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260216_060156_7185f2",
+  "timestamp": 1771218126.0252674,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward accumulation through targeted reconnaissance, allowing natural progression despite no success condition met.",
+      "Leveraged mentor guidance efficiently with 10 mentor calls, demonstrating high responsiveness to feedback."
+    ],
+    "fails": [
+      "Episode never completed the critical objective path, resulting in 0% success rate despite mid-level reward accumulation.",
+      "Repeatedly neglected privilege escalation vectors identified during late reconnaissance, causing premature episode termination."
+    ],
+    "summary": "Run achieved steady reconnaissance rewards but failed to convert intelligence into successful objective completion; focus needed on translating data into decisive actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation paths discovered late in the episode were not pursued, leading to repeated inability to reach the goal state.",
+      "frequency": 7,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 or 443 returns HTTP service headers",
+      "then_action": "Run HTTP enumeration with directory brute force and header inspection scripts",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771218133.697477,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "SSH service detected without banner anomalies but with default accounts",
+      "then_action": "Attempt credential reuse with observed default usernames and captured passwords",
+      "parameters_template": {
+        "tool": "hydra",
+        "username_list": [
+          "root",
+          "admin"
+        ],
+        "password_source": "collected_defaults"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step08"
+      ],
+      "created_at": 1771218133.6974905,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Privilege escalation hints appear in sudoers or misconfigured scripts",
+      "then_action": "Highlight candidate binaries and run bruteforce or script execution checks for limited privileges",
+      "parameters_template": {
+        "search_targets": [
+          "/etc/sudoers",
+          "/home/*/bin"
+        ],
+        "analysis_tool": "linpeas"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step10"
+      ],
+      "created_at": 1771218133.6974988,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in initial HTTP reconnaissance and quick scan completion."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Critical failure pattern identified around privilege escalation; need readiness for next run."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Experiment name",
+      "description": "Integrate guided privilege escalation steps immediately after service discovery to convert reconnaissance into objective completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Adjust SSH brute forcing timeline",
+      "description": "Trigger SSH credential testing earlier when banner anomalies are low to catch valid logins before the window closes.",
+      "priority": "medium"
+    },
+    {
+      "title": "Incorporate automated evidence logging",
+      "description": "Enable structured evidence capture of discovered sudoers misconfigurations to feed future decision-making.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

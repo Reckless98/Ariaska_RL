@@ -430,19 +430,34 @@ class GPTManager:
                 "error": str(e)
             }
     
+    # Sentinel prefix for offline placeholder responses — callers should check
+    # for this prefix to avoid treating placeholders as executable commands.
+    OFFLINE_SENTINEL = "[OFFLINE]"
+
     def _get_offline_placeholder(self, task_type: str) -> str:
-        """Get a deterministic placeholder response for offline mode."""
+        """Get a deterministic placeholder response for offline mode.
+        
+        All non-command placeholders are prefixed with OFFLINE_SENTINEL so
+        downstream consumers can distinguish them from real commands.
+        """
         placeholders = {
             "tactical": "nmap -sV 10.10.10.10",
             "defensive": "netstat -an",
             "reconnaissance": "ping 10.10.10.10",
             "diversify": "nslookup 10.10.10.10",
-            "analysis": "Offline mode: analysis unavailable.",
-            "reasoning": "Offline mode: reasoning unavailable.",
-            "postmortem": "Offline mode: postmortem analysis unavailable.",
-            "general": "Offline mode: LLM unavailable."
+            "analysis": f"{self.OFFLINE_SENTINEL} analysis unavailable.",
+            "reasoning": f"{self.OFFLINE_SENTINEL} reasoning unavailable.",
+            "postmortem": f"{self.OFFLINE_SENTINEL} postmortem analysis unavailable.",
+            "general": f"{self.OFFLINE_SENTINEL} LLM unavailable."
         }
         return placeholders.get(task_type, placeholders["general"])
+
+    @staticmethod
+    def is_offline_placeholder(response: str) -> bool:
+        """Check if a response is an offline placeholder (not a real command)."""
+        if not response or not isinstance(response, str):
+            return True
+        return response.startswith(GPTManager.OFFLINE_SENTINEL) or response.startswith("Offline mode:")
 
     @property
     def client(self):
@@ -881,23 +896,30 @@ class GPTManager:
                     return self.client.chat.completions.create(**request_params)
             
             # Execute with aggressive timeout using ThreadPoolExecutor
+            # CRITICAL: Do NOT use `with` context manager — its __exit__ calls
+            # shutdown(wait=True) which blocks until the thread completes, even
+            # after TimeoutError. For slow models (gpt-5.2-codex postmortem with
+            # 30K tokens), this would hang for minutes.
             _request_timeout = timeout if timeout is not None else 8
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(make_gpt_request)
-                    try:
-                        response = future.result(timeout=_request_timeout)
-                    except concurrent.futures.TimeoutError:
-                        logger.warning(f"GPT request timed out after {_request_timeout} seconds for {agent_id}, using fallback")
-                        # Return immediate fallback command based on task type
-                        fallback_commands = {
-                            "tactical": "nmap -sV 10.10.10.10",
-                            "defensive": "netstat -an",
-                            "reconnaissance": "ping 10.10.10.10",
-                            "diversify": "nslookup 10.10.10.10",
-                            "general": "echo 'GPT timeout - using fallback'"
-                        }
-                        return fallback_commands.get(task_type, "echo 'GPT timeout'")
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                future = executor.submit(make_gpt_request)
+                try:
+                    response = future.result(timeout=_request_timeout)
+                    executor.shutdown(wait=False)
+                except concurrent.futures.TimeoutError:
+                    logger.warning(f"GPT request timed out after {_request_timeout} seconds for {agent_id}, using fallback")
+                    future.cancel()
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    # Return immediate fallback command based on task type
+                    fallback_commands = {
+                        "tactical": "nmap -sV 10.10.10.10",
+                        "defensive": "netstat -an",
+                        "reconnaissance": "ping 10.10.10.10",
+                        "diversify": "nslookup 10.10.10.10",
+                        "general": "echo 'GPT timeout - using fallback'"
+                    }
+                    return fallback_commands.get(task_type, "echo 'GPT timeout'")
             except Exception as e:
                 logger.warning(f"GPT request failed with exception: {e}, using immediate fallback")
                 # PHASE 6.5: Activate circuit breaker on quota exhaustion
@@ -922,6 +944,32 @@ class GPTManager:
             if uses_responses_api:
                 content = getattr(response, 'output_text', '') or ''
                 content = content.strip()
+                
+                # Fallback: if output_text is empty, try parsing response.output directly
+                if not content and hasattr(response, 'output') and response.output:
+                    for item in response.output:
+                        # ResponseOutputMessage items have .content list
+                        if hasattr(item, 'content') and item.content:
+                            for part in item.content:
+                                if hasattr(part, 'text') and part.text:
+                                    content = part.text.strip()
+                                    if content:
+                                        break
+                        if content:
+                            break
+                
+                # Diagnostic logging when response is truly empty
+                if not content:
+                    resp_status = getattr(response, 'status', 'unknown')
+                    resp_output_len = len(response.output) if hasattr(response, 'output') and response.output else 0
+                    output_types = []
+                    if hasattr(response, 'output') and response.output:
+                        output_types = [type(item).__name__ for item in response.output]
+                    logger.warning(
+                        f"Empty Responses API output | agent={agent_id} | task={task_type} | "
+                        f"status={resp_status} | output_items={resp_output_len} | "
+                        f"types={output_types}"
+                    )
             elif response.choices and len(response.choices) > 0:
                 content = response.choices[0].message.content
                 if content:
@@ -948,6 +996,9 @@ class GPTManager:
                 # Sanitize if it's a command
                 if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
                     content = self._sanitize_command(content)
+                    if not content:
+                        logger.warning(f"Sanitizer emptied GPT response for {agent_id}/{task_type}")
+                        content = "nmap -sV {target}" if task_type == "tactical" else "netstat -an"
                 
                 # Cache the response
                 with self.cache_lock:
@@ -965,8 +1016,15 @@ class GPTManager:
                 logger.debug(f"GPT response for {agent_id}: {content[:50]}...")
                 return content
             else:
-                logger.error("Empty response from GPT")
-                return "echo 'No response from GPT'"
+                logger.warning(f"Empty response from GPT for {agent_id}/{task_type}, using task-based fallback")
+                fallback_commands = {
+                    "tactical": "nmap -sV -p- --min-rate=1000 {target}",
+                    "defensive": "netstat -tlnp",
+                    "reconnaissance": "nmap -sC -sV {target}",
+                    "diversify": "nikto -h {target}",
+                    "general": "echo 'Empty GPT response — fallback'"
+                }
+                return fallback_commands.get(task_type, "echo 'Empty GPT response'")
                 
         except Exception as e:
             logger.error(f"GPT request failed for {agent_id}: {e}")

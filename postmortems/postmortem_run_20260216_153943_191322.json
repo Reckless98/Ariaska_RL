@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260216_153943_191322",
+  "timestamp": 1771252790.003641,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward of 60 despite no success, indicating policy stability in repeated action sequences.",
+      "Frequent mentor calls (10) suggest active feedback loop potential for rapid adjustments."
+    ],
+    "fails": [
+      "Episode failed to reach objectives with 0% success; primary blocker was inability to transition from reconnaissance to exploitation phase.",
+      "Repeated dependency on mentor guidance prevented autonomous decision-making during critical steps."
+    ],
+    "summary": "Training run preserved policy stability but struggled to convert reconnaissance into successful actions; guidance-heavy behavior suggests a need for clearer decision heuristics before exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Delayed exploitation decision despite successful reconnaissance prompts consecutive mentor overrides.",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06",
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771252797.8930812,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web server responds on port 80 or 443",
+      "then_action": "Execute directory enumeration followed by automated vulnerability scan",
+      "parameters_template": {
+        "paths": [
+          "/admin",
+          "/login"
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771252797.8930895,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial breach fails, but service fingerprints align with known exploits",
+      "then_action": "Pivot to secondary exploit chain using multi-step payload sequencing",
+      "parameters_template": {
+        "service": "http",
+        "strategy": "multi-stage payload"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1771252797.893094,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in reconnaissance phase suggests this routine should be prioritized."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Structured web enumeration led to the most consistent reconnaissance results."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Refine autonomous transition to exploitation",
+      "description": "Implement decision heuristics that trigger exploitation once reconnaissance data indicates high-probability targets, reducing mentor dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Test multi-step exploit chaining",
+      "description": "Validate the new conditional skill that shifts to alternative payload sequences when primary exploits fail within the first three attempts.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

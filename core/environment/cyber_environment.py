@@ -29,10 +29,23 @@ console = Console()
 
 
 class CyberEnvironment:
+    _init_count: int = 0  # Class-level counter — only show banner on first init
+
     def __init__(self, scenario="dynamic", agent_manager=None, defer_reset=False):
-        console.rule(
-            "[bold cyan]🌐 Initializing CyberEnvironment v12.0 — Multi-Agent Combat Arena"
-        )
+        CyberEnvironment._init_count += 1
+        if CyberEnvironment._init_count == 1:
+            # Show modernized banner only on first init (Phase 10.3)
+            from rich.panel import Panel
+            console.print(Panel(
+                "[bold cyan]🌐 CyberEnvironment v12.0[/bold cyan]\n"
+                "[dim]Multi-Agent Combat Arena • 8-Phase Kill Chain • Dynamic Topology[/dim]",
+                border_style="cyan",
+                padding=(0, 2),
+            ))
+        else:
+            logger.debug(
+                f"CyberEnvironment init #{CyberEnvironment._init_count} (sub-env, silent)"
+            )
         self.scenario = scenario
         
         # Enhanced network simulation components
@@ -247,14 +260,14 @@ class CyberEnvironment:
         try:
             from core.environment.environment_context_detector import EnvironmentContextDetector
             self.context_detector = EnvironmentContextDetector()
-            console.print("[green]✔ Environment Context Detector initialized[/green]")
+            logger.debug("Environment Context Detector initialized")
         except ImportError:
             self.context_detector = None
-            console.print("[yellow]⚠ Environment Context Detector not available[/yellow]")
+            logger.debug("Environment Context Detector not available")
 
     def reset_environment(self):
         try:
-            console.print("[green]🔄 Resetting Environment State[/green]")
+            logger.debug("Resetting environment state")
             
             # Clean up any active sessions or processes
             self._cleanup_active_sessions()

@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+logger = logging.getLogger("ariaska.red_agent")
+
 try:
     from core.models.policy_net import PolicyNet
     from core.models.value_net import ValueNet
@@ -230,8 +232,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.command_history = []
         self.learning_insights = []
         
-        console.print(
-            f"[green]✔ {self.agent_id} initialized — GPT-5-mini Enhanced Mode on {self.device}[/green]"
+        logger.debug(
+            f"{self.agent_id} initialized — Enhanced Mode on {self.device}"
         )
     
     # ===================== TARGET NETWORK SYNC METHODS =====================
@@ -373,7 +375,15 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             )
             
             # Quick validation and fallback
-            if not command or not isinstance(command, str) or len(command.split()) < 2:
+            # Also reject offline placeholders that look like sentences, not commands
+            _is_placeholder = (
+                not command
+                or not isinstance(command, str)
+                or len(command.split()) < 2
+                or command.startswith("[OFFLINE]")
+                or command.startswith("Offline mode:")
+            )
+            if _is_placeholder:
                 fallback_commands = {
                     "recon": "nmap -sV -sC -p- 10.10.10.10",
                     "enumeration": "mysql -h 10.10.10.10 -u root -e 'show databases'",
@@ -721,7 +731,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                     "port_lockdown": len(state.get("open_ports", [])) <= 2,
                 }
                 if self.blue:
-                    self.blue.react_to_action(command, parsed)
+                    self.blue.react_to_action(command)
                 # Use current env state as next_state (orchestrator will step env)
                 next_state = self.env.get_global_state() if hasattr(self.env, 'get_global_state') else state
                 env_reward = 0.0  # Base reward; orchestrator provides env reward

@@ -2,6 +2,7 @@
 # 🔍 Recon Specialist | GPT-Enhanced Scanning Planner | Port Prioritization Engine
 
 import os
+import logging
 import torch
 import random
 from typing import List, Dict, Any, Optional, Union
@@ -16,6 +17,7 @@ from core.gpt_manager import GPTManager
 from core.multiagent.memory_router import MemoryRouter
 
 console = Console()
+logger = logging.getLogger("ariaska.scout_agent")
 
 class ScoutAgent(AgentInterface, MemorySyncInterface):
     """
@@ -125,7 +127,7 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
             }
         }
         
-        console.print(f"[green]✓ {self.agent_id} initialized[/green]")
+        logger.debug(f"{self.agent_id} initialized")
         
     def _init_multiagent_links(self):
         """Initialize links to other agents in the system"""

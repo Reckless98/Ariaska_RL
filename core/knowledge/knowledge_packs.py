@@ -2463,6 +2463,6 @@ def format_service_table(target_profile: str = "metasploitable2") -> str:
     return "\n".join(lines)
 
 
-logger.info("Knowledge packs loaded: MS2 (%d services), MS3 (%d services), HTB (%d patterns, %d CVEs, %d kill chains, %d decision rules)",
+logger.debug("Knowledge packs loaded: MS2 (%d services), MS3 (%d services), HTB (%d patterns, %d CVEs, %d kill chains, %d decision rules)",
             len(MS2_SERVICES), len(MS3_SERVICES), len(HTB_COMMON_PATTERNS),
             len(HTB_CVES), len(HTB_KILL_CHAINS), len(HTB_DECISION_RULES))

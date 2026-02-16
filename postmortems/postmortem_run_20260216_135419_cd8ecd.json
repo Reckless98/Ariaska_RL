@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260216_135419_cd8ecd",
+  "timestamp": 1771246465.8767855,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent behavior across a single episode, yielding a high reward (60.00) that confirms reliable execution of baseline reconnaissance steps.",
+      "Accumulated ten mentor calls, providing ample telemetry that can inform targeted improvements in downstream decision-making."
+    ],
+    "fails": [
+      "0.00% success rate demonstrates inability to convert reconnaissance into mission success; the agent repeatedly stops short of final objective delivery.",
+      "Lack of variability in reward trend (steady 60.0) indicates failure to adapt tactics when confronted with new challenges."
+    ],
+    "summary": "Run completed with stable reconnaissance, but the agent never achieved the success condition; need to refine post-discovery decision logic."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to transition from discovery to exploitation\u2014agent gathers telemetry but never executes delivery or remediation.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step25",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 443 is open and TLS certificate information is available",
+      "then_action": "Run automated certificate validation and enumerate supported cipher suites",
+      "parameters_template": {
+        "port": 443,
+        "script": "ssl-cert,ssl-enum-ciphers"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12"
+      ],
+      "created_at": 1771246477.7555182,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial SSH connection fails with banner mismatch",
+      "then_action": "Trigger brute-force-resistant credential testing through credential reuse checks",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step15"
+      ],
+      "created_at": 1771246477.755526,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When network scan indicates SMB/CIFS exposure and anonymous access returns share list",
+      "then_action": "Enumerate shared resources and pivot to data collection on writable shares",
+      "parameters_template": {
+        "protocol": "SMB",
+        "scan_tool": "nmap --script smb-enum-shares"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771246477.7555318,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate during TLS-based reconnaissance, making certificate analysis a reliable first step."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent SMB share enumeration unlocked contextual insight; promote to reinforce lateral exploration."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Introduce exploitation planning layer",
+      "description": "After successful enumeration, explicitly model and execute an exploitation action (e.g., deploy proof-of-concept exploit or payload delivery) to close the loop on success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive decision branching on failed exploit",
+      "description": "When exploitation attempts fail, branch into fallback techniques (credential spraying, privilege escalation) instead of terminating.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor call analysis automation",
+      "description": "Aggregate mentor call transcripts to identify recurring guidance and automate insertions of those actions into the policy.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

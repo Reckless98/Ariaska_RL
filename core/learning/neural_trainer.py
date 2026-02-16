@@ -7,11 +7,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import logging
 from typing import Dict, List, Any, Tuple, Optional
 from collections import deque
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger("ariaska.neural_trainer")
 
 class NeuralTrainer:
     """
@@ -63,7 +65,7 @@ class NeuralTrainer:
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         
-        console.print(f"[green]✓ Enhanced Neural Trainer initialized on {device}[/green]")
+        logger.debug(f"Enhanced Neural Trainer initialized on {device}")
         self.total_loss = 0.0
         self.q_values_history = deque(maxlen=1000)
         self.loss_history = deque(maxlen=1000)
@@ -73,7 +75,7 @@ class NeuralTrainer:
         self.confidence_history = deque(maxlen=100)
         self.gpt_fallback_rate = 1.0  # Start with 100% GPT dependency
         
-        console.print(f"[green]✓ Neural trainer initialized on {device}[/green]")
+        logger.debug(f"Neural trainer initialized on {device}")
         
     def train_on_batch(self, experiences: List[Dict[str, Any]], priorities: Optional[np.ndarray] = None) -> Dict[str, float]:
         """
