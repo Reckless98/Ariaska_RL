@@ -121,6 +121,20 @@ class StepEvent:
     parse_calls: int = 0
     parse_cache_hits: int = 0
 
+    # Phase 10.1: Privilege gating telemetry
+    privilege_filtered: int = 0          # candidates filtered by privilege
+    sudo_attempted: bool = False
+    sudo_allowed: bool = False
+    sudo_denied: bool = False
+    tool_install_triggered: bool = False
+    tool_install_success: bool = False
+    wordlist_generated: bool = False
+    wordlist_candidates: int = 0
+    knock_attempted: bool = False
+    knock_success: bool = False
+    proxy_events_ingested: int = 0
+    payload_transform_used: str = ""
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to JSON-safe dict matching JSONL schema."""
         return {
@@ -152,6 +166,19 @@ class StepEvent:
             "ddqn_epsilon": round(self.ddqn_epsilon, 5),
             "parse_calls": self.parse_calls,
             "parse_cache_hits": self.parse_cache_hits,
+            # Phase 10.1
+            "privilege_filtered": self.privilege_filtered,
+            "sudo_attempted": self.sudo_attempted,
+            "sudo_allowed": self.sudo_allowed,
+            "sudo_denied": self.sudo_denied,
+            "tool_install_triggered": self.tool_install_triggered,
+            "tool_install_success": self.tool_install_success,
+            "wordlist_generated": self.wordlist_generated,
+            "wordlist_candidates": self.wordlist_candidates,
+            "knock_attempted": self.knock_attempted,
+            "knock_success": self.knock_success,
+            "proxy_events_ingested": self.proxy_events_ingested,
+            "payload_transform_used": self.payload_transform_used,
         }
 
 
@@ -179,6 +206,17 @@ class EpisodeEvent:
     anti_repeat_pct: float = 0.0
     source_distribution: Dict[str, int] = field(default_factory=dict)
 
+    # Phase 10.1 episode-level counters
+    total_privilege_filtered: int = 0
+    total_sudo_attempts: int = 0
+    total_sudo_allowed: int = 0
+    total_sudo_denied: int = 0
+    total_tool_installs: int = 0
+    total_wordlists_generated: int = 0
+    total_knock_attempts: int = 0
+    total_proxy_events: int = 0
+    total_payload_transforms: int = 0
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "ts": self.ts or _now_iso(),
@@ -202,6 +240,16 @@ class EpisodeEvent:
             "latency_avg_ms": round(self.latency_avg_ms, 1),
             "anti_repeat_pct": round(self.anti_repeat_pct, 1),
             "source_distribution": self.source_distribution,
+            # Phase 10.1
+            "total_privilege_filtered": self.total_privilege_filtered,
+            "total_sudo_attempts": self.total_sudo_attempts,
+            "total_sudo_allowed": self.total_sudo_allowed,
+            "total_sudo_denied": self.total_sudo_denied,
+            "total_tool_installs": self.total_tool_installs,
+            "total_wordlists_generated": self.total_wordlists_generated,
+            "total_knock_attempts": self.total_knock_attempts,
+            "total_proxy_events": self.total_proxy_events,
+            "total_payload_transforms": self.total_payload_transforms,
         }
 
 

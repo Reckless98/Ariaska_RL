@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771188867.4082491,
-  "skill_count": 105,
+  "last_updated": 1771203528.1206179,
+  "skill_count": 107,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -63,18 +63,18 @@
     },
     "skill_ssh_enum": {
       "id": "skill_ssh_enum",
-      "if_condition": "When port 22 is open and SSH banner detected",
-      "then_action": "Run SSH enumeration with nmap scripts",
+      "if_condition": "When port 22 is open and SSH banner reveals version details",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and banner analysis",
       "parameters_template": {
         "port": 22,
-        "script": "ssh-*"
+        "script": "ssh2-enum-algos"
       },
-      "confidence": 0.85,
+      "confidence": 0.86,
       "evidence_refs": [
-        "ep001_step05",
-        "ep001_step07"
+        "ep001_step03",
+        "ep001_step05"
       ],
-      "created_at": 1770495584.1676557,
+      "created_at": 1771203280.1964664,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -1531,6 +1531,43 @@
         "ep001_step14"
       ],
       "created_at": 1771176464.9337926,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_recon": {
+      "id": "skill_web_recon",
+      "if_condition": "When HTTP/HTTPS service responds on any port",
+      "then_action": "Launch gobuster scan and input validation tests to reveal hidden directories",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771203032.3613832,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_local_sudo_check": {
+      "id": "skill_local_sudo_check",
+      "if_condition": "When user context is non-root and /etc/sudoers accessible",
+      "then_action": "Validate sudo permissions before escalation attempts",
+      "parameters_template": {
+        "check_file": "/etc/sudoers",
+        "attempts": 2
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step22"
+      ],
+      "created_at": 1771203528.1197052,
       "usage_count": 0,
       "success_rate": 0.0
     }

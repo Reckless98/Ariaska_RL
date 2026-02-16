@@ -86,6 +86,23 @@ class FeatureFlags:
     ingest_pipeline: bool = field(
         default_factory=lambda: _env_bool("FF_INGEST_PIPELINE", False))
 
+    # ── Phase 10.1: Pre-HTB Capability Hardening ────────────────────
+    privilege_gating: bool = field(
+        default_factory=lambda: _env_bool("FF_PRIVILEGE_GATING", True))
+    allow_sudo: bool = field(
+        default_factory=lambda: _env_bool("FF_ALLOW_SUDO", False))
+    allow_live_install: bool = field(
+        default_factory=lambda: _env_bool("FF_ALLOW_LIVE_INSTALL", False))
+    sudo_mode: str = "prompt"  # "prompt" | "noninteractive"
+    wordlist_mutation: bool = field(
+        default_factory=lambda: _env_bool("FF_WORDLIST_MUTATION", False))
+    port_knocking: bool = field(
+        default_factory=lambda: _env_bool("FF_PORT_KNOCKING", False))
+    proxy_capture: bool = field(
+        default_factory=lambda: _env_bool("FF_PROXY_CAPTURE", False))
+    payload_encoding: bool = field(
+        default_factory=lambda: _env_bool("FF_PAYLOAD_ENCODING", False))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

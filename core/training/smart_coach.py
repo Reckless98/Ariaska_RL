@@ -1257,6 +1257,44 @@ class SmartCoach:
             return filtered
         return commands  # Don't remove everything
 
+    def _filter_by_privilege(
+        self, commands: List[CommandTemplate], state: Dict[str, Any]
+    ) -> List[CommandTemplate]:
+        """
+        Phase 10.1: Filter commands by privilege requirements.
+
+        Removes commands that require sudo/root when the agent hasn't
+        earned those privileges yet. Controlled by FF_PRIVILEGE_GATING.
+
+        Returns:
+            Filtered list with privilege-gated commands removed.
+        """
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+        if not ff.privilege_gating:
+            return commands
+
+        from core.commands.privilege import filter_by_privilege, PrivilegeTelemetry
+        tel = PrivilegeTelemetry()
+        result = filter_by_privilege(commands, state, telemetry=tel)
+
+        if result.filtered:
+            logger.debug(
+                "[PRIV-FILTER] %s: Removed %d privilege-gated commands: %s",
+                self.agent_name,
+                len(result.filtered),
+                [c.name for c in result.filtered],
+            )
+
+        # Store telemetry for later collection
+        if not hasattr(self, "_privilege_telemetry"):
+            self._privilege_telemetry = PrivilegeTelemetry()
+        self._privilege_telemetry.merge(tel)
+
+        if result.allowed:
+            return result.allowed
+        return commands  # Don't remove everything — safety fallback
+
     def _ask_mentor_reasoning(
         self, step_ctx: SmartStepContext, question: str
     ) -> Optional[str]:
@@ -2151,6 +2189,13 @@ class SmartCoach:
         
         # Phase 7.2: Remove brute-force commands when credentials already known
         filtered_commands = self._filter_creds_aware(filtered_commands, ctx)
+        
+        # =====================================================================
+        # PHASE 10.1: PRIVILEGE GATING
+        # Remove commands requiring sudo/root when agent hasn't earned those
+        # privileges yet. Controlled by FF_PRIVILEGE_GATING feature flag.
+        # =====================================================================
+        filtered_commands = self._filter_by_privilege(filtered_commands, step_ctx.state)
         
         # =====================================================================
         # PHASE 9.4: EXECUTIVE CORTEX STRATEGIC GUIDANCE

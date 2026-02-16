@@ -1,0 +1,84 @@
+{
+  "run_id": "run_20260216_015426_040179",
+  "timestamp": 1771203273.1076174,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a consistent reward of 60, demonstrating reliable progress through reconnaissance and initial exploitation phases within the single episode.",
+      "Utilized all 10 mentor calls, indicating disciplined adherence to guidance when encountering obstacles."
+    ],
+    "fails": [
+      "Reached high reward ceilings but failed to complete the final objective, leaving success rate at 0% and indicating a gap in post-exploitation control.",
+      "Repeatedly missed privilege escalation opportunities, preventing consolidation of access despite gathered intelligence."
+    ],
+    "summary": "Training run shows strong initial exploration and responsiveness to guidance, but inability to convert momentum into mission success due to failure to escalate and persist."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Final-stage privilege escalation/control actions were never executed, causing mission failure despite strong earlier progress.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner reveals version details",
+      "then_action": "Run SSH enumeration with targeted nmap scripts and banner analysis",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos"
+      },
+      "confidence": 0.86,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771203280.1964664,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_priv_esc_stitch",
+      "if_condition": "When writeable sudoers file or misconfigured SUID binaries detected",
+      "then_action": "Attempt controlled privilege escalation chain using verified exploits",
+      "parameters_template": {
+        "target_binary": "/usr/bin/vim",
+        "exploit": "vim -c ':!command' "
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771203280.1964746,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High early-recon success rate and repeatable SSH enumeration results"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Multi-stage privilege escalation rehearsals",
+      "description": "Integrate scripted privilege escalation sequences immediately after successful SSH enumeration to validate consolidation steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Targeted post-exploitation validation",
+      "description": "After achieving initial shell, verify persistence strategies and automated checks to ensure final objective readiness.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

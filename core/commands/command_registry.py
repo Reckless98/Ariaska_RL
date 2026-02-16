@@ -67,7 +67,14 @@ class CommandTemplate:
     
     # Agent assignment — which agents should use this command
     assigned_agents: List[str] = field(default_factory=list)  # e.g. ["red", "scout"]
-    
+
+    # Phase 10.1: Privilege gating
+    requires_privilege: str = "none"    # "none" | "sudo" | "root"
+    privilege_reason: str = ""          # Why privilege is needed
+    safety_tags: Set[str] = field(default_factory=set)  # e.g. {"requires_root", "noisy", "destructive"}
+    verify_template: str = ""           # Template name to verify success after execution
+    required_tool: str = ""             # Tool binary required (for ToolRegistry live-install)
+
     def get_usage_context(self) -> str:
         """Get a formatted string describing when/why to use this command."""
         parts = [self.description]
@@ -83,6 +90,10 @@ class CommandTemplate:
             parts.append(f"ENABLES: {', '.join(self.enables)}")
         if self.assigned_agents:
             parts.append(f"AGENTS: {', '.join(self.assigned_agents)}")
+        if self.requires_privilege != "none":
+            parts.append(f"PRIVILEGE: {self.requires_privilege}")
+        if self.safety_tags:
+            parts.append(f"SAFETY: {', '.join(sorted(self.safety_tags))}")
         return " | ".join(parts)
 
 
@@ -3497,6 +3508,137 @@ def get_registry_stats() -> Dict[str, int]:
         stats[phase.name.lower()] = len(get_commands_for_phase(phase))
     
     return stats
+
+
+# =============================================================================
+# PHASE 10.1B: INSTALL TEMPLATES (Auditable tool installation via registry)
+# =============================================================================
+
+register(CommandTemplate(
+    name="install_apt_package",
+    template="sudo apt-get install -y {package}",
+    description="Install a system package via apt (requires sudo)",
+    phase=AttackPhase.RECON,
+    required_params=["package"],
+    preconditions=set(),
+    success_indicators=["Setting up", "is already the newest version"],
+    typical_reward=0.0,
+    tags={"install", "system"},
+    requires_privilege="sudo",
+    privilege_reason="apt-get install requires root/sudo",
+    safety_tags={"requires_root", "modifies_target"},
+    assigned_agents=["red", "scout"],
+    not_when="If the package is already installed or install budget exhausted",
+))
+
+register(CommandTemplate(
+    name="install_pipx_package",
+    template="pipx install {package}",
+    description="Install a Python tool via pipx (user-space)",
+    phase=AttackPhase.RECON,
+    required_params=["package"],
+    preconditions=set(),
+    success_indicators=["installed package", "already installed"],
+    typical_reward=0.0,
+    tags={"install", "python"},
+    assigned_agents=["red", "scout"],
+    not_when="If the package is already installed or install budget exhausted",
+))
+
+register(CommandTemplate(
+    name="install_pip_package",
+    template="pip install {package}",
+    description="Install a Python package via pip",
+    phase=AttackPhase.RECON,
+    required_params=["package"],
+    preconditions=set(),
+    success_indicators=["Successfully installed", "already satisfied"],
+    typical_reward=0.0,
+    tags={"install", "python"},
+    assigned_agents=["red", "scout"],
+    not_when="If the package is already installed or install budget exhausted",
+))
+
+register(CommandTemplate(
+    name="install_go_tool",
+    template="go install {module}",
+    description="Install a Go tool via go install",
+    phase=AttackPhase.RECON,
+    required_params=["module"],
+    preconditions=set(),
+    success_indicators=["go: downloading"],
+    typical_reward=0.0,
+    tags={"install", "go"},
+    assigned_agents=["red", "scout"],
+    not_when="If Go runtime is not available or install budget exhausted",
+))
+
+register(CommandTemplate(
+    name="clone_repo_tool",
+    template="git clone --depth 1 {url} {dest}",
+    description="Clone a tool repository",
+    phase=AttackPhase.RECON,
+    required_params=["url", "dest"],
+    preconditions=set(),
+    success_indicators=["Cloning into", "done"],
+    typical_reward=0.0,
+    tags={"install", "git"},
+    assigned_agents=["red", "scout"],
+    not_when="If git is not available or install budget exhausted",
+))
+
+# =============================================================================
+# PHASE 10.1D: PORT KNOCKING TEMPLATES
+# =============================================================================
+
+register(CommandTemplate(
+    name="knock_sequence",
+    template="knock -d {delay} {target} {ports}",
+    description="Execute a port knocking sequence to unlock hidden services",
+    phase=AttackPhase.RECON,
+    required_params=["target", "ports"],
+    optional_params={"delay": "500"},
+    preconditions={"ports_discovered"},
+    success_indicators=["knock complete", "sequence sent"],
+    typical_reward=5.0,
+    tags={"knock", "network", "stealth"},
+    required_tool="knock",
+    assigned_agents=["scout", "red"],
+    why="Unlock firewall-hidden services by sending a precise port knock sequence",
+    when="When nmap shows filtered ports or knowledge suggests port knocking is configured",
+    not_when="If all ports are already open and accessible",
+))
+
+register(CommandTemplate(
+    name="knock_sequence_udp",
+    template="for port in {ports}; do nmap -Pn -sU -p $port --max-retries 0 {target} && sleep {delay}; done",
+    description="UDP port knocking via nmap probes",
+    phase=AttackPhase.RECON,
+    required_params=["target", "ports"],
+    optional_params={"delay": "0.5"},
+    preconditions={"ports_discovered"},
+    success_indicators=["scan report"],
+    typical_reward=5.0,
+    tags={"knock", "network", "udp"},
+    required_tool="nmap",
+    assigned_agents=["scout", "red"],
+    not_when="If all target ports are already open or knock tool available for TCP knocking",
+))
+
+register(CommandTemplate(
+    name="verify_port_open",
+    template="nmap -Pn -sT -p {port} --max-retries 2 {target}",
+    description="Quick verify if a specific port is open (used after knock)",
+    phase=AttackPhase.RECON,
+    required_params=["target", "port"],
+    preconditions=set(),
+    success_indicators=["open", "syn-ack"],
+    typical_reward=2.0,
+    tags={"verify", "network"},
+    required_tool="nmap",
+    assigned_agents=["scout", "red"],
+    not_when="If port status is already known from recent full scan",
+))
 
 
 # Print stats when module loads (for debugging)

@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260216_011237_bdd335",
+  "timestamp": 1771200775.7907305,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a high reward score (67.5) by efficiently enumerating exposed services and mapping network topology within the single episode.",
+      "Leveraged multiple mentor hints (15 calls) to quickly identify service banners and prioritize targets, demonstrating adaptability under guidance."
+    ],
+    "fails": [
+      "Objective not completed \u2013 success rate remains 0.00%; no final exploitation or control achieved.",
+      "Repeatedly stalled at privilege escalation due to incomplete credential harvesting and lack of automated escalation routines."
+    ],
+    "summary": "Strong reconnaissance and service discovery phase produced high reward, but closure failed due to ineffective credential reuse and privilege escalation gaps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to translate service enumeration into actionable credentials for pivoting, leaving the mission incomplete after initial access.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open and banner indicates outdated OpenSSH version",
+      "then_action": "Run targeted sshv1/ssh2 brute-force and banner-specific nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771200783.2495396,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service exposes multiple directories and robots.txt clues",
+      "then_action": "Execute spidering with dirb/Burp intruder to enumerate hidden endpoints before credential harvesting",
+      "parameters_template": {
+        "wordlist": "common.txt",
+        "extensions": [
+          "php",
+          "bak"
+        ]
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771200783.2495527,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial low-privileged shell is obtained without valid credentials",
+      "then_action": "Trigger automated credential harvesting from /etc/passwd and log files, then attempt sudo checks",
+      "parameters_template": {
+        "sudo_check": true,
+        "log_paths": [
+          "/var/log/auth.log",
+          "/home/*/.bash_history"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1771200783.2495618,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration reliably surfaced access points across the run, suggesting strong repeat value."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate credential reuse via captured SSH/session tokens",
+      "description": "Chain harvested credentials from reconnaissance into automated SSH login attempts and pivot scripts to close the session.",
+      "priority": "high"
+    },
+    {
+      "title": "Integrate privilege escalation checklist",
+      "description": "Implement a structured post-exploit module that runs sudo -l, kernel exploits, and common misconfigurations sequentially after access.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor dependency by codifying banner analysis heuristics",
+      "description": "Develop heuristics for interpreting service banners to suggest next modules without requiring mentor input.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
