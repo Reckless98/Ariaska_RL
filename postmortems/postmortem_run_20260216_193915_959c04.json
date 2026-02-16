@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260216_193915_959c04",
+  "timestamp": 1771267176.3548844,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a high reward (57.5) by methodically gathering initial reconnaissance data despite no final success.",
+      "Used 15 mentor calls to validate decision points, ensuring consistent situational awareness during the run."
+    ],
+    "fails": [
+      "Run could not transition from discovery to exploitation, resulting in a 0% success rate because foothold actions stalled.",
+      "Repeated failure to escalate privileges after initial enumeration prevented mission completion."
+    ],
+    "summary": "Run demonstrated disciplined data collection but consistently stalled before exploitation; focus next on reliable privilege escalation flows."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation stage fails immediately after reconnaissance, blocking lateral movement.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771267185.573159,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial user shell is obtained on Linux target",
+      "then_action": "Run linpeas to collect privilege escalation vectors",
+      "parameters_template": {
+        "tool": "linpeas.sh",
+        "mode": "full"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step15"
+      ],
+      "created_at": 1771267185.5731714,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Windows target responds on SMB ports",
+      "then_action": "Launch smbclient + enum4linux to capture shares and user info",
+      "parameters_template": {
+        "smbclient": true,
+        "enum_option": "full"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771267185.57318,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Streamline privilege escalation",
+      "description": "Integrate linpeas findings with automated exploitation scripts to remove manual delays and test new vectors identified in enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Validate SSH-specific enumeration flow",
+      "description": "Chain nmap ssh scripts into a standard response plan to trigger credential capture immediately after banner analysis.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

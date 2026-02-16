@@ -966,6 +966,7 @@ class SmartOrchestrator:
                 model=self.config.model,
                 tactical_cortex=self.tactical_cortex,
                 executive_cortex=self.executive_cortex,
+                budget_controller=self.budget_controller,
             )
         
         # Phase 6.6: Inject difficulty preset into all coaches

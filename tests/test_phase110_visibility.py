@@ -516,3 +516,91 @@ class TestPhaseLadder:
         ]
         for phase in expected_phases:
             assert phase in SmartCoach.PHASE_LADDER_MIN_STEPS, f"Missing phase: {phase}"
+
+
+# ─── Budget Gate Wiring ──────────────────────────────────────────────────────
+
+class TestBudgetGateWiring:
+    """Tests that AdaptiveBudgetController is wired into SmartCoach."""
+
+    def test_smart_coach_accepts_budget_controller(self):
+        """SmartCoach.__init__ accepts budget_controller kwarg."""
+        from core.training.smart_coach import SmartCoach
+        from core.testing.fake_gpt_manager import FakeGPTManager
+        gpt = FakeGPTManager(seed=42)
+        coach = SmartCoach(
+            agent_name="RedAgent",
+            gpt_manager=gpt,
+            budget_controller=None,
+        )
+        assert coach.budget_controller is None
+
+    def test_smart_coach_stores_budget_controller(self):
+        """SmartCoach stores the budget_controller instance."""
+        from core.training.smart_coach import SmartCoach
+        from core.testing.fake_gpt_manager import FakeGPTManager
+        from core.training.adaptive_budget import AdaptiveBudgetController
+        gpt = FakeGPTManager(seed=42)
+        bc = AdaptiveBudgetController()
+        coach = SmartCoach(
+            agent_name="RedAgent",
+            gpt_manager=gpt,
+            budget_controller=bc,
+        )
+        assert coach.budget_controller is bc
+
+    def test_can_call_mentor_phase_weighted(self):
+        """can_call_mentor respects phase weighting under pressure."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(mentor_budget_total=10))
+        bc.reset_episode(max_steps=40)
+        # Use 7 of 10 calls to get into hard throttle territory
+        for _ in range(7):
+            bc.record_mentor_call(tokens_used=100)
+        bc.step_tick(8)
+        pressure = bc.get_pressure()
+        # EXPLOITATION has weight 1.0 — should still be allowed under hard throttle
+        exploit_ok = bc.can_call_mentor("EXPLOITATION")
+        # CLOSEOUT has weight 0.3 — should be blocked under hard throttle
+        closeout_ok = bc.can_call_mentor("CLOSEOUT")
+        assert pressure > 0.5  # Should be elevated
+        # At 7/10 calls, EXPLOITATION should pass but CLOSEOUT should fail
+        if pressure >= 0.6:
+            assert closeout_ok is False, f"CLOSEOUT should be blocked at pressure {pressure:.2f}"
+
+    def test_can_call_venice_gate(self):
+        """can_call_venice returns False when venice budget exhausted."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(venice_budget_total=3))
+        bc.reset_episode(max_steps=40)
+        assert bc.can_call_venice() is True
+        for _ in range(3):
+            bc.record_venice_call(tokens_used=50)
+        assert bc.can_call_venice() is False
+
+    def test_budget_recording_tracks_calls(self):
+        """record_mentor_call and record_no_call update counters."""
+        from core.training.adaptive_budget import AdaptiveBudgetController
+        bc = AdaptiveBudgetController()
+        bc.reset_episode(max_steps=40)
+        bc.record_mentor_call(tokens_used=200)
+        bc.record_no_call()
+        bc.record_no_call()
+        summary = bc.get_summary()
+        assert summary["mentor_calls"] == 1
+        rate = bc.get_spend_rate()
+        # 1 call out of 3 tracked steps
+        assert 0.2 < rate < 0.5
+
+    def test_emergency_cutoff(self):
+        """When budget is fully exhausted, all mentor calls blocked."""
+        from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
+        bc = AdaptiveBudgetController(config=BudgetConfig(mentor_budget_total=5))
+        bc.reset_episode(max_steps=40)
+        # Exhaust all 5 calls in just 2 steps → extreme overspend
+        for _ in range(5):
+            bc.record_mentor_call(tokens_used=5000)
+        bc.step_tick(2)
+        # Budget fully exhausted (hard cap check: calls >= total)
+        assert bc.can_call_mentor("EXPLOITATION") is False
+        assert bc.can_call_mentor("RECON") is False

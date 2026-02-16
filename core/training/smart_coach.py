@@ -327,6 +327,7 @@ class SmartCoach:
         model: str = "gpt-5.1-codex-mini",
         tactical_cortex: Optional[Any] = None,
         executive_cortex: Optional[Any] = None,
+        budget_controller: Optional[Any] = None,
     ):
         self.agent_name = agent_name
         self.gpt_manager = gpt_manager
@@ -340,6 +341,9 @@ class SmartCoach:
         # ─── PHASE 10: Cortex integration ────────────────────────────
         self.tactical_cortex = tactical_cortex    # Per-step quality gate
         self.executive_cortex = executive_cortex  # Episode-level strategic planner
+        
+        # ─── PHASE 11.0: Adaptive budget gating ──────────────────────
+        self.budget_controller = budget_controller  # AdaptiveBudgetController instance
         
         # R42: Forced-novel cap per episode — prevent forced dominance
         self._forced_novel_count = 0
@@ -2159,6 +2163,26 @@ class SmartCoach:
         else:
             # Fallback: legacy 3-condition gating (Phase 6.1 compat)
             stagnation_steps = getattr(self, '_stagnation_steps', 0)
+        
+        # =================================================================
+        # PHASE 11.0: ADAPTIVE BUDGET GATE
+        # After MentorController decides engagement intent, enforce hard
+        # budget limits via AdaptiveBudgetController.can_call_mentor().
+        # This preserves intent tracking while preventing budget overrun.
+        # =================================================================
+        if should_call_gpt and self.budget_controller is not None:
+            _phase_name = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+            if not self.budget_controller.can_call_mentor(_phase_name):
+                _pressure = self.budget_controller.get_pressure()
+                should_call_gpt = False
+                gpt_reason = f"budget_throttled(pressure={_pressure:.0%},phase={_phase_name})"
+                logger.debug(
+                    f"[{self.agent_name}] Budget gate: mentor suppressed — "
+                    f"pressure={_pressure:.2f}, phase={_phase_name}"
+                )
+                self._step_reasoning_log.append(
+                    f"📊 Budget pressure {_pressure:.0%} — mentor call suppressed for phase {_phase_name}"
+                )
             
             if prev_phase is not None and current_phase != prev_phase:
                 should_call_gpt = True
@@ -2582,6 +2606,16 @@ class SmartCoach:
                     result = self._decide_from_registry(step_ctx, proposed_action, confidence)
                     if should_call_gpt and not gpt_available:
                         logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
+        
+        # =========================================================================
+        # PHASE 11.0: Record budget outcome at decision point
+        # =========================================================================
+        if self.budget_controller is not None:
+            if getattr(result, 'mentor_call', False):
+                _tokens = getattr(result, 'tokens_used', 0)
+                self.budget_controller.record_mentor_call(tokens_used=_tokens)
+            else:
+                self.budget_controller.record_no_call()
         
         # =========================================================================
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
@@ -5642,10 +5676,20 @@ class SmartCoach:
         try:
             # === USE DUAL MENTOR IF AVAILABLE ===
             if self.has_dual_mentor():
-                dual_response = self.dual_mentor.get_command(ctx, filtered_commands)
-                mentor_response = dual_response.chosen
-                provider_used = dual_response.provider_used
-                tokens_used = dual_response.tokens_total
+                # Phase 11.0: Check Venice budget before dual-mentor call
+                if self.budget_controller is not None and not self.budget_controller.can_call_venice():
+                    logger.debug(f"[{self.agent_name}] Venice budget exhausted, falling back to single mentor")
+                    mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+                    provider_used = "gpt"
+                    tokens_used = getattr(mentor_response, 'tokens_used', 0)
+                else:
+                    dual_response = self.dual_mentor.get_command(ctx, filtered_commands)
+                    mentor_response = dual_response.chosen
+                    provider_used = dual_response.provider_used
+                    tokens_used = dual_response.tokens_total
+                    # Record Venice usage if that provider was used
+                    if self.budget_controller and provider_used == "venice":
+                        self.budget_controller.record_venice_call(tokens_used=tokens_used)
                 
                 if not mentor_response or not mentor_response.is_valid:
                     logger.warning(f"[{self.agent_name}] DualMentor returned invalid response, falling back to registry")
