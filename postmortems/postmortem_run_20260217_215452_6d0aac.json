@@ -1,0 +1,143 @@
+{
+  "run_id": "run_20260217_215452_6d0aac",
+  "timestamp": 1771361714.5524373,
+  "key_outcomes": {
+    "wins": [
+      "Mapped external perimeter and confirmed accessible HTTPS admin interface on port 443, enabling further reconnaissance.",
+      "Captured baseline network traffic for the target subnet, providing raw data for future correlation.",
+      "Documented unsuccessful credential attempts that clarified the account lockout policy and narrowed valid login vectors."
+    ],
+    "fails": [
+      "Failed to achieve privilege escalation because the identified service lacked a known exploit path in the current environment.",
+      "Could not maintain persistence due to the absence of credential dumps or stored session tokens.",
+      "No lateral movement was attempted after initial fail, leaving the internal network surface unexplored."
+    ],
+    "summary": "Reconnaissance yielded valuable perimeter insights, but follow-up exploitation and privilege escalation steps were blocked by missing credentials and exploitable services."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to escalate privileges because no exploitable service or valid credentials were present after initial enumeration.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step13",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an HTTPS admin interface is discovered on a perimeter host",
+      "then_action": "Run gobuster directory enumeration followed by nikto scan targeting discovered endpoints",
+      "parameters_template": {
+        "host": "TARGET_IP",
+        "port": 443,
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771361725.0710735,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH/Telnet login failures exhibit account lockout behavior",
+      "then_action": "Switch to passive credential collection and attempt Kerberos enumeration with rpcclient",
+      "parameters_template": {
+        "tool": "rpcclient",
+        "module": "lsaquery",
+        "target": "TARGET_IP"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771361725.0710893,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service banners confirm outdated software versions",
+      "then_action": "Search for CVE-specific exploits in exploit-db and validate applicability with nmap --script vuln",
+      "parameters_template": {
+        "nmap_script": "vuln",
+        "cpe_filter": "outdated_version"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11"
+      ],
+      "created_at": 1771361725.0710998,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable enumeration of admin interfaces revealed actionable endpoints for follow-up tools."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent detection of outdated software guided focused vulnerability research."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Internal network pivot via captured session tokens",
+      "description": "Leverage current reconnaissance data to seed a pivot host, run responder/nbtstat to harvest authenticated SMB sessions for lateral movement.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential spray with adaptive timing",
+      "description": "Use kerbrute/brute force against remaining accounts respecting lockout policies, targeting services enumerated in the run (SSH, RDP).",
+      "priority": "medium"
+    },
+    {
+      "title": "Service-specific exploit verification",
+      "description": "Execute tailored exploit modules against the outdated service versions identified (e.g., ms17-010) with Metasploit auxiliary scanner for validation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,87 @@
+{
+  "run_id": "run_20260217_185911_a71b0b",
+  "timestamp": 1771351173.512397,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial network sweep and identified the management subnet (ep001_step04).",
+      "Captured service banners for target hosts, providing actionable context for later exploitation (ep001_step07)."
+    ],
+    "fails": [
+      "Failed to gain valid credentials for the web application after the third brute-force attempt (ep001_step12).",
+      "Privilege escalation attempts stalled due to inability to trigger a vulnerable service (ep001_step15)."
+    ],
+    "summary": "Reconnaissance was thorough, but credential acquisition and privilege escalation did not progress, leaving the attack chain incomplete."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Credential guessing against the web login repeatedly timed out or was locked after a few attempts.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds with HTTP 200 and an exposed login form",
+      "then_action": "Invoke Hydra with a curated credential list targeting the login endpoint",
+      "parameters_template": {
+        "service": "http",
+        "port": 80,
+        "module": "http-post-form",
+        "form": "username=^USER^&password=^PASS^&login=Login"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step10"
+      ],
+      "created_at": 1771351181.477664,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When nmap shows hidden SMB shares on a Windows host",
+      "then_action": "Run smbclient -L to enumerate share ACLs before attempting credential reuse",
+      "parameters_template": {
+        "target": "target_ip",
+        "options": "-L -U guest"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771351181.4776769,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SMB share enumeration consistently produced useful insight during initial service discovery."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Switch to passthrough proxy for web brute-force",
+      "description": "Introduce Burp Suite intruder with slow-rate, randomized timing to avoid lockouts and capture CSRF tokens before retrying authentication.",
+      "priority": "high"
+    },
+    {
+      "title": "Leverage SMB anonymous login after share enumeration",
+      "description": "Use credentials harvested from HTTP brute-force attempts (if any) or null session to enumerate local users via rpcclient before pivoting to escalation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,165 @@
+{
+  "run_id": "run_20260217_205645_dcd165",
+  "timestamp": 1771358231.0613127,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance tempo and gathered service information despite no episode successes",
+      "Tracked reward growth steadily to 77.50, suggesting alignment with intermediate objectives",
+      "Completed all 15 mentor calls, incorporating feedback loops into decision-making process"
+    ],
+    "fails": [
+      "Final objectives unmet, resulting in success rate staying at 0%",
+      "Privilege escalation attempts failed repeatedly during lateral movement phase",
+      "Insufficient artifact collection for endpoint proofing despite thorough scanning"
+    ],
+    "summary": "Run demonstrated disciplined information gathering and mentor engagement, but the kill chain broke during post-exploitation after repeated privilege escalation failures."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts on Linux hosts consistently failed due to missing sudo permissions and unexploitable kernel versions",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds on port 22 with an SSH banner",
+      "then_action": "Run targeted SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods,sshv1"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771358239.9880772,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial port scan shows multiple high-numbered TCP services",
+      "then_action": "Conduct aggressive service version detection with nmap",
+      "parameters_template": {
+        "flags": "-sV -sC -p-",
+        "timing": "T4"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771358239.9880946,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH credentials are unknown and banner indicates default user",
+      "then_action": "Attempt password spraying using Hydra with curated wordlist",
+      "parameters_template": {
+        "service": "ssh",
+        "wordlist": "/opt/wordlists/rockyou.txt",
+        "threads": 4
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771358239.9881072,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_004",
+      "if_condition": "When privilege escalation scripts fail with permission denied",
+      "then_action": "Collect sudo rights with sudo -l and inspect /etc/sudoers",
+      "parameters_template": {
+        "command": "sudo -l"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step16",
+        "ep001_step19"
+      ],
+      "created_at": 1771358239.9881165,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reconnaissance success whenever SSH enumeration was triggered"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Version detection consistently provided actionable service data"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate sudo discovery before escalation attempts",
+      "description": "Prioritize running sudo -l and analyzing /etc/sudoers before brute forcing privilege escalation to avoid redundant efforts",
+      "priority": "high"
+    },
+    {
+      "title": "Integrate credential harvesting from web portal",
+      "description": "Scrape accessible web application for potential credentials and automate reuse in SSH/Hydra to break stalemates",
+      "priority": "medium"
+    },
+    {
+      "title": "Pipeline exploit validation with targeted kernel checks",
+      "description": "Validate kernel version compatibility before launching exploits to avoid repeated failed escalation attempts",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

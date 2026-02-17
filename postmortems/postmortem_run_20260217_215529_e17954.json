@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260217_215529_e17954",
+  "timestamp": 1771361753.3376262,
+  "key_outcomes": {
+    "wins": [
+      "Successfully completed discovery phase within allocated time, evidenced by consistent reward of 70 on first episode.",
+      "Maintained stability in action selection without triggering failure states, allowing full episode completion."
+    ],
+    "fails": [
+      "Did not achieve end-goal success (0% success rate) despite completing a full episode.",
+      "Mentor was called 10 times, suggesting repeated uncertainty or gaps in decisive progression."
+    ],
+    "summary": "Reconnaissance was steady, but follow-through into exploitation and objective completion consistently failed, indicating a need for more targeted attack sequencing."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to pivot from scanning to exploitation after gathering host data, often repeating discovery commands without leveraging credentials.",
+      "frequency": 8,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected during scan",
+      "then_action": "Run targeted SSH enumeration with nmap scripts to discover weak ciphers/users",
+      "parameters_template": {
+        "tool": "nmap",
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos",
+        "options": "-sV"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771361760.8414316,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_http_enum",
+      "if_condition": "When HTTP service identified on high-value target after scan",
+      "then_action": "Launch Nikto + Gobuster enumeration to catalog potential vectors and hidden directories",
+      "parameters_template": {
+        "tools": [
+          {
+            "name": "nikto",
+            "args": "-host {{target}}"
+          },
+          {
+            "name": "gobuster",
+            "args": "dir -u http://{{target}} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+          }
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step08"
+      ],
+      "created_at": 1771361760.8414438,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_priv_esc_req",
+      "if_condition": "When low-privileged shell obtained and sudo rights enumerated",
+      "then_action": "Run linpeas to collect local privilege escalation vectors immediately",
+      "parameters_template": {
+        "tool": "linpeas.sh",
+        "args": "-a --user"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771361760.8414497,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High confidence and repeated successful reconnaissance when SSH port surfaced."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Brute-force SSH after enumeration",
+      "description": "Following SSH enumeration skill, integrate hydra or Medusa with validated username list and password spray to gain foothold.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated web scanning workflow",
+      "description": "Chain HTTP reconnaissance output into Burp Suite active scan using confirmed directories from Gobuster to uncover exploitable inputs.",
+      "priority": "medium"
+    },
+    {
+      "title": "Privilege escalation checklist validation",
+      "description": "After obtaining low-priv shell, immediately run linpeas and check sudoers, then cross-reference findings with CVE database for targeted escalation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

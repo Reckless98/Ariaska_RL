@@ -1,0 +1,158 @@
+{
+  "run_id": "run_20260217_220721_5c2073",
+  "timestamp": 1771362450.0976996,
+  "key_outcomes": {
+    "wins": [
+      "Performed comprehensive network scanning to map available hosts and open ports, establishing a reliable initial reconnaissance baseline.",
+      "Captured SSH service banner information and stored it for follow-up enumeration, enabling pattern recognition for potential credential reuse.",
+      "Documented all successful vendor and version data points to transition into targeted exploitation planning."
+    ],
+    "fails": [
+      "Could not escalate privileges after initial foothold due to lack of sudo rights and missing local exploits.",
+      "Repeatedly timed out on credential brute-force attempts because of aggressive lockout policies on the SSH service.",
+      "Failed to harvest valid credentials for lateral movement, leaving the post-exploitation phase untouched."
+    ],
+    "summary": "Recon phase yielded actionable intel, but the operation stalled before privilege escalation due to insufficient credential access and lack of exploitation follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently blocked by absence of sudo rights or exploitable binaries.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step20",
+        "ep001_step27"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration and version-specific nmap scripts",
+      "parameters_template": {
+        "target": "hostname_or_ip",
+        "port": 22,
+        "nmap_scripts": [
+          "ssh-auth-methods",
+          "sshv1",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771362459.1030595,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB ports (139/445) are open",
+      "then_action": "Run smb-enum-shares and smb-enum-users via nmap to identify accessible resources and users",
+      "parameters_template": {
+        "target": "hostname_or_ip",
+        "ports": [
+          139,
+          445
+        ],
+        "scripts": [
+          "smb-enum-shares",
+          "smb-enum-users"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771362459.103078,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When no valid credentials yet and SSH lockout detected",
+      "then_action": "Switch to credential gathering via password-spray on web login endpoints before brute force",
+      "parameters_template": {
+        "target": "web_login_url",
+        "user_list": [
+          "admin",
+          "user"
+        ],
+        "password_list": [
+          "Summer2025!"
+        ],
+        "rate_limit": "10 attempts per minute"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step25"
+      ],
+      "created_at": 1771362459.1030903,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent value in identifying accessible SMB resources"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focus on credential harvesting via OSINT-derived user lists",
+      "description": "Integrate automated OSINT tools to expand user list prior to targeted credential spraying and pivot from SSH lockouts into alternative services.",
+      "priority": "high"
+    },
+    {
+      "title": "Deploy local privilege escalation checks with linPEAS",
+      "description": "After obtaining shell, run linPEAS with output capture to quickly identify misconfigurations or sudo rights for escalation.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate alternative lateral movement paths using SMB relay testing",
+      "description": "Leverage smbrelayx.py with internal authentication to test relay potential and avoid direct brute-force exhaustion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

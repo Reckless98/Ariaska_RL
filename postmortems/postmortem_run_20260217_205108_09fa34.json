@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260217_205108_09fa34",
+  "timestamp": 1771357891.7241127,
+  "key_outcomes": {
+    "wins": [
+      "Achieved 80.0 reward in a single episode, indicating thorough reconnaissance and tool coverage despite no objective completion.",
+      "Maximized mentor guidance with 10 interventions, suggesting active learning and adaptation during the run."
+    ],
+    "fails": [
+      "0% success rate\u2014core objective (likely foothold) was not achieved.",
+      "Repeated reliance on mentor calls hints at gaps in autonomous decision-making or attack execution."
+    ],
+    "summary": "High engagement and reconnaissance yielded maximal reward points, but the engagement failed to convert into a successful objective, indicating opportunity to focus efforts on the exploitation phase."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to pivot from reconnaissance to exploitation, with repeated disconnect between information gathering and finding valid service credentials.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260217_205108_09fa34_ep001_step10",
+        "run_20260217_205108_09fa34_ep001_step27"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When high-value TCP ports (22, 80, 443) return service banners during scanning",
+      "then_action": "Run targeted nmap NSE scripts for service enumeration",
+      "parameters_template": {
+        "target": "10.10.X.X",
+        "ports": "22,80,443",
+        "scripts": "ssh-auth-methods,http-title,http-enum"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_205108_09fa34_ep001_step05",
+        "run_20260217_205108_09fa34_ep001_step12"
+      ],
+      "created_at": 1771357899.7927258,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial credential spray with default passwords fails but account lockout not enforced",
+      "then_action": "Launch Hydra targeted against service with wordlist tuned to service banner context",
+      "parameters_template": {
+        "service": "ssh",
+        "target": "10.10.X.X",
+        "wordlist": "/opt/wordlists/common-usernames.txt",
+        "timeout": "10s"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "run_20260217_205108_09fa34_ep001_step33",
+        "run_20260217_205108_09fa34_ep001_step36"
+      ],
+      "created_at": 1771357899.7927418,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward tied to systematic banner enumeration; reinforces reconnaissance discipline."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Stage exploitation after confirmed service banners",
+      "description": "After nmap NSE reports SSH/http valid services, immediately run credential enumeration combined with banner-specific payload testing (e.g., exploit-db matches) to move toward foothold.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor reliance with automation scripts",
+      "description": "Capture repeated manual steps as reusable scripts (e.g., automated reconnaissance pipeline) so next run can focus on decision points rather than tool invocation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

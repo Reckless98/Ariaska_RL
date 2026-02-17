@@ -447,12 +447,12 @@ class SmartCoach:
                         state_dim=512,
                         action_dim=self.action_mapper.action_dim,
                         hidden_dims=[256, 256, 128],
-                        learning_rate=5e-4,       # Phase 6.4: Faster initial learning
+                        learning_rate=8e-4,       # Phase 13.0: +60% (was 5e-4) — aggressive initial learning
                         epochs_per_update=6,      # Phase 6.4: More gradient steps per update
                         minibatch_size=8,         # Low: each coach gets ~5-10 PPO transitions/ep
                         rollout_size=16,          # Phase 6.4: More frequent updates
-                        entropy_coef=0.05,        # Phase 6.4: Higher initial exploration
-                        entropy_coef_min=0.005,   # Phase 6.4: Anneal to focused policy
+                        entropy_coef=0.08,        # Phase 13.0: +60% (was 0.05) — high initial exploration
+                        entropy_coef_min=0.01,    # Phase 13.0: +100% (was 0.005) — maintain exploration floor
                     )
                     self.ppo_agent = PPOAgent(config=config, device="cpu")
                     logger.info(
@@ -579,6 +579,111 @@ class SmartCoach:
         self._judge_ranker = None
         self._postmortem_extractor = None
         self._dagger_corrector = None
+
+        # =====================================================================
+        # PHASE 14.0: Autonomous Reasoning Architecture
+        # TeacherTrace + BCBuffer, AutonomyScheduler, HypothesisGenerator,
+        # EvidenceGraph, LessonExtractor — all feature-flag gated.
+        # =====================================================================
+        self._p14_autonomy_scheduler = None
+        self._p14_bc_buffer = None
+        self._p14_hypothesis_gen = None
+        self._p14_evidence_graph = None
+        self._p14_lesson_extractor = None
+        self._p14_traces_this_episode: List[Any] = []
+        self._p14_initialized = False
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            if _ff.teacher_trace:
+                from core.reasoning.teacher_trace import BCBuffer
+                self._p14_bc_buffer = BCBuffer(capacity=2000)
+            if _ff.autonomy_scheduler:
+                from core.training.autonomy_scheduler import AutonomyScheduler
+                self._p14_autonomy_scheduler = AutonomyScheduler()
+                self._p14_autonomy_scheduler.register_agent(agent_name)
+            if _ff.hypothesis_engine:
+                from core.reasoning.hypothesis import HypothesisGenerator
+                self._p14_hypothesis_gen = HypothesisGenerator()
+            if _ff.evidence_graph:
+                from core.knowledge.evidence_graph import EvidenceGraph
+                self._p14_evidence_graph = EvidenceGraph()
+            self._p14_initialized = True
+            # Wire BC buffer into PPO config if both exist
+            if _ff.bc_loss and self._p14_bc_buffer is not None and self.ppo_agent is not None:
+                self.ppo_agent.config.use_bc_loss = True
+                self.ppo_agent.config.bc_buffer = self._p14_bc_buffer
+                logger.debug(f"[P14] BC loss wired into PPO for {agent_name}")
+            logger.debug(
+                f"[P14] {agent_name}: tt={_ff.teacher_trace} auto={_ff.autonomy_scheduler} "
+                f"hyp={_ff.hypothesis_engine} eg={_ff.evidence_graph} bc={_ff.bc_loss}"
+            )
+        except Exception as e:
+            logger.debug(f"[P14] Init skipped for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 15.0: Neurovortex — Neuromodulators, Reflex, Arbitrator,
+        # Aggression, Sensory Buffer, Working Memory, Consolidation.
+        # All feature-flag gated — default OFF = zero behaviour change.
+        # =====================================================================
+        self._p15_neuromod_engine = None
+        self._p15_neuromod_state = None
+        self._p15_neuromod_history = None
+        self._p15_sensory_buffer = None
+        self._p15_aggression_controller = None
+        self._p15_aggression_history = None
+        self._p15_aggression_level: float = 0.3
+        self._p15_reflex_policy = None
+        self._p15_action_arbitrator = None
+        self._p15_working_memory = None
+        self._p15_consolidation_engine = None
+        self._p15_semantic_index = None
+        self._p15_initialized = False
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff15 = get_feature_flags()
+            if _ff15.neuromodulators:
+                from core.neuro.neuromodulators import (
+                    NeuromodulatorEngine, NeuromodulatorHistory, NeuromodulatorState,
+                )
+                self._p15_neuromod_engine = NeuromodulatorEngine()
+                self._p15_neuromod_state = NeuromodulatorState()
+                self._p15_neuromod_history = NeuromodulatorHistory()
+            if _ff15.sensory_buffer:
+                from core.neuro.sensory_buffer import SensoryBuffer
+                self._p15_sensory_buffer = SensoryBuffer()
+            if _ff15.aggression_controller:
+                from core.neuro.aggression_controller import (
+                    AggressionController, AggressionHistory,
+                )
+                self._p15_aggression_controller = AggressionController()
+                self._p15_aggression_history = AggressionHistory()
+            if _ff15.reflex_policy:
+                from core.neurorouter.reflex_policy import ReflexPolicy
+                self._p15_reflex_policy = ReflexPolicy()
+            if _ff15.action_arbitrator:
+                from core.neurorouter.action_arbitrator import ActionArbitrator
+                self._p15_action_arbitrator = ActionArbitrator()
+            if _ff15.working_memory:
+                from core.memory.working_memory import WorkingMemory
+                self._p15_working_memory = WorkingMemory()
+            if _ff15.consolidation:
+                from core.training.consolidation import ConsolidationEngine
+                self._p15_consolidation_engine = ConsolidationEngine()
+            if _ff15.semantic_index:
+                from core.memory.semantic_index import SemanticIndex
+                self._p15_semantic_index = SemanticIndex()
+            self._p15_initialized = True
+            logger.debug(
+                f"[P15] {agent_name}: neuromod={_ff15.neuromodulators} "
+                f"reflex={_ff15.reflex_policy} arb={_ff15.action_arbitrator} "
+                f"aggr={_ff15.aggression_controller} sensory={_ff15.sensory_buffer} "
+                f"wm={_ff15.working_memory} consol={_ff15.consolidation} "
+                f"semidx={_ff15.semantic_index}"
+            )
+        except Exception as e:
+            logger.debug(f"[P15] Init skipped for {agent_name}: {e}")
+
         self._init_cloud_roles()
     
     def _init_smart_mentor(self):
@@ -2227,6 +2332,246 @@ class SmartCoach:
                 "detail": ladder_teaching,
             })
         
+        # =====================================================================
+        # PHASE 15.0: NEUROMODULATOR COMPUTE (per-step)
+        # Reads PPO entropy, parser confidence, hypothesis stats, reward
+        # prediction error, stagnation, and detection risk to produce a
+        # 4-dim neuromodulator state (DA, NE, ACh, 5-HT).
+        # Feature-flag gated: FF_NEUROMODULATORS.
+        # =====================================================================
+        _p15_modulation: Dict[str, float] = {}
+        if self._p15_neuromod_engine is not None:
+            try:
+                from core.neuro.neuromodulators import NeuromodulatorInputs
+                # Gather inputs from available sources
+                _p15_entropy = 0.5
+                _p15_predicted_value = 0.0
+                if self.ppo_agent and hasattr(self.ppo_agent, 'training_metrics'):
+                    _ent_list = self.ppo_agent.training_metrics.get('entropy', [])
+                    if _ent_list:
+                        _raw_ent = _ent_list[-1]
+                        _max_ent = max(0.01, self.ppo_agent.config.entropy_coef * 10)
+                        _p15_entropy = min(1.0, _raw_ent / _max_ent)
+                    _val_list = self.ppo_agent.training_metrics.get('values', [])
+                    if _val_list:
+                        _p15_predicted_value = _val_list[-1]
+                # Evidence / hypothesis signals
+                _p15_hyp_tested = 0
+                _p15_hyp_confirmed = 0
+                _p15_hyp_refuted_rate = 0.0
+                _p15_evidence_delta = 0
+                if self._p14_hypothesis_gen is not None:
+                    try:
+                        _stats = self._p14_hypothesis_gen.get_stats()
+                        _p15_hyp_tested = _stats.get("tested", 0)
+                        _p15_hyp_confirmed = _stats.get("confirmed", 0)
+                        _total = max(1, _stats.get("total_created", 1))
+                        _p15_hyp_refuted_rate = _stats.get("refuted", 0) / _total
+                    except Exception:
+                        pass
+                if self._p14_evidence_graph is not None:
+                    try:
+                        _p15_evidence_delta = self._p14_evidence_graph.recent_delta()
+                    except Exception:
+                        pass
+                _discovery_board = step_ctx.state.get("discovery_board", {})
+                _p15_stag = getattr(self, '_stagnation_steps', 0)
+                _p15_det_risk = 0.0
+                if ctx and ctx.state_flags:
+                    _p15_det_risk = ctx.state_flags.get("detection_risk", 0.0)
+                _p15_reward = _discovery_board.get("last_reward", 0.0) if isinstance(_discovery_board, dict) else 0.0
+
+                _nm_inputs = NeuromodulatorInputs(
+                    predicted_value=_p15_predicted_value,
+                    realized_reward=_p15_reward,
+                    policy_entropy=_p15_entropy,
+                    confidence_min=confidence,
+                    confidence_disagreements=0,
+                    hypothesis_refuted_rate=_p15_hyp_refuted_rate,
+                    hypothesis_confirmed_count=_p15_hyp_confirmed,
+                    hypothesis_tested_count=_p15_hyp_tested,
+                    evidence_delta=_p15_evidence_delta,
+                    replan_count=0,
+                    steps_since_progress=_p15_stag,
+                    detection_risk=_p15_det_risk,
+                )
+                self._p15_neuromod_state = self._p15_neuromod_engine.compute(
+                    _nm_inputs, self._p15_neuromod_state,
+                )
+                if self._p15_neuromod_history is not None:
+                    self._p15_neuromod_history.record(self._p15_neuromod_state)
+                _p15_modulation = self._p15_neuromod_engine.apply_modulation(
+                    self._p15_neuromod_state
+                )
+                logger.debug(
+                    f"[P15][NEUROMOD] {self.agent_name}: "
+                    f"DA={self._p15_neuromod_state.da:.2f} NE={self._p15_neuromod_state.ne:.2f} "
+                    f"ACh={self._p15_neuromod_state.ach:.2f} 5HT={self._p15_neuromod_state.sht:.2f}"
+                )
+                self._step_reasoning_log.append({
+                    "event": "neuromod",
+                    "state": self._p15_neuromod_state.to_dict(),
+                })
+            except Exception as e:
+                logger.debug(f"[P15] Neuromod compute failed: {e}")
+
+        # ── Phase 15.0: Apply neuromodulation to PPO ─────────────────
+        if _p15_modulation and self.ppo_agent is not None:
+            try:
+                self.ppo_agent.apply_neuromodulation(
+                    entropy_coef_mult=_p15_modulation.get("entropy_coef_mult", 1.0),
+                    lr_mult=_p15_modulation.get("lr_mult", 1.0),
+                    bc_weight_mult=_p15_modulation.get("bc_weight_mult", 1.0),
+                )
+            except Exception as e:
+                logger.debug(f"[P15] PPO neuromod apply failed: {e}")
+
+        # =====================================================================
+        # PHASE 15.0: AGGRESSION CONTROLLER (per-step)
+        # Computes bounded aggression level [0, 1] from neuromod state, phase,
+        # recent success/failure, and detection risk.
+        # Feature-flag gated: FF_AGGRESSION_CONTROLLER.
+        # =====================================================================
+        if self._p15_aggression_controller is not None:
+            try:
+                from core.neuro.aggression_controller import AggressionInputs
+                _da = self._p15_neuromod_state.da if self._p15_neuromod_state else 0.5
+                _sht = self._p15_neuromod_state.sht if self._p15_neuromod_state else 0.5
+                _ne = self._p15_neuromod_state.ne if self._p15_neuromod_state else 0.3
+                _discovery_board_agg = step_ctx.state.get("discovery_board", {})
+                _current_phase_name = (
+                    ctx.current_phase.name if ctx and hasattr(ctx.current_phase, 'name')
+                    else "RECON"
+                )
+                _shell = bool(_discovery_board_agg.get("shells", []))
+                _det_risk = 0.0
+                if ctx and ctx.state_flags:
+                    _det_risk = ctx.state_flags.get("detection_risk", 0.0)
+                _agg_inputs = AggressionInputs(
+                    phase=_current_phase_name,
+                    da_level=_da,
+                    sht_level=_sht,
+                    ne_level=_ne,
+                    recent_successes=0,
+                    recent_failures=0,
+                    steps_since_progress=getattr(self, '_stagnation_steps', 0),
+                    shell_obtained=_shell,
+                    detection_risk=_det_risk,
+                )
+                _agg_state = self._p15_aggression_controller.compute(_agg_inputs)
+                _agg_state.step = step_ctx.step
+                self._p15_aggression_level = _agg_state.level
+                if self._p15_aggression_history is not None:
+                    self._p15_aggression_history.record(_agg_state)
+                logger.debug(
+                    f"[P15][AGGR] {self.agent_name}: level={_agg_state.level:.2f} "
+                    f"reasons={_agg_state.reason_codes}"
+                )
+            except Exception as e:
+                logger.debug(f"[P15] Aggression compute failed: {e}")
+
+        # =====================================================================
+        # PHASE 15.0: REFLEX POLICY (pre-cascade override)
+        # Deterministic fast override before any action selection. Checks
+        # detection risk, aggression, confidence, etc. If reflex fires,
+        # returns immediately with a safe command — no cascade needed.
+        # Feature-flag gated: FF_REFLEX_POLICY.
+        # =====================================================================
+        if self._p15_reflex_policy is not None:
+            try:
+                from core.neurorouter.reflex_policy import ReflexContext
+                _ne_lvl = self._p15_neuromod_state.ne if self._p15_neuromod_state else 0.3
+                _det_risk_ref = 0.0
+                _blue_alert = 0.0
+                if ctx and ctx.state_flags:
+                    _det_risk_ref = ctx.state_flags.get("detection_risk", 0.0)
+                    _blue_alert = ctx.state_flags.get("blue_team_alert", 0.0)
+                _current_phase_ref = (
+                    ctx.current_phase.name if ctx and hasattr(ctx.current_phase, 'name')
+                    else "RECON"
+                )
+                _reflex_ctx = ReflexContext(
+                    detection_risk=_det_risk_ref,
+                    blue_team_alert=_blue_alert,
+                    last_command_failed=False,
+                    last_command_noisy=False,
+                    confidence_min=confidence,
+                    unverified_findings=0,
+                    evidence_gaps=0,
+                    steps_since_discovery=getattr(self, '_stagnation_steps', 0),
+                    aggression_level=self._p15_aggression_level,
+                    ne_level=_ne_lvl,
+                    repeated_failures=0,
+                    phase=_current_phase_ref,
+                )
+                _reflex_override = self._p15_reflex_policy.evaluate(_reflex_ctx)
+                if _reflex_override.triggered:
+                    _reflex_cmd = self._p15_reflex_policy.get_reflex_command(
+                        _reflex_override, _current_phase_ref
+                    )
+                    if _reflex_cmd:
+                        _target = ctx.target if ctx else "10.0.0.1"
+                        _reflex_cmd = _reflex_cmd.replace("{target}", _target)
+                        logger.info(
+                            f"[P15][REFLEX] {self.agent_name}: {_reflex_override.action.value} → "
+                            f"'{_reflex_cmd[:60]}' (rule={_reflex_override.source_rule})"
+                        )
+                        self._step_reasoning_log.append({
+                            "event": "reflex",
+                            "action": _reflex_override.action.value,
+                            "rule": _reflex_override.source_rule,
+                        })
+                        return SmartDecisionResult(
+                            command=_reflex_cmd,
+                            template_name="reflex_override",
+                            source="reflex",
+                            confidence=_reflex_override.confidence,
+                            reasoning=f"Reflex: {_reflex_override.reason}",
+                        )
+            except Exception as e:
+                logger.debug(f"[P15] Reflex eval failed: {e}")
+
+        # =====================================================================
+        # PHASE 15.0: WORKING MEMORY UPDATE (per-step)
+        # Advance step counter (evicts expired slots), push current phase and
+        # recent discoveries as bounded slots. Provides context to downstream
+        # mentor prompts via to_prompt_fragment().
+        # Feature-flag gated: FF_WORKING_MEMORY.
+        # =====================================================================
+        if self._p15_working_memory is not None:
+            try:
+                self._p15_working_memory.step(step_ctx.step)
+                _current_phase_wm = (
+                    ctx.current_phase.name if ctx and hasattr(ctx.current_phase, 'name')
+                    else "RECON"
+                )
+                # Push current phase
+                self._p15_working_memory.push(
+                    key="phase",
+                    content=f"Phase: {_current_phase_wm}, step {step_ctx.step}",
+                    slot_type="subgoal",
+                    priority=0.8,
+                )
+                # Push discovery state summary
+                _disc_bd = step_ctx.state.get("discovery_board", {})
+                _disc_ports = len(_disc_bd.get("ports", []))
+                _disc_creds = len(_disc_bd.get("credentials", []))
+                _disc_shells = len(_disc_bd.get("shells", []))
+                if _disc_ports or _disc_creds or _disc_shells:
+                    self._p15_working_memory.push(
+                        key="discoveries",
+                        content=f"ports={_disc_ports} creds={_disc_creds} shells={_disc_shells}",
+                        slot_type="evidence",
+                        priority=0.7,
+                        numeric_features=[float(_disc_ports), float(_disc_creds), float(_disc_shells)],
+                    )
+                logger.debug(
+                    f"[P15][WM] {self.agent_name}: slots={len(self._p15_working_memory)} "
+                    f"step={step_ctx.step}"
+                )
+            except Exception as e:
+                logger.debug(f"[P15] Working memory update failed: {e}")
+
         # ─── PHASE 5.2+: Skill Library query ────────────────────────
         # Before main pipeline, check if skill library has a high-confidence match
         skill_result = self._query_skill_library(step_ctx)
@@ -2552,7 +2897,86 @@ class SmartCoach:
         elif cognition_decision is not None:
             # PHASE 8: CognitionNode fused a confident action from multi-brain
             result = cognition_decision
+        elif (hyp_result := self._p14_hypothesis_select(step_ctx, filtered_commands)) is not None:
+            # Phase 14.0: Hypothesis-driven command selection
+            result = hyp_result
         else:
+            # ─── Phase 15.0: ActionArbitrator gate ───────────────────
+            # If arbitrator is active, collect candidates and select best.
+            # Falls through to legacy cascade on failure or when FF is off.
+            _arb_used = False
+            if self._p15_action_arbitrator is not None:
+                try:
+                    from core.neurorouter.action_arbitrator import ArbitrationCandidate
+                    _arb_candidates: list = []
+                    _arb_aggression = self._p15_aggression_level
+
+                    # Candidate 1: PPO
+                    if self.ppo_agent and self.action_mapper:
+                        _ppo_cand_result = self._ppo_select_command(step_ctx, filtered_commands)
+                        if _ppo_cand_result is not None:
+                            _arb_candidates.append(ArbitrationCandidate(
+                                source="ppo",
+                                command=_ppo_cand_result.command or "",
+                                expected_value=_ppo_cand_result.confidence * 5.0,
+                                confidence=_ppo_cand_result.confidence,
+                                phase_fit=0.7,
+                                reason="ppo_policy",
+                            ))
+
+                    # Candidate 2: Registry
+                    _reg_result = self._decide_from_registry(step_ctx, proposed_action, confidence)
+                    if _reg_result and _reg_result.command:
+                        _arb_candidates.append(ArbitrationCandidate(
+                            source="registry",
+                            command=_reg_result.command,
+                            expected_value=_reg_result.confidence * 3.0,
+                            confidence=_reg_result.confidence,
+                            phase_fit=0.8,
+                            reason="registry_match",
+                        ))
+
+                    # Candidate 3: Skill library (if available)
+                    if skill_result is not None:
+                        _arb_candidates.append(ArbitrationCandidate(
+                            source="skill",
+                            command=skill_result.command or "",
+                            expected_value=skill_result.confidence * 4.0,
+                            confidence=skill_result.confidence,
+                            phase_fit=0.75,
+                            reason="skill_library",
+                        ))
+
+                    if _arb_candidates:
+                        _arb_log = self._p15_action_arbitrator.arbitrate(
+                            _arb_candidates, aggression=_arb_aggression, step=step_ctx.step,
+                        )
+                        if _arb_log.winner_command:
+                            result = SmartDecisionResult(
+                                command=_arb_log.winner_command,
+                                template_name=_arb_log.winner_source,
+                                source=f"arbitrator_{_arb_log.winner_source}",
+                                confidence=_arb_log.winner_score,
+                                reasoning=f"Arbitrated: {_arb_log.reason_codes}",
+                            )
+                            _arb_used = True
+                            logger.debug(
+                                f"[P15][ARB] {self.agent_name}: winner={_arb_log.winner_source} "
+                                f"score={_arb_log.winner_score:.3f} "
+                                f"n={_arb_log.candidates_count}"
+                            )
+                            self._step_reasoning_log.append({
+                                "event": "arbitrator",
+                                "winner": _arb_log.winner_source,
+                                "score": round(_arb_log.winner_score, 3),
+                                "candidates": _arb_log.candidates_count,
+                            })
+                except Exception as e:
+                    logger.debug(f"[P15] Arbitrator failed, falling through: {e}")
+
+            # ─── Legacy cascade (when arbitrator not active or not used) ─
+            # Phase 15.0: Skip legacy cascade when arbitrator already picked
+            # ─── Legacy cascade (when arbitrator not active or not used) ─
             # Phase 6.5 + Phase 11.2: Compute dynamic mentor_lead_rate
             # Phase 11.1: Doubled base rates for learning acceleration
             # Phase 11.5: +50% reasoning boost with confidence-gated dynamic bounds
@@ -2600,13 +3024,32 @@ class SmartCoach:
             
             effective_mentor_rate = max(_dynamic_floor, min(_dynamic_ceiling, base_mentor_rate - ppo_confidence_boost))
             
+            # ─── Phase 14.0: AutonomyScheduler gating ───────────────
+            # If autonomy scheduler is active, it can suppress mentor
+            # calls when the agent scores above the episode threshold.
+            if self._p14_autonomy_scheduler is not None:
+                _auto_call, _auto_reason = self._p14_autonomy_scheduler.should_call_mentor(
+                    self.agent_name, self.current_episode
+                )
+                if not _auto_call:
+                    # Agent is autonomous — suppress mentor
+                    effective_mentor_rate = 0.0
+                    logger.debug(
+                        f"[P14] {self.agent_name} autonomous: {_auto_reason}"
+                    )
+
             # Roll dice: mentor leads vs PPO leads
             import random as _rand
             mentor_leads = (_rand.random() < effective_mentor_rate)
             
-            result = None  # Will be set by whichever path succeeds
+            # Phase 15.0: Preserve arbitrator result if set
+            if not _arb_used:
+                result = None  # Will be set by whichever path succeeds
             
-            if mentor_leads and gpt_available:
+            if _arb_used and result is not None:
+                # Phase 15.0: Arbitrator already decided — skip legacy mentor/PPO
+                pass
+            elif mentor_leads and gpt_available:
                 # MENTOR-FIRST: Let mentor pick the command, store as demo for PPO
                 logger.debug(
                     f"[{self.agent_name}] Mentor-first (rate={effective_mentor_rate:.2f}, "
@@ -2638,6 +3081,11 @@ class SmartCoach:
                     result._mentor_suggestion = result.template_name
                     
                     # Run PPO shadow selection (for learning, not for execution)
+                    _student_action_idx = None
+                    _student_command = None
+                    _student_template = None
+                    _student_log_prob = None
+                    _student_confidence = None
                     if self.ppo_agent and self.action_mapper:
                         ppo_shadow = self._ppo_select_command(step_ctx, filtered_commands)
                         if ppo_shadow is not None:
@@ -2646,12 +3094,59 @@ class SmartCoach:
                             # if PPO independently chose the same template.
                             result._mentor_suggestion = result.template_name
                             # _ppo_pending is already set by _ppo_select_command
+                            _student_command = getattr(ppo_shadow, 'command', None)
+                            _student_template = getattr(ppo_shadow, 'template_name', None)
+                            if self._ppo_pending:
+                                _student_action_idx = self._ppo_pending.get('action')
+                                _student_log_prob = self._ppo_pending.get('log_prob')
+                                _student_confidence = getattr(ppo_shadow, 'confidence', None)
+
+                    # ─── Phase 14.0: Create TeacherTrace ──────────────
+                    if self._p14_bc_buffer is not None:
+                        try:
+                            from core.reasoning.teacher_trace import TeacherTrace
+                            _state_id = f"ep{self.current_episode}_s{step_ctx.step}"
+                            _teacher_action_idx = 0  # default
+                            if self.action_mapper and result.template_name:
+                                try:
+                                    _teacher_action_idx = self.action_mapper.template_to_action(
+                                        result.template_name
+                                    )
+                                except Exception:
+                                    _teacher_action_idx = 0
+                            trace = TeacherTrace(
+                                state_id=_state_id,
+                                state_vector=self._ppo_pending.get('state', []) if self._ppo_pending else [],
+                                teacher_action_idx=_teacher_action_idx,
+                                teacher_command=result.command or "",
+                                teacher_template=result.template_name or "",
+                                rationale=result.mentor_reasoning or "",
+                                confidence=result.confidence,
+                                student_action_idx=_student_action_idx,
+                                student_command=_student_command or "",
+                                student_template=_student_template or "",
+                                student_log_prob=_student_log_prob,
+                                student_confidence=_student_confidence,
+                                episode=self.current_episode,
+                                step=step_ctx.step,
+                                agent_id=self.agent_name,
+                                phase=str(getattr(step_ctx, 'phase', 'RECON')),
+                            )
+                            self._p14_bc_buffer.store(trace)
+                            self._p14_traces_this_episode.append(trace)
+                            logger.debug(
+                                f"[P14] TeacherTrace: div={trace.compute_divergence():.1f} "
+                                f"teacher={result.template_name} student={_student_template}"
+                            )
+                        except Exception as e:
+                            logger.debug(f"[P14] TeacherTrace creation failed: {e}")
                 else:
                     # Mentor call failed — fall through to PPO
                     mentor_leads = False
             
             # If mentor didn't lead or mentor call failed, PPO takes over
-            if result is None or not getattr(result, 'mentor_call', False):
+            # Phase 15.0: Skip when arbitrator already decided
+            if not _arb_used and (result is None or not getattr(result, 'mentor_call', False)):
                 # PPO-FIRST (or mentor failed): PPO drives, mentor advises
                 ppo_result = None
                 if self.ppo_agent and self.action_mapper:
@@ -4024,7 +4519,62 @@ class SmartCoach:
             confidence=0.8,
             phase=phase,
         )
-    
+
+    # =====================================================================
+    # PHASE 14.0: Hypothesis-driven command selection
+    # =====================================================================
+    def _p14_hypothesis_select(
+        self,
+        step_ctx: SmartStepContext,
+        filtered_commands: Optional[list] = None,
+    ) -> Optional[SmartDecisionResult]:
+        """
+        Use HypothesisGenerator to select commands that test untested hypotheses.
+        Feature-flag gated: only fires when ff.hypothesis_engine is True.
+        Returns None if no hypotheses are available or engine is disabled.
+        """
+        if self._p14_hypothesis_gen is None:
+            return None
+
+        try:
+            hypotheses = self._p14_hypothesis_gen.get_top_untested(n=1)
+            if not hypotheses:
+                return None
+
+            hyp = hypotheses[0]
+            # Find a matching command from filtered_commands or registry
+            target_command = hyp.test_command
+
+            if not target_command:
+                return None
+
+            # Build result from hypothesis
+            ctx = step_ctx.attack_context
+            target = getattr(ctx, 'target_ip', '10.0.0.1') if ctx else '10.0.0.1'
+            command = target_command.replace("{target}", target)
+
+            # Mark hypothesis as TESTING
+            from core.reasoning.hypothesis import HypothesisStatus
+            self._p14_hypothesis_gen.update_status(
+                hyp.id, HypothesisStatus.TESTING
+            )
+
+            logger.debug(
+                f"[P14][HYPO] {self.agent_name}: testing hypothesis "
+                f"'{hyp.if_observed}' with '{command[:60]}'"
+            )
+
+            return SmartDecisionResult(
+                command=command,
+                template_name=target_command.split()[0] if target_command else "",
+                source="hypothesis",
+                confidence=hyp.confidence,
+                reasoning=f"Hypothesis: {hyp.if_observed}",
+            )
+        except Exception as e:
+            logger.debug(f"[P14] Hypothesis select failed: {e}")
+            return None
+
     def _decide_from_registry(
         self,
         step_ctx: SmartStepContext,
@@ -5905,6 +6455,32 @@ class SmartCoach:
                     f"failures={len(self._reasoning_failures)}"
                 )
             
+            # ── PHASE 15.0: Consolidation replay ("sleep") ──────────
+            # Build batch from collected samples and run consolidation.
+            # Pushes high-signal samples into BCBuffer / SkillLibrary.
+            if (self._p15_consolidation_engine is not None
+                    and hasattr(self, '_p15_consolidation_samples')
+                    and self._p15_consolidation_samples):
+                try:
+                    _c_batch = self._p15_consolidation_engine.build_batch(
+                        self._p15_consolidation_samples,
+                        episode_id=str(self.current_episode),
+                    )
+                    _c_sl = self.skill_library if hasattr(self, 'skill_library') else None
+                    _c_metrics = self._p15_consolidation_engine.run(
+                        _c_batch,
+                        bc_buffer=None,  # BCBuffer wiring deferred
+                        skill_library=_c_sl,
+                    )
+                    logger.debug(
+                        f"[P15][CONSOL] {self.agent_name}: "
+                        f"selected={_c_metrics.samples_selected}/{_c_metrics.samples_considered} "
+                        f"skill_promos={_c_metrics.skill_promotions} "
+                        f"tokens={_c_metrics.tokens_used}"
+                    )
+                except Exception as e:
+                    logger.debug(f"[P15] Consolidation run failed: {e}")
+
             self._ppo_trajectory.clear()
             self._ppo_pending = None
             
@@ -6319,6 +6895,78 @@ class SmartCoach:
                     self, '_ppo_step_count', 0
                 )
         
+        # ─── PHASE 15.0: Consolidation sample collection ────────────
+        # Collect samples for end-of-episode consolidation replay.
+        # Only collected when FF_CONSOLIDATION is on.
+        if self._p15_consolidation_engine is not None:
+            try:
+                from core.training.consolidation import ConsolidationSample, ConsolidationEngine
+                _da_c = self._p15_neuromod_state.da if self._p15_neuromod_state else 0.5
+                _ach_c = self._p15_neuromod_state.ach if self._p15_neuromod_state else 0.4
+                _step_c = getattr(self, '_ppo_step_count', 0)
+                _cs = ConsolidationSample(
+                    step=_step_c,
+                    command=decision.command[:200],
+                    reward=breakdown.total,
+                    da_level=_da_c,
+                    ach_level=_ach_c,
+                    source=decision.source or "unknown",
+                    hypothesis_confirmed=bool(new_discoveries),
+                    trace_summary=f"phase={decision.phase.name},src={decision.source}"[:256],
+                    state_hash=ConsolidationEngine.compute_state_hash(
+                        decision.command[:100],
+                        decision.phase.name if hasattr(decision.phase, 'name') else str(decision.phase),
+                        _step_c,
+                    ),
+                )
+                if not hasattr(self, '_p15_consolidation_samples'):
+                    self._p15_consolidation_samples = []
+                self._p15_consolidation_samples.append(_cs)
+            except Exception as e:
+                logger.debug(f"[P15] Consolidation sample collection failed: {e}")
+
+        # ─── PHASE 15.0: Working memory update on discoveries ───────
+        if self._p15_working_memory is not None and new_discoveries:
+            try:
+                _disc_types = list(new_discoveries.keys())[:3]
+                _disc_summary = ", ".join(f"{k}={len(v) if isinstance(v, list) else 1}"
+                                          for k, v in list(new_discoveries.items())[:4])
+                self._p15_working_memory.push(
+                    key=f"disc_s{getattr(self, '_ppo_step_count', 0)}",
+                    content=f"Found: {_disc_summary}",
+                    slot_type="evidence",
+                    priority=0.9,
+                    ttl_steps=10,
+                )
+            except Exception as e:
+                logger.debug(f"[P15] WM discovery push failed: {e}")
+
+        # ─── PHASE 15.0: Semantic index — index commands ────────────
+        if self._p15_semantic_index is not None:
+            try:
+                _si_phase = decision.phase.name if hasattr(decision.phase, 'name') else str(decision.phase)
+                self._p15_semantic_index.add(
+                    text=decision.command[:200],
+                    entry_type="command",
+                    step=getattr(self, '_ppo_step_count', 0),
+                    reward=breakdown.total,
+                    phase=_si_phase,
+                )
+                if new_discoveries:
+                    _si_disc_text = ", ".join(
+                        f"{k}={len(v) if isinstance(v, list) else v}"
+                        for k, v in list(new_discoveries.items())[:5]
+                    )
+                    self._p15_semantic_index.add(
+                        text=f"discovery: {_si_disc_text}",
+                        entry_type="discovery",
+                        step=getattr(self, '_ppo_step_count', 0),
+                        reward=breakdown.total,
+                        phase=_si_phase,
+                    )
+            except Exception as e:
+                logger.debug(f"[P15] Semantic index record failed: {e}")
+
         # Phase 6.4: Detect "not found" tools and mask them from future PPO selection.
         # If a tool doesn't exist on the target, it will NEVER work — don't keep trying.
         if raw_output:
@@ -6394,22 +7042,24 @@ class SmartCoach:
             # PHASE 6: Mentor imitation bonus — when mentor was consulted and
             # PPO independently chose the same template, add conformity bonus.
             # This bridges supervised learning (mentor) with RL (PPO).
+            # Phase 13.0: +67% bonus (3.0→5.0) — stronger imitation signal
             mentor_suggestion = getattr(decision, '_mentor_suggestion', None)
             if mentor_suggestion and decision.source == "ppo":
                 if decision.template_name == mentor_suggestion:
-                    ppo_reward += 3.0  # Conformity bonus: PPO agrees with expert
+                    ppo_reward += 5.0  # Phase 13.0: Conformity bonus: PPO agrees with expert
                     logger.debug(
-                        f"[PPO][{self.agent_name}] Mentor conformity bonus +3.0 "
+                        f"[PPO][{self.agent_name}] Mentor conformity bonus +5.0 "
                         f"(both chose {decision.template_name})"
                     )
             
-            # Phase 6.4: When MENTOR led the decision but PPO had a shadow
+            # Phase 6.4 + Phase 13.0: When MENTOR led the decision but PPO had a shadow
             # trajectory, give PPO the mentor's reward (clipped) so it learns
             # what good decisions look like. This is DAgger-lite.
+            # Phase 13.0: Floor raised 1.0→2.0 for stronger supervised signal
             if mentor_suggestion and decision.source == "mentor":
                 # PPO ran in shadow mode — give it the same reward signal
                 # so its gradient points toward the mentor's behavior
-                ppo_reward = max(breakdown.total, 1.0)  # At least +1 for mentor demos
+                ppo_reward = max(breakdown.total, 2.0)  # Phase 13.0: At least +2 for mentor demos
                 logger.debug(
                     f"[PPO][{self.agent_name}] DAgger-lite: PPO shadow learns from "
                     f"mentor decision (reward={ppo_reward:.1f})"
@@ -6424,9 +7074,9 @@ class SmartCoach:
                     from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
                     macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
                     if decision.template_name in macro_cmds:
-                        ppo_reward += 3.0  # Aligned with DDQN strategy
+                        ppo_reward += 4.0  # Phase 13.0: +33% (was 3.0) — stronger macro alignment
                         logger.debug(
-                            f"[PPO][{self.agent_name}] R58 macro-align +3.0 "
+                            f"[PPO][{self.agent_name}] R58 macro-align +4.0 "
                             f"({decision.template_name} ∈ {self._active_macro.name})"
                         )
                     else:
@@ -6437,6 +7087,55 @@ class SmartCoach:
                         )
                 except Exception:
                     pass  # DDQN not available — skip alignment shaping
+            
+            # ── Phase 13.0: Reasoning Reward Channel ────────────────
+            # When the agent's command produced actual discoveries, boost PPO
+            # reward proportional to discovery count. This teaches PPO that
+            # commands which produce actionable intelligence are valuable.
+            if new_discoveries:
+                _disc_count = 0
+                for _dk, _dv in new_discoveries.items():
+                    if isinstance(_dv, (list, set)):
+                        _disc_count += len(_dv)
+                    elif _dv:
+                        _disc_count += 1
+                if _disc_count > 0:
+                    _reasoning_bonus = min(_disc_count * 1.5, 8.0)  # Cap at +8.0
+                    ppo_reward += _reasoning_bonus
+                    logger.debug(
+                        f"[PPO][{self.agent_name}] Phase 13.0 reasoning bonus +"
+                        f"{_reasoning_bonus:.1f} ({_disc_count} discoveries)"
+                    )
+            
+            # ── Phase 13.0: Auto-promote high-reward mentor commands to SkillLibrary ──
+            # When a mentor-suggested command produces reward > 5.0, it's a proven
+            # tactic. Automatically create a SkillCard so the agent can use it
+            # autonomously in future episodes without needing the mentor.
+            if (
+                decision.source == "mentor"
+                and decision.template_name
+                and breakdown.total > 5.0
+                and self.skill_library is not None
+            ):
+                try:
+                    from core.postmortem.orion_postmortem import SkillCard
+                    _phase_name = decision.phase.name if decision.phase else "RECON"
+                    _skill_id = f"auto_{self.agent_name}_{decision.template_name}_{_phase_name}"
+                    _skill = SkillCard(
+                        id=_skill_id,
+                        if_condition=f"phase={_phase_name}, agent={self.agent_name}",
+                        then_action=decision.command[:200],
+                        parameters_template=decision.params or {},
+                        confidence=min(0.85, breakdown.total / 20.0),  # Scale confidence by reward
+                        evidence_refs=[f"auto-promoted:reward={breakdown.total:.1f}"],
+                    )
+                    if self.skill_library.promote(_skill, reason=f"Phase 13.0 auto-promote: reward={breakdown.total:.1f}"):
+                        logger.info(
+                            f"[SKILL-AUTO][{self.agent_name}] Promoted mentor command "
+                            f"'{decision.template_name}' → SkillCard (reward={breakdown.total:.1f})"
+                        )
+                except Exception as e:
+                    logger.debug(f"Auto-promote failed: {e}")
             
             # R69: Tag trajectory entry with discovery + template metadata for HTR
             _r69_disc_types = []
@@ -6732,6 +7431,24 @@ class SmartCoach:
             except Exception:
                 pass
         
+        # ─── PHASE 15.0: Reset Neurovortex per-episode state ───────
+        if self._p15_working_memory is not None:
+            self._p15_working_memory.clear()
+        if self._p15_sensory_buffer is not None:
+            self._p15_sensory_buffer.clear()
+        if self._p15_neuromod_history is not None:
+            self._p15_neuromod_history.clear()
+        if self._p15_aggression_history is not None:
+            self._p15_aggression_history.clear()
+        self._p15_aggression_level = 0.3
+        if self._p15_neuromod_state is not None:
+            from core.neuro.neuromodulators import NeuromodulatorState
+            self._p15_neuromod_state = NeuromodulatorState()
+        if self._p15_semantic_index is not None:
+            self._p15_semantic_index.clear()
+        # Consolidation samples collected during episode
+        self._p15_consolidation_samples: list = []
+
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode
         if self.attack_context:

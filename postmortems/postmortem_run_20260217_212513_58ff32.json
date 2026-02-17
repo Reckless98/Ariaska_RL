@@ -1,0 +1,130 @@
+{
+  "run_id": "run_20260217_212513_58ff32",
+  "timestamp": 1771359921.1788447,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward capture (60.00) across the single episode, indicating ability to collect telemetry even when exploit chain failed.",
+      "Leveraged all 10 mentor calls, providing detailed context for each layer of the environment."
+    ],
+    "fails": [
+      "Episode ultimately aborted with 0% success rate because privilege escalation payloads never triggered a shell.",
+      "Key post-compromise actions (data exfiltration, persistence) were not reached; the attack chain stalled at the final privilege ramp."
+    ],
+    "summary": "Run produced rich reconnaissance and mentor-driven insights but failed to complete the kill chain due to repeated privilege escalation breakdowns."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts targeting writable SUID binaries failed; binaries either sanitized input or required missing dependencies.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step08",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step04"
+      ],
+      "created_at": 1771359931.612232,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "If an SUID binary has known kernel dependencies and returns null from strace",
+      "then_action": "Deploy nmap NSE 'suid' scan followed by gdb dynamic tracing",
+      "parameters_template": {
+        "nmap_script": "suid",
+        "gdb_target": "discovered_binary"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step07"
+      ],
+      "created_at": 1771359931.6122527,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When memory forensics shows writable /proc/sys/kernel",
+      "then_action": "Run linpeas focusing on sudo and kernel settings",
+      "parameters_template": {
+        "linpeas_switch": "full"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771359931.6122735,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase when SSH surfaces on the perimeter."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "PrivEsc via kernel module misconfig",
+      "description": "Investigate kernel module load paths; attempt module injection using custom insmod script after confirming CAP_SYS_MODULE availability.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate SUID exploitation workflow",
+      "description": "Chain nmap NSE suid detection with gdb or pwndbg to script payload creation before manual triggering.",
+      "priority": "medium"
+    },
+    {
+      "title": "Baseline persistence post-fail",
+      "description": "Once privilege gained, deploy stealth persistence (cron+ssh key) in sandboxed manner to validate plan.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

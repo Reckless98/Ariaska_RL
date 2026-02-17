@@ -302,7 +302,7 @@ class ExecutiveCortex:
         self,
         gpt_manager: Optional[GPTManager] = None,
         target_profile: Optional[TargetProfile] = None,
-        max_llm_calls: int = 3,
+        max_llm_calls: int = 6,  # Phase 13.0: 3→6 — more strategic GPT planning calls
         enable_llm: bool = True,
         knowledge_retriever: Optional[Any] = None,
     ):

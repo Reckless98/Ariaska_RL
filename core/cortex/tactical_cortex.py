@@ -162,7 +162,7 @@ class TacticalCortex:
     def __init__(
         self,
         gpt_manager: Optional[GPTManager] = None,
-        max_llm_calls: int = 5,
+        max_llm_calls: int = 12,  # Phase 13.0: 5→12 — more GPT tactical reasoning per episode
         enable_llm: bool = True,
         knowledge_retriever: Optional[Any] = None,
     ):

@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260217_212431_05d373",
+  "timestamp": 1771359905.084844,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial network reconnaissance and identified two reachable hosts (ep001_step04).",
+      "Captured service banners that enabled prioritization of high-value targets (ep001_step07)."
+    ],
+    "fails": [
+      "Failed to chain exploits after reconnaissance, leaving persistence and lateral movement unconfirmed (ep001_step12).",
+      "Mentor interventions did not translate into successful payload execution (ep001_step14)."
+    ],
+    "summary": "Strong situational awareness achieved, but execution stalled at initial exploitation, requiring refined payload delivery and persistence techniques."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to gain shell after identifying vulnerable services",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 responds with HTTP banner containing application version",
+      "then_action": "Run Nikto and nmap --script=http-vuln* against port 80",
+      "parameters_template": {
+        "port": 80,
+        "scripts": [
+          "http-vuln*",
+          "http-enum"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771359911.0290573,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When FTP service allows anonymous login",
+      "then_action": "Enumerate directory structure and search for creds with Hydra",
+      "parameters_template": {
+        "service": "ftp",
+        "options": [
+          "Anonymous login",
+          "hydra -L users.txt -P pass.txt ftp://target"
+        ]
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1771359911.029075,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Most reliable insight for prioritizing services during reconnaissance"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reattempt exploit pivot with staged payload",
+      "description": "Use meterpreter staged payload via verified HTTP exploit and monitor for successful sessions",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

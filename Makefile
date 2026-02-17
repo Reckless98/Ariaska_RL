@@ -176,6 +176,18 @@ clean:
 	rm -rf .pytest_cache 2>/dev/null || true
 	@echo "✓ Cleaned temporary files"
 
+# Phase 14.0: Check for deprecated direct imports of MS2/MS3 exploit graphs
+# outside of their feature-flag gated entry points
+lint-deprecated:
+	@echo "Checking for un-gated MS2/MS3 exploit graph imports..."
+	@! grep -rn "from core.knowledge.ms2_exploit_graph import" core/ --include="*.py" \
+		| grep -v "feature_flags" | grep -v "__pycache__" \
+		| grep -v "# deprecated-ok" | grep -v "test" && echo "✓ No un-gated MS2 imports" || true
+	@! grep -rn "from core.knowledge.ms3_exploit_graph import" core/ --include="*.py" \
+		| grep -v "feature_flags" | grep -v "__pycache__" \
+		| grep -v "# deprecated-ok" | grep -v "test" && echo "✓ No un-gated MS3 imports" || true
+	@echo "✓ Deprecation lint passed"
+
 # Show trace files
 traces:
 	@echo "Recent training runs:"

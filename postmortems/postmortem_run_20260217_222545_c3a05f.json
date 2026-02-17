@@ -1,0 +1,124 @@
+{
+  "run_id": "run_20260217_222545_c3a05f",
+  "timestamp": 1771363554.0948062,
+  "key_outcomes": {
+    "wins": [
+      "Maintained full episode reward (40.00) despite failure to achieve success criteria, indicating consistent agent behavior.",
+      "Collected sufficient telemetry that highlights deterministic stages of run to inform next strategy."
+    ],
+    "fails": [
+      "Zero percent success rate, showing inability to close the final objective despite full reward accumulation.",
+      "High mentor call count (10) without improvement points to stale exploration tactics."
+    ],
+    "summary": "Agent consistently follows a predictable path but fails to pivot into objective completion; telemetry suggests need for more adaptive exploit planning."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Agent never transitioned from reconnaissance to exploitation, repeatedly exhausting allowance without engaging target services",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260217_222545_c3a05f_ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When target network responses contain open TCP/UDP ports above 1024 after initial scan",
+      "then_action": "Launch targeted service enumeration with nmap --top-ports 100 -sV",
+      "parameters_template": {
+        "top-ports": 100,
+        "scan-type": "sV",
+        "timing": "T4"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_222545_c3a05f_ep001_step04"
+      ],
+      "created_at": 1771363560.6390736,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When banner grabbing reveals outdated HTTP or FTP service versions",
+      "then_action": "Execute service-specific exploit candidates via searchsploit matched to detected version",
+      "parameters_template": {
+        "service": "http",
+        "version": "detected_banner",
+        "auxiliary": "searchsploit"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "run_20260217_222545_c3a05f_ep001_step07"
+      ],
+      "created_at": 1771363560.6390917,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When host enumeration results include legitimate admin credentials or credentials leakage clues",
+      "then_action": "Attempt credential-based persistence via sshpass/pscp tests using extracted credentials",
+      "parameters_template": {
+        "tool": "sshpass",
+        "credentials": "collected_creds",
+        "timeout": 10
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260217_222545_c3a05f_ep001_step09"
+      ],
+      "created_at": 1771363560.6391037,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High utility during initial reconnaissance phase where port discovery was consistent."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot from Recon to Exploit",
+      "description": "After confirming open services, immediately run targeted exploit scripts (nmap -sV outputs) rather than repeating scans; prioritize automated searchsploit chaining.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Validation Loop",
+      "description": "Integrate credential replay with sshpass/pscp as soon as any credential pattern emerges to test persistence early.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

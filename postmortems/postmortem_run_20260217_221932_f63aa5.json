@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260217_221932_f63aa5",
+  "timestamp": 1771363196.7109103,
+  "key_outcomes": {
+    "wins": [
+      "Successfully scoped target range and identified three live hosts within the first 5 minutes, enabling focused follow-up actions.",
+      "Captured initial service banners and fingerprinted SSH/HTTP services, yielding actionable intel for exploitation attempts."
+    ],
+    "fails": [
+      "Failed to escalate privileges after initial foothold due to missing valid credentials and lack of post-exploitation tooling.",
+      "Repeatedly triggered alert thresholds when brute forcing authentication, leading to session terminations and premature episode end."
+    ],
+    "summary": "Reconnaissance yielded solid visibility (70 reward) but the run stalled in exploitation and persistence phases, needing tighter credential acquisition and quieter attack methods."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed privilege escalation after initial access due to missing valid credentials and lack of automated post-exploitation chaining",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step22"
+      ]
+    },
+    {
+      "pattern": "Aggressive brute-force attempts triggered monitoring thresholds, terminating access before post-exploitation tasks",
+      "frequency": 2,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step19"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is reachable and banner identifies OpenSSH",
+      "then_action": "Run targeted nmap SSH scripts to enumerate user lists and authentication details",
+      "parameters_template": {
+        "nmap": "nmap -sV -p 22 --script ssh-hostkey,ssh-auth-methods,ssh2-enum-algos {target}"
+      },
+      "confidence": 0.86,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1771363202.9381351,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service exposes login portal or API endpoints",
+      "then_action": "Invoke Burp Suite scanner + gobuster for hidden directories before credential attacks",
+      "parameters_template": {
+        "gobuster": "gobuster dir -u http://{target} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+        "burp": "active scan on login endpoint"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step10"
+      ],
+      "created_at": 1771363202.9381466,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Repeated success enriching SSH service intelligence allowed deeper attack planning."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvesting via SSH Service",
+      "description": "Deploy ssh-audit and THC Hydra with custom password list to quietly validate credentials before brute forcing; monitor response to avoid lockouts.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Application Recon Focus",
+      "description": "Chain gobuster directory discovery with Burp automated scanning to uncover hidden APIs, then use interpolated POST requests for credential enumeration.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post Exploitation Persistence",
+      "description": "After foothold, script automated enumeration (LinPEAS/WinPEAS) to look for misconfigurations and local admin rights, then test persistence backdoors.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

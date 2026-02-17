@@ -467,9 +467,9 @@ class TestTacticalCortex:
 
     def test_llm_budget_respected(self, cortex):
         from core.cortex.tactical_cortex import TacticalCortex
-        # Default max is 5 LLM calls per episode
+        # Phase 13.0: Default max is 12 LLM calls per episode (was 5)
         assert cortex._llm_calls_this_episode == 0
-        assert cortex._max_llm_calls == 5
+        assert cortex._max_llm_calls == 12
 
 
 # ═══════════════════════════════════════════════════════════════════════════

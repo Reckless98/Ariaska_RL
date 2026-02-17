@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
-core/execution/llm_output_interpreter.py — Phase 11.3: LLM-Driven Output Interpreter
+core/execution/llm_output_interpreter.py — Phase 13.0: GPT-Primary Output Interpreter
 
 Replaces hardcoded regex-heavy output parsing with LLM-based interpretation
 that teaches agents to reason about command output:
 
-  Primary:  Venice qwen3-coder-480b-a35b-instruct — fast, cheap, excellent at structured extraction
-  Fallback: gpt-5.2-codex — when Venice is exhausted or fails (Phase 11.5: upgraded from gpt-5.2-mini)
+  Primary:  gpt-5.2-codex — deep reasoning, autonomous interpretation, high-quality discovery extraction
+  Validator: Venice qwen3-coder-480b — pre-filters trivial output, validates high-value GPT findings
+
+Phase 13.0 reversal: GPT is now the PRIMARY interpreter for maximum reasoning quality.
+Venice serves as a cost-efficient pre-filter for trivial outputs and as a secondary
+validator for high-value GPT discoveries (shells, creds, flags) to prevent hallucinations.
 
 The interpreter doesn't just extract discoveries — it produces an
 "interpretation lesson" that agents can learn from: WHY certain output
 patterns indicate specific discoveries, HOW to chain findings, and
 WHAT to look for next.
 
-Author: Filip Volf / Ariaska System — Phase 11.3
+Author: Filip Volf / Ariaska System — Phase 13.0
 """
 
 from __future__ import annotations
@@ -83,11 +87,14 @@ class LLMOutputInterpreter:
     LLM-driven output interpreter that teaches agents to reason about
     command output.
 
+    Phase 13.0: GPT-Primary Interpreter Pipeline
+
     Pipeline:
-      1. Try Venice qwen3-coder for interpretation + lesson
-      2. If Venice fails/exhausted → fall back to gpt-5.2-codex (deep reasoning)
-      3. Extract structured discoveries + interpretation lesson
-      4. Feed lesson back to agent's reasoning memory
+      1. GPT-5.2-codex interprets output (primary — deep reasoning)
+      2. Venice validates high-value GPT discoveries (shells, creds, flags)
+      3. If GPT exhausted → fall back to Venice qwen3-coder
+      4. Extract structured discoveries + interpretation lesson
+      5. Feed lesson back to agent's reasoning memory
 
     The interpreter is designed for the "intelligent_fullparse" mode.
     In "fast" mode, it's skipped entirely — regex handles those.
@@ -96,8 +103,8 @@ class LLMOutputInterpreter:
     def __init__(
         self,
         gpt_manager: Optional["GPTManager"] = None,
-        max_venice_calls_per_episode: int = 38,  # Phase 11.5: +50% (was 25)
-        max_gpt_calls_per_episode: int = 23,      # Phase 11.5: +50% (was 15)
+        max_venice_calls_per_episode: int = 50,  # Phase 13.0: +32% (was 38) — Venice second-brain validation
+        max_gpt_calls_per_episode: int = 45,      # Phase 13.0: +96% (was 23) — GPT-5.2-codex primary parser
         min_output_length: int = 30,
     ):
         self._gpt = gpt_manager
@@ -157,7 +164,9 @@ class LLMOutputInterpreter:
         """
         Interpret command output using LLM and produce a learning lesson.
 
-        Tries Venice qwen3-coder first, falls back to gpt-5.2-codex.
+        Phase 13.0: GPT-5.2-codex is the PRIMARY interpreter for maximum reasoning
+        quality. Venice serves as validator for high-value discoveries and as
+        fallback when GPT budget is exhausted.
 
         Args:
             command: The command that was executed
@@ -181,28 +190,27 @@ class LLMOutputInterpreter:
         # Build the interpretation prompt
         prompt = self._build_prompt(command, output, agent_name, phase, known_discoveries)
 
-        # ── Try Venice qwen3-coder first (Apprentice) ──
-        if self._venice_available():
-            lesson = self._call_venice(prompt, command, agent_name)
+        # ── Phase 13.0: Try GPT-5.2-codex first (PRIMARY — deep reasoning) ──
+        if self._gpt_available():
+            lesson = self._call_gpt_fallback(prompt, command, agent_name)
             if lesson and lesson.discoveries:
-                # Phase 12.1: Teacher validates high-value Apprentice discoveries
-                # GPT-5.2-codex validates when Venice finds shells, creds, or flags
-                # to prevent false positives from polluting the learning pipeline
+                # Phase 13.0: Venice validates high-value GPT discoveries
+                # to catch GPT hallucinations on shells, creds, and flags
                 _high_value = any(
                     k in lesson.discoveries
                     for k in ("shell", "root_shell", "credential", "flag", "user_flag", "root_flag")
                     if lesson.discoveries.get(k)
                 )
-                if _high_value and self._gpt_available():
+                if _high_value and self._venice_available():
                     validated = self._teacher_validate(lesson, command, output, agent_name)
                     if validated is not None:
                         lesson = validated
                 self._record_learned_patterns(agent_name, lesson)
                 return lesson
 
-        # ── Fallback to gpt-5.2-codex (Teacher direct) ──
-        if self._gpt_available():
-            lesson = self._call_gpt_fallback(prompt, command, agent_name)
+        # ── Fallback to Venice qwen3-coder (when GPT exhausted) ──
+        if self._venice_available():
+            lesson = self._call_venice(prompt, command, agent_name)
             if lesson and lesson.discoveries:
                 self._record_learned_patterns(agent_name, lesson)
                 return lesson

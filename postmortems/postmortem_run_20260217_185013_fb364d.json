@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260217_185013_fb364d",
+  "timestamp": 1771350637.9511635,
+  "key_outcomes": {
+    "wins": [
+      "Mapped perimeter services in ep001_step02 and identified vulnerable HTTP and SSH ports within first five minutes",
+      "Captured valid local credentials via exposed HTTP endpoint verification in ep001_step08"
+    ],
+    "fails": [
+      "Could not escalate beyond initial foothold; privilege escalation attempts failed due to missing sudo access at ep001_step12",
+      "Repeated failure to pivot to adjacent subnet services despite 10 mentor hints, leaving lateral movement untested"
+    ],
+    "summary": "Solid reconnaissance revealed attack surface and credentials, but the run stalled during privilege escalation and lateral movement, preventing success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently failed because sudo rights were absent and no alternative exploits were tried",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step11",
+        "ep001_step12",
+        "ep001_step13",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 is open and an HTTP server banner is confirmed",
+      "then_action": "Run gobuster directory brute force followed by nikto for quick vulnerability spotting",
+      "parameters_template": {
+        "host": "TARGET_IP",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+        "nikto_options": "-Tuning 1-9"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step08"
+      ],
+      "created_at": 1771350646.5532877,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH service on port 22 accepts banner but password auth is enabled",
+      "then_action": "Use hydra with username list gathered from HTTP enumeration",
+      "parameters_template": {
+        "target": "TARGET_IP",
+        "service": "ssh",
+        "userlist": "/tmp/recon/usernames.txt",
+        "passwords": "/usr/share/wordlists/rockyou.txt"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771350646.5533025,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When valid local user credentials obtained",
+      "then_action": "Enumerate sudo privileges and check /etc/sudoers, then run LinPEAS",
+      "parameters_template": {
+        "credentials": "user:pass",
+        "script": "linpeas.sh",
+        "destination_dir": "/tmp"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ],
+      "created_at": 1771350646.553312,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High precision reconnaissance revealed actionable HTTP directories leading to credential discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Apply credential reuse across SMB/WinRM",
+      "description": "After validating local credentials via HTTP, immediately test SMB and WinRM authentication to expand lateral movement options",
+      "priority": "high"
+    },
+    {
+      "title": "Automate privilege escalation discovery",
+      "description": "Deploy automated tools like LinPEAS and sudo -l with captured creds to rapidly identify missing escalation vectors before manual brute force",
+      "priority": "medium"
+    },
+    {
+      "title": "Retry pivoting with SSH tunnel",
+      "description": "Once initial host compromised, establish SSH tunnel to reach internal-only services and enumerate additional ports from that vantage",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

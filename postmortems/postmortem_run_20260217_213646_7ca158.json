@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260217_213646_7ca158",
+  "timestamp": 1771360629.779889,
+  "key_outcomes": {
+    "wins": [
+      "Captured initial service banners quickly (SSH and HTTP) enabling targeted enumeration.",
+      "Scripted nmap scans uncovered additional open ports, setting stage for credential testing.",
+      "Maintained stability through episode to collect full reconnaissance data before mentor calls."
+    ],
+    "fails": [
+      "Unable to escalate privileges despite valid credentials from winbind enumeration.",
+      "Pivoting to adjacent subnet failed due to missing lateral movement toolchain in toolkit.",
+      "Post-exploitation persistence not established before episode concluded."
+    ],
+    "summary": "Reconnaissance phase solid; need to convert gathered info into reliable exploitation and lateral movement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stall after valid credentials acquired; scripts exit with permission denied",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771360637.0454562,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service on port 80/8080 returns login page",
+      "then_action": "Deploy gobuster + nikto to map directories and enumerate forms",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/wordlists/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1771360637.0454657,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When valid credentials harvested from enumeration",
+      "then_action": "Attempt local privilege escalation checks with linpeas",
+      "parameters_template": {
+        "script": "linpeas.sh",
+        "timeout": "10m"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step20"
+      ],
+      "created_at": 1771360637.0454707,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent discovery of hidden endpoints in HTTP service"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege escalation with linpeas findings",
+      "description": "Run linpeas.sh immediately after credential capture to identify weak SUID/owned files, then attempt escalation with exploitable binaries.",
+      "priority": "high"
+    },
+    {
+      "title": "Lateral movement via SMB share enumeration",
+      "description": "Use smbclient and crackmapexec to enumerate accessible shares and validate reuse of harvested creds for pivoting to adjacent hosts.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-exploitation persistence validation",
+      "description": "After privileged shell, script creation of a web shell or scheduled task to confirm persistence strategy works before exiting.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260217_203133_793542",
+  "timestamp": 1771356702.1436124,
+  "key_outcomes": {
+    "wins": [
+      "Achieved highest observed reward (37.5) by successfully completing reconnaissance and initial exploitation sequences.",
+      "Collected consistent enumeration data despite failure to pivot, indicating reliable scanning commands and parsing."
+    ],
+    "fails": [
+      "Unable to maintain foothold beyond initial shell; persistence mechanisms were not deployed before losing access.",
+      "Success rate remains 0% because the final privilege escalation and data extraction phases were never completed.",
+      "Persistent mentor interventions (15 calls) highlight gaps in automation and decision-making when encountering unexpected defenses."
+    ],
+    "summary": "Strong reconnaissance and exploitation detection skills generated reward but the kill chain stalled before persistence and lateral movement, resulting in mission failure."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Lost shell immediately after exploitation due to no persistence or session refresh.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step20",
+        "ep001_step24",
+        "ep001_step29"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 445 SMB is reachable and anonymous login succeeds",
+      "then_action": "Run enum4linux and smbclient to harvest shares and usernames",
+      "parameters_template": {
+        "hosts": "target_ip",
+        "commands": [
+          "enum4linux -a target_ip",
+          "smbclient -L target_ip -N"
+        ]
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771356709.3950038,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When writable SMB share is discovered",
+      "then_action": "Upload persistence payload via smbclient put",
+      "parameters_template": {
+        "share": "target_share",
+        "local_payload": "meterpreter.exe",
+        "remote_name": "update.exe"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step15"
+      ],
+      "created_at": 1771356709.3950129,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial shell obtained without sudo rights",
+      "then_action": "Enumerate sudoers and path for potential privilege escalation",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "cat /etc/sudoers.d/*",
+          "ls -al /etc/sudoers.d/"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step22"
+      ],
+      "created_at": 1771356709.3950186,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High confidence enumerating SMB surfaces because scans consistently succeeded."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Establish persistence immediately after exploitation",
+      "description": "Automate uploading and scheduling a persistence binary via writable share as soon as shell is obtained to prevent session loss.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate privilege escalation enumeration",
+      "description": "Pipeline sudoers and SUID discovery commands right after shell acquisition to quickly identify escalation paths before access expires.",
+      "priority": "medium"
+    },
+    {
+      "title": "Enhance lateral movement verification",
+      "description": "Introduce scripted pivot checks to validate internal network access and trigger additional exploration while exploit window remains open.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

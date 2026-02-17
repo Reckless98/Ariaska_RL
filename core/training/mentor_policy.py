@@ -109,24 +109,26 @@ class MentorPolicyConfig:
     final_threshold: float = 0.8
     anneal_episodes: int = 50
     
-    # Adaptive mode settings — Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning
-    min_adaptive_rate: float = 0.45  # Phase 12.0: +50% (was 0.30) — never go below 45%
-    max_adaptive_rate: float = 1.0   # Phase 12.0: full mentor saturation ceiling
-    struggling_boost: float = 2.06   # Phase 12.0: +50% (was 1.37) — maximum boost for mentor→apprentice learning
-    performing_reduction: float = 0.05  # Phase 12.0: reduced further (was 0.10) — keep mentor engaged even longer
+    # Adaptive mode settings — Phase 13.0: Generous initial mentoring → anneal toward autonomy
+    # Start with maximum GPT guidance so agents learn WHY and HOW, then gradually reduce
+    # as agents internalize reasoning patterns and make autonomous decisions
+    min_adaptive_rate: float = 0.60  # Phase 13.0: +33% (was 0.45) — generous floor ensures deep learning
+    max_adaptive_rate: float = 1.0   # Full mentor saturation ceiling during early learning
+    struggling_boost: float = 2.50   # Phase 13.0: +21% (was 2.06) — maximum boost when agent struggles
+    performing_reduction: float = 0.04  # Phase 13.0: very slow reduction — agents learn longer before weaning
     # Phase 11.2: Confidence-gated dynamic bounds — prevents token bonfire
     confidence_gate_low: float = 0.3   # Below this: agent unsure → raise min/max for more learning
     confidence_gate_high: float = 0.7  # Above this: agent confident → lower min/max to save tokens
     
-    # Rate caps — Phase 11.5: +50% minimums for ultra-accelerated learning
-    min_mentor_rate: float = 0.45  # Phase 12.0: +50% (was 0.30) — raised for maximum learning
-    max_mentor_rate: float = 1.0   # Phase 11.5: raised to 1.0 — full saturation allowed
+    # Rate caps — Phase 13.0: High floor for deep autonomous learning development
+    min_mentor_rate: float = 0.60  # Phase 13.0: +33% (was 0.45) — generous guidance floor
+    max_mentor_rate: float = 1.0   # Full saturation allowed during learning phase
     
     # Cooldown
     cooldown_steps: int = 1  # Minimum steps between mentor calls
     
-    # Per-episode limits — Phase 11.5: +50% for ultra-accelerated mentor→apprentice storage
-    max_calls_per_episode: int = 176  # Phase 12.0: +50% (was 117) for maximum mentor→apprentice guidance
+    # Per-episode limits — Phase 13.0: Doubled for maximum reasoning-to-autonomy pipeline
+    max_calls_per_episode: int = 240  # Phase 13.0: +36% (was 176) — deep GPT learning budget
 
 
 class MentorPolicy:

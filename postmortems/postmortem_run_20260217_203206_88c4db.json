@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260217_203206_88c4db",
+  "timestamp": 1771356734.7981467,
+  "key_outcomes": {
+    "wins": [
+      "Maintained persistent data collection throughout the single episode, ensuring full visibility of telemetry for later review.",
+      "Effectively prioritized reconnaissance tools, capturing network topology and service fingerprints despite time constraints."
+    ],
+    "fails": [
+      "Unable to achieve mission success (0% success rate) due to repeated privilege escalation blockers.",
+      "Mentor assistance required 10 times, indicating execution inefficiencies in later attack phases."
+    ],
+    "summary": "Reconnaissance stage executed cleanly but subsequent exploitation and post-exploitation phases failed to progress, resulting in overall mission failure."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts repeatedly failed after initial reconnaissance, stalling progress at the service access phase.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260217_203206_88c4db_ep01_step08",
+        "run_20260217_203206_88c4db_ep01_step12",
+        "run_20260217_203206_88c4db_ep01_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open and banner reveals specific OS version",
+      "then_action": "Run targeted SSH enumeration using nmap scripts to enumerate user accounts and supported ciphers",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260217_203206_88c4db_ep01_step04",
+        "run_20260217_203206_88c4db_ep01_step05"
+      ],
+      "created_at": 1771356743.504013,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial SSH credentials fail and the host supports password authentication",
+      "then_action": "Attempt password spraying using constrained sets of default credentials with hydra to validate lockout policies",
+      "parameters_template": {
+        "target": "<host_ip>",
+        "port": 22,
+        "task": "password_spray",
+        "credential_list": [
+          "admin",
+          "root",
+          "user"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_203206_88c4db_ep01_step07",
+        "run_20260217_203206_88c4db_ep01_step09"
+      ],
+      "created_at": 1771356743.5040293,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When direct exploitation stalls after reconnaissance but local priv escalation vector indicated",
+      "then_action": "Pull relevant kernel exploit modules from repository and test in isolated sandbox before deployment",
+      "parameters_template": {
+        "module": "local_priv_esc",
+        "validation_stage": "sandbox_run"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_203206_88c4db_ep01_step13",
+        "run_20260217_203206_88c4db_ep01_step15"
+      ],
+      "created_at": 1771356743.50404,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrated credential harvesting pipeline",
+      "description": "Correlate SSH banner data with leaked credential feeds, then automatically trigger password spray using validated credential sets to reduce manual handoffs.",
+      "priority": "high"
+    },
+    {
+      "title": "Hybrid exploitation validation",
+      "description": "Use captured reconnaissance data to select and test multiple privilege escalation exploits sequentially in sandbox to determine most reliable vector before live execution.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-exploitation stability checks",
+      "description": "Develop automated sanity checks after exploitation (e.g., remote shell persistence, system integrity) to ensure footholds remain active before advancing the kill chain.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

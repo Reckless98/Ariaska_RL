@@ -180,9 +180,9 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         self.gpt_manager = GPTManager.get_instance()
         # All LLM functionality now handled by self.gpt_manager
 
-        # Strategic parameters
-        self.strategic_review_frequency = 10  # Steps between strategic reviews
-        self.tactical_review_frequency = 5  # Steps between tactical reviews
+        # Strategic parameters — Phase 13.0: More frequent reviews for deep strategic learning
+        self.strategic_review_frequency = 5   # Phase 13.0: 10→5 — strategic review every 5 steps
+        self.tactical_review_frequency = 3    # Phase 13.0: 5→3 — tactical review every 3 steps
         self.curriculum_advancement_threshold = 3.0  # Avg reward needed to advance
         self.global_strategy = (
             "balanced"  # Initial strategy (balanced, aggressive, stealth)
@@ -730,17 +730,32 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 formatted_context += f"Last action: {status['last_command']}\n"
 
         prompt = f"""
-        You are OrionAgent, the strategic overseer of the ARIASKA multi-agent cybersecurity system.
+        You are OrionAgent, the APEX STRATEGIC BRAIN of the ARIASKA autonomous multi-agent
+        cybersecurity system. You command 4 specialized agents: RedAgent (offensive exploitation),
+        ScoutAgent (recon/discovery), BlueAgent (defensive), and ShadowAgent (stealth/evasion).
+        
+        Your role is to:
+        1. THINK STRATEGICALLY — analyze the attack surface, identify the most promising path to root
+        2. COORDINATE AGENTS — assign specific tasks to each agent based on their capabilities
+        3. ADAPT ON THE FLY — when a path is blocked, pivot to alternatives immediately
+        4. LEARN FROM OUTCOMES — every step's result teaches you about the target
         
         Current context:
         {formatted_context}
         
         Perform a comprehensive strategic review addressing:
         1. Overall mission progress and phase appropriateness
-        2. Coordination between RedAgent, BlueAgent, ScoutAgent, and ShadowAgent
-        3. Strategic suggestions for improving performance
+        2. What has been discovered vs. what opportunities remain UNEXPLOITED
+        3. Coordination gaps: Are agents duplicating effort? Is anyone idle?
+        4. Attack graph analysis: What's the fastest path to shell/root from current state?
+        5. Resource allocation: Should RedAgent switch targets? Should Scout expand scope?
         
-        Provide no more than 3 key insights and recommendations in bullet point form.
+        RESPOND WITH ACTIONABLE DIRECTIVES:
+        For each insight, provide a specific directive for a specific agent.
+        Example: "RedAgent: Switch from brute-forcing SSH to exploiting vsftpd backdoor on port 21."
+        Example: "ScoutAgent: Stop port scanning and enumerate web directories on port 80."
+        
+        Provide 3-5 key insights with agent-specific actionable directives.
         """
 
         # Use LLM orchestrator for strategic insight

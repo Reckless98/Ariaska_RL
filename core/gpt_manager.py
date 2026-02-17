@@ -273,14 +273,17 @@ class GPTManager:
             "tokens_used": 0
         }
         
-        # Token budgeting - per episode and per agent (Phase 7: increased for codex reasoning)
-        # Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning — 195K/episode, 62.4K/agent
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "292500"))  # Phase 12.0: +50% (was 195K) for ultra-deep mentor→apprentice reasoning
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "93600"))  # Phase 12.0: +50% (was 62.4K) for ultra-deep per-agent reasoning
-        # Phase 11.5: Reasoning/memory/learning tasks get 173% more token headroom (+50% from 1.82)
-        # Prevents hitting limits during deep exploit reasoning, pwn trajectory analysis, and learning
-        self.reasoning_task_types = {"reasoning", "tactical", "strategic", "analysis", "learning"}
-        self.reasoning_token_multiplier = 4.10  # Phase 12.0: +50% (was 2.73) for maximum mentor→apprentice reasoning depth
+        # Token budgeting - per episode and per agent
+        # Phase 13.0: +100% for ultra-accelerated autonomous learning pipeline
+        # Agents need maximum token headroom to learn from GPT reasoning chains,
+        # build internal world models, and develop autonomous decision-making
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "585000"))  # Phase 13.0: +100% (was 292.5K) — full reasoning depth for autonomous learning
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "187200"))  # Phase 13.0: +100% (was 93.6K) — per-agent reasoning capacity doubled
+        # Phase 13.0: Reasoning tasks get 5.5× multiplier for deep multi-step chains
+        # Supports: exploit reasoning, pwn trajectory analysis, reflective meta-learning,
+        # strategic planning, autonomous decision justification, and output interpretation
+        self.reasoning_task_types = {"reasoning", "tactical", "strategic", "analysis", "learning", "postmortem", "defensive", "reconnaissance"}
+        self.reasoning_token_multiplier = 5.50  # Phase 13.0: +34% (was 4.10) — deeper reasoning chains for autonomous learning
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None
@@ -316,6 +319,17 @@ class GPTManager:
         self.requests_by_model: Dict[str, int] = {}     # model_name → request count
         self._cumulative_cost_usd: float = 0.0           # running total $
         self._episode_cost_usd: float = 0.0              # per-episode $
+        
+        # ── Phase 15.0: BudgetManagerV2 (flag-gated) ────────────────
+        self._budget_manager_v2 = None
+        try:
+            from core.feature_flags import get_feature_flags
+            if get_feature_flags().budget_manager_v2:
+                from core.llm.budget_manager import BudgetManagerV2
+                self._budget_manager_v2 = BudgetManagerV2()
+                logger.debug("GPTManager: BudgetManagerV2 initialized")
+        except Exception:
+            pass
         
         # Load existing cache
         self._load_cache()
@@ -664,6 +678,11 @@ class GPTManager:
             self.tokens_used = 0
             self.tokens_by_agent = {}
             self.current_episode_id = str(episode_id) if episode_id is not None else None
+            # Phase 15.0: Reset BudgetManagerV2 per episode
+            if self._budget_manager_v2 is not None:
+                self._budget_manager_v2.reset_episode(
+                    episode_id=str(episode_id) if episode_id is not None else ""
+                )
             logger.debug(f"Reset all token counts for episode {episode_id}")
     
     def reset_token_count(self):
@@ -841,6 +860,21 @@ class GPTManager:
         if model is None:
             model = self.get_model_for_role(agent_id=agent_id, task_type=task_type)
         
+        # ── Phase 15.0: BudgetManagerV2 pre-check ───────────────────
+        # Estimate tokens and check per-tier budget before proceeding.
+        _bm2_roi_tag = task_type or "general"
+        if self._budget_manager_v2 is not None:
+            _bm2_estimated = max_tokens * 2  # estimate input + output
+            _bm2_decision = self._budget_manager_v2.check_budget(
+                model=model, estimated_tokens=_bm2_estimated, roi_tag=_bm2_roi_tag,
+            )
+            if not _bm2_decision.allowed:
+                logger.debug(
+                    f"BudgetManagerV2: denied {model} ({_bm2_roi_tag}), "
+                    f"reason={_bm2_decision.reason}"
+                )
+                return self._get_offline_placeholder(task_type)
+        
         # Log model selection for debugging
         logger.debug(f"Model selected: {model} for agent={agent_id}, task={task_type}")
         
@@ -851,6 +885,12 @@ class GPTManager:
         with self.cache_lock:
             if cache_key in self.cache:
                 self.stats["cache_hits"] += 1
+                # Phase 15.0: Record cache hit in BudgetManagerV2
+                if self._budget_manager_v2 is not None:
+                    self._budget_manager_v2.record_spend(
+                        model=model, tokens_used=0,
+                        roi_tag=_bm2_roi_tag, cache_hit=True,
+                    )
                 return self.cache[cache_key]["response"]
         
         # Rate limiting
@@ -1014,6 +1054,12 @@ class GPTManager:
                     step_cost = (tokens_used / 1000.0) * cost_rate
                     self._cumulative_cost_usd += step_cost
                     self._episode_cost_usd += step_cost
+                    # Phase 15.0: Record spend in BudgetManagerV2
+                    if self._budget_manager_v2 is not None:
+                        self._budget_manager_v2.record_spend(
+                            model=model, tokens_used=tokens_used,
+                            roi_tag=_bm2_roi_tag,
+                        )
                 
                 # Sanitize if it's a command
                 if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:

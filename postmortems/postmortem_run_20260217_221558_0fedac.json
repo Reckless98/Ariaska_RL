@@ -1,0 +1,142 @@
+{
+  "run_id": "run_20260217_221558_0fedac",
+  "timestamp": 1771362980.8361983,
+  "key_outcomes": {
+    "wins": [
+      "Mapped the target network perimeter within the first 5 minutes, identifying the main gateway and three responding services.",
+      "Captured consistent service banners during reconnaissance, enabling focused enumeration despite no full exploit chains executed."
+    ],
+    "fails": [
+      "Unable to escalate privileges after enumeration; required credentialed access not obtained, leading to mission failure.",
+      "Repeated service interruption when attempting brute-force authentication, truncating data collection windows."
+    ],
+    "summary": "Reconnaissance succeeded in establishing a clear view of services, but failure to acquire privileged access halted the kill chain before exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts fail due to missing credentials and patched service versions.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step07",
+        "run_20260217_221558_0fedac_ep1_step09",
+        "run_20260217_221558_0fedac_ep1_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_port_scan",
+      "if_condition": "When limited service visibility exists after initial ping sweep",
+      "then_action": "Perform aggressive nmap scan with service/version detection",
+      "parameters_template": {
+        "scan_type": "-sV -p-",
+        "timing": "T4",
+        "scripts": [
+          "default",
+          "banner"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step02",
+        "run_20260217_221558_0fedac_ep1_step04"
+      ],
+      "created_at": 1771362993.0129244,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_banner_parsing",
+      "if_condition": "When SSH/HTTP services are detected with version banners",
+      "then_action": "Extract and normalize banners for targeted exploitation mapping",
+      "parameters_template": {
+        "tools": [
+          "curl -I",
+          "ssh -vvv"
+        ],
+        "output_format": "json"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step05"
+      ],
+      "created_at": 1771362993.012938,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step06"
+      ],
+      "created_at": 1771362993.0129468,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_port_scan",
+      "skill_card_id": "skill_port_scan",
+      "reason": "Consistently establishes accurate service map early in the kill chain."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_banner_parsing",
+      "skill_card_id": "skill_banner_parsing",
+      "reason": "Provides actionable context for next-stage targeting despite exploit failures."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting on SSH service",
+      "description": "Integrate multifactor wordlist and default credential checks against discovered SSH version, capturing any valid logins for privilege escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path validation with HTTP vuln scan",
+      "description": "Run targeted OWASP Top 10 scan against the identified HTTP server to discover low-hanging remote execution or file inclusion vectors.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence capability assessment",
+      "description": "Test custom scripts that simulate persistence implants to verify write permissions and detection gaps on initial foothold attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260217_223000_6b39d0",
+  "timestamp": 1771363822.2833536,
+  "key_outcomes": {
+    "wins": [
+      "Performed rapid discovery sweep (nmap -sC -sV) and mapped services on target host, revealing HTTP/SSH endpoints and a writable SMB share.",
+      "Documented potential footholds with manual banner captures and initial credential harvesting notes, setting a clear roadmap for next-stage attacks."
+    ],
+    "fails": [
+      "Stalled in post-scan phase due to lack of focused credential validation \u2014 no successful authentication attempts despite available service fingerprints.",
+      "No privilege escalation techniques were executed after initial reconnaissance, leaving the environment in discovery-only state."
+    ],
+    "summary": "Strong reconnaissance phase with clear evidence of services, but follow-through actions (credential validation, exploitation) never materialized, so the kill chain halted before initial compromise."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance data was collected but never translated into specific exploitation steps; multiple mentor callbacks reset to discovery without authentication attempts.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 returns default web pages or CMS indicators",
+      "then_action": "Run directory/endpoint discovery with dirsearch followed by targeted nikto scans",
+      "parameters_template": {
+        "url": "http://<target>",
+        "wordlist": "medium.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1771363833.2346828,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open and listed in nmap output",
+      "then_action": "Execute ssh enumeration using nmap --script ssh-vuln*, gather banner, and attempt password spraying with hydra",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods",
+        "hydra_wordlist": "common-passwords.txt"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step08"
+      ],
+      "created_at": 1771363833.234698,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When smb-share enumeration returns writable public share",
+      "then_action": "Mount share, grab config files, and run smbmap + enum4linux for credential clues",
+      "parameters_template": {
+        "share": "public",
+        "tools": [
+          "smbmap",
+          "enum4linux"
+        ]
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771363833.2347085,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH enumeration strategy proved repeatable across mentor calls and yields actionable credential paths."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential validation on SSH and SMB",
+      "description": "Combine enumerated usernames with password spraying on SSH and SMB using hydra/crackmapexec to achieve initial access.",
+      "priority": "high"
+    },
+    {
+      "title": "Web app probing via directory brute force",
+      "description": "Run dirsearch/ffuf with curated wordlists on HTTP endpoints to locate admin panels or upload points for RCE attempts.",
+      "priority": "medium"
+    },
+    {
+      "title": "Pivot to privilege escalation artifacts",
+      "description": "Once initial access is gained, scan for kernel exploits or sudo privileges (searchsploit + linpeas) in the same session.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

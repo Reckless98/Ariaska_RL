@@ -110,7 +110,7 @@ class ReflectiveCortex:
         self,
         gpt_manager: Optional[GPTManager] = None,
         knowledge_graph: Optional[KnowledgeGraph] = None,
-        reflect_interval: int = 10,
+        reflect_interval: int = 3,  # Phase 13.0: 10→3 — reflect every 3 episodes for rapid strategic adaptation
         max_history_episodes: int = 20,
         output_dir: Optional[str] = None,
         enable_llm: bool = True,

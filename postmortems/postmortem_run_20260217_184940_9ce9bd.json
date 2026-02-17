@@ -1,0 +1,99 @@
+{
+  "run_id": "run_20260217_184940_9ce9bd",
+  "timestamp": 1771350604.8767712,
+  "key_outcomes": {
+    "wins": [
+      "Successfully mapped perimeter services and identified exploitable HTTP endpoint",
+      "Captured detailed reconnaissance data enabling prioritized follow-up exploits"
+    ],
+    "fails": [
+      "Unable to escalate privileges after initial foothold due to missing reliable payload delivery",
+      "Session stability issues prevented persistence mechanisms from being established"
+    ],
+    "summary": "Recon was thorough with actionable intelligence, but exploitation/persistence stages faltered due to payload delivery flaws and session instability."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploit delivery consistently failed when attempting to deploy payload via web upload, likely due to missing sanitization bypass",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260217_184940_9ce9bd_ep1_step12",
+        "run_20260217_184940_9ce9bd_ep1_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a web application shows file upload functionality with insufficient validation",
+      "then_action": "Enumerate upload handling with Burp and attempt payload delivery via controlled file types",
+      "parameters_template": {
+        "tool": "Burp Suite Intruder",
+        "payload_type": "PHP web shell",
+        "target_parameter": "upload_file"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260217_184940_9ce9bd_ep1_step7",
+        "run_20260217_184940_9ce9bd_ep1_step12"
+      ],
+      "created_at": 1771350611.7206845,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When target host reveals multiple open TCP ports during scanning",
+      "then_action": "Launch targeted nmap scan with service/version detection and NSE scripts for each port",
+      "parameters_template": {
+        "command": "nmap -sV -sC -p {ports} {target}"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "run_20260217_184940_9ce9bd_ep1_step3",
+        "run_20260217_184940_9ce9bd_ep1_step5"
+      ],
+      "created_at": 1771350611.7206986,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port 22 is accessible and banner shows OpenSSH",
+      "then_action": "Perform SSH enumeration with nmap ssh-* scripts and attempt bruteforce if weak creds suspected",
+      "parameters_template": {
+        "command": "nmap -p 22 --script ssh-brute,ssh-auth-methods {target}"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260217_184940_9ce9bd_ep1_step6"
+      ],
+      "created_at": 1771350611.7207086,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent discovery of actionable services during reconnaissance"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Refine exploit delivery via upload channels",
+      "description": "Focus on bypassing sanitization logic identified during reconnaissance, using Burp Intruder to test payload wrappers and escaping techniques before attempting web shell deployment.",
+      "priority": "high"
+    },
+    {
+      "title": "Stabilize post-exploitation session",
+      "description": "Investigate meterpreter or reverse shell stability by adjusting staging payloads and network buffering parameters, then reattempt persistence.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

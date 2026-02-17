@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-core/execution/parser_broker.py — Phase 11.3: Intelligent Parser Broker v3.0
+core/execution/parser_broker.py — Phase 13.0: Intelligent Parser Broker v4.0
 
-Dual-mode discovery parsing pipeline with LLM-driven interpretation:
+Dual-mode discovery parsing pipeline with GPT-primary LLM interpretation:
 
   MODE 1: "fast" (default)
     Stage 1: Regex (OutputParser) — free, handles 80%+
@@ -11,19 +11,20 @@ Dual-mode discovery parsing pipeline with LLM-driven interpretation:
   MODE 2: "intelligent_fullparse"
     Stage 1: Regex           — free, pattern matching
     Stage 2: SOP LLM         — nano-LLM fallback
-    Stage 3: LLM Interpreter — Venice qwen3-coder / gpt-5.2-mini (teaches agents)
+    Stage 3: LLM Interpreter — GPT-5.2-codex primary / Venice qwen3-coder fallback
     Stage 4: GPT finaliser   — gpt-5-nano for edge cases
 
-Phase 11.3: Stage 3 now uses LLMOutputInterpreter which:
-  - Uses Venice qwen3-coder-480b-a35b-instruct as primary (fast, cheap)
-  - Falls back to gpt-5.2-mini when Venice exhausted
+Phase 13.0: Stage 3 now uses GPT-5.2-codex as PRIMARY interpreter:
+  - Uses gpt-5.2-codex for deep reasoning interpretation (primary)
+  - Venice qwen3-coder validates high-value GPT discoveries (shells, creds, flags)
+  - Falls back to Venice when GPT budget exhausted
   - Produces InterpretationLessons that teach agents to interpret output
   - Agents accumulate learned patterns cross-episode
 
 Each stage only fires if prior stages found nothing meaningful.
 All stages emit DiscoveryEvent objects with ParseExplanation annotations.
 
-Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 11.3
+Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 13.0
 """
 
 from __future__ import annotations
@@ -43,14 +44,15 @@ logger = logging.getLogger("ariaska.parser_broker")
 
 class ParserBroker:
     """
-    Dual-mode output parsing pipeline (v3.0).
+    Dual-mode output parsing pipeline (v4.0).
 
     Modes:
       "fast" — regex only, zero LLM calls, ~1ms latency
       "intelligent_fullparse" — 4-stage cascade with LLM interpretation + agent learning
 
-    Phase 11.3: Stage 3 uses LLMOutputInterpreter (Venice qwen3-coder → gpt-5.2-mini)
+    Phase 13.0: Stage 3 uses LLMOutputInterpreter (GPT-5.2-codex primary → Venice fallback)
     which teaches agents how to interpret command output via InterpretationLessons.
+    Venice validates high-value GPT discoveries to prevent hallucinations.
 
     Usage:
         broker = ParserBroker(gpt_manager=gpt, venice=venice_layer)
@@ -163,6 +165,84 @@ class ParserBroker:
         else:
             self._stats["fast_calls"] += 1
             return self._parse_fast(command, output, agent_name)
+
+    def parse_as_teacher(
+        self,
+        command: str,
+        output: str,
+        agent_name: str = "unknown",
+        mode: Optional[str] = None,
+        known_discoveries: Optional[set] = None,
+    ) -> "ParserTeacherOutput":
+        """
+        Phase 14.0: Parse and return ParserTeacherOutput with learning features.
+
+        Feature-flag gated by ff.parser_teacher. Falls back to wrapping
+        standard parse() events when the flag is enabled.
+        """
+        import time as _t
+        t0 = _t.time()
+        events = self.parse(command, output, agent_name, mode=mode)
+        latency_ms = (_t.time() - t0) * 1000
+
+        from core.execution.parser_teacher_output import (
+            ParserTeacherOutput, LearningFeatures, ParsingLesson,
+        )
+
+        # Build learning features
+        discovery_counts: Dict[str, int] = {}
+        confidences = []
+        novel = 0
+        repeated = 0
+        _known = known_discoveries or set()
+
+        for ev in events:
+            dt_val = ev.discovery_type.value if hasattr(ev.discovery_type, 'value') else str(ev.discovery_type)
+            discovery_counts[dt_val] = discovery_counts.get(dt_val, 0) + 1
+            confidences.append(getattr(ev, 'confidence', 1.0))
+            ev_key = f"{dt_val}:{getattr(ev, 'value', '')}"
+            if ev_key in _known:
+                repeated += 1
+            else:
+                novel += 1
+
+        stage_reached = 0
+        for ev in events:
+            s = {"regex": 1, "sop_llm": 2, "venice": 3, "gpt_finaliser": 4}.get(
+                getattr(ev, 'source_stage', ''), 0
+            )
+            stage_reached = max(stage_reached, s)
+
+        lf = LearningFeatures(
+            discovery_counts=discovery_counts,
+            confidence_mean=sum(confidences) / len(confidences) if confidences else 0.0,
+            confidence_min=min(confidences) if confidences else 0.0,
+            stage_reached=stage_reached,
+            novel_discoveries=novel,
+            repeated_discoveries=repeated,
+            total_events=len(events),
+            parser_latency_ms=latency_ms,
+        )
+
+        # Build lessons from patterns
+        lessons = []
+        seen_types = set()
+        for ev in events[:3]:
+            dt_val = ev.discovery_type.value if hasattr(ev.discovery_type, 'value') else str(ev.discovery_type)
+            if dt_val not in seen_types:
+                seen_types.add(dt_val)
+                lessons.append(ParsingLesson(
+                    pattern=getattr(ev, 'source_stage', 'regex'),
+                    discovery_type=dt_val,
+                    confidence=getattr(ev, 'confidence', 1.0),
+                    example_output=str(getattr(ev, 'raw_evidence', ''))[:128],
+                ))
+
+        return ParserTeacherOutput(
+            events=events,
+            learning_features=lf,
+            lessons=lessons,
+        )
 
     def parse_with_explanations(
         self,

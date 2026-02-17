@@ -90,8 +90,8 @@ class MentorControllerConfig:
     warmup_episodes: int = 12         # Phase 8.2: 12 episodes warmup (was 8)
     warmup_rate: float = 0.55         # Phase 8.2: 55% call rate during warmup
 
-    # Per-episode hard limit
-    max_calls_per_episode: int = 50   # Phase 9.1: doubled from 25 — knowledge-augmented learning needs more guidance
+    # Per-episode hard limit — Phase 13.0: Increased for deep autonomous learning
+    max_calls_per_episode: int = 80   # Phase 13.0: +60% (was 50) — more GPT reasoning per episode
 
     # Cooldown between consecutive mentor calls (steps)
     cooldown_steps: int = 1             # Phase 7.3: Reduced from 2 → 1 for live mode responsiveness
@@ -99,7 +99,8 @@ class MentorControllerConfig:
     # --- Trigger thresholds ---
 
     # Uncertainty: PPO confidence below this → reactive mentor
-    uncertainty_threshold: float = 0.30  # Phase 7.1: Raised to 0.30 (was 0.25)
+    # Phase 13.0: Lowered to trigger mentor earlier when agents are uncertain
+    uncertainty_threshold: float = 0.25  # Phase 13.0: 0.30→0.25 — engage mentor sooner for deeper learning
 
     # Stagnation: no new discoveries for N steps → deliberative
     stagnation_threshold: int = 3       # Phase 7.3: Reduced to 3 (was 4) — fire codex-mini faster when stuck
@@ -114,7 +115,7 @@ class MentorControllerConfig:
     # --- Phase 9.0: DDQN uncertainty trigger ---
     # When DDQN macro selector has high TD error and mid-range epsilon,
     # it's learning but struggling — mentor guidance is most valuable here.
-    ddqn_td_error_threshold: float = 1.5    # TD error above this → uncertain
+    ddqn_td_error_threshold: float = 1.0    # Phase 13.0: 1.5→1.0 — trigger mentor guidance earlier for DDQN
     ddqn_epsilon_range: Tuple[float, float] = (0.15, 0.45)  # Active learning window
     ddqn_trigger_cooldown: int = 3    # Min steps between DDQN-triggered mentor calls
 

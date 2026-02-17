@@ -68,8 +68,8 @@ class PPOConfig:
     # R70: Self-Imitation Learning (SIL) + Advantage Clipping
     advantage_clip: float = 4.0         # Clip normalized advantages to [-clip, +clip]
     sil_buffer_size: int = 500          # Max entries in SIL replay buffer
-    sil_coef: float = 0.1              # SIL loss coefficient (small, doesn't overpower PPO)
-    sil_epochs: int = 1                 # SIL epochs per PPO update
+    sil_coef: float = 0.25             # Phase 13.0: +150% (was 0.1) — stronger imitation from high-reward episodes
+    sil_epochs: int = 2                 # Phase 13.0: +100% (was 1) — deeper SIL gradient absorption
     # R71: Symlog value compression + cosine entropy schedule
     use_symlog: bool = True             # Compress rewards via sign(x)*log(1+|x|) (DreamerV3)
     use_cosine_entropy: bool = True     # Cosine entropy annealing (stays high longer)
@@ -103,6 +103,11 @@ class PPOConfig:
     clip_epsilon_max: float = 0.25       # Maximum clip (too wide → unstable)
     use_entropy_rebound: bool = True     # Boost entropy if it drops too low for 3+ updates
     entropy_rebound_threshold: float = 0.5  # Minimum acceptable entropy level
+
+    # Phase 14.0: Behavioral Cloning loss (from TeacherTrace → BCBuffer)
+    use_bc_loss: bool = False             # Feature-flag gated
+    bc_loss_coef: float = 0.1            # BC loss weight (kept low to not dominate PPO)
+    bc_buffer: Any = None                # Reference to BCBuffer (set externally)
 
 
 class PPOActorCritic(nn.Module):
@@ -311,6 +316,11 @@ class PPOActorCritic(nn.Module):
 
         value = self.critic(x)
         return logits, value
+
+    def get_logits(self, state: torch.Tensor) -> torch.Tensor:
+        """Return raw action logits for BC loss computation (Phase 14.0)."""
+        logits, _ = self.forward(state)
+        return logits
 
     def get_action_and_value(
         self, state: torch.Tensor, action: Optional[torch.Tensor] = None,
@@ -562,8 +572,11 @@ class SILBuffer:
         ep_return = sum(rewards)
         self._update_baseline(ep_return)
 
-        # Only store if episode is above average
-        if ep_return <= self._return_baseline:
+        # Phase 13.0: Lowered threshold — store ANY episode with positive return.
+        # Original SIL required ep_return > baseline, which filters too aggressively
+        # in early learning when baseline is low. A positive return means the agent
+        # did SOMETHING right — capture those transitions for imitation.
+        if ep_return <= 0:
             return 0
 
         # Compute discounted returns for each step
@@ -1095,6 +1108,35 @@ class PPOAgent:
                         phase_aux_loss = F.cross_entropy(phase_pred, phase_targets)
                         loss = loss + self.config.phase_prediction_coef * phase_aux_loss
 
+                # ── Phase 14.0: Behavioral Cloning loss ──────────────
+                # Distills mentor demonstrations into PPO policy.
+                # Samples from BCBuffer and adds cross-entropy loss
+                # between policy output and teacher actions.
+                if self.config.use_bc_loss and self.config.bc_buffer is not None:
+                    try:
+                        bc_buf = self.config.bc_buffer
+                        _bc_batch_size = min(8, bc_buf.get_stats()["size"])
+                        if _bc_batch_size >= 2:
+                            bc_samples = bc_buf.sample(_bc_batch_size)
+                            bc_states = torch.stack([s.state for s in bc_samples]).to(self.device)
+                            bc_teacher_actions = torch.tensor(
+                                [s.teacher_action for s in bc_samples],
+                                dtype=torch.long, device=self.device
+                            )
+                            bc_weights = torch.tensor(
+                                [s.weight for s in bc_samples],
+                                dtype=torch.float32, device=self.device
+                            )
+                            # Get policy logits for BC states
+                            bc_logits = self.network.get_logits(bc_states)
+                            bc_log_probs = F.log_softmax(bc_logits, dim=-1)
+                            # Weighted negative log-likelihood
+                            bc_nll = F.nll_loss(bc_log_probs, bc_teacher_actions, reduction="none")
+                            bc_loss = (bc_nll * bc_weights).mean()
+                            loss = loss + self.config.bc_loss_coef * bc_loss
+                    except Exception:
+                        pass  # BC loss is non-critical; skip on error
+
                 # ── Backward (R73: gradient accumulation) ────────────
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
@@ -1451,3 +1493,50 @@ class PPOAgent:
                 k: v[-1] if v else None for k, v in self.training_metrics.items()
             },
         }
+
+    # ── Phase 15.0: Neuromodulation Hook ─────────────────────────────
+
+    def apply_neuromodulation(
+        self,
+        entropy_coef_mult: float = 1.0,
+        lr_mult: float = 1.0,
+        bc_weight_mult: float = 1.0,
+    ) -> None:
+        """
+        Apply neuromodulator-driven adjustments to PPO hyperparameters.
+
+        Feature-flag gated: FF_NEUROMODULATORS (caller checks).
+        All multipliers are bounded to prevent instability:
+          - entropy_coef: ×0.5 to ×1.5
+          - learning_rate: ×0.5 to ×2.0 (never exceeds base)
+          - bc_loss_coef: ×0.5 to ×1.5
+
+        Args:
+            entropy_coef_mult: Multiplier for entropy coefficient.
+            lr_mult: Multiplier for learning rate.
+            bc_weight_mult: Multiplier for behavioral cloning weight.
+        """
+        # Bound entropy coef multiplier
+        ent_mult = max(0.5, min(1.5, entropy_coef_mult))
+        base_entropy = self.config.entropy_coef
+        self.entropy_coef = max(
+            self.config.entropy_coef_min,
+            base_entropy * ent_mult * self._entropy_adaptive_multiplier,
+        )
+
+        # Bound LR multiplier — never exceed base config LR
+        lr_mult_clamped = max(0.5, min(2.0, lr_mult))
+        target_lr = self.config.learning_rate * lr_mult_clamped
+        target_lr = max(self.config.lr_min, min(self.config.learning_rate, target_lr))
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = target_lr
+
+        # Bound BC weight multiplier
+        if self.config.use_bc_loss:
+            bc_mult = max(0.5, min(1.5, bc_weight_mult))
+            self.config.bc_loss_coef = 0.1 * bc_mult  # base is 0.1
+
+        logger.debug(
+            f"[P15] Neuromod applied: ent={self.entropy_coef:.5f} "
+            f"lr={target_lr:.2e} bc_coef={self.config.bc_loss_coef:.3f}"
+        )

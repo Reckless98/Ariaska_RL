@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771344355.7106624,
-  "skill_count": 320,
+  "last_updated": 1771362993.0204859,
+  "skill_count": 324,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -25,7 +25,15 @@
       ],
       "created_at": 1770513643.6523743,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_002": {
       "id": "skill_002",
@@ -44,7 +52,15 @@
       ],
       "created_at": 1771207038.667601,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_003": {
       "id": "skill_003",
@@ -62,7 +78,15 @@
       ],
       "created_at": 1771286165.0035434,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_enum": {
       "id": "skill_ssh_enum",
@@ -79,7 +103,15 @@
       ],
       "created_at": 1771203280.1964664,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_smb_enum": {
       "id": "skill_smb_enum",
@@ -97,7 +129,15 @@
       ],
       "created_at": 1771259360.2551923,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_enum_01": {
       "id": "skill_ssh_enum_01",
@@ -114,7 +154,15 @@
       ],
       "created_at": 1771290764.4166706,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_cred_prioritization": {
       "id": "skill_cred_prioritization",
@@ -134,7 +182,15 @@
       ],
       "created_at": 1770496681.6418939,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_priv_esc_select": {
       "id": "skill_priv_esc_select",
@@ -153,7 +209,15 @@
       ],
       "created_at": 1770500165.290705,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_fuzz": {
       "id": "skill_web_fuzz",
@@ -174,7 +238,15 @@
       ],
       "created_at": 1770522826.8913646,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_banner": {
       "id": "skill_recon_banner",
@@ -191,7 +263,15 @@
       ],
       "created_at": 1770553044.8625774,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_ssh": {
       "id": "skill_recon_ssh",
@@ -207,7 +287,15 @@
       ],
       "created_at": 1770757593.6935894,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_privilege_escalation": {
       "id": "skill_privilege_escalation",
@@ -225,7 +313,15 @@
       ],
       "created_at": 1770638578.0480728,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_recon": {
       "id": "skill_ssh_recon",
@@ -241,7 +337,15 @@
       ],
       "created_at": 1770757417.1513011,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_vsftpd_backdoor": {
       "id": "ms2_vsftpd_backdoor",
@@ -255,7 +359,15 @@
       ],
       "created_at": 1770654394.0932436,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_samba_usermap": {
       "id": "ms2_samba_usermap",
@@ -269,7 +381,15 @@
       ],
       "created_at": 1770654394.093247,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_ingreslock_backdoor": {
       "id": "ms2_ingreslock_backdoor",
@@ -282,7 +402,15 @@
       ],
       "created_at": 1770654394.0932486,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_unrealircd_backdoor": {
       "id": "ms2_unrealircd_backdoor",
@@ -295,7 +423,15 @@
       ],
       "created_at": 1770654394.0932498,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_java_rmi_rce": {
       "id": "ms2_java_rmi_rce",
@@ -308,7 +444,15 @@
       ],
       "created_at": 1770654394.0932508,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_ssh_default_creds": {
       "id": "ms2_ssh_default_creds",
@@ -321,7 +465,15 @@
       ],
       "created_at": 1770654394.0932522,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_mysql_no_password": {
       "id": "ms2_mysql_no_password",
@@ -334,7 +486,15 @@
       ],
       "created_at": 1770654394.0932534,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_postgres_default": {
       "id": "ms2_postgres_default",
@@ -348,7 +508,15 @@
       ],
       "created_at": 1770654394.0932543,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_vnc_password": {
       "id": "ms2_vnc_password",
@@ -361,7 +529,15 @@
       ],
       "created_at": 1770654394.0932555,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_tomcat_manager": {
       "id": "ms2_tomcat_manager",
@@ -374,7 +550,15 @@
       ],
       "created_at": 1770654394.0932567,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_nfs_to_ssh": {
       "id": "ms2_nfs_to_ssh",
@@ -387,7 +571,15 @@
       ],
       "created_at": 1770654394.0932574,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_rsh_no_auth": {
       "id": "ms2_rsh_no_auth",
@@ -400,7 +592,15 @@
       ],
       "created_at": 1770654394.0932584,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_smtp_enum": {
       "id": "ms2_smtp_enum",
@@ -413,7 +613,15 @@
       ],
       "created_at": 1770654394.0932596,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_dvwa_sqli": {
       "id": "ms2_dvwa_sqli",
@@ -426,7 +634,15 @@
       ],
       "created_at": 1770654394.0932608,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_jenkins_groovy": {
       "id": "ms3_jenkins_groovy",
@@ -439,7 +655,15 @@
       ],
       "created_at": 1770654394.0932617,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_tomcat_war_deploy": {
       "id": "ms3_tomcat_war_deploy",
@@ -452,7 +676,15 @@
       ],
       "created_at": 1770654394.093263,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_elasticsearch_rce": {
       "id": "ms3_elasticsearch_rce",
@@ -466,7 +698,15 @@
       ],
       "created_at": 1770654394.0932639,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_manageengine_upload": {
       "id": "ms3_manageengine_upload",
@@ -480,7 +720,15 @@
       ],
       "created_at": 1770654394.093265,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_ssh_vagrant": {
       "id": "ms3_ssh_vagrant",
@@ -493,7 +741,15 @@
       ],
       "created_at": 1770654394.0932736,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_struts_rce": {
       "id": "ms3_struts_rce",
@@ -507,7 +763,15 @@
       ],
       "created_at": 1770654394.0932748,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sqli_credential_dump": {
       "id": "htb_sqli_credential_dump",
@@ -520,7 +784,15 @@
       ],
       "created_at": 1770654394.0932758,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_ssti_to_rce": {
       "id": "htb_ssti_to_rce",
@@ -533,7 +805,15 @@
       ],
       "created_at": 1770654394.093277,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_file_upload_bypass": {
       "id": "htb_file_upload_bypass",
@@ -546,7 +826,15 @@
       ],
       "created_at": 1770654394.0932777,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_lfi_to_rce": {
       "id": "htb_lfi_to_rce",
@@ -559,7 +847,15 @@
       ],
       "created_at": 1770654394.0932786,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_suid_privesc": {
       "id": "htb_suid_privesc",
@@ -572,7 +868,15 @@
       ],
       "created_at": 1770654394.0932796,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sudo_l_privesc": {
       "id": "htb_sudo_l_privesc",
@@ -585,7 +889,15 @@
       ],
       "created_at": 1770654394.0932806,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_kernel_exploit": {
       "id": "htb_kernel_exploit",
@@ -598,7 +910,15 @@
       ],
       "created_at": 1770654394.0932815,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_docker_escape": {
       "id": "htb_docker_escape",
@@ -611,7 +931,15 @@
       ],
       "created_at": 1770654394.0932822,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cron_privesc": {
       "id": "htb_cron_privesc",
@@ -624,7 +952,15 @@
       ],
       "created_at": 1770654394.0932832,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_recon_strategy": {
       "id": "phase_recon_strategy",
@@ -637,7 +973,15 @@
       ],
       "created_at": 1770654394.0932841,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_enum_strategy": {
       "id": "phase_enum_strategy",
@@ -650,7 +994,15 @@
       ],
       "created_at": 1770654394.0932848,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_exploit_timing": {
       "id": "phase_exploit_timing",
@@ -663,7 +1015,15 @@
       ],
       "created_at": 1770654394.0932858,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_privesc_strategy": {
       "id": "phase_privesc_strategy",
@@ -676,7 +1036,15 @@
       ],
       "created_at": 1770654394.093287,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_lateral_strategy": {
       "id": "phase_lateral_strategy",
@@ -689,7 +1057,15 @@
       ],
       "created_at": 1770654394.093288,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "phase_exfil_strategy": {
       "id": "phase_exfil_strategy",
@@ -702,7 +1078,15 @@
       ],
       "created_at": 1770654394.093289,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "antiforensics_log_clearing": {
       "id": "antiforensics_log_clearing",
@@ -715,7 +1099,15 @@
       ],
       "created_at": 1770654394.09329,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "antiforensics_timestomp": {
       "id": "antiforensics_timestomp",
@@ -728,7 +1120,15 @@
       ],
       "created_at": 1770654394.093291,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "antiforensics_shred": {
       "id": "antiforensics_shred",
@@ -741,7 +1141,15 @@
       ],
       "created_at": 1770654394.093292,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "antiforensics_ssh_fingerprint": {
       "id": "antiforensics_ssh_fingerprint",
@@ -754,7 +1162,15 @@
       ],
       "created_at": 1770654394.0932927,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_mysql_webshell": {
       "id": "ms2_hard_mysql_webshell",
@@ -767,7 +1183,15 @@
       ],
       "created_at": 1770665768.567,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_nfs_chain": {
       "id": "ms2_hard_nfs_chain",
@@ -780,7 +1204,15 @@
       ],
       "created_at": 1770665768.567001,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_tomcat_war": {
       "id": "ms2_hard_tomcat_war",
@@ -793,7 +1225,15 @@
       ],
       "created_at": 1770665768.5670023,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_postgres_rce": {
       "id": "ms2_hard_postgres_rce",
@@ -806,7 +1246,15 @@
       ],
       "created_at": 1770665768.5670033,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_web_dvwa_chain": {
       "id": "ms2_hard_web_dvwa_chain",
@@ -819,7 +1267,15 @@
       ],
       "created_at": 1770665768.5670042,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_distcc_privesc": {
       "id": "ms2_hard_distcc_privesc",
@@ -832,7 +1288,15 @@
       ],
       "created_at": 1770665768.567005,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms2_hard_php_cgi_chain": {
       "id": "ms2_hard_php_cgi_chain",
@@ -845,7 +1309,15 @@
       ],
       "created_at": 1770665768.5670059,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "strategy_difficulty_adaptation": {
       "id": "strategy_difficulty_adaptation",
@@ -858,7 +1330,15 @@
       ],
       "created_at": 1770665768.567007,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "strategy_parallel_vectors": {
       "id": "strategy_parallel_vectors",
@@ -871,7 +1351,15 @@
       ],
       "created_at": 1770665768.567008,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "strategy_credential_spray": {
       "id": "strategy_credential_spray",
@@ -884,7 +1372,15 @@
       ],
       "created_at": 1770665768.5673885,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "strategy_exploit_ordering": {
       "id": "strategy_exploit_ordering",
@@ -897,7 +1393,15 @@
       ],
       "created_at": 1770665768.567393,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_mysql_udf_chain": {
       "id": "ms3_mysql_udf_chain",
@@ -910,7 +1414,15 @@
       ],
       "created_at": 1770665768.5673945,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "ms3_wordpress_to_shell_chain": {
       "id": "ms3_wordpress_to_shell_chain",
@@ -923,7 +1435,15 @@
       ],
       "created_at": 1770665768.567396,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "strategy_target_switching": {
       "id": "strategy_target_switching",
@@ -936,7 +1456,15 @@
       ],
       "created_at": 1770665768.5673969,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_idor_sequential_ids": {
       "id": "htb_idor_sequential_ids",
@@ -950,7 +1478,15 @@
       ],
       "created_at": 1770753708.312446,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_pcap_cleartext_creds": {
       "id": "htb_pcap_cleartext_creds",
@@ -964,7 +1500,15 @@
       ],
       "created_at": 1770753708.3124475,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_linux_capabilities_privesc": {
       "id": "htb_linux_capabilities_privesc",
@@ -979,7 +1523,15 @@
       ],
       "created_at": 1770753708.3124487,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_ssrf_filtered_ports": {
       "id": "htb_ssrf_filtered_ports",
@@ -993,7 +1545,15 @@
       ],
       "created_at": 1770753708.3124497,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_systemctl_pager_root": {
       "id": "htb_systemctl_pager_root",
@@ -1007,7 +1567,15 @@
       ],
       "created_at": 1770753708.3124506,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_ftp_webroot_overlap": {
       "id": "htb_ftp_webroot_overlap",
@@ -1020,7 +1588,15 @@
       ],
       "created_at": 1770753708.3124516,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_windows_kernel_privesc": {
       "id": "htb_windows_kernel_privesc",
@@ -1034,7 +1610,15 @@
       ],
       "created_at": 1770753708.3124523,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_heartbleed_memory_leak": {
       "id": "htb_heartbleed_memory_leak",
@@ -1048,7 +1632,15 @@
       ],
       "created_at": 1770753708.3124533,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_tmux_session_hijack": {
       "id": "htb_tmux_session_hijack",
@@ -1061,7 +1653,15 @@
       ],
       "created_at": 1770753708.3124542,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cron_script_replacement": {
       "id": "htb_cron_script_replacement",
@@ -1074,7 +1674,15 @@
       ],
       "created_at": 1770753708.3124552,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_webapp_config_cred_reuse": {
       "id": "htb_webapp_config_cred_reuse",
@@ -1088,7 +1696,15 @@
       ],
       "created_at": 1770753708.312456,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_subdomain_vhost_fuzzing": {
       "id": "htb_subdomain_vhost_fuzzing",
@@ -1102,7 +1718,15 @@
       ],
       "created_at": 1770753708.3124576,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_env_var_cred_leak": {
       "id": "htb_env_var_cred_leak",
@@ -1115,7 +1739,15 @@
       ],
       "created_at": 1770753708.3124585,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_overlayfs_kernel_privesc": {
       "id": "htb_overlayfs_kernel_privesc",
@@ -1130,7 +1762,15 @@
       ],
       "created_at": 1770753708.3124607,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_api_command_injection": {
       "id": "htb_api_command_injection",
@@ -1143,7 +1783,15 @@
       ],
       "created_at": 1770753708.3124616,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_shadow_backup_crack": {
       "id": "htb_shadow_backup_crack",
@@ -1156,7 +1804,15 @@
       ],
       "created_at": 1770753708.3124626,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_finger_enumeration": {
       "id": "htb_finger_enumeration",
@@ -1169,7 +1825,15 @@
       ],
       "created_at": 1770753708.3124633,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_wget_sudo_privesc": {
       "id": "htb_wget_sudo_privesc",
@@ -1183,7 +1847,15 @@
       ],
       "created_at": 1770753708.3124645,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_db_file_hash_extraction": {
       "id": "htb_db_file_hash_extraction",
@@ -1196,7 +1868,15 @@
       ],
       "created_at": 1770753708.3124654,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_ad_gpp_decrypt": {
       "id": "htb_ad_gpp_decrypt",
@@ -1209,7 +1889,15 @@
       ],
       "created_at": 1770753708.3124664,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_default_creds_before_brute": {
       "id": "htb_default_creds_before_brute",
@@ -1223,7 +1911,15 @@
       ],
       "created_at": 1770753708.3124697,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_js2py_sandbox_escape": {
       "id": "htb_js2py_sandbox_escape",
@@ -1237,7 +1933,15 @@
       ],
       "created_at": 1770753708.3124714,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sqlite_hash_dump": {
       "id": "htb_sqlite_hash_dump",
@@ -1250,7 +1954,15 @@
       ],
       "created_at": 1770753708.312472,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_backup_tool_abuse": {
       "id": "htb_backup_tool_abuse",
@@ -1263,7 +1975,15 @@
       ],
       "created_at": 1770753708.3124733,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_cred_extract": {
       "id": "skill_cred_extract",
@@ -1280,7 +2000,15 @@
       ],
       "created_at": 1770869828.4304395,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_port_followup": {
       "id": "skill_port_followup",
@@ -1300,7 +2028,15 @@
       ],
       "created_at": 1770897396.4719877,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_enum": {
       "id": "skill_http_enum",
@@ -1320,7 +2056,15 @@
       ],
       "created_at": 1771188867.4059436,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_rs_ssh_banner": {
       "id": "skill_rs_ssh_banner",
@@ -1337,7 +2081,15 @@
       ],
       "created_at": 1771111324.4954214,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_priv_esc_linux": {
       "id": "skill_priv_esc_linux",
@@ -1354,7 +2106,15 @@
       ],
       "created_at": 1771111324.495439,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_smb_hash_capture": {
       "id": "skill_smb_hash_capture",
@@ -1375,7 +2135,15 @@
       ],
       "created_at": 1771111511.1746194,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_mentor_sync": {
       "id": "skill_mentor_sync",
@@ -1392,7 +2160,15 @@
       ],
       "created_at": 1771122481.4815633,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_enum": {
       "id": "skill_web_enum",
@@ -1415,7 +2191,15 @@
       ],
       "created_at": 1771158691.1344435,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_cred_harvest": {
       "id": "skill_cred_harvest",
@@ -1437,7 +2221,15 @@
       ],
       "created_at": 1771163744.638558,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_enum_001": {
       "id": "skill_ssh_enum_001",
@@ -1459,7 +2251,15 @@
       ],
       "created_at": 1771338809.8474674,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_service_scripting": {
       "id": "skill_service_scripting",
@@ -1476,7 +2276,15 @@
       ],
       "created_at": 1771165097.9799407,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_service_mapping": {
       "id": "skill_service_mapping",
@@ -1492,7 +2300,15 @@
       ],
       "created_at": 1771289174.9207764,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_103": {
       "id": "skill_103",
@@ -1509,7 +2325,15 @@
       ],
       "created_at": 1771168509.850277,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_101": {
       "id": "skill_101",
@@ -1526,7 +2350,15 @@
       ],
       "created_at": 1771168509.8502405,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_fuzz": {
       "id": "skill_http_fuzz",
@@ -1543,7 +2375,15 @@
       ],
       "created_at": 1771176464.9337926,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_recon": {
       "id": "skill_web_recon",
@@ -1563,7 +2403,15 @@
       ],
       "created_at": 1771203032.3613832,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_local_sudo_check": {
       "id": "skill_local_sudo_check",
@@ -1580,7 +2428,15 @@
       ],
       "created_at": 1771203528.1197052,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_lame_foothold": {
       "id": "htb_lame_foothold",
@@ -1593,7 +2449,15 @@
       ],
       "created_at": 1771203863.977879,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_blue_foothold": {
       "id": "htb_blue_foothold",
@@ -1606,7 +2470,15 @@
       ],
       "created_at": 1771203863.9893007,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_jerry_foothold": {
       "id": "htb_jerry_foothold",
@@ -1619,7 +2491,15 @@
       ],
       "created_at": 1771203863.9943352,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_nibbles_foothold": {
       "id": "htb_nibbles_foothold",
@@ -1632,7 +2512,15 @@
       ],
       "created_at": 1771203863.9985652,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_nibbles_privesc": {
       "id": "htb_nibbles_privesc",
@@ -1645,7 +2533,15 @@
       ],
       "created_at": 1771203864.0031316,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_shocker_foothold": {
       "id": "htb_shocker_foothold",
@@ -1658,7 +2554,15 @@
       ],
       "created_at": 1771203864.0077214,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_shocker_privesc": {
       "id": "htb_shocker_privesc",
@@ -1671,7 +2575,15 @@
       ],
       "created_at": 1771203864.0126283,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_beep_foothold": {
       "id": "htb_beep_foothold",
@@ -1684,7 +2596,15 @@
       ],
       "created_at": 1771203864.01738,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_optimum_foothold": {
       "id": "htb_optimum_foothold",
@@ -1697,7 +2617,15 @@
       ],
       "created_at": 1771203864.022113,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_optimum_privesc": {
       "id": "htb_optimum_privesc",
@@ -1710,7 +2638,15 @@
       ],
       "created_at": 1771203864.0265138,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_grandpa_foothold": {
       "id": "htb_grandpa_foothold",
@@ -1723,7 +2659,15 @@
       ],
       "created_at": 1771203864.0307481,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_grandpa_privesc": {
       "id": "htb_grandpa_privesc",
@@ -1736,7 +2680,15 @@
       ],
       "created_at": 1771203864.036168,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_legacy_foothold": {
       "id": "htb_legacy_foothold",
@@ -1749,7 +2701,15 @@
       ],
       "created_at": 1771203864.0415444,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_arctic_foothold": {
       "id": "htb_arctic_foothold",
@@ -1762,7 +2722,15 @@
       ],
       "created_at": 1771203864.0458484,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_arctic_privesc": {
       "id": "htb_arctic_privesc",
@@ -1775,7 +2743,15 @@
       ],
       "created_at": 1771203864.0506394,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bank_foothold": {
       "id": "htb_bank_foothold",
@@ -1788,7 +2764,15 @@
       ],
       "created_at": 1771203864.0563915,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bank_privesc": {
       "id": "htb_bank_privesc",
@@ -1801,7 +2785,15 @@
       ],
       "created_at": 1771203864.0618114,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_poison_foothold": {
       "id": "htb_poison_foothold",
@@ -1814,7 +2806,15 @@
       ],
       "created_at": 1771203864.066647,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_poison_privesc": {
       "id": "htb_poison_privesc",
@@ -1827,7 +2827,15 @@
       ],
       "created_at": 1771203864.0714934,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_nineveh_foothold": {
       "id": "htb_nineveh_foothold",
@@ -1840,7 +2848,15 @@
       ],
       "created_at": 1771203864.0765333,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_nineveh_privesc": {
       "id": "htb_nineveh_privesc",
@@ -1853,7 +2869,15 @@
       ],
       "created_at": 1771203864.0798898,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_blocky_foothold": {
       "id": "htb_blocky_foothold",
@@ -1866,7 +2890,15 @@
       ],
       "created_at": 1771203864.083576,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_blocky_privesc": {
       "id": "htb_blocky_privesc",
@@ -1879,7 +2911,15 @@
       ],
       "created_at": 1771203864.087796,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sense_foothold": {
       "id": "htb_sense_foothold",
@@ -1892,7 +2932,15 @@
       ],
       "created_at": 1771203864.0915027,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_irked_foothold": {
       "id": "htb_irked_foothold",
@@ -1905,7 +2953,15 @@
       ],
       "created_at": 1771203864.0946412,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_irked_privesc": {
       "id": "htb_irked_privesc",
@@ -1918,7 +2974,15 @@
       ],
       "created_at": 1771203864.0985274,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_friendzone_foothold": {
       "id": "htb_friendzone_foothold",
@@ -1931,7 +2995,15 @@
       ],
       "created_at": 1771203864.1021385,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_friendzone_privesc": {
       "id": "htb_friendzone_privesc",
@@ -1944,7 +3016,15 @@
       ],
       "created_at": 1771203864.1063156,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_buff_foothold": {
       "id": "htb_buff_foothold",
@@ -1957,7 +3037,15 @@
       ],
       "created_at": 1771203864.1130548,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_buff_privesc": {
       "id": "htb_buff_privesc",
@@ -1970,7 +3058,15 @@
       ],
       "created_at": 1771203864.1174448,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_delivery_foothold": {
       "id": "htb_delivery_foothold",
@@ -1983,7 +3079,15 @@
       ],
       "created_at": 1771203864.1223195,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_delivery_privesc": {
       "id": "htb_delivery_privesc",
@@ -1996,7 +3100,15 @@
       ],
       "created_at": 1771203864.1281753,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_knife_foothold": {
       "id": "htb_knife_foothold",
@@ -2009,7 +3121,15 @@
       ],
       "created_at": 1771203864.133836,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_knife_privesc": {
       "id": "htb_knife_privesc",
@@ -2022,7 +3142,15 @@
       ],
       "created_at": 1771203864.1394353,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_previse_foothold": {
       "id": "htb_previse_foothold",
@@ -2035,7 +3163,15 @@
       ],
       "created_at": 1771203864.1449523,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_previse_privesc": {
       "id": "htb_previse_privesc",
@@ -2048,7 +3184,15 @@
       ],
       "created_at": 1771203864.1505177,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_photobomb_foothold": {
       "id": "htb_photobomb_foothold",
@@ -2061,7 +3205,15 @@
       ],
       "created_at": 1771203864.1595235,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_photobomb_privesc": {
       "id": "htb_photobomb_privesc",
@@ -2074,7 +3226,15 @@
       ],
       "created_at": 1771203864.168331,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_forge_foothold": {
       "id": "htb_forge_foothold",
@@ -2087,7 +3247,15 @@
       ],
       "created_at": 1771203864.1733243,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_forge_privesc": {
       "id": "htb_forge_privesc",
@@ -2100,7 +3268,15 @@
       ],
       "created_at": 1771203864.1796076,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_unicode_foothold": {
       "id": "htb_unicode_foothold",
@@ -2113,7 +3289,15 @@
       ],
       "created_at": 1771203864.1853225,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_unicode_privesc": {
       "id": "htb_unicode_privesc",
@@ -2126,7 +3310,15 @@
       ],
       "created_at": 1771203864.1910968,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_awkward_foothold": {
       "id": "htb_awkward_foothold",
@@ -2139,7 +3331,15 @@
       ],
       "created_at": 1771203864.197005,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_granny_foothold": {
       "id": "htb_granny_foothold",
@@ -2152,7 +3352,15 @@
       ],
       "created_at": 1771203864.2017689,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_granny_privesc": {
       "id": "htb_granny_privesc",
@@ -2165,7 +3373,15 @@
       ],
       "created_at": 1771203864.205541,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bastard_foothold": {
       "id": "htb_bastard_foothold",
@@ -2178,7 +3394,15 @@
       ],
       "created_at": 1771203864.2097864,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bastard_privesc": {
       "id": "htb_bastard_privesc",
@@ -2191,7 +3415,15 @@
       ],
       "created_at": 1771203864.2144735,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bounty_foothold": {
       "id": "htb_bounty_foothold",
@@ -2204,7 +3436,15 @@
       ],
       "created_at": 1771203864.2191103,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_bounty_privesc": {
       "id": "htb_bounty_privesc",
@@ -2217,7 +3457,15 @@
       ],
       "created_at": 1771203864.2243302,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cronos_foothold": {
       "id": "htb_cronos_foothold",
@@ -2230,7 +3478,15 @@
       ],
       "created_at": 1771203864.2290668,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cronos_privesc": {
       "id": "htb_cronos_privesc",
@@ -2243,7 +3499,15 @@
       ],
       "created_at": 1771203864.233657,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_valentine_foothold": {
       "id": "htb_valentine_foothold",
@@ -2256,7 +3520,15 @@
       ],
       "created_at": 1771203864.2383516,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_valentine_privesc": {
       "id": "htb_valentine_privesc",
@@ -2269,7 +3541,15 @@
       ],
       "created_at": 1771203864.243026,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_popcorn_foothold": {
       "id": "htb_popcorn_foothold",
@@ -2282,7 +3562,15 @@
       ],
       "created_at": 1771203864.2477205,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_popcorn_privesc": {
       "id": "htb_popcorn_privesc",
@@ -2295,7 +3583,15 @@
       ],
       "created_at": 1771203864.2524276,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_solidstate_foothold": {
       "id": "htb_solidstate_foothold",
@@ -2308,7 +3604,15 @@
       ],
       "created_at": 1771203864.2574332,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_solidstate_privesc": {
       "id": "htb_solidstate_privesc",
@@ -2321,7 +3625,15 @@
       ],
       "created_at": 1771203864.2637868,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_secnotes_foothold": {
       "id": "htb_secnotes_foothold",
@@ -2334,7 +3646,15 @@
       ],
       "created_at": 1771203864.2702897,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_secnotes_privesc": {
       "id": "htb_secnotes_privesc",
@@ -2347,7 +3667,15 @@
       ],
       "created_at": 1771203864.2749836,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_openadmin_foothold": {
       "id": "htb_openadmin_foothold",
@@ -2360,7 +3688,15 @@
       ],
       "created_at": 1771203864.27937,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_openadmin_privesc": {
       "id": "htb_openadmin_privesc",
@@ -2373,7 +3709,15 @@
       ],
       "created_at": 1771203864.285695,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_traverxec_foothold": {
       "id": "htb_traverxec_foothold",
@@ -2386,7 +3730,15 @@
       ],
       "created_at": 1771203864.2927744,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_traverxec_privesc": {
       "id": "htb_traverxec_privesc",
@@ -2399,7 +3751,15 @@
       ],
       "created_at": 1771203864.29943,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_magic_foothold": {
       "id": "htb_magic_foothold",
@@ -2412,7 +3772,15 @@
       ],
       "created_at": 1771203864.3093276,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_magic_privesc": {
       "id": "htb_magic_privesc",
@@ -2425,7 +3793,15 @@
       ],
       "created_at": 1771203864.3173695,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_tabby_foothold": {
       "id": "htb_tabby_foothold",
@@ -2438,7 +3814,15 @@
       ],
       "created_at": 1771203864.3353484,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_tabby_privesc": {
       "id": "htb_tabby_privesc",
@@ -2451,7 +3835,15 @@
       ],
       "created_at": 1771203864.3444107,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_scriptkiddie_foothold": {
       "id": "htb_scriptkiddie_foothold",
@@ -2464,7 +3856,15 @@
       ],
       "created_at": 1771203864.3534496,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_scriptkiddie_privesc": {
       "id": "htb_scriptkiddie_privesc",
@@ -2477,7 +3877,15 @@
       ],
       "created_at": 1771203864.363386,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_spectra_foothold": {
       "id": "htb_spectra_foothold",
@@ -2490,7 +3898,15 @@
       ],
       "created_at": 1771203864.3728058,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_spectra_privesc": {
       "id": "htb_spectra_privesc",
@@ -2503,7 +3919,15 @@
       ],
       "created_at": 1771203864.3814175,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_armageddon_foothold": {
       "id": "htb_armageddon_foothold",
@@ -2516,7 +3940,15 @@
       ],
       "created_at": 1771203864.3903098,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_armageddon_privesc": {
       "id": "htb_armageddon_privesc",
@@ -2529,7 +3961,15 @@
       ],
       "created_at": 1771203864.398551,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_pit_foothold": {
       "id": "htb_pit_foothold",
@@ -2542,7 +3982,15 @@
       ],
       "created_at": 1771203864.4065883,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_pit_privesc": {
       "id": "htb_pit_privesc",
@@ -2555,7 +4003,15 @@
       ],
       "created_at": 1771203864.4142444,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cap_foothold": {
       "id": "htb_cap_foothold",
@@ -2569,7 +4025,15 @@
       ],
       "created_at": 1771203864.4216878,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_cap_privesc": {
       "id": "htb_cap_privesc",
@@ -2583,7 +4047,15 @@
       ],
       "created_at": 1771203864.429895,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sau_foothold": {
       "id": "htb_sau_foothold",
@@ -2596,7 +4068,15 @@
       ],
       "created_at": 1771203864.4377027,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_sau_privesc": {
       "id": "htb_sau_privesc",
@@ -2609,7 +4089,15 @@
       ],
       "created_at": 1771203864.4439166,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_monitorstwo_foothold": {
       "id": "htb_monitorstwo_foothold",
@@ -2622,7 +4110,15 @@
       ],
       "created_at": 1771203864.4513996,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_monitorstwo_privesc": {
       "id": "htb_monitorstwo_privesc",
@@ -2635,7 +4131,15 @@
       ],
       "created_at": 1771203864.4588704,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_keeper_foothold": {
       "id": "htb_keeper_foothold",
@@ -2648,7 +4152,15 @@
       ],
       "created_at": 1771203864.4664226,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_keeper_privesc": {
       "id": "htb_keeper_privesc",
@@ -2661,7 +4173,15 @@
       ],
       "created_at": 1771203864.474821,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_codify_foothold": {
       "id": "htb_codify_foothold",
@@ -2674,7 +4194,15 @@
       ],
       "created_at": 1771203864.4825978,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_codify_privesc": {
       "id": "htb_codify_privesc",
@@ -2687,7 +4215,15 @@
       ],
       "created_at": 1771203864.4902263,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_surveillance_foothold": {
       "id": "htb_surveillance_foothold",
@@ -2700,7 +4236,15 @@
       ],
       "created_at": 1771203864.497328,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_surveillance_privesc": {
       "id": "htb_surveillance_privesc",
@@ -2713,7 +4257,15 @@
       ],
       "created_at": 1771203864.5065506,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_busqueda_foothold": {
       "id": "htb_busqueda_foothold",
@@ -2726,7 +4278,15 @@
       ],
       "created_at": 1771203864.5147908,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_busqueda_privesc": {
       "id": "htb_busqueda_privesc",
@@ -2739,7 +4299,15 @@
       ],
       "created_at": 1771203864.5236337,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_headless_foothold": {
       "id": "htb_headless_foothold",
@@ -2752,7 +4320,15 @@
       ],
       "created_at": 1771203864.5322993,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_headless_privesc": {
       "id": "htb_headless_privesc",
@@ -2765,7 +4341,15 @@
       ],
       "created_at": 1771203864.540646,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_perfection_foothold": {
       "id": "htb_perfection_foothold",
@@ -2778,7 +4362,15 @@
       ],
       "created_at": 1771203864.548786,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_perfection_privesc": {
       "id": "htb_perfection_privesc",
@@ -2791,7 +4383,15 @@
       ],
       "created_at": 1771203864.5572128,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_wifinetictwo_foothold": {
       "id": "htb_wifinetictwo_foothold",
@@ -2804,7 +4404,15 @@
       ],
       "created_at": 1771203864.5661807,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_wifinetictwo_privesc": {
       "id": "htb_wifinetictwo_privesc",
@@ -2817,7 +4425,15 @@
       ],
       "created_at": 1771203864.5746157,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_boardlight_foothold": {
       "id": "htb_boardlight_foothold",
@@ -2830,7 +4446,15 @@
       ],
       "created_at": 1771203864.5828743,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_boardlight_privesc": {
       "id": "htb_boardlight_privesc",
@@ -2843,7 +4467,15 @@
       ],
       "created_at": 1771203864.589653,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_twomillion_foothold": {
       "id": "htb_twomillion_foothold",
@@ -2856,7 +4488,15 @@
       ],
       "created_at": 1771203864.5971553,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_twomillion_privesc": {
       "id": "htb_twomillion_privesc",
@@ -2869,7 +4509,15 @@
       ],
       "created_at": 1771203864.6040976,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_analytics_foothold": {
       "id": "htb_analytics_foothold",
@@ -2882,7 +4530,15 @@
       ],
       "created_at": 1771203864.6125567,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "htb_analytics_privesc": {
       "id": "htb_analytics_privesc",
@@ -2895,7 +4551,15 @@
       ],
       "created_at": 1771203864.6205578,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_blue_chain": {
       "id": "thm_blue_chain",
@@ -2908,7 +4572,15 @@
       ],
       "created_at": 1771203864.6283448,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_kenobi_chain": {
       "id": "thm_kenobi_chain",
@@ -2921,7 +4593,15 @@
       ],
       "created_at": 1771203864.6360137,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_steel_mountain_chain": {
       "id": "thm_steel_mountain_chain",
@@ -2934,7 +4614,15 @@
       ],
       "created_at": 1771203864.644111,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_alfred_chain": {
       "id": "thm_alfred_chain",
@@ -2947,7 +4635,15 @@
       ],
       "created_at": 1771203864.6521661,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_hackpark_chain": {
       "id": "thm_hackpark_chain",
@@ -2960,7 +4656,15 @@
       ],
       "created_at": 1771203864.6601841,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_game_zone_chain": {
       "id": "thm_game_zone_chain",
@@ -2973,7 +4677,15 @@
       ],
       "created_at": 1771203864.6669717,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_skynet_chain": {
       "id": "thm_skynet_chain",
@@ -2986,7 +4698,15 @@
       ],
       "created_at": 1771203864.673769,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_daily_bugle_chain": {
       "id": "thm_daily_bugle_chain",
@@ -2999,7 +4719,15 @@
       ],
       "created_at": 1771203864.6820862,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_overpass_chain": {
       "id": "thm_overpass_chain",
@@ -3012,7 +4740,15 @@
       ],
       "created_at": 1771203864.6906054,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_relevant_chain": {
       "id": "thm_relevant_chain",
@@ -3025,7 +4761,15 @@
       ],
       "created_at": 1771203864.6993334,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_internal_chain": {
       "id": "thm_internal_chain",
@@ -3038,7 +4782,15 @@
       ],
       "created_at": 1771203864.70789,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_mr_robot_chain": {
       "id": "thm_mr_robot_chain",
@@ -3051,7 +4803,15 @@
       ],
       "created_at": 1771203864.717047,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_retro_chain": {
       "id": "thm_retro_chain",
@@ -3064,7 +4824,15 @@
       ],
       "created_at": 1771203864.7257085,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_brainpan_chain": {
       "id": "thm_brainpan_chain",
@@ -3077,7 +4845,15 @@
       ],
       "created_at": 1771203864.734244,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_wonderland_chain": {
       "id": "thm_wonderland_chain",
@@ -3090,7 +4866,15 @@
       ],
       "created_at": 1771203864.7424796,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_tomghost_chain": {
       "id": "thm_tomghost_chain",
@@ -3103,7 +4887,15 @@
       ],
       "created_at": 1771203864.7498975,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_year_of_the_rabbit_chain": {
       "id": "thm_year_of_the_rabbit_chain",
@@ -3116,7 +4908,15 @@
       ],
       "created_at": 1771203864.7570696,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_dogcat_chain": {
       "id": "thm_dogcat_chain",
@@ -3129,7 +4929,15 @@
       ],
       "created_at": 1771203864.764898,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_anthem_chain": {
       "id": "thm_anthem_chain",
@@ -3142,7 +4950,15 @@
       ],
       "created_at": 1771203864.7757483,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "thm_rootme_chain": {
       "id": "thm_rootme_chain",
@@ -3155,7 +4971,15 @@
       ],
       "created_at": 1771203864.7908142,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_ssti_detection": {
       "id": "web_ssti_detection",
@@ -3168,7 +4992,15 @@
       ],
       "created_at": 1771203864.8120124,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_lfi_chain": {
       "id": "web_lfi_chain",
@@ -3181,7 +5013,15 @@
       ],
       "created_at": 1771203864.830468,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_ssrf_internal": {
       "id": "web_ssrf_internal",
@@ -3194,7 +5034,15 @@
       ],
       "created_at": 1771203864.8451016,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_command_injection": {
       "id": "web_command_injection",
@@ -3207,7 +5055,15 @@
       ],
       "created_at": 1771203864.8596416,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_file_upload_bypass": {
       "id": "web_file_upload_bypass",
@@ -3220,7 +5076,15 @@
       ],
       "created_at": 1771203864.869423,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_deserialization": {
       "id": "web_deserialization",
@@ -3233,7 +5097,15 @@
       ],
       "created_at": 1771203864.8791027,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_api_exploitation": {
       "id": "web_api_exploitation",
@@ -3246,7 +5118,15 @@
       ],
       "created_at": 1771203864.8872375,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_nmap": {
       "id": "linux_suid_nmap",
@@ -3259,7 +5139,15 @@
       ],
       "created_at": 1771203864.895621,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_vim": {
       "id": "linux_suid_vim",
@@ -3272,7 +5160,15 @@
       ],
       "created_at": 1771203864.9046497,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_nano": {
       "id": "linux_suid_nano",
@@ -3285,7 +5181,15 @@
       ],
       "created_at": 1771203864.9127536,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_find": {
       "id": "linux_suid_find",
@@ -3298,7 +5202,15 @@
       ],
       "created_at": 1771203864.9203858,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_bash": {
       "id": "linux_suid_bash",
@@ -3311,7 +5223,15 @@
       ],
       "created_at": 1771203864.9286351,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_python": {
       "id": "linux_suid_python",
@@ -3324,7 +5244,15 @@
       ],
       "created_at": 1771203864.9371874,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_perl": {
       "id": "linux_suid_perl",
@@ -3337,7 +5265,15 @@
       ],
       "created_at": 1771203864.946079,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_ruby": {
       "id": "linux_suid_ruby",
@@ -3350,7 +5286,15 @@
       ],
       "created_at": 1771203864.9542756,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_php": {
       "id": "linux_suid_php",
@@ -3363,7 +5307,15 @@
       ],
       "created_at": 1771203864.9630592,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_env": {
       "id": "linux_suid_env",
@@ -3376,7 +5328,15 @@
       ],
       "created_at": 1771203864.9728882,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_cp": {
       "id": "linux_suid_cp",
@@ -3389,7 +5349,15 @@
       ],
       "created_at": 1771203864.981466,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_pkexec": {
       "id": "linux_suid_pkexec",
@@ -3402,7 +5370,15 @@
       ],
       "created_at": 1771203864.9905677,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_systemctl": {
       "id": "linux_suid_systemctl",
@@ -3415,7 +5391,15 @@
       ],
       "created_at": 1771203865.000552,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_suid_openssl": {
       "id": "linux_suid_openssl",
@@ -3428,7 +5412,15 @@
       ],
       "created_at": 1771203865.0090334,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_ALL": {
       "id": "linux_sudo_ALL",
@@ -3441,7 +5433,15 @@
       ],
       "created_at": 1771203865.0188556,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_vi_vim": {
       "id": "linux_sudo_vi_vim",
@@ -3454,7 +5454,15 @@
       ],
       "created_at": 1771203865.0271697,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_less_more": {
       "id": "linux_sudo_less_more",
@@ -3467,7 +5475,15 @@
       ],
       "created_at": 1771203865.0366678,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_man": {
       "id": "linux_sudo_man",
@@ -3480,7 +5496,15 @@
       ],
       "created_at": 1771203865.0459018,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_awk": {
       "id": "linux_sudo_awk",
@@ -3493,7 +5517,15 @@
       ],
       "created_at": 1771203865.0557337,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_tar": {
       "id": "linux_sudo_tar",
@@ -3506,7 +5538,15 @@
       ],
       "created_at": 1771203865.0648928,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_zip": {
       "id": "linux_sudo_zip",
@@ -3519,7 +5559,15 @@
       ],
       "created_at": 1771203865.07355,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_docker": {
       "id": "linux_sudo_docker",
@@ -3532,7 +5580,15 @@
       ],
       "created_at": 1771203865.081648,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_pip": {
       "id": "linux_sudo_pip",
@@ -3545,7 +5601,15 @@
       ],
       "created_at": 1771203865.0910864,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_wget": {
       "id": "linux_sudo_wget",
@@ -3558,7 +5622,15 @@
       ],
       "created_at": 1771203865.099819,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_apache2": {
       "id": "linux_sudo_apache2",
@@ -3571,7 +5643,15 @@
       ],
       "created_at": 1771203865.109751,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_mysql": {
       "id": "linux_sudo_mysql",
@@ -3584,7 +5664,15 @@
       ],
       "created_at": 1771203865.118477,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_knife": {
       "id": "linux_sudo_knife",
@@ -3597,7 +5685,15 @@
       ],
       "created_at": 1771203865.1275384,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_sudo_journalctl": {
       "id": "linux_sudo_journalctl",
@@ -3610,7 +5706,15 @@
       ],
       "created_at": 1771203865.1367035,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_cap_cap_setuid": {
       "id": "linux_cap_cap_setuid",
@@ -3623,7 +5727,15 @@
       ],
       "created_at": 1771203865.1458423,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_cap_cap_dac_read_search": {
       "id": "linux_cap_cap_dac_read_search",
@@ -3636,7 +5748,15 @@
       ],
       "created_at": 1771203865.155427,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_cap_cap_net_raw": {
       "id": "linux_cap_cap_net_raw",
@@ -3649,7 +5769,15 @@
       ],
       "created_at": 1771203865.16435,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_cap_cap_sys_admin": {
       "id": "linux_cap_cap_sys_admin",
@@ -3662,7 +5790,15 @@
       ],
       "created_at": 1771203865.1737533,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_cap_cap_sys_ptrace": {
       "id": "linux_cap_cap_sys_ptrace",
@@ -3675,7 +5811,15 @@
       ],
       "created_at": 1771203865.1830268,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_dirtycow": {
       "id": "linux_kernel_dirtycow",
@@ -3688,7 +5832,15 @@
       ],
       "created_at": 1771203865.1923053,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_dirtypipe": {
       "id": "linux_kernel_dirtypipe",
@@ -3701,7 +5853,15 @@
       ],
       "created_at": 1771203865.2020178,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_pwnkit": {
       "id": "linux_kernel_pwnkit",
@@ -3714,7 +5874,15 @@
       ],
       "created_at": 1771203865.2120776,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_baron_samedit": {
       "id": "linux_kernel_baron_samedit",
@@ -3727,7 +5895,15 @@
       ],
       "created_at": 1771203865.2226746,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_overlayfs": {
       "id": "linux_kernel_overlayfs",
@@ -3740,7 +5916,15 @@
       ],
       "created_at": 1771203865.236865,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "linux_kernel_looney_tunables": {
       "id": "linux_kernel_looney_tunables",
@@ -3753,7 +5937,15 @@
       ],
       "created_at": 1771203865.24646,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_docker_socket": {
       "id": "container_escape_docker_socket",
@@ -3766,7 +5958,15 @@
       ],
       "created_at": 1771203865.255902,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_docker_group": {
       "id": "container_escape_docker_group",
@@ -3779,7 +5979,15 @@
       ],
       "created_at": 1771203865.2658885,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_privileged_container": {
       "id": "container_escape_privileged_container",
@@ -3792,7 +6000,15 @@
       ],
       "created_at": 1771203865.2752228,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_cgroup_escape": {
       "id": "container_escape_cgroup_escape",
@@ -3805,7 +6021,15 @@
       ],
       "created_at": 1771203865.2850754,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_lxd_group": {
       "id": "container_escape_lxd_group",
@@ -3818,7 +6042,15 @@
       ],
       "created_at": 1771203865.2954013,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "container_escape_runc_escape": {
       "id": "container_escape_runc_escape",
@@ -3831,7 +6063,15 @@
       ],
       "created_at": 1771203865.310116,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "windows_token_impersonation": {
       "id": "windows_token_impersonation",
@@ -3844,7 +6084,15 @@
       ],
       "created_at": 1771203865.338587,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "windows_ad_kerberoasting": {
       "id": "windows_ad_kerberoasting",
@@ -3857,7 +6105,15 @@
       ],
       "created_at": 1771203865.3483124,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_004": {
       "id": "skill_004",
@@ -3874,7 +6130,15 @@
       ],
       "created_at": 1771206967.0984497,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_007": {
       "id": "skill_007",
@@ -3891,7 +6155,15 @@
       ],
       "created_at": 1771206967.0984757,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_banner_enumeration": {
       "id": "skill_ssh_banner_enumeration",
@@ -3908,7 +6180,15 @@
       ],
       "created_at": 1771207106.766426,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_banner_recon": {
       "id": "skill_http_banner_recon",
@@ -3925,7 +6205,15 @@
       ],
       "created_at": 1771207106.7664416,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_probe": {
       "id": "skill_http_probe",
@@ -3945,7 +6233,15 @@
       ],
       "created_at": 1771208123.212689,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_config_enum": {
       "id": "skill_web_config_enum",
@@ -3965,7 +6261,15 @@
       ],
       "created_at": 1771213527.5671363,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_ssh_banner": {
       "id": "skill_recon_ssh_banner",
@@ -3982,7 +6286,15 @@
       ],
       "created_at": 1771215038.4138982,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_http": {
       "id": "skill_recon_http",
@@ -4003,7 +6315,15 @@
       ],
       "created_at": 1771215038.413907,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_priv_esc_check": {
       "id": "skill_priv_esc_check",
@@ -4023,7 +6343,15 @@
       ],
       "created_at": 1771217807.755736,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_cred_context": {
       "id": "skill_cred_context",
@@ -4043,7 +6371,15 @@
       ],
       "created_at": 1771218076.7628696,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_scan": {
       "id": "skill_http_scan",
@@ -4063,7 +6399,15 @@
       ],
       "created_at": 1771250092.7100837,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_banners": {
       "id": "skill_http_banners",
@@ -4086,7 +6430,15 @@
       ],
       "created_at": 1771252511.5640047,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_priv_escalation": {
       "id": "skill_priv_escalation",
@@ -4103,7 +6455,15 @@
       ],
       "created_at": 1771259515.809295,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_headers": {
       "id": "skill_http_headers",
@@ -4123,7 +6483,15 @@
       ],
       "created_at": 1771252925.1589835,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_banner_enum": {
       "id": "skill_ssh_banner_enum",
@@ -4140,7 +6508,15 @@
       ],
       "created_at": 1771267234.9303432,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_privilege_escalation_audit": {
       "id": "skill_privilege_escalation_audit",
@@ -4160,7 +6536,15 @@
       ],
       "created_at": 1771259532.9093418,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_banner_validation": {
       "id": "skill_banner_validation",
@@ -4177,7 +6561,15 @@
       ],
       "created_at": 1771267202.0511758,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_mapping": {
       "id": "skill_http_mapping",
@@ -4194,7 +6586,15 @@
       ],
       "created_at": 1771276129.3386428,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_goal_validation": {
       "id": "skill_goal_validation",
@@ -4212,7 +6612,15 @@
       ],
       "created_at": 1771276179.3183897,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_ssh_029": {
       "id": "skill_ssh_029",
@@ -4230,7 +6638,15 @@
       ],
       "created_at": 1771277035.7728782,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_enum_local_045": {
       "id": "skill_enum_local_045",
@@ -4250,7 +6666,15 @@
       ],
       "created_at": 1771277035.77289,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_post_exploit_checklist": {
       "id": "skill_post_exploit_checklist",
@@ -4270,7 +6694,15 @@
       ],
       "created_at": 1771284093.6746552,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_map": {
       "id": "skill_http_map",
@@ -4293,7 +6725,15 @@
       ],
       "created_at": 1771285030.8436477,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_vuln_fingerprinting": {
       "id": "skill_web_vuln_fingerprinting",
@@ -4316,7 +6756,15 @@
       ],
       "created_at": 1771286054.7269816,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_exploit_transition": {
       "id": "skill_exploit_transition",
@@ -4333,7 +6781,15 @@
       ],
       "created_at": 1771286194.9123957,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_creds_reuse_002": {
       "id": "skill_creds_reuse_002",
@@ -4350,7 +6806,15 @@
       ],
       "created_at": 1771286334.285708,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_dirb": {
       "id": "skill_web_dirb",
@@ -4367,7 +6831,15 @@
       ],
       "created_at": 1771288183.057773,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_recon": {
       "id": "skill_http_recon",
@@ -4384,7 +6856,15 @@
       ],
       "created_at": 1771290605.683853,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_web_versioning": {
       "id": "skill_web_versioning",
@@ -4401,7 +6881,15 @@
       ],
       "created_at": 1771300254.626166,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_http_enum_002": {
       "id": "skill_http_enum_002",
@@ -4417,7 +6905,15 @@
       ],
       "created_at": 1771302260.9737277,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_tcp": {
       "id": "skill_recon_tcp",
@@ -4435,7 +6931,15 @@
       ],
       "created_at": 1771339482.1041048,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_path_followup_chain": {
       "id": "web_path_followup_chain",
@@ -4451,7 +6955,15 @@
       ],
       "created_at": 1771343675.625828,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "credential_reuse_immediate": {
       "id": "credential_reuse_immediate",
@@ -4468,7 +6980,15 @@
       ],
       "created_at": 1771343675.625828,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "post_shell_privesc_enum": {
       "id": "post_shell_privesc_enum",
@@ -4481,7 +7001,15 @@
       ],
       "created_at": 1771343675.625828,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "web_file_download_analysis": {
       "id": "web_file_download_analysis",
@@ -4497,7 +7025,15 @@
       ],
       "created_at": 1771343675.625828,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "idor_to_root_killchain": {
       "id": "idor_to_root_killchain",
@@ -4511,7 +7047,15 @@
       ],
       "created_at": 1771343675.625828,
       "usage_count": 1,
-      "success_rate": 1.0
+      "success_rate": 1.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_recon_nmap": {
       "id": "skill_recon_nmap",
@@ -4528,7 +7072,15 @@
       ],
       "created_at": 1771344355.7018242,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     "skill_kerberos_ticket_harvest": {
       "id": "skill_kerberos_ticket_harvest",
@@ -4547,7 +7099,126 @@
       ],
       "created_at": 1771344355.7018323,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_web_upload_exploit": {
+      "id": "skill_web_upload_exploit",
+      "if_condition": "When HTTP 80 returns /upload.php with writable temp directory",
+      "then_action": "Leverage PHP file upload to deploy reverse shell and pivot to netcat listener",
+      "parameters_template": {
+        "endpoint": "/upload.php",
+        "payload": "php-reverse-shell.php",
+        "listener": "nc -lvnp 4444"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step15"
+      ],
+      "created_at": 1771351148.1977851,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_web_admin_map": {
+      "id": "skill_web_admin_map",
+      "if_condition": "When HTTP 443 responds with a transparent redirect and non-standard cookies",
+      "then_action": "Run burp spider and nmap http-enum against admin endpoints, capturing hidden directories for later brute forcing",
+      "parameters_template": {
+        "port": 443,
+        "script": "http-enum",
+        "tools": [
+          "burpsuite",
+          "nmap"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step11"
+      ],
+      "created_at": 1771360692.975618,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_port_scan": {
+      "id": "skill_port_scan",
+      "if_condition": "When limited service visibility exists after initial ping sweep",
+      "then_action": "Perform aggressive nmap scan with service/version detection",
+      "parameters_template": {
+        "scan_type": "-sV -p-",
+        "timing": "T4",
+        "scripts": [
+          "default",
+          "banner"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step02",
+        "run_20260217_221558_0fedac_ep1_step04"
+      ],
+      "created_at": 1771362993.0129244,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_banner_parsing": {
+      "id": "skill_banner_parsing",
+      "if_condition": "When SSH/HTTP services are detected with version banners",
+      "then_action": "Extract and normalize banners for targeted exploitation mapping",
+      "parameters_template": {
+        "tools": [
+          "curl -I",
+          "ssh -vvv"
+        ],
+        "output_format": "json"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_221558_0fedac_ep1_step05"
+      ],
+      "created_at": 1771362993.012938,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     }
   }
 }

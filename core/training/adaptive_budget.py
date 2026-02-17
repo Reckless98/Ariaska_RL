@@ -59,10 +59,11 @@ class BudgetConfig:
     # Spend rate tracking
     spend_rate_window: int = 10  # Rolling window for rate calculation
 
-    # Throttle thresholds
-    soft_throttle_pressure: float = 0.6  # Start reducing frequency
-    hard_throttle_pressure: float = 0.85  # Significantly reduce
-    emergency_cutoff_pressure: float = 0.95  # Emergency: almost no calls
+    # Throttle thresholds — Phase 13.0: Relaxed to allow more GPT reasoning per episode
+    # Higher thresholds = agents can spend more budget before throttling kicks in
+    soft_throttle_pressure: float = 0.70   # Phase 13.0: 0.60→0.70 — delayed soft throttle
+    hard_throttle_pressure: float = 0.90   # Phase 13.0: 0.85→0.90 — delayed hard throttle
+    emergency_cutoff_pressure: float = 0.97  # Phase 13.0: 0.95→0.97 — near-exhaustion only
 
 
 class AdaptiveBudgetController:

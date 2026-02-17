@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260217_223035_7a2e06",
+  "timestamp": 1771363842.2545974,
+  "key_outcomes": {
+    "wins": [
+      "Collected host enumeration data (nmap scans completed without crashing) allowing mapping of reachable services",
+      "Identified three network segments with accessible live hosts, providing a baseline for future lateral movement plans"
+    ],
+    "fails": [
+      "No exploit or privilege escalation achieved despite multiple mentor calls, leading to 0% success rate",
+      "Failed to build a persistent foothold because credential harvesting and exploitation phases were never reached"
+    ],
+    "summary": "Reconnaissance phase completed but campaign halted before any exploitation; focus should shift to credential access and exploitation attempts."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempted exploitation without valid credentials or known vulnerable service, resulting in repeated brute force failures",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06",
+        "ep001_step08",
+        "ep001_step10",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step03"
+      ],
+      "created_at": 1771363849.1064591,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When multiple hosts respond to ping sweep",
+      "then_action": "Launch targeted nmap -sC -sV scan on each host",
+      "parameters_template": {
+        "flags": "-sC -sV",
+        "hosts": "10.0.1.0/24"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step05"
+      ],
+      "created_at": 1771363849.106469,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When ssh login attempts fail with default creds",
+      "then_action": "Capture ssh banners and save for offline credential profiling",
+      "parameters_template": {
+        "tool": "masscan",
+        "banner_save": true
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1771363849.1064756,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration reliably produced banners for downstream exploitation planning"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential replay against identified services",
+      "description": "Use captured SSH banners to guide targeted Hydra/Patator brute force attempts with curated username/password pairs from recon",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit service with known vulnerability",
+      "description": "Map open ports to CVEs and attempt exploitation using Metasploit modules on highest severity service",
+      "priority": "medium"
+    },
+    {
+      "title": "Establish persistence via weak SSH config",
+      "description": "If SSH access gained, deploy local user creation and key injection scripts to prepare for post-exploitation",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

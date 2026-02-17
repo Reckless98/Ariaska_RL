@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260217_205026_5f6004",
+  "timestamp": 1771357857.9210668,
+  "key_outcomes": {
+    "wins": [
+      "Identified high-value open TCP/UDP ports during initial scanning phase, acquiring actionable reconnaissance data for future exploitation attempts.",
+      "Successfully mapped internal network topology through automated discovery tools, yielding precise host/service relationships despite no final compromise."
+    ],
+    "fails": [
+      "Failed to escalate privileges on the target due to lack of validated exploit chains for the identified services, resulting in 0% success rate.",
+      "Multiple credential spraying attempts were rate-limited and blocked by basic account lockout defenses, preventing further lateral movement."
+    ],
+    "summary": "Reconnaissance was strong, but exploitation efforts stalled because privilege escalation and credential reuse paths were not validated; focus should shift to exploiting identified services with validated payloads."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts against discovered Linux hosts repeatedly failed because the chosen exploit (CVE template) did not match the kernel/service version.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "host": "TARGET_IP",
+        "ports": "22",
+        "script": "ssh-hostkey,ssh-auth-methods,ssh-run "
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771357865.7008195,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_service_version",
+      "if_condition": "When service ports respond with banners",
+      "then_action": "Run targeted version detection using nmap -sV with service fingerprinting",
+      "parameters_template": {
+        "host": "TARGET_IP",
+        "ports": "discovered_ports",
+        "flags": "-sV --version-intensity 9"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771357865.7008355,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_creds_check",
+      "if_condition": "After enumeration reveals valid users",
+      "then_action": "Attempt credential reuse with Hydra against SSH and SMB services with low-speed rate limits",
+      "parameters_template": {
+        "service": "ssh",
+        "userlist": "validated_users.txt",
+        "passlist": "common_passwords.txt",
+        "options": "-t 4 -f"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771357865.7008479,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High leverage in reconnaissance phase and consistent banner capture"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate Privilege Escalation Chain for SSH Service",
+      "description": "Use detailed version data from nmap -sV to select and execute matching exploit modules (e.g., CVE-2024-XXXXX) or manual post-auth enumeration via ssh-shell",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Spraying with Account Lockout Mitigation",
+      "description": "Implement slower, randomized Hydra tries across SSH/SMB with proxying to avoid lockouts, focusing on verified users with MFA bypass filing after each low-rate attempt",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated Exploit Chain Validation",
+      "description": "Develop scripted workflow (Metasploit or custom) that chains initial shell (ssh/ftp) to local escalation checks (e.g., LinPEAS/LinEnum) to confirm exploit viability before final execution",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

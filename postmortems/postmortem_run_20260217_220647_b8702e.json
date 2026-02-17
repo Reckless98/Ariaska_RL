@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260217_220647_b8702e",
+  "timestamp": 1771362431.4619591,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reward of 67.5 across the single episode indicating consistent execution of the chosen path.",
+      "Successfully completed mentor-assisted guidance 15 times, demonstrating reliance on available remediation resources."
+    ],
+    "fails": [
+      "Despite mentor involvement, the episode failed to reach success, resulting in 0% success rate.",
+      "No significant trajectory change observed in recent reward trend despite repeated mentor calls."
+    ],
+    "summary": "Outcome shows consistent but insufficient execution; extra support did not convert into a successful mission, pointing to gaps in critical decision-making steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated mentor call triggered at mid-stage (steps 5-10) without leading to decision changes, resulting in stuck progression.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance returns consistent port/service set with low variance",
+      "then_action": "Run multi-scan nmap burst with timing 5 to validate service stability",
+      "parameters_template": {
+        "command": "nmap -T5 -sC -sV -p- <target>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step04"
+      ],
+      "created_at": 1771362438.7123933,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When service enumeration yields SSH on port 22 with low host response time",
+      "then_action": "Deploy ssh-audit and check banners, then pivot to password spraying with crowbar",
+      "parameters_template": {
+        "ssh-audit": "<target>:22",
+        "crowbar": "-b ssh -s <target> -U users.lst -P passwords.lst"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771362438.7124074,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial exploits fail and mentor suggests more observation",
+      "then_action": "Switch to passive logging review (tcpdump) to identify overlooked broadcasts before launching exploits again",
+      "parameters_template": {
+        "tcpdump": "-i any -n -c 200"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771362438.7124164,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate passive logging prior to exploit attempts",
+      "description": "Collect tcpdump/traceroute data after reconnaissance to identify hidden services before committing to exploit paths",
+      "priority": "high"
+    },
+    {
+      "title": "Expand service validation after multi-scan nmap",
+      "description": "Follow up the burst scan with targeted curl/wget scripts to verify responses for each discovered port to avoid redundant exploit tries",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

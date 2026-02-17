@@ -113,6 +113,50 @@ class FeatureFlags:
     learning_signal_export: bool = field(
         default_factory=lambda: _env_bool("FF_LEARNING_SIGNAL_EXPORT", True))
 
+    # ── Phase 14.0: Autonomous Reasoning Architecture ───────────────
+    evidence_graph: bool = field(
+        default_factory=lambda: _env_bool("FF_EVIDENCE_GRAPH", False))
+    hypothesis_engine: bool = field(
+        default_factory=lambda: _env_bool("FF_HYPOTHESIS_ENGINE", False))
+    strategy_plan: bool = field(
+        default_factory=lambda: _env_bool("FF_STRATEGY_PLAN", False))
+    autonomy_scheduler: bool = field(
+        default_factory=lambda: _env_bool("FF_AUTONOMY_SCHEDULER", False))
+    bc_loss: bool = field(
+        default_factory=lambda: _env_bool("FF_BC_LOSS", False))
+    teacher_trace: bool = field(
+        default_factory=lambda: _env_bool("FF_TEACHER_TRACE", False))
+    aux_heads: bool = field(
+        default_factory=lambda: _env_bool("FF_AUX_HEADS", False))
+    parser_teacher: bool = field(
+        default_factory=lambda: _env_bool("FF_PARSER_TEACHER", False))
+    ms2_knowledge_pack: bool = field(
+        default_factory=lambda: _env_bool("FF_MS2_KNOWLEDGE_PACK", False))
+    ms3_knowledge_pack: bool = field(
+        default_factory=lambda: _env_bool("FF_MS3_KNOWLEDGE_PACK", False))
+    ms2_simulated_output: bool = field(
+        default_factory=lambda: _env_bool("FF_MS2_SIMULATED_OUTPUT", False))
+
+    # ── Phase 15.0: NEUROVORTEX — Biologically-Inspired Control ─────
+    neuromodulators: bool = field(
+        default_factory=lambda: _env_bool("FF_NEUROMODULATORS", False))
+    reflex_policy: bool = field(
+        default_factory=lambda: _env_bool("FF_REFLEX_POLICY", False))
+    action_arbitrator: bool = field(
+        default_factory=lambda: _env_bool("FF_ACTION_ARBITRATOR", False))
+    working_memory: bool = field(
+        default_factory=lambda: _env_bool("FF_WORKING_MEMORY", False))
+    consolidation: bool = field(
+        default_factory=lambda: _env_bool("FF_CONSOLIDATION", False))
+    aggression_controller: bool = field(
+        default_factory=lambda: _env_bool("FF_AGGRESSION_CONTROLLER", False))
+    semantic_index: bool = field(
+        default_factory=lambda: _env_bool("FF_SEMANTIC_INDEX", False))
+    budget_manager_v2: bool = field(
+        default_factory=lambda: _env_bool("FF_BUDGET_MANAGER_V2", False))
+    sensory_buffer: bool = field(
+        default_factory=lambda: _env_bool("FF_SENSORY_BUFFER", False))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

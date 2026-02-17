@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260217_222527_2a1b7f",
+  "timestamp": 1771363534.1179025,
+  "key_outcomes": {
+    "wins": [
+      "Established initial network overview through automated nmap scan, identifying live hosts and essential service ports.",
+      "Captured consistent reconnaissance artifacts enabling construction of prioritized target list for follow-on actions."
+    ],
+    "fails": [
+      "Failed to escalate privileges due to absence of valid credentials and overlooked sudo paths, leaving post-exploitation phase incomplete.",
+      "Repeatedly triggered IDS signatures during brute-forcing attempts, resulting in timeouts and limited access opportunities."
+    ],
+    "summary": "Reconnaissance delivered actionable target visibility, but execution stalled during exploitation/privilege escalation, yielding no successful compromises across the single episode."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently failed when relying solely on default sudo paths without validating sudo rights or exploiting misconfigured binaries.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771363541.2851696,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with 200 OK and directory listing absent",
+      "then_action": "Invoke gobuster for directory brute force against common wordlists",
+      "parameters_template": {
+        "url": "http://<target>:80",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771363541.285183,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When sudo privileges appear disabled for current user",
+      "then_action": "Enumerate sudoers and seek setuid binaries before brute force escalation",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "find / -perm -4000 -type f -exec ls -la {} \\; 2>/dev/null"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step15"
+      ],
+      "created_at": 1771363541.285192,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in extracting SSH configuration details during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential validation prior to privilege escalation",
+      "description": "Script execution that validates sudo permissions and identifies writable configuration files before running exploitation attempts, reducing lockouts and false negatives.",
+      "priority": "high"
+    },
+    {
+      "title": "Stealthy HTTP enumeration",
+      "description": "Shift from aggressive gobuster scans to smaller wordlists combined with timing adjustments and randomized requests to avoid IDS tripping during directory enumeration.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-recon pivot automation",
+      "description": "Implement chaining of discovered SMB shares and HTTP endpoints into a unified attack plan to quickly transition from scanning to exploitation once valid credentials found.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

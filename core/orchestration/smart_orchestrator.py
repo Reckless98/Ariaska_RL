@@ -59,11 +59,11 @@ class SmartOrchestratorConfig:
     enable_orion: bool = True
     enable_shadow: bool = True
     
-    # Smart mentor settings — Phase 12.1: ALL mentor calls use gpt-5.2-codex
+    # Smart mentor settings — Phase 13.0: Maximum GPT reasoning for autonomous learning
     model: str = "gpt-5.2-codex"  # Phase 12.1: full reasoning model for all mentor/teaching/planning
     mentor_mode: str = "adaptive"  # Phase 11.1: adaptive for accelerated learning
     mentor_warmup_episodes: int = 3  # Phase 11.1: extended warmup for deeper learning
-    mentor_min_rate: float = 0.89  # Phase 12.0: +50% (was 0.59) for maximum mentor→apprentice learning saturation
+    mentor_min_rate: float = 0.92  # Phase 13.0: +3% (was 0.89) — near-saturation mentor guidance
     mentor_max_rate: float = 1.0
     
     # Stuck detection (legacy)
@@ -419,8 +419,8 @@ class SmartOrchestrator:
                 venice=self.venice_reasoning,
                 enable_venice=True,
                 enable_gpt=True,
-                max_llm_calls_per_episode=20,
-                max_venice_calls_per_episode=15,
+                max_llm_calls_per_episode=40,   # Phase 13.0: +100% (was 20) — GPT-5.2-codex primary parser
+                max_venice_calls_per_episode=25,  # Phase 13.0: +67% (was 15) — Venice second-brain validation
                 default_mode=_ff.parser_mode,
             )
             _init_modules.append(("ParserBroker", "ok", f"v2.0 mode={_ff.parser_mode}"))
@@ -436,9 +436,9 @@ class SmartOrchestrator:
             if _ff.adaptive_budget:
                 self.budget_controller = AdaptiveBudgetController(
                     config=BudgetConfig(
-                        mentor_budget_total=89,  # Phase 12.0: +50% (was 59)
-                        venice_budget_total=35,  # Phase 12.0: +50% (was 23)
-                        token_budget_total=146_250,  # Phase 12.0: +50% (was 97.5K)
+                        mentor_budget_total=140,  # Phase 13.0: +57% (was 89) — maximum GPT reasoning guidance
+                        venice_budget_total=50,   # Phase 13.0: +43% (was 35) — Venice second-brain validation
+                        token_budget_total=292_500,  # Phase 13.0: +100% (was 146.25K) — full reasoning depth
                     )
                 )
                 _init_modules.append(("AdaptiveBudget", "ok", "adaptive pacing"))
@@ -970,20 +970,20 @@ class SmartOrchestrator:
             max_mentor_rate=self.config.mentor_max_rate,
         )
         
-        # Phase 11.1: TRIPLED mentor configs for Red, Orion, and memory-sorting agents
-        # These agents need maximum mentor guidance for learning pwn reasoning
+        # Phase 13.0: TRIPLED mentor configs for Red, Orion — maximum GPT reasoning absorption
+        # These agents learn exploit reasoning, strategic planning, and autonomous decision-making
         _tripled_agents = {"RedAgent", "OrionAgent"}
         tripled_policy_config = MentorPolicyConfig(
             mode="adaptive",
             warmup_episodes=5,  # Extended warmup for deep reasoning learning
-            warmup_steps_per_episode=40,  # Phase 12.0: +50% (was 27) — maximum mentor-guided early steps
+            warmup_steps_per_episode=40,  # Maximum mentor-guided early steps
             min_mentor_rate=self.config.mentor_min_rate * 3,  # 3× base minimum
             max_mentor_rate=1.0,  # Allow full mentor engagement
-            min_adaptive_rate=1.0,  # Phase 12.0: full adaptive engagement (ceiling)
+            min_adaptive_rate=1.0,  # Full adaptive engagement (ceiling)
             max_adaptive_rate=1.0,
-            struggling_boost=2.46,  # Phase 12.0: +50% (was 1.64) — maximum boost for mentor reasoning
-            performing_reduction=0.03,  # Phase 12.0: barely reduce even when performing well
-            max_calls_per_episode=369,  # Phase 12.0: +50% (was 246) for maximum mentor→apprentice learning
+            struggling_boost=3.0,     # Phase 13.0: +22% (was 2.46) — maximum boost when struggling
+            performing_reduction=0.02,  # Phase 13.0: barely reduce — agents learn deep reasoning first
+            max_calls_per_episode=480,  # Phase 13.0: +30% (was 369) — maximum Red/Orion learning depth
         )
         
         # Phase 6.2: Create shared MentorController (all coaches share one)
@@ -2704,6 +2704,29 @@ class SmartOrchestrator:
                 pass  # Never let telemetry break training
         
         logger.debug(f"[DIAG] Episode {episode_number} complete, returning metrics")
+
+        # ─── PHASE 15.0: Collect P15 telemetry ──────────────────────
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff15_tel = get_feature_flags()
+            _any_p15 = any([
+                _ff15_tel.neuromodulators, _ff15_tel.reflex_policy,
+                _ff15_tel.action_arbitrator, _ff15_tel.working_memory,
+                _ff15_tel.consolidation, _ff15_tel.aggression_controller,
+                _ff15_tel.semantic_index, _ff15_tel.budget_manager_v2,
+                _ff15_tel.sensory_buffer,
+            ])
+            if _any_p15:
+                from core.telemetry.p15_telemetry import collect_episode_metrics
+                _p15_metrics = collect_episode_metrics(
+                    coaches=self.coaches,
+                    gpt_manager=self.gpt_manager,
+                    episode_id=episode_id,
+                )
+                metrics["p15_telemetry"] = _p15_metrics.to_dict()
+        except Exception as e:
+            logger.debug(f"[P15] Telemetry collection failed: {e}")
+
         return metrics
     
     # =========================================================================
@@ -3133,6 +3156,41 @@ class SmartOrchestrator:
                 episode_id=self._current_episode_id,
                 step_idx=step, agent_id=result.agent_name,
             )
+            
+            # ─────────────────────────────────────────────────────────────
+            # PHASE 15.0: SENSORY BUFFER — push parsed observation
+            # Pushes a bounded entry into per-agent SensoryBuffer on the
+            # agent's SmartCoach. Feature-flag gated: FF_SENSORY_BUFFER.
+            # ─────────────────────────────────────────────────────────────
+            if result.agent_name in self.coaches:
+                _coach = self.coaches[result.agent_name]
+                if getattr(_coach, '_p15_sensory_buffer', None) is not None:
+                    try:
+                        from core.neuro.sensory_buffer import SensoryBufferEntry
+                        import time as _time
+                        _disc_list = []
+                        if agent_discoveries:
+                            for _dk, _dv in agent_discoveries.items():
+                                if isinstance(_dv, (list, set)):
+                                    _disc_list.extend(str(x) for x in list(_dv)[:5])
+                        _phase_name = (
+                            self.attack_context.current_phase.name
+                            if self.attack_context else "RECON"
+                        )
+                        _entry = SensoryBufferEntry(
+                            timestamp=_time.time(),
+                            command=(result.decision.command or "")[:120],
+                            output_signature=(output_to_parse or "")[:200],
+                            discoveries=_disc_list[:10],
+                            confidence=result.decision.confidence,
+                            phase=_phase_name,
+                        )
+                        _coach._p15_sensory_buffer.push(_entry)
+                    except Exception as e:
+                        import logging as _lg
+                        _lg.getLogger("ariaska.orchestration").debug(
+                            f"[P15] Sensory push failed: {e}"
+                        )
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 7.2: VENICE REASONING LAYER — humanlike output analysis

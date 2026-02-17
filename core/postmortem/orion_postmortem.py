@@ -99,7 +99,7 @@ POSTMORTEM_SCHEMA = {
 
 @dataclass
 class SkillCard:
-    """A learned skill/pattern from training."""
+    """A learned skill/pattern from training (v2 — Phase 14.0)."""
     id: str
     if_condition: str  # When to apply this skill
     then_action: str   # What action to take
@@ -109,7 +109,17 @@ class SkillCard:
     created_at: float = field(default_factory=time.time)
     usage_count: int = 0
     success_rate: float = 0.0
-    
+
+    # ── Phase 14.0: SkillCard v2 fields ─────────────────────────────
+    preconditions: Dict[str, Any] = field(default_factory=dict)
+    postconditions: Dict[str, Any] = field(default_factory=dict)
+    failure_signatures: List[str] = field(default_factory=list)
+    expected_output_patterns: List[str] = field(default_factory=list)
+    service_archetypes: List[str] = field(default_factory=list)
+    reward_history: List[float] = field(default_factory=list)
+    last_used_episode: int = 0
+    applicable_phases: List[str] = field(default_factory=list)
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
     

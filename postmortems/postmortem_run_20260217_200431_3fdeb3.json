@@ -1,0 +1,115 @@
+{
+  "run_id": "run_20260217_200431_3fdeb3",
+  "timestamp": 1771355080.337967,
+  "key_outcomes": {
+    "wins": [
+      "Consistently gathered preliminary reconnaissance data across the single episode, reflected in steady reward accumulation (60 total reward).",
+      "Effectively engaged mentor guidance 10 times, indicating adaptive learning attempts when encountering blocking issues."
+    ],
+    "fails": [
+      "Overall success rate remained 0%, meaning the ultimate objective was never achieved despite repeated reward accumulation.",
+      "No lateral movement attempts were successful; lacked follow-through after initial reconnaissance, stalling progression in the kill chain."
+    ],
+    "summary": "Reconnaissance efforts were consistent and rewarded, but failing to translate holdings into exploitation or persistence left the mission incomplete."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stagnated after initial service identification without attempting exploitation or privilege escalation.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step16",
+        "ep001_step20",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771355087.396939,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with version headers",
+      "then_action": "Execute nikto scan and searchsploit for matched versions",
+      "parameters_template": {
+        "tool1": "nikto",
+        "tool2": "searchsploit",
+        "options": "-host PORT"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step15"
+      ],
+      "created_at": 1771355087.396951,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance yields no immediate vulnerabilities",
+      "then_action": "Document findings and pivot to targeted service scanning with custom nmap timing",
+      "parameters_template": {
+        "nmap_args": "-T4 -sC -sV -p-"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step17"
+      ],
+      "created_at": 1771355087.396959,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Effectively captured HTTP findings that could inform next exploitation efforts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automated Exploitation Attempt",
+      "description": "After confirming services via reconnaissance, execute targeted exploit modules (e.g., Metasploit auxiliary) focusing on identified HTTP/SSH versions to transition into exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Harvest Persistence",
+      "description": "Deploy short credential brute force campaigns and seed successful combos into a credential store to attempt pivoting after initial access.",
+      "priority": "medium"
+    },
+    {
+      "title": "Enhanced Pivoting Walkthrough",
+      "description": "Script systematic pivot steps (VPN/SSH tunnel creation) after exploitation to prepare for lateral movement scenarios.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

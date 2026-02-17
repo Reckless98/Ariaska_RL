@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260217_185834_03af18",
+  "timestamp": 1771351137.0497935,
+  "key_outcomes": {
+    "wins": [
+      "Completed full network reconnaissance and mapped 32 hosts within target subnet (ep001_step08).",
+      "Enumerated web service versions and captured consistent banner data for prioritized hosts (ep001_step12)."
+    ],
+    "fails": [
+      "Failed to escalate privileges due to missing exploit paths after initial web enumeration (ep001_step20).",
+      "Authentication attempts blocked by account lockout policies, preventing lateral movement (ep001_step22)."
+    ],
+    "summary": "Recon phase performed solidly, but inability to pivot beyond initial foothold and repeated privilege escalation failures stalled mission."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated privilege escalation attempts stalled after web service enumeration without credible exploit chains.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step21",
+        "ep001_step22",
+        "ep001_step23"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When host enumeration reveals Apache 2.4.x with PHP modules",
+      "then_action": "Run targeted web vulnerability scan focusing on CVE-2021-41773 and directory traversal scripts",
+      "parameters_template": {
+        "target": "<ip>",
+        "scan_tool": "nmap",
+        "script": "http-vuln*",
+        "additional_flags": "-p 80,443"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17"
+      ],
+      "created_at": 1771351144.7146332,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB shares listed but access denied",
+      "then_action": "Use CrackMapExec with domain credentials to enumerate share permissions and identify writable targets",
+      "parameters_template": {
+        "target": "<ip>",
+        "userlist": "loot/usernames.txt",
+        "passlist": "loot/passwords.txt",
+        "options": "--shares --sessions"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18"
+      ],
+      "created_at": 1771351144.7146418,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service detected with default banner",
+      "then_action": "Perform aggressive credential spraying followed by SSH key brute forcing with hydra",
+      "parameters_template": {
+        "target": "<ip>",
+        "port": 22,
+        "userlist": "loot/common_users.txt",
+        "passlist": "loot/common_passwords.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step19"
+      ],
+      "created_at": 1771351144.7146475,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate correlating Apache enumeration to actionable exploits."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate privilege escalation chains post-web enumeration",
+      "description": "After confirming Apache/CVE opportunities, pivot to container escape or local privilege escalation scripts (e.g., linPEAS, gtfobins) on discovered hosts to break out of limited service shells.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse across SMB/SSH services",
+      "description": "Take validated web service credentials and test reuse on SMB and SSH targets with CrackMapExec/hydra to uncover lateral movement paths without relying on new brute force.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automate detection of locked accounts to adjust brute force pace",
+      "description": "Implement cooldown tracking in brute force scripts (hydra/cewl) to prevent account lockouts and enable longer attack windows.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

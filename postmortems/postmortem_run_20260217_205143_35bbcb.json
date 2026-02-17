@@ -1,0 +1,151 @@
+{
+  "run_id": "run_20260217_205143_35bbcb",
+  "timestamp": 1771357912.4679205,
+  "key_outcomes": {
+    "wins": [
+      "Mapped external perimeter with rapid nmap sweeps, capturing consistent service fingerprints for prioritized hosts.",
+      "Captured initial credentials via brute forcing the exposed authentication portal, enabling further internal reconnaissance."
+    ],
+    "fails": [
+      "Unable to escalate privileges after obtaining low-privilege shell due to missing vulnerable binaries and limited sudo rights.",
+      "Lacked persistence mechanism after the C2 channel was detected and killed, nullifying the foothold."
+    ],
+    "summary": "Run gathered strong reconnaissance intel and initial access but stalled at post-exploitation due to privilege escalation and persistence gaps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-access privilege escalation attempts consistently fail because sudo rights are denied and no local exploits are present.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step25",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When service enumeration reveals open ports 22 or 3389 with default banners",
+      "then_action": "Run targeted enumeration with nmap scripting engine to gather credentials/encryption details",
+      "parameters_template": {
+        "ports": [
+          22,
+          3389
+        ],
+        "scripts": [
+          "ssh-auth-methods",
+          "rdp-enum-encryption"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771357924.4823463,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web authentication portal is reachable with valid usernames",
+      "then_action": "Launch hydra password spraying using captured username list and identify weak credentials",
+      "parameters_template": {
+        "module": "http-post-form",
+        "users": "captured_usernames.txt",
+        "passlist": "common_passwords.txt",
+        "paths": [
+          "/login"
+        ],
+        "form": "username=^USER^&password=^PASS^"
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step10"
+      ],
+      "created_at": 1771357924.4823735,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When low-privilege shell is obtained without sudo rights",
+      "then_action": "Enumerate SUID binaries and kernel version for manual escalation or exploit matches",
+      "parameters_template": {
+        "commands": [
+          "find / -perm -4000 -type f 2>/dev/null",
+          "uname -a"
+        ]
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step20"
+      ],
+      "created_at": 1771357924.4823906,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent success in early reconnaissance using nmap NSE scripts led to actionable credential evidence."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Hydra spray reliably produced valid initial credentials during the run."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate sudo filtering with enumeration",
+      "description": "After pulling low-privilege shell, immediately enumerate sudo capabilities and available binaries to rule out privilege escalation opportunities before manual exploit search.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate persistence discovery",
+      "description": "Deploy automated scripts (e.g., bloodhound+custom service fiber) to search for writable cron/systemd units once a foothold is established.",
+      "priority": "medium"
+    },
+    {
+      "title": "Blend credential reuse with lateral scanning",
+      "description": "When credentials are captured, automatically feed them into internal SMB/SSH scans to expand lateral reach before C2 detection.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
