@@ -166,22 +166,23 @@ class GPTManager:
     - Strict mode: fail fast if API key missing
     """
     
-    # Model configuration
+    # Model configuration — Phase 12.1: All reasoning tasks → gpt-5.2-codex
+    # This map is kept for test compatibility. Actual routing is in get_model_for_role().
     MODEL_MAP = {
-        # Primary models by role — all agents use codex-mini for normal ops
-        "red": "gpt-5.1-codex-mini",
-        "orion": "gpt-5.1-codex-mini",
-        "scout": "gpt-5.1-codex-mini",
-        "shadow": "gpt-5.1-codex-mini",
-        "blue": "gpt-5.1-codex-mini",
+        # All agents use gpt-5.2-codex for reasoning/mentor tasks
+        "red": "gpt-5.2-codex",
+        "orion": "gpt-5.2-codex",
+        "scout": "gpt-5.2-codex",
+        "shadow": "gpt-5.2-codex",
+        "blue": "gpt-5.2-codex",
         # Task-based routing
-        "tactical": "gpt-5.1-codex-mini",
-        "strategic": "gpt-5.2-codex",        # Orion planning + postmortem (shared deep model)
-        "reasoning": "gpt-5.1-codex-mini",
-        "analysis": "gpt-5.1-codex-mini",
-        "classification": "gpt-5.1-codex-mini",
+        "tactical": "gpt-5.2-codex",
+        "strategic": "gpt-5.2-codex",
+        "reasoning": "gpt-5.2-codex",
+        "analysis": "gpt-5.2-codex",
+        "classification": "gpt-5.1-codex-mini",   # Lightweight parsing only
         "embedding": "gpt-5.1-codex-mini",
-        "postmortem": "gpt-5.2-codex",       # Deep reasoning for end-of-run analysis
+        "postmortem": "gpt-5.2-codex",
         # Fallbacks
         "general": "gpt-5.1-codex-mini",
         "default": "gpt-5.1-codex-mini",
@@ -274,12 +275,12 @@ class GPTManager:
         
         # Token budgeting - per episode and per agent (Phase 7: increased for codex reasoning)
         # Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning — 195K/episode, 62.4K/agent
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "195000"))  # Phase 11.5: +50% (was 130K) for maximum mentor guidance storage
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "62400"))  # Phase 11.5: +50% (was 41.6K) for deepest mentor→apprentice learning
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "292500"))  # Phase 12.0: +50% (was 195K) for ultra-deep mentor→apprentice reasoning
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "93600"))  # Phase 12.0: +50% (was 62.4K) for ultra-deep per-agent reasoning
         # Phase 11.5: Reasoning/memory/learning tasks get 173% more token headroom (+50% from 1.82)
         # Prevents hitting limits during deep exploit reasoning, pwn trajectory analysis, and learning
         self.reasoning_task_types = {"reasoning", "tactical", "strategic", "analysis", "learning"}
-        self.reasoning_token_multiplier = 2.73  # Phase 11.5: +50% (was 1.82) for ultra-deep mentor→apprentice reasoning
+        self.reasoning_token_multiplier = 4.10  # Phase 12.0: +50% (was 2.73) for maximum mentor→apprentice reasoning depth
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None
@@ -605,10 +606,14 @@ class GPTManager:
         """
         Get appropriate model based on agent role and task type.
         
+        Phase 12.1: ALL mentor/planning/teaching/reasoning tasks use gpt-5.2-codex.
+        Only lightweight classification tasks (output parsing, reformatting) use
+        the cheaper codex-mini model to save tokens.
+        
         Role-based routing:
-        - Red/Orion agents -> GPT-5-mini (tactical/strategic)
-        - Scout/Shadow/Blue -> GPT-5-nano (lightweight classification)
-        - Postmortem tasks -> GPT-5.2 (deep reasoning, if enabled)
+        - Mentor/tactical/reasoning/analysis → GPT-5.2-codex (full reasoning)
+        - Lightweight parsing/classification → GPT-5.1-codex-mini (fast, cheap)
+        - Postmortem → GPT-5.2-codex (deep reasoning)
         
         Args:
             agent_id: Agent identifier (e.g., "RedAgent", "ScoutAgent")
@@ -617,30 +622,18 @@ class GPTManager:
         Returns:
             str: Model name to use
         """
-        # Extract role from agent_id
-        role = None
-        if agent_id:
-            agent_lower = agent_id.lower()
-            if "red" in agent_lower:
-                role = "red"
-            elif "orion" in agent_lower:
-                role = "orion"
-            elif "scout" in agent_lower:
-                role = "scout"
-            elif "shadow" in agent_lower:
-                role = "shadow"
-            elif "blue" in agent_lower:
-                role = "blue"
+        # Phase 12.1: All reasoning-intensive tasks use strategic model (gpt-5.2-codex)
+        # This includes mentor guidance, tactical decisions, strategic planning,
+        # analysis, learning/teaching, diversification, and reasoning.
+        _reasoning_tasks = {
+            "tactical", "reasoning", "learning", "analysis",
+            "strategic", "diversify", "postmortem", "defensive",
+            "reconnaissance",
+        }
+        if task_type in _reasoning_tasks:
+            return self.strategic_model  # gpt-5.2-codex
         
-        # Special handling for postmortem
-        if task_type == "postmortem":
-            return self.postmortem_model
-        
-        # Strategic: Orion planning + deep reasoning (gpt-5.2-codex, shared with postmortem)
-        if task_type == "strategic":
-            return self.strategic_model
-        
-        # Everything else uses primary (codex-mini)
+        # Everything else (general, parsing, classification) uses primary (codex-mini)
         return self.primary_model
     
     def get_model_for_task(self, task_type: str) -> str:
@@ -812,7 +805,8 @@ class GPTManager:
     def gpt_request(self, prompt: str, task_type: str = "general", 
                    agent_id: str = "unknown", max_tokens: int = 150,
                    model: Optional[str] = None, allow_fallback: bool = True,
-                   timeout: Optional[int] = None) -> str:
+                   timeout: Optional[int] = None,
+                   system_prompt: Optional[str] = None) -> str:
         """
         Make a request to GPT with role-based model routing.
         
@@ -824,6 +818,9 @@ class GPTManager:
             model: Optional explicit model override
             allow_fallback: Whether to allow fallback to backup model
             timeout: Optional request timeout in seconds (default: 8 for agents, higher for analysis)
+            system_prompt: Optional custom system prompt override. When provided,
+                replaces the internal task_type-based system prompt. Used by
+                ReflectiveCortex and other callers needing specialized prompts.
             
         Returns:
             str: The model's response
@@ -877,7 +874,11 @@ class GPTManager:
                 "learning": "You are a cybersecurity mentor AI teaching an apprentice agent. Explain the exploit reasoning chain: what vulnerability exists, why it works, how to chain it with other findings, and what to look for in the output. Be educational and specific."
             }
             
-            system_prompt = system_prompts.get(task_type, system_prompts["general"])
+            _system_prompt = system_prompts.get(task_type, system_prompts["general"])
+            
+            # Phase 12.1: Allow callers to override with custom system prompt
+            if system_prompt is not None:
+                _system_prompt = system_prompt
             
             # Use threading for cross-platform timeout handling with aggressive fallback
             import concurrent.futures
@@ -896,7 +897,7 @@ class GPTManager:
                     codex_token_budget = max(max_tokens * 15, 2000)
                     return self.client.responses.create(
                         model=model,
-                        instructions=system_prompt,
+                        instructions=_system_prompt,
                         input=prompt,
                         max_output_tokens=codex_token_budget,
                     )
@@ -905,7 +906,7 @@ class GPTManager:
                     request_params = {
                         "model": model,
                         "messages": [
-                            {"role": "system", "content": system_prompt},
+                            {"role": "system", "content": _system_prompt},
                             {"role": "user", "content": prompt}
                         ],
                         token_param: max_tokens,

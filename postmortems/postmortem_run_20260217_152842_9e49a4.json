@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260217_152842_9e49a4",
+  "timestamp": 1771338538.3113515,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial network scan (nmap -sC -sV) and identified services on ports 22, 80, and 8080, establishing a clear attack surface.",
+      "Captured application version banners on port 80 revealing outdated Apache 2.4.26 and PHP 7.2.10, providing precise exploitation targets."
+    ],
+    "fails": [
+      "Repeated privilege escalation attempts failed due to missing local privilege exploits and no writable sudoers entries.",
+      "No persistent foothold was achieved because workstation persistence techniques were not completed before session time expired."
+    ],
+    "summary": "Reconnaissance stage succeeded with high-quality data, but exploitation and post-ex gains stalled due to ineffective privilege escalation and persistence efforts."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation stalled because brute-force sudo and local exploit attempts could not access vulnerable binaries.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep002_step12",
+        "ep003_step08",
+        "ep004_step11",
+        "ep005_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum_001",
+      "if_condition": "When port 22 is open and SSH banner shows OpenSSH 7.x",
+      "then_action": "Run targeted SSH scan with nmap scripts sshv1 and ssh-auth-methods",
+      "parameters_template": {
+        "port": 22,
+        "script": "sshv1,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep002_step04"
+      ],
+      "created_at": 1771338545.685522,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_recon_002",
+      "if_condition": "When port 80/8080 identifies Apache 2.4.x + PHP 7.2.x",
+      "then_action": "Execute nikto scan followed by gobuster directory brute force",
+      "parameters_template": {
+        "host": "target_ip",
+        "ports": [
+          80,
+          8080
+        ],
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep003_step07",
+        "ep004_step02"
+      ],
+      "created_at": 1771338545.685542,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_harvest_003",
+      "if_condition": "When default login pages expose Apache/PHP versions",
+      "then_action": "Run wfuzz for credential fuzzing and search application config leaks",
+      "parameters_template": {
+        "url": "http://target_ip/login",
+        "fuzz_list": "/usr/share/wordlists/rockyou.txt",
+        "follow_redirects": true
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep005_step06",
+        "ep006_step03"
+      ],
+      "created_at": 1771338545.6855528,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum_001",
+      "skill_card_id": "skill_ssh_enum_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Chained Credential Harvesting",
+      "description": "After confirming Apache/PHP versions, run wfuzz snippet brute-forcing against discovered login endpoints and follow with gobuster-discovered backup configs to harvest creds.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege Escalation Path Mapping",
+      "description": "Enumerate sudo rights (sudo -l) and list setuid binaries + GTFOBins to identify workable local exploit chains before executing.",
+      "priority": "high"
+    },
+    {
+      "title": "Persistence Preparation",
+      "description": "Prepare follow-up by staging upload of a web shell to writable directories identified by nikto and gobuster before exploitation deadline.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

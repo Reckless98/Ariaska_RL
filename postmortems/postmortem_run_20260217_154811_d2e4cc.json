@@ -1,0 +1,118 @@
+{
+  "run_id": "run_20260217_154811_d2e4cc",
+  "timestamp": 1771339716.4515538,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward generation across the single episode, demonstrating stability in the agent's policy updates.",
+      "Managed 15 mentor calls without crashing, indicating resilience of the training loop under guided interventions."
+    ],
+    "fails": [
+      "Zero percent success rate indicates failure to achieve mission-critical objective despite exploration.",
+      "Lack of progression beyond initial stages; no successful exploitation or data exfiltration recorded."
+    ],
+    "summary": "Stable reward trajectory but operationally ineffective\u2014agent fails to complete mission tasks due to inability to translate reconnaissance into successful intrusion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance data collected but no pivot to exploitation; repeated halt after initial enumeration phase.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH service detected",
+      "then_action": "Run SSH brute-force and key-check enumeration using nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771339722.8813508,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "After initial TCP connect scan reveals port 80 or 443",
+      "then_action": "Launch web content discovery with dirb followed by nikto for vulnerability discovery",
+      "parameters_template": {
+        "tool_sequence": [
+          "dirb",
+          "nikto"
+        ],
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1771339722.8813598,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service banner includes outdated software version",
+      "then_action": "Query exploit-db for matching vulnerabilities and prepare proof-of-concept payload",
+      "parameters_template": {
+        "banner_keyword": "Apache/2.2",
+        "exploit_db_query": "apache 2.2 remote code execution"
+      },
+      "confidence": 0.59,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step15"
+      ],
+      "created_at": 1771339722.881365,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration consistently triggered with open port 22 and provided actionable service data"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration steps yielded consistent reconnaissance outputs for HTTP/HTTPS targets"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Chain exploitation after reconnaissance",
+      "description": "Build on successful enumeration by integrating credential harvesting (hydra/medusa) followed by automated exploit attempts (metasploit auxiliary modules) to validate kill-chain closure.",
+      "priority": "high"
+    },
+    {
+      "title": "Resilience tuning under mentor guidance",
+      "description": "Reduce mentor call dependence by adjusting policy weights to emphasize successful reconnaissance-to-exploitation transitions, tracking success rate improvement.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated pivot planning",
+      "description": "Implement automatic service-to-exploit mapping using existing vulnerability database to trigger immediate exploitation attempts when enumeration confirms outdated services.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

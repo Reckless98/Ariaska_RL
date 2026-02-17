@@ -493,6 +493,38 @@ HTB_AWKWARD = HTBMachine(
     lessons=["JS bundles can leak JWT secrets", "SSRF to enumerate internal services", "Filename-based command injection via cron"],
 )
 
+# Phase 12.1: Soulmate — next HTB target
+HTB_SOULMATE = HTBMachine(
+    name="Soulmate", difficulty="easy", os="linux", ip_pattern="10.10.11.x",
+    services=[(22, "OpenSSH 8.x"), (80, "HTTP → CrushFTP 11")],
+    initial_foothold="CVE-2025-31161 CrushFTP auth bypass → admin → reset creds → FTP upload → RCE",
+    privesc_method="Internal Erlang/OTP SSH on 127.0.0.1:2222 → port forward → CVE-based RCE → root",
+    key_cves=["CVE-2025-31161"],
+    kill_chain=[
+        "nmap -sV -sC <target>",
+        "gobuster vhost -u http://<target> -w subdomains.txt  # discover ftp.soulmate.htb",
+        "# Identify CrushFTP 11 login panel → version fingerprint",
+        "# CVE-2025-31161 → auth bypass → create admin user",
+        "# Reset FTP user password via admin panel",
+        "# Upload PHP/reverse shell via FTP → trigger → www-data shell",
+        "# linpeas → find SSH ForceCommand wrapper for user ben",
+        "# Discover Erlang SSH on 127.0.0.1:2222 → port forward",
+        "ssh -L 2222:127.0.0.1:2222 www-data@<target>",
+        "# Exploit Erlang/OTP SSH RCE → root shell",
+        "cat /root/root.txt",
+    ],
+    tools_needed=["nmap", "gobuster", "curl", "ftp", "ssh", "linpeas"],
+    tags=["web", "crushftp", "cve", "vhost", "port-forward", "erlang", "internal-service"],
+    lessons=[
+        "Version fingerprinting is high-value signal",
+        "Credentials are multi-service leverage",
+        "Internal-only services are high-priority pivots",
+        "Local privilege escalation may require port forwarding",
+        "CMS/service admin panels can reset other users' passwords",
+        "ForceCommand directives may restrict SSH but reveal internal services",
+    ],
+)
+
 # ──── More boxes (concise format for knowledge density) ────
 
 HTB_MACHINES_EXTENDED = [
@@ -526,6 +558,7 @@ HTB_MACHINES_EXTENDED = [
     ("BoardLight", "linux", "easy", "Dolibarr CMS default creds → PHP reverse shell → user", "Enlightenment SUID (CVE-2022-37706) → root", ["dolibarr", "cms", "enlightenment-suid"]),
     ("TwoMillion", "linux", "easy", "API invite code generation → register → command injection → user", "OverlayFS CVE-2023-0386 → root", ["api", "command-injection", "overlayfs"]),
     ("Analytics", "linux", "easy", "Metabase pre-auth RCE (CVE-2023-38646) → Docker container", "OverlayFS CVE-2023-2640/CVE-2023-32629 (GameOver(lay)) → host root", ["metabase", "docker", "overlayfs"]),
+    ("Soulmate", "linux", "easy", "CVE-2025-31161 CrushFTP auth bypass → FTP upload → RCE", "Erlang/OTP SSH RCE via port forward → root", ["crushftp", "cve", "vhost", "port-forward", "erlang"]),
 ]
 
 

@@ -327,7 +327,7 @@ class SmartCoach:
         learned_store: Optional[LearnedCommandStore] = None,
         reward_calculator: Optional[SmartRewardCalculator] = None,
         mentor_log_path: Optional[str] = None,
-        model: str = "gpt-5.1-codex-mini",
+        model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning for all mentor calls
         tactical_cortex: Optional[Any] = None,
         executive_cortex: Optional[Any] = None,
         budget_controller: Optional[Any] = None,
@@ -544,26 +544,14 @@ class SmartCoach:
         self._r68_forced_phase_group: Optional[int] = None  # Codex can force phase head
 
         # =====================================================================
-        # PHASE 8: COGNITION NODE — Unified multi-brain decision fusion
-        # Coordinates DDQN(macro) + PPO(micro) + SAC(explore) + RND(curiosity)
-        # + SIL(self-imitation) + EMA(critics) through a learned ConfidenceGate.
+        # PHASE 8: COGNITION NODE — REMOVED (Phase 12.1)
+        # CognitionNode had 3 critical bugs:
+        #   B1: Action-space mismatch (DDQN macro 0-8 fused with PPO 0-4+)
+        #   B2: SIL injection corrupted PPO GAE (value=0.0)
+        #   B3: _vote_ppo() bypassed R67-R80 features
+        # SmartCoach already handles DDQN→PPO constraint in _ppo_select_command()
         # =====================================================================
-        self.cognition_node = None
-        try:
-            from core.algorithms.cognition_node import CognitionNode, CognitionConfig
-            if self.ppo_agent is not None:
-                cog_config = CognitionConfig()
-                self.cognition_node = CognitionNode(
-                    config=cog_config,
-                    ppo=self.ppo_agent,
-                    sac=self.sac_agent,
-                    ddqn=self.ddqn_macro,
-                    rnd=getattr(self, '_rnd_curiosity', None),
-                    device="cpu",
-                )
-                logger.debug(f"[COGNITION] {agent_name}: Multi-brain node initialized")
-        except Exception as e:
-            logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
+        self.cognition_node = None  # Kept as None for backward compat
 
         # =====================================================================
         # PHASE 8: CODEX PERSONA ROUTER — 4-persona Codex/Claude routing
@@ -2520,101 +2508,9 @@ class SmartCoach:
                 step_ctx, current_phase, filtered_commands
             )
         
-        # =====================================================================
-        # PHASE 8: COGNITION NODE — Multi-brain decision fusion
-        # When CognitionNode is available, let it fuse DDQN+PPO+SAC+RND
-        # into a single action with learned confidence gating.
-        # Store the CognitionResult for later observe() in record_result().
-        # Falls through to existing pipeline if confidence is too low.
-        # =====================================================================
+        # PHASE 8: CognitionNode — REMOVED (Phase 12.1, see init comment)
         self._cognition_result = None  # Reset per-step
         cognition_decision = None
-        if (self.cognition_node is not None
-                and codex_meta_result is None
-                and skill_result is None
-                and playbook_result is None):
-            try:
-                import torch as _torch
-                _, _, _, encode_state = _lazy_ppo()
-                if encode_state is not None:
-                    state_dict = step_ctx.state if step_ctx.state else {}
-                    state_tensor = encode_state(
-                        state_dict, _torch.device("cpu"),
-                        current_step=step_ctx.step,
-                        max_steps=250,
-                    )
-                    # Build action mask from filtered_commands
-                    if self.action_mapper is not None:
-                        action_mask = self.action_mapper.get_action_mask_with_counts(
-                            filtered_commands, command_counts={}, max_repeats=1,
-                        )
-                        if not isinstance(action_mask, _torch.Tensor):
-                            action_mask = _torch.tensor(action_mask, dtype=_torch.bool)
-                        
-                        # Macro-constrained indices (from DDQN if available)
-                        _macro_indices = None
-                        if self._active_macro is not None and self._ddqn_confidence > 0.5:
-                            try:
-                                from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
-                                macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
-                                _macro_indices = set()
-                                for i, tmpl in enumerate(self.action_mapper.commands):
-                                    if tmpl[0] in macro_cmds:
-                                        _macro_indices.add(i)
-                            except Exception:
-                                pass
-                        
-                        phase_name = current_phase.name if current_phase else "RECON"
-                        cog_result = self.cognition_node.think(
-                            state=state_tensor,
-                            action_mask=action_mask,
-                            phase=phase_name,
-                            macro_allowed_indices=_macro_indices,
-                            step_id=step_ctx.step if step_ctx else None,  # Phase 9.5: dedup
-                        )
-                        self._cognition_result = cog_result
-                        
-                        # If confidence is strong enough, use the CognitionNode's action
-                        if cog_result.confidence > 0.45 and cog_result.action_idx >= 0:
-                            _cog_template = self.action_mapper.action_to_command(
-                                cog_result.action_idx,
-                            )
-                            _cog_name = self.action_mapper.action_to_name(
-                                cog_result.action_idx,
-                            ) or ""
-                            if _cog_template:
-                                _cog_params = {"target": ctx.target}
-                                chosen_cmd = render_command(_cog_template, _cog_params)
-                                cognition_decision = SmartDecisionResult(
-                                    command=chosen_cmd,
-                                    source="cognition_node",
-                                    confidence=cog_result.confidence,
-                                    template_name=_cog_name,
-                                    params=_cog_params,
-                                    mentor_call=False,
-                                    reasoning=(
-                                        f"[COGNITION] brain={cog_result.winning_brain} "
-                                        f"conf={cog_result.confidence:.2f} "
-                                        f"rnd={cog_result.rnd_bonus:.2f}"
-                                    ),
-                                    phase=current_phase,
-                                )
-                                # Store PPO trajectory data from CognitionResult
-                                if cog_result.ppo_state is not None:
-                                    self._ppo_pending = {
-                                        "state": cog_result.ppo_state,
-                                        "action": cog_result.ppo_action,
-                                        "log_prob": cog_result.ppo_log_prob,
-                                        "value": cog_result.ppo_value,
-                                    }
-                                logger.debug(
-                                    f"[COGNITION][{self.agent_name}] "
-                                    f"brain={cog_result.winning_brain} "
-                                    f"action={cog_result.action_idx} "
-                                    f"conf={cog_result.confidence:.2f}"
-                                )
-            except Exception as e:
-                logger.debug(f"[COGNITION][{self.agent_name}] think() failed: {e}")
         
         # Cascade debug — verify web_paths reach the decision point
         _db_wp = discovery_board.get("web_paths", [])
@@ -2663,11 +2559,11 @@ class SmartCoach:
             # Red/Orion get TRIPLED rates for exploit reasoning learning
             _is_key_agent = self.agent_name in ("RedAgent", "OrionAgent")
             if _is_key_agent:
-                # Phase 11.5: +50% for Red/Orion mentor guidance — starts at 1.0, decays to 0.89
-                base_mentor_rate = max(0.89, min(1.0, 1.76 - self.current_episode * 0.009))
+                # Phase 12.0: +50% for Red/Orion mentor guidance — starts at 1.0, decays to 0.94
+                base_mentor_rate = max(0.94, min(1.0, 1.88 - self.current_episode * 0.006))
             else:
-                # Phase 11.5: +50% for all agents — starts at 1.0, decays to 0.59
-                base_mentor_rate = max(0.59, min(1.0, 1.37 - self.current_episode * 0.012))
+                # Phase 12.0: +50% for all agents — starts at 1.0, decays to 0.75
+                base_mentor_rate = max(0.75, min(1.0, 1.56 - self.current_episode * 0.008))
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -2683,7 +2579,7 @@ class SmartCoach:
             # Phase 11.5: Confidence-gated dynamic floor/ceiling (+50%)
             # When PPO is confident (high ppo_confidence_boost) → tighten mentor bounds
             # When PPO is unsure (low ppo_confidence_boost) → widen bounds for reasoning
-            _dynamic_floor = 0.59 if not _is_key_agent else 0.89  # Phase 11.5: +50% (was 0.39/0.59)
+            _dynamic_floor = 0.75 if not _is_key_agent else 0.94  # Phase 12.0: +50% (was 0.59/0.89)
             _dynamic_ceiling = 0.95 if not _is_key_agent else 1.0
             if ppo_confidence_boost > 0.06:
                 # PPO is confident — reduce mentor floor to save tokens
@@ -2694,9 +2590,9 @@ class SmartCoach:
                     f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
                 )
             elif ppo_confidence_boost < 0.02:
-                # PPO is unsure — raise floor +173% for ultra-accelerated mentor→apprentice guidance
-                _dynamic_floor *= 2.73  # Phase 11.5: +50% (was 1.82)
-                _dynamic_ceiling = min(1.0, _dynamic_ceiling * 1.21)  # Phase 11.5: +50% (was 1.14)
+                # PPO is unsure — raise floor +260% for maximum mentor→apprentice guidance
+                _dynamic_floor *= 3.60  # Phase 12.0: +50% (was 2.73)
+                _dynamic_ceiling = min(1.0, _dynamic_ceiling * 1.32)  # Phase 12.0: +50% (was 1.21)
                 logger.debug(
                     f"[{self.agent_name}] PPO unsure → "
                     f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
@@ -3190,7 +3086,8 @@ class SmartCoach:
         _reasoning_question = ""
 
         # R60: Codex Meta is the top reasoning layer — never second-guess it
-        _skip_reasoning = (result.source == "codex_meta")
+        # web_followup has its own phase-aware progression — don't override it
+        _skip_reasoning = (result.source in ("codex_meta", "web_followup"))
         
         # Case 1: Command is from a phase 2+ steps behind current
         if _skip_reasoning:
@@ -4892,6 +4789,9 @@ class SmartCoach:
                         f"(conf={best.confidence:.2f}) → {template.name}"
                     )
 
+                    # Phase 12.1: Record usage for conformity decay
+                    self.skill_library.record_usage(best.id)
+
                     return SmartDecisionResult(
                         command=command,
                         template_name=template.name,
@@ -4944,6 +4844,10 @@ class SmartCoach:
             self._explored_web_paths = set()
         if not hasattr(self, '_explored_web_path_ids'):
             self._explored_web_path_ids = set()
+        if not hasattr(self, '_explored_web_path_html'):
+            self._explored_web_path_html = set()
+        if not hasattr(self, '_explored_web_path_downloads'):
+            self._explored_web_path_downloads = set()
         
         ctx = step_ctx.attack_context
         current_phase = ctx.current_phase if ctx else None
@@ -4992,6 +4896,63 @@ class SmartCoach:
                     template_name="curl_web_path_ids",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] IDOR enumeration /{path_clean}/0-5",
+                    phase=current_phase,
+                    mentor_call=False,
+                )
+
+            # Third: extract links from IDOR-successful pages (find download URLs)
+            if path_clean not in self._explored_web_path_html:
+                self._explored_web_path_html.add(path_clean)
+                logger.warning(
+                    f"[WEB_FOLLOWUP][{self.agent_name}] Phase3: extracting links from /{path_clean}/0"
+                )
+                cmd = (
+                    f"curl -sL http://{target}/{path_clean}/0 | "
+                    f"grep -oiE 'href=\"[^\"]*\"' | sort -u | head -20"
+                )
+                self._step_reasoning_log.append({
+                    "event": "web_followup_links",
+                    "detail": f"Extracting links from /{path_clean}/0 HTML",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.80,
+                    template_name="curl_web_path_links",
+                    params={"target": target, "path": path_clean},
+                    reasoning=f"[WEB_FOLLOWUP] Extracting links from /{path_clean}/0 HTML",
+                    phase=current_phase,
+                    mentor_call=False,
+                )
+
+            # Fourth: download content from common download URL patterns
+            # and analyze for credentials (e.g. PCAP files with FTP creds).
+            # Tries /download/N (common webapp pattern), then /path/N/download.
+            if path_clean not in self._explored_web_path_downloads:
+                self._explored_web_path_downloads.add(path_clean)
+                logger.warning(
+                    f"[WEB_FOLLOWUP][{self.agent_name}] Phase4: downloading from /download/0-3"
+                )
+                cmd = (
+                    f"for i in 0 1 2 3; do "
+                    f"wget -q http://{target}/download/$i -O /tmp/dl_$i 2>/dev/null && "
+                    f"echo \"=== /download/$i ===\"  && "
+                    f"file /tmp/dl_$i && "
+                    f"strings /tmp/dl_$i 2>/dev/null | "
+                    f"grep -iE 'USER|PASS|230|331|login|ftp' | head -10; "
+                    f"done"
+                )
+                self._step_reasoning_log.append({
+                    "event": "web_followup_download",
+                    "detail": f"Downloading content from /download/0-3 for credential extraction",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.85,
+                    template_name="download_idor_content",
+                    params={"target": target, "path": path_clean},
+                    reasoning=f"[WEB_FOLLOWUP] Downloading /download/0-3 + credential extraction",
                     phase=current_phase,
                     mentor_call=False,
                 )
@@ -5963,18 +5924,7 @@ class SmartCoach:
                 self._ddqn_prev_macro = None  # R57 Layer 1
                 self._last_step_had_discovery = False  # R57 Layer 1
             
-            # Phase 8: CognitionNode end-of-episode metrics + SAC update
-            if self.cognition_node is not None:
-                try:
-                    cog_metrics = self.cognition_node.end_episode()
-                    logger.debug(
-                        f"[COGNITION][{self.agent_name}] Episode end: "
-                        f"wins={cog_metrics.get('brain_wins', {})} "
-                        f"rnd_total={cog_metrics.get('total_rnd_bonus', 0):.1f} "
-                        f"sil_buf={cog_metrics.get('sil_buffer_size', 0)}"
-                    )
-                except Exception as e:
-                    logger.debug(f"CognitionNode end_episode failed: {e}")
+            # Phase 8: CognitionNode — REMOVED (Phase 12.1)
 
             # Phase 10.0: Cloud role — PostmortemSkillExtractor at episode end
             if self._postmortem_extractor and self._postmortem_extractor.can_call():
@@ -6272,6 +6222,17 @@ class SmartCoach:
             shared_discoveries=shared_discoveries,
         )
         
+        # D2: Populate discovery_details for _emit_step_event tracking
+        if new_discoveries:
+            for disc_type, disc_values in new_discoveries.items():
+                if isinstance(disc_values, list):
+                    for v in disc_values:
+                        breakdown.discovery_details.append(f"{disc_type}:{v}")
+                elif isinstance(disc_values, bool) and disc_values:
+                    breakdown.discovery_details.append(f"{disc_type}:found")
+                else:
+                    breakdown.discovery_details.append(f"{disc_type}:{disc_values}")
+        
         # Record with learned store
         context_tags = {self.attack_context.platform, self.attack_context.difficulty}
         preconditions = set(k for k, v in self.attack_context.state_flags.items() if v)
@@ -6557,25 +6518,8 @@ class SmartCoach:
                 logger.debug(f"[DDQN][{self.agent_name}] Transition store failed: {e}")
             self._ddqn_pending = None
         
-        # ─── PHASE 8: CognitionNode observe — update all sub-brains ───
-        if self.cognition_node is not None and self._cognition_result is not None:
-            try:
-                import torch as _torch
-                _, _, _, encode_state = _lazy_ppo()
-                if encode_state is not None:
-                    next_state_dict = {
-                        "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
-                    }
-                    next_state = encode_state(next_state_dict, _torch.device("cpu"))
-                    self.cognition_node.observe(
-                        cognition_result=self._cognition_result,
-                        reward=breakdown.total,
-                        next_state=next_state,
-                        done=done,
-                    )
-            except Exception as e:
-                logger.debug(f"[COGNITION][{self.agent_name}] observe() failed: {e}")
-            self._cognition_result = None
+        # PHASE 8: CognitionNode observe — REMOVED (Phase 12.1)
+        self._cognition_result = None
         
         # ─── PHASE 8: Tick persona cooldowns ───
         if self.persona_router is not None:
@@ -6777,14 +6721,11 @@ class SmartCoach:
         # Web path follow-up: reset explored paths per episode
         self._explored_web_paths: set = set()
         self._explored_web_path_ids: set = set()
+        self._explored_web_path_html: set = set()
+        self._explored_web_path_downloads: set = set()
         
-        # Phase 8: Reset CognitionNode + PersonaRouter per episode
+        # Phase 8: Reset CognitionNode (REMOVED Phase 12.1) + PersonaRouter per episode
         self._cognition_result = None
-        if self.cognition_node is not None:
-            try:
-                self.cognition_node.reset_episode()
-            except Exception:
-                pass
         if self.persona_router is not None:
             try:
                 self.persona_router.reset_episode()

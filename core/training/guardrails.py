@@ -32,7 +32,7 @@ class BudgetGovernor:
     """
 
     max_tokens_per_run: Optional[int] = None      # Total token cap (None = unlimited)
-    max_tokens_per_episode: int = 50_000           # Per-episode soft cap
+    max_tokens_per_episode: int = 75_000           # Phase 12.0: +50% (was 50K) per-episode soft cap
     warning_threshold_pct: float = 0.80            # Warn at 80% of run budget
     
     # Runtime state

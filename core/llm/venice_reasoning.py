@@ -125,6 +125,7 @@ class VeniceReasoningLayer:
         call_budget_per_episode: int = 30,  # Phase 9.1: doubled for deeper output analysis
         min_output_length: int = 30,
         enable_cross_episode_memory: bool = True,
+        budget_controller: Optional[Any] = None,
     ):
         """
         Initialize the Venice reasoning layer.
@@ -134,12 +135,14 @@ class VeniceReasoningLayer:
             call_budget_per_episode: Max Venice calls per episode (cost control)
             min_output_length: Minimum output length to trigger analysis
             enable_cross_episode_memory: Whether aha moments persist across episodes
+            budget_controller: Optional AdaptiveBudgetController for unified budget tracking
         """
         self.gpt_manager = gpt_manager
         self.call_budget = call_budget_per_episode
         self._calls_this_episode = 0
         self.min_output_length = min_output_length
         self.enable_cross_episode_memory = enable_cross_episode_memory
+        self._budget_controller = budget_controller
         
         # Cross-episode aha memory (persists across episodes for accelerated learning)
         self._aha_memory: List[AhaMoment] = []
@@ -172,10 +175,23 @@ class VeniceReasoningLayer:
         self.stats["episodes_analyzed"] += 1
     
     def can_analyze(self) -> bool:
-        """Check if we have budget for another Venice analysis call."""
+        """Check if we have budget for another Venice analysis call.
+        
+        Phase 12.1: Also consults AdaptiveBudgetController when available
+        to ensure Venice calls respect unified budget pressure.
+        """
         if not self.gpt_manager or not self.gpt_manager.has_venice():
             return False
-        return self._calls_this_episode < self.call_budget
+        if self._calls_this_episode >= self.call_budget:
+            return False
+        # Phase 12.1: Check unified budget controller
+        if self._budget_controller is not None:
+            try:
+                if not self._budget_controller.can_call_venice():
+                    return False
+            except Exception:
+                pass
+        return True
     
     def _build_analysis_prompt(
         self,
@@ -330,6 +346,18 @@ CRITICAL RULES:
                 self.gpt_manager.stats_venice["total_requests"] += 1
                 self.gpt_manager.stats_venice["successes"] += 1
                 self.gpt_manager.stats_venice["tokens_used"] += insight.tokens_used
+                # Phase 12.1: Unified budget accounting — Venice tokens count
+                # against the global token budget to prevent invisible spend
+                if hasattr(self.gpt_manager, 'tokens_used'):
+                    self.gpt_manager.tokens_used += insight.tokens_used
+                # Phase 12.1: Record in AdaptiveBudgetController
+                if self._budget_controller is not None:
+                    try:
+                        self._budget_controller.record_venice_call(
+                            tokens_used=insight.tokens_used
+                        )
+                    except Exception:
+                        pass
             
             # Parse response
             content = ""

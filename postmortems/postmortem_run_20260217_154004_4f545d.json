@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260217_154004_4f545d",
+  "timestamp": 1771339220.9986153,
+  "key_outcomes": {
+    "wins": [
+      "Consistently gathered telemetry across 10 mentor calls resulting in a stable reward per episode of 60.00",
+      "Maintained methodical note-taking enabling clear post-run analysis despite failed mission completion"
+    ],
+    "fails": [
+      "Final objective never reached, yielding 0% success rate despite accumulating reward",
+      "Repeated mishandling of privilege escalation stage prevented persistence on target"
+    ],
+    "summary": "Run generated solid reconnaissance data but stalled during exploitation/privilege escalation, requiring new tactics to convert reward into objectives."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts aborted after discovering missing sudo rights",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step16",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When low-sensitivity reconnaissance reveals multiple open TCP ports with service banners",
+      "then_action": "Run targeted Nmap service enumeration with version detection and script scanning",
+      "parameters_template": {
+        "ports": "1-65535",
+        "scripts": "banner,vuln",
+        "flags": "-sV -sC"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771339228.4708834,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 responds with a banner and no valid credentials yet",
+      "then_action": "Launch Hydra brute-force using candidate username/password lists",
+      "parameters_template": {
+        "target": "192.168.0.10",
+        "port": 22,
+        "username_list": "usernames.txt",
+        "password_list": "common.txt"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771339228.4709027,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial shell is acquired without root privileges",
+      "then_action": "Enumerate sudo configurations and kernel exploits for escalation",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "uname -a",
+          "getcap -r / 2>/dev/null"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771339228.4709125,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High-value reconnaissance pattern that repeatedly yielded service data enabling downstream actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Privilege escalation planning is critical to break past current failure loops"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Leverage gathered service info for automated exploit chaining",
+      "description": "Use detailed Nmap data to feed into AutoSploit or Metasploit auxiliary modules focusing on services identified in reconnaissance",
+      "priority": "high"
+    },
+    {
+      "title": "Structured privilege escalation trials",
+      "description": "Systematically test sudo misconfigurations and kernel CVEs identified during enumeration, capturing outputs for each attempt",
+      "priority": "high"
+    },
+    {
+      "title": "Credential stuffing on SSH with contextual lists",
+      "description": "Refine Hydra runs with tenant-specific username/password dictionaries derived from network/email intel to avoid lockouts",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

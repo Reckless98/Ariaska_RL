@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260217_170104_55e3ce",
+  "timestamp": 1771344082.6049802,
+  "key_outcomes": {
+    "wins": [
+      "Established stable foothold within accessible network segment through successful reconnaissance",
+      "Documented external service inventory and confirmed active HTTP/SSH ports, enabling focused follow-up"
+    ],
+    "fails": [
+      "Unable to escalate privileges after initial access, limiting ability to pivot",
+      "Automated credential guessing against SSH service timed out without valid credentials"
+    ],
+    "summary": "Clear reconnaissance success but momentum stalled due to privilege escalation and credential exhaustion failures."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently failed because no writable sudoers or obvious binary weaknesses were identified",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,sshv1"
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771344092.8258486,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_recon",
+      "if_condition": "When HTTP service responds with 200 OK on port 80",
+      "then_action": "Capture server headers and enumerate directories with gobuster",
+      "parameters_template": {
+        "url": "http://TARGET",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771344092.825861,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_priv_esc_check",
+      "if_condition": "When user shell is limited and sudo privileges unknown",
+      "then_action": "Run automated sudo enumeration (sudo -l) and search for SUID binaries",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "find / -perm -4000 -type f 2>/dev/null | head"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771344092.8258696,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "SSH enumeration consistently provided actionable banner and authentication insights during initial scans"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential stuffing with focused SSH dictionary",
+      "description": "Use harvested usernames and curated password lists (e.g., rockyou filtered by policy) against SSH port 22 with hydra to validate access paths",
+      "priority": "high"
+    },
+    {
+      "title": "Local privilege escalation recon",
+      "description": "Execute targeted sudo -l checks and leverage linpeas/cgather to identify misconfigurations or outdated binaries for escalation",
+      "priority": "medium"
+    },
+    {
+      "title": "HTTP post-auth enumeration",
+      "description": "If HTTP authentication unlocks additional pages, use Burp Suite spider + manual injection checks on discovered endpoints",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

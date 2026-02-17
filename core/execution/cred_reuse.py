@@ -122,6 +122,12 @@ class CredentialReuseEngine:
         )
         return True
     
+    # Critical ports that should ALWAYS be tried for credential reuse,
+    # even if they haven't been discovered by port scanning yet.
+    # SSH is the most valuable reuse target — creds found in PCAP/FTP
+    # must be tried on SSH immediately, not after nmap runs.
+    ALWAYS_TRY_PORTS = {22, 21}
+
     def generate_reuse_commands(
         self,
         cred: DiscoveredCredential,
@@ -142,6 +148,9 @@ class CredentialReuseEngine:
         if not cred.reusable:
             return []
         
+        # Always include critical ports even if not yet discovered
+        effective_ports = known_ports | self.ALWAYS_TRY_PORTS
+        
         commands = []
         
         for service, templates in SERVICE_REUSE_TEMPLATES.items():
@@ -150,8 +159,8 @@ class CredentialReuseEngine:
                 continue
             
             for port, template in templates:
-                # Only try services whose ports are open
-                if port not in known_ports:
+                # Only try services whose ports are open (or in always-try set)
+                if port not in effective_ports:
                     continue
                 
                 # Skip already-tried combinations

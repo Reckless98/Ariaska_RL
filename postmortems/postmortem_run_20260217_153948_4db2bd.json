@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260217_153948_4db2bd",
+  "timestamp": 1771339195.0817685,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance pace reaching reward 40 despite no final success, indicating thorough coverage of accessible surfaces (e.g., ep001_step05 reconnaissance logs)."
+    ],
+    "fails": [
+      "Repeated failure to escalate privileges after initial foothold attempts, leading to zero success rate across the episode.",
+      "Inability to maintain persistent access due to missing cleanup and detection avoidance steps."
+    ],
+    "summary": "Reconnaissance was methodical but kills chain stalled at persistence/privilege escalation; need targeted follow-ups on post-exploit actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently halted by missing sudo enumeration and kernel exploit checks.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial SSH credentials are obtained or a default account is active",
+      "then_action": "Capture local user info and sudo privileges with 'id && sudo -l' to enumerate escalation paths.",
+      "parameters_template": {
+        "commands": [
+          "id",
+          "sudo -l"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12"
+      ],
+      "created_at": 1771339201.3305905,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When Linux kernel version is reported after enumeration",
+      "then_action": "Run 'searchsploit <kernel_version>' and cross-check exploitability using 'linux-exploit-suggester-2.sh'.",
+      "parameters_template": {
+        "kernel_version": "auto_detect_from_uname",
+        "exploit_tool": "linux-exploit-suggester-2.sh"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step18"
+      ],
+      "created_at": 1771339201.3305984,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When port scans reveal open SMB or RPC services",
+      "then_action": "Invoke 'nmap -p 135,139,445 --script smb-enum-shares,smb-vuln*' followed by 'smbclient -L' to map shares.",
+      "parameters_template": {
+        "ports": [
+          135,
+          139,
+          445
+        ],
+        "scripts": [
+          "smb-enum-shares",
+          "smb-vuln*"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771339201.330604,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High relevance for bridging reconnaissance to privilege escalation in this run."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured Privilege Escalation Pipeline",
+      "description": "After capturing user context, run sequential sudo enumeration, kernel version discovery, and exploit suggestion tools, then test high-confidence local exploits.",
+      "priority": "high"
+    },
+    {
+      "title": "Persistent Access Validation",
+      "description": "Implement persistence using scheduled tasks or service modifications post-exploitation and verify by re-authenticating to confirm foothold stability.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

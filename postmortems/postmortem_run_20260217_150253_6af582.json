@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260217_150253_6af582",
+  "timestamp": 1771336981.287325,
+  "key_outcomes": {
+    "wins": [
+      "Successfully reached final reward milestone of 60.00 despite not completing the mission, showing stable execution within limited steps",
+      "Maintained consistent decision-making sequence across mentor-assisted steps, enabling reproducible behaviors for further tuning"
+    ],
+    "fails": [
+      "Mission never succeeded (0.00% success rate) despite 10 mentor calls, indicating inability to close the kill chain",
+      "Repeated reliance on mentor hints rather than autonomous discovery suggests brittle reconnaissance planning"
+    ],
+    "summary": "Training run demonstrated stable behavior but failed to translate guidance into mission success; focus next on autonomous recon and pivot strategies to close persistence."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to exploit the primary service after port enumeration, bouncing back to mentor hints instead of crafting payload",
+      "frequency": 7,
+      "evidence_refs": [
+        "run_20260217_150253_6af582_ep1_step6",
+        "run_20260217_150253_6af582_ep1_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 responds with a web banner and 200 status",
+      "then_action": "Run detailed web enumeration plus template-based fuzzing",
+      "parameters_template": {
+        "tool": "nikto",
+        "url": "http://{{target}}",
+        "extra": [
+          "-C all",
+          "-Format htm"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "run_20260217_150253_6af582_ep1_step3",
+        "run_20260217_150253_6af582_ep1_step8"
+      ],
+      "created_at": 1771336989.1419299,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When identifying accessible SMB shares on a host",
+      "then_action": "Enumerate SMB with enum4linux and capture share list",
+      "parameters_template": {
+        "tool": "enum4linux",
+        "flags": [
+          "-a"
+        ],
+        "target": "{{host_ip}}"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260217_150253_6af582_ep1_step5"
+      ],
+      "created_at": 1771336989.1419446,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a host responds to ping and shows common Windows TTL",
+      "then_action": "Initiate aggressive SMB/WinRM fingerprinting",
+      "parameters_template": {
+        "tools": [
+          "nmap",
+          "crackmapexec"
+        ],
+        "nmap_args": [
+          "-p 445",
+          "--script smb-protocols"
+        ],
+        "cme_args": [
+          "winrm",
+          "{{host_ip}}"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260217_150253_6af582_ep1_step7"
+      ],
+      "created_at": 1771336989.1419554,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent success in identifying web interfaces that can be further probed"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reliable SMB discovery lays groundwork for later exploitation attempts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous payload crafting after port scanning",
+      "description": "Incorporate scripted payload generation immediately after successful port discovery to reduce mentor dependency, e.g., automatic selection of Metasploit module from matched service",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive reconnaissance branching",
+      "description": "Implement decision logic that, upon failure to exploit initial service, automatically pivots to secondary enumeration (e.g., switch from HTTP to SMB/WinRM scanning) within the same episode",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor-less validation checkpoint",
+      "description": "Add evaluation checkpoint to confirm action led to expected state change before requesting mentor input, improving autonomy; use custom observation filtering to detect service responses",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

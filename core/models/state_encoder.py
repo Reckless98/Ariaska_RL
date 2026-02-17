@@ -20,8 +20,9 @@ Architecture:
     Section 10: Target Profile           [110-114]  5 dims  (Phase 5.2+)
     Section 11: Discovery Breakdown      [115-122]  8 dims  (Phase 5.2+)
     Section 12: Reasoning Context        [123-142] 20 dims  (Phase 6.9.6)
+    Section 13: Tactical Depth           [143-167] 25 dims  (Phase 12.1)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~143 / 512
+    Total meaningful dims: ~168 / 512  (33% utilisation)
 """
 
 import torch
@@ -317,9 +318,6 @@ def encode_state(
             vec[idx] = min(len(disc_set) / 10.0, 1.0)
         idx += 1  # 123 after loop
 
-    # ─── Remaining dims [123-511] are zero-padded ────────────────────
-    # ~123 meaningful dims / 512 total
-
     # ─── Section 12: Reasoning Context (20 dims) [123-142] ──────────
     # Phase 6.9.6: Encode attack reasoning signals for smarter PPO
 
@@ -422,8 +420,91 @@ def encode_state(
     vec[idx] = max(min((actual_phase - expected_phase_by_step) / len(PHASES), 1.0), -1.0) * 0.5 + 0.5
     idx += 1  # 143 after section 12
 
-    # ─── Remaining dims [143-511] are zero-padded ────────────────────
-    # ~143 meaningful dims / 512 total
+    # ─── Section 13: Tactical Depth Features (25 dims) [143-167] ────
+    # Phase 12.1: Higher-resolution signals derived from existing state
+    # Fills previously zero-padded dims to improve PPO state utilisation
+
+    # Kill chain completion staircase (7 dims) — which phases already passed
+    # Different from Section 1's current-phase one-hot: this encodes the
+    # cumulative history of progress (a "staircase" encoding)
+    for kc_idx in range(7):  # 7 main phases (excluding closeout)
+        vec[idx] = 1.0 if phase_idx > kc_idx else 0.0
+        idx += 1  # 150 after loop
+
+    # Port cluster fractional density (6 dims)
+    # Unlike Section 12's binary "any port open in cluster", this encodes
+    # how many ports in each cluster are open (0.0 to 1.0)
+    _port_clusters = [
+        {80, 443, 8080, 8180, 8443, 8484},         # web
+        {3306, 5432, 1433, 27017},                   # database
+        {25, 110, 143, 993, 995},                    # email/messaging
+        {22, 23, 3389, 5900, 512, 513, 514},         # remote access
+        {1524, 6667, 6697},                           # backdoor
+        {53, 111, 135, 139, 445, 1099, 2049, 3632},  # infrastructure
+    ]
+    for cluster in _port_clusters:
+        hits = len(open_port_set & cluster)
+        vec[idx] = min(float(hits) / max(len(cluster), 1), 1.0)
+        idx += 1  # 156 after loop
+
+    # Service enumeration depth (3 dims)
+    n_services = len(services_lower)
+    n_ports = len(open_port_set)
+    # Breadth: how many services identified (normalised)
+    vec[idx] = min(float(n_services) / 15.0, 1.0)
+    idx += 1
+    # Coverage: service-to-port ratio (higher = better enumeration)
+    vec[idx] = min(float(n_services) / max(float(n_ports), 1.0), 1.0)
+    idx += 1
+    # High-value service saturation (pentest-critical services found)
+    _hv_services = ["ssh", "http", "smb", "ftp", "mysql", "postgresql"]
+    _hv_count = sum(1 for hv in _hv_services if any(hv in s for s in services_lower))
+    vec[idx] = min(float(_hv_count) / 3.0, 1.0)
+    idx += 1  # 159
+
+    # Exploitation depth (4 dims)
+    n_vulns = len(vulns) if isinstance(vulns, (list, set)) else 0
+    n_exploited = len(exploited) if isinstance(exploited, (list, set)) else 0
+    # Vuln-to-exploit conversion rate
+    vec[idx] = min(float(n_exploited) / max(float(n_vulns), 1.0), 1.0)
+    idx += 1
+    # Exploitation count (normalised)
+    vec[idx] = min(float(n_exploited) / 5.0, 1.0)
+    idx += 1
+    # Privilege escalation progress (ordinal)
+    vec[idx] = PRIVILEGE_MAP.get(priv, 0.0)
+    idx += 1
+    # Root achievement flag (binary shortcut for PPO)
+    vec[idx] = 1.0 if state_flags.get("root_shell_obtained", False) else 0.0
+    idx += 1  # 163
+
+    # Discovery dynamics (5 dims)
+    _db = state.get("discovery_board", {})
+    _n_creds = len(_db.get("credentials", set()) or set()) if isinstance(_db.get("credentials"), (set, list)) else 0
+    _n_shells = len(_db.get("shells", set()) or set()) if isinstance(_db.get("shells"), (set, list)) else 0
+    _n_flags = len(_db.get("flags_set", set()) or set()) if isinstance(_db.get("flags_set"), (set, list)) else 0
+    _n_webpaths = len(_db.get("web_paths", set()) or set()) if isinstance(_db.get("web_paths"), (set, list)) else 0
+    _total_disc = n_ports + n_services + _n_creds + _n_shells + n_vulns + _n_flags + _n_webpaths
+    # Total discovery saturation
+    vec[idx] = min(float(_total_disc) / 30.0, 1.0)
+    idx += 1
+    # Discovery rate (discoveries per step, normalised)
+    vec[idx] = min(float(_total_disc) / max(float(current_step + 1), 1.0), 1.0)
+    idx += 1
+    # Resource efficiency: discoveries per GPT call used
+    _gpt_used = max(gpt_calls_max - gpt_calls_remaining, 1)
+    vec[idx] = min(float(_total_disc) / float(_gpt_used), 1.0)
+    idx += 1
+    # Flag progress (normalised to 2-flag target)
+    vec[idx] = min(float(_n_flags) / 2.0, 1.0)
+    idx += 1
+    # Acceleration: are we discovering faster than average?
+    _expected_disc_at_step = float(current_step + 1) * 0.5  # ~0.5 disc/step baseline
+    vec[idx] = max(min((float(_total_disc) - _expected_disc_at_step) / 10.0, 1.0), 0.0)
+    idx += 1  # 168 after section 13
+
+    # ─── Remaining dims [168-511] are zero-padded ────────────────────
+    # ~168 meaningful dims / 512 total  (33% utilisation, up from 28%)
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

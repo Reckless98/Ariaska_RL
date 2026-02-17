@@ -1,0 +1,129 @@
+{
+  "run_id": "run_20260217_153245_38d8e7",
+  "timestamp": 1771338783.4493756,
+  "key_outcomes": {
+    "wins": [
+      "Mapped the network perimeter with comprehensive host discovery tools, resulting in a full list of reachable assets.",
+      "Captured consistent HTTP service banners allowing identification of outdated app versions for prioritizing future exploits."
+    ],
+    "fails": [
+      "Failed to escalate privileges due to missing credential access and lack of vulnerable service exploitation.",
+      "Repeatedly stalled during lateral movement attempts after initial foothold, preventing mission success."
+    ],
+    "summary": "Strong reconnaissance foundation but execution failed to translate into exploitation and persistence; focus next on credential harvesting and privilege escalation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to obtain valid credentials despite repeated brute-force attempts against SSH and SMB.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step24",
+        "ep001_step30"
+      ]
+    },
+    {
+      "pattern": "Privilege escalation stalled when no vulnerable local binaries or misconfigurations were identified after enumeration.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step27",
+        "ep001_step34"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 responds with HTTP banner containing outdated Apache version",
+      "then_action": "Run nikto with aggressive scanning and follow-up with Metasploit auxiliary scanner",
+      "parameters_template": {
+        "target": "<ip>",
+        "port": 80,
+        "nikto_opts": "-Tuning 32 -output nikto_http.txt",
+        "msf_module": "scanner/http/apache_options"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771338790.1953816,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open but no valid credentials yet obtained",
+      "then_action": "Execute a targeted BruteSSH script using Hydra with the validated wordlist",
+      "parameters_template": {
+        "target": "<ip>",
+        "port": 22,
+        "username_list": "validated_users.txt",
+        "password_list": "common_creds.txt",
+        "parallel": 4
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step20"
+      ],
+      "created_at": 1771338790.1953967,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB shares are listed but access denied",
+      "then_action": "Enumerate shares using smbclient and then run enum4linux for ACL insights",
+      "parameters_template": {
+        "target": "<ip>",
+        "enum4linux_opts": "-a",
+        "smbclient_cmd": "smbclient -L //<ip> -N"
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771338790.1954067,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High accuracy in identifying vulnerable HTTP services during reconnaissance."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH brute-force consistently attempted but needs refinement; retention ensures quick retries."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting through SMB enumeration",
+      "description": "Target SMB shares with smbclient and enum4linux, capture ACLs and attempt dumped hashes for pass-the-hash.",
+      "priority": "high"
+    },
+    {
+      "title": "Local privilege escalation search",
+      "description": "Run winPEAS/linux-savvy post enumeration to identify writable binaries, SUDO permissions, and scheduled tasks.",
+      "priority": "medium"
+    },
+    {
+      "title": "Pivot via authenticated HTTP session",
+      "description": "Use valid HTTP session (from nikto findings) to deploy webshell and attempt lateral movement into adjacent subnet.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -418,6 +418,9 @@ class LiveCommandExecutor:
                 "strings /", "file /", "dpkg ", "apt ",
                 "service ", "systemctl ", "journalctl ",
                 "python3 -c", "python -c",  # For cap_setuid exploitation
+                "perl -e", "ruby -e",       # Alternative cap exploitation
+                "/usr/bin/python", "/usr/bin/perl",  # Absolute paths for cap_setuid
+                "cat /home/", "cat /root/",  # Reading flags
             )
             cmd_stripped = command.strip()
             if any(cmd_stripped.startswith(p) for p in _LOCAL_PRIVESC_PREFIXES):
@@ -433,7 +436,7 @@ class LiveCommandExecutor:
                         f"-o ConnectTimeout=5 {self._default_ssh_user}@{self.target_ip} "
                         f"'{escaped_cmd}'"
                     )
-                    logger.debug(
+                    logger.warning(
                         f"[LIVE-AUTOWRAP] Wrapped with discovered creds "
                         f"({self._default_ssh_user}): {cmd_stripped[:50]}..."
                     )

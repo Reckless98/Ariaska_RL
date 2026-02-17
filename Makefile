@@ -1,10 +1,12 @@
-# ARIASKA_RL Makefile — Phase 7.3
+# ARIASKA_RL Makefile — Phase 12.1
 #
 # Unified entry point: ariaska_cli.py smart-train
 #
 # Usage:
 #   make venv            - Create/upgrade .venv, install dependencies
-#   make test            - Run pytest
+#   make test            - Run pytest (full suite)
+#   make test-cap        - Run Cap regression harness only
+#   make test-fast       - Run fast subset (no integration)
 #   make train           - Default training (MS3 medium, 100 eps)
 #   make train-quick     - Quick training (MS3 medium, 10 eps)
 #   make train-ms3       - MS3 medium 10 episodes
@@ -12,15 +14,17 @@
 #   make train-ms3-hard  - MS3 hard 10 episodes
 #   make train-ms2       - MS2 10 episodes (live)
 #   make train-ms2-hard  - MS2 hard 100 episodes (live)
+#   make train-htb       - HTB target training (requires --target)
 #   make smoke           - Quick smoke test (3 eps)
 #   make overnight       - Overnight progressive training (300 eps)
 #   make last            - View last training run
 #   make status          - System diagnostics
 #   make clean           - Clean temporary files
 
-.PHONY: venv test train train-quick train-ms3 train-ms3-medium train-ms3-hard \
-        train-ms2 train-ms2-hard train-msf smoke ms2-setup ms2-status ms2-health \
-        ms2-stop overnight overnight-quick last status clean help traces
+.PHONY: venv test test-cap test-fast train train-quick train-ms3 train-ms3-medium \
+        train-ms3-hard train-ms2 train-ms2-hard train-htb train-msf smoke \
+        ms2-setup ms2-status ms2-health ms2-stop overnight overnight-quick \
+        last status clean help traces
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -28,7 +32,7 @@ PYTEST := .venv/bin/pytest
 
 # Default target
 help:
-	@echo "ARIASKA_RL v7.3 — Multi-Agent Cybersec RL"
+	@echo "ARIASKA_RL v12.1 — Multi-Agent Cybersec RL"
 	@echo ""
 	@echo "  Training (MS3 LIVE — default):"
 	@echo "    make train           - MS3 LIVE medium, 100 eps (default)"
@@ -42,11 +46,18 @@ help:
 	@echo "    make train-ms2-hard  - MS2 live, 100 eps"
 	@echo "    make train-msf       - MS2 live, 20 eps"
 	@echo ""
+	@echo "  Training (HTB):"
+	@echo "    make train-htb TARGET=10.129.x.x  - HTB target, 50 eps"
+	@echo ""
+	@echo "  Testing:"
+	@echo "    make test            - Full pytest suite"
+	@echo "    make test-cap        - Cap regression harness only"
+	@echo "    make test-fast       - Fast subset (skip integration)"
+	@echo ""
 	@echo "  Utilities:"
 	@echo "    make smoke           - 3 eps, fast validation"
 	@echo "    make overnight       - Progressive 300 eps"
 	@echo "    make overnight-quick - Quick overnight 30 eps"
-	@echo "    make test            - Run pytest suite"
 	@echo "    make venv            - Setup virtual environment"
 	@echo "    make status          - System diagnostics"
 	@echo "    make last            - View last training run"
@@ -64,6 +75,14 @@ venv:
 # Run tests
 test:
 	$(PYTEST) -q
+
+# Cap regression harness only
+test-cap:
+	$(PYTEST) tests/test_cap_regression.py -v --tb=short
+
+# Fast tests (skip slow integration tests)
+test-fast:
+	$(PYTEST) -q -x --ignore=tests/test_smart_integration.py --ignore=tests/test_training_smoke.py
 
 # ── MS3 LIVE Training (default) ─────────────────────────────────────────────
 # Default: MS3 LIVE, 100 episodes (ms3_live difficulty)
@@ -102,6 +121,11 @@ train-ms2-hard:
 # Live Metasploitable 2 training (legacy)
 train-msf:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 20 --steps 40 --env ms2 --verbosity verbose
+
+# HTB target training (pass TARGET=<ip>)
+TARGET ?= 10.129.5.41
+train-htb:
+	$(PYTHON) ariaska_cli.py smart-train --episodes 50 --steps 60 --seed 42 --env htb --target $(TARGET) --verbosity verbose
 
 # MS2 Docker lab setup
 ms2-setup:

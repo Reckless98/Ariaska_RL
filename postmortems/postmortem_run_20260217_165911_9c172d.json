@@ -1,0 +1,107 @@
+{
+  "run_id": "run_20260217_165911_9c172d",
+  "timestamp": 1771343975.7925868,
+  "key_outcomes": {
+    "wins": [
+      "Achieved consistent reward of 90.00, indicating reliable execution of core reconnaissance steps throughout the episode.",
+      "Maintained focus on high-priority objectives despite mentor interventions, demonstrating controlled workflow."
+    ],
+    "fails": [
+      "Success rate remains 0.00%, showing the ultimate mission objectives were not met in this run.",
+      "High dependency on mentor calls (10 total) suggests lack of autonomous decision-making or preparation for key attack stages."
+    ],
+    "summary": "The agent demonstrated stable procedural behavior and reward consistency but failed to translate that into successful completion of mission goals, likely due to repeated inability to capitalize on the final exploitation steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Persistent inability to complete exploitation phase after successful reconnaissance, resulting in zero mission success despite high reward during earlier stages",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260217_165911_9c172d_episode1_step18",
+        "run_20260217_165911_9c172d_episode1_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration using nmap scripting engine",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260217_165911_9c172d_episode1_step5",
+        "run_20260217_165911_9c172d_episode1_step7"
+      ],
+      "created_at": 1771343983.6656325,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 80/443 discovered with HTTP response",
+      "then_action": "Enumerate web app using dirsearch plus Burp/OWASP ZAP spider",
+      "parameters_template": {
+        "tool": "dirsearch",
+        "extensions": "php,html,aspx",
+        "rate": "medium"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_165911_9c172d_episode1_step9",
+        "run_20260217_165911_9c172d_episode1_step11"
+      ],
+      "created_at": 1771343983.6656508,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When internal network host alive and uses SMB",
+      "then_action": "Run smbclient enumeration followed by CrackMapExec auto-check",
+      "parameters_template": {
+        "module": "smb-enum-shares",
+        "timeout": 10
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_165911_9c172d_episode1_step13",
+        "run_20260217_165911_9c172d_episode1_step16"
+      ],
+      "created_at": 1771343983.6656623,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automated exploitation post-recon",
+      "description": "Integrate a selective Metasploit module or custom exploit script immediately after successful enumeration to ensure chaining into exploitation stage.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Implement additional decision rules for known post-enum actions, minimizing mentor calls between reconnaissance and exploitation.",
+      "priority": "medium"
+    },
+    {
+      "title": "Session persistence validation",
+      "description": "Test automating persistence creation steps after exploitation to confirm mission completion flow.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

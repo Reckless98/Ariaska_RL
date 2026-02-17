@@ -181,14 +181,26 @@ class LLMOutputInterpreter:
         # Build the interpretation prompt
         prompt = self._build_prompt(command, output, agent_name, phase, known_discoveries)
 
-        # ── Try Venice qwen3-coder first ──
+        # ── Try Venice qwen3-coder first (Apprentice) ──
         if self._venice_available():
             lesson = self._call_venice(prompt, command, agent_name)
             if lesson and lesson.discoveries:
+                # Phase 12.1: Teacher validates high-value Apprentice discoveries
+                # GPT-5.2-codex validates when Venice finds shells, creds, or flags
+                # to prevent false positives from polluting the learning pipeline
+                _high_value = any(
+                    k in lesson.discoveries
+                    for k in ("shell", "root_shell", "credential", "flag", "user_flag", "root_flag")
+                    if lesson.discoveries.get(k)
+                )
+                if _high_value and self._gpt_available():
+                    validated = self._teacher_validate(lesson, command, output, agent_name)
+                    if validated is not None:
+                        lesson = validated
                 self._record_learned_patterns(agent_name, lesson)
                 return lesson
 
-        # ── Fallback to gpt-5.2-codex ──
+        # ── Fallback to gpt-5.2-codex (Teacher direct) ──
         if self._gpt_available():
             lesson = self._call_gpt_fallback(prompt, command, agent_name)
             if lesson and lesson.discoveries:
@@ -397,6 +409,102 @@ JSON:"""
             logger.debug(f"[LLM-INTERP] GPT fallback error: {e}")
 
         return None
+
+    def _teacher_validate(
+        self,
+        apprentice_lesson: InterpretationLesson,
+        command: str,
+        output: str,
+        agent_name: str,
+    ) -> Optional[InterpretationLesson]:
+        """Phase 12.1: Teacher (GPT-5.2-codex) validates Apprentice (Venice) high-value discoveries.
+        
+        When Venice finds shells, credentials, or flags, GPT-5.2-codex double-checks
+        the output to prevent false positives from inflating rewards and corrupting
+        the reward signal. If Teacher disagrees, returns a corrected lesson.
+        
+        Args:
+            apprentice_lesson: The lesson from Venice (Apprentice)
+            command: Original command
+            output: Original output
+            agent_name: Agent name
+            
+        Returns:
+            Corrected lesson if Teacher disagreed, None if Apprentice was correct
+        """
+        if not self._gpt:
+            return None
+        
+        self._gpt_calls += 1
+        self._stats["gpt_fallback_calls"] += 1
+        t0 = time.time()
+        
+        # Build compact validation prompt
+        truncated = output[:1500] if len(output) > 1500 else output
+        apprentice_claims = json.dumps(apprentice_lesson.discoveries, default=str)
+        
+        validation_prompt = (
+            f"VALIDATE these penetration testing discoveries.\n"
+            f"Command: {command[:200]}\n"
+            f"Output:\n{truncated[:800]}\n\n"
+            f"Apprentice claims: {apprentice_claims}\n\n"
+            f"Reply in JSON: {{\"valid\": true/false, \"corrections\": {{...}}, "
+            f"\"reasoning\": \"why\"}}\n"
+            f"If valid, return {{\"valid\": true}}. If false positives detected, "
+            f"return corrected discoveries in corrections field."
+        )
+        
+        try:
+            response = self._gpt.gpt_request(
+                prompt=validation_prompt,
+                task_type="reasoning",
+                agent_id=f"teacher_validate_{agent_name}",
+                max_tokens=300,
+                model=GPT_FALLBACK_MODEL,
+            )
+            
+            latency_ms = (time.time() - t0) * 1000
+            
+            if response:
+                json_match = re.search(r"\{.*\}", response, re.DOTALL)
+                if json_match:
+                    data = json.loads(json_match.group())
+                    if data.get("valid", True):
+                        # Teacher agrees — Apprentice was correct
+                        logger.debug(
+                            f"[TEACHER] Validated {agent_name} discoveries "
+                            f"({latency_ms:.0f}ms)"
+                        )
+                        return None
+                    else:
+                        # Teacher disagrees — use corrected discoveries
+                        corrections = data.get("corrections", {})
+                        if corrections:
+                            corrected = InterpretationLesson(
+                                command=command,
+                                agent_name=agent_name,
+                                discoveries=corrections,
+                                reasoning=(
+                                    f"Teacher corrected: {data.get('reasoning', 'false positive detected')}"
+                                ),
+                                patterns_learned=apprentice_lesson.patterns_learned,
+                                next_steps=apprentice_lesson.next_steps,
+                                model_used=GPT_FALLBACK_MODEL,
+                                provider="teacher_validation",
+                                confidence=0.85,
+                                latency_ms=latency_ms + apprentice_lesson.latency_ms,
+                                tokens_used=apprentice_lesson.tokens_used,
+                            )
+                            logger.info(
+                                f"[TEACHER] Corrected {agent_name}: "
+                                f"{list(apprentice_lesson.discoveries.keys())} → "
+                                f"{list(corrections.keys())} ({latency_ms:.0f}ms)"
+                            )
+                            return corrected
+        except Exception as e:
+            logger.debug(f"[TEACHER] Validation error: {e}")
+        
+        return None  # On error, trust Apprentice
 
     def _parse_response(
         self,

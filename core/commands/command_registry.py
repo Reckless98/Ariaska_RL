@@ -334,8 +334,8 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nikto_scan",
-    template="nikto -h {url} -C all",
-    description="Web vulnerability scanner. Finds common misconfigs and vulns.",
+    template="nikto -h {url} -C all -maxtime 30s",
+    description="Web vulnerability scanner (30s max). Finds common misconfigs and vulns.",
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
     preconditions={"http_service_found"},

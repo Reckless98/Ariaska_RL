@@ -85,18 +85,21 @@ class FakeGPTManager:
         ],
     }
     
-    # Model routing (mirrors real GPTManager)
+    # Model routing — Phase 12.1: mirrors real GPTManager (all reasoning → gpt-5.2-codex)
     MODEL_MAP = {
-        "red": "gpt-5.1-codex-mini",
-        "orion": "gpt-5.1-codex-mini",
-        "scout": "gpt-5.1-codex-mini",
-        "shadow": "gpt-5.1-codex-mini",
-        "blue": "gpt-5.1-codex-mini",
-        "tactical": "gpt-5.1-codex-mini",
-        "strategic": "gpt-5.1-codex-mini",
-        "reasoning": "gpt-5.1-codex-mini",
-        "analysis": "gpt-5.1-codex-mini",
-        "postmortem": "gpt-5.1-codex",
+        "red": "gpt-5.2-codex",
+        "orion": "gpt-5.2-codex",
+        "scout": "gpt-5.2-codex",
+        "shadow": "gpt-5.2-codex",
+        "blue": "gpt-5.2-codex",
+        "tactical": "gpt-5.2-codex",
+        "strategic": "gpt-5.2-codex",
+        "reasoning": "gpt-5.2-codex",
+        "analysis": "gpt-5.2-codex",
+        "postmortem": "gpt-5.2-codex",
+        "classification": "gpt-5.1-codex-mini",
+        "general": "gpt-5.1-codex-mini",
+        "default": "gpt-5.1-codex-mini",
     }
     
     def __init__(self, seed: int = 42):

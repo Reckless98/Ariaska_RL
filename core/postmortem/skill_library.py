@@ -491,9 +491,27 @@ class SkillLibrary:
         except Exception as e:
             logger.debug(f"Semantic matching failed (non-fatal): {e}")
 
-        # Sort by score * confidence (relevance × reliability)
-        scored.sort(key=lambda x: x[0] * x[1].confidence, reverse=True)
+        # Sort by score * confidence * conformity_decay (relevance × reliability × diversity)
+        # Phase 12.1: Conformity decay penalizes overused skills to promote exploration
+        def _conformity_decay(usage: int, half_life: int = 10) -> float:
+            """Decay factor: 1.0 for fresh skills → 0.5 at half_life uses → asymptote at 0."""
+            return 1.0 / (1.0 + usage / half_life)
+        
+        scored.sort(
+            key=lambda x: x[0] * x[1].confidence * _conformity_decay(x[1].usage_count),
+            reverse=True,
+        )
         return [skill for _, skill in scored]
+    
+    def record_usage(self, skill_id: str) -> None:
+        """Increment usage_count for a skill when it's recommended/used.
+        
+        Phase 12.1: This enables conformity decay — skills that get used
+        frequently will be ranked lower to promote exploration of alternative
+        strategies. Half-life is 10 uses.
+        """
+        if skill_id in self.skills:
+            self.skills[skill_id].usage_count += 1
     
     def get_top_skills(self, n: int = 10) -> List[SkillCard]:
         """Get top N skills by confidence."""

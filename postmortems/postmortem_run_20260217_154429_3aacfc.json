@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260217_154429_3aacfc",
+  "timestamp": 1771339475.154634,
+  "key_outcomes": {
+    "wins": [
+      "Mapped perimeter services quickly, identifying TCP/22 SSH and TCP/80 HTTP during initial reconnaissance (ep001_step03).",
+      "Captured low-privilege credentials from persistent log files, enabling repeatable access attempts (ep001_step07)."
+    ],
+    "fails": [
+      "Repeated post-exploitation privilege escalation attempts stalled due to missing sudo privileges and hardened SUID binaries (ep001_step12).",
+      "No successful mission completion recorded despite high reward accumulation, indicating gaps in final payload delivery or stability."
+    ],
+    "summary": "Reconnaissance and credential collection performed efficiently, but inability to escalate privileges or stabilize final access prevented mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "SSH brute-force attempts stall when account lockouts trigger after five retries; subsequent pivot operations are blocked until reset.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10",
+        "ep001_step11"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_recon_tcp",
+      "if_condition": "When an IP responds to a TCP ping",
+      "then_action": "Launch targeted nmap scan to enumerate open ports and service versions",
+      "parameters_template": {
+        "targets": "10.0.0.5",
+        "ports": "1-2000",
+        "scripts": "default,vuln"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1771339482.1041048,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts and capture banner to fingerprint server",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771339482.1041124,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_log_creds",
+      "if_condition": "When low-privilege shell obtained and /var/log accessible",
+      "then_action": "Search for credential artifacts using grep and copy relevant files for offline analysis",
+      "parameters_template": {
+        "paths": [
+          "/var/log/auth.log",
+          "/var/log/syslog"
+        ],
+        "pattern": "password|auth"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771339482.1041172,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_recon_tcp",
+      "skill_card_id": "skill_recon_tcp",
+      "reason": "Consistently identifies service landscape early, enabling all downstream actions."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "Reliably fingerprints SSH services, critical for choosing authentication strategies."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Prioritize non-lockout SSH authentication",
+      "description": "Switch to credential stuffing with small candidate set and multi-thread backoff to avoid triggering lockouts; document thresholds observed.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation via sudo enumeration",
+      "description": "Automate sudo -l parsing with unprivileged account and test enumerated commands for misconfigurations before exploiting.",
+      "priority": "medium"
+    },
+    {
+      "title": "Stabilize post-exploitation persistence",
+      "description": "Deploy a lightweight persistence backdoor and verify reliability through repeated reconnection attempts without reusing brute-force credentials.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

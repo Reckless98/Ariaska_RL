@@ -35,6 +35,7 @@ class RewardBreakdown:
         efficiency_bonus: Bonus for efficient command use
         total: Final calculated reward
         explanation: Human-readable explanation
+        discovery_details: List of discovery type:value strings for event tracking
     """
     base_reward: float = 0.0
     novelty_bonus: float = 0.0
@@ -46,6 +47,7 @@ class RewardBreakdown:
     efficiency_bonus: float = 0.0
     total: float = 0.0
     explanation: str = ""
+    discovery_details: List[str] = field(default_factory=list)  # D2: e.g. ["open_port:22", "service:ssh"]
     
     def calculate_total(self) -> float:
         """Calculate the total reward from components with symmetric capping.
@@ -136,7 +138,7 @@ class SmartRewardCalculator:
         
         # Phase 11.1: Explicit user/root flag capture bonuses
         "user_flag": 40.0,      # user flag = proof of initial compromise
-        "root_flag": 55.0,      # root flag = proof of full compromise (highest)
+        "root_flag": 50.0,      # root flag = proof of full compromise (ceiling-matched)
         
         # Web discoveries
         "directory": 2.5,       # directories expand attack surface

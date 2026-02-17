@@ -295,16 +295,16 @@ class TestLLMRouting(unittest.TestCase):
         # This will fail without API key, so we mock the routing logic
         model_map = GPTManager.MODEL_MAP
         
-        # Red/Orion should use mini
-        self.assertEqual(model_map.get("red"), "gpt-5.1-codex-mini")
-        self.assertEqual(model_map.get("orion"), "gpt-5.1-codex-mini")
+        # Phase 12.1: All agents use gpt-5.2-codex for reasoning
+        self.assertEqual(model_map.get("red"), "gpt-5.2-codex")
+        self.assertEqual(model_map.get("orion"), "gpt-5.2-codex")
         
-        # Scout/Shadow/Blue should use nano
-        self.assertEqual(model_map.get("scout"), "gpt-5.1-codex-mini")
-        self.assertEqual(model_map.get("shadow"), "gpt-5.1-codex-mini")
-        self.assertEqual(model_map.get("blue"), "gpt-5.1-codex-mini")
+        # Scout/Shadow/Blue also use gpt-5.2-codex for reasoning
+        self.assertEqual(model_map.get("scout"), "gpt-5.2-codex")
+        self.assertEqual(model_map.get("shadow"), "gpt-5.2-codex")
+        self.assertEqual(model_map.get("blue"), "gpt-5.2-codex")
         
-        # Postmortem should use 5.2-codex (deep reasoning)
+        # Postmortem uses gpt-5.2-codex
         self.assertEqual(model_map.get("postmortem"), "gpt-5.2-codex")
     
     def test_task_type_routing(self):
@@ -313,12 +313,12 @@ class TestLLMRouting(unittest.TestCase):
         
         model_map = GPTManager.MODEL_MAP
         
-        # Tactical uses mini, strategic uses 5.3-codex (Orion big-brain)
-        self.assertEqual(model_map.get("tactical"), "gpt-5.1-codex-mini")
+        # Phase 12.1: All reasoning tasks use gpt-5.2-codex
+        self.assertEqual(model_map.get("tactical"), "gpt-5.2-codex")
         self.assertEqual(model_map.get("strategic"), "gpt-5.2-codex")
         
-        # Analysis/classification should use nano
-        self.assertEqual(model_map.get("analysis"), "gpt-5.1-codex-mini")
+        # Analysis uses gpt-5.2-codex, classification stays mini
+        self.assertEqual(model_map.get("analysis"), "gpt-5.2-codex")
         self.assertEqual(model_map.get("classification"), "gpt-5.1-codex-mini")
     
     def test_gpt_manager_init_without_api_key(self):

@@ -101,16 +101,16 @@ class TestFakeGPTManager:
         assert len(result) > 0
     
     def test_model_routing(self):
-        """Should route to correct models based on role."""
+        """Should route to correct models based on role — Phase 12.1: all reasoning → gpt-5.2-codex."""
         gpt = FakeGPTManager()
         
-        # RedAgent -> gpt-5.1-codex-mini
+        # RedAgent tactical -> gpt-5.2-codex (Phase 12.1)
         result = gpt.request("RedAgent", "tactical", "Test")
-        assert result["model_used"] == "gpt-5.1-codex-mini"
+        assert result["model_used"] == "gpt-5.2-codex"
         
-        # Scout -> gpt-5.1-codex-mini
+        # Scout reconnaissance -> gpt-5.2-codex (Phase 12.1)
         result = gpt.request("Scout", "reconnaissance", "Test")
-        assert result["model_used"] == "gpt-5.1-codex-mini"
+        assert result["model_used"] == "gpt-5.2-codex"
     
     def test_token_tracking(self):
         """Should track token usage."""

@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260217_170010_fac591",
+  "timestamp": 1771344028.0276341,
+  "key_outcomes": {
+    "wins": [
+      "Identified initial network perimeter hosts quickly, confirming reachable target via ICMP/ARP probing",
+      "Captured clear service banners from target web and SSH services, providing actionable intel for follow-up attacks"
+    ],
+    "fails": [
+      "Failed to escalate privileges due to not leveraging captured credentials/config files",
+      "No persistence established after initial access attempt, resulting in mission failure despite recon success"
+    ],
+    "summary": "Strong reconnaissance and service discovery but insufficient exploitation chaining prevented mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to move from service enumeration to successful exploitation despite valid banners",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06",
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner reveals OpenSSH 8.x",
+      "then_action": "Run nmap ssh-auth-methods and ssh-brute scripts to validate credential reuse",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-brute",
+        "timeout": "60s"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771344032.9189904,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with Apache 2.4 banner",
+      "then_action": "Use nikto and gobuster to enumerate directories and potential CVEs",
+      "parameters_template": {
+        "target": "http://{{ip}}",
+        "tools": [
+          "nikto",
+          "gobuster"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771344032.9190032,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When valid shell obtained via exploit",
+      "then_action": "Immediately harvest /etc/passwd, /etc/shadow and enumerate sudo rights",
+      "parameters_template": {
+        "commands": [
+          "cat /etc/passwd",
+          "cat /etc/shadow",
+          "sudo -l"
+        ]
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771344032.9190106,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Effective SSH banner analysis has repeatedly surfaced exploitable paths"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate SSH credential brute-force when banner suggests weak auth",
+      "description": "Implement targeted password spraying against the detected OpenSSH host using rockyou wordlist and 5s delays to avoid locking accounts",
+      "priority": "high"
+    },
+    {
+      "title": "Chain web directory discovery into exploit verification",
+      "description": "Use enumerated directories from gobuster to test for upload/exec vulnerabilities (e.g., PHP reverse shell via /uploads/), then validate shell stability",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-exploit enumeration workflow",
+      "description": "After shell acquisition, script baseline commands (uname -a, id, network) to quickly capture context before escalation",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

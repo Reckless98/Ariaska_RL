@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260217_175344_6234b2",
+  "timestamp": 1771347232.870822,
+  "key_outcomes": {
+    "wins": [
+      "Mapped entire TCP surface with nmap -p- -sV, revealing SSH (22) and HTTP (80) banners for follow-up actions (ep001_step05)",
+      "Captured HTTP response headers and robots.txt hints pointing to hidden admin paths, enabling focused web enumeration (ep001_step12)"
+    ],
+    "fails": [
+      "Repeated SSH credential guessing triggered account lockouts before any successful login could be established (ep001_step18)",
+      "Web login brute-force attempts exhausted known passwords without finding valid credentials, halting the pivot phase (ep001_step21)"
+    ],
+    "summary": "Reconnaissance successfully identified high-value services, but credential-based access attempts failed across both SSH and HTTP, preventing further progression."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Blacklisting or lockouts after sequential SSH password attempts prevented establishing an interactive session.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap ssh-auth-methods and ssh2-enum-algos scripts",
+      "parameters_template": {
+        "port": 22,
+        "scripts": [
+          "ssh-auth-methods",
+          "ssh2-enum-algos"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771347243.808775,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP 200 responses and robots.txt expose directories",
+      "then_action": "Use gobuster dir scanning to enumerate web paths and assets",
+      "parameters_template": {
+        "wordlist": "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "extensions": "php,html,txt",
+        "status_codes": "200,301,302"
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771347243.8087864,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web application exposes form-based login",
+      "then_action": "Run nikto scan to enumerate hidden parameters and potential default credentials",
+      "parameters_template": {
+        "host": "target",
+        "port": 80,
+        "plugins": [
+          "all"
+        ]
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771347243.8087955,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in SSH banner fingerprinting and method enumeration during recon phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential reuse from exposed HTTP admin paths",
+      "description": "Target the admin login seen in robots.txt with user:admin/passwords derived from SSH banner enumeration, then monitor for lockout behavior by pacing requests with hydra --t 4",
+      "priority": "high"
+    },
+    {
+      "title": "Web shell upload vector via discovered directories",
+      "description": "Deploy Burp Intruder on writable endpoints revealed by gobuster to identify file upload mechanisms enabling PHP shell placement",
+      "priority": "medium"
+    },
+    {
+      "title": "SSH key-based login attempt",
+      "description": "Create a temporary RSA key and attempt ssh -i key -o PreferredAuthentications=publickey user@host to bypass password lockout constraints",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

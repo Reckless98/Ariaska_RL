@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260217_161629_5ff685",
+  "timestamp": 1771341408.0368555,
+  "key_outcomes": {
+    "wins": [
+      "Documented full reconnaissance flow with targeted nmap scans and captured service banners, enabling prioritized attack surface mapping (run_20260217_161629_5ff685_ep1_step3).",
+      "Validated ability to pivot from initial host to adjacent subnet via ssh route enumeration, establishing a repeatable lateral movement path (run_20260217_161629_5ff685_ep1_step8)."
+    ],
+    "fails": [
+      "Unable to escalate privileges on compromised host due to strict sudoers restrictions and absence of exploitable SUID binaries (run_20260217_161629_5ff685_ep1_step12).",
+      "Attack chain terminated before achieving mission objective because persistence mechanisms were not established after lateral movement (run_20260217_161629_5ff685_ep1_step15)."
+    ],
+    "summary": "Reconnaissance and initial pivoting were strong, but privilege escalation and persistence remain blockers for mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts repeatedly fail when relying solely on sudo binaries that require explicit password, indicating need for alternate exploit vectors.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260217_161629_5ff685_ep1_step10",
+        "run_20260217_161629_5ff685_ep1_step12",
+        "run_20260217_161629_5ff685_ep1_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP port 22 is open and SSH banner indicates OpenSSH 8.x",
+      "then_action": "Run nmap with ssh-auth-methods and ssh2-enum-algos scripts to baseline authentication options",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos",
+        "timeout": "60s"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_161629_5ff685_ep1_step3",
+        "run_20260217_161629_5ff685_ep1_step4"
+      ],
+      "created_at": 1771341418.7033355,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an HTTP service exposes directories with default credentials listed",
+      "then_action": "Run gobuster dir search against /admin and /backup endpoints and capture credential clues for bruteforce",
+      "parameters_template": {
+        "url": "http://{target}",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_161629_5ff685_ep1_step5"
+      ],
+      "created_at": 1771341418.703347,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When ssh service is confirmed and banner indicates weak host keys",
+      "then_action": "Use ssh-audit to enumerate supported algorithms and highlight weak ciphers to prioritize for credential reuse",
+      "parameters_template": {
+        "target": "{ip}",
+        "port": 22
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260217_161629_5ff685_ep1_step6"
+      ],
+      "created_at": 1771341418.7033572,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase establishing SSH attack surface clarity"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent directory enumeration leading to credential insights"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege Escalation via Config Discovery",
+      "description": "Search for readable configuration files or backup keys on the pivot host and attempt to escalate by reusing gathered credentials or tokens.",
+      "priority": "high"
+    },
+    {
+      "title": "Persistence through Scheduled Task",
+      "description": "Deploy a cron job or systemd unit using writable directories discovered during reconnaissance to maintain foothold post-exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -900,9 +900,8 @@ class LiveDashboard:
         table.add_column("Agent", style="bold", width=14)
         table.add_column("Source", width=14)
         table.add_column("Command", width=36, no_wrap=True, overflow="ellipsis")
-        table.add_column("Output", width=32, no_wrap=True, overflow="ellipsis")
+        table.add_column("Output / Disc", width=54, no_wrap=True, overflow="ellipsis")
         table.add_column("Reward", width=8, justify="right")
-        table.add_column("Discoveries", width=22, no_wrap=True, overflow="ellipsis")
 
         # Active agents
         active = [a for a in agent_infos if not a.skipped]
@@ -932,7 +931,7 @@ class LiveDashboard:
             # Output: flatten to single line, truncate
             out = ""
             if a.command_output:
-                out = a.command_output.strip().replace("\n", " │ ")[:30]
+                out = a.command_output.strip().replace("\n", " │ ")[:40]
 
             # Reward display
             if a.reward > 0:
@@ -953,15 +952,24 @@ class LiveDashboard:
                         )
                     elif items and isinstance(items, str):
                         parts.append(f"{dtype}:{items}")
-                disc = "; ".join(parts)[:22] if parts else ""
+                disc = "; ".join(parts)[:30] if parts else ""
+
+            # Merged Output / Discoveries cell
+            if out and disc:
+                out_disc = f"[dim]{out}[/dim] [green]» {disc}[/green]"
+            elif disc:
+                out_disc = f"[green]{disc}[/green]"
+            elif out:
+                out_disc = f"[dim]{out}[/dim]"
+            else:
+                out_disc = "[dim]-[/dim]"
 
             table.add_row(
                 f"[{style}]{agent_label}[/{style}]",
                 f"[{src_style}]{source_label}[/{src_style}]",
                 f"[white]{cmd}[/white]",
-                f"[dim]{out}[/dim]",
+                out_disc,
                 r_str,
-                f"[green]{disc}[/green]" if disc else "[dim]-[/dim]",
             )
 
         # Skipped agents
@@ -971,7 +979,7 @@ class LiveDashboard:
                 f"[dim]{icon} {name.replace('Agent', '')}[/dim]",
                 "[dim]💤 skip[/dim]",
                 f"[dim]{reason}[/dim]",
-                "", "", "",
+                "", "",
             )
 
         console.print(table)

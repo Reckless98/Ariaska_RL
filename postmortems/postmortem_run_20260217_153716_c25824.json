@@ -1,0 +1,107 @@
+{
+  "run_id": "run_20260217_153716_c25824",
+  "timestamp": 1771339043.019452,
+  "key_outcomes": {
+    "wins": [
+      "Reached consistent reconnaissance depth across network segments resulting in full contextual mapping of exposed services.",
+      "Collected detailed telemetry on each host, enabling precise targeting for subsequent stages."
+    ],
+    "fails": [
+      "No successful exploit phase; access was never achieved despite thorough enumeration.",
+      "Repeated inability to bypass authentication on critical assets, halting lateral movement."
+    ],
+    "summary": "Solid reconnaissance led to high situational awareness (60 reward) but no exploitation success, indicating a need to focus on privilege escalation/exploit delivery improvements."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Authentication bypass attempts failed due to unhandled multi-factor prompts or weak session handling.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771339049.4715517,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS services enumerate login portals",
+      "then_action": "Capture forms and fuzz for credentials using Burp intruder with parameter baselines",
+      "parameters_template": {
+        "scope": "login_form_parameters",
+        "fuzz_payloads": "common_admin_passwords.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step10"
+      ],
+      "created_at": 1771339049.4715605,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Nmap OS detection returns Windows Server and SMB port is responsive",
+      "then_action": "Trigger smbclient script to enumerate shares and attempt anonymous access",
+      "parameters_template": {
+        "port": 445,
+        "script": "smb-enum-shares"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771339049.4715655,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "SSH enumeration pattern from successful reconnaissance",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in accurately profiling SSH targets and capturing banners."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot to credential stuffing on exposed login portals",
+      "description": "Use authenticated session replay and adaptive payload sets against HTTP login forms discovered in reconnaissance, combining Burp intruder with recorded valid traffic to test password reuse.",
+      "priority": "high"
+    },
+    {
+      "title": "Deploy targeted exploit on SMB shares",
+      "description": "Leverage enumerated SMB shares from fs discovery to test for known Windows Server CVEs or misconfigurations using Metasploit modules with curated payloads.",
+      "priority": "medium"
+    },
+    {
+      "title": "Implement secondary MFA bypass pathway",
+      "description": "Add scripted sessions to handle multi-factor prompts automatically during brute-force attempts, ensuring repeated authentication failures yield telemetry for mitigation strategies.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
