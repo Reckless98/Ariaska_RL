@@ -86,6 +86,7 @@ class RealToolRunner(ToolRunner):
     Features:
     - RFC1918 private range validation
     - Custom allowlist support
+    - Hostname whitelist support (for HTB *.htb domains)
     - Command injection prevention
     - Timeout enforcement
     - Dangerous command blocking
@@ -120,7 +121,8 @@ class RealToolRunner(ToolRunner):
         allow_rfc1918: bool = True,
         allow_lab_ranges: bool = True,
         allow_localhost: bool = True,
-        blocked_commands: Optional[Set[str]] = None
+        blocked_commands: Optional[Set[str]] = None,
+        allowed_hostnames: Optional[List[str]] = None,
     ):
         """
         Initialize RealToolRunner.
@@ -131,6 +133,7 @@ class RealToolRunner(ToolRunner):
             allow_lab_ranges: Allow common HTB/CTF ranges
             allow_localhost: Allow localhost/127.0.0.0/8
             blocked_commands: Additional commands to block
+            allowed_hostnames: List of allowed hostname patterns (e.g. ["*.htb", "active.htb"])
         """
         self.allow_rfc1918 = allow_rfc1918
         self.allow_lab_ranges = allow_lab_ranges
@@ -147,6 +150,12 @@ class RealToolRunner(ToolRunner):
                 except ValueError:
                     logger.warning(f"Invalid target network: {target}")
         
+        # Build allowed hostnames set (for HTB boxes with *.htb domains)
+        self._allowed_hostnames: Set[str] = set()
+        if allowed_hostnames:
+            for h in allowed_hostnames:
+                self._allowed_hostnames.add(h.lower())
+        
         # Build blocked commands set
         self._blocked_commands = self.BLOCKED_COMMANDS.copy()
         if blocked_commands:
@@ -162,7 +171,8 @@ class RealToolRunner(ToolRunner):
         
         logger.info(
             f"RealToolRunner initialized: rfc1918={allow_rfc1918}, "
-            f"lab_ranges={allow_lab_ranges}, custom_targets={len(self._allowed_networks)}"
+            f"lab_ranges={allow_lab_ranges}, custom_targets={len(self._allowed_networks)}, "
+            f"allowed_hostnames={self._allowed_hostnames}"
         )
     
     def validate_target(self, target: str) -> bool:
@@ -175,10 +185,20 @@ class RealToolRunner(ToolRunner):
         Returns:
             True if target is allowed, False otherwise
         """
-        # Handle hostnames - only allow localhost variants
+        # Handle hostnames
         if not self._is_ip_address(target):
             if target.lower() in ("localhost", "127.0.0.1", "::1"):
                 return self.allow_localhost
+            # Check allowed hostnames list (supports *.htb wildcards)
+            target_lower = target.lower()
+            for allowed_h in self._allowed_hostnames:
+                if allowed_h.startswith("*."):
+                    # Wildcard match: *.htb matches foo.htb
+                    suffix = allowed_h[1:]  # .htb
+                    if target_lower.endswith(suffix) or target_lower == allowed_h[2:]:
+                        return True
+                elif target_lower == allowed_h:
+                    return True
             # Block non-IP hostnames by default for safety
             logger.warning(f"Hostname target not allowed: {target}")
             return False
@@ -271,29 +291,42 @@ class RealToolRunner(ToolRunner):
         
         # Execute the command
         try:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 command,
                 shell=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=timeout,
                 stdin=subprocess.DEVNULL,  # Phase 6.5: prevent interactive prompts
+                start_new_session=True,  # Detach from controlling tty to prevent SIGTTIN
             )
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Kill entire process group to clean up child processes (hydra threads, etc.)
+                import os
+                import signal
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    proc.kill()
+                proc.wait()
+                result = ToolResult(
+                    command=command,
+                    executed=True,
+                    stderr=f"Command timed out after {timeout}s",
+                    return_code=-1,
+                    targets_found=targets
+                )
+                self._execution_history.append(result)
+                return result
             result = ToolResult(
                 command=command,
                 executed=True,
-                stdout=proc.stdout,
-                stderr=proc.stderr,
+                stdout=stdout,
+                stderr=stderr,
                 return_code=proc.returncode,
                 target_validated=True,
-                targets_found=targets
-            )
-        except subprocess.TimeoutExpired:
-            result = ToolResult(
-                command=command,
-                executed=True,
-                stderr=f"Command timed out after {timeout}s",
-                return_code=-1,
                 targets_found=targets
             )
         except Exception as e:

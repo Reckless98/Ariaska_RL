@@ -1,0 +1,89 @@
+{
+  "run_id": "run_20260217_005417_b4d209",
+  "timestamp": 1771286064.4592297,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward of 60 across the single episode, demonstrating the agent followed a repeatable decision pipeline.",
+      "Successfully completed multiple reconnaissance actions, yielding clear data points for targeted follow-up based on mentor guidance."
+    ],
+    "fails": [
+      "Zero percent success rate indicates the agent failed to achieve the episode objective despite high reward accumulation.",
+      "Excessive reliance on mentor calls (10) suggests repeated uncertainty or missteps in action selection under pressure."
+    ],
+    "summary": "Agent demonstrated disciplined reconnaissance and reward accumulation but failed to leverage that data into objective completion, relying heavily on mentors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to transition from reconnaissance to exploitation despite gathering banner and port data",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260217_005417_b4d209_ep1_step12",
+        "run_20260217_005417_b4d209_ep1_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner retrieved from nmap",
+      "then_action": "Run ssh enumeration with focused nmap scripts to catalog banner details",
+      "parameters_template": {
+        "port": 22,
+        "script": "sshv1,ssh-hostkey"
+      },
+      "confidence": 0.84,
+      "evidence_refs": [
+        "run_20260217_005417_b4d209_ep1_step5",
+        "run_20260217_005417_b4d209_ep1_step6"
+      ],
+      "created_at": 1771286071.4951994,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open HTTP port returns identifiable framework in response headers",
+      "then_action": "Chain web directory brute force using dirb/ffuf with discovered base path",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_005417_b4d209_ep1_step8",
+        "run_20260217_005417_b4d209_ep1_step11"
+      ],
+      "created_at": 1771286071.4952123,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently applied SSH enumeration technique with minimal deviation, yielding actionable data."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured exploitation follow-up after reconnaissance",
+      "description": "Following banner/port discovery, execute a validated exploitation template (e.g., SSH credential spray with monitored lockout thresholds) instead of pausing for mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency via auto-decision thresholds",
+      "description": "Introduce confidence scoring on tool outputs to allow the agent to proceed on exploitation when reconnaissance exceeds clarity thresholds, cutting down mentor calls.",
+      "priority": "medium"
+    },
+    {
+      "title": "Pivot for lateral movement after initial compromise",
+      "description": "Develop a script to detect available SMB/SQL services post-recon and trigger immediate credential reuse attempts to chain toward objective.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

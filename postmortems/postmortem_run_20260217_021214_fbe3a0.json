@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260217_021214_fbe3a0",
+  "timestamp": 1771290757.254946,
+  "key_outcomes": {
+    "wins": [
+      "Identified perimeter host and executed initial reconnaissance, gathering SSH banner and HTTP fingerprint data during episode 1.",
+      "Maintained operational persistence by collecting service-specific information despite mentor prompts."
+    ],
+    "fails": [
+      "Failed to translate reconnaissance into successful exploit; no lateral movement achieved across 1 episode.",
+      "Did not complete mentor-directed remediation checks despite 10 calls, indicating a gap in adapting to mentor feedback."
+    ],
+    "summary": "Recon phase executed well but execution stalled before making an impactful move; focus needed on tradecraft execution post-enumeration."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to transition from reconnaissance to exploitation after gathering service banners.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum_01",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771290764.4166706,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_enum_01",
+      "if_condition": "When HTTP service on port 80/443 responds",
+      "then_action": "Run dirbuster and nikto scans with tailored wordlists",
+      "parameters_template": {
+        "tool": "nikto",
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1771290764.4166827,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_creds_reuse_01",
+      "if_condition": "When default credentials are confirmed working",
+      "then_action": "Attempt authenticated commands via sshpass, capture session artifacts",
+      "parameters_template": {
+        "method": "sshpass",
+        "username": "admin",
+        "password_var": "default_pass"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771290764.4166913,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum_01",
+      "skill_card_id": "skill_ssh_enum_01",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit pivot via SSH credentials",
+      "description": "After successful SSH enumeration, use gathered credentials to run sshpass and execute uname commands, then move laterally.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated HTTP attack surface expansion",
+      "description": "Combine nikto findings with dirbuster output, then feed valid endpoints into Burp intruder for parameter fuzzing.",
+      "priority": "medium"
+    },
+    {
+      "title": "Scripted post-exploitation persistence",
+      "description": "Deploy a Python reverse shell script via authenticated SSH session and validate callback to listener.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

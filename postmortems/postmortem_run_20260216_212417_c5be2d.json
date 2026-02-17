@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260216_212417_c5be2d",
+  "timestamp": 1771273480.8028314,
+  "key_outcomes": {
+    "wins": [
+      "Maintained disciplined attack tempo across the single episode and achieved a high reward score (90.00) despite no success with the final objective.",
+      "Consistent use of mentor assistance (10 calls) ensured guided decision-making during critical transitions, preventing redundant or unsafe actions."
+    ],
+    "fails": [
+      "Objective completion failed (0.00% success), indicating gaps in exploitation strategy or post-exploitation control.",
+      "Recurring dependency on mentor intervention suggests core tactics are not yet internalized, increasing operational overhead."
+    ],
+    "summary": "The run demonstrated disciplined reconnaissance and decision logging, but the team failed to convert visibility into a successful exploitation, highlighting the need to reinforce privilege escalation and mission execution protocols."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to escalate privileges after initial access attempts, leading to a dead end before achieving objective control.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260216_212417_c5be2d_ep1_step8",
+        "run_20260216_212417_c5be2d_ep1_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH service on port 22 is identified during enumeration",
+      "then_action": "Conduct targeted SSH enumeration using nmap scripts and capture banner information",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260216_212417_c5be2d_ep1_step3",
+        "run_20260216_212417_c5be2d_ep1_step5"
+      ],
+      "created_at": 1771273495.361589,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reconnaissance enumerates Windows domain controllers without known credentials",
+      "then_action": "Pivot to LDAP/SAMRPC enumeration to collect usable account metadata before brute forcing",
+      "parameters_template": {
+        "tools": [
+          "ldapsearch",
+          "rpcclient"
+        ],
+        "target": "domain-controller"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260216_212417_c5be2d_ep1_step6",
+        "run_20260216_212417_c5be2d_ep1_step9"
+      ],
+      "created_at": 1771273495.3615978,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial access yields low-privileged shell but no persistence",
+      "then_action": "Immediately collect host configuration (users, scheduled tasks, services) to identify privilege escalation opportunities",
+      "parameters_template": {
+        "tools": [
+          "whoami",
+          "tasklist",
+          "wmic service get name,state,startmode"
+        ],
+        "output": "host_snapshot.json"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "run_20260216_212417_c5be2d_ep1_step11",
+        "run_20260216_212417_c5be2d_ep1_step13"
+      ],
+      "created_at": 1771273495.3616035,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High confidence in SSH enumeration routine after reliable banner collection across the episode"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent need to document host posture after initial low-privileged access"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate privilege escalation discovery",
+      "description": "Deploy scripts to collect service configurations and scheduled tasks immediately after low-privileged shells to identify elevation vectors before mentor prompts.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency by codifying decision criteria",
+      "description": "Translate successful reconnaissance steps into branching rules so the agent can self-select follow-up actions without pausing for guidance.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate post-exploitation stability",
+      "description": "After gaining initial foothold, run persistence verification checks to confirm the agent can maintain access long enough for objective completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

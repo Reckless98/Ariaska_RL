@@ -1,0 +1,41 @@
+{
+    "include": [
+        "core",
+        "data/__init__.py",
+        "data/knowledge_retriever.py",
+        "data/knowledge_ingestion.py",
+        "data/knowledge_loader.py",
+        "scripts",
+        "tests",
+        "ariaska_cli.py",
+        "ariaska.py",
+        "streamlit_app.py"
+    ],
+    "exclude": [
+        "data/knowledge_repos",
+        "data/knowledge_candidates_v2",
+        "data/knowledge_indices",
+        "data/htb_extractions",
+        "**/__pycache__",
+        ".venv",
+        "models",
+        "artifacts",
+        "logs",
+        "traces",
+        "postmortems",
+        "test_postmortems",
+        "monitoring",
+        "cache"
+    ],
+    "venvPath": ".",
+    "venv": ".venv",
+    "pythonVersion": "3.13",
+    "typeCheckingMode": "basic",
+    "reportMissingImports": "error",
+    "reportMissingModuleSource": "warning",
+    "reportOptionalMemberAccess": "warning",
+    "reportOptionalSubscript": "warning",
+    "reportOptionalCall": "warning",
+    "reportPossiblyUnbound": "warning",
+    "reportAttributeAccessIssue": "warning"
+}

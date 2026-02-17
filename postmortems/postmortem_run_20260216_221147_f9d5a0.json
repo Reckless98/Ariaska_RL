@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260216_221147_f9d5a0",
+  "timestamp": 1771276328.3083127,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full reconnaissance cycle and collected 90 points worth of actionable data, indicating solid situational awareness.",
+      "Called mentors 10 times to iteratively refine approach, demonstrating willingness to seek guidance instead of stagnating."
+    ],
+    "fails": [
+      "Zero percent success rate suggests attack path never achieved intended objective despite reconnaissance work.",
+      "Mentor reliance increased time-to-action, pointing to gaps in decision automation and confident planning."
+    ],
+    "summary": "Reconnaissance executed well, but exploitation planning failed consistently; need tighter decision logic and automated action sequencing."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Consistent failure to transition from reconnaissance to exploitation after gathering host information.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step47"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771276336.8029077,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service exposes robots.txt",
+      "then_action": "Fetch robots.txt and search for disallowed directories for further recon",
+      "parameters_template": {
+        "target_path": "/robots.txt",
+        "method": "GET"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step22"
+      ],
+      "created_at": 1771276336.8029153,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When port 80 is responsive with identifiable server headers",
+      "then_action": "Run HTTP enumeration with hdr scripts to capture version info",
+      "parameters_template": {
+        "port": 80,
+        "script": "http-server-header"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step21"
+      ],
+      "created_at": 1771276336.8029196,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in SSH reconnaissance enabling clearer exploitation planning."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate exploitation trigger",
+      "description": "Implement a decision node that automatically shifts from port/OS enumeration to exploitation once service data validated.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Integrate a confidence scoring module that lets the agent self-validate takeoff steps before mentor calls.",
+      "priority": "medium"
+    },
+    {
+      "title": "Template-based HTTP enumeration",
+      "description": "Create reusable playbooks for HTTP recon discovered directories to accelerate follow-up steps.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

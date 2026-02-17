@@ -285,7 +285,7 @@ class TestParserBrokerV2:
         broker = ParserBroker(default_mode="fast")
         dist = broker.get_stage_distribution()
         assert "regex_pct" in dist
-        assert "venice_pct" in dist
+        assert "llm_interp_pct" in dist
         assert "gpt_pct" in dist
 
 

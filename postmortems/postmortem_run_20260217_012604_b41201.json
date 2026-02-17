@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260217_012604_b41201",
+  "timestamp": 1771287969.9642467,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward generation of 60 despite mentor interventions, showing ability to reach initial critical states rapidly",
+      "Promptly requested mentor assistance 10 times, indicating self-awareness of knowledge gaps and willingness to escalate for guidance"
+    ],
+    "fails": [
+      "Failed to complete mission objectives in the single episode, as reflected by 0% success rate and no milestones reached beyond initial reconnaissance",
+      "Heavy reliance on mentor calls prevented autonomous progression through later stages of the episode, suggesting insufficient contingency planning"
+    ],
+    "summary": "Run shows strong early-stage control but repeatedly stalls before objective completion, requiring better autonomy and task sequencing."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to translate reconnaissance insights into objective actions, leading to repeated mentor intervention before completing attack chain.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 is open after reconnaissance and HTTP banner yields application info",
+      "then_action": "Launch targeted directory brute force with gobuster and validate findings against expected attack surface",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1771287981.0153844,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When service enumeration identifies outdated CMS signature",
+      "then_action": "Deploy known exploit workflow using verified metasploit module with payload capture",
+      "parameters_template": {
+        "module": "exploit/multi/http/drupal_exec",
+        "payload": "php/meterpreter/reverse_tcp",
+        "lhost": "10.0.0.1"
+      },
+      "confidence": 0.53,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771287981.0153923,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When access is blocked by firewall rules after exploit attempt",
+      "then_action": "Shift to lateral movement by scanning adjacent subnets for alternate entry points",
+      "parameters_template": {
+        "scan_range": "10.0.0.0/24",
+        "tool": "nmap",
+        "flags": [
+          "-sV",
+          "--exclude",
+          "10.0.0.1"
+        ]
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771287981.0153978,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Skill shows early-stage effectiveness in grounding reconnaissance data into actionable testing"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Adaptive Response Sequencing",
+      "description": "Implement decision branch that selects alternate service targets when initial exploit attempts trigger firewall resets to reduce mentor dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Lateral Movement Buffering",
+      "description": "Integrate subnet-aware scanning immediately after exploit failure to maintain momentum instead of pausing for mentor input.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated Exploit Verification",
+      "description": "Add validation checkpoints that confirm exploit success to avoid repeated blind attempts and unnecessary mentor calls.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

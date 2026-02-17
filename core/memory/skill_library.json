@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771267234.9311125,
-  "skill_count": 299,
+  "last_updated": 1771302260.9774413,
+  "skill_count": 312,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -48,18 +48,19 @@
     },
     "skill_003": {
       "id": "skill_003",
-      "if_condition": "When mentor call count exceeds 5 without progress",
-      "then_action": "Document mentor insights, map to actionable steps, then execute highest impact action immediately",
+      "if_condition": "When port/service enumeration returns accessible SSH (port 22) with banner detected",
+      "then_action": "Execute targeted nmap scripting followed by credential brute-force attempts with collected wordlists",
       "parameters_template": {
-        "mentor_calls": "count",
-        "action": "highest_impact"
+        "port": 22,
+        "script": "ssh-*",
+        "wordlist": "default_credentials_top100"
       },
-      "confidence": 0.82,
+      "confidence": 0.85,
       "evidence_refs": [
-        "ep001_step07",
-        "ep001_step11"
+        "ep001_step05",
+        "ep001_step08"
       ],
-      "created_at": 1770649176.8963752,
+      "created_at": 1771286165.0035434,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -101,17 +102,17 @@
     "skill_ssh_enum_01": {
       "id": "skill_ssh_enum_01",
       "if_condition": "When port 22 is open and SSH banner detected",
-      "then_action": "Run SSH enumeration with targeted nmap scripts and capture banner details",
+      "then_action": "Run SSH enumeration with nmap scripts",
       "parameters_template": {
         "port": 22,
-        "script": "ssh2-enum-algos,ssh-hostkey"
+        "script": "ssh-*"
       },
-      "confidence": 0.82,
+      "confidence": 0.85,
       "evidence_refs": [
-        "run_20260207_212554_f54c70_ep001_step03",
-        "run_20260207_212554_f54c70_ep001_step05"
+        "ep001_step05",
+        "ep001_step06"
       ],
-      "created_at": 1770495972.9368463,
+      "created_at": 1771290764.4166706,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -1438,17 +1439,17 @@
     "skill_ssh_enum_001": {
       "id": "skill_ssh_enum_001",
       "if_condition": "When port 22 is open and SSH banner detected",
-      "then_action": "Run targeted SSH enumeration with nmap scripts to identify supported algorithms and user accounts",
+      "then_action": "Run targeted SSH enumeration with nmap scripts",
       "parameters_template": {
         "port": 22,
-        "script": "ssh-auth-methods,ssh-run"
+        "script": "ssh-auth-methods,ssh-hostkey"
       },
-      "confidence": 0.82,
+      "confidence": 0.85,
       "evidence_refs": [
-        "ep001_step03",
-        "ep001_step05"
+        "run_20260217_005827_df3b85_ep1_step5",
+        "run_20260217_005827_df3b85_ep1_step7"
       ],
-      "created_at": 1771164598.8856566,
+      "created_at": 1771286334.2856956,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -1471,18 +1472,17 @@
     },
     "skill_service_mapping": {
       "id": "skill_service_mapping",
-      "if_condition": "When Nmap discovers multiple open TCP services on a host",
-      "then_action": "Correlate service versions with known exploits and prioritize based on CVSS",
+      "if_condition": "When service port list changes between scans",
+      "then_action": "Map services with nmap version detection and log discrepancies for correlation",
       "parameters_template": {
-        "scan_type": "nmap",
-        "version_flag": "-sV",
-        "priority_metric": "CVSS"
+        "args": "-sV --version-light"
       },
-      "confidence": 0.72,
+      "confidence": 0.76,
       "evidence_refs": [
-        "ep001_step15"
+        "ep001_step03",
+        "ep001_step05"
       ],
-      "created_at": 1771166200.1001105,
+      "created_at": 1771289174.9207764,
       "usage_count": 0,
       "success_rate": 0.0
     },
@@ -4166,6 +4166,246 @@
         "ep001_step8"
       ],
       "created_at": 1771267202.0511758,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_mapping": {
+      "id": "skill_http_mapping",
+      "if_condition": "When HTTP service on port 80/443 responds",
+      "then_action": "Launch HTTP directory enumeration and fingerprint CMS via nikto/gobuster",
+      "parameters_template": {
+        "port": 80,
+        "tool": "gobuster"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771276129.3386428,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_goal_validation": {
+      "id": "skill_goal_validation",
+      "if_condition": "Upon completing last scripted action before mission endpoint",
+      "then_action": "Run mission-state validation checks to ensure objective satisfaction before concluding episode",
+      "parameters_template": {
+        "validation_checks": [
+          "file_presence",
+          "process_status"
+        ]
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "run_20260216_220922_e9bf81_episode1_step12"
+      ],
+      "created_at": 1771276179.3183897,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_ssh_029": {
+      "id": "skill_ssh_029",
+      "if_condition": "When port 22 is open and SSH banner indicates Linux shell",
+      "then_action": "Run SSH enumeration with nmap scripts and attempt common user credential sets",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods",
+        "credential_list": "common-linux-users.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771277035.7728782,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_enum_local_045": {
+      "id": "skill_enum_local_045",
+      "if_condition": "When SSH access established but privilege escalation not yet achieved",
+      "then_action": "Collect system info (uname, sudo -l, crontab) and search for writable scripts",
+      "parameters_template": {
+        "commands": [
+          "uname -a",
+          "sudo -l",
+          "find / -perm -4000 -type f"
+        ]
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step17"
+      ],
+      "created_at": 1771277035.77289,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_post_exploit_checklist": {
+      "id": "skill_post_exploit_checklist",
+      "if_condition": "After achieving initial shell but before terminating session",
+      "then_action": "Validate objective completion using checklist (flags, persistence, data exfiltration) and escalate based on missing items",
+      "parameters_template": {
+        "checklist": [
+          "root_flag",
+          "persistence",
+          "data_export"
+        ]
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1771284093.6746552,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_map": {
+      "id": "skill_http_map",
+      "if_condition": "When HTTP service detected on port 80/8080",
+      "then_action": "Launch directory/file probing followed by vulnerability scan",
+      "parameters_template": {
+        "port": [
+          80,
+          8080
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771285030.8436477,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_vuln_fingerprinting": {
+      "id": "skill_web_vuln_fingerprinting",
+      "if_condition": "When http service offers a version banner on port 80/443",
+      "then_action": "Run targeted vulnerability enumeration using nikto and nmap http scripts",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "scripts": [
+          "http-title",
+          "http-vuln-cve2006-3392"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step11"
+      ],
+      "created_at": 1771286054.7269816,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_exploit_transition": {
+      "id": "skill_exploit_transition",
+      "if_condition": "When credential candidates or service vulnerabilities are identified during recon",
+      "then_action": "Follow-up with exploit module preparation and privilege escalation attempt",
+      "parameters_template": {
+        "vulnerability_scan": "enabled",
+        "exploit_module": "selected_from_db"
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "run_20260217_005607_8da1a6_ep01_step14",
+        "run_20260217_005607_8da1a6_ep01_step19"
+      ],
+      "created_at": 1771286194.9123957,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_creds_reuse_002": {
+      "id": "skill_creds_reuse_002",
+      "if_condition": "When valid credentials are harvested from enumeration",
+      "then_action": "Validate credentials via SSH login attempt before moving to exploitation",
+      "parameters_template": {
+        "credential_source": "enum-ssh",
+        "validation_method": "ssh -o BatchMode=yes"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260217_005827_df3b85_ep1_step9",
+        "run_20260217_005827_df3b85_ep1_step11"
+      ],
+      "created_at": 1771286334.285708,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_dirb": {
+      "id": "skill_web_dirb",
+      "if_condition": "When an HTTP service returns 200-level responses on port 80/443",
+      "then_action": "Launch directory brute force enumeration with wordlists",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step07"
+      ],
+      "created_at": 1771288183.057773,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_recon": {
+      "id": "skill_http_recon",
+      "if_condition": "When HTTP service returns uncommon headers and directory listing enabled",
+      "then_action": "Use gobuster with wordlist medium for hidden directories and follow-up nikto scan on discovered paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260217_020938_98bb20_step03",
+        "run_20260217_020938_98bb20_step04"
+      ],
+      "created_at": 1771290605.683853,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_web_versioning": {
+      "id": "skill_web_versioning",
+      "if_condition": "When HTTP service responds with banner and error pages",
+      "then_action": "Capture version info using curl followed by nikto/vuln scans",
+      "parameters_template": {
+        "target": "http://<ip>:80",
+        "options": "--head --user-agent 'Mozilla/5.0, nikto --ask=always'"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step14"
+      ],
+      "created_at": 1771300254.626166,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    "skill_http_enum_002": {
+      "id": "skill_http_enum_002",
+      "if_condition": "When HTTP service responds with login portal",
+      "then_action": "Use nikto plus nikto -h <target> to capture directories and POST parameters",
+      "parameters_template": {
+        "host": "TARGET_IP",
+        "script": "nikto"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771302260.9737277,
       "usage_count": 0,
       "success_rate": 0.0
     }

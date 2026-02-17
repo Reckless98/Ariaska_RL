@@ -1,0 +1,45 @@
+# Ruff configuration for Ariaska_RL
+# Aligned with project patterns: lazy imports, f-string templates, etc.
+
+line-length = 120
+
+exclude = [
+    "data/knowledge_repos",
+    "data/knowledge_candidates_v2",
+    "data/knowledge_indices",
+    "data/htb_extractions",
+    ".venv",
+    "__pycache__",
+    "models",
+    "artifacts",
+    "logs",
+    "traces",
+    "postmortems",
+    "test_postmortems",
+    "monitoring",
+    "cache",
+]
+
+[lint]
+# Only enforce rules that match this project's patterns
+select = ["E", "F"]
+
+ignore = [
+    "E402",   # Module-level import not at top — lazy imports are by design
+    "E501",   # Line too long — not enforced
+    "E722",   # Bare except — used in fallback paths
+    "E731",   # Lambda assignment — occasional use is OK
+    "E741",   # Ambiguous variable name — i, l, O in math contexts
+    "F401",   # Unused import — many are re-exports or TYPE_CHECKING
+    "F541",   # f-string without placeholders — template strings use {target} etc.
+    "F811",   # Redefined while unused — lazy import pattern
+    "F841",   # Unused variable — often deliberate (debug, future use)
+]
+
+[lint.per-file-ignores]
+# Test files can have looser rules
+"tests/*" = ["F401", "F811", "E402"]
+# Scripts are more permissive
+"scripts/*" = ["F401", "E402"]
+# Data files are not linted
+"data/*" = ["F401", "F811", "E402", "F821"]

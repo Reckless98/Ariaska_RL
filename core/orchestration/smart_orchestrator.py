@@ -59,11 +59,11 @@ class SmartOrchestratorConfig:
     enable_orion: bool = True
     enable_shadow: bool = True
     
-    # Smart mentor settings
+    # Smart mentor settings — Phase 11.5: +50% for ultra-accelerated mentor→apprentice guidance
     model: str = "gpt-5.1-codex-mini"
-    mentor_mode: str = "anneal"
-    mentor_warmup_episodes: int = 1
-    mentor_min_rate: float = 0.15
+    mentor_mode: str = "adaptive"  # Phase 11.1: adaptive for accelerated learning
+    mentor_warmup_episodes: int = 3  # Phase 11.1: extended warmup for deeper learning
+    mentor_min_rate: float = 0.59  # Phase 11.5: +50% (was 0.39) for ultra-fast mentor→apprentice learning
     mentor_max_rate: float = 1.0
     
     # Stuck detection (legacy)
@@ -94,8 +94,8 @@ class SmartOrchestratorConfig:
     dashboard_mode: str = "live"  # "off", "summary", "live", "textual"
     dashboard_watch_rate: float = 1.0
     
-    # Phase 6.2: Mentor budget
-    mentor_budget_pct: float = 0.30  # 30% of steps can be mentor calls
+    # Phase 6.2: Mentor budget — Phase 11.5: +50% for ultra-accelerated mentor→apprentice guidance
+    mentor_budget_pct: float = 1.0  # Phase 11.5: +50% (was 0.78) — full mentor saturation for maximum learning
     
     # Phase 6.2: EventBus JSONL logging
     event_jsonl_path: Optional[str] = None
@@ -436,9 +436,9 @@ class SmartOrchestrator:
             if _ff.adaptive_budget:
                 self.budget_controller = AdaptiveBudgetController(
                     config=BudgetConfig(
-                        mentor_budget_total=30,
-                        venice_budget_total=15,
-                        token_budget_total=50_000,
+                        mentor_budget_total=59,  # Phase 11.5: +50% (was 39)
+                        venice_budget_total=23,  # Phase 11.5: +50% (was 15)
+                        token_budget_total=97_500,  # Phase 11.5: +50% (was 65K)
                     )
                 )
                 _init_modules.append(("AdaptiveBudget", "ok", "adaptive pacing"))
@@ -543,6 +543,11 @@ class SmartOrchestrator:
             # Phase 7.1: Track exploited services/ports to prevent re-exploitation
             "exploited_services": set(),  # e.g. {"ssh:22", "ftp:21", "samba:445"}
             "exploited_ports": set(),     # e.g. {21, 22, 445}
+            # HTB Capability Upgrade: Structured credential + capability tracking
+            "credentials_list": [],       # List of {username, password, service, source}
+            "capabilities": set(),        # Linux capabilities found (e.g. "python3:cap_setuid")
+            "downloaded_files": set(),    # Files downloaded to /tmp/
+            "hashes": [],                 # Password hashes for cracking
         }
         # Stagnation tracking per agent
         self._steps_without_discoveries: Dict[str, int] = {}
@@ -674,6 +679,7 @@ class SmartOrchestrator:
                 self.live_executor = LiveCommandExecutor(
                     target_ip=target,
                     dry_run=dry_run,
+                    allowed_hostnames=["*.htb"],
                 )
                 _init_modules.append(("LiveExecutor", "ok", f"target={target}"))
             except Exception as e:
@@ -920,6 +926,7 @@ class SmartOrchestrator:
         from core.training.mentor_policy import MentorPolicy, MentorPolicyConfig
         from core.training.mentor_controller import MentorController, MentorControllerConfig
         
+        # Phase 11.1: Base policy config (doubled for learning acceleration)
         policy_config = MentorPolicyConfig(
             mode=self.config.mentor_mode,
             warmup_episodes=self.config.mentor_warmup_episodes,
@@ -927,9 +934,25 @@ class SmartOrchestrator:
             max_mentor_rate=self.config.mentor_max_rate,
         )
         
+        # Phase 11.1: TRIPLED mentor configs for Red, Orion, and memory-sorting agents
+        # These agents need maximum mentor guidance for learning pwn reasoning
+        _tripled_agents = {"RedAgent", "OrionAgent"}
+        tripled_policy_config = MentorPolicyConfig(
+            mode="adaptive",
+            warmup_episodes=5,  # Extended warmup for deep reasoning learning
+            warmup_steps_per_episode=27,  # Phase 11.5: +50% (was 18) — maximum mentor-guided early steps
+            min_mentor_rate=self.config.mentor_min_rate * 3,  # 3× base minimum
+            max_mentor_rate=1.0,  # Allow full mentor engagement
+            min_adaptive_rate=1.0,  # Phase 11.5: +50% (was 0.82) — full adaptive engagement
+            max_adaptive_rate=1.0,
+            struggling_boost=1.64,  # Phase 11.5: +50% (was 1.09) — ultra-aggressive boost for mentor guidance
+            performing_reduction=0.05,  # Phase 11.5: barely reduce even when performing well
+            max_calls_per_episode=246,  # Phase 11.5: +50% (was 164) for ultra-deep mentor→apprentice learning
+        )
+        
         # Phase 6.2: Create shared MentorController (all coaches share one)
         mentor_ctrl_config = MentorControllerConfig(
-            budget_pct=getattr(self.config, 'mentor_budget_pct', 0.30),
+            budget_pct=getattr(self.config, 'mentor_budget_pct', 0.60),
             min_rate=self.config.mentor_min_rate,
             max_rate=self.config.mentor_max_rate,
             warmup_episodes=self.config.mentor_warmup_episodes,
@@ -937,7 +960,12 @@ class SmartOrchestrator:
         self.mentor_controller = MentorController(config=mentor_ctrl_config)
         
         for agent_name in self.agents.keys():
-            policy = MentorPolicy(policy_config)
+            # Phase 11.1: Tripled mentor policy for Red/Orion — they learn exploit reasoning
+            if agent_name in _tripled_agents:
+                policy = MentorPolicy(tripled_policy_config)
+                logger.info(f"[MENTOR-11.1] {agent_name}: TRIPLED mentor policy — min_rate={tripled_policy_config.min_mentor_rate:.2f}, max_calls=90")
+            else:
+                policy = MentorPolicy(policy_config)
             
             # Phase 6.9.5: Create target-aware reward calculator for live mode
             ms2_mode = self._is_live_mode
@@ -1123,6 +1151,9 @@ class SmartOrchestrator:
             "web_paths": set(), "phase": "RECON", "flags_set": set(),
             # Phase 7.1: Exploited-service tracking (reset per episode)
             "exploited_services": set(), "exploited_ports": set(),
+            # HTB Capability Upgrade
+            "credentials_list": [], "capabilities": set(),
+            "downloaded_files": set(), "hashes": [],
         }
         
         # Phase 5.2: Cross-agent discovery deduplication
@@ -1398,6 +1429,27 @@ class SmartOrchestrator:
                             _agent_parse_explanations = _explanations
                             _agent_parse_latency = _latency
                             _agent_parse_stage = _stage
+                            
+                            # Phase 11.3: Feed interpretation lessons back to agent coach
+                            # The LLM interpreter produces InterpretationLesson objects
+                            # that teach agents HOW to read command output.
+                            try:
+                                _lesson = self.parser_broker.get_last_lesson()
+                                if _lesson is not None:
+                                    _coach = self.coaches.get(result.agent_name)
+                                    if _coach is not None:
+                                        # Feed compact lesson context
+                                        _lctx = _lesson.to_learning_context()
+                                        if _lctx:
+                                            _coach.record_interpretation_lesson(_lctx)
+                                        # Also inject cross-episode patterns
+                                        _pats = self.parser_broker.get_learned_patterns(
+                                            result.agent_name
+                                        )
+                                        if _pats:
+                                            _coach.inject_output_patterns(_pats)
+                            except Exception:
+                                pass
                         else:
                             # Fallback to legacy SmartOutputParser
                             parsed = self._parse_output_for_discoveries(
@@ -2525,6 +2577,44 @@ class SmartOrchestrator:
                     command_chain=cmd_chain,
                     total_reward=episode_reward,
                 )
+                
+                # Phase 11.1: Record pwn trajectory with flag capture info
+                _has_shell = self.attack_context.state_flags.get("shell_obtained", False) if self.attack_context else False
+                if _has_shell and cmd_chain:
+                    _user_flag = self.attack_context.state_flags.get("user_flag_captured", False) if self.attack_context else False
+                    _root_flag = self.attack_context.state_flags.get("root_flag_captured", False) if self.attack_context else False
+                    _root_shell = self.attack_context.state_flags.get("root_shell_obtained", False) if self.attack_context else False
+                    
+                    # Determine entry point from first exploit command
+                    _entry = "unknown"
+                    for _c in cmd_chain:
+                        if _c and any(x in _c.lower() for x in ["exploit", "ssh", "telnet", "shell", "backdoor", "login"]):
+                            _entry = _c
+                            break
+                    
+                    # Determine privesc method
+                    _privesc = "none"
+                    if _root_shell:
+                        for _c in cmd_chain:
+                            if _c and any(x in _c.lower() for x in ["sudo", "suid", "kernel", "pkexec", "linpeas"]):
+                                _privesc = _c
+                                break
+                        if _privesc == "none":
+                            _privesc = "direct_root_exploit"
+                    
+                    self.campaign_memory.record_pwn_trajectory(
+                        episode_num=episode_number,
+                        exploit_chain=cmd_chain,
+                        exploit_reasoning=f"Phase={highest_phase}, reward={episode_reward:.1f}",
+                        vulnerabilities_exploited=list(self.discovery_board.get("vulns", set())),
+                        entry_point=_entry,
+                        privilege_escalation_method=_privesc,
+                        user_flag_captured=_user_flag,
+                        root_flag_captured=_root_flag,
+                        loopholes_found=[],
+                        lessons_learned=f"Reached {highest_phase} with {len(cmd_chain)} commands",
+                    )
+                
                 # Auto-save every 5 episodes
                 if (episode_number + 1) % 5 == 0:
                     self.campaign_memory.save()
@@ -2758,6 +2848,8 @@ class SmartOrchestrator:
                 k: list(v) if isinstance(v, set) else v
                 for k, v in self.discovery_board.items()
             }
+            # Ensure target IP is accessible from discovery_board
+            enriched_state["discovery_board"]["target"] = ctx.target if ctx else self.config.target_ip
             # Phase 7.1: Also pass exploited-service data as raw sets for filtering
             enriched_state["discovery_board"]["exploited_services"] = self.discovery_board.get("exploited_services", set())
             enriched_state["discovery_board"]["exploited_ports"] = self.discovery_board.get("exploited_ports", set())
@@ -3165,9 +3257,35 @@ class SmartOrchestrator:
                 for svc in agent_discoveries.get("service", []):
                     ctx.add_service(svc)  # add_service already calls set_state_flag
                 
-                # Port discoveries → add to context
+                # Port discoveries → add to context + set flags
                 for port in agent_discoveries.get("open_port", []):
                     ctx.add_discovery("open_port", port)
+                    # Set ports_discovered flag
+                    if not ctx.state_flags.get("ports_discovered"):
+                        ctx.set_state_flag("ports_discovered")
+                        logger.info(f"[PHASE-ADVANCE] ports_discovered set by {result.agent_name}")
+                    # Port-based service inference (backup for service name detection)
+                    _port_int = int(port) if isinstance(port, (int, str)) and str(port).isdigit() else 0
+                    if _port_int in (80, 8080, 8000, 8443, 8888):
+                        if not ctx.state_flags.get("http_service_found"):
+                            ctx.set_state_flag("http_service_found")
+                            logger.info(f"[PHASE-ADVANCE] http_service_found set via port {_port_int}")
+                    elif _port_int == 443:
+                        if not ctx.state_flags.get("http_service_found"):
+                            ctx.set_state_flag("http_service_found")
+                            logger.info(f"[PHASE-ADVANCE] http_service_found set via port 443")
+                    elif _port_int == 21:
+                        if not ctx.state_flags.get("ftp_service_found"):
+                            ctx.set_state_flag("ftp_service_found")
+                    elif _port_int == 22:
+                        if not ctx.state_flags.get("ssh_service_found"):
+                            ctx.set_state_flag("ssh_service_found")
+                    elif _port_int in (139, 445):
+                        if not ctx.state_flags.get("smb_service_found"):
+                            ctx.set_state_flag("smb_service_found")
+                    elif _port_int == 3306:
+                        if not ctx.state_flags.get("mysql_service_found"):
+                            ctx.set_state_flag("mysql_service_found")
                 
                 # Credential discovery → advance to EXPLOITATION
                 if "credential" in agent_discoveries:
@@ -3209,9 +3327,10 @@ class SmartOrchestrator:
                     ctx.add_discovery("smb_share", share)
                     ctx.set_state_flag("smb_service_found")
                 
-                # Web paths → mark services as enumerated
+                # Web paths → mark services as enumerated + web_paths_discovered
                 if agent_discoveries.get("web_path"):
                     ctx.set_state_flag("services_enumerated")
+                    ctx.set_state_flag("web_paths_discovered")
                     for path in agent_discoveries["web_path"]:
                         ctx.add_discovery("web_path", path)
                 
@@ -3313,6 +3432,18 @@ class SmartOrchestrator:
                     ctx.set_state_flag("artifacts_removed")
                     ctx.set_state_flag("closeout_completed")
 
+                # ─── Phase 11.1: User/Root flag capture ──────────────
+                if agent_discoveries.get("user_flag"):
+                    ctx.set_state_flag("user_flag_captured")
+                    _uf_val = agent_discoveries["user_flag"]
+                    logger.info(f"[FLAG-CAPTURE] user_flag captured by {result.agent_name}: {_uf_val[:40]}")
+                    self.discovery_board["flags_set"].add("user_flag_captured")
+                if agent_discoveries.get("root_flag"):
+                    ctx.set_state_flag("root_flag_captured")
+                    _rf_val = agent_discoveries["root_flag"]
+                    logger.info(f"[FLAG-CAPTURE] root_flag captured by {result.agent_name}: {_rf_val[:40]}")
+                    self.discovery_board["flags_set"].add("root_flag_captured")
+
                 # ─── PHASE 4: Update discovery board for cross-agent sharing ─
                 for port in agent_discoveries.get("open_port", []):
                     self.discovery_board["ports"].add(port)
@@ -3322,6 +3453,9 @@ class SmartOrchestrator:
                     self.discovery_board["users"].add(user)
                 if agent_discoveries.get("credential"):
                     self.discovery_board["credentials"].add("found")
+                    # HTB Capability Upgrade: Extract structured creds from parsed output
+                    # and feed to LiveCommandExecutor for SSH auto-wrap
+                    self._process_credential_discovery(output_to_parse or "", result.decision.command or "")
                 if agent_discoveries.get("shell"):
                     self.discovery_board["shells"].add(result.agent_name)
                     # Phase 7.1: Mark the service/port as exploited
@@ -3337,6 +3471,13 @@ class SmartOrchestrator:
                     self.discovery_board["vulns"].add("found")
                 for path in agent_discoveries.get("web_path", []):
                     self.discovery_board["web_paths"].add(str(path))
+                    logger.debug(
+                        f"[WEB_PATH_DISC] Added '{path}' to discovery_board.web_paths "
+                        f"from {result.agent_name}. Board now: {self.discovery_board['web_paths']}"
+                    )
+                # Set web_paths_discovered flag when any web paths found
+                if self.discovery_board.get("web_paths"):
+                    self.discovery_board["flags_set"].add("web_paths_discovered")
                 self.discovery_board["phase"] = ctx.current_phase.name
                 self.discovery_board["flags_set"] = set(
                     k for k, v in ctx.state_flags.items() if v
@@ -3727,6 +3868,10 @@ class SmartOrchestrator:
         if not output or (output.startswith("[SIM]") and len(output) < 30):
             return discoveries
         
+        # Strip ANSI escape codes (ffuf/feroxbuster/gobuster emit [2K, [0m, etc.)
+        import re as _re
+        output = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+        
         # ── Phase 9.5: Check parse cache before parsing ──────────────
         if self._parse_cache is not None and agent_id:
             try:
@@ -3740,8 +3885,10 @@ class SmartOrchestrator:
         
         # ── Phase 9.4: SmartOutputParser two-stage pipeline ──────────
         # Try the structured parser first (OutputParser regex + LLM fallback).
-        # If it finds discoveries, return them directly — they're already in
-        # the canonical format used by the reward system.
+        # If it finds discoveries, use them as the base — but ALWAYS run
+        # the web-path regex below to catch ffuf/gobuster/feroxbuster results
+        # that the SmartOutputParser doesn't handle.
+        smart_result = None
         if self.smart_parser is not None:
             try:
                 smart_result = self.smart_parser.parse(
@@ -3754,10 +3901,7 @@ class SmartOrchestrator:
                         f"[SMART-PARSER] Found {len(smart_result)} discovery types "
                         f"for '{command[:40]}'"
                     )
-                    # Phase 9.5: Cache before returning
-                    if self._parse_cache is not None and agent_id:
-                        self._parse_cache.put(episode_id, step_idx, agent_id, output, smart_result)
-                    return smart_result
+                    discoveries = smart_result  # Use as base, web-path check runs below
             except Exception as e:
                 logger.debug(f"[SMART-PARSER] Error: {e}")
         
@@ -3931,13 +4075,25 @@ class SmartOrchestrator:
                     break
         
         # Directory/path discovery (web)
-        if re.search(r"(?:Status:|CODE:)\s*200", output):
-            path_matches = re.findall(r"/([\w\-\.]+)(?:\s*\(Status:\s*200|\s*\[Status:\s*200|CODE:200)", output)
+        # Match Status: 200, 301, 302, 403 (all indicate valid paths)
+        if re.search(r"(?:Status:|CODE:)\s*(?:200|301|302|403)", output):
+            # ffuf/gobuster format: "path  [Status: 200, ...]" or "/path (Status: 200)"
+            path_matches = re.findall(
+                r"([\w\-\.]+)\s+\[Status:\s*(?:200|301|302)\b",
+                output,
+            )
+            # Also catch nmap/dirb format: "/path (Status: 200)"
+            path_matches += re.findall(
+                r"/([\w\-\.]+)(?:\s*\(Status:\s*(?:200|301|302))",
+                output,
+            )
             if path_matches:
-                discoveries["web_path"] = list(set(path_matches))
+                discoveries["web_path"] = list(set(
+                    p for p in path_matches if p and len(p) > 1
+                ))
                 discoveries["directory"] = True
         # Also catch feroxbuster/dirsearch format
-        ferox_paths = re.findall(r"(?:200\s+GET\s+|^\[200\]\s*http://\S+?)((?:/[\w\-\.]+)+)", output, re.MULTILINE)
+        ferox_paths = re.findall(r"(?:(?:200|301|302)\s+GET\s+|^\[(?:200|301|302)\]\s*http://\S+?)((?:/[\w\-\.]+)+)", output, re.MULTILINE)
         if ferox_paths:
             discoveries["web_path"] = list(set(discoveries.get("web_path", []) + [p.strip("/").split("/")[-1] for p in ferox_paths]))
             discoveries["directory"] = True
@@ -4054,6 +4210,34 @@ class SmartOrchestrator:
                 if re.search(r"root@metasploitable|uid=0\(root\)|nt authority\\\\system|domain admin|meterpreter.*root|echo msfadmin.*sudo.*uid=0", output, re.IGNORECASE):
                     discoveries["root_shell"] = True
                 break
+        
+        # ─── Phase 11.1: User/Root flag detection ────────────────────
+        # Detect CTF-style flags in command output (user.txt, root.txt, FLAG{}, HTB{})
+        flag_patterns = [
+            r"FLAG\{[^}]+\}",                       # FLAG{...} format
+            r"HTB\{[^}]+\}",                        # HTB{...} format
+            r"flag\{[^}]+\}",                       # flag{...} format
+            r"[a-f0-9]{32}",                        # 32-char hex hash (common flag format)
+        ]
+        # Only detect flags from commands that read flag files
+        _is_flag_read = any(f in cmd_lower for f in [
+            "user.txt", "root.txt", "flag.txt", "proof.txt",
+            "local.txt", "user_flag", "root_flag",
+            "cat /root/", "cat /home/",
+        ])
+        if _is_flag_read:
+            for pattern in flag_patterns:
+                flag_match = re.search(pattern, output, re.IGNORECASE)
+                if flag_match:
+                    flag_value = flag_match.group(0)
+                    # Determine if user or root flag based on command context
+                    if any(rf in cmd_lower for rf in ["root.txt", "root_flag", "cat /root/", "proof.txt"]):
+                        discoveries["root_flag"] = flag_value
+                        discoveries["flag"] = flag_value
+                    else:
+                        discoveries["user_flag"] = flag_value
+                        discoveries["flag"] = flag_value
+                    break
         
         # Hash/credential dump patterns → triggers LATERAL_MOVEMENT
         # Phase 8.2 Batch 14: Skip for reference commands
@@ -4226,6 +4410,50 @@ class SmartOrchestrator:
             logger.debug(f"Env step failed: {e}")
             return {"reward": 0.0}, {}, False
     
+    def _process_credential_discovery(
+        self, output: str, command: str = ""
+    ) -> None:
+        """
+        HTB Capability Upgrade: Extract structured credentials from command output
+        and feed them to the LiveCommandExecutor for SSH auto-wrap.
+        
+        Called whenever agent_discoveries contains 'credential' == True.
+        Parses the raw output for actual username:password pairs and:
+        1. Stores them in discovery_board["credentials_list"]
+        2. Sets them on LiveCommandExecutor for SSH auto-wrap
+        3. Sets credentials_known state flag
+        """
+        try:
+            from core.execution.cred_reuse import parse_credential_from_output
+            
+            creds = parse_credential_from_output(output, command)
+            
+            for cred in creds:
+                cred_dict = {
+                    "username": cred.username,
+                    "password": cred.password,
+                    "service": cred.source_service,
+                    "source": cred.source,
+                }
+                
+                # Avoid duplicates in credentials_list
+                if cred_dict not in self.discovery_board.get("credentials_list", []):
+                    self.discovery_board.setdefault("credentials_list", []).append(cred_dict)
+                    
+                    logger.info(
+                        f"[CRED-EXTRACT] Structured credential: "
+                        f"{cred.username}:{cred.password[:3]}*** "
+                        f"(service={cred.source_service}, source={cred.source})"
+                    )
+                    
+                    # Feed to LiveCommandExecutor for SSH auto-wrap
+                    if self.live_executor is not None:
+                        self.live_executor.set_credentials(
+                            cred.username, cred.password, cred.source_service
+                        )
+        except Exception as e:
+            logger.debug(f"[CRED-EXTRACT] Error extracting structured creds: {e}")
+
     def _generate_simulated_output(self, command: str) -> str:
         """Generate realistic simulated output for a command with discoverable patterns.
 
@@ -4584,6 +4812,19 @@ class SmartOrchestrator:
             "linpeas": "[+] Possible sudo/suid/caps binaries:\n/usr/bin/nmap (nmap --interactive -> !sh)\n/usr/bin/vim (sudo vim -c ':!sh')\n[+] Writable /etc/passwd\n[+] CVE-2009-1185 udev < 1.4.1\n[+] Kernel 2.6.24 - multiple exploits available",
             "pspy": "CMD: UID=0 PID=1234 /bin/bash /root/backup_cron.sh\nCMD: UID=0 PID=5678 /opt/scripts/check_services.sh\nCMD: UID=0 PID=9012 /usr/sbin/cron -f",
             "find": "/tmp/suspicious.sh\n/var/www/.backup.zip\n/home/msfadmin/.ssh/id_rsa\n/opt/scripts/db_backup.sh\n/etc/passwd (writable!)\n/usr/bin/nmap (SUID)",
+            
+            # ─── Phase 11.1: Flag file reads (must be before generic "cat") ──
+            "cat /root/root.txt": f"FLAG{{r00t_pwn3d_{target.replace('.', '_')}_2026}}",
+            "cat /root/proof.txt": f"FLAG{{r00t_pr00f_{target.replace('.', '_')}_2026}}",
+            "cat /root/flag": f"FLAG{{r00t_fl4g_{target.replace('.', '_')}_2026}}",
+            "cat /home/msfadmin/user.txt": f"FLAG{{us3r_pwn3d_msfadmin_2026}}",
+            "cat /home/user/user.txt": f"FLAG{{us3r_pwn3d_user_2026}}",
+            "cat /home/msfadmin/local.txt": f"FLAG{{us3r_l0cal_msfadmin_2026}}",
+            "cat /home/msfadmin/flag": f"FLAG{{us3r_fl4g_msfadmin_2026}}",
+            "cat /home/*/user.txt": f"FLAG{{us3r_pwn3d_wildcard_2026}}",
+            "cat /home/*/flag.txt": f"FLAG{{us3r_fl4g_wildcard_2026}}",
+            "cat /etc/shadow": f"root:$6$rnd1234$aBcDeFgHiJkLmNoPqRsTuVwXyZ01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrst:19365:0:99999:7:::\nmsfadmin:$6$rnd5678$ZyXwVuTsRqPoNmLkJiHgFeDcBaZyXwVuTsRqPoNmLkJiHgFeDcBaZyXwVuTsRqPoNmLkJiHgFeDcBa:19365:0:99999:7:::\nuser:$6$rnd9012$AaAaBbBbCcCcDdDdEeEeFfFfGgGgHhHhIiIiJjJjKkKkLlLlMmMmNnNnOoOoPpPpQqQqRrRr:19365:0:99999:7:::",
+            
             "cat": "root:x:0:0:root:/root:/bin/bash\nmsfadmin:x:1000:1000:msfadmin,,,:/home/msfadmin:/bin/bash\nuser:x:1001:1001:just a user:/home/user:/bin/bash\npostgres:x:108:117:PostgreSQL admin:/var/lib/postgresql:/bin/bash\nservice:x:1002:1002::/home/service:/bin/bash",
             "pkexec": f"[+] CVE-2021-4034 exploit successful\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)",
             
@@ -4750,6 +4991,12 @@ class SmartOrchestrator:
         for prefix, output in SIMULATED_OUTPUTS.items():
             if cmd_lower.startswith(prefix.lower()):
                 return output
+        
+        # Phase 11.1: Flag file keyword fallbacks (before generic fallbacks)
+        if "user.txt" in cmd_lower or "user_flag" in cmd_lower or "local.txt" in cmd_lower:
+            return f"FLAG{{us3r_pwn3d_{target.replace('.', '_')}_2026}}"
+        if "root.txt" in cmd_lower or "root_flag" in cmd_lower or "proof.txt" in cmd_lower:
+            return f"FLAG{{r00t_pwn3d_{target.replace('.', '_')}_2026}}"
         
         # Fallback: try matching command keywords
         if "exploit" in cmd_lower or "meterpreter" in cmd_lower:

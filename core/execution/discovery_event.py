@@ -34,6 +34,16 @@ class DiscoveryType(Enum):
     HOSTNAME = "hostname"
     FLAG = "flag"
     KEY = "key"
+    # ── HTB Capability Upgrade ──────────────────────────────────
+    HASH = "hash"                    # Password hash (NTLM, bcrypt, etc.)
+    FILE_CONTENT = "file_content"    # Downloaded/extracted file content
+    PCAP_CRED = "pcap_credential"   # Credential extracted from PCAP
+    CAPABILITY = "capability"        # Linux capability (cap_setuid, etc.)
+    CONFIG_FILE = "config_file"      # Configuration file with secrets
+    TOKEN = "token"                  # Session token, API key, JWT, etc.
+    COOKIE = "cookie"                # HTTP cookie / session cookie
+    DOMAIN_USER = "domain_user"      # AD domain user account
+    GPP_PASSWORD = "gpp_password"    # Group Policy Preference password
 
 
 @dataclass
@@ -105,6 +115,16 @@ class DiscoveryEvent:
             "hostname": DiscoveryType.HOSTNAME,
             "flag": DiscoveryType.FLAG,
             "key": DiscoveryType.KEY,
+            # HTB Capability Upgrade
+            "hash": DiscoveryType.HASH,
+            "file_content": DiscoveryType.FILE_CONTENT,
+            "pcap_credential": DiscoveryType.PCAP_CRED,
+            "capability": DiscoveryType.CAPABILITY,
+            "config_file": DiscoveryType.CONFIG_FILE,
+            "token": DiscoveryType.TOKEN,
+            "cookie": DiscoveryType.COOKIE,
+            "domain_user": DiscoveryType.DOMAIN_USER,
+            "gpp_password": DiscoveryType.GPP_PASSWORD,
         }
 
         for key, value in discoveries.items():

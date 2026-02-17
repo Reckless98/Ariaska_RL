@@ -1,0 +1,107 @@
+{
+  "run_id": "run_20260217_003622_d0dfd7",
+  "timestamp": 1771284990.197384,
+  "key_outcomes": {
+    "wins": [
+      "Established reliable scanning workflow that collected open ports, service versions, and potential credentials within the first quarter of the episode.",
+      "Recovered multiple user-land credentials from enumeration scripts, enabling further probing attempts despite eventual mission failure."
+    ],
+    "fails": [
+      "Privilege escalation stalled after identifying weak permissions but failing to exploit misconfigurations, resulting in zero successful completions.",
+      "No defensive suppression steps were taken when detection risk increased, leading to repeated session resets."
+    ],
+    "summary": "Run demonstrated strong initial reconnaissance but consistently failed to transition to reliable post-exploitation and persistence, preventing mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts using discovered user credentials repeatedly failed due to missing exploit validation and improper context switching.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771284996.6401052,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_config_review",
+      "if_condition": "When sudo permissions list shows NOPASSWD entries",
+      "then_action": "Enumerate affected binaries and test exploit payloads",
+      "parameters_template": {
+        "binaries": [
+          "vi",
+          "nano"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1771284996.6401134,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_collection",
+      "if_condition": "When web login forms return consistent error patterns",
+      "then_action": "Run targeted password spraying followed by session capture",
+      "parameters_template": {
+        "user_list": [
+          "admin",
+          "service"
+        ],
+        "max_attempts": 5
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771284996.6401188,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate in generating validated SSH metadata for downstream steps"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate sudo-based privilege escalation",
+      "description": "After confirming sudo entries, script exploitation attempts with limited payloads (e.g., editing root-owned files with vi) to prove escalation path.",
+      "priority": "high"
+    },
+    {
+      "title": "Mitigate detection risk during brute force",
+      "description": "Introduce timing controls and random delays during credential spraying to prevent lockouts and maintain access.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

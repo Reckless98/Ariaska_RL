@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260217_010102_1e3d35",
+  "timestamp": 1771286468.8307629,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward output (60) across the solo episode, indicating repeatable control of basic operations.",
+      "Kept lean evaluation cycle despite 10 mentor calls, capturing actionable observations for follow-on experiments."
+    ],
+    "fails": [
+      "0% success rate: episode never reached final objective, likely due to missed escalation opportunities or timing misalignments.",
+      "High mentor call count suggests repeated uncertainty in decision points, creating delays in the attack chain execution."
+    ],
+    "summary": "The run showed stable low-level handling but failed to progress past key objectives; focus on sharper decision heuristics and reduced mentor dependence before scaling."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to transition from reconnaissance to exploitation, triggering mentor intervention at the same points.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771286478.8682716,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial reconnaissance yields credentials in accessible config files",
+      "then_action": "Attempt authenticated SSH login with captured credentials",
+      "parameters_template": {
+        "method": "sshpass",
+        "user": "<captured_user>",
+        "pass": "<captured_pass>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1771286478.8683064,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When privilege escalation vector (sudo misconfig) is detected",
+      "then_action": "Apply scripted sudo -l inventory followed by targeted exploitation",
+      "parameters_template": {
+        "check": "sudo -l",
+        "target": "<identified_binary>"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1771286478.868322,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Critical for bridging intel to exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve transition from recon to exploit",
+      "description": "Automate decision to shift from scanning to authenticated brute force once credentials are collected, reducing mentor dependence.",
+      "priority": "high"
+    },
+    {
+      "title": "Validate privilege escalation scripts",
+      "description": "Test sudo enumeration + targeted exploitation scripts in isolated environment to ensure success before live deployment.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

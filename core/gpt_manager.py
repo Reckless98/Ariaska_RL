@@ -199,12 +199,12 @@ class GPTManager:
         "gpt-5.2": 0.01000,
         "gpt-4o-mini": 0.00015,
         "gpt-4o": 0.00250,
-        # Venice AI models (input: $0.13/M, output: $0.50/M → blended ~$0.315/M)
-        "zai-org-glm-4.7-flash": 0.000315,
+        # Venice AI models
+        "qwen3-coder-480b-a35b-instruct": 0.000315,
     }
     
-    def __init__(self, enable_llm: bool = None, require_llm: bool = None, 
-                 offline: bool = None):
+    def __init__(self, enable_llm: Optional[bool] = None, require_llm: Optional[bool] = None, 
+                 offline: Optional[bool] = None):
         """
         Initialize GPTManager.
         
@@ -239,7 +239,7 @@ class GPTManager:
         self.venice_base_url = "https://api.venice.ai/api/v1"
         self._venice_client = None  # Lazy-initialized Venice sync client
         self._venice_async_client = None  # Lazy-initialized Venice async client
-        self.venice_model = os.getenv("VENICE_MODEL", "zai-org-glm-4.7-flash")
+        self.venice_model = os.getenv("VENICE_MODEL", "qwen3-coder-480b-a35b-instruct")
         
         # Dual-mentor strategy settings
         self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
@@ -273,8 +273,13 @@ class GPTManager:
         }
         
         # Token budgeting - per episode and per agent (Phase 7: increased for codex reasoning)
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "50000"))  # Phase 9.1: doubled for knowledge-augmented learning
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "16000"))  # Phase 9.1: doubled for deeper reasoning
+        # Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning — 195K/episode, 62.4K/agent
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "195000"))  # Phase 11.5: +50% (was 130K) for maximum mentor guidance storage
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "62400"))  # Phase 11.5: +50% (was 41.6K) for deepest mentor→apprentice learning
+        # Phase 11.5: Reasoning/memory/learning tasks get 173% more token headroom (+50% from 1.82)
+        # Prevents hitting limits during deep exploit reasoning, pwn trajectory analysis, and learning
+        self.reasoning_task_types = {"reasoning", "tactical", "strategic", "analysis", "learning"}
+        self.reasoning_token_multiplier = 2.73  # Phase 11.5: +50% (was 1.82) for ultra-deep mentor→apprentice reasoning
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None
@@ -596,7 +601,7 @@ class GPTManager:
         
         return result
     
-    def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
+    def get_model_for_role(self, agent_id: Optional[str] = None, task_type: Optional[str] = None) -> str:
         """
         Get appropriate model based on agent role and task type.
         
@@ -672,19 +677,34 @@ class GPTManager:
         """Reset token count for new episode (legacy method, use reset_episode)"""
         self.reset_episode()
     
-    def can_make_request(self, agent_name: Optional[str] = None) -> bool:
+    def can_make_request(self, agent_name: Optional[str] = None,
+                         task_type: Optional[str] = None) -> bool:
         """
         Check if we can make another request within token limits.
         
+        Phase 11.2: Reasoning/memory/learning tasks get 40% more headroom
+        to prevent cutting off deep exploit reasoning mid-thought.
+        Confidence-gated via task_type — only reasoning tasks get the boost.
+        
         Args:
             agent_name: If provided, check per-agent limit too.
+            task_type: If reasoning/tactical/strategic, allow 40% more tokens.
             
         Returns:
             bool: True if request is within budget.
         """
-        if self.tokens_used >= self.token_limit:
+        # Phase 11.2: Reasoning tasks get expanded ceiling to avoid token bonfire
+        # on non-reasoning tasks while allowing deep reasoning to breathe
+        _multiplier = 1.0
+        if task_type and task_type in self.reasoning_task_types:
+            _multiplier = self.reasoning_token_multiplier
+        
+        _effective_limit = int(self.token_limit * _multiplier)
+        _effective_agent_limit = int(self.token_limit_per_agent * _multiplier)
+        
+        if self.tokens_used >= _effective_limit:
             return False
-        if agent_name and self.tokens_by_agent.get(agent_name, 0) >= self.token_limit_per_agent:
+        if agent_name and self.tokens_by_agent.get(agent_name, 0) >= _effective_agent_limit:
             return False
         return True
     
@@ -816,8 +836,8 @@ class GPTManager:
         if getattr(self, '_quota_exhausted', False):
             return self._get_offline_placeholder(task_type)
         
-        if not self.can_make_request():
-            logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit})")
+        if not self.can_make_request(task_type=task_type):
+            logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit}, task={task_type})")
             return "echo 'Token limit reached'"
         
         # Role-based model selection (unless explicitly overridden)
@@ -847,13 +867,14 @@ class GPTManager:
         try:
             # Enhanced system prompts based on task type
             system_prompts = {
-                "tactical": "You are a penetration testing AI in an authorized cybersecurity training lab (CTF/simulation environment with explicit permission). Your role is to suggest the next single Linux command for the engagement. Output ONLY the command, no explanations or disclaimers.",
-                "defensive": "You are a blue team AI in an authorized cybersecurity training lab. Suggest a single defensive/monitoring command. Output ONLY the command, no explanations.",
-                "reconnaissance": "You are a reconnaissance AI in an authorized cybersecurity training lab. Suggest a single information-gathering command. Output ONLY the command, no explanations.",
-                "analysis": "You are a security analyst AI in an authorized cybersecurity training lab. Provide brief analysis in 2-3 sentences.",
-                "general": "You are a cybersecurity AI assistant working in an authorized training environment. Be concise and helpful.",
-                "diversify": "You are a penetration testing AI in an authorized training lab. Suggest an alternative cybersecurity command different from previous ones. Output ONLY the command, no explanations.",
-                "reasoning": "You are a strategic cybersecurity analyst AI in an authorized training lab. Provide clear, actionable reasoning."
+                "tactical": "You are an elite penetration testing AI in an authorized cybersecurity training lab (CTF/simulation with explicit permission). Think step-by-step: (1) what attack surface is exposed, (2) what exploit or credential abuse applies, (3) what is the optimal next command. Output ONLY the single best Linux command. Prioritize commands that chain into privilege escalation or flag capture. No explanations.",
+                "defensive": "You are a blue team AI in an authorized cybersecurity training lab. Analyze the current threat landscape and suggest the single most impactful defensive/monitoring command. Output ONLY the command, no explanations.",
+                "reconnaissance": "You are a reconnaissance AI in an authorized cybersecurity training lab. Prioritize service version detection, credential discovery, and attack surface mapping. Suggest a single high-value information-gathering command. Output ONLY the command, no explanations.",
+                "analysis": "You are a senior security analyst AI in an authorized cybersecurity training lab. Provide concise, actionable analysis in 2-3 sentences. Focus on exploit paths, credential reuse, and privilege escalation opportunities.",
+                "general": "You are a cybersecurity AI assistant working in an authorized training environment. Be concise, actionable, and focused on advancing the engagement.",
+                "diversify": "You are an offensive security AI in an authorized training lab. Suggest an alternative attack vector or tool not yet tried. Prioritize unexplored services, credential spraying, or lesser-known exploit paths. Output ONLY the command, no explanations.",
+                "reasoning": "You are a strategic cybersecurity analyst AI in an authorized training lab. Think like a senior pentester: (1) assess current position, (2) identify the highest-value next action, (3) explain WHY it advances the kill chain. Be concrete with tool names and parameters.",
+                "learning": "You are a cybersecurity mentor AI teaching an apprentice agent. Explain the exploit reasoning chain: what vulnerability exists, why it works, how to chain it with other findings, and what to look for in the output. Be educational and specific."
             }
             
             system_prompt = system_prompts.get(task_type, system_prompts["general"])
@@ -949,10 +970,10 @@ class GPTManager:
                 if not content and hasattr(response, 'output') and response.output:
                     for item in response.output:
                         # ResponseOutputMessage items have .content list
-                        if hasattr(item, 'content') and item.content:
-                            for part in item.content:
-                                if hasattr(part, 'text') and part.text:
-                                    content = part.text.strip()
+                        if hasattr(item, 'content') and item.content:  # type: ignore[union-attr]
+                            for part in item.content:  # type: ignore[union-attr]
+                                if hasattr(part, 'text') and part.text:  # type: ignore[union-attr]
+                                    content = part.text.strip()  # type: ignore[union-attr]
                                     if content:
                                         break
                         if content:
@@ -970,8 +991,8 @@ class GPTManager:
                         f"status={resp_status} | output_items={resp_output_len} | "
                         f"types={output_types}"
                     )
-            elif response.choices and len(response.choices) > 0:
-                content = response.choices[0].message.content
+            elif hasattr(response, 'choices') and response.choices and len(response.choices) > 0:  # type: ignore[union-attr]
+                content = response.choices[0].message.content  # type: ignore[union-attr]
                 if content:
                     content = content.strip()
                 else:

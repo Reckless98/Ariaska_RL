@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260216_215417_b6763b",
+  "timestamp": 1771275280.829196,
+  "key_outcomes": {
+    "wins": [
+      "Consistent reconnaissance coverage with port scans completed across entire /24 range, generating actionable target list within first 5 steps",
+      "Maintained situational awareness through logging and tiered alerts, enabling prompt identification of failed exploit attempts"
+    ],
+    "fails": [
+      "Repeated inability to progress past initial access due to lack of valid credentials and brute force protections",
+      "High reliance on mentor calls (10) without translating guidance into successful autonomous actions"
+    ],
+    "summary": "Strong reconnaissance discipline but execution bottleneck at exploitation phase prevented mission success; needs credential acquisition strategies."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Brute-force attempts against SSH stopped by lockout policies before valid credentials discovered",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step23",
+        "ep001_step27",
+        "ep001_step30"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripting and banner grab",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-run"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771275289.128492,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When high-value service discovered but no default credentials work",
+      "then_action": "Deploy credential stuffing using curated corporate username list and monitor lockout thresholds",
+      "parameters_template": {
+        "service": "ssh",
+        "username_list": "company_users.txt"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18"
+      ],
+      "created_at": 1771275289.1285,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When previous credential attempts trigger lockout",
+      "then_action": "Shift to alternative access vector (e.g., web-auth of same host) and pivot reconnaissance",
+      "parameters_template": {
+        "alternative": "web-auth",
+        "scan_type": "HTTP-enum"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step23",
+        "ep001_step27"
+      ],
+      "created_at": 1771275289.128505,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate mapping SSH services early in episodes"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvesting via Hosted Backup Configs",
+      "description": "Scan for exposed backup configuration files (e.g., .bak, .conf) on accessible services and parse for stored credential fragments before brute forcing services again",
+      "priority": "high"
+    },
+    {
+      "title": "Pivot to Alternative Protocols on Locked Hosts",
+      "description": "When SSH lockouts occur, immediately attempt enumeration of related services (e.g., web UIs or SMB) to identify secondary access paths",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated Lockout Detection Alerts",
+      "description": "Implement automated checks to detect lockout responses from services and throttle brute-force cadence dynamically to avoid repeated failures",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

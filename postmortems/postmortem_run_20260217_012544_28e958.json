@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260217_012544_28e958",
+  "timestamp": 1771287949.9911501,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a stable reward trajectory (60.00) throughout the only episode, indicating the policy reliably executed early-stage reconnaissance actions.",
+      "Properly used mentor calls (10 total) to explore alternative strategies, demonstrating adaptability when initial plans failed."
+    ],
+    "fails": [
+      "0.00% success rate: final objective never achieved despite solid rewards, pointing to a gap in closing the attack loop.",
+      "Repeated failure to execute post-exploitation steps after initial enumeration, leading to abandonment before privilege escalation."
+    ],
+    "summary": "Strong initial recon behavior produced consistent rewards, but results collapsed during the exploitation phase, preventing goal completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-enumeration phase stalls: identified services but never triggered exploitation routines, so no privilege escalation started.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration with nmap scripts sshv1, ssh2-enum-algos, ssh-hostkey",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "args": "--script-args ssh_user=default"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771287960.528135,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is discovered but directory listing incomplete",
+      "then_action": "Launch gobuster for forced enumeration with wordlist and follow redirects",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step09"
+      ],
+      "created_at": 1771287960.5281475,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When user-level shell obtained but privilege escalation never attempted",
+      "then_action": "Check sudo rights, SUID binaries, and readable /etc/passwd for escalation candidates",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "find / -perm -4000 -type f 2>/dev/null | head"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step11"
+      ],
+      "created_at": 1771287960.5281556,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration reliably produced actionable service data during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Integrate exploit chaining after enumeration",
+      "description": "After SSH and HTTP enumeration succeed, immediately trigger relevant exploits (e.g., known CVEs or credential reuse) to progress toward success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate privilege escalation checks",
+      "description": "Include deterministic sudo/SUID checks after each shell acquisition to avoid stalling before escalation.",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor dependency via policy refinement",
+      "description": "Analyze past mentor guidance to hard-code decision points that previously required assistance, aiming to lower call count below 5 per episode.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

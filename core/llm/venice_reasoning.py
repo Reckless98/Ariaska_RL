@@ -1,7 +1,7 @@
 """
 Venice Reasoning Layer — Humanlike output analysis and discovery extraction.
 
-Uses Venice AI's zai-org-glm-4.7-flash model to:
+Uses Venice AI's qwen3-coder-480b-a35b-instruct model to:
 1. Parse command outputs for hidden discoveries (ports, creds, vulns, paths)
 2. Generate "aha" insights — correlating current findings with prior knowledge
 3. Accelerate learning via cross-episode pattern recognition
@@ -16,7 +16,7 @@ Architecture:
         → Insights feed back into AttackContext for next decision
         → "aha" moments stored in cross-episode memory for accelerated learning
 
-Cost: Venice zai-org-glm-4.7-flash — $0.13/M input | $0.50/M output (~$0.315/M blended)
+Cost: Venice qwen3-coder-480b-a35b-instruct
       Roughly 5× cheaper than codex-mini for equivalent reasoning quality.
 """
 
@@ -79,7 +79,7 @@ class VeniceInsight:
     # Meta
     tokens_used: int = 0
     latency_ms: int = 0
-    model_used: str = "zai-org-glm-4.7-flash"
+    model_used: str = "qwen3-coder-480b-a35b-instruct"
     
     @property
     def has_discoveries(self) -> bool:
@@ -108,7 +108,7 @@ class VeniceReasoningLayer:
     Venice AI reasoning layer for humanlike output analysis and insight generation.
     
     This layer sits between command execution and state update, analyzing raw
-    command output through Venice's zai-org-glm-4.7-flash model to:
+    command output through Venice's qwen3-coder-480b-a35b-instruct model to:
     
     1. Extract discoveries that regex parsers might miss
     2. Correlate findings across the engagement (aha moments)
@@ -314,7 +314,7 @@ CRITICAL RULES:
                     {"role": "system", "content": "You are an expert penetration tester. Analyze command output and provide structured insights in JSON format only."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500,
+                max_tokens=750,  # Phase 11.5: +50% (was 500) for deeper reasoning analysis
                 temperature=0.4,  # Lower temp for more precise analysis
             )
             
@@ -373,6 +373,31 @@ CRITICAL RULES:
         except Exception as e:
             logger.warning(f"Venice reasoning analysis failed: {e}")
             self.gpt_manager.stats_venice["failures"] = self.gpt_manager.stats_venice.get("failures", 0) + 1
+            
+            # Phase 11.5: Fallback to gpt-5.2-codex when Venice fails
+            try:
+                logger.info(f"[VENICE→CODEX FALLBACK] Attempting gpt-5.2-codex for reasoning analysis")
+                fallback_response = self.gpt_manager.gpt_request(
+                    prompt=prompt,
+                    task_type="reasoning",
+                    agent_id="venice_fallback",
+                    max_tokens=750,  # Phase 11.5: generous budget for deep reasoning
+                    model="gpt-5.2-codex",
+                )
+                if fallback_response:
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    insight.latency_ms = latency_ms
+                    insight.model_used = "gpt-5.2-codex"
+                    insight = self._parse_venice_response(fallback_response, insight)
+                    insight.reasoning_narrative = (
+                        f"[gpt-5.2-codex fallback] {insight.reasoning_narrative}"
+                    )
+                    logger.info(f"[VENICE→CODEX FALLBACK] Success — discoveries found: {insight.has_discoveries}")
+                    self._episode_insights.append(insight)
+                    return insight
+            except Exception as fallback_err:
+                logger.debug(f"[VENICE→CODEX FALLBACK] Also failed: {fallback_err}")
+            
             insight.reasoning_narrative = f"[Venice analysis error: {str(e)[:50]}]"
             return insight
     

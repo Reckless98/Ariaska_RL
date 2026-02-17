@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260217_014616_9b295f",
+  "timestamp": 1771289197.6656404,
+  "key_outcomes": {
+    "wins": [
+      "Episode generated a consistently high reward (80) indicating proficient exploitation workflow even if success criteria not met",
+      "Used 10 mentor calls, showing active learning and willingness to adapt tactics"
+    ],
+    "fails": [
+      "Despite effective short-term maneuvers, run failed to reach a successful completion state (Success Rate 0%)",
+      "Frequent reliance on mentor guidance without translating into autonomous success suggests missing strategy integration"
+    ],
+    "summary": "High-reward actions occurred but failed to be synthesized into goal completion; focus on consolidating tactics to meet success conditions without mentor input."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Each episode culminates in near-miss high reward but stops short of success criteria, indicating final validation or cleanup step was never completed",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH",
+      "then_action": "Run SSH enumeration with nmap scripts to gather service version and supported algorithms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771289206.7767339,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web server on port 80/443 responds with default page",
+      "then_action": "Deploy gobuster for directory enumeration and capture any admin/login endpoints",
+      "parameters_template": {
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771289206.7767417,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When vulnerable PHP application detected via banner or headers",
+      "then_action": "Run targeted wp-scan or other CMS-specific scanners to identify exploitable plugins/themes",
+      "parameters_template": {
+        "target": "http://{{ip}}",
+        "enumerate": "vp,vt,u"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771289206.776746,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward correlation when SSH enumeration executed early"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Directory fuzzing produced actionable leads in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Close the loop after enumeration",
+      "description": "After successful enumeration (skills 001/002), automate validation and privilege escalation to convert high reward into success. Focus on final validation scripts or checkpoint triggers.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Introduce decision-tree prompts to guide the agent through autonomous recovery when enumeration yields data but success flag missing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

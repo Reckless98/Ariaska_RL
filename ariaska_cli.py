@@ -368,7 +368,7 @@ def run_training(
                 if verbosity != "quiet":
                     console.print(f"[green]💾 Guardrail checkpoint saved: {ckpt_path}[/green]")
             except Exception as exc:
-                logger.warning(f"Guardrail checkpoint failed: {exc}")
+                console.print(f"[yellow]Guardrail checkpoint failed: {exc}[/yellow]")
 
         recent = all_rewards[-10:]
         avg_recent = sum(recent) / len(recent)
@@ -405,6 +405,9 @@ def run_training(
     orch.save_ppo_checkpoints(checkpoint_path)
 
     # ── Summary ──────────────────────────────────────────────────────────
+    if not all_rewards:
+        console.print("[yellow]⚠️ No episodes completed — nothing to summarise.[/yellow]")
+        return {"episode_data": [], "avg_reward": 0.0}
     avg_reward = sum(all_rewards) / len(all_rewards)
     max_reward = max(all_rewards)
     min_reward = min(all_rewards)

@@ -119,6 +119,17 @@ class OutputParser:
         "searchsploit": "_parse_searchsploit",
         "curl": "_parse_curl",
         "wget": "_parse_curl",
+        # HTB Capability Upgrade
+        "strings": "_parse_pcap_strings",
+        "tshark": "_parse_pcap_strings",
+        "getcap": "_parse_getcap",
+        "hashcat": "_parse_hashcat",
+        "john": "_parse_john",
+        "sshpass": "_parse_ssh_session",
+        "gpp-decrypt": "_parse_gpp_decrypt",
+        "impacket-GetNPUsers": "_parse_impacket_hash",
+        "impacket-GetUserSPNs": "_parse_impacket_hash",
+        "bloodhound-python": "_parse_bloodhound",
     }
     
     def __init__(self, known_ports_path: Optional[str] = None):
@@ -522,7 +533,230 @@ class OutputParser:
         if cookies:
             result.artifacts["cookies"] = cookies
         
+        # Check for file download indicators 
+        if "saved" in output.lower() or re.search(r'\d+ bytes', output):
+            result.artifacts["file_downloaded"] = True
+        
         result.success = len(result.artifacts) > 0
+        return result
+    
+    # =========================================================================
+    # HTB Capability Upgrade — New tool parsers
+    # =========================================================================
+    
+    def _parse_pcap_strings(self, command: str, output: str) -> ParsedOutput:
+        """Parse strings/tshark output from PCAP files for credentials."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # FTP USER/PASS pairs
+        ftp_users = re.findall(r'USER\s+(\S+)', output)
+        ftp_passes = re.findall(r'PASS\s+(\S+)', output)
+        if ftp_users and ftp_passes:
+            for user, passwd in zip(ftp_users, ftp_passes):
+                if user.lower() not in ("anonymous", "ftp"):
+                    result.credentials.append({
+                        "username": user,
+                        "password": passwd,
+                        "service": "ftp",
+                        "source": "pcap",
+                    })
+        
+        # HTTP Basic Auth (base64 in headers)
+        auth_match = re.findall(r'Authorization:\s*Basic\s+(\S+)', output)
+        if auth_match:
+            import base64
+            for b64 in auth_match:
+                try:
+                    decoded = base64.b64decode(b64).decode('utf-8', errors='replace')
+                    if ':' in decoded:
+                        user, passwd = decoded.split(':', 1)
+                        result.credentials.append({
+                            "username": user,
+                            "password": passwd,
+                            "service": "http",
+                            "source": "pcap",
+                        })
+                except Exception:
+                    pass
+        
+        # Telnet login/password
+        telnet_user = re.findall(r'login:\s*(\S+)', output, re.IGNORECASE)
+        telnet_pass = re.findall(r'Password:\s*(\S+)', output, re.IGNORECASE)
+        if telnet_user and telnet_pass:
+            for user, passwd in zip(telnet_user, telnet_pass):
+                result.credentials.append({
+                    "username": user,
+                    "password": passwd,
+                    "service": "telnet",
+                    "source": "pcap",
+                })
+        
+        # Generic username/password discovery
+        for match in re.finditer(r'(?:user(?:name)?|login)[:\s=]+(\S+)', output, re.IGNORECASE):
+            user = match.group(1)
+            if user not in result.users and len(user) > 1:
+                result.users.append(user)
+        
+        result.success = len(result.credentials) > 0
+        if result.credentials:
+            result.artifacts["pcap_credentials_found"] = True
+        return result
+    
+    def _parse_getcap(self, command: str, output: str) -> ParsedOutput:
+        """Parse getcap output for Linux capabilities."""
+        result = ParsedOutput(command=command, phase="privesc")
+        
+        # Pattern: /usr/bin/python3.8 cap_setuid,cap_net_bind_service=eip
+        cap_pattern = r'(\S+)\s*=\s*(cap_\S+)'
+        for match in re.finditer(cap_pattern, output):
+            binary = match.group(1)
+            caps = match.group(2)
+            result.artifacts[f"capability_{binary}"] = caps
+            result.vulnerabilities.append(f"capability:{binary}={caps}")
+            
+            # Flag dangerous capabilities
+            if "cap_setuid" in caps:
+                result.artifacts["cap_setuid_binary"] = binary
+                result.artifacts["privesc_vector"] = "cap_setuid"
+        
+        # Also match format: /usr/bin/python3.8 = cap_setuid+ep
+        cap_pattern2 = r'(\S+)\s+(cap_\S+\+\S+)'
+        for match in re.finditer(cap_pattern2, output):
+            binary = match.group(1)
+            caps = match.group(2)
+            result.artifacts[f"capability_{binary}"] = caps
+            
+            if "cap_setuid" in caps:
+                result.artifacts["cap_setuid_binary"] = binary
+                result.artifacts["privesc_vector"] = "cap_setuid"
+        
+        result.success = len(result.vulnerabilities) > 0
+        return result
+    
+    def _parse_hashcat(self, command: str, output: str) -> ParsedOutput:
+        """Parse hashcat output for cracked passwords."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # Cracked format: hash:password
+        if "Status...........: Cracked" in output or "Cracked" in output:
+            # Look for the cracked result
+            crack_pattern = r'(\S+):(\S+)$'
+            for line in output.strip().split('\n'):
+                match = re.match(crack_pattern, line.strip())
+                if match and not line.startswith('#'):
+                    result.credentials.append({
+                        "hash": match.group(1),
+                        "password": match.group(2),
+                        "source": "hashcat",
+                    })
+        
+        result.success = len(result.credentials) > 0
+        return result
+    
+    def _parse_john(self, command: str, output: str) -> ParsedOutput:
+        """Parse John the Ripper output for cracked passwords."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # John --show format: username:password:uid:gid:...
+        for line in output.strip().split('\n'):
+            if ':' in line and not line.startswith('#') and not line.startswith('Using'):
+                parts = line.strip().split(':')
+                if len(parts) >= 2 and parts[1]:
+                    result.credentials.append({
+                        "username": parts[0],
+                        "password": parts[1],
+                        "source": "john",
+                    })
+        
+        # "X password hashes cracked"
+        cracked_match = re.search(r'(\d+) password hash(?:es)? cracked', output)
+        if cracked_match:
+            result.artifacts["hashes_cracked"] = int(cracked_match.group(1))
+        
+        result.success = len(result.credentials) > 0
+        return result
+    
+    def _parse_ssh_session(self, command: str, output: str) -> ParsedOutput:
+        """Parse sshpass/SSH session output for successful login + discoveries."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # Successful login indicators
+        if re.search(r'uid=\d+', output):
+            result.success = True
+            # Extract uid info
+            uid_match = re.search(r'uid=(\d+)\((\w+)\)', output)
+            if uid_match:
+                uid = int(uid_match.group(1))
+                username = uid_match.group(2)
+                result.users.append(username)
+                if uid == 0:
+                    result.artifacts["privilege_level"] = "root"
+                    result.sessions.append({"type": "root_shell", "user": username})
+                else:
+                    result.artifacts["privilege_level"] = "user"
+                    result.sessions.append({"type": "user_shell", "user": username})
+        
+        # Check for /etc/passwd content (useful for user enumeration)
+        passwd_pattern = r'(\w+):x:(\d+):\d+:.*:/home/\1'
+        for match in re.finditer(passwd_pattern, output):
+            user = match.group(1)
+            if user not in result.users:
+                result.users.append(user)
+        
+        # Permission denied = failed
+        if "Permission denied" in output or "Connection refused" in output:
+            result.success = False
+            result.error = "Authentication failed"
+        
+        return result
+    
+    def _parse_gpp_decrypt(self, command: str, output: str) -> ParsedOutput:
+        """Parse gpp-decrypt output for decrypted password."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # gpp-decrypt just outputs the plaintext password
+        decrypted = output.strip()
+        if decrypted and len(decrypted) < 100 and not decrypted.startswith("Usage"):
+            result.credentials.append({
+                "password": decrypted,
+                "source": "gpp-decrypt",
+                "service": "active_directory",
+            })
+            result.success = True
+        
+        return result
+    
+    def _parse_impacket_hash(self, command: str, output: str) -> ParsedOutput:
+        """Parse impacket GetNPUsers/GetUserSPNs output for Kerberos hashes."""
+        result = ParsedOutput(command=command, phase="exploit")
+        
+        # AS-REP hash: $krb5asrep$23$username@DOMAIN:...
+        asrep_pattern = r'(\$krb5asrep\$\d+\$\S+)'
+        for match in re.finditer(asrep_pattern, output):
+            result.artifacts.setdefault("hashes", []).append(match.group(1))
+            result.vulnerabilities.append("AS-REP Roastable account found")
+        
+        # TGS hash: $krb5tgs$23$*username$DOMAIN$...
+        tgs_pattern = r'(\$krb5tgs\$\d+\$\S+)'
+        for match in re.finditer(tgs_pattern, output):
+            result.artifacts.setdefault("hashes", []).append(match.group(1))
+            result.vulnerabilities.append("Kerberoastable service account found")
+        
+        result.success = len(result.artifacts.get("hashes", [])) > 0
+        return result
+    
+    def _parse_bloodhound(self, command: str, output: str) -> ParsedOutput:
+        """Parse bloodhound-python output for collected data."""
+        result = ParsedOutput(command=command, phase="enumeration")
+        
+        # "Done in 00mXXs... X users, X computers, X groups"
+        done_match = re.search(r'Done.*?(\d+)\s+users.*?(\d+)\s+computers.*?(\d+)\s+groups', output)
+        if done_match:
+            result.artifacts["ad_users"] = int(done_match.group(1))
+            result.artifacts["ad_computers"] = int(done_match.group(2))
+            result.artifacts["ad_groups"] = int(done_match.group(3))
+            result.success = True
+        
         return result
     
     def _parse_generic(self, command: str, output: str) -> ParsedOutput:

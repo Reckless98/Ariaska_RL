@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260216_212611_2477ab",
+  "timestamp": 1771273594.7684565,
+  "key_outcomes": {
+    "wins": [
+      "Completed reconnaissance and identified two exploitable services across the single episode despite no overall success.",
+      "Maintained consistent reward accumulation (57.5) indicating steady progress before failure points."
+    ],
+    "fails": [
+      "Zero percent success rate indicates inability to complete final objective within episode.",
+      "High mentor intervention count (15 calls) suggests frequent uncertainty or incorrect actions throughout the run."
+    ],
+    "summary": "Reconnaissance efforts showed promise, but repeated tactical errors prevented achieving mission success, requiring refinement of exploitation sequencing and decision confidence."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Revisiting the same service without progressing to exploitation, leading to repeated mentor guidance.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 returns HTTP service with accessible directory listing",
+      "then_action": "Run gobuster with wordlist to enumerate directories",
+      "parameters_template": {
+        "port": 80,
+        "tool": "gobuster",
+        "wordlist": "/usr/share/seclists/Discovery/Web-Content/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771273602.8544745,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open and banner reveals OpenSSH 8.x",
+      "then_action": "Run ssh-audit and automated nmap ssh enumeration scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771273602.8544881,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SQL service responds to authentication attempts",
+      "then_action": "Run sqlmap with detected credentials and attempt basic SQL injection checks",
+      "parameters_template": {
+        "dbms": "mysql",
+        "risk": 2,
+        "level": 3
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1771273602.8544967,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in quickly identifying directory listings and providing actionable enumeration next steps."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focused exploitation sequencing",
+      "description": "After reconnaissance, directly chain targeted exploitation actions (e.g., gobuster -> ssh-audit -> sqlmap) without revisiting previous stages to reduce mentor calls and improve mission flow.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated verification of service fingerprinting",
+      "description": "Integrate automated fingerprint verification (e.g., nmap scripts) before selecting tools to avoid incorrect tool choice and reduce repeated failures.",
+      "priority": "medium"
+    },
+    {
+      "title": "Confidence-based mentor reduction",
+      "description": "Implement decision checkpoints that require validation only when confidence drops below a threshold to reduce unnecessary mentor calls.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

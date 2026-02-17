@@ -1,0 +1,121 @@
+{
+  "run_id": "run_20260216_212357_4cfdba",
+  "timestamp": 1771273446.392527,
+  "key_outcomes": {
+    "wins": [
+      "Maintained engagement through the full episode, collecting 30 reward points despite obstacles",
+      "Leveraged mentor guidance effectively, reaching consistent checkpoints with no brusque deviations"
+    ],
+    "fails": [
+      "Failed to achieve successful completion within the episode despite 10 mentor calls, indicating a gap in automation or decision flow",
+      "Repeatedly could not transition from reconnaissance to exploitation, keeping success rate at 0%"
+    ],
+    "summary": "Run demonstrated persistence and data collection but struggled to convert reconnaissance into successful exploitation; gaps remain in execution automation and decision branching."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance gathered but no successful exploit attempt triggered",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When nmap scan reveals port 80 with HTTP service",
+      "then_action": "Launch directory brute force with gobuster",
+      "parameters_template": {
+        "url": "http://{{target_ip}}:80",
+        "wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step10"
+      ],
+      "created_at": 1771273455.0071325,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP response header indicates outdated server",
+      "then_action": "Trigger vulnerability scan with nikto for CVE matches",
+      "parameters_template": {
+        "target": "{{target_ip}}",
+        "port": 80,
+        "ntp": false
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11"
+      ],
+      "created_at": 1771273455.0071414,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port 22 is open and standard banner detected",
+      "then_action": "Perform banner-based credential guessing via hydra dictionary attack",
+      "parameters_template": {
+        "target": "{{target_ip}}",
+        "port": 22,
+        "username_list": [
+          "root",
+          "admin"
+        ],
+        "password_list": "/usr/share/wordlists/rockyou.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step13"
+      ],
+      "created_at": 1771273455.0071476,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently reached HTTP service enumeration milestone and paved way for subsequent actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Repeated HTTP header anomalies triggered vulnerability scanning, showing pattern worth reinforcing"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Link reconnaissance to exploitation callback",
+      "description": "Inject automation to escalate from HTTP enumeration (dir brute force results) directly into targeted exploit modules before mentor intervention",
+      "priority": "high"
+    },
+    {
+      "title": "Credential spray timing optimization",
+      "description": "Time hydra SSH attempts to avoid lockouts while cross-referencing open ports to pre-filter valid hosts",
+      "priority": "medium"
+    },
+    {
+      "title": "Adaptive vuln selection",
+      "description": "Aggregate nikto findings to auto-select appropriate exploit from database and rehearse payload delivery",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

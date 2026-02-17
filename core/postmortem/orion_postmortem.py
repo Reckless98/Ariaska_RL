@@ -276,16 +276,16 @@ class OrionPostmortem:
         # Determine model to use
         if self.enable_gpt_5_2:
             task_type = "postmortem"
-            model = self.gpt_manager.postmortem_model
+            model = self.gpt_manager.postmortem_model  # type: ignore[union-attr]
         else:
             task_type = "reasoning"
-            model = self.gpt_manager.primary_model
+            model = self.gpt_manager.primary_model  # type: ignore[union-attr]
         
         result.model_used = model
         
         try:
             # Make GPT request — postmortem needs longer timeout for deep analysis
-            response = self.gpt_manager.gpt_request(
+            response = self.gpt_manager.gpt_request(  # type: ignore[union-attr]
                 prompt,
                 task_type=task_type,
                 agent_id="OrionPostmortem",
@@ -427,9 +427,9 @@ IMPORTANT:
         # Simple validation - check required fields
         required_fields = ["key_outcomes", "skill_cards", "memory_ops", "next_experiments"]
         
-        for field in required_fields:
-            if field not in data:
-                logger.warning(f"Missing required field: {field}")
+        for field_name in required_fields:
+            if field_name not in data:
+                logger.warning(f"Missing required field: {field_name}")
                 return False
         
         # Validate key_outcomes structure

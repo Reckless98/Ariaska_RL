@@ -1,0 +1,115 @@
+{
+  "run_id": "run_20260217_003638_becfbe",
+  "timestamp": 1771285005.143368,
+  "key_outcomes": {
+    "wins": [
+      "Maintained full episode observation logging allowing precise mentor call review despite no successful objectives.",
+      "Consistently triggered reconnaissance phase enabling detailed glimpse of target perimeter before mentor intervention."
+    ],
+    "fails": [
+      "Never completed objective within single episode, resulting in 0% success despite high reward accumulation from partial progress.",
+      "Dependency on mentor hints prevented autonomous decision making when confronted with missing lateral movement opportunities."
+    ],
+    "summary": "Training episode highlighted strong reconnaissance discipline but lacked independent exploitation follow-through, suggesting focus on pivoting and post-recon actions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to advance beyond initial reconnaissance because no exploit path was chosen after identifying services.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 returns HTTP header with Server fingerprint",
+      "then_action": "Enumerate with HTTP directory bruteforce and banner-specific probes",
+      "parameters_template": {
+        "port": 80,
+        "tools": [
+          "gobuster",
+          "curl"
+        ],
+        "flags": [
+          "-u /wordlist/common.txt",
+          "-H 'User-Agent: ReconBot'"
+        ]
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771285015.1747684,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open but authentication fails with default creds",
+      "then_action": "Switch to brute-force using hydra with common credential list and log attempt rate",
+      "parameters_template": {
+        "service": "ssh",
+        "host": "target",
+        "credential_list": "/wordlists/ssh-defaults.txt",
+        "parallel": 4
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771285015.1747768,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor call is triggered due to stalled exploitation",
+      "then_action": "Capture and log most recent tool output, package into single brief with suggested next exploit vectors",
+      "parameters_template": {
+        "log_target": "episode_log",
+        "suggested_vectors": [
+          "web",
+          "ssh",
+          "smb"
+        ]
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771285015.1747823,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Demonstrated repeatable reconnaissance benefit by capturing HTTP service fingerprints before mentor support."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomous web exploitation follow-through",
+      "description": "After identifying HTTP headers, chain automated directory brute force into conditional exploit attempts without mentor input to measure independence.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential pivoting post-recognition",
+      "description": "Upon SSH service detection, automatically transition to targeted credential brute-force and retry pivoting, logging each failure reason.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor-call debrief automation",
+      "description": "Automate summarizing mentor hints and suggested vectors to reduce manual synthesis before next action.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

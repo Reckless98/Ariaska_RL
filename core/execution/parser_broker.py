@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-core/execution/parser_broker.py — Phase 11.0: Intelligent Parser Broker v2.0
+core/execution/parser_broker.py — Phase 11.3: Intelligent Parser Broker v3.0
 
-Dual-mode discovery parsing pipeline:
+Dual-mode discovery parsing pipeline with LLM-driven interpretation:
 
   MODE 1: "fast" (default)
     Stage 1: Regex (OutputParser) — free, handles 80%+
@@ -11,13 +11,19 @@ Dual-mode discovery parsing pipeline:
   MODE 2: "intelligent_fullparse"
     Stage 1: Regex           — free, pattern matching
     Stage 2: SOP LLM         — nano-LLM fallback
-    Stage 3: Venice           — GLM 4.7 Flash rationaliser
-    Stage 4: GPT finaliser    — gpt-5-nano for edge cases
+    Stage 3: LLM Interpreter — Venice qwen3-coder / gpt-5.2-mini (teaches agents)
+    Stage 4: GPT finaliser   — gpt-5-nano for edge cases
+
+Phase 11.3: Stage 3 now uses LLMOutputInterpreter which:
+  - Uses Venice qwen3-coder-480b-a35b-instruct as primary (fast, cheap)
+  - Falls back to gpt-5.2-mini when Venice exhausted
+  - Produces InterpretationLessons that teach agents to interpret output
+  - Agents accumulate learned patterns cross-episode
 
 Each stage only fires if prior stages found nothing meaningful.
 All stages emit DiscoveryEvent objects with ParseExplanation annotations.
 
-Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 11.0
+Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 11.3
 """
 
 from __future__ import annotations
@@ -37,11 +43,14 @@ logger = logging.getLogger("ariaska.parser_broker")
 
 class ParserBroker:
     """
-    Dual-mode output parsing pipeline (v2.0).
+    Dual-mode output parsing pipeline (v3.0).
 
     Modes:
       "fast" — regex only, zero LLM calls, ~1ms latency
-      "intelligent_fullparse" — 4-stage cascade with LLM enrichment
+      "intelligent_fullparse" — 4-stage cascade with LLM interpretation + agent learning
+
+    Phase 11.3: Stage 3 uses LLMOutputInterpreter (Venice qwen3-coder → gpt-5.2-mini)
+    which teaches agents how to interpret command output via InterpretationLessons.
 
     Usage:
         broker = ParserBroker(gpt_manager=gpt, venice=venice_layer)
@@ -81,18 +90,36 @@ class ParserBroker:
         except ImportError:
             logger.warning("SmartOutputParser not available")
 
+        # Phase 11.3: LLM Output Interpreter (qwen3-coder → gpt-5.2-mini)
+        # This is the new stage that teaches agents to interpret output
+        self._llm_interpreter: Optional[Any] = None
+        try:
+            from core.execution.llm_output_interpreter import LLMOutputInterpreter
+            self._llm_interpreter = LLMOutputInterpreter(
+                gpt_manager=gpt_manager,
+                max_venice_calls_per_episode=max_venice_calls_per_episode,
+                max_gpt_calls_per_episode=max_llm_calls_per_episode,
+            )
+            logger.info("[BROKER-11.3] LLMOutputInterpreter loaded (qwen3-coder → gpt-5.2-mini)")
+        except Exception as e:
+            logger.warning(f"LLMOutputInterpreter not available: {e}")
+
         # Stats
         self._stats = {
             "total_calls": 0,
             "stage1_hits": 0,    # regex
             "stage2_hits": 0,    # SOP LLM
-            "stage3_hits": 0,    # Venice
+            "stage3_hits": 0,    # LLM Interpreter (Venice qwen3-coder / gpt-5.2-mini)
             "stage4_hits": 0,    # GPT finaliser
             "empty_outputs": 0,
             "total_events": 0,
             "fast_calls": 0,
             "fullparse_calls": 0,
+            "lessons_produced": 0,  # Phase 11.3: interpretation lessons generated
         }
+
+        # Phase 11.3: Store last interpretation lesson for agent feedback
+        self._last_lesson: Optional[Any] = None
 
     def reset_episode(self) -> None:
         """Reset per-episode counters."""
@@ -100,6 +127,9 @@ class ParserBroker:
         self._venice_calls = 0
         if self._sop:
             self._sop.reset_episode()
+        # Phase 11.3: Reset LLM interpreter episode counters
+        if self._llm_interpreter:
+            self._llm_interpreter.reset_episode()
 
     def parse(
         self,
@@ -236,9 +266,36 @@ class ParserBroker:
                     source_stage = "regex"
                     self._stats["stage1_hits"] += 1
 
-        # ── Stage 3: Venice rationaliser ──────────────────────────
+        # ── Stage 3: LLM Interpreter (Venice qwen3-coder → gpt-5.2-mini) ──
+        # Phase 11.3: Replaces hardcoded Venice rationaliser with
+        # LLM-driven interpreter that teaches agents to reason about output
         if (
             not flat_discoveries
+            and self._llm_interpreter
+            and self._llm_interpreter.can_interpret()
+            and len(output.strip()) > 30
+        ):
+            lesson = self._llm_interpreter.interpret(
+                command=command,
+                output=output,
+                agent_name=agent_name,
+            )
+            if lesson and lesson.discoveries:
+                flat_discoveries = lesson.discoveries
+                source_stage = "llm_interpreter"  # Venice qwen3-coder or gpt-5.2-mini
+                self._stats["stage3_hits"] += 1
+                self._stats["lessons_produced"] += 1
+                self._last_lesson = lesson
+                logger.debug(
+                    f"[BROKER-S3] LLM interpreter ({lesson.provider}/{lesson.model_used}) "
+                    f"found: {list(flat_discoveries.keys())} for {agent_name}"
+                )
+
+        # ── Stage 3 Legacy Fallback: Venice rationaliser ──────────
+        # Only fires if LLM interpreter is unavailable
+        if (
+            not flat_discoveries
+            and not self._llm_interpreter
             and self._enable_venice
             and self._venice_calls < self._max_venice_calls
             and len(output.strip()) > 30
@@ -379,9 +436,35 @@ class ParserBroker:
 
         return {}
 
+    # ── Phase 11.3: Agent Learning Interface ────────────────────────
+
+    def get_last_lesson(self) -> Optional[Any]:
+        """Get the last InterpretationLesson produced (for agent feedback)."""
+        return self._last_lesson
+
+    def get_learned_context(self, agent_name: str) -> str:
+        """
+        Get the accumulated output interpretation lessons for an agent.
+        Used to inject into mentor/reasoning prompts so the agent learns
+        to interpret output without LLM calls over time.
+        """
+        if self._llm_interpreter:
+            return self._llm_interpreter.get_all_learned_context(agent_name)
+        return ""
+
+    def get_learned_patterns(self, agent_name: str) -> List[str]:
+        """Get raw pattern list this agent has learned."""
+        if self._llm_interpreter:
+            return self._llm_interpreter.get_learned_patterns(agent_name)
+        return []
+
     def get_stats(self) -> Dict[str, Any]:
         """Get broker statistics."""
-        return dict(self._stats)
+        stats = dict(self._stats)
+        # Phase 11.3: Include LLM interpreter stats
+        if self._llm_interpreter:
+            stats["llm_interpreter"] = self._llm_interpreter.get_stats()
+        return stats
 
     def get_stage_distribution(self) -> Dict[str, float]:
         """Get percentage distribution across stages."""
@@ -389,7 +472,7 @@ class ParserBroker:
         return {
             "regex_pct": round(self._stats["stage1_hits"] / total * 100, 1),
             "sop_llm_pct": round(self._stats["stage2_hits"] / total * 100, 1),
-            "venice_pct": round(self._stats["stage3_hits"] / total * 100, 1),
+            "llm_interp_pct": round(self._stats["stage3_hits"] / total * 100, 1),
             "gpt_pct": round(self._stats["stage4_hits"] / total * 100, 1),
             "empty_pct": round(self._stats["empty_outputs"] / total * 100, 1),
         }

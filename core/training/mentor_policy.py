@@ -109,21 +109,24 @@ class MentorPolicyConfig:
     final_threshold: float = 0.8
     anneal_episodes: int = 50
     
-    # Adaptive mode settings
-    min_adaptive_rate: float = 0.10  # Never go below 10% mentor rate
-    max_adaptive_rate: float = 0.80  # Never go above 80% mentor rate
-    struggling_boost: float = 0.4    # Add 40% to rate when struggling
-    performing_reduction: float = 0.3  # Reduce rate by 30% when doing well
+    # Adaptive mode settings — Phase 11.5: +50% for ultra-accelerated mentor→apprentice learning
+    min_adaptive_rate: float = 0.30  # Phase 11.5: +50% (was 0.20) — never go below 30%
+    max_adaptive_rate: float = 1.0   # Phase 11.5: raised to 1.0 — allow full mentor saturation
+    struggling_boost: float = 1.37   # Phase 11.5: +50% (was 0.91) — maximum boost for mentor→apprentice learning
+    performing_reduction: float = 0.10  # Phase 11.5: reduced further (was 0.15) — keep mentor engaged even longer
+    # Phase 11.2: Confidence-gated dynamic bounds — prevents token bonfire
+    confidence_gate_low: float = 0.3   # Below this: agent unsure → raise min/max for more learning
+    confidence_gate_high: float = 0.7  # Above this: agent confident → lower min/max to save tokens
     
-    # Rate caps
-    min_mentor_rate: float = 0.10  # Minimum mentor call rate
-    max_mentor_rate: float = 0.90  # Maximum mentor call rate
+    # Rate caps — Phase 11.5: +50% minimums for ultra-accelerated learning
+    min_mentor_rate: float = 0.30  # Phase 11.5: +50% (was 0.20) — raised for max learning
+    max_mentor_rate: float = 1.0   # Phase 11.5: raised to 1.0 — full saturation allowed
     
     # Cooldown
     cooldown_steps: int = 1  # Minimum steps between mentor calls
     
-    # Per-episode limits
-    max_calls_per_episode: int = 30  # Increased for better learning
+    # Per-episode limits — Phase 11.5: +50% for ultra-accelerated mentor→apprentice storage
+    max_calls_per_episode: int = 117  # Phase 11.5: +50% (was 78) for maximum mentor→apprentice guidance
 
 
 class MentorPolicy:
@@ -303,18 +306,41 @@ class MentorPolicy:
             # Lower success = higher mentor rate
             base_rate += (0.5 - tracker.success_rate) * 0.3
         
-        # Confidence modulation - low confidence = more likely to call mentor
-        confidence_factor = (1.0 - confidence) * 0.4
+        # Phase 11.5: Confidence modulation — +50% factor for ultra-accelerated mentor guidance (0.73→1.10)
+        confidence_factor = (1.0 - confidence) * 1.10
         final_rate = base_rate + confidence_factor
         
-        # Mentor effectiveness bonus - if mentor has been helpful, call more
+        # Phase 11.5: Mentor effectiveness bonus — +50% for mentor→apprentice learning (0.18→0.27)
         if tracker.mentor_effectiveness > 0.7:
-            final_rate += 0.1  # Mentor has been very helpful
+            final_rate += 0.27  # Mentor has been very helpful — maximized for guidance storage
         elif tracker.mentor_effectiveness < 0.3:
-            final_rate -= 0.1  # Mentor hasn't been helping much
+            final_rate -= 0.10  # Mentor hasn't been helping much
         
-        # Clamp to config limits
-        final_rate = max(self.config.min_adaptive_rate, min(self.config.max_adaptive_rate, final_rate))
+        # Phase 11.2: Confidence-gated dynamic min/max — prevents token bonfire
+        # High confidence → tighter bounds (save tokens); Low confidence → wider bounds (learn more)
+        _min_rate = self.config.min_adaptive_rate
+        _max_rate = self.config.max_adaptive_rate
+        if confidence > self.config.confidence_gate_high:
+            # Agent is confident — shrink bounds to prevent waste
+            _gate_factor = (confidence - self.config.confidence_gate_high) / (1.0 - self.config.confidence_gate_high)
+            _min_rate *= max(0.5, 1.0 - _gate_factor * 0.5)   # Reduce min by up to 50%
+            _max_rate *= max(0.6, 1.0 - _gate_factor * 0.35)  # Reduce max by up to 35%
+            logger.debug(
+                f"[MENTOR] {agent_name} HIGH confidence ({confidence:.2f}) → "
+                f"dynamic bounds [{_min_rate:.2f}, {_max_rate:.2f}]"
+            )
+        elif confidence < self.config.confidence_gate_low:
+            # Agent is unsure — widen bounds for more learning/reasoning
+            _gate_factor = (self.config.confidence_gate_low - confidence) / self.config.confidence_gate_low
+            _min_rate *= (1.0 + _gate_factor * 0.78)   # Phase 11.5: +50% (was 0.52) — raise min by up to 78%
+            _max_rate = min(1.0, _max_rate * (1.0 + _gate_factor * 0.39))  # Phase 11.5: +50% (was 0.26) — raise max by up to 39%
+            logger.debug(
+                f"[MENTOR] {agent_name} LOW confidence ({confidence:.2f}) → "
+                f"dynamic bounds [{_min_rate:.2f}, {_max_rate:.2f}]"
+            )
+        
+        # Clamp to confidence-gated dynamic limits
+        final_rate = max(_min_rate, min(_max_rate, final_rate))
         
         # Probabilistic decision
         if random.random() < final_rate:

@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260217_024051_7edd21",
+  "timestamp": 1771292471.2467537,
+  "key_outcomes": {
+    "wins": [
+      "Consistently collected reconnaissance data to accumulate reward even without full mission success",
+      "Used mentor guidance effectively, evidenced by 15 mentor calls leading to structured attempts"
+    ],
+    "fails": [
+      "No episodes reached completion; success rate remains 0%",
+      "Persistently failed at lateral movement/operator compromise, indicated by trailing reward trend stalling at 67.5"
+    ],
+    "summary": "Reconnaissance phase produced actionable data and reward accumulation, but execution stalled before objective completion; need to focus on bridging reconnaissance to exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Brute-force attempts on exposed SSH services halted by account lockouts before foothold",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step11"
+      ]
+    },
+    {
+      "pattern": "Privilege escalation post initial access failed due to missing sudo rights and unexploited misconfigurations",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step13",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771292478.9362295,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_sudo_check",
+      "if_condition": "After gaining shell access on Linux host",
+      "then_action": "Enumerate sudo permissions with sudo -l",
+      "parameters_template": {
+        "command": "sudo -l"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1771292478.936241,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_creds_capture",
+      "if_condition": "When there is ability to execute ls to inspect home directories",
+      "then_action": "Search for plaintext credentials via grep on config files",
+      "parameters_template": {
+        "paths": [
+          "/etc/passwd",
+          "/home/*/.ssh/authorized_keys",
+          "/home/*/.bash_history"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1771292478.93625,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate in reconnaissance phase turning detected SSH services into actionable access attempts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting script refinement",
+      "description": "Automate targeted search for plaintext keys/passwords after initial shell access and automatically test with discovered credentials",
+      "priority": "high"
+    },
+    {
+      "title": "Alternative privilege escalation enumeration",
+      "description": "Integrate linpeas or linux-exploit-suggester to identify missing patches/misconfigurations quickly after shell access",
+      "priority": "medium"
+    },
+    {
+      "title": "Controlled SSH password spray",
+      "description": "Implement throttled password spray against SSH using slow rate to avoid lockouts while focusing on common usernames",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

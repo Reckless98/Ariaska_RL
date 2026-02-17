@@ -497,7 +497,7 @@ IMPORTANT: Respond with ONLY the JSON, no additional text."""
         ])
         
         # Continue if mentor is still being called frequently
-        return avg_mentor_rate > 0.05  # More than 5% mentor calls
+        return bool(avg_mentor_rate > 0.05)  # More than 5% mentor calls
 
 
 # Convenience function

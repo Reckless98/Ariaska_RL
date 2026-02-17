@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260217_021227_da0084",
+  "timestamp": 1771290765.4361722,
+  "key_outcomes": {
+    "wins": [
+      "Consistent execution of initial reconnaissance steps across the single episode, ensuring baseline visibility into target services.",
+      "Effective use of mentor guidance to adjust tactics mid-run, keeping reward stable."
+    ],
+    "fails": [
+      "Failed to progress beyond initial access phase, resulting in 0% success rate despite 60 reward points.",
+      "No persistence or lateral movement achieved due to lack of credential harvesting."
+    ],
+    "summary": "Run maintained steady reconnaissance discipline but could not translate visibility into foothold or post-exploitation success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to achieve privilege escalation after initial enumeration.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260217_021227_da0084_ep001_step10",
+        "run_20260217_021227_da0084_ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH port 22 is confirmed open with a banner containing OpenSSH",
+      "then_action": "Run targeted SSH enumeration using nmap with version scripts and check for weak ciphers",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260217_021227_da0084_ep001_step05",
+        "run_20260217_021227_da0084_ep001_step07"
+      ],
+      "created_at": 1771290774.6562238,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB port 445 yields anonymous access",
+      "then_action": "Launch enum4linux and Smbclient scans to capture share listings and potential credentials",
+      "parameters_template": {
+        "tools": [
+          "enum4linux",
+          "smbclient"
+        ],
+        "flags": [
+          "-a",
+          "-U"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_021227_da0084_ep001_step09",
+        "run_20260217_021227_da0084_ep001_step11"
+      ],
+      "created_at": 1771290774.6562324,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web application responds with outdated server headers",
+      "then_action": "Run targeted Nikto scan and follow up with manual POST fuzzing for detected endpoints",
+      "parameters_template": {
+        "target": "http://target.local",
+        "flags": [
+          "-Plugins",
+          "all"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260217_021227_da0084_ep001_step03"
+      ],
+      "created_at": 1771290774.6562378,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in SSH reconnaissance yielded consistent rewards."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SMB enumeration was repeatedly executed with reliable data retrieval despite no exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privileged Credentials Harvesting",
+      "description": "After gathering SMB and SSH visibility, run Responder on captured NetBIOS traffic and replay credentials against local services before attempting exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Post-Enumeration Workflow",
+      "description": "Chain nmap -sV results into Metasploit auxiliary modules targeting identified services to test exploitability quickly.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web Input Vector Fuzzing",
+      "description": "Use Burp Intruder to fuzz file upload and login endpoints identified during initial web scans to surface input validation weaknesses.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

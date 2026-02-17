@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260216_233146_94214d",
+  "timestamp": 1771281116.1047208,
+  "key_outcomes": {
+    "wins": [
+      "Established stable foothold by successfully mapping reachable subnets and local services within the constrained time window, contributing to the total reward of 60.",
+      "Maintained consistent communication with mentor calls (10), effectively seeking guidance when automation stalled."
+    ],
+    "fails": [
+      "Failed to achieve overall mission objective despite partial progress, as indicated by the 0% success rate and inability to transition from reconnaissance to exploitation.",
+      "Repeated missteps in credential escalation after reconnaissance, preventing access to critical internal assets."
+    ],
+    "summary": "Reconnaissance phase was executed thoroughly, but inability to convert information into exploitation success resulted in an overall failed run."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to escalate privileges after identifying exposed services, likely due to missing targeted exploit steps or credential validation.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected with default credentials not working",
+      "then_action": "Run nmap ssh-brute and ssh-auth-methods scripts while capturing banners for credential tailoring",
+      "parameters_template": {
+        "port": 22,
+        "script": [
+          "ssh-auth-methods",
+          "ssh-brute"
+        ],
+        "timeout": 5000
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771281123.9471064,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_web_enum",
+      "if_condition": "When HTTP 80/443 responses include framework signatures",
+      "then_action": "Use targeted gobuster scan with discovered paths followed by nikto for header misconfigurations",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "wordlist": "common-virtual-hosts.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step13"
+      ],
+      "created_at": 1771281123.9471178,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_posture_review",
+      "if_condition": "After successful enumeration of services without immediate exploitation steps",
+      "then_action": "Pause to cross-reference service versions with exploit database, documenting candidate exploits before proceeding",
+      "parameters_template": {
+        "sources": [
+          "exploitdb",
+          "rapid7"
+        ],
+        "priority": "critical"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step21"
+      ],
+      "created_at": 1771281123.9471235,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate identifying reachable SSH services during reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Targeted SSH Exploitation Trial",
+      "description": "After confirming SSH banner and default defenders, run credential brute-forcing followed by CVE-based exploitation tailored to detected versions.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Service Misconfiguration Deep Dive",
+      "description": "Use aggressive web content discovery plus header inspection to identify weak TLS or authentication mechanisms before attempting web exploits.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

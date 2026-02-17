@@ -1,0 +1,85 @@
+{
+  "run_id": "run_20260217_005720_85a1d1",
+  "timestamp": 1771286264.139153,
+  "key_outcomes": {
+    "wins": [
+      "Rapidly identified exposed services through initial scanning, confirming attack surface within first 5 minutes.",
+      "Documented useful reconnaissance data that can seed future automation (service versions, banner info)."
+    ],
+    "fails": [
+      "Unable to obtain initial foothold despite 15 mentor interventions, indicating weakness in exploitation chaining.",
+      "Repeated failure to bypass account lockout controls when brute-forcing SSH, halting progress before privilege escalation."
+    ],
+    "summary": "Reconnaissance executed effectively, but repeated exploitation and persistence attempts stall before success; need refined credential handling and lateral movement techniques."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Frequent SSH authentication failures leading to lockouts and no pivot opportunity.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771286273.7604475,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns login/portal page with forms",
+      "then_action": "Execute targeted directory and credential fuzzing with gobuster and Burp Intruder",
+      "parameters_template": {
+        "wordlist": "common.txt",
+        "concurrency": 25
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771286273.7604606,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in initial reconnaissance to confirm SSH presence."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential handling refinement",
+      "description": "Introduce adaptive throttle logic for SSH brute-force attempts and rotate credential sets to avoid lockouts.",
+      "priority": "high"
+    },
+    {
+      "title": "Web authentication attack chain",
+      "description": "Expand HTTP scanning to include authenticated session reuse via captured cookies to bypass brute-force limits.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

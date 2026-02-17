@@ -134,6 +134,10 @@ class SmartRewardCalculator:
         "root_shell": 45.0,     # root = game over (was 130)
         "flag": 50.0,           # CTF flag = ultimate goal (was 200)
         
+        # Phase 11.1: Explicit user/root flag capture bonuses
+        "user_flag": 40.0,      # user flag = proof of initial compromise
+        "root_flag": 55.0,      # root flag = proof of full compromise (highest)
+        
         # Web discoveries
         "directory": 2.5,       # directories expand attack surface
         "web_path": 4.0,        # specific interesting paths

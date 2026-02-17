@@ -1,0 +1,124 @@
+{
+  "run_id": "run_20260217_045644_7c1f23",
+  "timestamp": 1771300610.482141,
+  "key_outcomes": {
+    "wins": [
+      "Achieved initial foothold recognition with successful reconnaissance toolchain (nmap + banner grabbing) despite no exploit used.",
+      "Consistent documentation of reconnaissance steps allowed repeatable mapping of target services for future runs."
+    ],
+    "fails": [
+      "Failed to convert initial intelligence into actionable exploit path, resulting in 0% success rate across episodes.",
+      "Inability to escalate privileges or maintain session control after initial probing, leading to episode termination."
+    ],
+    "summary": "Reconnaissance phase is solid and repeatable, but exploit chaining and post-exploitation steps are consistently failing, halting progress before success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated failure to identify viable exploit vectors after reconnaissance, leading to no post-recon execution",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step24",
+        "ep001_step30",
+        "ep001_step35"
+      ]
+    },
+    {
+      "pattern": "Sessions terminate immediately after banner enumeration without follow-up exploitation",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step21",
+        "ep001_step28",
+        "ep001_step33"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-brute,ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771300617.5276392,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns unique headers and directories",
+      "then_action": "Run nikto and gobuster directory brute force",
+      "parameters_template": {
+        "nikto": "--host {{target}} --port {{port}}",
+        "gobuster": "dir -u http://{{target}}:{{port}} -w /usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771300617.5276482,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB port 445 is open",
+      "then_action": "Run smbclient enumeration followed by enum4linux",
+      "parameters_template": {
+        "smbclient": "-L \\\\{{target}} -U guest%",
+        "enum4linux": "-a {{target}}"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14"
+      ],
+      "created_at": 1771300617.5276537,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High repeatability and success in capturing SSH service details during reconnaissance"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Directory brute forcing consistently surfaces hidden resources, supporting further enumeration"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Chain credential spraying after SSH enumerations",
+      "description": "After identifying SSH banner + auth methods, run targeted hydra/medusa credential spraying using observed default creds to establish shell access.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit HTTP directory findings",
+      "description": "Use discovered directories from gobuster to check for outdated CMS, open admin panels, or backup files; follow up with CMS-specific exploits or file upload tests.",
+      "priority": "medium"
+    },
+    {
+      "title": "Leverage SMB enumeration data for lateral movement",
+      "description": "Use enum4linux results to identify valid usernames and reachable shares; attempt pass-the-hash or SMB client authentication abuses to escalate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

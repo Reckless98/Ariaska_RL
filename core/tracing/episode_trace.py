@@ -389,7 +389,7 @@ class TraceWriter:
         random_suffix = hashlib.md5(str(time.time()).encode()).hexdigest()[:6]
         return f"run_{timestamp}_{random_suffix}"
     
-    def start_run(self, config: Dict[str, Any] = None, seed: Optional[int] = None):
+    def start_run(self, config: Optional[Dict[str, Any]] = None, seed: Optional[int] = None):
         """Start a new training run."""
         self.current_run = RunTrace(
             run_id=self.run_id,
@@ -603,9 +603,9 @@ STEP_TRACE_SCHEMA = {
 
 def validate_step_trace(data: Dict[str, Any]) -> bool:
     """Validate a step trace against schema."""
-    for field in STEP_TRACE_SCHEMA["required"]:
-        if field not in data:
-            logger.warning(f"Missing required field in step trace: {field}")
+    for field_name in STEP_TRACE_SCHEMA["required"]:
+        if field_name not in data:
+            logger.warning(f"Missing required field in step trace: {field_name}")
             return False
     return True
 
@@ -692,7 +692,7 @@ if __name__ == "__main__":
     console.print(f"  Mentor Calls: {run.total_mentor_calls}")
     
     # Test reader
-    reader = load_trace(writer.run_dir)
+    reader = load_trace(str(writer.run_dir))
     stats = reader.get_mentor_call_stats()
     console.print(f"\n[cyan]Mentor Stats:[/cyan] {stats}")
     

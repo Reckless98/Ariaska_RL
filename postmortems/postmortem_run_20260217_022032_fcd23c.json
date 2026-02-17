@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260217_022032_fcd23c",
+  "timestamp": 1771291245.9143157,
+  "key_outcomes": {
+    "wins": [
+      "Mapped available attack surface and captured baseline telemetry within limited episodes",
+      "Maintained consistent reward per episode despite zero success, indicating disciplined step execution"
+    ],
+    "fails": [
+      "Failed to craft and deliver working exploit payload, preventing mission success",
+      "Missed privilege escalation opportunities resulting in zero success rate"
+    ],
+    "summary": "Despite strong reconnaissance discipline, the run stalled at exploitation and privilege escalation; focus next on reusing voices to exploit the discovered services."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to execute exploits against identified services even after reconnaissance",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260217_022032_fcd23c_step7",
+        "run_20260217_022032_fcd23c_step9"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When service enumeration yields open SSH on port 22",
+      "then_action": "Run targeted SSH enumeration with nmap --script ssh-*",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260217_022032_fcd23c_step3"
+      ],
+      "created_at": 1771291256.6644611,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 80/443 responds with web service banners",
+      "then_action": "Use nikto and gobuster to enumerate directories and vuln headers",
+      "parameters_template": {
+        "nikto": "-h http://<target>",
+        "gobuster": "-u http://<target> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260217_022032_fcd23c_step4"
+      ],
+      "created_at": 1771291256.6644692,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "Upon discovering service credentials after enumeration",
+      "then_action": "Attempt exploitation with metasploit module that matches the service",
+      "parameters_template": {
+        "module": "use exploit/multi/handler",
+        "payload": "linux/x86/meterpreter/reverse_tcp"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260217_022032_fcd23c_step8"
+      ],
+      "created_at": 1771291256.664474,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit refinement",
+      "description": "Validate reconnaissance data by crafting a custom reverse shell payload targeting the detected service and port, verifying exploitability via msfconsole",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation audit",
+      "description": "Enumerate local binaries and scheduled tasks post initial access attempt to identify misconfigurations that allow escalation",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistent access verification",
+      "description": "Confirm persistence vectors by creating a backdoor script and testing reconnection while monitoring for detection",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

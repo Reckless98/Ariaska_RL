@@ -660,7 +660,7 @@ class TacticalCortex:
             return None
 
         # Fill required params with defaults
-        target = state.get("target", "10.0.0.1")
+        target = state.get("target", getattr(self, 'target_ip', "10.10.10.1"))
         cmd = tmpl.template
         cmd = cmd.replace("{target}", target)
         cmd = cmd.replace("{ip}", target)
@@ -669,8 +669,9 @@ class TacticalCortex:
         # Extract known credentials from discovery_board
         _creds = discovery_board.get("credentials", set())
         _users = discovery_board.get("users", set())
-        _default_username = "msfadmin"
-        _default_password = "msfadmin"
+        # HTB fix: Never hardcode default creds — only use discovered ones
+        _default_username = ""
+        _default_password = ""
         
         # Try to extract username:password from credential entries
         _found_user = None
@@ -687,19 +688,50 @@ class TacticalCortex:
             if _first_user and _found_user is None:
                 _found_user = str(_first_user)
         
+        # If the command requires credentials but none are discovered, skip it
+        _needs_creds = any(p in tmpl.required_params for p in ("username", "password", "user", "pass"))
+        if _needs_creds and not _found_user and not _found_pass:
+            return None  # Don't attempt credential-based commands without real creds
+        
         # Build param defaults map for all required params
+        # Detect attacker IP from environment or state
+        import os as _os
+        _lhost = state.get("lhost", _os.environ.get("ARIASKA_LHOST", ""))
+        if not _lhost:
+            # Try to detect tun0 IP
+            try:
+                import subprocess
+                _tun = subprocess.run(
+                    ["ip", "-4", "addr", "show", "tun0"],
+                    capture_output=True, text=True, timeout=2,
+                )
+                if _tun.returncode == 0:
+                    import re as _ipr
+                    _m = _ipr.search(r'inet (\d+\.\d+\.\d+\.\d+)', _tun.stdout)
+                    if _m:
+                        _lhost = _m.group(1)
+            except Exception:
+                pass
+        if not _lhost:
+            _lhost = "10.10.15.20"  # Fallback
+        
+        # Build ports string from discovery_board
+        _disc_ports = discovery_board.get("ports", set())
+        _ports_str = ",".join(str(p) for p in sorted(_disc_ports)) if _disc_ports else "21,22,80,443"
+        
         _param_defaults = {
             "username": _found_user or _default_username,
             "password": _found_pass or _default_password,
             "user": _found_user or _default_username,
             "pass": _found_pass or _default_password,
             "port": "22",
+            "ports": _ports_str,
             "wordlist": "/usr/share/wordlists/rockyou.txt",
             "rhost": target,
             "rhosts": target,
-            "lhost": "10.0.0.1",
+            "lhost": _lhost,
             "lport": "4444",
-            "interface": "eth0",
+            "interface": "tun0",
             "domain": target,
             "url": f"http://{target}",
             "share": "tmp",
@@ -707,20 +739,25 @@ class TacticalCortex:
             "command": "id",
         }
         
-        # Fill all required params
+        # Fill all required params — never use target IP as fallback for non-target params
         for pname in tmpl.required_params:
             placeholder = f"{{{pname}}}"
             if placeholder in cmd:
-                val = _param_defaults.get(pname, target)
-                cmd = cmd.replace(placeholder, val)
+                val = _param_defaults.get(pname, "")
+                if val:  # Only fill if we have a real value
+                    cmd = cmd.replace(placeholder, val)
+                elif pname not in ("target", "ip", "rhost", "rhosts"):
+                    # Missing non-target param — can't build valid command
+                    return None
         
         # Fill optional params with their defaults
         for pname, pval in tmpl.optional_params.items():
             cmd = cmd.replace(f"{{{pname}}}", pval)
         
-        # Final safety: replace any remaining {placeholders} with target
+        # Final safety: if any {placeholders} remain, command is incomplete — skip it
         import re as _re
-        cmd = _re.sub(r'\{[a-zA-Z_]+\}', target, cmd)
+        if _re.search(r'\{[a-zA-Z_]+\}', cmd):
+            return None  # Don't substitute target IP for unknown params
 
         return cmd
 

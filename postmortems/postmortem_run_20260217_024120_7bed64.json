@@ -1,0 +1,119 @@
+{
+  "run_id": "run_20260217_024120_7bed64",
+  "timestamp": 1771292487.3165374,
+  "key_outcomes": {
+    "wins": [
+      "Consistently reached the initial reconnaissance goal by identifying live hosts and capturing service banners, yielding reward 40 despite no full success.",
+      "Triggered ten mentor calls, indicating active decision points and giving insights for future refinement."
+    ],
+    "fails": [
+      "Failed to achieve foothold or privilege escalation within the single episode, leaving success rate at 0%.",
+      "Momentum stalled after the reconnaissance phase due to ineffective exploitation of the identified services."
+    ],
+    "summary": "Reconnaissance succeeded in enumerating assets, but follow-on exploitation actions need clearer prioritization and tooling adjustments to convert identified targets into compromised systems."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-reconnaissance exploitation attempts stall because no tailored exploit or credential strategy is selected for the primary scanned service.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SMB port 445 is detected from nmap scan results",
+      "then_action": "Run smb-vuln-* scripts with nmap and follow up with enum4linux to gather share and user info",
+      "parameters_template": {
+        "port": 445,
+        "scripts": [
+          "smb-vuln-ms17-010",
+          "smb-enum-shares",
+          "smb-enum-users"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771292495.7069852,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 22 is open and SSH banner shows outdated software",
+      "then_action": "Run targeted nmap --script sshv1,ssh2-enum-algos,pwndb to enumerate and test weak credentials before brute forcing",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "timing": "T3"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step11"
+      ],
+      "created_at": 1771292495.7069938,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When no working exploit is found for a critical service",
+      "then_action": "Fallback to credential-based attack: gather credential candidates via Kerberoasting or password spraying depending on domain context",
+      "parameters_template": {
+        "tool": "GetUserSPNs.py",
+        "service": "HTTP/SMB",
+        "dictionary": "rockyou.txt"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1771292495.706999,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success signal during reconnaissance phase for identifying SMB weaknesses"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Shows promise in overcoming repeated post-scan exploitation stalls"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Triage SMB service for exploitation",
+      "description": "Run smb vulns and share enumeration scripts, then pivot to Metasploit auxiliary modules targeting identified vulnerabilities to attempt initial foothold.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential-focused exploitation run",
+      "description": "Execute GetUserSPNs plus password spraying against services discovered in reconnaissance to see if credential reuse yields access.",
+      "priority": "medium"
+    },
+    {
+      "title": "SSH exploitation refinement",
+      "description": "Deploy custom nmap ssh scripts followed by Medusa-based brute force with targeted username list to test SSH accessibility paths.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

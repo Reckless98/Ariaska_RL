@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260216_233032_a759f4",
+  "timestamp": 1771281060.6822164,
+  "key_outcomes": {
+    "wins": [
+      "Completed full perimeter reconnaissance, capturing all live hosts and ports within the limited episode.",
+      "Captured detailed service banner data that can seed targeted exploitation strategies."
+    ],
+    "fails": [
+      "Could not progress past the initial foothold since privilege escalation artifacts were unavailable and the exploit attempts timed out.",
+      "Mentor was required 15 times, indicating repeated stalls in decision-making during exploitation phase."
+    ],
+    "summary": "Reconnaissance was thorough, but exploitation stalled before any foothold could be escalated; next runs need more effective credential collection or brute force tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts routinely failed due to missing sudoers write access and no stored credentials for later use.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step23"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 is open and HTTP service responds with headers",
+      "then_action": "Run targeted nikto and gobuster scans to enumerate directories and backend technologies",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "nikto_opts": "-Plugins +headers",
+        "gobuster_wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771281071.66033,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB (port 445) is open with anonymous login allowed",
+      "then_action": "Enumerate shares and pull smbclient anonymous listings for credential harvesting",
+      "parameters_template": {
+        "port": 445,
+        "username": "anonymous",
+        "commands": [
+          "ls",
+          "get"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771281071.660351,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port 22 open but brute-force access unknown",
+      "then_action": "Trigger nmap ssh enumeration scripts and store banner metadata for future cracking attempts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey",
+        "output": "ssh_banner_log"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771281071.6604073,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently successful in extracting actionable web recon data despite overall run failure."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SMB enumeration produced share listings that could inform future credential discovery."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focused SMB credential harvesting",
+      "description": "After capture of anonymous shares, immediately run impacket-secretsdump and enum4linux to extract credentials before escalating.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation via local misconfig claims",
+      "description": "Test linpeas and sudo enumeration for every accessible user to detect misconfigurations that can be chained.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -82,6 +82,36 @@ class AttackChain:
 
 
 @dataclass
+class PwnTrajectory:
+    """
+    Phase 11.1: Records a complete pwn trajectory — how and why a machine was compromised.
+    
+    Tracks the full reasoning chain from reconnaissance to flag capture,
+    including exploit reasoning, vulnerability identification, and privilege escalation path.
+    This enables agents to LEARN the methodology of pwning machines.
+    """
+    episode: int
+    target: str = ""
+    # Full exploit path: recon → vuln identification → exploitation → privesc → flag
+    exploit_chain: List[str] = field(default_factory=list)  # Ordered commands
+    exploit_reasoning: List[str] = field(default_factory=list)  # Why each step was taken
+    vulnerabilities_exploited: List[str] = field(default_factory=list)  # CVEs/vuln types used
+    entry_point: str = ""  # e.g. "vsftpd_234_backdoor", "ssh_weak_creds"
+    privilege_escalation_method: str = ""  # e.g. "sudo_all", "suid_nmap", "kernel_exploit"
+    user_flag_captured: bool = False
+    root_flag_captured: bool = False
+    user_flag_value: str = ""  # The actual flag content
+    root_flag_value: str = ""  # The actual flag content
+    highest_phase: str = "RECON"
+    total_reward: float = 0.0
+    time_to_user_shell: int = 0  # Steps to first user shell
+    time_to_root: int = 0  # Steps to root
+    loopholes_found: List[str] = field(default_factory=list)  # Security weaknesses identified
+    lessons_learned: List[str] = field(default_factory=list)  # What worked and why
+    timestamp: float = field(default_factory=time.time)
+
+
+@dataclass
 class FailedApproach:
     """An approach that consistently fails — avoid repeating."""
     command_template: str
@@ -97,6 +127,7 @@ class CampaignMemory:
     
     Carries confirmed knowledge between episodes so agents
     don't waste steps re-discovering known ports/services.
+    Phase 11.1: Now includes PwnTrajectory for exploit reasoning learning.
     """
 
     def __init__(self, path: str = "data/campaign_state.json"):
@@ -109,6 +140,9 @@ class CampaignMemory:
         self.shells: List[Dict[str, Any]] = []
         self.attack_chains: List[AttackChain] = []
         self.failed_approaches: Dict[str, FailedApproach] = {}
+        
+        # Phase 11.1: Pwn trajectory memory — how machines were compromised
+        self.pwn_trajectories: List[PwnTrajectory] = []
         
         # Metadata
         self.total_episodes: int = 0
@@ -140,6 +174,8 @@ class CampaignMemory:
             "failed_approaches": {
                 k: asdict(v) for k, v in self.failed_approaches.items()
             },
+            # Phase 11.1: Pwn trajectory memory
+            "pwn_trajectories": [asdict(t) for t in self.pwn_trajectories[-20:]],  # Keep best 20
         }
         
         with open(self._path, "w") as f:
@@ -148,7 +184,8 @@ class CampaignMemory:
         logger.info(
             f"[CAMPAIGN] Saved: {len(self.ports)} ports, "
             f"{len(self.credentials)} creds, {len(self.vulns)} vulns, "
-            f"{len(self.attack_chains)} chains → {self._path}"
+            f"{len(self.attack_chains)} chains, "
+            f"{len(self.pwn_trajectories)} pwn trajectories → {self._path}"
         )
 
     def load(self) -> bool:
@@ -203,11 +240,19 @@ class CampaignMemory:
                     if k in FailedApproach.__dataclass_fields__
                 })
             
+            # Phase 11.1: Pwn trajectories
+            for tdata in data.get("pwn_trajectories", []):
+                self.pwn_trajectories.append(PwnTrajectory(**{
+                    k: v for k, v in tdata.items()
+                    if k in PwnTrajectory.__dataclass_fields__
+                }))
+            
             logger.info(
                 f"[CAMPAIGN] Loaded: {len(self.ports)} ports, "
                 f"{len(self.credentials)} creds, {len(self.vulns)} vulns, "
                 f"best_phase={self.best_phase_reached}, "
-                f"episodes_so_far={self.total_episodes}"
+                f"episodes_so_far={self.total_episodes}, "
+                f"pwn_trajectories={len(self.pwn_trajectories)}"
             )
             return True
             
@@ -355,6 +400,105 @@ class CampaignMemory:
                 reason=reason,
             )
 
+    def record_pwn_trajectory(
+        self,
+        episode_num: int,
+        target: str,
+        command_chain: List[str],
+        reasoning_chain: List[str],
+        vulns_exploited: List[str],
+        entry_point: str = "",
+        privesc_method: str = "",
+        user_flag: bool = False,
+        root_flag: bool = False,
+        user_flag_value: str = "",
+        root_flag_value: str = "",
+        highest_phase: str = "RECON",
+        total_reward: float = 0.0,
+        steps_to_user_shell: int = 0,
+        steps_to_root: int = 0,
+        loopholes: Optional[List[str]] = None,
+        lessons: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Phase 11.1: Record a complete pwn trajectory for learning.
+        
+        This captures the full exploit path with reasoning so agents
+        can learn HOW and WHY machines are pwned.
+        """
+        trajectory = PwnTrajectory(
+            episode=episode_num,
+            target=target,
+            exploit_chain=command_chain[:50],
+            exploit_reasoning=reasoning_chain[:50],
+            vulnerabilities_exploited=vulns_exploited,
+            entry_point=entry_point,
+            privilege_escalation_method=privesc_method,
+            user_flag_captured=user_flag,
+            root_flag_captured=root_flag,
+            user_flag_value=user_flag_value,
+            root_flag_value=root_flag_value,
+            highest_phase=highest_phase,
+            total_reward=total_reward,
+            time_to_user_shell=steps_to_user_shell,
+            time_to_root=steps_to_root,
+            loopholes_found=loopholes or [],
+            lessons_learned=lessons or [],
+        )
+        self.pwn_trajectories.append(trajectory)
+        
+        # Sort by total_reward descending, keep top 20
+        self.pwn_trajectories.sort(key=lambda t: t.total_reward, reverse=True)
+        self.pwn_trajectories = self.pwn_trajectories[:20]
+        
+        logger.info(
+            f"[PWN-TRAJECTORY] Episode {episode_num}: "
+            f"entry={entry_point}, user_flag={user_flag}, root_flag={root_flag}, "
+            f"reward={total_reward:.1f}, steps_to_root={steps_to_root}, "
+            f"vulns={vulns_exploited}"
+        )
+
+    def get_best_pwn_trajectory(self) -> Optional[PwnTrajectory]:
+        """Get the highest-reward pwn trajectory for learning."""
+        if not self.pwn_trajectories:
+            return None
+        return self.pwn_trajectories[0]
+
+    def get_pwn_trajectory_context(self) -> str:
+        """
+        Generate a text block summarizing best pwn trajectories for mentor prompts.
+        Teaches agents exploit reasoning across episodes.
+        """
+        if not self.pwn_trajectories:
+            return ""
+        
+        lines = ["## Best Exploit Trajectories (learned from past episodes)"]
+        for i, traj in enumerate(self.pwn_trajectories[:5]):
+            flag_status = []
+            if traj.user_flag_captured:
+                flag_status.append("USER_FLAG")
+            if traj.root_flag_captured:
+                flag_status.append("ROOT_FLAG")
+            flags_str = " | ".join(flag_status) if flag_status else "no flags"
+            
+            lines.append(
+                f"\n### Trajectory #{i+1} (ep{traj.episode}, reward={traj.total_reward:.0f}, {flags_str})"
+            )
+            if traj.entry_point:
+                lines.append(f"  Entry: {traj.entry_point}")
+            if traj.privilege_escalation_method:
+                lines.append(f"  Privesc: {traj.privilege_escalation_method}")
+            if traj.exploit_chain:
+                lines.append(f"  Chain: {' → '.join(traj.exploit_chain[:8])}")
+            if traj.vulnerabilities_exploited:
+                lines.append(f"  Vulns: {', '.join(traj.vulnerabilities_exploited[:5])}")
+            if traj.loopholes_found:
+                lines.append(f"  Loopholes: {', '.join(traj.loopholes_found[:3])}")
+            if traj.lessons_learned:
+                lines.append(f"  Lessons: {'; '.join(traj.lessons_learned[:3])}")
+        
+        return "\n".join(lines)
+
     # ------------------------------------------------------------------
     # Querying prior knowledge
     # ------------------------------------------------------------------
@@ -449,8 +593,9 @@ class CampaignMemory:
         
         Injected into SmartMentor system/user prompt so the LLM knows
         what we've already confirmed in prior episodes.
+        Phase 11.1: Now includes pwn trajectory reasoning.
         """
-        if not self.ports and not self.credentials:
+        if not self.ports and not self.credentials and not self.pwn_trajectories:
             return ""
         
         lines = ["## Prior Campaign Knowledge (from previous episodes)"]
@@ -486,5 +631,11 @@ class CampaignMemory:
             ]
             if chronic:
                 lines.append(f"Known failed approaches (avoid): {chronic[:5]}")
+        
+        # Phase 11.1: Include pwn trajectory reasoning for learning
+        pwn_ctx = self.get_pwn_trajectory_context()
+        if pwn_ctx:
+            lines.append("")
+            lines.append(pwn_ctx)
         
         return "\n".join(lines)

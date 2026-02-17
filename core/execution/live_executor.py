@@ -147,16 +147,23 @@ class LiveCommandExecutor:
     In LIVE mode, this is the ONLY way commands are executed.
     _generate_simulated_output() is NEVER called.
     
+    Credential Management:
+        SSH auto-wrap uses credentials from the discovery_board (set via
+        set_credentials()). Defaults to NO auto-wrap if no credentials
+        are known — commands that need remote execution must include
+        their own SSH wrapper or use discovered creds.
+    
     Usage:
-        executor = LiveCommandExecutor(target_ip="172.28.0.10")
-        result = executor.execute("nmap -sV -p 21,22,80 172.28.0.10", "ScoutAgent")
-        print(result.stdout)  # Real nmap output
+        executor = LiveCommandExecutor(target_ip="10.129.4.210")
+        executor.set_credentials("nathan", "Buck3tH4TF0RM3!")
+        result = executor.execute("id", "RedAgent")
+        # → sshpass -p 'Buck3tH4TF0RM3!' ssh nathan@10.129.4.210 'id'
     """
     
     # Default timeouts per command category (seconds)
     COMMAND_TIMEOUTS = {
         "{": 20,            # Phase 6.5: piped ingreslock commands have built-in timeout 10 + sleep 2
-        "nmap": 30,         # R46: reduced from 45s — targeted scans finish fast, less dead time
+        "nmap": 60,         # HTB: nmap -sC -sV needs 60s; -T2 stealth will timeout
         "masscan": 60,
         "nikto": 90,
         "gobuster": 60,
@@ -208,14 +215,16 @@ class LiveCommandExecutor:
         target_ip: str,
         allowed_targets: Optional[List[str]] = None,
         dry_run: bool = False,
+        allowed_hostnames: Optional[List[str]] = None,
     ):
         """
         Initialize LiveCommandExecutor.
         
         Args:
-            target_ip: Primary target IP (must be RFC1918)
+            target_ip: Primary target IP (must be RFC1918 or HTB VPN)
             allowed_targets: Additional allowed IPs/CIDRs
             dry_run: If True, log commands but don't execute
+            allowed_hostnames: Hostname patterns for HTB (e.g. ["*.htb"])
         """
         from core.testing.tool_runner import RealToolRunner
         
@@ -231,7 +240,16 @@ class LiveCommandExecutor:
             allowed_targets=targets,
             allow_rfc1918=True,
             allow_lab_ranges=True,
+            allowed_hostnames=allowed_hostnames or [],
         )
+        
+        # ── Credential store for SSH auto-wrap ──────────────────────
+        # Populated via set_credentials() when creds are discovered.
+        # Multiple credential pairs supported (tried in order).
+        self._ssh_credentials: List[Dict[str, str]] = []
+        # Default credential (empty = no auto-wrap)
+        self._default_ssh_user: Optional[str] = None
+        self._default_ssh_pass: Optional[str] = None
         
         # Per-agent execution tracking
         self._agent_history: Dict[str, List[LiveCommandResult]] = {}
@@ -275,6 +293,27 @@ class LiveCommandExecutor:
         
         # Ensure target IP is in command (substitute placeholder)
         command = self._inject_target(command)
+        
+        # Safety: Block commands that would run interactively on the local machine
+        # Commands like 'sudo -l' without SSH wrapper will prompt for local password
+        _cmd_stripped = command.strip()
+        _LOCAL_DANGER_PREFIXES = (
+            "sudo ",       # Would prompt for local password
+            "su ",         # Would prompt for local password
+            "passwd",      # Would prompt interactively
+            "visudo",      # Interactive editor
+        )
+        if _cmd_stripped.startswith(_LOCAL_DANGER_PREFIXES):
+            # Only block if not wrapped in SSH/sshpass (which targets remote)
+            _is_remote = any(w in command for w in ("ssh ", "sshpass ", "ssh -"))
+            if not _is_remote:
+                return LiveCommandResult(
+                    command=command,
+                    agent_name=agent_name,
+                    executed=False,
+                    stderr=f"[BLOCKED] Cannot run '{_cmd_stripped[:30]}...' locally — needs remote shell",
+                    target_ip=self.target_ip,
+                )
         
         # Determine timeout
         timeout = timeout_override or self._get_timeout(command)
@@ -321,6 +360,32 @@ class LiveCommandExecutor:
         
         return result
     
+    def set_credentials(self, username: str, password: str, service: str = "ssh") -> None:
+        """
+        Register discovered credentials for SSH auto-wrap.
+        
+        Called by the orchestrator when credentials are discovered
+        (e.g., from PCAP analysis, FTP sessions, brute-force).
+        The most recently added credentials become the default for auto-wrap.
+        
+        Args:
+            username: Discovered username
+            password: Discovered password
+            service: Service these creds were found for (ssh, ftp, etc.)
+        """
+        cred = {"username": username, "password": password, "service": service}
+        # Avoid duplicates
+        if cred not in self._ssh_credentials:
+            self._ssh_credentials.append(cred)
+            logger.info(f"[CRED-STORE] Registered credential: {username}@{service}")
+        # Always update default to latest
+        self._default_ssh_user = username
+        self._default_ssh_pass = password
+    
+    def get_credentials(self) -> List[Dict[str, str]]:
+        """Return all discovered credentials."""
+        return list(self._ssh_credentials)
+    
     def _inject_target(self, command: str) -> str:
         """
         Ensure the target IP is present in the command.
@@ -328,16 +393,19 @@ class LiveCommandExecutor:
         Replaces common placeholders:
         - {target} → actual IP
         - 10.10.10.10 → actual IP (default placeholder)
+        
+        SSH auto-wrap: If the command is a local post-exploitation command
+        (sudo, find, getcap, etc.) and we have discovered credentials,
+        wraps it with sshpass+ssh using those credentials. If NO credentials
+        are known, the command is NOT wrapped (it would fail anyway).
         """
         command = command.replace("{target}", self.target_ip)
         command = command.replace("10.10.10.10", self.target_ip)
         
-        # ── Batch 15: Auto-wrap local-only post-exploitation commands ──
+        # ── Auto-wrap local-only post-exploitation commands ──
         # Commands like sudo -l, find -perm, getcap, cat /etc/shadow etc.
         # are meant to run ON THE TARGET, not locally on the Kali host.
-        # If the command doesn't reference the target IP and looks like a
-        # local post-exploitation command, wrap it with sshpass+ssh to
-        # execute on the target.
+        # Only wrap if we have discovered SSH credentials.
         if self.target_ip not in command and not command.strip().startswith(("{", "sshpass", "ssh ")):
             _LOCAL_PRIVESC_PREFIXES = (
                 "sudo ", "find ", "getcap ", "cat /etc/", "ls -la /etc/",
@@ -349,22 +417,31 @@ class LiveCommandExecutor:
                 "base64 /", "head /", "tail /", "xxd /",
                 "strings /", "file /", "dpkg ", "apt ",
                 "service ", "systemctl ", "journalctl ",
+                "python3 -c", "python -c",  # For cap_setuid exploitation
             )
             cmd_stripped = command.strip()
             if any(cmd_stripped.startswith(p) for p in _LOCAL_PRIVESC_PREFIXES):
-                # Escape single quotes in the command for safe ssh wrapping
-                escaped_cmd = cmd_stripped.replace("'", "'\\''")
-                command = (
-                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
-                    f"-o HostKeyAlgorithms=+ssh-rsa "
-                    f"-o KexAlgorithms=+diffie-hellman-group1-sha1 "
-                    f"-o ConnectTimeout=5 msfadmin@{self.target_ip} "
-                    f"'{escaped_cmd}'"
-                )
-                logger.debug(
-                    f"[LIVE-AUTOWRAP] Local command wrapped with sshpass: "
-                    f"{cmd_stripped[:50]}..."
-                )
+                if self._default_ssh_user and self._default_ssh_pass:
+                    # Escape single quotes in the command for safe ssh wrapping
+                    escaped_cmd = cmd_stripped.replace("'", "'\\''")
+                    # Escape single quotes in password too
+                    escaped_pass = self._default_ssh_pass.replace("'", "'\\''")
+                    command = (
+                        f"sshpass -p '{escaped_pass}' ssh -o StrictHostKeyChecking=no "
+                        f"-o HostKeyAlgorithms=+ssh-rsa "
+                        f"-o KexAlgorithms=+diffie-hellman-group1-sha1 "
+                        f"-o ConnectTimeout=5 {self._default_ssh_user}@{self.target_ip} "
+                        f"'{escaped_cmd}'"
+                    )
+                    logger.debug(
+                        f"[LIVE-AUTOWRAP] Wrapped with discovered creds "
+                        f"({self._default_ssh_user}): {cmd_stripped[:50]}..."
+                    )
+                else:
+                    logger.debug(
+                        f"[LIVE-NOWRAP] No SSH credentials known — "
+                        f"cannot wrap: {cmd_stripped[:50]}..."
+                    )
         
         return command
     

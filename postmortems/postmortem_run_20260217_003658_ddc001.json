@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260217_003658_ddc001",
+  "timestamp": 1771285024.505339,
+  "key_outcomes": {
+    "wins": [
+      "Managed to collect initial asset inventory quickly, as evidenced by consistent reconnaissance completion within first 5 steps.",
+      "Maintained stable environment control without triggering automated defenses, allowing full episode execution."
+    ],
+    "fails": [
+      "Failed to achieve objective within episode despite repeated mentor guidance, indicating execution gaps.",
+      "No mission success recorded; critical exploit delivery or objective capture steps were not completed."
+    ],
+    "summary": "Reconnaissance phase executed reliably but follow-on exploitation/motion-to-objective steps were never reached, resulting in zero mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation stage never initiated after reconnaissance completion, leaving objectives unattempted.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run targeted SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771285030.8436346,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_http_map",
+      "if_condition": "When HTTP service detected on port 80/8080",
+      "then_action": "Launch directory/file probing followed by vulnerability scan",
+      "parameters_template": {
+        "port": [
+          80,
+          8080
+        ],
+        "tools": [
+          "gobuster",
+          "nikto"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771285030.8436477,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_cred_collection",
+      "if_condition": "When credentials exfiltration possible from config files",
+      "then_action": "Extract secrets and validate against credential store",
+      "parameters_template": {
+        "paths": [
+          "/etc/ssh/sshd_config",
+          "/home/user/.ssh/config"
+        ],
+        "validation": "hash"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771285030.8436568,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "Consistent reconnaissance success and high accuracy identifying SSH banners."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_http_map",
+      "skill_card_id": "skill_http_map",
+      "reason": "Reliable service mapping and initial vulnerability probing success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Initiate Exploitation Flow",
+      "description": "After reconnaissance completes, execute exploit templates targeting identified services to achieve objective capture.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Validation Sequence",
+      "description": "Automate credential extraction and verification to enable lateral movement planning.",
+      "priority": "medium"
+    },
+    {
+      "title": "Objective Completion Drill",
+      "description": "Simulate final objective delivery after exploitation to ensure mission success path is executed end-to-end.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

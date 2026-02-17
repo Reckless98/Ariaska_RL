@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260217_013619_1b98f5",
+  "timestamp": 1771288599.5347877,
+  "key_outcomes": {
+    "wins": [
+      "Efficient reconnaissance yielded high cumulative reward despite no clear success, indicating consistent action quality (reward 77.5).",
+      "Mentor calls used judiciously (15) suggesting frequent calibration with guidance."
+    ],
+    "fails": [
+      "Zero success rate shows inability to reach final objective, likely due to missed privilege escalation or exploit step.",
+      "Repeated mentor dependency implies unresolved gaps in autonomous decision-making."
+    ],
+    "summary": "Strong reconnaissance and reward accumulation, but still failing to convert into successful episode completion; focus next on escalation and automation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Continued failure to transition from enumeration to exploitation, resulting in no success despite positive reward.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771288607.7172515,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web server on port 80 responds with version headers",
+      "then_action": "Trigger automated directory brute force with gobuster and capture response codes",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771288607.7172828,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When authenticated shell obtained but privilege level remains low",
+      "then_action": "Enumerate /etc/passwd and sudoers for potential escalation vectors",
+      "parameters_template": {
+        "tools": [
+          "sudo -l",
+          "grep -E '^.*ALL=.*' /etc/sudoers"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1771288607.7172961,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent detection of web directories improved situational awareness"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate privilege escalation checks",
+      "description": "Integrate automatic sudo and kernel exploit searches immediately after shell acquisition to close the gap to success.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Implement decision thresholds for when to operate autonomously versus call mentor, aiming to lower call count without sacrificing accuracy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

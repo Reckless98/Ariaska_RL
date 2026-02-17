@@ -49,8 +49,14 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         "nmap_stealth_scan", "nmap_comprehensive",
         # DNS & OSINT
         "dig_any", "dig_axfr", "dnsrecon", "dns_enum", "whois_lookup",
-        # Web fingerprinting
+        # Web fingerprinting & directory enumeration
         "whatweb", "curl_headers",
+        "gobuster_dir", "gobuster_vhost", "feroxbuster", "ffuf_fuzz",
+        "dirsearch",
+        # Web path follow-up
+        "curl_web_path", "curl_web_path_ids",
+        # PCAP analysis
+        "download_pcap_curl",
         # SNMP/NFS discovery
         "snmpwalk", "onesixtyone", "showmount", "nfs_mount",
         # MS2-specific recon
@@ -75,6 +81,15 @@ ROLE_COMMAND_ASSIGNMENTS: Dict[str, List[str]] = {
         "evil_winrm", "evil_winrm_hash", "ssh_login", "mysql_login", "mssql_login",
         # Vuln scanning
         "nikto_scan", "nuclei_scan", "searchsploit",
+        # Web application attack
+        "wfuzz_params",
+        # Web path follow-up + IDOR
+        "curl_web_path", "curl_web_path_ids",
+        "idor_curl_range", "idor_download_file",
+        # PCAP/credential extraction
+        "download_pcap_curl", "pcap_strings_extract", "pcap_tshark_ftp",
+        # Credential reuse
+        "cred_reuse_ssh", "cred_reuse_ftp",
         # Metasploit
         "msfconsole_exploit", "msfvenom_payload", "msfconsole_auto",
         # Kerberos

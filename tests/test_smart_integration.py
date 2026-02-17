@@ -169,9 +169,9 @@ class TestSmartIntegration:
         ctx = coach.update_context_from_state(state)
         
         assert "ssh_service_found" in ctx.state_flags
-        assert ctx.state_flags["ssh_service_found"] == True
+        assert ctx.state_flags["ssh_service_found"]
         assert "credentials_known" in ctx.state_flags
-        assert ctx.state_flags["credentials_known"] == True
+        assert ctx.state_flags["credentials_known"]
     
     def test_environment_returns_state_flags(self):
         """Test CyberEnvironment returns state_flags in state."""
@@ -225,7 +225,7 @@ class TestSmartIntegration:
         
         assert "action" in result
         assert "info" in result
-        assert result["info"].get("smart_decision") == True
+        assert result["info"].get("smart_decision")
         assert "template_name" in result["info"]
         assert "phase" in result["info"]
     

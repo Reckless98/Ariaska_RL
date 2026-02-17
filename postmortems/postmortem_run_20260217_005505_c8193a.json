@@ -1,0 +1,90 @@
+{
+  "run_id": "run_20260217_005505_c8193a",
+  "timestamp": 1771286125.1836452,
+  "key_outcomes": {
+    "wins": [
+      "Maximized reconnaissance reward by completing full network scan and identifying all exposed services despite lack of follow-on actions",
+      "Utilized mentor guidance 15 times to validate detection hypotheses, ensuring process transparency and learning capture"
+    ],
+    "fails": [
+      "Failed to achieve any objectives within the single episode, resulting in 0% success rate",
+      "Unable to convert reconnaissance intelligence into successful exploitation or persistence actions"
+    ],
+    "summary": "Reconnaissance was thorough and well-rewarded, but the run failed to translate those findings into successful attack execution, leaving objectives unmet."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempted exploitation without chaining post-reconnaissance steps, causing repeated inability to compromise any targets",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted Nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,sshv1"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771286133.3613772,
+      "usage_count": 0,
+      "success_rate": 0.0
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial reconnaissance identifies web service on port 80 with directory listing",
+      "then_action": "Crawl directories and test for common default credentials",
+      "parameters_template": {
+        "tool": "dirsearch",
+        "wordlist": "common_dirs.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771286133.3613894,
+      "usage_count": 0,
+      "success_rate": 0.0
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success signal in reconnaissance phase when SSH services present"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent value in identifying exploitable web service configurations"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Chain exploitation steps post-reconnaissance",
+      "description": "After identifying services, immediately launch curated exploit or credential attack to maintain momentum and verify edge cases.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate transition from scanning to exploitation",
+      "description": "Implement workflow that triggers exploitation scripts as soon as matching banners are observed, reducing decision lag.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
