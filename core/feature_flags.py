@@ -197,6 +197,10 @@ class FeatureFlags:
     episode_summary_embedding: bool = field(
         default_factory=lambda: _env_bool("FF_EPISODE_SUMMARY_EMBEDDING", True))
 
+    # ── Phase 37.0: Level 5 GPT↔RL Neural Integration ──────────────
+    llm_policy_bridge: bool = field(
+        default_factory=lambda: _env_bool("FF_LLM_POLICY_BRIDGE", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

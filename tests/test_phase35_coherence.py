@@ -54,7 +54,7 @@ def _make_state(**overrides):
         version=1,
     )
     defaults.update(overrides)
-    return CanonicalState(**defaults)
+    return CanonicalState(**defaults)  # type: ignore[arg-type]
 
 
 def _make_board(**overrides):
@@ -319,7 +319,7 @@ class TestT8ChainWithGPT:
             step_id=5,
             ports=[22, 80], services=["ssh", "http"],
         )
-        chain = CoherenceChain(gpt_manager=gpt)
+        chain = CoherenceChain(gpt_manager=gpt)  # type: ignore[arg-type]
         result = chain.run(state, use_llm=True)
 
         # Should still produce valid results even with fake GPT
@@ -334,7 +334,7 @@ class TestT8ChainWithGPT:
 
         gpt = FakeGPTManager(seed=42)
         state = _make_state(step_id=1, ports=[22])
-        chain = CoherenceChain(gpt_manager=gpt)
+        chain = CoherenceChain(gpt_manager=gpt)  # type: ignore[arg-type]
         result = chain.run(state, use_llm=True)
 
         # Should work but skip nano verify

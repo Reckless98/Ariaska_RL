@@ -2014,6 +2014,14 @@ class SmartOrchestrator:
                     logger.debug(f"P36.1: FastLearnMetrics error: {_fl_err}")
 
             try:
+                # P37: Collect LLM↔RL bridge snapshot from active coaches
+                _llm_bridge_snap = None
+                for _bn, _bc in self.coaches.items():
+                    _bridge = getattr(_bc, '_p37_llm_bridge', None)
+                    if _bridge is not None and _bridge.enabled:
+                        _llm_bridge_snap = _bridge.get_influence_snapshot()
+                        break  # Use first active bridge (typically RedAgent)
+
                 self.dashboard.print_step(
                     step=step,
                     phase=self.attack_context.current_phase.name.lower(),
@@ -2032,6 +2040,7 @@ class SmartOrchestrator:
                     phase_state=_step_phase_state,
                     gpt_activity=_gpt_activity,
                     learning_snapshot=_learning_snapshot,
+                    llm_bridge_snapshot=_llm_bridge_snap,
                 )
             except Exception as _ps_err:
                 import sys

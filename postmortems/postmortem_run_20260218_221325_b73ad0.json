@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260218_221325_b73ad0",
+  "timestamp": 1771449228.973992,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward despite no successful episodes",
+      "Completed the full episode without early termination"
+    ],
+    "fails": [
+      "Zero success rate across the run",
+      "No terminal objective achieved in the only episode"
+    ],
+    "summary": "Single-episode run produced positive reward but failed to reach a success condition; suggests partial progress yet ineffective end-to-end execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progressed through reconnaissance without converting findings into a successful objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial network reachability is confirmed",
+      "then_action": "Perform targeted TCP scan on top ports to identify service surface quickly",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 --top-ports 100"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771449242.5897028,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an SSH service is identified",
+      "then_action": "Enumerate SSH configuration and banner for versioning",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh-*"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771449242.5897114,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP/HTTPS is detected",
+      "then_action": "Run web fingerprinting and content discovery to map attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 80,443 --script http-title,http-headers"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771449242.589717,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step likely contributed to positive reward and should be retained"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-Driven Recon-to-Exploit Pipeline",
+      "description": "Add explicit decision points after service discovery to select and execute a plausible exploit path rather than continuing generic reconnaissance.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Deep Enumeration",
+      "description": "For each detected service, run deeper scripted enumeration (e.g., SMB, HTTP, SSH) and log actionable findings for next-step exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Terminal Condition Tracking",
+      "description": "Instrument the agent to detect and prioritize actions that satisfy success conditions earlier in the episode.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

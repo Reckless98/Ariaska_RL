@@ -109,6 +109,23 @@ class PPOConfig:
     bc_loss_coef: float = 0.1            # BC loss weight (kept low to not dominate PPO)
     bc_buffer: Any = None                # Reference to BCBuffer (set externally)
 
+    # ── Phase 37: Level 5 GPT ↔ RL Integration ──────────────────────
+    # LLM feature injection — additional dims concatenated with state
+    llm_feature_dim: int = 0              # 0 = disabled, 256 = Level 5 (768 total input)
+    # Action prior injection — LLM preference vector added to logits
+    use_llm_prior: bool = False           # Enable LLM prior injection into policy logits
+    prior_alpha_init: float = 0.50        # Initial prior weight (decays via anneal)
+    # KL teacher distillation loss
+    use_kl_teacher_loss: bool = False     # KL(policy || teacher_distribution)
+    kl_teacher_coef: float = 0.15        # KL loss weight (decays with anneal)
+    # Ranking margin loss — teacher action ranks higher than non-teacher
+    use_ranking_loss: bool = False        # Margin-based ranking loss
+    ranking_loss_coef: float = 0.05      # Ranking loss weight
+    ranking_margin: float = 1.0          # Margin between teacher vs non-teacher logits
+    # Value regularization — align critic with LLM value estimates
+    use_value_reg_loss: bool = False      # MSE(value, llm_value_estimate)
+    value_reg_coef: float = 0.10         # Value reg weight (decays with anneal)
+
 
 class PPOActorCritic(nn.Module):
     """Combined actor-critic network for PPO with advanced architecture.
@@ -129,7 +146,9 @@ class PPOActorCritic(nn.Module):
         dims = config.hidden_dims
 
         # ── Shared Feature Extractor ─────────────────────────────────
-        self.input_proj = nn.Linear(config.state_dim, dims[0])
+        # Phase 37: input_dim includes base state + optional LLM features
+        effective_input_dim = config.state_dim + config.llm_feature_dim
+        self.input_proj = nn.Linear(effective_input_dim, dims[0])
         self.input_norm = nn.LayerNorm(dims[0])
 
         layers = []
@@ -327,6 +346,8 @@ class PPOActorCritic(nn.Module):
         action_mask: Optional[torch.Tensor] = None,
         logit_bias: Optional[torch.Tensor] = None,
         phase_group: Optional[torch.Tensor] = None,
+        llm_prior: Optional[torch.Tensor] = None,
+        prior_alpha: float = 0.0,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get action, log_prob, entropy, and value.
 
@@ -342,6 +363,9 @@ class PPOActorCritic(nn.Module):
                 before softmax. R67: Used for soft-penalizing repeated commands.
             phase_group: Optional (B,) long tensor. R68: Phase group for
                 phase-gated actor heads. Auto-extracted from state if None.
+            llm_prior: Optional (action_dim,) float tensor. Phase 37: LLM
+                action preference vector, added to logits weighted by prior_alpha.
+            prior_alpha: Weight for LLM prior injection (decays via anneal).
         """
         logits, value = self.forward(state, phase_group=phase_group)
 
@@ -351,6 +375,14 @@ class PPOActorCritic(nn.Module):
             if bias.dim() == 1:
                 bias = bias.unsqueeze(0).expand_as(logits)
             logits = logits + bias
+
+        # Phase 37: Apply LLM action prior — weighted preference injection
+        # prior_alpha controls influence strength (decays via teacher anneal)
+        if llm_prior is not None and prior_alpha > 0.0:
+            lp = llm_prior.to(logits.device)
+            if lp.dim() == 1:
+                lp = lp.unsqueeze(0).expand_as(logits)
+            logits = logits + prior_alpha * lp
 
         # Apply action mask: invalid actions get logit = -inf
         if action_mask is not None:
@@ -412,6 +444,9 @@ class RolloutBuffer:
         self.rewards: List[float] = []
         self.values: List[float] = []
         self.dones: List[bool] = []
+        # Phase 37: Teacher distributions for KL loss + teacher actions for ranking
+        self.teacher_distributions: List[Optional[torch.Tensor]] = []
+        self.teacher_actions: List[Optional[int]] = []
         self.size = 0
 
     def add(
@@ -422,6 +457,8 @@ class RolloutBuffer:
         reward: float,
         value: float,
         done: bool,
+        teacher_distribution: Optional[torch.Tensor] = None,
+        teacher_action: Optional[int] = None,
     ):
         """Add a single transition."""
         self.states.append(state.detach().cpu())
@@ -430,6 +467,11 @@ class RolloutBuffer:
         self.rewards.append(reward)
         self.values.append(value)
         self.dones.append(done)
+        # Phase 37: Store teacher data for auxiliary losses
+        self.teacher_distributions.append(
+            teacher_distribution.detach().cpu() if teacher_distribution is not None else None
+        )
+        self.teacher_actions.append(teacher_action)
         self.size += 1
 
     def compute_returns_and_advantages(
@@ -508,11 +550,35 @@ class RolloutBuffer:
         old_log_probs_t = torch.tensor(self.log_probs, dtype=torch.float32)
         values_t = torch.tensor(self.values, dtype=torch.float32)
 
+        # Phase 37: Pre-stack teacher distributions (None → zeros)
+        action_dim = 5  # default
+        has_any_teacher = any(td is not None for td in self.teacher_distributions)
+        if has_any_teacher:
+            teacher_dists_t = torch.stack([
+                td if td is not None else torch.zeros(action_dim)
+                for td in self.teacher_distributions
+            ])
+            teacher_has_mask = torch.tensor([
+                td is not None for td in self.teacher_distributions
+            ], dtype=torch.bool)
+        else:
+            teacher_dists_t = None
+            teacher_has_mask = None
+
+        has_any_teacher_action = any(ta is not None for ta in self.teacher_actions)
+        if has_any_teacher_action:
+            teacher_actions_t = torch.tensor([
+                ta if ta is not None else -1
+                for ta in self.teacher_actions
+            ], dtype=torch.long)
+        else:
+            teacher_actions_t = None
+
         for start in range(0, n, minibatch_size):
             end = min(start + minibatch_size, n)
             mb_idx = indices[start:end]
 
-            yield {
+            batch = {
                 "states": states_t[mb_idx].to(device),
                 "actions": actions_t[mb_idx].to(device),
                 "old_log_probs": old_log_probs_t[mb_idx].to(device),
@@ -520,6 +586,14 @@ class RolloutBuffer:
                 "advantages": advantages[mb_idx].to(device),
                 "values": values_t[mb_idx].to(device),
             }
+            # Phase 37: Include teacher data if available
+            if teacher_dists_t is not None:
+                batch["teacher_distributions"] = teacher_dists_t[mb_idx].to(device)
+                batch["teacher_has_mask"] = teacher_has_mask[mb_idx].to(device)
+            if teacher_actions_t is not None:
+                batch["teacher_actions"] = teacher_actions_t[mb_idx].to(device)
+
+            yield batch
 
     def __len__(self):
         return self.size
@@ -719,11 +793,14 @@ class PPOAgent:
         action_mask: Optional[torch.Tensor] = None,
         logit_bias: Optional[torch.Tensor] = None,
         phase_group: Optional[int] = None,
+        llm_prior: Optional[torch.Tensor] = None,
+        prior_alpha: float = 0.0,
     ) -> Tuple[int, float, float]:
         """Select an action from the current policy with optional masking.
 
         Args:
             state_tensor: (state_dim,) tensor from the state encoder.
+                Phase 37: May be (state_dim + llm_feature_dim,) for enhanced state.
             training: If True, sample from the distribution.
                       If False, take the greedy (argmax) action.
             action_mask: Optional (action_dim,) bool tensor.
@@ -732,6 +809,9 @@ class PPOAgent:
                 logits before softmax for soft-penalizing repeated commands.
             phase_group: Optional int (0=recon, 1=exploit, 2=post). R68:
                 Phase group for phase-gated heads. Auto-extracted if None.
+            llm_prior: Optional (action_dim,) float tensor. Phase 37: LLM
+                action preference vector, injected into logits before softmax.
+            prior_alpha: Weight for the LLM prior (decays via teacher anneal).
 
         Returns:
             (action_index, log_probability, state_value)
@@ -755,6 +835,12 @@ class PPOAgent:
                 if bias.dim() == 1:
                     bias = bias.unsqueeze(0).expand_as(logits)
                 logits = logits + bias
+            # Phase 37: LLM prior injection in greedy mode
+            if llm_prior is not None and prior_alpha > 0.0:
+                lp = llm_prior.to(logits.device)
+                if lp.dim() == 1:
+                    lp = lp.unsqueeze(0).expand_as(logits)
+                logits = logits + prior_alpha * lp
             if action_mask is not None:
                 mask = action_mask.to(logits.device)
                 if mask.dim() == 1:
@@ -768,6 +854,7 @@ class PPOAgent:
             action, log_prob, _entropy, value = self.network.get_action_and_value(
                 state_tensor, action_mask=action_mask, logit_bias=logit_bias,
                 phase_group=_pg_tensor,
+                llm_prior=llm_prior, prior_alpha=prior_alpha,
             )
 
         self.network.train()
@@ -897,6 +984,8 @@ class PPOAgent:
         reward: float,
         value: float,
         done: bool,
+        teacher_distribution: Optional[torch.Tensor] = None,
+        teacher_action: Optional[int] = None,
     ):
         """Store a single transition in the rollout buffer.
 
@@ -904,9 +993,15 @@ class PPOAgent:
         storage, which stabilizes the value function and prevents the
         ~20,000 value loss we saw with raw rewards.
         R75: State tensor passed for value-surprise intrinsic bonus.
+        Phase 37: Optionally stores teacher distribution + action for
+        KL distillation and ranking loss during PPO update.
         """
         normalized_reward = self.normalize_reward(reward, state_tensor=state)
-        self.buffer.add(state, action, log_prob, normalized_reward, value, done)
+        self.buffer.add(
+            state, action, log_prob, normalized_reward, value, done,
+            teacher_distribution=teacher_distribution,
+            teacher_action=teacher_action,
+        )
         self.total_steps += 1
 
     # ── R58 Layer 2c: Adaptive Entropy Signaling ─────────────────
@@ -1026,6 +1121,10 @@ class PPOAgent:
             "entropy": 0.0,
             "approx_kl": 0.0,
             "clip_fraction": 0.0,
+            # Phase 37 Level 5 auxiliary losses
+            "kl_teacher_loss": 0.0,
+            "ranking_loss": 0.0,
+            "value_reg_loss": 0.0,
         }
         num_batches = 0
 
@@ -1137,6 +1236,87 @@ class PPOAgent:
                     except Exception:
                         pass  # BC loss is non-critical; skip on error
 
+                # ── Phase 37 Level 5: KL Teacher Distillation Loss ───
+                # KL(policy || teacher) — forces policy to stay close to
+                # the teacher's action preference distribution. Weight
+                # decays via teacher anneal schedule, allowing the policy
+                # to internalize knowledge and gradually detach.
+                _kl_teacher_val = 0.0
+                if self.config.use_kl_teacher_loss:
+                    teacher_dists = batch.get("teacher_distributions")
+                    teacher_mask = batch.get("teacher_has_mask")
+                    if teacher_dists is not None and teacher_mask is not None:
+                        if teacher_mask.any():
+                            # Get current policy distribution
+                            logits_for_kl, _ = self.network.forward(
+                                batch["states"][teacher_mask]
+                            )
+                            policy_log_probs = F.log_softmax(logits_for_kl, dim=-1)
+                            teacher_probs = teacher_dists[teacher_mask]
+                            # KL(teacher || policy) — teacher is the reference
+                            kl_loss = F.kl_div(
+                                policy_log_probs, teacher_probs,
+                                reduction="batchmean", log_target=False,
+                            )
+                            loss = loss + self.config.kl_teacher_coef * kl_loss
+                            _kl_teacher_val = kl_loss.item()
+
+                # ── Phase 37 Level 5: Ranking Margin Loss ────────────
+                # Ensures the teacher's preferred action has higher logit
+                # than non-preferred actions by at least a margin.
+                # loss = max(0, margin - (logit[teacher] - max(logit[others])))
+                _ranking_val = 0.0
+                if self.config.use_ranking_loss:
+                    teacher_acts = batch.get("teacher_actions")
+                    if teacher_acts is not None:
+                        valid_teacher = teacher_acts >= 0
+                        if valid_teacher.any():
+                            rank_logits, _ = self.network.forward(
+                                batch["states"][valid_teacher]
+                            )
+                            t_acts = teacher_acts[valid_teacher]
+                            # Gather teacher action logits
+                            teacher_logit = rank_logits.gather(
+                                1, t_acts.unsqueeze(1)
+                            ).squeeze(1)
+                            # Max logit among non-teacher actions
+                            mask_others = torch.ones_like(rank_logits, dtype=torch.bool)
+                            for i, ta in enumerate(t_acts):
+                                mask_others[i, ta] = False
+                            other_logits = rank_logits.clone()
+                            other_logits[~mask_others] = float("-inf")
+                            max_other = other_logits.max(dim=1).values
+                            # Margin loss: hinge
+                            margin = self.config.ranking_margin
+                            rank_loss = torch.clamp(
+                                margin - (teacher_logit - max_other), min=0.0
+                            ).mean()
+                            loss = loss + self.config.ranking_loss_coef * rank_loss
+                            _ranking_val = rank_loss.item()
+
+                # ── Phase 37 Level 5: Value Regularization Loss ──────
+                # Soft-aligns the critic's value estimate with the teacher's
+                # confidence signal, expressed as a scaled return estimate.
+                # This accelerates value calibration in early training.
+                _value_reg_val = 0.0
+                if self.config.use_value_reg_loss:
+                    teacher_dists = batch.get("teacher_distributions")
+                    teacher_mask = batch.get("teacher_has_mask")
+                    if teacher_dists is not None and teacher_mask is not None:
+                        if teacher_mask.any():
+                            # Teacher confidence → approximate value target
+                            # Higher teacher confidence → value should be higher
+                            t_conf = teacher_dists[teacher_mask].max(dim=-1).values
+                            # Scale to match return magnitude (~normalized)
+                            llm_value_target = t_conf * 2.0 - 1.0  # map [0,1] to [-1,1]
+                            _, v_pred = self.network.forward(
+                                batch["states"][teacher_mask]
+                            )
+                            v_pred = v_pred.squeeze(-1)
+                            vreg_loss = F.mse_loss(v_pred, llm_value_target)
+                            loss = loss + self.config.value_reg_coef * vreg_loss
+                            _value_reg_val = vreg_loss.item()
+
                 # ── Backward (R73: gradient accumulation) ────────────
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
@@ -1170,6 +1350,10 @@ class PPOAgent:
                 metrics["entropy"] += entropy_loss.item()
                 metrics["approx_kl"] += approx_kl
                 metrics["clip_fraction"] += clip_frac
+                # Phase 37 Level 5 metrics
+                metrics["kl_teacher_loss"] += _kl_teacher_val
+                metrics["ranking_loss"] += _ranking_val
+                metrics["value_reg_loss"] += _value_reg_val
                 num_batches += 1
 
             # R73: Step on any remaining accumulated gradients
@@ -1484,6 +1668,15 @@ class PPOAgent:
             "dual_horizon_gae": self.config.use_dual_horizon_gae,
             "spectral_norm_critic": self.config.use_spectral_norm_critic,
             "phase_prediction_aux": self.config.use_phase_prediction_aux,
+            # Phase 37 Level 5 GPT ↔ RL integration diagnostics
+            "llm_feature_dim": self.config.llm_feature_dim,
+            "use_llm_prior": self.config.use_llm_prior,
+            "use_kl_teacher_loss": self.config.use_kl_teacher_loss,
+            "use_ranking_loss": self.config.use_ranking_loss,
+            "use_value_reg_loss": self.config.use_value_reg_loss,
+            "kl_teacher_coef": self.config.kl_teacher_coef,
+            "ranking_loss_coef": self.config.ranking_loss_coef,
+            "value_reg_coef": self.config.value_reg_coef,
             "reward_norm": {
                 "mean": round(self._reward_mean, 4),
                 "std": round(math.sqrt(abs(self._reward_var)), 4),

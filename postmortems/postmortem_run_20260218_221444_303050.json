@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260218_221444_303050",
+  "timestamp": 1771449290.3177862,
+  "key_outcomes": {
+    "wins": [
+      "Completed single-episode run without crashes",
+      "Achieved positive total reward (40.00)"
+    ],
+    "fails": [
+      "0.00% success rate indicates objective not achieved",
+      "Only one episode limits confidence in learned behaviors",
+      "High mentor call count (10) suggests heavy guidance dependency"
+    ],
+    "summary": "The run yielded positive reward but failed the objective; with only one episode and heavy mentor reliance, the learned behavior is not yet robust."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001"
+      ]
+    },
+    {
+      "pattern": "High mentor dependence during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When episode reward is positive but success is false",
+      "then_action": "Review terminal states and identify missing objective conditions",
+      "parameters_template": {
+        "focus": "final_state_diff",
+        "report": "objective_gap_analysis"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771449302.8047442,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in an episode",
+      "then_action": "Insert a self-check step to validate next action choice before requesting mentor input",
+      "parameters_template": {
+        "self_check": "action_feasibility",
+        "limit": 1
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771449302.8047523,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When only one episode is available for evaluation",
+      "then_action": "Run at least 5 additional episodes with fixed seeds to validate repeatability",
+      "parameters_template": {
+        "episodes": 5,
+        "seed_mode": "fixed"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771449302.8047578,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Directly addresses the gap between positive reward and failed objective completion"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Low episode count limits reliability; repeatability testing is needed"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Repeatability Validation",
+      "description": "Run 5 episodes with fixed seeds and track success rate and reward variance to assess stability.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Dependency Reduction",
+      "description": "Introduce a self-check step before mentor calls and measure reduction in mentor usage without reward loss.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective Gap Analysis",
+      "description": "Compare final episode state to success criteria and log missing conditions to refine policy.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260218_233947_a3ab8c",
+  "timestamp": 1771454394.054409,
+  "key_outcomes": {
+    "wins": [
+      "Completed a single episode with non-zero reward, indicating some effective actions despite overall failure"
+    ],
+    "fails": [
+      "Success rate was 0%, indicating failure to achieve terminal objectives",
+      "Only one episode run, limiting generalization and pattern confidence",
+      "High mentor call count suggests reliance on guidance rather than autonomous progression"
+    ],
+    "summary": "The run achieved partial progress (reward 60) but failed to reach the success condition; more episodes and tighter execution are needed to validate and improve tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert early gains into a completed objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    },
+    {
+      "pattern": "Overreliance on mentor prompts during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a live host is identified in initial discovery",
+      "then_action": "Run a focused TCP port scan on top 1000 ports to identify exposed services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 --top-ports 1000 -Pn <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771454407.0520535,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected on a port",
+      "then_action": "Perform lightweight web enumeration to identify common endpoints and technologies",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script http-title,http-server-header,http-enum -p <port> <target>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771454407.0520651,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected with a banner response",
+      "then_action": "Enumerate SSH configuration and auth methods before brute-force attempts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script ssh-hostkey,ssh2-enum-algos -p 22 <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771454407.052073,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core discovery step required to build a reliable service map"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern validation",
+      "description": "Run 5-10 additional episodes to validate whether discovery and service enumeration consistently yield actionable pivots.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Add a rule to attempt at least two autonomous actions before a mentor call during decision points.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-to-exploit linkage drill",
+      "description": "After enumeration, require explicit mapping from detected service/version to a candidate exploit path and execute one test per episode.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

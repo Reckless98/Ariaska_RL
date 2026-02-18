@@ -250,14 +250,14 @@ class TestMicroChainAblation:
 
     def test_heuristic_classify_recon_gap(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {"ports": set(), "services": set(), "credentials": set(), "shells": set()}
         result = mc._heuristic_classify("RECON", board)
         assert result == "recon_gap"
 
     def test_heuristic_classify_enum_needed(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {
             "ports": {"22", "80", "443"},
             "services": {"ssh"},
@@ -269,7 +269,7 @@ class TestMicroChainAblation:
 
     def test_heuristic_classify_exploit_ready(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {
             "ports": {"22", "80", "443", "3306", "8080"},
             "services": {"ssh", "http", "mysql"},
@@ -281,7 +281,7 @@ class TestMicroChainAblation:
 
     def test_heuristic_classify_post_exploit(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {
             "ports": {"22", "80"},
             "services": {"ssh", "http"},
@@ -293,7 +293,7 @@ class TestMicroChainAblation:
 
     def test_heuristic_classify_privesc_needed(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {
             "ports": {"22", "80"},
             "services": {"ssh"},
@@ -305,7 +305,7 @@ class TestMicroChainAblation:
 
     def test_heuristic_classify_with_creds(self):
         from core.llm.micro_chain import MicroChain
-        mc = MicroChain(gpt_manager=self.gpt)
+        mc = MicroChain(gpt_manager=self.gpt)  # type: ignore[arg-type]
         board = {
             "ports": {"22"},
             "services": {"ssh"},

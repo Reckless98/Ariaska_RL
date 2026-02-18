@@ -539,7 +539,7 @@ class TestPentestingPlaybooks:
         """ssh_bruteforce_chain should have correct step order."""
         from core.knowledge.pentesting_playbooks import PLAYBOOKS
         pb = PLAYBOOKS["ssh_bruteforce_chain"]
-        assert pb.steps[0].command == "nmap_quick_scan"
+        assert pb.steps[0].command == "nmap_top_ports"
         assert pb.steps[-1].command == "hydra_ssh"
         assert "exploit" in pb.phases_covered
 
@@ -560,10 +560,10 @@ class TestPentestingPlaybooks:
         from core.knowledge.pentesting_playbooks import get_next_playbook_command
         step = get_next_playbook_command("ssh_bruteforce_chain", [])
         assert step is not None
-        assert step.command == "nmap_quick_scan"
+        assert step.command == "nmap_top_ports"
         
         # After completing first step, should return second
-        step2 = get_next_playbook_command("ssh_bruteforce_chain", ["nmap_quick_scan"])
+        step2 = get_next_playbook_command("ssh_bruteforce_chain", ["nmap_top_ports"])
         assert step2 is not None
         assert step2.command == "nmap_service_version"
 

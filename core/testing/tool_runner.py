@@ -297,6 +297,7 @@ class RealToolRunner(ToolRunner):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                errors='replace',  # P37: Prevent UTF-8 decode crashes on binary output
                 stdin=subprocess.DEVNULL,  # Phase 6.5: prevent interactive prompts
                 start_new_session=True,  # Detach from controlling tty to prevent SIGTTIN
             )

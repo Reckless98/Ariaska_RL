@@ -646,17 +646,19 @@ class GPTManager:
         """
         # Tier 3 — CODEX: Deep reasoning, strategic, tactical, analysis, exploit planning
         # Phase 36: Promoted tactical+analysis to codex for smarter command selection
+        # Phase 36.1: Moved defensive+reconnaissance back to mini (cost optimization)
         _codex_tasks = {
             "strategic", "postmortem", "reasoning", "learning",
             "diversify", "exploit_chain",
-            "tactical", "analysis", "defensive", "reconnaissance",  # Phase 36: codex for all reasoning
+            "tactical", "analysis",  # Core reasoning stays at codex
         }
         if task_type in _codex_tasks:
             return self.strategic_model  # gpt-5.2-codex
         
-        # Tier 2 — MINI: Parsing, output interpretation, playbook selection
+        # Tier 2 — MINI: Parsing, output interpretation, playbook selection, recon, defense
         _mini_tasks = {
             "playbook", "parsing", "command_selection", "output_parse",
+            "defensive", "reconnaissance",  # Phase 36.1: moved from codex (cost-efficient)
         }
         if task_type in _mini_tasks:
             return self.fallback_model  # gpt-5.2-mini — structured extraction tier

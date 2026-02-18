@@ -31,7 +31,8 @@ class TestEvidenceGate:
         result = _make_result("hydra -l admin -P /tmp/pass.txt ssh://10.10.10.1 -p 22")
         valid, reasons = coach._validate_exploit_evidence(result, board, AttackPhase.EXPLOITATION)
         assert not valid
-        assert any("port_22" in r for r in reasons)
+        # P37: Universal no-ports guard fires before port-specific check
+        assert any("port_22" in r or "no_ports_discovered" in r for r in reasons)
 
     def test_gate_port_present_passes(self):
         """Command targeting a discovered port should pass."""

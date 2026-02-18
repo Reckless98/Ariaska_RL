@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260218_225527_4a3f91",
+  "timestamp": 1771451735.4634528,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite no episode success",
+      "Engaged mentor guidance to sustain progression through episode"
+    ],
+    "fails": [
+      "Zero episode success (0.00% success rate)",
+      "High mentor reliance (10 calls) indicating low autonomy",
+      "Single-episode run limits generalization"
+    ],
+    "summary": "The run achieved positive reward but failed to convert progress into a successful episode; heavy mentor dependence suggests gaps in decisive exploitation or privilege escalation steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete end-to-end kill chain from recon to exploitation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When open TCP services are identified during initial scan",
+      "then_action": "Enumerate service versions and default scripts with Nmap",
+      "parameters_template": {
+        "scan_type": "version+scripts",
+        "nmap_args": "-sV -sC -Pn"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771451753.4796267,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Run web content and directory enumeration to map attack surface",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u {url} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771451753.4796352,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is open and reachable",
+      "then_action": "Collect SSH banner and check for weak configurations",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script ssh2-enum-algos,ssh-hostkey -p {port} {host}"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1771451753.4796402,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core recon step that likely contributed to positive reward despite no episode success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Conversion Drill",
+      "description": "After service enumeration, immediately map to known vulnerabilities (e.g., searchsploit) and attempt a single validated exploit path before expanding recon.",
+      "priority": "high"
+    },
+    {
+      "title": "Autonomy Reduction of Mentor Calls",
+      "description": "Limit mentor calls to 3 by enforcing a checklist: recon \u2192 vuln mapping \u2192 exploit attempt \u2192 post-exploitation validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Evidence Logging for Failure Root Cause",
+      "description": "Capture explicit decision points and outcomes per step to identify where the chain breaks (e.g., no exploit chosen, exploit failed, privilege escalation missing).",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

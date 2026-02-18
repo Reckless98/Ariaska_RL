@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260218_225501_af0c2d",
+  "timestamp": 1771451711.7094133,
+  "key_outcomes": {
+    "wins": [
+      "Completed a single episode with positive total reward (30.00)"
+    ],
+    "fails": [
+      "Overall success rate was 0.00% despite positive reward",
+      "High mentor call count (10) indicates heavy guidance dependency"
+    ],
+    "summary": "The run achieved a modest reward but failed to produce a successful episode outcome, with strong reliance on mentor intervention."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert reconnaissance progress into a successful episode outcome",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an IP is identified as a target and no port scan has been performed",
+      "then_action": "Run a full TCP SYN scan with service/version detection",
+      "parameters_template": {
+        "ports": "1-1000",
+        "flags": "-sS -sV -Pn"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771451724.397131,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Enumerate web technologies and directories",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771451724.3971438,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is critical to reduce mentor dependency and improve success rate"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance via structured recon",
+      "description": "Enforce a fixed recon workflow (nmap -> service enum -> targeted scripts) before requesting mentor help",
+      "priority": "high"
+    },
+    {
+      "title": "Web surface expansion",
+      "description": "For any HTTP service, add directory brute force and tech fingerprinting to identify exploitable components",
+      "priority": "high"
+    },
+    {
+      "title": "Post-scan decision gating",
+      "description": "Implement a decision checkpoint after scanning to select the highest-value service for exploitation attempts",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

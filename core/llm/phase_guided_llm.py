@@ -276,27 +276,30 @@ def _infer_phase(discovery_board: Dict[str, Any], current_phase: str) -> str:
 
 # ── Prompt builder ───────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are PHASE GUIDE + DISTILLER for Ariaska_RL (authorized lab only).
-You output STRUCTURED GUIDANCE that is evidence-driven, phase-aware.
-You do NOT output exploits or box-specific chains.
+_SYSTEM_PROMPT = """You are PHASE GUIDE for Ariaska_RL (authorized pentesting lab).
+You MUST output ONLY a single JSON object. No prose, no markdown, no explanation.
+Do NOT wrap in ```json``` fences. Output raw JSON starting with { and ending with }.
 
-OUTPUT FORMAT: Strict JSON only, no extra text before/after the JSON block.
 Always include "phase_tag":"P34" inside both phase_decision and distillation_packet.
 
-DECISION HEURISTICS:
-- If ports/services sparse or uncertain: stay RECON/ENUM.
+EVIDENCE RULES (HARD):
+- If discovery_board.ports is empty: phase MUST be RECON. Candidates MUST be port-discovery only.
+- If ports exist but no service versions: phase MUST be RECON or ENUM. No exploit candidates.
 - EXPLOIT only with: confirmed service + plausible vector + testable next step.
 - PRIVESC only after foothold evidence (shell/creds validated).
+- Never assume unseen services/ports exist.
+- Never propose FTP/IRC/Telnet/MySQL commands unless those services appear in discovery_board.
+
+DECISION HEURISTICS:
 - Stagnation >= 8 steps: include 1 ANOMALY_PROBE + 1 STRATEGY_PIVOT candidate.
 - Avoid repeating command families recently used unless justified.
 - Prefer "enumerate → confirm → test" over "jump to exploit".
 
-HARD CONSTRAINTS:
-- No hardcoded exploit sequences, payloads, or box-specific steps.
-- Only propose actions supported by evidence or label "ANOMALY_PROBE" low-risk.
-- Never assume unseen services/ports.
-- If CVE not in discovery_board.vulns, say "UNKNOWN" and avoid CVE actions.
+JSON SCHEMA:
+{"phase_decision":{"chosen_phase":"RECON","phase_confidence":0.8,"phase_goal":"","stay_conditions":[],"move_on_conditions":[],"contradictions":[],"phase_tag":"P34"},"anomalies":[],"candidates":[{"template_name":"","family":"","why":"","expected_outcome":"","stop_condition":"","confidence":0.5,"risk":"low","tags":[]}],"selection":{"best_template_name":"","runner_up_template_name":"","selection_reason":"","should_escalate_to_codex":false,"escalation_reason":""},"distillation_packet":{"observation":"","reasoning":"","action_target":{"template_name":"","why":""},"expected_outcome":"","phase_target":"","confidence_target":0.5,"gating_notes":{"expected_gate_result":"PASS","reasons":[]},"phase_tag":"P34"}}
 """
+
+_JSON_RETRY_PROMPT = "Your previous response was not valid JSON. Output ONLY a raw JSON object. No text before or after. Start with { and end with }."
 
 
 def _build_user_prompt(input_data: Dict[str, Any]) -> str:
@@ -412,12 +415,24 @@ class PhaseGuidedLLM:
         # Parse response
         parsed = _extract_json(raw)
         if parsed is None:
-            logger.warning("[PHASE-GUIDE] Failed to parse LLM JSON response")
-            # Build heuristic fallback
-            return self._heuristic_fallback(
-                inferred_phase, discovery_board, available_templates,
-                stagnation_steps, agent_role, model,
+            # Retry once with explicit JSON-only instruction
+            logger.debug("[PHASE-GUIDE] First parse failed, retrying with JSON-only prompt")
+            raw_retry = self._gpt.gpt_request(
+                prompt=_JSON_RETRY_PROMPT + "\n\n" + prompt,
+                task_type="tactical",
+                agent_id=f"phase_guide_{agent_role}",
+                max_tokens=800,
+                model=model,
+                system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
             )
+            self._call_count += 1
+            parsed = _extract_json(raw_retry)
+            if parsed is None:
+                logger.warning("[PHASE-GUIDE] JSON retry also failed — using deterministic heuristics")
+                return self._heuristic_fallback(
+                    inferred_phase, discovery_board, available_templates,
+                    stagnation_steps, agent_role, model,
+                )
 
         # Build result from parsed JSON
         result = self._build_result(

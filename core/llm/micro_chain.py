@@ -159,7 +159,7 @@ def _safe_json_load(text: str) -> Optional[dict]:
     return None
 
 
-def _safe_json_load_list(text: str) -> Optional[list]:
+def _safe_json_load_list(text: Optional[str]) -> Optional[list]:
     """Extract and parse a JSON array from LLM response."""
     if not text or not text.strip():
         return None

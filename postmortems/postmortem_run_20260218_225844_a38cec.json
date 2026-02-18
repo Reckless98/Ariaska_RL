@@ -1,0 +1,94 @@
+{
+  "run_id": "run_20260218_225844_a38cec",
+  "timestamp": 1771451931.7715333,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward (50.0) indicating some useful actions were taken",
+      "Maintained engagement with mentor guidance (10 mentor calls) to progress through the episode"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "Single-episode run limits validation of consistent performance"
+    ],
+    "summary": "The run shows partial progress (positive reward) but no successful completion, suggesting early-stage or incomplete kill chain execution."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting on an unknown target host",
+      "then_action": "Run a full TCP port scan with service detection to establish initial attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -sV -p- --min-rate 1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771451947.7314675,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is discovered on any port",
+      "then_action": "Perform web service enumeration and directory discovery",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://{target}:{port} -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771451947.731481,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon is necessary and likely contributed to positive reward despite overall failure"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-enum completion",
+      "description": "Ensure every discovered service is followed by protocol-specific enumeration (e.g., SMB with enum4linux, SSH with nmap ssh-* scripts). Track whether this increases success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential workflow",
+      "description": "Add a credentials pipeline: attempt default creds, then brute-force with hydra on exposed services while rate-limiting to avoid lockouts.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit selection discipline",
+      "description": "After enumeration, map versions to known CVEs and validate exploitability before exploitation attempts to reduce wasted actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

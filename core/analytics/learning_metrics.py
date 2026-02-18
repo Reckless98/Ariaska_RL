@@ -203,7 +203,7 @@ class LearningMetrics:
         self._milestones = MilestoneTracker()
         self._model_mix = ModelMix()
         self._evidence_gate = EvidenceGateStats()
-        self._mentor_interventions: List[Dict[str, str]] = []
+        self._mentor_interventions: List[Dict[str, Any]] = []
 
         # Running state
         self._prev_discovery_board: Dict[str, int] = {}

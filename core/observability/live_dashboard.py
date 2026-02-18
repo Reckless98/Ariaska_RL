@@ -559,15 +559,21 @@ class LiveDashboard:
 
         # ── DECISION PIPELINE ────────────────────────────────────────
         pipeline = (
-            "[bold cyan]📖 PLAYBOOK[/bold cyan] (60→10%) "
-            "[dim]→[/dim] "
-            "[bold green]🤖 PPO[/bold green] (RL) "
-            "[dim]→[/dim] "
-            "[bold blue]📦 REGISTRY[/bold blue] (144+) "
-            "[dim]→[/dim] "
-            "[bold yellow]📡 MENTOR[/bold yellow] (GPT) "
-            "[dim]→[/dim] "
-            "[bold red]🔁 ANTI-REPEAT[/bold red]"
+            "[bold cyan]📖 PLAYBOOK[/bold cyan] [dim](60→10%)[/dim] "
+            "[bright_white]━━▶[/bright_white] "
+            "[bold green]🤖 PPO[/bold green] [dim](RL)[/dim] "
+            "[bright_white]━━▶[/bright_white] "
+            "[bold blue]📦 REGISTRY[/bold blue] [dim](144+)[/dim] "
+            "[bright_white]━━▶[/bright_white] "
+            "[bold yellow]📡 MENTOR[/bold yellow] [dim](GPT)[/dim] "
+            "[bright_white]━━▶[/bright_white] "
+            "[bold red]🔁 ANTI-REPEAT[/bold red]\n"
+            "\n"
+            "[dim]  Intelligence Layers:  "
+            "[bright_magenta]🧭 PhaseGuide[/bright_magenta] · "
+            "[bright_cyan]⛓️ MicroChain[/bright_cyan] · "
+            "[bright_red]🛡️ EvidenceGate[/bright_red] · "
+            "[bright_yellow]🎯 TacticalCortex[/bright_yellow][/dim]"
         )
         console.print(Panel(
             pipeline,
@@ -580,10 +586,16 @@ class LiveDashboard:
         phase_parts = []
         for phase_name, icon in PHASE_ICONS.items():
             phase_parts.append(f"[dim]{icon} {phase_name[:5]}[/dim]")
-        chain = " → ".join(phase_parts)
-        console.print(f"  [bold]Kill Chain:[/bold] {chain}")
+        chain = " [bright_white]━▶[/bright_white] ".join(phase_parts)
+        console.print(Panel(
+            f"  {chain}",
+            title="[bold bright_white]🔗  Kill Chain Progression[/bold bright_white]",
+            border_style="dim",
+            box=box.ROUNDED,
+            padding=(0, 2),
+        ))
         console.print()
-        console.rule("[bold green]▶ Training Started", style="green")
+        console.rule("[bold bright_green]▶ Training Started[/bold bright_green]", style="bright_green")
         console.print()
 
     # =========================================================================
@@ -701,6 +713,92 @@ class LiveDashboard:
             "\n".join(lines),
             title="[bold cyan]🎲  DDQN Macro-Actions[/bold cyan]",
             border_style="cyan",
+            box=box.ROUNDED,
+            padding=(0, 2),
+        )
+
+    def _build_llm_bridge_panel(
+        self,
+        bridge_data: Dict[str, Any],
+    ) -> Panel:
+        """Build Phase 37 Level 5 GPT↔RL Integration panel.
+
+        Shows real-time LLM influence metrics including:
+        - Teacher anneal progress (% detachment from GPT)
+        - Prior alpha (logit injection weight)
+        - Auxiliary losses (KL teacher, ranking, value reg)
+        - Maturity signal components
+
+        Args:
+            bridge_data: Snapshot from LLMPolicyBridge.get_influence_snapshot()
+
+        Returns:
+            Rich Panel with GPT↔RL integration visualization
+        """
+        lines = []
+
+        # Anneal progress bar
+        anneal_pct = bridge_data.get("teacher_anneal_pct", 1.0)
+        alpha = bridge_data.get("prior_alpha", 0.5)
+        maturity = bridge_data.get("maturity_signal", 0.0)
+        enabled = bridge_data.get("enabled", True)
+
+        status = "[bold green]ACTIVE[/bold green]" if enabled else "[bold red]DISABLED[/bold red]"
+        lines.append(f"[bold]Status:[/bold]     {status}")
+
+        # Anneal / Detachment bar
+        detach_pct = 1.0 - anneal_pct
+        detach_bar_len = 20
+        filled = int(detach_pct * detach_bar_len)
+        bar = "█" * filled + "░" * (detach_bar_len - filled)
+        detach_color = "green" if detach_pct > 0.7 else "yellow" if detach_pct > 0.3 else "red"
+        lines.append(
+            f"[bold]Detach:[/bold]     [{detach_color}]{bar}[/{detach_color}] "
+            f"{detach_pct*100:.0f}% autonomous"
+        )
+        lines.append(f"[bold]α Prior:[/bold]    {alpha:.4f}  [dim](logit injection weight)[/dim]")
+
+        # Maturity bar
+        mat_bar_len = 20
+        mat_filled = int(maturity * mat_bar_len)
+        mat_bar = "█" * mat_filled + "░" * (mat_bar_len - mat_filled)
+        mat_color = "green" if maturity > 0.7 else "yellow" if maturity > 0.3 else "cyan"
+        lines.append(
+            f"[bold]Maturity:[/bold]   [{mat_color}]{mat_bar}[/{mat_color}] {maturity:.3f}"
+        )
+
+        # Component signals
+        sr = bridge_data.get("success_rate", 0.0)
+        rv = bridge_data.get("reward_velocity", 0.0)
+        de = bridge_data.get("discovery_efficiency", 0.0)
+        esr = bridge_data.get("exploit_success_rate", 0.0)
+        lines.append(
+            f"  [dim]SR={sr:.2f} RV={rv:.2f} DE={de:.2f} ESR={esr:.2f}[/dim]"
+        )
+
+        # Auxiliary losses
+        bc = bridge_data.get("bc_loss", 0.0)
+        kl = bridge_data.get("kl_teacher_loss", 0.0)
+        rl = bridge_data.get("ranking_loss", 0.0)
+        vr = bridge_data.get("value_reg_loss", 0.0)
+
+        lines.append("")
+        lines.append("[bold underline]Auxiliary Losses:[/bold underline]")
+        kl_c = bridge_data.get("kl_teacher_coef", 0.15)
+        rl_c = bridge_data.get("ranking_loss_coef", 0.05)
+        vr_c = bridge_data.get("value_reg_coef", 0.10)
+        lines.append(f"  KL Teacher:  {kl:.6f}  [dim](coef={kl_c:.3f})[/dim]")
+        lines.append(f"  Ranking:     {rl:.6f}  [dim](coef={rl_c:.3f})[/dim]")
+        lines.append(f"  Value Reg:   {vr:.6f}  [dim](coef={vr_c:.3f})[/dim]")
+        lines.append(f"  BC Loss:     {bc:.6f}")
+
+        steps = bridge_data.get("total_steps", 0)
+        lines.append(f"\n[dim]Steps: {steps}[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold magenta]🧬  GPT↔RL Integration (Level 5)[/bold magenta]",
+            border_style="magenta",
             box=box.ROUNDED,
             padding=(0, 2),
         )
@@ -922,6 +1020,8 @@ class LiveDashboard:
         gpt_activity: Optional[Dict[str, Any]] = None,
         # P34-EXT: Learning metrics snapshot
         learning_snapshot: Optional[Dict[str, Any]] = None,
+        # Phase 37: GPT↔RL bridge metrics
+        llm_bridge_snapshot: Optional[Dict[str, Any]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -961,21 +1061,15 @@ class LiveDashboard:
                 gpt_cost_str = f" │ [{_cost_clr}]💳${_cum:.3f}[/{_cost_clr}]"
 
         # ── STEP HEADER ──────────────────────────────────────────────
-        # Phase 36: Beautiful gradient-style header with Rich Rule
-        _header_text = (
-            f"  ▶ Step {step + 1:2d} │ {ep_str} │ {mode_tag} │ "
-            f"{phase_icon} {phase_upper} │ R:{global_reward:+.1f} │ "
-            f"{mentor_str} │ {step_spark}{gpt_cost_str.replace('[', '').replace(']', '').replace('/', '')}"
-        )
+        # Phase 37: Clean gradient-style header with Rich Rule
         console.print()  # breathing room
         console.rule(
-            f"[bold bright_white]  ▶ Step {step + 1:2d}[/bold bright_white] │ "
-            f"[cyan]{ep_str}[/cyan] │ "
-            f"[bold yellow]{mode_tag}[/bold yellow] │ "
-            f"{phase_icon} [bold]{phase_upper}[/bold] │ "
-            f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}] │ "
-            f"[dim]{mentor_str}[/dim] │ "
-            f"[dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}",
+            f"[bold bright_white]▶ Step {step + 1:2d}[/bold bright_white]  │  "
+            f"[bright_cyan]{ep_str}[/bright_cyan]  │  "
+            f"[bold bright_yellow]{mode_tag}[/bold bright_yellow]  │  "
+            f"{phase_icon} [bold bright_white]{phase_upper}[/bold bright_white]  │  "
+            f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}]  │  "
+            f"[dim]{mentor_str}[/dim]  [dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}",
             style="bright_blue",
         )
 
@@ -1079,14 +1173,35 @@ class LiveDashboard:
                             f"[bold white on dark_green] {items} [/bold white on dark_green]"
                         )
 
-            # Confidence
+            # Confidence — visual bar indicator
             _conf = a.confidence
-            _conf_style = "bold green" if _conf >= 0.7 else "yellow" if _conf >= 0.4 else "red"
+            _conf_pct = int(_conf * 20)  # 0-20 blocks
+            _conf_bar_full = "━" * _conf_pct
+            _conf_bar_empty = "╌" * (20 - _conf_pct)
+            if _conf >= 0.7:
+                _conf_style = "bold green"
+                _conf_bar_color = "green"
+            elif _conf >= 0.4:
+                _conf_style = "yellow"
+                _conf_bar_color = "yellow"
+            else:
+                _conf_style = "red"
+                _conf_bar_color = "red"
             panel_parts.append(f"")
             panel_parts.append(
-                f"[dim]Confidence:[/dim] [{_conf_style}]{_conf:.0%}[/{_conf_style}] │ "
+                f"[dim]Confidence:[/dim] [{_conf_style}]{_conf:.0%}[/{_conf_style}] "
+                f"[{_conf_bar_color}]{_conf_bar_full}[/{_conf_bar_color}]"
+                f"[dim]{_conf_bar_empty}[/dim] │ "
                 f"[dim]Tokens:[/dim] {a.tokens_used}"
             )
+
+            # Evidence gate status (if available)
+            _ev_gate = getattr(a, 'evidence_gate_result', None)
+            if _ev_gate and _ev_gate != "pass":
+                _gate_color = "bold red" if "enforce" in str(_ev_gate) else "yellow"
+                panel_parts.append(
+                    f"  [{_gate_color}]🛡️ Evidence Gate: {_ev_gate}[/{_gate_color}]"
+                )
 
             _panel_border = "bright_green" if a.discoveries else ("cyan" if a.reward > 0 else "dim")
             _verbose_panels.append(Panel(
@@ -1127,20 +1242,27 @@ class LiveDashboard:
                 "users": ("👤", "bright_magenta", "USERS"),
                 "web_paths": ("🌐", "bright_blue", "WEB PATHS"),
             }
+            _total_discoveries = 0
             for key, (icon_s, style_s, label) in _db_icon_map.items():
                 items = db.get(key, set())
                 if items:
+                    count = len(items) if isinstance(items, (set, list)) else 1
+                    _total_discoveries += count
                     if isinstance(items, (set, list)):
                         _items_str = ", ".join(str(i) for i in sorted(items, key=str))
                     else:
                         _items_str = str(items)
                     _db_parts.append(
-                        f"  [{style_s}]{icon_s} {label} ({len(items)}):[/{style_s}] {_items_str}"
+                        f"  [{style_s}]{icon_s} {label} ({count}):[/{style_s}] {_items_str}"
                     )
             if _db_parts:
+                _db_title = (
+                    f"[bold bright_green]🗺️  Discovery Board[/bold bright_green]"
+                    f"[dim]  ─  {_total_discoveries} total findings[/dim]"
+                )
                 console.print(Panel(
                     "\n".join(_db_parts),
-                    title="[bold bright_green]🗺️  Discovery Board[/bold bright_green]",
+                    title=_db_title,
                     border_style="bright_green",
                     box=box.ROUNDED,
                     expand=True,
@@ -1260,6 +1382,7 @@ class LiveDashboard:
             console.print(Panel(
                 "\n".join(_metrics_lines),
                 title="[bold bright_white]📊 Step Metrics[/bold bright_white]",
+                subtitle="[dim]phase · budget · cost · learning[/dim]",
                 border_style="bright_blue",
                 box=box.ROUNDED,
                 expand=True,
@@ -1277,6 +1400,9 @@ class LiveDashboard:
                 ev_type = ev.get("type", "")
                 agent = ev.get("agent", "")
                 msg = ev.get("message", "")
+                # P37: Skip empty/malformed reasoning entries
+                if not msg and not ev_type:
+                    continue
                 if ev_type == "tc_block":
                     _reasoning_lines.append(f"[yellow]🛡️ [{agent}] TC Block:[/yellow] {msg}")
                 elif ev_type == "phase_gate":
@@ -1284,7 +1410,7 @@ class LiveDashboard:
                 elif ev_type == "codex_meta":
                     _reasoning_lines.append(f"[bright_magenta]🧬 [{agent}] Codex:[/bright_magenta] {msg}")
                 elif ev_type == "decision":
-                    # P36: Structured reasoning — parse EVIDENCE|GOAL|WHY_THIS|CONF
+                    # P36: Structured reasoning — parse EVIDENCE|GOAL|WHY_THIS|STOP|CONF
                     _parts = {}
                     for _seg in msg.split(" | "):
                         if ":" in _seg:
@@ -1293,13 +1419,21 @@ class LiveDashboard:
                     _ev_str = _parts.get("EVIDENCE", "?")
                     _goal_str = _parts.get("GOAL", "?")
                     _why_str = _parts.get("WHY_THIS", "?")
+                    _stop_str = _parts.get("STOP", "")
                     _conf_str = _parts.get("CONF", "?")
-                    _reasoning_lines.append(
+                    _line = (
                         f"[bold cyan]🎯 [{agent}][/bold cyan] "
                         f"[green]EV:[/green]{_ev_str[:80]} "
                         f"[yellow]GOAL:[/yellow]{_goal_str[:50]} "
-                        f"[bright_magenta]WHY:[/bright_magenta]{_why_str[:80]} "
-                        f"[dim]CONF:{_conf_str}[/dim]"
+                        f"[bright_magenta]WHY:[/bright_magenta]{_why_str[:80]}"
+                    )
+                    if _stop_str:
+                        _line += f" [dim]STOP:{_stop_str[:40]}[/dim]"
+                    _line += f" [dim]CONF:{_conf_str}[/dim]"
+                    _reasoning_lines.append(_line)
+                elif ev_type == "phase_guided":
+                    _reasoning_lines.append(
+                        f"[bold bright_green]🧭 [{agent}] P34 Guide:[/bold bright_green] {msg}"
                     )
                 else:
                     _reasoning_lines.append(f"[dim]📎 [{agent}] {ev_type}: {msg}[/dim]")
@@ -1702,6 +1836,7 @@ class LiveDashboard:
         decision_sources: Optional[Dict[str, int]] = None,
         discovery_board: Optional[Dict[str, Any]] = None,
         gpt_cost_summary: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
         self.current_episode = episode
         self.episode_rewards.append(total_reward)
@@ -1709,13 +1844,14 @@ class LiveDashboard:
             self.episode_phases.append(highest_phase)
 
         console.print()
-        console.rule(f"[bold green]Episode {episode} Complete", style="green")
+        console.rule(f"[bold bright_green]━━━ Episode {episode} Complete ━━━[/bold bright_green]", style="bright_green")
 
         # ── METRICS TABLE with deltas ────────────────────────────────
         table = Table(
-            title=f"[bold]Episode {episode} Summary[/bold]",
-            show_header=True, header_style="bold green",
-            border_style="green", box=box.ROUNDED,
+            title=f"[bold bright_white]📋 Episode {episode} Summary[/bold bright_white]",
+            show_header=True, header_style="bold bright_white on dark_blue",
+            border_style="bright_green", box=box.ROUNDED,
+            padding=(0, 2),
         )
         table.add_column("Metric", style="bold cyan", min_width=20)
         table.add_column("Value", justify="right", min_width=14)
@@ -1862,6 +1998,11 @@ class LiveDashboard:
         if ppo_panel_data or per_coach_ppo:
             algo_panels.append(self._build_ppo_panel(ppo_panel_data, per_coach_ppo))
 
+        # Phase 37: GPT↔RL Integration Panel
+        _llm_bridge_data = kwargs.get("llm_bridge_snapshot")
+        if _llm_bridge_data:
+            algo_panels.append(self._build_llm_bridge_panel(_llm_bridge_data))
+
         # DDQN Panel
         if ddqn_metrics:
             algo_panels.append(self._build_ddqn_panel(ddqn_metrics))
@@ -1997,11 +2138,13 @@ class LiveDashboard:
                           total_time: float, final_metrics: Dict[str, Any]):
         console.print()
         self.print_ariaska_banner()
-        console.rule("[bold green]🏁 Training Complete", style="green")
+        console.rule("[bold bright_green]🏁 Training Complete[/bold bright_green]", style="bright_green")
 
         # ── MAIN METRICS TABLE ───────────────────────────────────────
-        table = Table(title=f"[bold]Run: {run_id}[/bold]",
-                      show_header=True, header_style="bold cyan", box=box.ROUNDED)
+        table = Table(title=f"[bold bright_white]📊 Run: {run_id}[/bold bright_white]",
+                      show_header=True, header_style="bold bright_white on dark_blue",
+                      box=box.ROUNDED, border_style="bright_green",
+                      padding=(0, 2))
         table.add_column("Metric", style="bold", width=22)
         table.add_column("Value", justify="right", width=18)
         table.add_column("Trend", width=30)
@@ -2113,7 +2256,8 @@ class LiveDashboard:
             console.print(f"  [bold]Active Algorithms:[/bold] {algo_str}")
 
         self.print_cost_ticker(self.tokens_total)
-        console.rule("[bold green]✨ ARIASKA Training Session Complete ✨", style="green")
+        console.print()
+        console.rule("[bold bright_green]✨ ARIASKA Training Session Complete ✨[/bold bright_green]", style="bright_green")
         console.print()
 
     # =========================================================================
@@ -2163,19 +2307,22 @@ class LiveDashboard:
     def print_ariaska_banner(self):
         """Print the ARIASKA ASCII logo banner — investor-demo mode."""
         logo = r"""
-[bold red]     █████╗ ██████╗ ██╗ █████╗ ███████╗██╗  ██╗ █████╗ [/bold red]
+[bold bright_red]     █████╗ ██████╗ ██╗ █████╗ ███████╗██╗  ██╗ █████╗ [/bold bright_red]
 [bold red]    ██╔══██╗██╔══██╗██║██╔══██╗██╔════╝██║ ██╔╝██╔══██╗[/bold red]
-[bold red]    ███████║██████╔╝██║███████║███████╗█████╔╝ ███████║[/bold red]
+[bold bright_red]    ███████║██████╔╝██║███████║███████╗█████╔╝ ███████║[/bold bright_red]
 [bold red]    ██╔══██║██╔══██╗██║██╔══██║╚════██║██╔═██╗ ██╔══██║[/bold red]
-[bold red]    ██║  ██║██║  ██║██║██║  ██║███████║██║  ██╗██║  ██║[/bold red]
+[bold bright_red]    ██║  ██║██║  ██║██║██║  ██║███████║██║  ██╗██║  ██║[/bold bright_red]
 [bold red]    ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝[/bold red]
-[bold cyan]    ⚡ Autonomous Multi-Agent Reinforcement Learning for Cybersecurity ⚡[/bold cyan]
-[dim]    5 Agents  •  PPO + GPT Hybrid  •  8-Phase Kill Chain  •  Live Pentesting[/dim]
+
+[bold bright_cyan]    ⚡  Autonomous Multi-Agent Reinforcement Learning  ⚡[/bold bright_cyan]
+[bold bright_white]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold bright_white]
+[dim italic]    5 Agents  ·  PPO Actor-Critic v3.0  ·  8-Phase Kill Chain  ·  Live Pentesting[/dim italic]
+[dim italic]    107K Knowledge Corpus  ·  Evidence-Gated Execution  ·  Hybrid GPT Pipeline[/dim italic]
 """
         console.print(Panel(
             logo,
             border_style="bright_red",
-            box=box.ROUNDED,
+            box=box.DOUBLE,
             padding=(0, 4),
         ))
 

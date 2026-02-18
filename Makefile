@@ -24,7 +24,7 @@
 .PHONY: venv test test-cap test-fast train train-quick train-ms3 train-ms3-medium \
         train-ms3-hard train-ms2 train-ms2-hard train-htb train-msf smoke \
         ms2-setup ms2-status ms2-health ms2-stop overnight overnight-quick \
-        last status clean help traces
+        last status clean help traces ctf
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -48,6 +48,11 @@ help:
 	@echo ""
 	@echo "  Training (HTB):"
 	@echo "    make train-htb TARGET=10.129.x.x  - HTB target, 50 eps"
+	@echo ""
+	@echo "  CTF Engagement (LIVE):"
+	@echo "    make ctf target=10.129.x.x        - Launch live CTF engagement"
+	@echo "    make ctf target=IP steps=600       - Custom step limit"
+	@echo "    make ctf target=IP seed=42         - Reproducible run"
 	@echo ""
 	@echo "  Testing:"
 	@echo "    make test            - Full pytest suite"
@@ -126,6 +131,37 @@ train-msf:
 TARGET ?= 10.129.5.41
 train-htb:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 50 --steps 60 --seed 42 --env htb --target $(TARGET) --verbosity verbose
+
+# ── CTF Live Engagement ──────────────────────────────────────────────────────
+# Usage:
+#   make ctf target=10.129.1.54                   # default: 500 steps, no seed
+#   make ctf target=10.129.1.54 steps=600         # custom step limit
+#   make ctf target=10.129.1.54 seed=42           # reproducible
+#   make ctf target=10.129.1.54 steps=800 seed=7  # both
+#
+# Output is logged to runs/ctf_<timestamp>/live_output.log
+target ?=
+steps  ?= 500
+seed   ?=
+ctf:
+ifndef target
+	$(error target is required. Usage: make ctf target=10.129.x.x)
+endif
+	@RUN_DIR="runs/ctf_$$(date +%Y%m%d_%H%M%S)_$(target)" && \
+	mkdir -p "$$RUN_DIR" && \
+	echo "╔══════════════════════════════════════════════════════════════╗" && \
+	echo "║  ARIASKA CTF — Live Engagement                              ║" && \
+	echo "║  Target : $(target)                                         ║" && \
+	echo "║  Steps  : $(steps)                                          ║" && \
+	echo "║  Seed   : $(or $(seed),random)                              ║" && \
+	echo "║  Log    : $$RUN_DIR/live_output.log                         ║" && \
+	echo "╚══════════════════════════════════════════════════════════════╝" && \
+	$(PYTHON) ariaska_cli.py smart-train \
+		--target $(target) \
+		--steps $(steps) \
+		--ctf \
+		$(if $(seed),--seed $(seed)) \
+		2>&1 | tee "$$RUN_DIR/live_output.log"
 
 # MS2 Docker lab setup
 ms2-setup:

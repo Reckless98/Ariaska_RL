@@ -116,6 +116,10 @@ class SmartDecisionResult:
     confidence: float = 0.5
     skill_cards: List[Dict[str, Any]] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
+
+    def __post_init__(self) -> None:
+        """Clamp confidence to [0.0, 1.0] — prevents impossible percentages (e.g. 171%)."""
+        self.confidence = min(1.0, max(0.0, float(self.confidence)))
     
     # Command output (simulated or real)
     command_output: str = ""
@@ -552,6 +556,16 @@ class SmartCoach:
         except Exception as e:
             logger.debug(f"[P27] MicroChain init skipped for {agent_name}: {e}")
 
+        # ─── Phase 34: PhaseGuidedLLM (structured guidance + distillation) ─
+        self._phase_guided: Any = None
+        try:
+            if self.gpt_manager is not None:
+                from core.llm.phase_guided_llm import PhaseGuidedLLM
+                self._phase_guided = PhaseGuidedLLM(gpt_manager=self.gpt_manager)
+                logger.debug(f"[P34] PhaseGuidedLLM initialized for {agent_name}")
+        except Exception as e:
+            logger.debug(f"[P34] PhaseGuidedLLM init skipped for {agent_name}: {e}")
+
         # ─── Phase 27: Evidence gate counters ────────────────────────
         self._evidence_gate_total = 0
         self._evidence_gate_rejects = 0
@@ -637,6 +651,36 @@ class SmartCoach:
             )
         except Exception as e:
             logger.debug(f"[P14] Init skipped for {agent_name}: {e}")
+
+        # =====================================================================
+        # PHASE 37: Level 5 GPT ↔ RL Integration — LLMPolicyBridge
+        # Central nervous system connecting LLM intelligence to PPO nets.
+        # Computes LLM features, action priors, teacher distributions.
+        # All influence decays via teacher anneal → autonomous policy.
+        # =====================================================================
+        self._p37_llm_bridge = None
+        self._p37_last_guidance = None
+        self._p37_last_mc_result = None   # Raw MicroChainResult for bridge
+        self._p37_last_pg_result = None   # Raw PhaseGuidedResult for bridge
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff37 = get_feature_flags()
+            if getattr(_ff37, 'llm_policy_bridge', True) and self.ppo_agent is not None:
+                from core.llm.llm_policy_bridge import LLMPolicyBridge
+                self._p37_llm_bridge = LLMPolicyBridge(
+                    action_dim=self.ppo_agent.config.action_dim,
+                )
+                # Enable Level 5 features on PPO config
+                self.ppo_agent.config.use_llm_prior = True
+                self.ppo_agent.config.use_kl_teacher_loss = True
+                self.ppo_agent.config.use_ranking_loss = True
+                self.ppo_agent.config.use_value_reg_loss = True
+                logger.info(
+                    f"[P37] {agent_name}: LLMPolicyBridge initialized — "
+                    f"Level 5 GPT↔RL integration ACTIVE"
+                )
+        except Exception as e:
+            logger.debug(f"[P37] LLMPolicyBridge init skipped for {agent_name}: {e}")
 
         # =====================================================================
         # PHASE 15.0: Neurovortex — Neuromodulators, Reflex, Arbitrator,
@@ -2925,6 +2969,8 @@ class SmartCoach:
                 )
                 if _mc_out is not None and _mc_out.selected.command:
                     _mc_source = "micro_chain_codex" if _mc_out.escalated else "micro_chain"
+                    # P37: Store raw result for LLMPolicyBridge
+                    self._p37_last_mc_result = _mc_out
                     micro_chain_result = SmartDecisionResult(
                         command=_mc_out.selected.command,
                         confidence=_mc_out.selected.score,
@@ -2942,6 +2988,57 @@ class SmartCoach:
                     )
             except Exception as e:
                 logger.debug(f"[MICRO-CHAIN][{self.agent_name}] Error: {e}")
+
+        # =====================================================================
+        # LAYER 2.7: PHASE-GUIDED LLM — Phase 34 structured guidance
+        # Produces evidence-driven phase advice + candidate commands.
+        # Runs after MicroChain. If MicroChain didn't fire AND phase guide
+        # returns candidates, they supplement the pipeline.
+        # =====================================================================
+        phase_guided_result = None
+        if micro_chain_result is None and self._phase_guided is not None:
+            try:
+                _pg_phase = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+                _pg_stag = step_ctx.get("stagnation_steps", 0) if isinstance(step_ctx, dict) else 0
+                _pg_templates = [
+                    {"name": c.name, "phase": c.phase.name if hasattr(c.phase, 'name') else str(c.phase)}
+                    for c in (filtered_commands[:15] if filtered_commands else [])
+                ]
+                _pg_result = self._phase_guided.guide(
+                    episode_id=str(getattr(self, 'current_episode', 0)),
+                    step_id=step_ctx.step if hasattr(step_ctx, 'step') else 0,
+                    agent_role=self.agent_name,
+                    current_phase=_pg_phase,
+                    phase_state={
+                        "stagnation_steps": _pg_stag,
+                        "recent_discovery_deltas": [],
+                    },
+                    discovery_board=discovery_board,
+                    available_templates=_pg_templates,
+                )
+                if _pg_result is not None and _pg_result.selections:
+                    _pg_best = _pg_result.selections[0]
+                    # P37: Store raw result for LLMPolicyBridge
+                    self._p37_last_pg_result = _pg_result
+                    phase_guided_result = SmartDecisionResult(
+                        command=_pg_best.template_name,  # Template name as command hint
+                        confidence=_pg_result.phase_decision.confidence,
+                        reasoning=f"phase_guided: {_pg_result.phase_decision.reasoning[:120]}",
+                        source="phase_guided",
+                        template_name=_pg_best.template_name,
+                        mentor_call=True,
+                    )
+                    logger.debug(
+                        f"[PHASE-GUIDE][{self.agent_name}] Guided: "
+                        f"{_pg_best.template_name} (conf={_pg_result.phase_decision.confidence:.2f})"
+                    )
+                    self._step_reasoning_log.append({
+                        "type": "phase_guided",
+                        "agent": self.agent_name,
+                        "message": f"P34 guidance: {_pg_best.template_name} ({_pg_result.phase_decision.reasoning[:80]})",
+                    })
+            except Exception as e:
+                logger.debug(f"[PHASE-GUIDE][{self.agent_name}] Error: {e}")
 
         # =====================================================================
         # LAYER 3: CODEX META-LAYER — Tactical + Strategic stagnation-breaking
@@ -2984,6 +3081,8 @@ class SmartCoach:
             result = playbook_result
         elif micro_chain_result is not None:
             result = micro_chain_result
+        elif phase_guided_result is not None:
+            result = phase_guided_result
         elif codex_meta_result is not None:
             result = codex_meta_result
             # Store negative PPO trajectory: PPO/DDQN failed to break stagnation
@@ -3063,7 +3162,7 @@ class SmartCoach:
                                 command=_arb_log.winner_command,
                                 template_name=_arb_log.winner_source,
                                 source=f"arbitrator_{_arb_log.winner_source}",
-                                confidence=_arb_log.winner_score,
+                                confidence=min(1.0, _arb_log.winner_score),
                                 reasoning=f"Arbitrated: {_arb_log.reason_codes}",
                             )
                             _arb_used = True
@@ -4302,6 +4401,8 @@ class SmartCoach:
                     "value": self._ppo_pending["value"],
                     "reward": _repeat_penalty,
                     "done": False,
+                    "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
+                    "teacher_action": self._ppo_pending.get("teacher_action"),
                 })
                 self._ppo_pending = None
             
@@ -4463,6 +4564,8 @@ class SmartCoach:
                 "value": self._ppo_pending["value"],
                 "reward": _repeat_penalty,
                 "done": False,
+                "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
+                "teacher_action": self._ppo_pending.get("teacher_action"),
             })
             self._ppo_pending = None
         
@@ -4804,32 +4907,74 @@ class SmartCoach:
         if not command:
             return True, []
 
-        # Only gate phases >= EXPLOITATION
+        # ── Phase 37: Universal evidence gate — block exploit/brute tools when no ports discovered ──
         phase_name = phase.name if hasattr(phase, 'name') else str(phase)
-        exploit_phases = {"EXPLOITATION", "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
-                          "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"}
-        if phase_name not in exploit_phases:
-            return True, []
-
         known_ports = {str(p) for p in discovery_board.get("ports", set())}
         known_services = {str(s).lower() for s in discovery_board.get("services", set())}
+        cmd_lower = command.lower()
+        cmd_tool = cmd_lower.split()[0].split("/")[-1] if cmd_lower else ""
 
-        # Post-foothold local commands always pass
+        # SSH-wrapped commands — assume foothold access, always allow
+        if "ssh " in cmd_lower or "sshpass" in cmd_lower:
+            reasons.append("ssh_wrapped_command_allowed")
+            return True, reasons
+
+        # Post-foothold local commands always pass (any phase)
         _local_cmds = ("sudo", "find", "getcap", "id", "uname", "cat ", "ls ",
                         "whoami", "hostname", "ifconfig", "ip ", "env", "echo ",
                         "grep ", "awk ", "sed ", "head ", "tail ", "which ",
                         "ps ", "netstat", "ss ", "mount", "df ", "lsof",
                         "history", "crontab", "systemctl")
-        cmd_lower = command.lower()
-        if phase_name in ("PRIVILEGE_ESCALATION", "POST_EXPLOITATION", "CLOSEOUT"):
-            if any(cmd_lower.startswith(lc) for lc in _local_cmds):
-                return True, []
+        if any(cmd_lower.startswith(lc) for lc in _local_cmds):
+            return True, []
 
-        # SSH-wrapped commands — assume foothold, but log
-        if "ssh " in cmd_lower or "sshpass" in cmd_lower:
-            # Allow but note for logging
-            reasons.append("ssh_wrapped_command_allowed")
-            return True, reasons
+        # Phase 37: If NO ports discovered yet, block all exploit/brute-force/service-specific tools
+        _exploit_tools = {"hydra", "medusa", "sqlmap", "msfconsole", "metasploit",
+                          "searchsploit", "smbclient", "enum4linux", "rpcclient",
+                          "wpscan", "john", "hashcat", "crackmapexec",
+                          "impacket", "psexec", "winrm", "evil-winrm"}
+        if not known_ports and cmd_tool in _exploit_tools:
+            reasons.append(f"no_ports_discovered_yet_cannot_use_{cmd_tool}")
+            return False, reasons
+
+        # Phase 37: Block exploit modules referencing non-existent protocols when ports ARE known
+        # This runs for ALL phases, not just EXPLOITATION+
+        _hallucination_checks = {
+            "ircd": {"irc", "ircd", "unreal"},
+            "ftp": {"ftp", "vsftpd", "proftpd"},
+            "samba": {"smb", "samba", "microsoft-ds"},
+            "telnet": {"telnet"},
+            "mysql": {"mysql", "mariadb"},
+            "postgresql": {"postgresql", "postgres"},
+            "vnc": {"vnc"},
+            "rmi": {"rmi", "java-rmi"},
+        }
+        _known_port_set = {int(p) for p in known_ports if str(p).isdigit()}
+        _port_service_map = {
+            21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 80: "http",
+            110: "pop3", 139: "smb", 143: "imap", 443: "https", 445: "smb",
+            1433: "mssql", 1524: "ingreslock", 3306: "mysql", 3389: "rdp",
+            5432: "postgresql", 5900: "vnc", 6667: "irc", 8080: "http",
+            8180: "http", 8443: "https",
+        }
+        if known_ports:  # Only check hallucinations when we have port data
+            for _svc_key, _svc_names in _hallucination_checks.items():
+                if any(sn in cmd_lower for sn in _svc_names):
+                    _svc_found = bool(_svc_names.intersection(known_services))
+                    _port_found = any(
+                        p in _known_port_set
+                        for p, s in _port_service_map.items()
+                        if s in _svc_names or s == _svc_key
+                    )
+                    if not _svc_found and not _port_found:
+                        reasons.append(f"hallucination_{_svc_key}_not_on_target")
+
+        # Only apply remaining exploit-phase-specific gates for EXPLOITATION+
+        exploit_phases = {"EXPLOITATION", "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
+                          "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"}
+        if phase_name not in exploit_phases:
+            valid = len(reasons) == 0 or all("allowed" in r for r in reasons)
+            return valid, reasons
 
         # Port evidence: if command targets explicit port, check it exists
         import re as _re
@@ -4875,41 +5020,6 @@ class SmartCoach:
             known_vulns = {str(v).upper() for v in discovery_board.get("vulns", set())}
             if cve_id not in known_vulns:
                 reasons.append(f"cve_{cve_id}_not_in_discovery_board")
-
-        # P36: Anti-hallucination — detect exploit modules targeting non-existent services
-        # Common hallucinations: IRC exploit on SSH+HTTP target, FTP on no-FTP, etc.
-        _hallucination_checks = {
-            "ircd": {"irc", "ircd", "unreal"},
-            "ftp": {"ftp", "vsftpd", "proftpd"},
-            "samba": {"smb", "samba", "microsoft-ds"},
-            "telnet": {"telnet"},
-            "mysql": {"mysql", "mariadb"},
-            "postgresql": {"postgresql", "postgres"},
-            "vnc": {"vnc"},
-            "rmi": {"rmi", "java-rmi"},
-        }
-        _known_port_set = {int(p) for p in known_ports if str(p).isdigit()}
-        # Map well-known ports to their services for cross-check
-        _port_service_map = {
-            21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 80: "http",
-            110: "pop3", 139: "smb", 143: "imap", 443: "https", 445: "smb",
-            1433: "mssql", 1524: "ingreslock", 3306: "mysql", 3389: "rdp",
-            5432: "postgresql", 5900: "vnc", 6667: "irc", 8080: "http",
-            8180: "http", 8443: "https",
-        }
-        for _svc_key, _svc_names in _hallucination_checks.items():
-            # Check if the command mentions this service
-            if any(sn in cmd_lower for sn in _svc_names):
-                # Is this service actually discovered?
-                _svc_found = bool(_svc_names.intersection(known_services))
-                # Also check by well-known port
-                _port_found = any(
-                    p in _known_port_set
-                    for p, s in _port_service_map.items()
-                    if s in _svc_names or s == _svc_key
-                )
-                if not _svc_found and not _port_found:
-                    reasons.append(f"hallucination_{_svc_key}_not_on_target")
 
         valid = len(reasons) == 0 or all("allowed" in r for r in reasons)
         return valid, reasons
@@ -6590,11 +6700,35 @@ class SmartCoach:
                     f"[R68-GATE][{self.agent_name}] Codex forced phase_group={_forced}"
                 )
 
-            # PPO selects — R67: logit_bias, R68: phase_group
+            # ─── Phase 37: Compute LLM guidance for prior injection ─────
+            _p37_prior = None
+            _p37_alpha = 0.0
+            _p37_teacher_dist = None
+            if self._p37_llm_bridge is not None and self._p37_llm_bridge.enabled:
+                try:
+                    _p37_guidance = self._p37_llm_bridge.compute_guidance(
+                        state_dict=ctx.state if hasattr(ctx, 'state') else {},
+                        micro_chain_result=getattr(self, '_p37_last_mc_result', None),
+                        phase_guide_result=getattr(self, '_p37_last_pg_result', None),
+                        mentor_confidence=getattr(self, '_last_mentor_confidence', 0.5),
+                        phase=current_phase_str if current_phase_str else "RECON",
+                        step=ctx.current_step if hasattr(ctx, 'current_step') else 0,
+                        episode=ctx.current_episode if hasattr(ctx, 'current_episode') else 0,
+                    )
+                    self._p37_last_guidance = _p37_guidance
+                    _p37_prior = _p37_guidance.action_prior
+                    _p37_alpha = _p37_guidance.prior_alpha
+                    _p37_teacher_dist = _p37_guidance.teacher_distribution
+                except Exception as _e37:
+                    logger.debug(f"[P37] LLM guidance compute failed: {_e37}")
+
+            # PPO selects — R67: logit_bias, R68: phase_group, P37: llm_prior
             action_idx, log_prob, value = self.ppo_agent.select_action(
                 state_tensor, training=True, action_mask=mask,
                 logit_bias=_r67_logit_bias if _r67_logit_bias.any() else None,
                 phase_group=_r68_phase_group,
+                llm_prior=_p37_prior,
+                prior_alpha=_p37_alpha,
             )
 
             template_name = self.action_mapper.action_to_name(action_idx)
@@ -6609,6 +6743,8 @@ class SmartCoach:
                     self._ppo_pending = {
                         "state": state_tensor, "action": action_idx,
                         "log_prob": log_prob, "value": value,
+                        "teacher_distribution": _p37_teacher_dist,
+                        "teacher_action": action_idx,
                     }
                     return SmartDecisionResult(
                         command=cmd_str,
@@ -6640,6 +6776,8 @@ class SmartCoach:
             self._ppo_pending = {
                 "state": state_tensor, "action": action_idx,
                 "log_prob": log_prob, "value": value,
+                "teacher_distribution": _p37_teacher_dist,
+                "teacher_action": action_idx,
             }
 
             self.step_used_commands.add(template.name)
@@ -6817,7 +6955,13 @@ class SmartCoach:
                     reward=t["reward"],
                     value=t["value"],
                     done=t["done"],
+                    teacher_distribution=t.get("teacher_distribution"),
+                    teacher_action=t.get("teacher_action"),
                 )
+
+            # Phase 37: Record episode end for bridge anneal
+            if self._p37_llm_bridge is not None:
+                self._p37_llm_bridge.record_episode_end()
 
             # Bootstrap value
             last_value = 0.0
@@ -7573,8 +7717,22 @@ class SmartCoach:
                     (decision.template_name and COMMAND_REGISTRY.get(decision.template_name) or None)
                     and COMMAND_REGISTRY[decision.template_name].preconditions or set()
                 ) if decision.template_name else set(),
+                # Phase 37: Teacher data for KL + ranking loss
+                "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
+                "teacher_action": self._ppo_pending.get("teacher_action"),
             })
             self._ppo_pending = None
+
+            # Phase 37: Record step outcome for LLM bridge anneal
+            if self._p37_llm_bridge is not None:
+                _disc_count = len(_r69_disc_types) if _r69_disc_types else 0
+                self._p37_llm_bridge.record_step_outcome(
+                    reward=ppo_reward,
+                    discoveries=_disc_count,
+                    exploit_success=bool(new_discoveries and (
+                        'shell' in new_discoveries or 'credential' in new_discoveries
+                    )),
+                )
         
         # ─── PHASE 9.0: Store DDQN macro transition ────────────────
         if self._ddqn_pending is not None and self.ddqn_macro is not None:

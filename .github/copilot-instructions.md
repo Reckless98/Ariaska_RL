@@ -102,6 +102,7 @@ core/
 ├── llm/
 │   ├── micro_chain.py            (610L)    # Phase 27: MicroChain nano->mini->nano 3-stage scoring
 │   ├── phase_guided_llm.py       (714L)    # Phase 34: PhaseGuidedLLM self-guidance + distillation
+│   ├── llm_policy_bridge.py      (775L)    # Phase 37: Level 5 GPT↔RL bridge (prior, features, teacher, anneal)
 │   ├── mentor_trace.py           (210L)    # Phase 30: MentorTrace for structured distillation
 │   ├── smart_mentor.py          (1386L)    # SmartMentor + DualMentor (GPT + Venice)
 │   ├── reward_calculator.py      (859L)    # SmartRewardCalculator — shaped rewards
@@ -360,6 +361,14 @@ Produces structured JSON guidance:
 Mentor call -> MentorTrace (P30) -> TeacherTrace (P14) -> BCSample -> BCBuffer
                                                                           |
                                                                     PPO BC loss
+
+MicroChain + PhaseGuide + Mentor ─┐
+                                  ├──> LLMPolicyBridge (P37)
+         state + maturity signals ┘         │
+                                            ├── action prior → PPO logits
+                                            ├── teacher dist → KL loss
+                                            ├── LLM features → enhanced state
+                                            └── anneal alpha → all weights decay
 ```
 
 **MentorTrace** (`core/llm/mentor_trace.py`, 210L):
@@ -783,6 +792,13 @@ When generating code for this project:
 | PhaseGuide codex threshold | 0.45 | `phase_guided_llm.py` |
 | Reward range | [-15.0, +50.0] | `reward_calculator.py` |
 | BCBuffer capacity | 2000 | `teacher_trace.py` |
+| LLM feature dim | 256 | `llm_policy_bridge.py` |
+| Enhanced state dim | 768 (512+256) | `state_encoder.py` |
+| Prior alpha init | 0.50 → 0.02 (cosine) | `llm_policy_bridge.py` |
+| KL teacher coef | 0.15 → 0.01 | `llm_policy_bridge.py` |
+| Ranking loss coef | 0.05 | `PPOConfig` |
+| Value reg coef | 0.10 | `PPOConfig` |
+| Anneal steps | 3000 | `LLMPolicyBridge` |
 
 ---
 
@@ -798,3 +814,4 @@ When generating code for this project:
 | 32 | MicroChain tuning: env-var configurable escalation threshold |
 | 33 | Budget burst pool, candidate cap, dynamic burst cooldown |
 | 34 | PhaseGuidedLLM: structured guidance + distillation packets |
+| 37 | Level 5 GPT↔RL Neural Integration: LLMPolicyBridge, KL teacher distillation, ranking margin loss, value reg, teacher anneal, dashboard panel |

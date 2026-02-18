@@ -36,6 +36,12 @@ from typing import Dict, Any, List, Optional
 # ── Constants ────────────────────────────────────────────────────────────
 STATE_DIM = 512
 
+# Phase 37 Level 5: LLM feature augmentation dims
+# These are concatenated AFTER the base 512-dim vector by LLMPolicyBridge.
+# The PPO network's input_proj is resized to accept the full enhanced dim.
+LLM_FEATURE_DIM = 256
+ENHANCED_STATE_DIM = STATE_DIM + LLM_FEATURE_DIM  # 768
+
 PHASES = [
     "recon", "enumeration", "exploit", "privesc",
     "lateral_movement", "post_exploitation", "exfiltrate", "closeout",

@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260218_225731_3e5d2f",
+  "timestamp": 1771451870.3337839,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite overall failure"
+    ],
+    "fails": [
+      "Success rate 0% across the single episode",
+      "High mentor call count indicates low autonomy"
+    ],
+    "summary": "Single-episode run yielded positive reward but no successful completion; autonomy appears low."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert progress into episode success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Excessive reliance on mentor guidance",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_step1",
+        "ep001_step5",
+        "ep001_step9",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields partial progress but no terminal success",
+      "then_action": "Insert validation checkpoints and goal-state verification before proceeding",
+      "parameters_template": {
+        "checkpoint_interval_steps": 5,
+        "verify_goal_state": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step15"
+      ],
+      "created_at": 1771451880.5751212,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 10 within an episode",
+      "then_action": "Switch to a conservative plan: reduce branching actions and prioritize high-probability steps",
+      "parameters_template": {
+        "max_branches": 1,
+        "priority": "high-probability"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step7",
+        "ep001_step12"
+      ],
+      "created_at": 1771451880.5751362,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Episode shows progress without success; checkpointing can improve terminal conversion."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor call count suggests a need for conservative decisioning."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Checkpointed goal verification",
+      "description": "Add goal-state checks every 5 steps to detect dead-ends early and pivot.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call budget",
+      "description": "Cap mentor calls at 8 and evaluate whether autonomy and success improve.",
+      "priority": "high"
+    },
+    {
+      "title": "Action pruning",
+      "description": "Limit exploratory branching to a single path once partial progress is achieved.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
