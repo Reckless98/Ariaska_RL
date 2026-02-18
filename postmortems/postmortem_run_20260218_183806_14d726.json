@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260218_183806_14d726",
+  "timestamp": 1771436289.5160072,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with total reward 90.00"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates no episode-level success criteria met",
+      "Only one episode limits statistical confidence"
+    ],
+    "summary": "Performance shows moderate reward but no successful outcomes; insufficient episodes to identify stable behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode completed without meeting success criteria despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Review terminal logs and identify the first point where objectives diverged; add a corrective step before that action in the next run",
+      "parameters_template": {
+        "review_window_steps": 20,
+        "focus": "objective_alignment"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1771436302.2430196,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When only a single episode is available",
+      "then_action": "Increase sample size by running 5\u201310 additional episodes with identical settings to validate repeatability",
+      "parameters_template": {
+        "additional_episodes": 5,
+        "settings_lock": true
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1771436302.243037,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success is zero",
+      "then_action": "Adjust reward shaping or success criteria to ensure alignment with target objectives before further training",
+      "parameters_template": {
+        "audit_reward_components": true,
+        "audit_success_flags": true
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1771436302.243047,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Low episode count; increasing sample size is necessary for meaningful assessment"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expand episode count",
+      "description": "Run 5\u201310 more episodes with identical configuration to validate if 0% success persists",
+      "priority": "high"
+    },
+    {
+      "title": "Objective alignment audit",
+      "description": "Review reward components vs. success criteria to ensure the agent is incentivized toward actual success",
+      "priority": "high"
+    },
+    {
+      "title": "Failure point tracing",
+      "description": "Identify the first divergence from expected objective path within the episode and add a corrective action",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

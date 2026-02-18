@@ -1,0 +1,93 @@
+{
+  "run_id": "run_20260218_211111_6b73fb",
+  "timestamp": 1771445491.3430598,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with positive reward"
+    ],
+    "fails": [
+      "Success rate remained at 0.00%",
+      "Only one episode available for analysis, limiting pattern detection"
+    ],
+    "summary": "Positive reward in a single episode but no task success; dataset too small to confirm stable behaviors."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access objective is unclear after reconnaissance",
+      "then_action": "Run targeted service enumeration on discovered open ports to refine attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC",
+        "ports": "top-1000"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [],
+      "created_at": 1771445501.8859608,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports (80/443/8080)",
+      "then_action": "Perform directory and technology enumeration to identify potential vulnerabilities",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "whatweb"
+        ],
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [],
+      "created_at": 1771445501.8859704,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance refinement recommended given lack of success signals"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for trend detection",
+      "description": "Run at least 10 episodes with varied target configurations to capture repeated success/failure patterns and stabilize reward trends.",
+      "priority": "high"
+    },
+    {
+      "title": "Add structured recon-to-exploit checkpoints",
+      "description": "Instrument steps to log service discovery, enumeration depth, and exploit attempts to correlate actions with outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Test alternative enumeration tools",
+      "description": "Compare outcomes using nmap -sV/-sC vs. masscan + nmap follow-up to optimize discovery speed and coverage.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

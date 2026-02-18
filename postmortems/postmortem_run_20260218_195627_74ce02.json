@@ -1,0 +1,96 @@
+{
+  "run_id": "run_20260218_195627_74ce02",
+  "timestamp": 1771440993.3242853,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (40.00), indicating some effective actions taken during the episode"
+    ],
+    "fails": [
+      "Zero success rate across the run (0.00%)",
+      "Only one episode executed, limiting learning signal and generalization"
+    ],
+    "summary": "Single-episode run produced a positive reward but failed to achieve any success condition; additional episodes and tighter success-focused actions are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful exploitation or objective completion",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with no target context",
+      "then_action": "Run fast host discovery and top-ports scan with nmap to establish attack surface",
+      "parameters_template": {
+        "nmap_args": "-Pn -T4 --top-ports 100 -sV",
+        "output": "nmap_top100.xml"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [],
+      "created_at": 1771441009.285321,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When services are detected but no clear exploit path is identified",
+      "then_action": "Perform service-specific enumeration (HTTP/SMB/SSH) to increase actionable findings",
+      "parameters_template": {
+        "http_enum": "nmap --script http-enum -p80,443",
+        "smb_enum": "nmap --script smb-enum-shares -p445",
+        "ssh_enum": "nmap --script ssh2-enum-algos -p22"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [],
+      "created_at": 1771441009.2853346,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is essential for every episode and likely contributed to positive reward signal"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for reliable signals",
+      "description": "Run 10\u201320 episodes with identical initial conditions to collect more data on which actions drive success.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighter success-focused playbook",
+      "description": "After initial nmap results, enforce a decision tree: service detection \u2192 targeted enumeration \u2192 exploit validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward shaping audit",
+      "description": "Verify that reward is aligned with objective completion to avoid false positives from non-terminal actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

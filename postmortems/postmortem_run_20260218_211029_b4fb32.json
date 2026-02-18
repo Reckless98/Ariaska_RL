@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260218_211029_b4fb32",
+  "timestamp": 1771445450.896531,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode without termination errors",
+      "Achieved positive total reward despite zero success outcomes",
+      "Captured sufficient mentor interactions (15) to inform corrective guidance"
+    ],
+    "fails": [
+      "Zero successful task completions (0.00% success rate)",
+      "Only one episode run, limiting statistical confidence",
+      "High mentor call count suggests decision uncertainty"
+    ],
+    "summary": "The run shows partial progress (positive reward) but no successful task completion; the single-episode scope and heavy mentor dependence indicate the policy needs targeted refinement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert positive reward into task success within a single episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_211029_b4fb32"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_211029_b4fb32"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is reachable but no services are confirmed",
+      "then_action": "Run targeted service discovery with nmap version detection",
+      "parameters_template": {
+        "flags": "-sV",
+        "ports": "top-100"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_211029_b4fb32"
+      ],
+      "created_at": 1771445469.1166215,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial scan results are sparse or ambiguous",
+      "then_action": "Expand scan with aggressive timing and default scripts",
+      "parameters_template": {
+        "flags": "-sC -sV -T4",
+        "ports": "1-1024"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "run_20260218_211029_b4fb32"
+      ],
+      "created_at": 1771445469.116635,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When uncertainty is high after two consecutive actions",
+      "then_action": "Pause to validate assumptions and request targeted mentor guidance",
+      "parameters_template": {
+        "max_questions": 1,
+        "focus": "service discovery gaps"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260218_211029_b4fb32"
+      ],
+      "created_at": 1771445469.1166456,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step likely to increase success rate given zero confirmed services"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Aggressive scanning can reduce ambiguity noted by mentor dependence"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-first loop tightening",
+      "description": "Run 3\u20135 episodes focusing only on service discovery and validation before attempting exploitation; track reduction in mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive scan escalation",
+      "description": "Introduce a policy rule to escalate from top-100 to full 1\u20131024 port scans after two low-signal scans; measure success conversion.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor query gating",
+      "description": "Limit mentor calls to one per decision phase and require a written hypothesis before requesting guidance.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

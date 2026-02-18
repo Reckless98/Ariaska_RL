@@ -287,7 +287,7 @@ register(CommandTemplate(
 # --- Web Enumeration ---
 register(CommandTemplate(
     name="gobuster_dir",
-    template="gobuster dir -u {url} -w {wordlist} -x {extensions} -t {threads}",
+    template="gobuster dir -u {url} -w {wordlist} -x {extensions} -t {threads} --no-error -b 302,404",
     description="Directory and file brute-forcing. Essential for web targets.",
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
@@ -297,7 +297,7 @@ register(CommandTemplate(
         "threads": "50"
     },
     preconditions={"http_service_found"},
-    success_indicators=["Status: 200", "Status: 301", "Status: 302"],
+    success_indicators=["Status: 200", "Status: 301"],
     typical_reward=2.0,
     tags={"web", "bruteforce", "directories"}
 ))

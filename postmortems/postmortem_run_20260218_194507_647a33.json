@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260218_194507_647a33",
+  "timestamp": 1771440314.0010026,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero success, suggesting some progress in intermediate steps"
+    ],
+    "fails": [
+      "No episode successes achieved (0.00% success rate)",
+      "High mentor reliance (10 calls) indicates gaps in autonomous decision-making"
+    ],
+    "summary": "Single-episode run showed partial progress but failed to achieve objective completion; needs stronger autonomous enumeration-to-exploitation flow."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert reconnaissance into a viable exploitation path",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is identified but services are unknown",
+      "then_action": "Run a comprehensive service discovery scan",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sC -sV -p- -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771440331.2951913,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on ports 80 or 443",
+      "then_action": "Perform content discovery to identify hidden paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771440331.295204,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline service discovery is a prerequisite for building an exploitation plan."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence via structured recon checklist",
+      "description": "Execute a fixed reconnaissance playbook (host discovery -> full port scan -> version detection -> service-specific enumeration) without mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration focus",
+      "description": "After identifying top 2 services, run targeted scripts/tools (e.g., nmap NSE, gobuster/nikto for web, smbclient/enum4linux for SMB).",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit selection practice",
+      "description": "Map detected versions to likely exploits using searchsploit and prioritize low-risk proof-of-concept attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

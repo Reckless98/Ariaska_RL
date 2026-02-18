@@ -23,8 +23,9 @@ Architecture:
     Section 13: Tactical Depth           [143-167] 25 dims  (Phase 12.1)
     Section 14: Progress Estimator       [168-172]  5 dims  (Phase 16.0)
     Section 15: Campaign Intelligence    [173-220] 48 dims  (Phase 19.0)
+    Section 16: Episode Summary Embed    [221-236] 16 dims  (Phase 30.0)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~221 / 512  (43% utilisation)
+    Total meaningful dims: ~237 / 512  (46% utilisation)
 """
 
 import torch
@@ -113,6 +114,8 @@ def encode_state(
     progress_delta: float = 0.0,
     estimator_confidence: float = 0.0,
     progress_momentum: float = 0.0,
+    # Phase 30.0: Episode summary embedding (from MentorTrace aggregation)
+    episode_summary_embedding: Optional[List[float]] = None,
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -661,8 +664,20 @@ def encode_state(
     vec[idx] = 1.0 if _chain_pos.get("exfil_ready", False) else 0.0
     idx += 1  # 221 after section 15
 
-    # ─── Remaining dims [221-511] are zero-padded ────────────────────
-    # ~221 meaningful dims / 512 total  (43% utilisation, up from 34%)
+    # ─── Section 16: Phase 30 Episode Summary Embedding (16 dims) [221-236]
+    # Aggregated mentor trace features for "GPT as Artificial Fine-Tuning".
+    # Encodes what kind of episode is happening: mentor reliance, accuracy,
+    # confidence patterns, stagnation signals. Helps PPO understand when
+    # mentor guidance is trustworthy vs. when the agent should diverge.
+    _sec16_start = idx  # Should be ~221 but use dynamic idx for safety
+    if episode_summary_embedding is not None:
+        _emb_len = min(16, len(episode_summary_embedding))
+        for i in range(_emb_len):
+            vec[_sec16_start + i] = float(episode_summary_embedding[i])
+    idx += 16  # advance past section 16
+
+    # ─── Remaining dims [237-511] are zero-padded ────────────────────
+    # ~237 meaningful dims / 512 total  (46% utilisation, up from 43%)
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

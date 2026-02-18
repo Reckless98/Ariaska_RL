@@ -86,7 +86,7 @@ class SmartOrchestratorConfig:
     
     # Attack context — Post-Phase 20: always live, target from CLI
     default_target: str = ""  # Post-Phase 20: must be specified via CLI --target
-    # default_difficulty: str = "normal"  # Post-Phase 20: REMOVED — always unrestricted
+    # Post-Phase 20: difficulty always "normal" (unrestricted)
     default_platform: str = "linux"
     
     # Dashboard settings
@@ -100,9 +100,7 @@ class SmartOrchestratorConfig:
     # Phase 6.2: EventBus JSONL logging
     event_jsonl_path: Optional[str] = None
     
-    # Post-Phase 20: Difficulty presets REMOVED — always unrestricted
-    # difficulty: str = "normal"  # Legacy, kept for reference only
-    difficulty: str = "normal"  # Always normal = zero restrictions
+    difficulty: str = "normal"  # Post-Phase 31: always "normal" — zero restrictions
 
     # Phase 26: CTF mode — auto-close on flag capture (user+root), skip CLOSEOUT.
     # Without --ctf, the system only terminates on reaching CLOSEOUT with flags.
@@ -524,6 +522,49 @@ class SmartOrchestrator:
         
         # ─── HTB D1: FollowupQueue — priority-based command injection ──
         self.followup_queue: List[Dict[str, Any]] = []
+
+        # ─── P34-EXT: LearningMetrics — per-step/episode learning quality ──
+        self.learning_metrics = None
+        try:
+            from core.analytics.learning_metrics import LearningMetrics
+            _lm_dir = os.path.join("logs", "learning")
+            self.learning_metrics = LearningMetrics(
+                log_dir=_lm_dir, window_size=5, print_every=5,
+            )
+            _init_modules.append(("LearningMetrics", "ok", "JSONL + dashboard"))
+        except Exception as e:
+            _init_modules.append(("LearningMetrics", "warn", str(e)[:40]))
+
+        # ─── P36.1: FastLearnMetrics — value/advantage/distillation/MC tracking ──
+        self.fast_learn_metrics = None
+        try:
+            from core.analytics.fast_learn_metrics import FastLearnMetrics
+            self.fast_learn_metrics = FastLearnMetrics(
+                log_dir=os.path.join("runs"),
+                log_every=5,
+            )
+            _init_modules.append(("FastLearnMetrics", "ok", "JSONL + governor"))
+        except Exception as e:
+            _init_modules.append(("FastLearnMetrics", "warn", str(e)[:40]))
+        
+        # ─── P35: CoherenceChain — 4-step nano anti-hallucination chain ──
+        self.coherence_chain = None
+        self._last_coherence_result = None
+        try:
+            from core.state.coherence_chain import CoherenceChain
+            self.coherence_chain = CoherenceChain(gpt_manager=self.gpt_manager)
+            _init_modules.append(("CoherenceChain", "ok", "nano 4-step"))
+        except Exception as e:
+            _init_modules.append(("CoherenceChain", "warn", str(e)[:40]))
+        
+        # ─── P35: LiveTraceWriter — append-only JSONL per step ──
+        self.live_trace_writer = None
+        try:
+            from core.state.live_trace import LiveTraceWriter
+            self.live_trace_writer = LiveTraceWriter(base_dir="runs")
+            _init_modules.append(("LiveTrace", "ok", "JSONL append"))
+        except Exception as e:
+            _init_modules.append(("LiveTrace", "warn", str(e)[:40]))
         
         # Initialize agents
         self.agents: Dict[str, Any] = {}
@@ -532,10 +573,6 @@ class SmartOrchestrator:
         # Initialize smart coaches
         self.coaches: Dict[str, SmartCoach] = {}
         self._init_smart_coaches()
-        
-        # Post-Phase 20: Difficulty presets REMOVED — always unrestricted
-        # self._difficulty_preset = None  # Legacy, no preset ever loaded
-        self._difficulty_preset = None
         
         # Shared attack context (all agents see same state)
         self.attack_context: Optional[AttackContext] = None
@@ -742,55 +779,77 @@ class SmartOrchestrator:
     # =========================================================================
     # Not all agents need to run every step. Phase-based activation saves
     # API calls by only activating agents when they're useful.
-    # Value = run every Nth step. 1 = every step, 2 = every other step.
-    # Red always runs (core attacker). Blue/Shadow now run more often
-    # to ensure proper token usage and defensive coverage.
+    # =====================================================================
+    # P36: ROLE-BASED ACTIVATION SCHEDULE
+    # Value = run every Nth step. 1 = every step, 0 = DISABLED.
+    # Red always runs (primary executor). Other agents are activated
+    # only when they can add value based on phase, evidence, and state.
+    #
+    # DESIGN PRINCIPLES:
+    #   - Scout: ACTIVE in RECON/ENUM/LATERAL only (discovery phases)
+    #   - Shadow: ACTIVE only when creds/shell exist (stealth matters)
+    #   - Orion: ACTIVE for strategy at phase transitions, low frequency otherwise
+    #   - Red: ACTIVE all phases as primary executor
+    #   - Blue: Minimal — infrastructure defense only in late phases
+    # =====================================================================
     AGENT_ACTIVATION_SCHEDULE = {
-        # Phase 7.1: BlueAgent reframed as INFRASTRUCTURE DEFENDER
-        # Blue monitors attacker-side health (network, logs, detection) — low frequency
-        # Blue should NOT run often: we have Scout + Shadow + Orion + Red for offense.
-        # RECON: Scout leads, Red every step, Blue observes every 4 steps
         "RECON": {
-            "ScoutAgent": 1, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 4,
+            "ScoutAgent": 1, "RedAgent": 1, "ShadowAgent": 0,
+            "OrionAgent": 5, "BlueAgent": 0,
         },
         "ENUMERATION": {
-            "ScoutAgent": 2, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 4,
+            "ScoutAgent": 2, "RedAgent": 1, "ShadowAgent": 0,
+            "OrionAgent": 4, "BlueAgent": 0,
         },
         "EXPLOITATION": {
-            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 2, "BlueAgent": 3,
+            "ScoutAgent": 0, "RedAgent": 1, "ShadowAgent": 3,
+            "OrionAgent": 3, "BlueAgent": 0,
         },
         "PRIVILEGE_ESCALATION": {
-            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
-            "OrionAgent": 3, "BlueAgent": 4,
+            "ScoutAgent": 0, "RedAgent": 1, "ShadowAgent": 3,
+            "OrionAgent": 4, "BlueAgent": 0,
         },
         "LATERAL_MOVEMENT": {
-            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 2, "BlueAgent": 4,
+            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 0,
         },
         "POST_EXPLOITATION": {
-            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 2, "BlueAgent": 3,
+            "ScoutAgent": 0, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 3, "BlueAgent": 4,
         },
         "EXFILTRATION": {
-            "ScoutAgent": 3, "RedAgent": 1, "ShadowAgent": 1,
-            "OrionAgent": 3, "BlueAgent": 3,
+            "ScoutAgent": 0, "RedAgent": 1, "ShadowAgent": 2,
+            "OrionAgent": 4, "BlueAgent": 3,
         },
-        # Phase 6.9: CLOSEOUT auto-handoff — Red/Scout DISABLED, Shadow leads cleanup
         "CLOSEOUT": {
             "ScoutAgent": 0, "RedAgent": 0, "ShadowAgent": 1,
             "OrionAgent": 1, "BlueAgent": 2,
         },
     }
-    
-    def _should_activate(self, agent_name: str, step: int, phase: str) -> bool:
+
+    # P36: Skip reason enum values for structured skip tracking
+    SKIP_REASONS = {
+        "disabled_in_phase": "DISABLED in {phase}",
+        "no_new_value": "No new evidence to act on",
+        "redundant": "Another agent covers this role",
+        "phase_not_relevant": "Agent role not relevant to {phase}",
+        "budget_pressure": "Token budget pressure — conserving",
+        "frequency_gate": "Runs every {freq} steps",
+        "shadow_no_creds": "Shadow waiting for creds/shell",
+        "scout_done": "Scout: ports+services already discovered",
+        "orion_no_transition": "Orion: no phase transition or stagnation",
+    }
+
+    def _should_activate(self, agent_name: str, step: int, phase: str) -> Tuple[bool, str]:
         """
-        Determine if an agent should be activated this step based on phase.
+        P36: Value-based agent activation with structured skip reasons.
         
-        Phase 9.0: Shadow only activates after credentials_known or shell_obtained.
-        Shadow's role is persistence/stealth/lateral — NOT broad enumeration.
+        Determines if an agent should be activated this step based on:
+        1. Phase-based frequency schedule
+        2. Evidence-based value check (does agent have something useful to do?)
+        3. Shadow gate (creds/shell required)
+        4. Scout completion gate (ports+services discovered → done)
+        5. Orion strategic gate (phase transitions or stagnation)
         
         Args:
             agent_name: Name of the agent
@@ -798,26 +857,62 @@ class SmartOrchestrator:
             phase: Current attack phase (e.g. "RECON", "EXPLOITATION")
             
         Returns:
-            True if agent should run this step
+            Tuple of (should_activate, skip_reason)
+            skip_reason is empty string if activated, structured reason if skipped
         """
         phase_upper = phase.upper().replace(" ", "_")
         schedule = self.AGENT_ACTIVATION_SCHEDULE.get(phase_upper, {})
-        frequency = schedule.get(agent_name, 1)  # Default: every step
-        # Phase 6.9: frequency=0 means agent is DISABLED for this phase
+        frequency = schedule.get(agent_name, 1)
+
+        # P36: frequency=0 means agent is DISABLED for this phase
         if frequency == 0:
-            return False
-        
-        # Phase 9.0: Shadow gate — only activate after creds or shell
+            return False, self.SKIP_REASONS["disabled_in_phase"].format(phase=phase_upper)
+
+        board = getattr(self, "discovery_board", {})
+        flags = board.get("flags_set", set()) if isinstance(board, dict) else set()
+
+        # ── Shadow gate: only activate after creds or shell ──
         if agent_name == "ShadowAgent" and phase_upper not in ("CLOSEOUT",):
-            board = getattr(self, "discovery_board", {})
-            flags = board.get("flags_set", set()) if isinstance(board, dict) else set()
             has_creds = "credentials_known" in flags
             has_shell = "shell_obtained" in flags
             if not has_creds and not has_shell:
-                return False
-        
-        # Use (step + 1) so step 0 behaves like step 1 (not always-activate)
-        return (step + 1) % frequency == 0
+                return False, self.SKIP_REASONS["shadow_no_creds"]
+
+        # ── Scout completion gate: skip if ports+services already discovered ──
+        if agent_name == "ScoutAgent" and phase_upper not in ("RECON", "LATERAL_MOVEMENT"):
+            ports = board.get("ports", []) if isinstance(board, dict) else []
+            services = board.get("services", []) if isinstance(board, dict) else []
+            if len(ports) >= 2 and len(services) >= 1:
+                return False, self.SKIP_REASONS["scout_done"]
+
+        # ── Orion strategic gate: only on phase transitions or stagnation ──
+        if agent_name == "OrionAgent" and phase_upper not in ("CLOSEOUT",):
+            # Always activate at step 0 (initial strategy)
+            if step == 0:
+                self._last_step_phase = phase_upper
+                return True, ""
+            _stag = max(
+                self._steps_without_discoveries.get(a, 0)
+                for a in self._steps_without_discoveries
+            ) if self._steps_without_discoveries else 0
+            _phase_changed = getattr(self, '_last_step_phase', None) != phase_upper
+            # Orion fires on: phase transition, stagnation >=6, or frequency schedule
+            if not _phase_changed and _stag < 6:
+                if (step + 1) % frequency != 0:
+                    return False, self.SKIP_REASONS["orion_no_transition"]
+
+        # ── Blue gate: skip in early phases (nothing to defend yet) ──
+        if agent_name == "BlueAgent" and phase_upper in ("RECON", "ENUMERATION", "EXPLOITATION"):
+            return False, self.SKIP_REASONS["phase_not_relevant"].format(phase=phase_upper)
+
+        # ── Standard frequency check ──
+        if (step + 1) % frequency != 0:
+            return False, self.SKIP_REASONS["frequency_gate"].format(freq=frequency)
+
+        # Store phase for next step's transition detection
+        self._last_step_phase = phase_upper
+
+        return True, ""
     
     def _init_dashboard(self) -> LiveDashboard:
         """Initialize the live dashboard for training visibility."""
@@ -1036,8 +1131,6 @@ class SmartOrchestrator:
                 budget_controller=self.budget_controller,
             )
         
-        # Phase 6.6: Difficulty presets disabled — all commands unrestricted
-        # Legacy code kept for backwards compat but 'normal' preset is no-op
         logger.debug(f"Initialized smart coaches: {list(self.coaches.keys())}")
     
     def set_run_dir(self, run_dir: str):
@@ -1108,13 +1201,13 @@ class SmartOrchestrator:
         
         # R66: Inject scan randomizer hints into attack context for varied initial scans
         if hasattr(self, 'scan_randomizer') and self.scan_randomizer is not None:
-            self.attack_context._r66_scan_hints = self.scan_randomizer.get_randomized_initial_commands(target)
+            self.attack_context._r66_scan_hints = self.scan_randomizer.get_randomized_initial_commands(target)  # type: ignore[attr-defined]
         else:
-            self.attack_context._r66_scan_hints = []
+            self.attack_context._r66_scan_hints = []  # type: ignore[attr-defined]
         
         return self.attack_context
     
-    def run_episode(
+    def run_episode(  # pyright: ignore[reportGeneralClassIssues]
         self,
         episode_id: str,
         episode_number: int,
@@ -1234,6 +1327,17 @@ class SmartOrchestrator:
         # Phase 5.2: Cross-agent discovery deduplication
         # Prevents 5 agents from each getting reward for the same port/service/credential
         self._episode_shared_discoveries: set = set()
+        
+        # P35: Reset coherence chain for new episode
+        if self.coherence_chain is not None:
+            self.coherence_chain.reset()
+        self._last_coherence_result = None
+        from core.state.canonical_state import CanonicalStateBuilder
+        CanonicalStateBuilder.reset_version()
+        
+        # P35: Start live trace for this episode
+        if self.live_trace_writer is not None:
+            self.live_trace_writer.start_episode(episode_id)
         
         # Phase 6.1: Reset live executor per-episode tracking
         if self.live_executor:
@@ -1475,6 +1579,14 @@ class SmartOrchestrator:
         if self.learning_exporter:
             self.learning_exporter.start_episode(episode_id=episode_number)
         
+        # P34-EXT: Reset learning metrics for new episode
+        if self.learning_metrics:
+            self.learning_metrics.reset_episode(episode_id=episode_number)
+        
+        # P36.1: Reset fast-learn metrics for new episode
+        if self.fast_learn_metrics:
+            self.fast_learn_metrics.reset_episode(episode=episode_number)
+        
         total_mentor_calls = 0
         
         for step in range(max_steps):
@@ -1543,15 +1655,11 @@ class SmartOrchestrator:
             active_agent_names = {r.agent_name for r in step_agent_results}
             all_agent_names = list(self.coaches.keys())
             
+            # P36: Use structured skip reasons from _should_activate
             for aname in all_agent_names:
                 if aname not in active_agent_names:
-                    # Figure out why this agent was skipped
-                    phase_name = self.attack_context.current_phase.name
-                    freq = self.AGENT_ACTIVATION_SCHEDULE.get(phase_name, {}).get(aname, 1)
-                    if freq == 0:
-                        skipped_agents[aname] = f"inactive in {phase_name}"
-                    elif freq > 1:
-                        skipped_agents[aname] = f"every {freq} steps"
+                    if aname in getattr(self, '_p36_skip_reasons', {}):
+                        skipped_agents[aname] = self._p36_skip_reasons[aname]
                     else:
                         skipped_agents[aname] = "skipped"
             
@@ -1760,6 +1868,151 @@ class SmartOrchestrator:
             if hasattr(self.gpt_manager, 'get_gpt_activity_snapshot'):
                 _gpt_activity = self.gpt_manager.get_gpt_activity_snapshot()
 
+            # ── P34-EXT: Record learning metrics + build snapshot for dashboard ──
+            _learning_snapshot = None
+            if self.learning_metrics:
+                try:
+                    _lm_source = ""
+                    _lm_template = ""
+                    _lm_cmd = ""
+                    _lm_ar = False
+                    if step_agent_results:
+                        _lm_dec = step_agent_results[0].decision
+                        if _lm_dec:
+                            _lm_source = getattr(_lm_dec, 'source', '') or ''
+                            _lm_template = getattr(_lm_dec, 'template_name', '') or ''
+                            _lm_cmd = getattr(_lm_dec, 'command', '') or ''
+                            _lm_ar = _lm_source == "anti_repeat"
+
+                    _lm_tier = ""
+                    _lm_tokens = 0
+                    _lm_cost = 0.0
+                    if _gpt_activity:
+                        _lm_tokens = _gpt_activity.get("step_tokens", 0)
+                        _lm_cost = _gpt_activity.get("step_cost_usd", 0.0)
+                        _sc = _gpt_activity.get("step_calls", [])
+                        if _sc:
+                            _mdl = _sc[0].get("model", "")
+                            if "codex" in _mdl:
+                                _lm_tier = "codex"
+                            elif "mini" in _mdl:
+                                _lm_tier = "mini"
+                            elif "nano" in _mdl:
+                                _lm_tier = "nano"
+                            else:
+                                _lm_tier = "mini"
+
+                    _lm_snap = self.learning_metrics.record_step(
+                        step=step,
+                        discovery_board=self.discovery_board,
+                        decision_source=_lm_source,
+                        template_name=_lm_template,
+                        command=_lm_cmd,
+                        phase=self.attack_context.current_phase.name,
+                        anti_repeat_blocked=_lm_ar,
+                        model_tier=_lm_tier,
+                        tokens_used=_lm_tokens,
+                        cost_usd=_lm_cost,
+                    )
+
+                    # Build dashboard snapshot every N steps
+                    if self.learning_metrics.should_print_dashboard(step):
+                        _wm = self.learning_metrics.get_window_metrics()
+                        _learning_snapshot = {
+                            **_lm_snap.to_dict(),
+                            "anti_repeat_total": self.learning_metrics.anti_repeat_total,
+                            "total_commands": self.learning_metrics.total_commands,
+                            "unique_templates": self.learning_metrics.unique_template_count,
+                            "phase_changes": self.learning_metrics.phase_changes,
+                            "milestones": self.learning_metrics.milestones.to_dict(),
+                            "model_mix": self.learning_metrics.model_mix.to_dict(),
+                            "window": _wm.to_dict(),
+                        }
+                except Exception as _lm_err:
+                    logger.debug(f"P34-EXT: LearningMetrics error: {_lm_err}")
+
+            # ── P36.1: FastLearnMetrics — value/advantage/distillation/MC ──
+            if self.fast_learn_metrics:
+                try:
+                    # Extract PPO value prediction from the active coach
+                    _fl_value_pred = 0.0
+                    _fl_hallucinations = 0
+                    _fl_contradictions = 0
+                    _fl_mc_success = None
+                    _fl_distill_score = 0.0
+                    _fl_distill_reason = ""
+                    _fl_template = ""
+                    _fl_phase_str = self.attack_context.current_phase.name if self.attack_context else ""
+
+                    if step_agent_results:
+                        _fl_dec = step_agent_results[0].decision
+                        if _fl_dec:
+                            _fl_template = getattr(_fl_dec, 'template_name', '') or ''
+                            # Check for evidence gate rejections → hallucination indicator
+                            _eg_result = getattr(_fl_dec, 'evidence_gate_result', '')
+                            if _eg_result in ('log_reject', 'enforce_reject'):
+                                _fl_hallucinations += 1
+                            # Check micro-chain source
+                            _src = getattr(_fl_dec, 'source', '')
+                            if _src == 'micro_chain':
+                                _fl_mc_success = True
+                            elif _src == 'fallback' and 'micro_chain' in (getattr(_fl_dec, 'reasoning', '') or ''):
+                                _fl_mc_success = False
+
+                        # Get PPO value prediction from the coach
+                        _fl_agent = step_agent_results[0].agent_name
+                        _fl_coach = self.coaches.get(_fl_agent)
+                        if _fl_coach and hasattr(_fl_coach, '_ppo_pending') and _fl_coach._ppo_pending:
+                            _fl_value_pred = _fl_coach._ppo_pending.get('value', 0.0)
+
+                    # Record model calls from GPT activity
+                    if _gpt_activity:
+                        _sc = _gpt_activity.get("step_calls", [])
+                        for _call in _sc:
+                            _mdl = _call.get("model", "")
+                            if "codex" in _mdl:
+                                self.fast_learn_metrics.record_model_call("codex")
+                            elif "mini" in _mdl:
+                                self.fast_learn_metrics.record_model_call("mini")
+                            elif "nano" in _mdl:
+                                self.fast_learn_metrics.record_model_call("nano")
+
+                    # Step cost
+                    _fl_cost = _gpt_activity.get("step_cost_usd", 0.0) if _gpt_activity else 0.0
+                    _fl_pressure = _gpt_activity.get("budget_pressure", 0.0) if _gpt_activity else 0.0
+
+                    _fl_snap = self.fast_learn_metrics.record_step(
+                        step=step,
+                        phase=_fl_phase_str,
+                        template=_fl_template,
+                        value_pred=_fl_value_pred,
+                        reward=global_reward,
+                        step_cost=_fl_cost,
+                        hallucination_flags=_fl_hallucinations,
+                        contradictions=_fl_contradictions,
+                        mc_success=_fl_mc_success,
+                        distillation_score=_fl_distill_score,
+                        distillation_reason=_fl_distill_reason,
+                        budget_pressure=_fl_pressure,
+                    )
+
+                    # Add fast-learn dashboard line to learning_snapshot
+                    if _learning_snapshot is None:
+                        _learning_snapshot = {}
+                    _learning_snapshot["fast_learn_line"] = self.fast_learn_metrics.get_dashboard_line()
+
+                    # Budget governor evaluation every 40 steps
+                    if step > 0 and step % 40 == 0:
+                        _gov = self.fast_learn_metrics.evaluate_governor(step)
+                        # Propagate learn_boost_factor to BudgetManagerV2 if available
+                        if hasattr(self, 'gpt_manager') and hasattr(self.gpt_manager, 'budget_manager'):
+                            _bm = getattr(self.gpt_manager, 'budget_manager', None)
+                            if _bm and hasattr(_bm, 'set_learn_boost_factor'):
+                                _bm.set_learn_boost_factor(_gov.learn_boost_factor)
+
+                except Exception as _fl_err:
+                    logger.debug(f"P36.1: FastLearnMetrics error: {_fl_err}")
+
             try:
                 self.dashboard.print_step(
                     step=step,
@@ -1778,6 +2031,7 @@ class SmartOrchestrator:
                     parse_explanations=_step_parse_explanations if _step_parse_explanations else None,
                     phase_state=_step_phase_state,
                     gpt_activity=_gpt_activity,
+                    learning_snapshot=_learning_snapshot,
                 )
             except Exception as _ps_err:
                 import sys
@@ -1788,6 +2042,45 @@ class SmartOrchestrator:
                 )
                 import traceback
                 traceback.print_exc(file=sys.stderr)
+            
+            # P35: Render coherence panel after step display
+            if self._last_coherence_result is not None:
+                try:
+                    self.dashboard.print_coherence_panel(
+                        coherence_result=self._last_coherence_result,
+                        step=step,
+                    )
+                except Exception as _coh_err:
+                    import sys
+                    print(
+                        f"[P35-PANEL-ERR] {type(_coh_err).__name__}: {_coh_err}",
+                        file=sys.stderr, flush=True,
+                    )
+            else:
+                import sys
+                print(
+                    f"[P35-PANEL] step={step} _last_coherence_result is None "
+                    f"(chain={self.coherence_chain is not None})",
+                    file=sys.stderr, flush=True,
+                )
+            
+            # P35: Write live trace line
+            if self.live_trace_writer is not None:
+                try:
+                    _trace_actions = [
+                        {"agent": a.agent_name, "command": a.command[:120],
+                         "source": getattr(a.decision, 'source', '') if a.decision else ''}
+                        for a in step_agent_results
+                    ] if step_agent_results else []
+                    self.live_trace_writer.write_step(
+                        step=step,
+                        canonical_state=getattr(self, '_last_canonical', None),
+                        coherence_result=self._last_coherence_result,
+                        agent_actions=_trace_actions,
+                        reward=env_reward,
+                    )
+                except Exception as _tr_err:
+                    logger.debug(f"P35: Trace write error: {_tr_err}")
             
             # ─── R66: Coherence + RND + JSONL + HUD instrumentation ──────
             _r66_phase = self.attack_context.current_phase.name
@@ -1883,16 +2176,19 @@ class SmartOrchestrator:
                     anti_repeat_fired=_r66_ar_fired, codex_fired=_r66_codex_fired,
                     template_name=_r66_tmpl, agent=step_agent_results[0].agent_name if step_agent_results else "",
                 ))
-                _r66_tag = getattr(self, '_r66_env_tag', 'sim')
-                self.run_logger.print_hud_line(
-                    run_tag=f"{_r66_tag}",
-                    ep=episode_number, step=step, phase=_r66_phase,
-                    macro=_r66_macro_name, macro_conf=_r66_macro_conf,
-                    coherence=_r66_coherence, source=_r66_source,
-                    reward_delta=env_reward + _r66_intrinsic,
-                    intrinsic=_r66_intrinsic, anti_repeat=_r66_ar_fired,
-                    codex=_r66_codex_fired, unique_cmds=_r66_unique,
-                )
+                # Only print compact HUD line when dashboard is NOT live
+                # (live mode has full Rich panels — HUD is redundant)
+                if self.config.dashboard_mode != "live":
+                    _r66_tag = getattr(self, '_r66_env_tag', 'sim')
+                    self.run_logger.print_hud_line(
+                        run_tag=f"{_r66_tag}",
+                        ep=episode_number, step=step, phase=_r66_phase,
+                        macro=_r66_macro_name, macro_conf=_r66_macro_conf,
+                        coherence=_r66_coherence, source=_r66_source,
+                        reward_delta=env_reward + _r66_intrinsic,
+                        intrinsic=_r66_intrinsic, anti_repeat=_r66_ar_fired,
+                        codex=_r66_codex_fired, unique_cmds=_r66_unique,
+                    )
             
             # Phase 6.2: Emit StepEvent to EventBus
             if hasattr(self, 'event_bus'):
@@ -2462,19 +2758,28 @@ class SmartOrchestrator:
         
         # Phase 6.2: Emit episode_end event
         if hasattr(self, 'event_bus'):
+            # Phase 32: Include tier cost summary in episode_end trace
+            _ep_end_data: Dict[str, Any] = {
+                "episode": episode_number,
+                "total_reward": episode_reward,
+                "highest_phase": highest_phase,
+                "mentor_calls": total_mentor_calls,
+                "steps": len(step_results),
+            }
+            if hasattr(self.gpt_manager, '_budget_manager_v2') and self.gpt_manager._budget_manager_v2 is not None:
+                _ep_end_data["tier_cost_summary"] = self.gpt_manager._budget_manager_v2.get_episode_cost_summary()
+
             self.event_bus.publish_generic(
                 EventKind.EPISODE_END,
                 message=f"Episode {episode_number} done: reward={episode_reward:+.1f}, phase={highest_phase}",
-                data={
-                    "episode": episode_number,
-                    "total_reward": episode_reward,
-                    "highest_phase": highest_phase,
-                    "mentor_calls": total_mentor_calls,
-                    "steps": len(step_results),
-                },
+                data=_ep_end_data,
                 episode_id=episode_id,
                 episode_num=episode_number,
             )
+        
+        # P35: Close live trace for this episode
+        if self.live_trace_writer is not None:
+            self.live_trace_writer.close()
         
         # ─── PHASE 9.0: Collect DDQN macro-intent metrics ───────────
         # MUST be collected BEFORE end_episode_ppo() which calls ddqn_macro.reset_episode()
@@ -2623,6 +2928,14 @@ class SmartOrchestrator:
                 mentor_calls=total_mentor_calls,
                 highest_phase=highest_phase_for_summary,
             )
+
+        # ── P34-EXT: LearningMetrics episode summary to JSONL ────────
+        if self.learning_metrics:
+            try:
+                _lm_summary = self.learning_metrics.get_episode_summary()
+                metrics["learning_metrics"] = _lm_summary
+            except Exception as _lm_err:
+                logger.debug(f"P34-EXT: LearningMetrics episode summary error: {_lm_err}")
 
         # Legacy global PPO (kept for backward compat, no-op if trajectory empty)
         if self.ppo_agent and self._ppo_trajectory:
@@ -3106,17 +3419,26 @@ class SmartOrchestrator:
         if hasattr(self.gpt_manager, 'clear_step_calls'):
             self.gpt_manager.clear_step_calls()
         
+        # ─── P35: Build canonical state + run coherence chain ──
+        current_phase = self.attack_context.current_phase.name if self.attack_context else "RECON"
+        self._run_coherence_pre_step(episode_id, step, current_phase)
+        
         # Process each agent IN ORDER - each sees what previous agents picked
         # Use PHASE-OPTIMIZED order for maximum synergy
-        current_phase = self.attack_context.current_phase.name if self.attack_context else "RECON"
         agent_order = self.get_optimal_agent_order(current_phase)
+        
+        # P36: Track structured skip reasons for dashboard visibility
+        self._p36_skip_reasons: Dict[str, str] = {}
+        _p36_skip_reasons = self._p36_skip_reasons
         
         for agent_name in agent_order:
             if agent_name not in self.agents or agent_name not in self.coaches:
                 continue
             
-            # PHASE 2A: Smart activation — skip agents that don't need to run this step
-            if not self._should_activate(agent_name, step, current_phase):
+            # P36: Value-based activation with structured skip reasons
+            _activate, _skip_reason = self._should_activate(agent_name, step, current_phase)
+            if not _activate:
+                _p36_skip_reasons[agent_name] = _skip_reason
                 continue
             
             agent = self.agents[agent_name]
@@ -3156,7 +3478,7 @@ class SmartOrchestrator:
                 for k, v in self.discovery_board.items()
             }
             # Ensure target IP is accessible from discovery_board
-            enriched_state["discovery_board"]["target"] = ctx.target if ctx else self.config.target_ip
+            enriched_state["discovery_board"]["target"] = ctx.target if ctx else self.config.default_target
             # Phase 7.1: Also pass exploited-service data as raw sets for filtering
             enriched_state["discovery_board"]["exploited_services"] = self.discovery_board.get("exploited_services", set())
             enriched_state["discovery_board"]["exploited_ports"] = self.discovery_board.get("exploited_ports", set())
@@ -3164,7 +3486,7 @@ class SmartOrchestrator:
                 episode=self.current_episode,
                 step=step,
                 agent_name=agent_name,
-                attack_context=ctx,
+                attack_context=ctx,  # type: ignore[arg-type]
                 state=enriched_state,
             )
             
@@ -3241,7 +3563,7 @@ class SmartOrchestrator:
                             template_name=f"followup_{fq_entry.get('service', 'generic')}",
                             params={},
                             reasoning=fq_entry.get("description", "Followup queue command"),
-                            phase=ctx.current_phase if ctx else None,
+                            phase=ctx.current_phase if ctx is not None else AttackPhase.RECON,
                             mentor_call=False,
                         )
                         logger.debug(
@@ -3425,7 +3747,7 @@ class SmartOrchestrator:
                             confidence=result.decision.confidence,
                             phase=_phase_name,
                         )
-                        _coach._p15_sensory_buffer.push(_entry)
+                        _coach._p15_sensory_buffer.push(_entry)  # type: ignore[union-attr]
                     except Exception as e:
                         import logging as _lg
                         _lg.getLogger("ariaska.orchestration").debug(
@@ -3984,13 +4306,27 @@ class SmartOrchestrator:
                     _path_str = str(path).strip("/").strip()
                     # Phase 23: Sanitize web paths — reject IPs, domains, empty, single-char
                     # Phase 24: Also reject version-number-like paths (3.6, 1.18.0, etc.)
+                    # Phase 35: Reject local filesystem paths and tool artifacts
+                    _LOCAL_PATH_PREFIXES = (
+                        "usr/", "etc/", "var/", "tmp/", "home/", "opt/",
+                        "proc/", "sys/", "dev/", "root/", "lib/", "bin/",
+                        "sbin/", "run/", "mnt/", "media/", "boot/",
+                    )
+                    _TOOL_ARTIFACT_NAMES = (
+                        "common.txt", "big.txt", "directory-list",
+                        "wordlist", "rockyou", "seclists",
+                    )
                     if (not _path_str
                         or _path_str == "."
                         or _path_str == ".."
                         or len(_path_str) < 2
                         or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', _path_str)
                         or re.match(r'^\d+(\.\d+)+$', _path_str)  # version numbers like 3.6, 1.18.0
+                        or re.match(r'^\d+$', _path_str)  # bare numbers
                         or _path_str.startswith("http")
+                        or any(_path_str.startswith(pfx) for pfx in _LOCAL_PATH_PREFIXES)
+                        or any(art in _path_str.lower() for art in _TOOL_ARTIFACT_NAMES)
+                        or "/" in _path_str and len(_path_str.split("/")) > 3  # deep paths are local
                         or _path_str in ("index.html", "index.php", "#", "#about", "#testimonials")):
                         logger.debug(f"[WEB_PATH_DISC] Rejected invalid path: '{_path_str}'")
                         continue
@@ -4137,9 +4473,8 @@ class SmartOrchestrator:
                             command=result.decision.command or "",
                             source=result.decision.source or "unknown",
                             reward=breakdown.total if breakdown else 0.0,
-                            success=sim_success or env_reward >= 0,
                             discoveries=deduped_discoveries or {},
-                            phase=self.attack_context.current_phase.name if self.attack_context else "RECON",
+                            output_summary=(result.decision.command_output or "")[:200],
                         )
                     except Exception:
                         pass  # Never let bus break training
@@ -4322,12 +4657,12 @@ class SmartOrchestrator:
                         self.cognitive_bus.record_inter_agent_message(
                             from_agent=result.agent_name,
                             to_agent="all",
-                            message=(
+                            message_type="high_value_action",
+                            content=(
                                 f"High-value action: {result.decision.command[:60]} "
                                 f"(reward={result.reward_breakdown.total:.1f}, "
                                 f"source={result.decision.source})"
                             ),
-                            priority=min(result.reward_breakdown.total / 50.0, 1.0),
                         )
         except Exception:
             pass
@@ -4443,8 +4778,21 @@ class SmartOrchestrator:
         # Their output contains exploit paths, module names, etc. that regex
         # incorrectly picks up as open ports.
         _NO_PORT_PARSE = ("searchsploit", "msfconsole", "msfvenom", "exploit-db",
-                          "find /", "cat /etc", "uname ", "hashdump")
+                          "find /", "cat /etc", "uname ", "hashdump",
+                          "nmap -sn", "nmap -sP", "nikto", "ping ",
+                          "id ", "whoami", "hostname", "ifconfig",
+                          "strings ", "file ", "xxd ")
         skip_port_parse = any(tag in cmd_lower for tag in _NO_PORT_PARSE)
+        
+        # Phase 35: If port parsing should be skipped, also remove any ports
+        # that the SmartOutputParser may have extracted (LLM fallback can
+        # hallucinate ports from IP addresses in host discovery output).
+        if skip_port_parse and "open_port" in discoveries:
+            logger.debug(
+                f"[PORT-FILTER] Removed SmartOutputParser ports {discoveries['open_port']} "
+                f"for non-port-scanning command: {command[:60]}"
+            )
+            del discoveries["open_port"]
 
         # Phase 8.2 Batch 14: Commands that produce REFERENCE TEXT about services,
         # exploits, and credentials — NOT actual discoveries from scanning the target.
@@ -4489,7 +4837,7 @@ class SmartOrchestrator:
             r"open port (\d+)/",           # masscan format
             r"Open \S+:(\d+)",             # rustscan format
             r"\[(\d+)\]\[",                # hydra format
-            r":(\d+)\s+\(",                # netstat/ss format
+            r"(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|\*):(\d+)\s+\(",  # netstat/ss format (require IP:PORT or *:PORT)
             r"TCP open \S+:(\d+)",         # unicornscan format
         ]
         ports = set()
@@ -4516,6 +4864,19 @@ class SmartOrchestrator:
                 for num in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', vm.group()):
                     _version_nums.add(num)
             
+            # Phase 35: Extract numbers from SSH/TLS fingerprints (hex:hex:...:NUM)
+            # e.g. "64:cc:75:de:4a:e6:a5:b4:73:eb:3f:1b:cf:b4:e3:94 (ED25519)"
+            # → "94" is NOT a port
+            for _fp in re.findall(r'(?:[0-9a-f]{2}:){3,}([0-9a-f]{2})', output_lower):
+                if _fp.isdigit():
+                    _version_nums.add(_fp)
+            
+            # Phase 35: Extract numbers that appear as IP address octets
+            # e.g. "10.129.1.94" → {10, 129, 1, 94} — these are NOT ports
+            _ip_octets = set()
+            for ip_match in re.findall(r'\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b', output):
+                _ip_octets.update(ip_match)
+            
             valid_ports = []
             for p in ports:
                 if not p.isdigit():
@@ -4529,6 +4890,10 @@ class SmartOrchestrator:
                     valid_ports.append(pi)
                 elif p in _version_nums and pi < 100:
                     # Small numbers from version strings are almost always false
+                    continue
+                elif p in _ip_octets and pi < 256:
+                    # Number appears as an IP octet — likely false positive
+                    logger.debug(f"[PORT-FILTER] Rejected port {pi} (IP octet false positive)")
                     continue
                 else:
                     valid_ports.append(pi)
@@ -4547,6 +4912,12 @@ class SmartOrchestrator:
             )
             _clean_output = re.sub(
                 r'starting nmap.*?\n|hydra v[\d.]+.*?\n|enum4linux v[\d.]+.*?\n',
+                '', _clean_output
+            )
+            # Phase 35: Strip exploit module paths to prevent false service detection
+            # e.g. "exploit/unix/irc/unreal_ircd" → "irc" matched as service
+            _clean_output = re.sub(
+                r'(?:exploit|auxiliary|post|payload)/\S+',
                 '', _clean_output
             )
             service_patterns = {
@@ -4971,6 +5342,64 @@ class SmartOrchestrator:
                             f"queued root exploitation command"
                         )
         
+        # ── Phase 35: Final IP-octet port filter (all sources) ──
+        # SmartOutputParser LLM and regex can both extract IP octets as ports.
+        # Apply the filter to ALL discovered ports regardless of source.
+        if "open_port" in discoveries and discoveries["open_port"]:
+            import re as _re_final
+            _final_ip_octets: set = set()
+            for _ip_m in _re_final.findall(
+                r'\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b', output
+            ):
+                _final_ip_octets.update(_ip_m)
+            if _final_ip_octets:
+                _before = list(discoveries["open_port"])
+                discoveries["open_port"] = [
+                    p for p in discoveries["open_port"]
+                    if not (str(p) in _final_ip_octets and int(p) < 256
+                            and not _re_final.search(
+                                rf'\b{p}/(?:tcp|udp)\s+open', output.lower()
+                            ))
+                ]
+                _removed = set(_before) - set(discoveries["open_port"])
+                if _removed:
+                    logger.debug(
+                        f"[PORT-FILTER-FINAL] Removed IP-octet ports {_removed} "
+                        f"from discoveries (all sources)"
+                    )
+
+        # ── Phase 35: Service connection-refused filter ──
+        # If output shows connection refused/denied for a service, remove it.
+        if "service" in discoveries and discoveries["service"]:
+            _refused_patterns = [
+                r"can't connect", r"connection refused", r"connection timed out",
+                r"no route to host", r"host is down",
+            ]
+            _output_has_refused = any(
+                r in output_lower for r in _refused_patterns
+            )
+            if _output_has_refused:
+                # Only keep services confirmed by "X/tcp open" in output
+                _confirmed_svcs = []
+                for _svc in discoveries["service"]:
+                    # Service is confirmed if its default port appears as open
+                    _svc_port_map = {
+                        "ftp": "21", "ssh": "22", "telnet": "23",
+                        "smtp": "25", "dns": "53", "http": "80",
+                        "irc": "6667", "https": "443", "smb": "445",
+                    }
+                    _dp = _svc_port_map.get(_svc, "")
+                    if _dp and re.search(rf'\b{_dp}/(?:tcp|udp)\s+open', output_lower):
+                        _confirmed_svcs.append(_svc)
+                    elif not _dp:
+                        # Unknown service port — keep it
+                        _confirmed_svcs.append(_svc)
+                    else:
+                        logger.debug(
+                            f"[SVC-FILTER] Removed '{_svc}' — connection refused/denied"
+                        )
+                discoveries["service"] = _confirmed_svcs
+
         # Phase 9.5: Cache regex fallback result
         if self._parse_cache is not None and agent_id:
             self._parse_cache.put(episode_id, step_idx, agent_id, output, discoveries)
@@ -5101,6 +5530,64 @@ class SmartOrchestrator:
                                 )
         except Exception as e:
             logger.debug(f"[CRED-EXTRACT] Error extracting structured creds: {e}")
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # P35: Coherence Chain — per-step coherence check
+    # ═════════════════════════════════════════════════════════════════════════
+
+    def _run_coherence_pre_step(
+        self, episode_id: str, step: int, current_phase: str
+    ) -> None:
+        """Build canonical state and run 4-step coherence chain before agents act."""
+        if self.coherence_chain is None:
+            return
+        try:
+            from core.state.canonical_state import CanonicalStateBuilder
+
+            # Compute recent commands from action history
+            _recent: list = []
+            for cmds in self.action_history.values():
+                _recent.extend(cmds[-5:])
+            _recent = _recent[-10:]
+
+            # Stagnation: max over all agents
+            _stagnation = max(
+                (self._steps_without_discoveries.get(a, 0) for a in self.agents),
+                default=0,
+            )
+
+            canonical = CanonicalStateBuilder.build(
+                episode_id=episode_id,
+                step_id=step,
+                discovery_board=self.discovery_board,
+                current_phase=current_phase,
+                steps_in_phase=self._steps_in_current_phase(),
+                stagnation_steps=_stagnation,
+                recent_commands=_recent,
+            )
+
+            result = self.coherence_chain.run(
+                canonical, proposed_phase=current_phase, use_llm=True
+            )
+            self._last_coherence_result = result
+
+            # Log contradiction warnings
+            if result.contradiction.contradiction_detected:
+                for c in result.contradiction.contradictions:
+                    logger.warning(f"[P35-DESYNC] {c}")
+
+        except Exception as e:
+            logger.debug(f"[P35-COHERENCE] Error: {e}")
+            import sys
+            print(f"[P35-COHERENCE-ERR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+    def _steps_in_current_phase(self) -> int:
+        """Return how many steps we've spent in the current phase."""
+        if not self.attack_context:
+            return 0
+        phase_name = self.attack_context.current_phase.name
+        start = self._phase_start_step.get(phase_name, 0)
+        return max(0, self.current_step - start)
 
     def _generate_simulated_output(self, command: str) -> str:
         """Generate realistic simulated output for a command with discoverable patterns.
@@ -5280,11 +5767,6 @@ class SmartOrchestrator:
             _all_target_ports = _all_msf2_ports
             _target_services = None  # Will use MSF2_SERVICES below
         
-        # Post-Phase 20: Difficulty port filtering REMOVED — all ports available
-        # _difficulty = getattr(self, '_difficulty_preset', None)
-        # if _difficulty and _difficulty.blocked_ports:
-        #     _all_msf2_ports = [p for p in _all_msf2_ports if p not in _difficulty.blocked_ports]
-        #     _all_target_ports = [p for p in _all_target_ports if p not in _difficulty.blocked_ports]
         MSF2_PORTS = random.sample(
             _all_target_ports, k=min(random.randint(6, 12), len(_all_target_ports))
         )
@@ -6152,7 +6634,7 @@ class SmartOrchestrator:
         step_at_first_exploit = -1
         for step_idx, results in enumerate(step_results):
             for r in results:
-                pp = r.phase_progression if hasattr(r, 'phase_progression') else []
+                pp = getattr(r, 'phase_progression', []) or []
                 if not pp:
                     continue
                 # Check if any phase in this step is EXPLOITATION or beyond

@@ -139,6 +139,10 @@ class SmartDecisionResult:
     # Phase 6.3: Reasoning trace — why this decision was made
     reasoning: str = ""  # Human-readable chain: "PPO proposed nmap → anti-repeat blocked → registry fallback to nikto"
     belief_snapshot: Dict[str, Any] = field(default_factory=dict)  # Agent's belief state at decision time
+
+    # Phase 27: Evidence gate result
+    evidence_gate_result: str = ""  # "", "pass", "log_reject", "enforce_reject"
+    evidence_gate_reasons: List[str] = field(default_factory=list)
     
     @property
     def chosen_action(self) -> str:
@@ -161,7 +165,7 @@ class SmartStepContext:
     agent_name: str
     
     # Attack context
-    attack_context: AttackContext
+    attack_context: AttackContext = field(default_factory=AttackContext)  # type: ignore[call-arg]
     
     # Raw state for compatibility
     state: Dict[str, Any] = field(default_factory=dict)
@@ -420,9 +424,6 @@ class SmartCoach:
         self._unavailable_tools: set = set()
         self._check_tool_availability()
 
-        # ─── PHASE 6.6: Difficulty preset (set externally by orchestrator) ───
-        self.difficulty_preset = None  # Set via set_difficulty_preset()
-
         # ─── Phase 9: CognitiveBus reference (lazy singleton) ────────────
         self._cognitive_bus = None  # Lazy-loaded via _get_cognitive_bus()
 
@@ -539,6 +540,22 @@ class SmartCoach:
         self._r67_velocity: float = 0.0      # Injected from orchestrator
         self._r67_stalling: bool = False      # True when reward velocity stalled
         self._r67_codex_bonus_budget: int = 0 # Extra codex calls granted by stall
+
+        # ─── Phase 27: Micro-Chain (nano→mini→nano scoring) ──────────
+        self._micro_chain = None
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff27
+            if _get_ff27().use_micro_chain and self.gpt_manager is not None:
+                from core.llm.micro_chain import MicroChain
+                self._micro_chain = MicroChain(gpt_manager=self.gpt_manager)
+                logger.debug(f"[P27] MicroChain initialized for {agent_name}")
+        except Exception as e:
+            logger.debug(f"[P27] MicroChain init skipped for {agent_name}: {e}")
+
+        # ─── Phase 27: Evidence gate counters ────────────────────────
+        self._evidence_gate_total = 0
+        self._evidence_gate_rejects = 0
+        self._evidence_gate_reject_but_discovered = 0
 
         # ─── R68: Phase-gated PPO head override ──────────────────────
         self._r68_forced_phase_group: Optional[int] = None  # Codex can force phase head
@@ -2688,7 +2705,6 @@ class SmartCoach:
                 # actual discoveries (record_result). This prevents the stagnation→mentor→
                 # reset→stagnation cycle where mentor fires every 4 steps but nothing
                 # actually advances.
-                # self._stagnation_steps = 0  # REMOVED — reset only on real progress
         else:
             # Fallback: legacy 3-condition gating (Phase 6.1 compat)
             stagnation_steps = getattr(self, '_stagnation_steps', 0)
@@ -2888,6 +2904,46 @@ class SmartCoach:
                 )
         
         # =====================================================================
+        # LAYER 2.5: MICRO-CHAIN — Phase 27 nano→mini→nano scoring
+        # Runs BEFORE codex meta-layer. If it returns a result, it takes
+        # priority over codex meta (but not over skill/playbook/web_followup).
+        # =====================================================================
+        micro_chain_result = None
+        if self._micro_chain is not None:
+            try:
+                _mc_templates = [c.name for c in filtered_commands[:20]] if filtered_commands else []
+                _mc_recent = list(self.episode_used_commands)[-10:] if self.episode_used_commands else []
+                _mc_stag = step_ctx.get("stagnation_steps", 0) if isinstance(step_ctx, dict) else 0
+                _mc_role = self.agent_role.get("role", self.agent_name) if isinstance(self.agent_role, dict) else str(self.agent_role or self.agent_name)
+                _mc_out = self._micro_chain.decide(
+                    phase=current_phase.name if hasattr(current_phase, 'name') else str(current_phase),
+                    discovery_board=discovery_board,
+                    recent_commands=_mc_recent,
+                    available_templates=_mc_templates,
+                    agent_role=_mc_role,
+                    stagnation_steps=_mc_stag,
+                )
+                if _mc_out is not None and _mc_out.selected.command:
+                    _mc_source = "micro_chain_codex" if _mc_out.escalated else "micro_chain"
+                    micro_chain_result = SmartDecisionResult(
+                        command=_mc_out.selected.command,
+                        confidence=_mc_out.selected.score,
+                        reasoning=_mc_out.selected.reasoning,
+                        source=_mc_source,
+                        template_name=_mc_out.selected.template_name,
+                        tokens_used=_mc_out.chain_tokens,
+                        model_used=_mc_out.model_trace,
+                        mentor_call=True,
+                    )
+                    logger.debug(
+                        f"[MICRO-CHAIN][{self.agent_name}] Selected: "
+                        f"{_mc_out.selected.command[:60]} (score={_mc_out.selected.score:.2f}, "
+                        f"escalated={_mc_out.escalated})"
+                    )
+            except Exception as e:
+                logger.debug(f"[MICRO-CHAIN][{self.agent_name}] Error: {e}")
+
+        # =====================================================================
         # LAYER 3: CODEX META-LAYER — Tactical + Strategic stagnation-breaking
         # Phase 8: Uses persona router when available for typed reasoning.
         # Codex-tactical: phase-level stagnation (existing _codex_meta_check)
@@ -2926,6 +2982,8 @@ class SmartCoach:
             )
         elif playbook_result is not None:
             result = playbook_result
+        elif micro_chain_result is not None:
+            result = micro_chain_result
         elif codex_meta_result is not None:
             result = codex_meta_result
             # Store negative PPO trajectory: PPO/DDQN failed to break stagnation
@@ -3026,19 +3084,24 @@ class SmartCoach:
             # ─── Legacy cascade (when arbitrator not active or not used) ─
             # Phase 15.0: Skip legacy cascade when arbitrator already picked
             # ─── Legacy cascade (when arbitrator not active or not used) ─
-            # Phase 6.5 + Phase 11.2: Compute dynamic mentor_lead_rate
-            # Phase 11.1: Doubled base rates for learning acceleration
-            # Phase 11.5: +50% reasoning boost with confidence-gated dynamic bounds
-            # Red/Orion get TRIPLED rates for exploit reasoning learning
-            _is_key_agent = self.agent_name in ("RedAgent", "OrionAgent")
-            if _is_key_agent:
-                # Phase 19: PPO early exploration — start at 0.70 not 1.0
-                # Gives PPO 30% autonomous decisions from episode 1.
-                # Decay: 0.70 → 0.40 over 150 episodes (slower, more stable)
-                base_mentor_rate = max(0.40, min(0.70, 0.70 - self.current_episode * 0.002))
+            # P36: Token budget reallocation — Red +100%, Orion +50%, others -20%
+            # Red/Orion are primary reasoning agents and get higher mentor rates
+            # Scout/Shadow/Blue get reduced rates — they produce less novel value
+            _is_red = self.agent_name == "RedAgent"
+            _is_orion = self.agent_name == "OrionAgent"
+            _is_key_agent = _is_red or _is_orion
+            if _is_red:
+                # P36: Red +100% — highest reasoning budget for exploit decisions
+                # Decay: 0.80 → 0.45 over 175 episodes (very slow)
+                base_mentor_rate = max(0.45, min(0.80, 0.80 - self.current_episode * 0.002))
+            elif _is_orion:
+                # P36: Orion +50% — strategic coordinator needs strong reasoning
+                # Decay: 0.75 → 0.40 over 175 episodes
+                base_mentor_rate = max(0.40, min(0.75, 0.75 - self.current_episode * 0.002))
             else:
-                # Phase 19: Non-key agents — start at 0.65 → 0.25 over ~80 episodes
-                base_mentor_rate = max(0.25, min(0.65, 0.65 - self.current_episode * 0.005))
+                # P36: Other agents -20% — Scout/Shadow/Blue use less reasoning
+                # Decay: 0.50 → 0.15 over ~70 episodes
+                base_mentor_rate = max(0.15, min(0.50, 0.50 - self.current_episode * 0.005))
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -3051,11 +3114,17 @@ class SmartCoach:
                     if max_entropy > 0:
                         ppo_confidence_boost = max(0, 0.10 * (1.0 - avg_entropy / max_entropy))
             
-            # Phase 11.5: Confidence-gated dynamic floor/ceiling (+50%)
-            # When PPO is confident (high ppo_confidence_boost) → tighten mentor bounds
-            # When PPO is unsure (low ppo_confidence_boost) → widen bounds for reasoning
-            _dynamic_floor = 0.25 if not _is_key_agent else 0.40  # Phase 19: PPO leads earlier
-            _dynamic_ceiling = 0.85 if not _is_key_agent else 0.70
+            # P36: Confidence-gated dynamic floor/ceiling
+            # Red gets highest bounds, Orion mid, others low
+            if _is_red:
+                _dynamic_floor = 0.45
+                _dynamic_ceiling = 0.85
+            elif _is_orion:
+                _dynamic_floor = 0.40
+                _dynamic_ceiling = 0.80
+            else:
+                _dynamic_floor = 0.15
+                _dynamic_ceiling = 0.55
             if ppo_confidence_boost > 0.06:
                 # PPO is confident — reduce mentor floor to save tokens
                 _dynamic_floor *= max(0.6, 1.0 - ppo_confidence_boost * 3)
@@ -3256,7 +3325,43 @@ class SmartCoach:
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
         # =========================================================================
         is_valid_role = self._validate_command_for_role(result.command)
-        
+
+        # =========================================================================
+        # PHASE 27: Evidence Gate — validate exploit commands have evidence
+        # =========================================================================
+        _eg_result_str = ""
+        _eg_reasons: list = []
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff_eg
+            _eg_mode = _get_ff_eg().strict_exploit_gate
+            if _eg_mode != "off":
+                _eg_valid, _eg_reasons = self._validate_exploit_evidence(
+                    result, discovery_board, current_phase
+                )
+                self._evidence_gate_total += 1
+                if not _eg_valid:
+                    self._evidence_gate_rejects += 1
+                    if _eg_mode == "enforce":
+                        _eg_result_str = "enforce_reject"
+                        logger.info(
+                            f"[EV-GATE][{self.agent_name}] ENFORCE reject: "
+                            f"{result.command[:60]} reasons={_eg_reasons}"
+                        )
+                        result = self._decide_from_registry(step_ctx, proposed_action, confidence)
+                        result.reasoning = f"evidence_gate_enforce: {_eg_reasons}"
+                    else:  # "log"
+                        _eg_result_str = "log_reject"
+                        logger.debug(
+                            f"[EV-GATE][{self.agent_name}] LOG reject (not blocked): "
+                            f"{result.command[:60]} reasons={_eg_reasons}"
+                        )
+                else:
+                    _eg_result_str = "pass" if _eg_reasons == [] else "pass_with_notes"
+        except Exception as e:
+            logger.debug(f"[EV-GATE] Error: {e}")
+        result.evidence_gate_result = _eg_result_str
+        result.evidence_gate_reasons = _eg_reasons
+
         # Pre-compute ppo_bypass flag — needed by TacticalCortex and anti-repeat
         ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta", "cognition_node") and is_valid_role)
         
@@ -3373,14 +3478,6 @@ class SmartCoach:
                 except Exception as e:
                     logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
 
-        # =========================================================================
-        # PHASE 6.6: DIFFICULTY GATE — REMOVED (Post-Phase 20)
-        # All commands unrestricted. Zero difficulty gating. Max intelligence.
-        # =========================================================================
-        # if self.difficulty_preset is not None and result.template_name:
-        #     if result.template_name in self.difficulty_preset.blocked_commands:
-        #         ...
-        
         # =========================================================================
         # R52: UNIFIED PHASE-STUCK ESCALATION SHORTCUT (replaces R49/R50/R51)
         # When the offensive agent is stuck in PRIV_ESC or LATERAL_MOVEMENT
@@ -3728,23 +3825,82 @@ class SmartCoach:
                         if self._ppo_pending is not None:
                             self._store_ppo_negative_reward(-5.0, "backward_phase_command")
 
-        # ─── PHASE 6.3: Populate reasoning trace + belief snapshot ───────
-        # Build a human-readable chain-of-thought for every decision.
-        reasoning_parts = []
-        reasoning_parts.append(f"Phase={current_phase.name if hasattr(current_phase, 'name') else current_phase}")
-        reasoning_parts.append(f"Source={result.source}")
-        if result.mentor_call:
-            reasoning_parts.append(f"Mentor={result.model_used or 'unknown'}")
-            if result.mentor_reasoning:
-                reasoning_parts.append(f"MentorReason={result.mentor_reasoning[:120]}")
-        if ppo_bypass:
-            reasoning_parts.append("PPO-bypass(trusted)")
-        if repeat_penalty != 0.0:
-            reasoning_parts.append(f"RepeatPenalty={repeat_penalty:.1f}")
-        if gpt_reason:
-            reasoning_parts.append(f"GPTTrigger={gpt_reason}")
-        reasoning_parts.append(f"Cmd={result.command[:80] if result.command else 'NONE'}")
-        result.reasoning = " → ".join(reasoning_parts)
+        # ─── P36: STRUCTURED DECISION REASONING — NEVER EMPTY ─────────
+        # Build structured reasoning with EVIDENCE, GOAL, WHY_THIS, CONF.
+        # If reasoning is missing/whitespace/<20 chars, generate from pipeline state.
+        # This is always populated — the dashboard MUST show useful context.
+        # ─────────────────────────────────────────────────────────────────
+        _p36_evidence_parts = []
+        _p36_db = discovery_board if isinstance(discovery_board, dict) else {}
+        _p36_ports = _p36_db.get("ports", [])
+        _p36_services = _p36_db.get("services", [])
+        _p36_creds = _p36_db.get("credentials", [])
+        _p36_shells = _p36_db.get("shells", [])
+        _p36_vulns = _p36_db.get("vulns", [])
+        if _p36_ports:
+            _p36_evidence_parts.append(f"ports=[{','.join(str(p) for p in list(_p36_ports)[:6])}]")
+        if _p36_services:
+            _p36_evidence_parts.append(f"services=[{','.join(str(s) for s in list(_p36_services)[:4])}]")
+        if _p36_creds:
+            _p36_evidence_parts.append(f"creds={len(list(_p36_creds))}")
+        if _p36_shells:
+            _p36_evidence_parts.append(f"shells={len(list(_p36_shells))}")
+        if _p36_vulns:
+            _p36_evidence_parts.append(f"vulns=[{','.join(str(v) for v in list(_p36_vulns)[:3])}]")
+        if not _p36_evidence_parts:
+            _p36_evidence_parts.append("none_yet")
+        _p36_evidence = ", ".join(_p36_evidence_parts)
+
+        _p36_phase_name = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+        _p36_goal = f"Advance {_p36_phase_name} phase"
+        if _p36_phase_name == "RECON":
+            _p36_goal = "Discover open ports and services on target"
+        elif _p36_phase_name == "ENUMERATION":
+            _p36_goal = "Enumerate services for vulns and entry points"
+        elif _p36_phase_name == "EXPLOITATION":
+            _p36_goal = "Exploit identified vulnerabilities to gain access"
+        elif _p36_phase_name == "PRIVILEGE_ESCALATION":
+            _p36_goal = "Escalate from user shell to root"
+        elif _p36_phase_name == "EXFILTRATION":
+            _p36_goal = "Extract flags and sensitive data"
+
+        _p36_why = f"{result.source}: "
+        if result.mentor_reasoning:
+            _p36_why += result.mentor_reasoning[:120]
+        elif result.template_name:
+            _p36_why += f"template={result.template_name}"
+        else:
+            _p36_cmd_short = (result.command or "")[:60]
+            _p36_why += f"cmd={_p36_cmd_short}"
+
+        _p36_conf = f"{result.confidence:.2f}"
+
+        _p36_stop = "phase_advance or discovery" if _p36_phase_name in ("RECON", "ENUMERATION") else "flag_capture or root_shell"
+
+        result.reasoning = (
+            f"EVIDENCE: {_p36_evidence} | "
+            f"GOAL: {_p36_goal} | "
+            f"WHY_THIS: {_p36_why} | "
+            f"STOP: {_p36_stop} | "
+            f"CONF: {_p36_conf}"
+        )
+
+        # P36: Validation — if reasoning somehow ended up < 20 chars, force a meaningful fallback
+        if len(result.reasoning.strip()) < 20:
+            result.reasoning = (
+                f"EVIDENCE: {_p36_evidence} | "
+                f"GOAL: {_p36_goal} | "
+                f"WHY_THIS: {result.source} fallback — no detailed reasoning available | "
+                f"STOP: {_p36_stop} | "
+                f"CONF: {_p36_conf}"
+            )
+
+        # P36: Append to step reasoning log for dashboard rendering
+        self._step_reasoning_log.append({
+            "type": "decision",
+            "agent": self.agent_name,
+            "message": result.reasoning,
+        })
 
         result.belief_snapshot = {
             "phase": current_phase.name if hasattr(current_phase, 'name') else str(current_phase),
@@ -3859,9 +4015,8 @@ class SmartCoach:
             return
         
         try:
-            ppo = _lazy_ppo()
-            if ppo is not None:
-                ppo.store_transition(
+            if self.ppo_agent is not None:
+                self.ppo_agent.store_transition(
                     state=self._ppo_pending["state"],
                     action=self._ppo_pending["action"],
                     log_prob=self._ppo_pending["log_prob"],
@@ -4628,6 +4783,137 @@ class SmartCoach:
             logger.debug(f"[P14] Hypothesis select failed: {e}")
             return None
 
+    # =====================================================================
+    # PHASE 27: Evidence Gate — validate exploit commands against evidence
+    # =====================================================================
+
+    def _validate_exploit_evidence(
+        self,
+        result: SmartDecisionResult,
+        discovery_board: Dict[str, Any],
+        phase: Any,
+    ) -> tuple:
+        """
+        Validate exploit-phase commands have supporting evidence.
+
+        Returns:
+            (valid: bool, reasons: list[str])
+        """
+        reasons: list = []
+        command = (result.command or "").strip()
+        if not command:
+            return True, []
+
+        # Only gate phases >= EXPLOITATION
+        phase_name = phase.name if hasattr(phase, 'name') else str(phase)
+        exploit_phases = {"EXPLOITATION", "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
+                          "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"}
+        if phase_name not in exploit_phases:
+            return True, []
+
+        known_ports = {str(p) for p in discovery_board.get("ports", set())}
+        known_services = {str(s).lower() for s in discovery_board.get("services", set())}
+
+        # Post-foothold local commands always pass
+        _local_cmds = ("sudo", "find", "getcap", "id", "uname", "cat ", "ls ",
+                        "whoami", "hostname", "ifconfig", "ip ", "env", "echo ",
+                        "grep ", "awk ", "sed ", "head ", "tail ", "which ",
+                        "ps ", "netstat", "ss ", "mount", "df ", "lsof",
+                        "history", "crontab", "systemctl")
+        cmd_lower = command.lower()
+        if phase_name in ("PRIVILEGE_ESCALATION", "POST_EXPLOITATION", "CLOSEOUT"):
+            if any(cmd_lower.startswith(lc) for lc in _local_cmds):
+                return True, []
+
+        # SSH-wrapped commands — assume foothold, but log
+        if "ssh " in cmd_lower or "sshpass" in cmd_lower:
+            # Allow but note for logging
+            reasons.append("ssh_wrapped_command_allowed")
+            return True, reasons
+
+        # Port evidence: if command targets explicit port, check it exists
+        import re as _re
+        port_patterns = [
+            _re.compile(r'-p\s*(\d+)'),        # -p 8080
+            _re.compile(r':(\d+)(?:/|\s|$)'),   # host:8080
+            _re.compile(r'--port[= ](\d+)'),     # --port=8080
+        ]
+        for pat in port_patterns:
+            m = pat.search(command)
+            if m:
+                port = m.group(1)
+                if port not in known_ports:
+                    reasons.append(f"port_{port}_not_in_discovery_board")
+
+        # Service evidence for service-specific tools
+        _service_tool_map = {
+            "hydra": {"ssh": {"ssh"}, "ftp": {"ftp"}, "smb": {"smb", "samba"},
+                      "http": {"http", "https", "web"}},
+            "sqlmap": {"_any": {"http", "https", "web"}},
+            "nikto": {"_any": {"http", "https", "web"}},
+            "ffuf": {"_any": {"http", "https", "web"}},
+            "gobuster": {"_any": {"http", "https", "web"}},
+            "curl": {"_any": {"http", "https", "web"}},
+            "wpscan": {"_any": {"http", "https", "web"}},
+            "smbclient": {"_any": {"smb", "samba", "microsoft-ds"}},
+            "enum4linux": {"_any": {"smb", "samba", "microsoft-ds"}},
+            "rpcclient": {"_any": {"smb", "samba", "microsoft-ds", "rpc"}},
+        }
+        cmd_tool = cmd_lower.split()[0].split("/")[-1] if cmd_lower else ""
+        for tool, svc_map in _service_tool_map.items():
+            if tool in cmd_tool:
+                for key, required_svcs in svc_map.items():
+                    if key == "_any" or key in cmd_lower:
+                        if not required_svcs.intersection(known_services):
+                            reasons.append(f"service_evidence_missing_for_{tool}")
+                        break
+
+        # CVE evidence: if command references CVE, check it in vulns
+        cve_match = _re.search(r'CVE-\d{4}-\d+', command, _re.IGNORECASE)
+        if cve_match:
+            cve_id = cve_match.group().upper()
+            known_vulns = {str(v).upper() for v in discovery_board.get("vulns", set())}
+            if cve_id not in known_vulns:
+                reasons.append(f"cve_{cve_id}_not_in_discovery_board")
+
+        # P36: Anti-hallucination — detect exploit modules targeting non-existent services
+        # Common hallucinations: IRC exploit on SSH+HTTP target, FTP on no-FTP, etc.
+        _hallucination_checks = {
+            "ircd": {"irc", "ircd", "unreal"},
+            "ftp": {"ftp", "vsftpd", "proftpd"},
+            "samba": {"smb", "samba", "microsoft-ds"},
+            "telnet": {"telnet"},
+            "mysql": {"mysql", "mariadb"},
+            "postgresql": {"postgresql", "postgres"},
+            "vnc": {"vnc"},
+            "rmi": {"rmi", "java-rmi"},
+        }
+        _known_port_set = {int(p) for p in known_ports if str(p).isdigit()}
+        # Map well-known ports to their services for cross-check
+        _port_service_map = {
+            21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 80: "http",
+            110: "pop3", 139: "smb", 143: "imap", 443: "https", 445: "smb",
+            1433: "mssql", 1524: "ingreslock", 3306: "mysql", 3389: "rdp",
+            5432: "postgresql", 5900: "vnc", 6667: "irc", 8080: "http",
+            8180: "http", 8443: "https",
+        }
+        for _svc_key, _svc_names in _hallucination_checks.items():
+            # Check if the command mentions this service
+            if any(sn in cmd_lower for sn in _svc_names):
+                # Is this service actually discovered?
+                _svc_found = bool(_svc_names.intersection(known_services))
+                # Also check by well-known port
+                _port_found = any(
+                    p in _known_port_set
+                    for p, s in _port_service_map.items()
+                    if s in _svc_names or s == _svc_key
+                )
+                if not _svc_found and not _port_found:
+                    reasons.append(f"hallucination_{_svc_key}_not_on_target")
+
+        valid = len(reasons) == 0 or all("allowed" in r for r in reasons)
+        return valid, reasons
+
     def _decide_from_registry(
         self,
         step_ctx: SmartStepContext,
@@ -5284,9 +5570,14 @@ class SmartCoach:
         phase_name = ctx.current_phase.name
         
         # Get the discovery board from step context
-        discovery_board = getattr(step_ctx, 'discovery_board', None)
+        # P35 Fix: discovery_board is nested inside step_ctx.state["discovery_board"],
+        # NOT a direct attribute of step_ctx. getattr() was returning None always,
+        # causing the gate to run against empty {} and always fail.
+        discovery_board = None
+        if hasattr(step_ctx, 'state') and isinstance(step_ctx.state, dict):
+            discovery_board = step_ctx.state.get('discovery_board', None)
         if discovery_board is None:
-            discovery_board = {}
+            discovery_board = getattr(step_ctx, 'discovery_board', {})
 
         # Check if ALL prerequisite phases have sufficient discoveries
         from core.commands.command_registry import AttackPhase
@@ -5555,7 +5846,7 @@ class SmartCoach:
                     template_name="curl_web_path",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Exploring discovered path /{path_clean}",
-                    phase=current_phase,
+                    phase=current_phase,  # type: ignore[arg-type]
                     mentor_call=False,
                 )
             
@@ -5578,7 +5869,7 @@ class SmartCoach:
                     template_name="curl_web_path_ids",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] IDOR enumeration /{path_clean}/0-5",
-                    phase=current_phase,
+                    phase=current_phase,  # type: ignore[arg-type]
                     mentor_call=False,
                 )
 
@@ -5603,7 +5894,7 @@ class SmartCoach:
                     template_name="curl_web_path_links",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Extracting links from /{path_clean}/0 HTML",
-                    phase=current_phase,
+                    phase=current_phase,  # type: ignore[arg-type]
                     mentor_call=False,
                 )
 
@@ -5635,7 +5926,7 @@ class SmartCoach:
                     template_name="download_idor_content",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Downloading /download/0-3 + credential extraction",
-                    phase=current_phase,
+                    phase=current_phase,  # type: ignore[arg-type]
                     mentor_call=False,
                 )
         
@@ -6831,51 +7122,6 @@ class SmartCoach:
             logger.debug(f"Smart mentor failed: {e}, falling back to registry")
             return self._decide_from_registry(step_ctx, proposed_action, confidence)
     
-    def _get_difficulty_alternative(self, step_ctx: SmartStepContext) -> Optional[SmartDecisionResult]:
-        """Get an alternative command when difficulty preset blocks the proposed one.
-
-        Finds a registry command for the current phase that is NOT blocked.
-
-        Args:
-            step_ctx: Current step context.
-
-        Returns:
-            A SmartDecisionResult with an allowed command, or None.
-        """
-        try:
-            ctx = step_ctx.attack_context
-            phase = ctx.current_phase
-            blocked = self.difficulty_preset.blocked_commands if self.difficulty_preset else frozenset()
-            
-            # Get all registry commands for this phase
-            from core.commands.command_registry import get_commands_for_phase
-            candidates = get_commands_for_phase(phase)
-            
-            # Filter out blocked commands and already-used commands
-            valid = [
-                c for c in candidates
-                if c.name not in blocked
-                and c.name not in self.episode_used_commands
-                and self._validate_command_for_role(
-                    c.template.replace("{target}", ctx.target if ctx else "10.10.10.10")
-                )
-            ]
-            
-            if valid:
-                import random
-                choice = random.choice(valid)
-                cmd = choice.template.replace("{target}", ctx.target if ctx else "10.10.10.10")
-                return SmartDecisionResult(
-                    command=cmd,
-                    template_name=choice.name,
-                    source="difficulty_gate",
-                    confidence=0.5,
-                    phase=phase,
-                )
-        except Exception as e:
-            logger.debug(f"Difficulty alternative failed: {e}")
-        return None
-    
     def _validate_command_for_role(self, command: str) -> bool:
         """
         Check if a command is valid for this agent's role.
@@ -7357,7 +7603,7 @@ class SmartCoach:
                         )
                     
                     macro_reward = compute_macro_reward(
-                        macro=self._active_macro,
+                        macro=self._active_macro,  # type: ignore[arg-type]
                         step_reward=breakdown.total,
                         phase_name=phase_name,
                         discoveries=new_discoveries or {},
@@ -7829,7 +8075,7 @@ class SmartCoachWrapper:
             episode=self._current_episode,
             step=self._current_step,
             agent_name=self.agent_id,
-            attack_context=self._coach.attack_context,
+            attack_context=self._coach.attack_context,  # type: ignore[arg-type]
             state=state,
         )
         

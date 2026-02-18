@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260218_184600_eecf74",
+  "timestamp": 1771436764.4483237,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero successes",
+      "High mentor engagement suggesting active exploration"
+    ],
+    "fails": [
+      "Zero successful episode completions",
+      "High mentor call count indicates reliance on guidance",
+      "Single-episode sample limits generalization"
+    ],
+    "summary": "The run achieved a positive reward but failed to complete the objective, with heavy mentor reliance and no confirmed successes."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within the episode despite progress signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependence during decision points",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open ports with unknown services",
+      "then_action": "Run targeted service detection with nmap versioning and default scripts",
+      "parameters_template": {
+        "command": "nmap -sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_recon_phase"
+      ],
+      "created_at": 1771436774.310682,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected",
+      "then_action": "Perform quick web enumeration for content and tech stack",
+      "parameters_template": {
+        "commands": [
+          "whatweb <url>",
+          "gobuster dir -u <url> -w <wordlist> -x php,html,txt"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_recon_phase"
+      ],
+      "created_at": 1771436774.3106902,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundation reconnaissance action useful for improving early-stage signal quality"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Attempt a full episode using a predefined recon-to-exploitation checklist before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Improve service enumeration depth",
+      "description": "Always follow initial port scan with version detection and default scripts to increase exploitability signals.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first branching",
+      "description": "When HTTP is present, prioritize web enumeration and vulnerability checks before other branches.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

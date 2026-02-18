@@ -1,0 +1,150 @@
+{
+  "run_id": "run_20260218_195646_35ed50",
+  "timestamp": 1771441012.779693,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward in the only episode",
+      "Reward trend stable across the run"
+    ],
+    "fails": [
+      "Zero success rate despite positive reward",
+      "High mentor call count indicating reliance on guidance",
+      "Single-episode run limits confidence and generalization"
+    ],
+    "summary": "The run shows some reward acquisition but no successful completion; performance is not yet reliable and likely dependent on external guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion not achieved despite accumulating reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "High mentor intervention rate",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02",
+        "ep001_step03",
+        "ep001_step04",
+        "ep001_step05",
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial exploration yields positive reward but no success state",
+      "then_action": "Increase goal-directed checks and explicit success criteria validation",
+      "parameters_template": {
+        "validate_success_state": true,
+        "check_interval_steps": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771441025.0547605,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in an episode",
+      "then_action": "Switch to conservative action policy and request fewer mentor interventions",
+      "parameters_template": {
+        "mentor_call_cap": 5,
+        "policy": "conservative"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step10"
+      ],
+      "created_at": 1771441025.0547743,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When only one episode is available for evaluation",
+      "then_action": "Run additional episodes to confirm stability of reward and success",
+      "parameters_template": {
+        "additional_episodes": 3,
+        "seed_variation": true
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260218_195646_35ed50"
+      ],
+      "created_at": 1771441025.0547836,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Closing the gap between reward and success is the highest-leverage improvement"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reducing mentor reliance is critical for autonomous performance"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Success-criteria checkpointing",
+      "description": "Add explicit success checks every 5 steps to ensure progress aligns with win conditions rather than reward shaping.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call cap ablation",
+      "description": "Run episodes with mentor calls capped at 3 and 5 to measure autonomy vs. performance.",
+      "priority": "high"
+    },
+    {
+      "title": "Stability validation run",
+      "description": "Execute 3\u20135 additional episodes with varied seeds to validate whether reward-to-success conversion improves.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

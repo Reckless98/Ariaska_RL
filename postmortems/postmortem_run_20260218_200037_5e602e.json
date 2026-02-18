@@ -1,0 +1,144 @@
+{
+  "run_id": "run_20260218_200037_5e602e",
+  "timestamp": 1771441244.3050144,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode without early termination",
+      "Positive total reward indicates some productive actions"
+    ],
+    "fails": [
+      "No successful episode outcomes (0% success rate)",
+      "High mentor call count suggests uncertainty in decision-making"
+    ],
+    "summary": "Run shows partial progress but no successful episode completions; focus should shift to improving decisive action selection and reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Hesitation leading to mentor calls instead of autonomous actions",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    },
+    {
+      "pattern": "Insufficient follow-through after initial reconnaissance",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step10",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ICMP and is in scope",
+      "then_action": "Run a fast TCP port scan to identify open services",
+      "parameters_template": {
+        "command": "nmap",
+        "flags": "-sS -T4 -Pn",
+        "ports": "1-1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771441257.2874408,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Enumerate web stack and directories",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "gobuster_flags": "-u http://TARGET -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771441257.287454,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected on port 22",
+      "then_action": "Enumerate SSH configuration and versions",
+      "parameters_template": {
+        "command": "nmap",
+        "flags": "-sV --script ssh-*",
+        "port": 22
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771441257.287463,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable baseline step for service discovery and next-stage planning"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance by pre-planned recon workflow",
+      "description": "Execute a fixed sequence: ICMP check -> top 1k TCP scan -> targeted service enumeration before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific playbooks for top ports",
+      "description": "Create decision trees for HTTP, SSH, and SMB to ensure immediate follow-up actions after detection.",
+      "priority": "high"
+    },
+    {
+      "title": "Triage based on reward contribution",
+      "description": "Track which actions correlate with higher reward and prioritize those in subsequent episodes.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

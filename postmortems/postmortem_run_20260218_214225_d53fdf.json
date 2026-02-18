@@ -1,0 +1,128 @@
+{
+  "run_id": "run_20260218_214225_d53fdf",
+  "timestamp": 1771447354.113539,
+  "key_outcomes": {
+    "wins": [
+      "Total reward remained positive at 60.00, indicating partial progress or intermediate objectives achieved",
+      "Mentor interactions occurred (10), providing guidance opportunities"
+    ],
+    "fails": [
+      "Success rate was 0.00%, indicating no episode completion success",
+      "Only one episode executed, limiting statistical confidence"
+    ],
+    "summary": "Single-episode run with positive reward but no successful completion; more episodes and refined execution are needed to convert partial progress into wins."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert intermediate rewards into a completed success condition",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial network target is identified with unknown ports",
+      "then_action": "Run fast TCP port discovery with masscan and then validate with nmap",
+      "parameters_template": {
+        "masscan_ports": "1-65535",
+        "rate": 10000,
+        "nmap_flags": "-sV -sC"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447364.9571154,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on HTTP/HTTPS",
+      "then_action": "Perform web enumeration with gobuster and nikto",
+      "parameters_template": {
+        "gobuster_wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt",
+        "nikto_tuning": "x 6"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447364.9571295,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB (445) is open",
+      "then_action": "Enumerate shares and users with smbclient and enum4linux-ng",
+      "parameters_template": {
+        "smbclient_flags": "-N -L",
+        "enum4linux_ng_flags": "-A"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447364.9571388,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step likely contributed to positive reward despite no final success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for statistical confidence",
+      "description": "Run 5-10 episodes with consistent recon-to-exploitation workflow to identify bottlenecks that prevent completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten success condition mapping",
+      "description": "Instrument reward-to-goal transitions to ensure intermediate rewards are aligned with final success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction test",
+      "description": "Limit mentor calls to 3-5 to evaluate agent autonomy while following the established skill cards.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

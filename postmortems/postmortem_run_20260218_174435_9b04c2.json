@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260218_174435_9b04c2",
+  "timestamp": 1771433078.867185,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode without interruptions",
+      "Achieved a positive total reward of 50.00"
+    ],
+    "fails": [
+      "No successful episode outcomes (0.00% success rate)",
+      "High mentor dependency (10 mentor calls in a single episode)"
+    ],
+    "summary": "The run produced positive reward but failed to achieve any successful outcomes, indicating progress on intermediate objectives without completing the primary task."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert progress into a successful terminal outcome",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High reliance on mentor guidance throughout the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode starts with unknown target state and no immediate success",
+      "then_action": "Prioritize rapid situational assessment and identify the primary objective before action",
+      "parameters_template": {
+        "steps": [
+          "confirm_objective",
+          "enumerate_environment",
+          "select_primary_path"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771433091.7198036,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Pause execution and consolidate a plan to reduce dependency",
+      "parameters_template": {
+        "plan_blocks": [
+          "goal",
+          "constraints",
+          "next_two_actions"
+        ],
+        "max_mentor_calls_before_pause": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ],
+      "created_at": 1771433091.7198133,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishing a clear objective early can improve the chance of converting reward into success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-first planning",
+      "description": "Begin each episode with a short written plan: define the success condition, list constraints, and select the first two actions before executing.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call budget",
+      "description": "Cap mentor calls at 3 for the first 50% of steps to encourage independent decision-making and reduce reliance.",
+      "priority": "medium"
+    },
+    {
+      "title": "Outcome checkpointing",
+      "description": "Insert periodic checkpoints every 5\u201310 steps to verify progress toward the success condition and course-correct if needed.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,149 @@
+{
+  "run_id": "run_20260218_200059_001562",
+  "timestamp": 1771441277.9779506,
+  "key_outcomes": {
+    "wins": [
+      "Positive reward achieved despite low success rate",
+      "High mentor engagement indicates active guidance utilization"
+    ],
+    "fails": [
+      "Zero successful episodes (0.00% success rate)",
+      "Only a single episode limits statistical confidence and pattern validation"
+    ],
+    "summary": "The run shows promising reward accumulation but failed to convert to task success; more episodes and reduced reliance on mentor calls are needed to validate effective behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode did not reach success criteria despite accumulating reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    },
+    {
+      "pattern": "High mentor call frequency suggesting uncertainty in decision-making",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05",
+        "ep001_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields limited actionable findings",
+      "then_action": "Perform broader service discovery with Nmap version and default script scan",
+      "parameters_template": {
+        "args": "-sV -sC -Pn -T4",
+        "ports": "1-1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771441292.7170546,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When uncertainty is high and mentor calls increase",
+      "then_action": "Switch to a structured checklist: recon \u2192 enum \u2192 validate \u2192 exploit",
+      "parameters_template": {
+        "checklist": [
+          "recon",
+          "enum",
+          "validate",
+          "exploit"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771441292.7170713,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a service is detected but success is not achieved",
+      "then_action": "Run targeted enumeration scripts for that service",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "service-specific-*"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step08"
+      ],
+      "created_at": 1771441292.7170808,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent use of broader discovery can improve actionable findings in early phases"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor call rate suggests need for structured decision flow"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run 5\u201310 additional episodes with identical environment settings to validate whether reward correlates with success outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Limit mentor calls to a maximum of 3 per episode and enforce checklist-based decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Early recon optimization",
+      "description": "Standardize initial scans using Nmap -sV -sC -Pn -T4 on top 1000 ports, then branch into service-specific enumeration.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

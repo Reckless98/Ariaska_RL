@@ -189,6 +189,17 @@ class UnifiedStepTrace:
     # ── Teaching Points ───────────────────────────────────────────
     teaching_points: List[str] = field(default_factory=list)
 
+    # ── Evidence Gate (Phase 27) ──────────────────────────────────
+    evidence_gate_result: str = ""  # "", "pass", "log_reject", "enforce_reject"
+    evidence_gate_reasons: List[str] = field(default_factory=list)
+
+    # ── Phase 29: Observability extensions ────────────────────────
+    micro_chain_escalated: bool = False     # MicroChain escalated to codex
+    micro_chain_cost_usd: float = 0.0       # MicroChain GPT cost
+    self_debug_fix: str = ""                # corrected command from SelfDebugger
+    retry_count: int = 0                    # transient-failure retries
+    watchdog_trigger: str = ""              # watchdog trigger if fired
+
     # ── Tokens ────────────────────────────────────────────────────
     tokens_used: int = 0
 
@@ -229,6 +240,15 @@ class UnifiedStepTrace:
             "tool_privilege": self.tool_privilege.to_dict(),
             # Teaching
             "teaching_points": self.teaching_points,
+            # Evidence gate
+            "evidence_gate_result": self.evidence_gate_result,
+            "evidence_gate_reasons": self.evidence_gate_reasons,
+            # Phase 29 observability
+            "micro_chain_escalated": self.micro_chain_escalated,
+            "micro_chain_cost_usd": round(self.micro_chain_cost_usd, 6),
+            "self_debug_fix": self.self_debug_fix,
+            "retry_count": self.retry_count,
+            "watchdog_trigger": self.watchdog_trigger,
             # Tokens
             "tokens_used": self.tokens_used,
         }

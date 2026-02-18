@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260218_205024_32809d",
+  "timestamp": 1771444233.0397127,
+  "key_outcomes": {
+    "wins": [
+      "Single episode achieved a positive total reward of 60.0",
+      "Stable reward trend with no volatility in recent rewards"
+    ],
+    "fails": [
+      "Success rate reported as 0.00% despite positive reward",
+      "Only one episode executed, limiting evidence of generalization",
+      "High mentor calls (10) relative to episodes, suggesting heavy guidance"
+    ],
+    "summary": "The run shows a positive reward in a single episode but no recorded successes and heavy mentor reliance, indicating unstable or incomplete task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert reward into a successful episode outcome",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_205024_32809d_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon is required on a target host",
+      "then_action": "Run comprehensive TCP scan with service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC -p-"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_205024_32809d_ep001"
+      ],
+      "created_at": 1771444245.726354,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on ports 80 or 443",
+      "then_action": "Enumerate web directories and common files",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_205024_32809d_ep001"
+      ],
+      "created_at": 1771444245.7263618,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB is detected on port 445",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tool": "enum4linux",
+        "flags": "-a"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_205024_32809d_ep001"
+      ],
+      "created_at": 1771444245.7263668,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core recon step likely applicable across targets and needed to stabilize success rate"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent next step after detecting HTTP/HTTPS services"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run 3\u20135 episodes with a fixed recon workflow before invoking mentor help; compare success rate and reward stability.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific playbooks",
+      "description": "After initial scan, follow service-specific enumeration (web/SMB/SSH) and log which sequences lead to successful task completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-success alignment",
+      "description": "Instrument objective completion checks to ensure reward gains map to explicit success criteria.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

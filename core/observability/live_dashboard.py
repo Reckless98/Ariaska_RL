@@ -175,6 +175,11 @@ class AgentStepInfo:
     discoveries: Dict[str, List[str]] = field(default_factory=dict)
     skipped: bool = False
     skip_reason: str = ""
+    # Phase 29: observability extensions
+    evidence_gate_result: str = ""          # "", "pass", "log_reject", "enforce_reject"
+    micro_chain_escalated: bool = False     # True if MicroChain escalated to codex
+    self_debug_fix: str = ""                # corrected command from SelfDebugger (empty = no fix)
+    retry_count: int = 0                    # number of transient-failure retries
 
 
 @dataclass
@@ -293,7 +298,7 @@ class LiveDashboard:
         self.ppo_entropy_history: Dict[str, deque] = {}  # coach → deque of entropies
         self.ddqn_history: deque = deque(maxlen=50)  # macro distribution per episode
         self.decision_source_history: List[Dict[str, int]] = []  # per-episode source counts
-        self.discovery_board_snapshot: Dict[str, set] = {}
+        self.discovery_board_snapshot: Dict[str, Any] = {}
         self.algo_active: Dict[str, bool] = {  # which algorithms are active
             "PPO": False, "DDQN": False,
             "SIL": False, "RND": False, "SAC": False,
@@ -418,9 +423,10 @@ class LiveDashboard:
 
         panel = Panel(
             Group(table, Text.from_markup(f"\n  {' │ '.join(summary_parts)}", style="bold")),
-            title="⚡ Ariaska System Init",
+            title="[bold bright_blue]⚡ Ariaska System Init[/bold bright_blue]",
             border_style="bright_blue",
-            padding=(0, 1),
+            box=box.ROUNDED,
+            padding=(0, 2),
         )
         console.print(panel)
 
@@ -474,8 +480,9 @@ class LiveDashboard:
             config_lines.append(f"[bold cyan]Token Lim:[/bold cyan]   {config['gpt_token_limit']:,}/episode")
         config_panel = Panel(
             "\n".join(config_lines),
-            title="[bold]⚙️  Configuration[/bold]",
+            title="[bold bright_cyan]⚙️  Configuration[/bold bright_cyan]",
             border_style="cyan",
+            box=box.ROUNDED,
             padding=(1, 2),
         )
 
@@ -486,8 +493,9 @@ class LiveDashboard:
             agent_lines.append(f"[{style}]{icon} {agent_name:<14}[/{style}] │ {role}")
         agent_panel = Panel(
             "\n".join(agent_lines) if agent_lines else "[dim]No agents[/dim]",
-            title=f"[bold]🎯  Agents ({len(agents)})[/bold]",
+            title=f"[bold bright_yellow]🎯  Agents ({len(agents)})[/bold bright_yellow]",
             border_style="yellow",
+            box=box.ROUNDED,
             padding=(1, 2),
         )
 
@@ -496,9 +504,9 @@ class LiveDashboard:
         # ── ALGORITHM STACK ──────────────────────────────────────────
         algo_table = Table(
             title="[bold]🧬  Unified Algorithm Stack[/bold]",
-            show_header=True, header_style="bold white on dark_blue",
-            border_style="bright_blue", box=box.HEAVY_EDGE,
-            expand=True, padding=(0, 1),
+            show_header=True, header_style="bold bright_white on dark_blue",
+            border_style="bright_blue", box=box.ROUNDED,
+            expand=True, padding=(0, 2),
         )
         algo_table.add_column("Algorithm", style="bold", width=20)
         algo_table.add_column("Status", width=10, justify="center")
@@ -643,7 +651,8 @@ class LiveDashboard:
             "\n".join(lines),
             title="[bold green]🤖  PPO Actor-Critic[/bold green]",
             border_style="green",
-            padding=(0, 1),
+            box=box.ROUNDED,
+            padding=(0, 2),
         )
 
     def _build_ddqn_panel(
@@ -692,7 +701,8 @@ class LiveDashboard:
             "\n".join(lines),
             title="[bold cyan]🎲  DDQN Macro-Actions[/bold cyan]",
             border_style="cyan",
-            padding=(0, 1),
+            box=box.ROUNDED,
+            padding=(0, 2),
         )
 
     def _build_decision_pipeline_panel(
@@ -762,7 +772,8 @@ class LiveDashboard:
             "\n".join(lines),
             title="[bold bright_white]🔄  Decision Pipeline[/bold bright_white]",
             border_style="bright_white",
-            padding=(0, 1),
+            box=box.ROUNDED,
+            padding=(0, 2),
         )
 
     def _build_discovery_board_panel(
@@ -810,16 +821,20 @@ class LiveDashboard:
                 if isinstance(items, (set, list)):
                     count = len(items)
                     if count > 0:
-                        # Show items (up to 6)
+                        # P34-EXT: Truncate large sets to top 20 + count
+                        _max_display = 20
                         try:
                             item_strs = [str(i) for i in sorted(items) if str(i)]
                         except TypeError:
                             item_strs = [str(i) for i in items if str(i)]
-                        suffix = ""
+                        if len(item_strs) > _max_display:
+                            _remaining = len(item_strs) - _max_display
+                            item_strs = item_strs[:_max_display]
+                            item_strs.append(f"... +{_remaining} more")
                         lines.append(
                             f"  {icon} [{color}]{key:<12}[/{color}] "
                             f"[bold]{count:3d}[/bold]  "
-                            f"[dim]{', '.join(item_strs)}{suffix}[/dim]"
+                            f"[dim]{', '.join(item_strs)}[/dim]"
                         )
                     else:
                         lines.append(
@@ -837,7 +852,8 @@ class LiveDashboard:
             "\n".join(lines),
             title="[bold bright_green]🗺️  Discovery Board[/bold bright_green]",
             border_style="bright_green",
-            padding=(0, 1),
+            box=box.ROUNDED,
+            padding=(0, 2),
         )
 
     def _build_algo_activity_bar(
@@ -904,6 +920,8 @@ class LiveDashboard:
         phase_state: Optional[Dict[str, Any]] = None,
         # Phase 23: GPT call visibility
         gpt_activity: Optional[Dict[str, Any]] = None,
+        # P34-EXT: Learning metrics snapshot
+        learning_snapshot: Optional[Dict[str, Any]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -943,26 +961,33 @@ class LiveDashboard:
                 gpt_cost_str = f" │ [{_cost_clr}]💳${_cum:.3f}[/{_cost_clr}]"
 
         # ── STEP HEADER ──────────────────────────────────────────────
-        console.print(
-            f"\n[bold bright_white on blue]{'═' * 90}[/bold bright_white on blue]"
+        # Phase 36: Beautiful gradient-style header with Rich Rule
+        _header_text = (
+            f"  ▶ Step {step + 1:2d} │ {ep_str} │ {mode_tag} │ "
+            f"{phase_icon} {phase_upper} │ R:{global_reward:+.1f} │ "
+            f"{mentor_str} │ {step_spark}{gpt_cost_str.replace('[', '').replace(']', '').replace('/', '')}"
         )
-        console.print(
-            f"[bold bright_white on blue]  ▶ Step {step + 1:2d}[/bold bright_white on blue] │ "
+        console.print()  # breathing room
+        console.rule(
+            f"[bold bright_white]  ▶ Step {step + 1:2d}[/bold bright_white] │ "
             f"[cyan]{ep_str}[/cyan] │ "
             f"[bold yellow]{mode_tag}[/bold yellow] │ "
             f"{phase_icon} [bold]{phase_upper}[/bold] │ "
             f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}] │ "
             f"[dim]{mentor_str}[/dim] │ "
-            f"[dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}"
+            f"[dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}",
+            style="bright_blue",
         )
 
         # ── AGENT TABLE ──────────────────────────────────────────────
-        # Dynamic width: no fixed widths, expand=True lets Rich auto-size
-        # based on terminal width and content.
+        # Phase 36: ROUNDED box for beautiful demo appearance
         table = Table(
-            box=box.HEAVY_EDGE, show_header=True,
-            header_style="bold white on dark_blue", padding=(0, 1),
+            box=box.ROUNDED, show_header=True,
+            header_style="bold bright_white on dark_blue", padding=(0, 2),
             expand=True, show_lines=True,
+            border_style="bright_blue",
+            title="[bold bright_white]⚡ Agent Actions[/bold bright_white]",
+            title_style="bold bright_blue",
         )
         table.add_column("Agent", style="bold", ratio=1, no_wrap=True)
         table.add_column("Source", ratio=1, no_wrap=True)
@@ -1068,8 +1093,9 @@ class LiveDashboard:
                 "\n".join(panel_parts),
                 title=f"[bold]{icon} {a.agent_name}[/bold]",
                 border_style=_panel_border,
+                box=box.ROUNDED,
                 expand=True,
-                padding=(0, 1),
+                padding=(0, 2),
             ))
 
         # Skipped agents
@@ -1116,16 +1142,22 @@ class LiveDashboard:
                     "\n".join(_db_parts),
                     title="[bold bright_green]🗺️  Discovery Board[/bold bright_green]",
                     border_style="bright_green",
+                    box=box.ROUNDED,
                     expand=True,
-                    padding=(0, 1),
+                    padding=(0, 2),
                 ))
 
-        # ── REWARD BREAKDOWN ─────────────────────────────────────────
+        # ══════════════════════════════════════════════════════════════
+        # METRICS PANEL — Reward, Parser, Budget, GPT, Phase in one box
+        # ══════════════════════════════════════════════════════════════
+        _metrics_lines: List[str] = []
+
+        # ── Reward breakdown row ──
         if reward_breakdown and self.config.show_reward_breakdown:
             rb = reward_breakdown
             rp = []
             if rb.get("base", 0):
-                rp.append(f"base:{rb['base']:+.1f}")
+                rp.append(f"base:[bold]{rb['base']:+.1f}[/bold]")
             if rb.get("novelty_bonus", 0):
                 rp.append(f"[bold green]+novelty:{rb['novelty_bonus']:+.1f}[/bold green]")
             if rb.get("redundancy_penalty", 0):
@@ -1133,13 +1165,13 @@ class LiveDashboard:
             if rb.get("phase_bonus", 0):
                 rp.append(f"[bold cyan]phase:{rb['phase_bonus']:+.1f}[/bold cyan]")
             if rp:
-                console.print(f"  💰 [bold]Reward:[/bold] {' │ '.join(rp)}")
+                _metrics_lines.append(f"💰 [bold]Reward[/bold]    {' │ '.join(rp)}")
 
-        # ── PARSER STAGE VISIBILITY (Phase 23: GPT-Primary) ────────────
+        # ── Parser row ──
         if parser_stats:
             total = parser_stats.get("total_calls", 0)
             if total > 0:
-                parts = [f"[dim]calls:{total}[/dim]"]
+                parts = [f"calls:{total}"]
                 gpt_hits = parser_stats.get("stage3_hits", 0) + parser_stats.get("gpt_fallback_successes", 0)
                 regex_hits = parser_stats.get("stage1_hits", 0)
                 lessons = parser_stats.get("lessons_produced", 0)
@@ -1154,37 +1186,143 @@ class LiveDashboard:
                     parts.append(f"[magenta]🧬patterns:{patterns}[/magenta]")
                 empty = parser_stats.get("empty_outputs", 0)
                 if empty:
-                    parts.append(f"[dim]empty:{empty}[/dim]")
-                console.print(f"  [dim]🔬 Parser:[/dim] {' │ '.join(parts)}")
+                    parts.append(f"empty:{empty}")
+                _metrics_lines.append(f"🔬 [bold]Parser[/bold]    {' │ '.join(parts)}")
 
-        # ── DECISION REASONING VISIBILITY (Phase 10.3) ───────────────
+        # ── Budget row ──
+        if budget_snapshot:
+            pressure = budget_snapshot.get("budget_pressure", 0)
+            mentor_rem = budget_snapshot.get("mentor_remaining", 0)
+            mentor_tot = budget_snapshot.get("mentor_total", 0)
+            venice_rem = budget_snapshot.get("venice_remaining", 0)
+            if pressure > 0.8:
+                p_style = "bold red"
+                p_icon = "🔴"
+            elif pressure > 0.5:
+                p_style = "yellow"
+                p_icon = "🟡"
+            else:
+                p_style = "green"
+                p_icon = "🟢"
+            _metrics_lines.append(
+                f"[{p_style}]{p_icon} Budget[/{p_style}]    "
+                f"pressure:[bold]{pressure:.0%}[/bold] │ "
+                f"mentor:{mentor_rem}/{mentor_tot} │ "
+                f"venice:{venice_rem}"
+            )
+
+        # ── GPT cost row ──
+        if gpt_activity:
+            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
+            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
+            total_req = gpt_activity.get("total_requests", 0)
+            total_tok = gpt_activity.get("total_tokens", 0)
+            cache_hits = gpt_activity.get("cache_hits", 0)
+            if cum_cost > 1.0:
+                cost_style = "bold red"
+            elif cum_cost > 0.25:
+                cost_style = "yellow"
+            else:
+                cost_style = "green"
+            _metrics_lines.append(
+                f"💳 [bold]GPT[/bold]       "
+                f"[{cost_style}]${cum_cost:.4f}[/{cost_style}] │ "
+                f"ep:${ep_cost:.4f} │ "
+                f"calls:{total_req} │ tokens:{total_tok:,} │ "
+                f"cache:{cache_hits}"
+            )
+
+        # ── P36.1: Fast-Learn metrics row ──
+        if learning_snapshot:
+            _fl_line = learning_snapshot.get("fast_learn_line", "")
+            if _fl_line:
+                _metrics_lines.append(f"🧪 [bold]FastLearn[/bold] {_fl_line}")
+
+        # ── Phase ladder row ──
+        if phase_state:
+            tp = phase_state.get("teaching_point", "")
+            current = phase_state.get("current_phase", "?")
+            if tp:
+                if "SMART LADDER" in tp:
+                    _metrics_lines.append(f"[bright_red]🪜 Phase[/bright_red]     [yellow]{tp}[/yellow]")
+                elif "not yet ready" in tp:
+                    _metrics_lines.append(f"[yellow]🪜 Phase {current}[/yellow]  {tp}")
+                else:
+                    _metrics_lines.append(f"[green]🪜 Phase {current}[/green]  {tp}")
+
+        # ── Teaching points rows ──
+        if teaching_points:
+            for tp in teaching_points:
+                _metrics_lines.append(f"[bright_yellow]📚 Teaching[/bright_yellow]  {tp}")
+
+        # ── Render the unified metrics panel ──
+        if _metrics_lines:
+            console.print(Panel(
+                "\n".join(_metrics_lines),
+                title="[bold bright_white]📊 Step Metrics[/bold bright_white]",
+                border_style="bright_blue",
+                box=box.ROUNDED,
+                expand=True,
+                padding=(0, 2),
+            ))
+
+        # ── DECISION REASONING VISIBILITY (P36: ALWAYS VISIBLE) ──────
         if reasoning_events:
             # Separate mentor Q/A events from other events
             _mentor_events = [ev for ev in reasoning_events if ev.get("type") == "mentor_reason"]
             _other_events = [ev for ev in reasoning_events if ev.get("type") != "mentor_reason"]
             
-            # Render non-mentor events as colored lines
-            for ev in _other_events[:3]:
+            _reasoning_lines = []
+            for ev in _other_events[:6]:
                 ev_type = ev.get("type", "")
                 agent = ev.get("agent", "")
                 msg = ev.get("message", "")
                 if ev_type == "tc_block":
-                    console.print(f"  [yellow]🛡️ [{agent}] TC Block:[/yellow] [dim]{msg}[/dim]")
+                    _reasoning_lines.append(f"[yellow]🛡️ [{agent}] TC Block:[/yellow] {msg}")
                 elif ev_type == "phase_gate":
-                    console.print(f"  [cyan]🚪 [{agent}] Phase Gate:[/cyan] [dim]{msg}[/dim]")
+                    _reasoning_lines.append(f"[cyan]🚪 [{agent}] Phase Gate:[/cyan] {msg}")
                 elif ev_type == "codex_meta":
-                    console.print(f"  [bright_magenta]🧬 [{agent}] Codex:[/bright_magenta] [dim]{msg}[/dim]")
+                    _reasoning_lines.append(f"[bright_magenta]🧬 [{agent}] Codex:[/bright_magenta] {msg}")
+                elif ev_type == "decision":
+                    # P36: Structured reasoning — parse EVIDENCE|GOAL|WHY_THIS|CONF
+                    _parts = {}
+                    for _seg in msg.split(" | "):
+                        if ":" in _seg:
+                            _k, _v = _seg.split(":", 1)
+                            _parts[_k.strip()] = _v.strip()
+                    _ev_str = _parts.get("EVIDENCE", "?")
+                    _goal_str = _parts.get("GOAL", "?")
+                    _why_str = _parts.get("WHY_THIS", "?")
+                    _conf_str = _parts.get("CONF", "?")
+                    _reasoning_lines.append(
+                        f"[bold cyan]🎯 [{agent}][/bold cyan] "
+                        f"[green]EV:[/green]{_ev_str[:80]} "
+                        f"[yellow]GOAL:[/yellow]{_goal_str[:50]} "
+                        f"[bright_magenta]WHY:[/bright_magenta]{_why_str[:80]} "
+                        f"[dim]CONF:{_conf_str}[/dim]"
+                    )
                 else:
-                    console.print(f"  [dim]📎 [{agent}] {ev_type}: {msg}[/dim]")
+                    _reasoning_lines.append(f"[dim]📎 [{agent}] {ev_type}: {msg}[/dim]")
             
+            if _reasoning_lines:
+                console.print(Panel(
+                    "\n".join(_reasoning_lines),
+                    title="[bold bright_magenta]🧠 Decision Reasoning[/bold bright_magenta]",
+                    border_style="bright_magenta",
+                    box=box.ROUNDED,
+                    expand=True,
+                    padding=(0, 2),
+                ))
+
             # Render LLM Q/A as Rich table (Phase 10.4)
             if _mentor_events:
                 qa_table = Table(
-                    box=box.SIMPLE_HEAVY,
+                    box=box.ROUNDED,
                     show_header=True,
                     header_style="bold bright_yellow",
                     expand=True,
-                    padding=(0, 1),
+                    padding=(0, 2),
+                    border_style="bright_yellow",
                 )
                 qa_table.add_column("Agent", style="bold cyan", min_width=12, no_wrap=True)
                 qa_table.add_column("Q (Prompt)", style="white", no_wrap=False)
@@ -1204,82 +1342,29 @@ class LiveDashboard:
                         _q = _msg
                         _a = "-"
                     qa_table.add_row(_agent, _q, _a)
-                console.print(f"  [bright_yellow]💬 LLM Communication:[/bright_yellow]")
-                console.print(qa_table)
+                console.print(Panel(
+                    qa_table,
+                    title="[bold bright_yellow]💬 LLM Communication[/bold bright_yellow]",
+                    border_style="bright_yellow",
+                    box=box.ROUNDED,
+                    expand=True,
+                    padding=(0, 1),
+                ))
 
-        # ── PHASE 11.0: TEACHING POINTS ──────────────────────────────
-        if teaching_points:
-            for tp in teaching_points:
-                console.print(f"  [bright_yellow]📚 Teaching:[/bright_yellow] [dim]{tp}[/dim]")
-
-        # ── PHASE 11.0: BUDGET PRESSURE ──────────────────────────────
-        if budget_snapshot:
-            pressure = budget_snapshot.get("budget_pressure", 0)
-            mentor_rem = budget_snapshot.get("mentor_remaining", 0)
-            mentor_tot = budget_snapshot.get("mentor_total", 0)
-            venice_rem = budget_snapshot.get("venice_remaining", 0)
-            if pressure > 0.8:
-                p_style = "bold red"
-                p_icon = "🔴"
-            elif pressure > 0.5:
-                p_style = "yellow"
-                p_icon = "🟡"
-            else:
-                p_style = "green"
-                p_icon = "🟢"
-            console.print(
-                f"  [{p_style}]{p_icon} Budget:[/{p_style}] "
-                f"[dim]pressure:{pressure:.0%} │ "
-                f"mentor:{mentor_rem}/{mentor_tot} │ "
-                f"venice:{venice_rem}[/dim]"
-            )
-
-        # ── PHASE 23: GPT API CALL VISIBILITY ───────────────────────
+        # ── GPT PER-STEP CALL DETAILS ────────────────────────────────
         if gpt_activity:
-            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
-            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
-            total_req = gpt_activity.get("total_requests", 0)
-            total_tok = gpt_activity.get("total_tokens", 0)
-            cache_hits = gpt_activity.get("cache_hits", 0)
             step_calls = gpt_activity.get("step_calls", [])
             step_api = gpt_activity.get("step_api_calls", 0)
             step_cache = gpt_activity.get("step_cache_hits", 0)
             step_tok = gpt_activity.get("step_tokens", 0)
             step_cost = gpt_activity.get("step_cost_usd", 0.0)
 
-            # Cost color coding
-            if cum_cost > 1.0:
-                cost_style = "bold red"
-            elif cum_cost > 0.25:
-                cost_style = "yellow"
-            else:
-                cost_style = "green"
-
-            # Cumulative summary line
-            model_parts = []
-            for mname, mdata in gpt_activity.get("models", {}).items():
-                short_name = mname.replace("gpt-", "").replace("-codex", "c")
-                model_parts.append(
-                    f"{short_name}:{mdata.get('requests', 0)}r/${mdata.get('cost_usd', 0):.3f}"
-                )
-            models_str = " ".join(model_parts) if model_parts else ""
-
-            console.print(
-                f"  [bright_cyan]💳 GPT:[/bright_cyan] "
-                f"[{cost_style}]${cum_cost:.4f}[/{cost_style}] "
-                f"[dim]ep:${ep_cost:.4f} │ "
-                f"calls:{total_req} │ tokens:{total_tok:,} │ "
-                f"cache:{cache_hits} │ {models_str}[/dim]"
-            )
-
-            # Per-step call details (show actual prompts/responses)
             if step_calls:
-                console.print(
-                    f"  [bright_cyan]  ↳ Step:[/bright_cyan] "
+                _gpt_lines = [
                     f"[dim]{step_api} API + {step_cache} cached │ "
                     f"tokens:{step_tok:,} │ ${step_cost:.5f}[/dim]"
-                )
-                for call in step_calls[:4]:  # Show up to 4 calls per step
+                ]
+                for call in step_calls[:4]:
                     _model = call.get("model", "?").replace("gpt-", "").replace("-codex", "c")
                     _agent = call.get("agent_id", "?")[:8]
                     _task = call.get("task_type", "?")[:8]
@@ -1293,34 +1378,34 @@ class LiveDashboard:
                     _resp = call.get("response_snippet", "")
 
                     if _cached:
-                        console.print(
-                            f"    [dim]📦 CACHE │ {_agent}/{_task} │ "
-                            f"Q: {_prompt}[/dim]"
+                        _gpt_lines.append(
+                            f"[dim]📦 CACHE │ {_agent}/{_task} │ Q: {_prompt}[/dim]"
                         )
-                        console.print(
-                            f"    [dim]  └─ A: {_resp}[/dim]"
-                        )
+                        _gpt_lines.append(f"[dim]  └─ A: {_resp}[/dim]")
                     else:
                         tok_detail = f"{_in_tok}→{_out_tok}" if _in_tok or _out_tok else str(_tok)
-                        console.print(
-                            f"    [bright_green]🧠 {_model}[/bright_green] "
+                        _gpt_lines.append(
+                            f"[bright_green]🧠 {_model}[/bright_green] "
                             f"[cyan]{_agent}/{_task}[/cyan] "
                             f"[dim]{tok_detail}tok ${_cost:.4f} {_lat}ms[/dim]"
                         )
-                        console.print(
-                            f"    [dim]  Q: {_prompt}[/dim]"
-                        )
-                        console.print(
-                            f"    [bright_green]  A: {_resp}[/bright_green]"
-                        )
+                        _gpt_lines.append(f"[dim]  Q: {_prompt}[/dim]")
+                        _gpt_lines.append(f"[bright_green]  A: {_resp}[/bright_green]")
 
                 if len(step_calls) > 4:
-                    console.print(
-                        f"    [dim]  ... +{len(step_calls) - 4} more calls[/dim]"
-                    )
+                    _gpt_lines.append(f"[dim]  ... +{len(step_calls) - 4} more calls[/dim]")
+                console.print(Panel(
+                    "\n".join(_gpt_lines),
+                    title="[bold bright_cyan]🔌 GPT Calls This Step[/bold bright_cyan]",
+                    border_style="bright_cyan",
+                    box=box.ROUNDED,
+                    expand=True,
+                    padding=(0, 2),
+                ))
 
-        # ── PHASE 23: GPT INTERPRETATION REASONING ──────────────────
+        # ── GPT INTERPRETATION REASONING ─────────────────────────────
         if parse_explanations:
+            _pe_lines = []
             for pe in parse_explanations[:3]:
                 stage = pe.get("stage", "?")
                 dtype = pe.get("discovery_type", "?")
@@ -1328,40 +1413,30 @@ class LiveDashboard:
                 reason = pe.get("reasoning", "")
                 chain = pe.get("interpretation_chain", "")
                 if stage in ("gpt_codex", "gpt_fallback", "gpt"):
-                    console.print(
-                        f"  [bright_green]🧠 GPT:[/bright_green] "
-                        f"[green]{dtype}={dval}[/green] "
-                        f"[dim]{reason}[/dim]"
+                    _pe_lines.append(
+                        f"[bright_green]🧠 GPT:[/bright_green] "
+                        f"[green]{dtype}={dval}[/green] {reason}"
                     )
                     if chain:
-                        console.print(f"    [dim]└─ {chain}[/dim]")
+                        _pe_lines.append(f"  [dim]└─ {chain}[/dim]")
                 else:
-                    console.print(
-                        f"  [dim]🔬 Parse ({stage}):[/dim] "
-                        f"[green]{dtype}={dval}[/green] [dim]{reason}[/dim]"
+                    _pe_lines.append(
+                        f"🔬 Parse ({stage}): "
+                        f"[green]{dtype}={dval}[/green] {reason}"
                     )
+            if _pe_lines:
+                console.print(Panel(
+                    "\n".join(_pe_lines),
+                    title="[bold bright_cyan]🔬 Parser Interpretations[/bold bright_cyan]",
+                    border_style="cyan",
+                    box=box.ROUNDED,
+                    expand=True,
+                    padding=(0, 2),
+                ))
 
-        # ── PHASE 23: SMART PHASE LADDER STATE ────────────────────────
-        if phase_state:
-            tp = phase_state.get("teaching_point", "")
-            current = phase_state.get("current_phase", "?")
-            if tp:
-                # Discovery-driven phase readiness
-                if "SMART LADDER" in tp:
-                    console.print(
-                        f"  [bright_red]🪜 Phase Ladder:[/bright_red] "
-                        f"[yellow]{tp}[/yellow]"
-                    )
-                elif "not yet ready" in tp:
-                    console.print(
-                        f"  [yellow]🪜 Phase {current}:[/yellow] "
-                        f"[dim]{tp}[/dim]"
-                    )
-                else:
-                    console.print(
-                        f"  [green]🪜 Phase {current}:[/green] "
-                        f"[dim]{tp}[/dim]"
-                    )
+        # ── P34-EXT: LEARNING METRICS PANEL ─────────────────────────
+        if learning_snapshot:
+            self._print_learning_panel(learning_snapshot, step)
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
@@ -1374,6 +1449,120 @@ class LiveDashboard:
         # Ensure all Rich output is flushed to terminal immediately
         import sys
         sys.stdout.flush()
+
+    # ─── P34-EXT: Learning Metrics Panel ────────────────────────────────────
+
+    def _print_learning_panel(self, snapshot: Dict[str, Any], step: int) -> None:
+        """
+        Print a compact learning dashboard panel every N steps.
+
+        Shows: discovery totals/deltas, novelty rate, stagnation, anti-repeat,
+        milestones, model mix, evidence gate, cost efficiency.
+        """
+        # ── Row 1: Discovery summary ──
+        tp = snapshot.get("total_ports", 0)
+        ts = snapshot.get("total_services", 0)
+        tc = snapshot.get("total_creds", 0)
+        tsh = snapshot.get("total_shells", 0)
+        tpaths = snapshot.get("total_paths", 0)
+
+        np_ = snapshot.get("new_ports", 0)
+        ns = snapshot.get("new_services", 0)
+        nc = snapshot.get("new_creds", 0)
+        nsh = snapshot.get("new_shells", 0)
+
+        def _delta(n: int) -> str:
+            return f"[green]+{n}[/green]" if n > 0 else "[dim]+0[/dim]"
+
+        disc_line = (
+            f"🔓 Ports: {tp} ({_delta(np_)}) │ "
+            f"⚙️  Services: {ts} ({_delta(ns)}) │ "
+            f"🔑 Creds: {tc} ({_delta(nc)}) │ "
+            f"💀 Shells: {tsh} ({_delta(nsh)}) │ "
+            f"🌐 Paths: {tpaths}"
+        )
+
+        # ── Row 2: Learning quality ──
+        novelty = snapshot.get("novelty_rate", 0.0)
+        stag = snapshot.get("stagnation_steps", 0)
+        ar_total = snapshot.get("anti_repeat_total", 0)
+        total_cmds = snapshot.get("total_commands", 0)
+        unique_tmpls = snapshot.get("unique_templates", 0)
+        phase_changes = snapshot.get("phase_changes", 0)
+
+        nov_color = "green" if novelty > 0.6 else "yellow" if novelty > 0.3 else "red"
+        stag_color = "green" if stag < 3 else "yellow" if stag < 6 else "red"
+
+        quality_line = (
+            f"[{nov_color}]📈 Novelty: {novelty:.0%}[/{nov_color}] "
+            f"({unique_tmpls}/{total_cmds} unique) │ "
+            f"[{stag_color}]⏳ Stagnation: {stag} steps[/{stag_color}] │ "
+            f"🔁 Anti-Repeat: {ar_total} │ "
+            f"🔀 Phase Changes: {phase_changes}"
+        )
+
+        # ── Row 3: Window metrics (if present) ──
+        window = snapshot.get("window", {})
+        window_line = ""
+        if window:
+            wd = window.get("discoveries_delta", 0)
+            wnov = window.get("novelty_rate", 0.0)
+            war = window.get("anti_repeat_rate", 0.0)
+            wstag = window.get("stagnation_avg", 0.0)
+            wpt = window.get("phase_thrash", 0)
+            wcpd = window.get("cost_per_discovery", 0.0)
+            ws = window.get("window_size", 5)
+            wd_color = "green" if wd > 0 else "red"
+            window_line = (
+                f"[dim]Window({ws}):[/dim] "
+                f"[{wd_color}]Δdisc={wd}[/{wd_color}] │ "
+                f"nov={wnov:.0%} │ AR={war:.0%} │ "
+                f"stag_avg={wstag:.1f} │ thrash={wpt} │ "
+                f"$/disc=${wcpd:.4f}"
+            )
+
+        # ── Row 4: Milestones (compact) ──
+        milestones = snapshot.get("milestones", {})
+        ms_parts = []
+        ms_icons = {
+            "first_port": "🔓", "first_service": "⚙️",
+            "first_creds": "🔑", "first_foothold": "💀",
+            "user_flag": "🚩", "root_flag": "🏴",
+        }
+        for key, icon in ms_icons.items():
+            val = milestones.get(key, -1)
+            if val >= 0:
+                ms_parts.append(f"[green]{icon} {key}@s{val}[/green]")
+        milestone_line = " │ ".join(ms_parts) if ms_parts else "[dim]No milestones yet[/dim]"
+
+        # ── Row 5: Model mix (compact) ──
+        mix = snapshot.get("model_mix", {})
+        mix_calls = mix.get("calls", {})
+        mix_cost = mix.get("total_cost", 0.0)
+        cache_rate = mix.get("cache_hit_rate", 0.0)
+        mix_line = (
+            f"🧠 codex:{mix_calls.get('codex', 0)} "
+            f"mini:{mix_calls.get('mini', 0)} "
+            f"nano:{mix_calls.get('nano', 0)} │ "
+            f"💰 ${mix_cost:.4f} │ "
+            f"📦 cache: {cache_rate:.0%}"
+        )
+
+        # Assemble panel
+        lines = [disc_line, quality_line]
+        if window_line:
+            lines.append(window_line)
+        lines.append(milestone_line)
+        lines.append(mix_line)
+
+        console.print(Panel(
+            "\n".join(lines),
+            title=f"[bold bright_green]📊 Learning Dashboard (step {step + 1})[/bold bright_green]",
+            border_style="bright_green",
+            box=box.ROUNDED,
+            expand=True,
+            padding=(0, 2),
+        ))
 
     # ─── Event printer ───────────────────────────────────────────────────────
 
@@ -1398,9 +1587,9 @@ class LiveDashboard:
         if not self.agent_stats:
             return
         table = Table(
-            title="[bold]Agent Performance[/bold]",
-            show_header=True, header_style="bold magenta",
-            border_style="dim", box=box.ROUNDED, padding=(0, 1),
+            title="[bold bright_white]Agent Performance[/bold bright_white]",
+            show_header=True, header_style="bold bright_white on dark_blue",
+            border_style="bright_magenta", box=box.ROUNDED, padding=(0, 2),
             expand=True,
         )
         table.add_column("Agent", style="bold", ratio=2, no_wrap=True)
@@ -1438,6 +1627,64 @@ class LiveDashboard:
                 f"{src_icon}{top_src[:10]}",
             )
         console.print(table)
+
+    # =========================================================================
+    # P35: COHERENCE PANEL — postcard + contradiction + scores
+    # =========================================================================
+    def print_coherence_panel(
+        self,
+        coherence_result: Optional[Any] = None,
+        step: int = 0,
+    ) -> None:
+        """Render a compact coherence panel after each step.
+
+        Shows:
+          - State postcard (1-line)
+          - Contradiction status (RED DESYNC banner if detected)
+          - Coherence / novelty / repeat-risk scores
+        """
+        if coherence_result is None:
+            return
+
+        from rich.panel import Panel
+        from rich.text import Text
+        from rich.columns import Columns
+
+        lines: list = []
+
+        # Postcard
+        postcard = getattr(coherence_result.summary, "postcard", "")
+        if postcard:
+            lines.append(f"[bold cyan]📮[/bold cyan] {postcard}")
+
+        # Contradiction banner
+        cont = coherence_result.contradiction
+        if cont.contradiction_detected:
+            sev = cont.severity.upper()
+            sev_color = {"HIGH": "bold red", "MED": "yellow", "LOW": "dim"}.get(sev, "dim")
+            lines.append(f"[{sev_color}]⚠ DESYNC ({sev})[/{sev_color}]: {cont.fix_hint}")
+            for c in cont.contradictions[:2]:
+                lines.append(f"  [red]•[/red] {c}")
+
+        # Scores
+        sc = coherence_result.score
+        coh_bar = "█" * int(sc.coherence_score * 10) + "░" * (10 - int(sc.coherence_score * 10))
+        nov_bar = "█" * int(sc.novelty_score * 10) + "░" * (10 - int(sc.novelty_score * 10))
+        rr_color = "red" if sc.repeat_risk > 0.6 else "yellow" if sc.repeat_risk > 0.3 else "green"
+        lines.append(
+            f"Coherence [cyan]{coh_bar}[/cyan] {sc.coherence_score:.0%}  "
+            f"Novelty [green]{nov_bar}[/green] {sc.novelty_score:.0%}  "
+            f"RepeatRisk [{rr_color}]{sc.repeat_risk:.0%}[/{rr_color}]"
+        )
+
+        border_style = "red" if cont.contradiction_detected else "dim cyan"
+        panel = Panel(
+            "\n".join(lines),
+            title=f"[bold]P35 Coherence │ Step {step}[/bold]",
+            border_style=border_style,
+            padding=(0, 1),
+        )
+        console.print(panel)
 
     # =========================================================================
     # EPISODE SUMMARY with sparklines and phase timeline
@@ -1661,8 +1908,8 @@ class LiveDashboard:
                 parts.append(f"[bold]{ic} {pname}[/bold] (s{_step_num})")
             console.print(Panel(
                 " → ".join(parts),
-                title="[bold]Phase Timeline[/bold]",
-                border_style="blue", padding=(0, 1),
+                title="[bold bright_blue]📈 Phase Timeline[/bold bright_blue]",
+                border_style="bright_blue", box=box.ROUNDED, padding=(0, 2),
             ))
 
         # ── KILL CHAIN PROGRESS BAR (Phase 6.7) ─────────────────────
@@ -1674,8 +1921,8 @@ class LiveDashboard:
         if len(self.episode_rewards) >= 2:
             console.print(Panel(
                 self._ascii_reward_chart(),
-                title="[bold]Reward Trend[/bold]",
-                border_style="yellow", padding=(0, 1),
+                title="[bold bright_yellow]📈 Reward Trend[/bold bright_yellow]",
+                border_style="bright_yellow", box=box.ROUNDED, padding=(0, 2),
             ))
 
         # ── DISCOVERY SUMMARY ────────────────────────────────────────
@@ -1686,8 +1933,8 @@ class LiveDashboard:
                 parts.append(f"[bold]{dtype}[/bold]: {istr}")
             console.print(Panel(
                 "\n".join(parts),
-                title="[bold green]Discoveries This Episode[/bold green]",
-                border_style="green", padding=(0, 1),
+                title="[bold bright_green]✨ Discoveries This Episode[/bold bright_green]",
+                border_style="bright_green", box=box.ROUNDED, padding=(0, 2),
             ))
 
         # Per-agent snapshot
@@ -1827,20 +2074,25 @@ class LiveDashboard:
             if algo_lines:
                 console.print(Panel(
                     "\n".join(algo_lines),
-                    title="[bold]🧬  Algorithm Performance Across Training[/bold]",
+                    title="[bold bright_blue]🧬  Algorithm Performance Across Training[/bold bright_blue]",
                     border_style="bright_blue",
+                    box=box.ROUNDED,
                     padding=(0, 2),
                 ))
 
         # ── REWARD CHART ─────────────────────────────────────────────
         if self.episode_rewards:
             console.print(Panel(self._ascii_reward_chart(),
-                                title="[bold]Final Reward Trend[/bold]",
-                                border_style="yellow"))
+                                title="[bold bright_yellow]📈 Final Reward Trend[/bold bright_yellow]",
+                                border_style="bright_yellow", box=box.ROUNDED,
+                                padding=(0, 2)))
 
         # ── TOKENS + COST ────────────────────────────────────────────
         if self.tokens_by_agent:
-            tt = Table(title="[bold]Tokens by Agent[/bold]", box=box.SIMPLE)
+            tt = Table(title="[bold bright_white]💳 Tokens by Agent[/bold bright_white]",
+                      box=box.ROUNDED, border_style="bright_cyan",
+                      header_style="bold bright_white on dark_blue",
+                      padding=(0, 2))
             tt.add_column("Agent", style="bold")
             tt.add_column("Tokens", justify="right")
             tt.add_column("Share", justify="right")
@@ -1922,8 +2174,9 @@ class LiveDashboard:
 """
         console.print(Panel(
             logo,
-            border_style="red",
-            padding=(0, 2),
+            border_style="bright_red",
+            box=box.ROUNDED,
+            padding=(0, 4),
         ))
 
     def print_kill_chain_bar(self, current_phase: str, phases_reached: Optional[set] = None):

@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260218_195602_8cbcd4",
+  "timestamp": 1771440967.9266381,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (40.00)"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates no objective completion",
+      "High mentor intervention (10 calls) suggests reliance on guidance"
+    ],
+    "summary": "Single-episode run achieved positive reward but no successful completion; mentor usage was high, indicating gaps in autonomous progression through the kill chain."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful exploitation path within the episode",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When host discovery is required at episode start",
+      "then_action": "Run a fast TCP scan to identify top open ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS --top-ports 1000 -T4 <target>"
+      },
+      "confidence": 0.45,
+      "evidence_refs": [],
+      "created_at": 1771440984.1991718,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on open ports",
+      "then_action": "Enumerate web server and directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target>:<port> -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771440984.199185,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Perform SSH version and auth-method enumeration",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh2-enum-algos,ssh-auth-methods <target>"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771440984.199193,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step to reduce uncertainty in early phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance via structured recon checklist",
+      "description": "Execute a fixed recon sequence (host discovery -> top ports -> service version -> targeted enum) without mentor calls, then compare objective completion rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first exploitation pathway",
+      "description": "If HTTP(S) is present, perform content discovery and technology fingerprinting (whatweb, gobuster) before any brute-force attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration depth",
+      "description": "For each open port, run at least one service-specific enumeration script to identify weak auth or misconfigurations.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

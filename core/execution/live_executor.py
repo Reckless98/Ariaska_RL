@@ -209,6 +209,18 @@ class LiveCommandExecutor:
         "(script": 5,       # Batch 15: subshell-wrapped script — kill fast
     }
     DEFAULT_TIMEOUT = 30
+
+    # Phase 28: Retry config for transient network errors
+    MAX_RETRIES = 2              # up to 2 retries (3 total attempts)
+    RETRY_BASE_DELAY = 1.5       # exponential backoff base (seconds)
+    _TRANSIENT_PATTERNS = (
+        "Connection refused",
+        "Connection timed out",
+        "No route to host",
+        "Connection reset by peer",
+        "Network is unreachable",
+        "Resource temporarily unavailable",
+    )
     
     def __init__(
         self,
@@ -366,23 +378,8 @@ class LiveCommandExecutor:
             self._record(agent_name, result)
             return result
         
-        # Execute via RealToolRunner
-        start = time.monotonic()
-        tool_result = self._runner.execute(command, timeout=timeout)
-        elapsed_ms = (time.monotonic() - start) * 1000
-        
-        result = LiveCommandResult(
-            command=command,
-            agent_name=agent_name,
-            executed=tool_result.executed,
-            stdout=tool_result.stdout or "",
-            stderr=tool_result.stderr or "",
-            return_code=tool_result.return_code,
-            blocked=tool_result.blocked,
-            blocked_reason=tool_result.blocked_reason or "",
-            duration_ms=elapsed_ms,
-            target_ip=self.target_ip,
-        )
+        # Execute via RealToolRunner (with Phase 28 retry for transient errors)
+        result = self._execute_with_retry(command, agent_name, timeout)
         
         self._record(agent_name, result)
         
@@ -390,7 +387,7 @@ class LiveCommandExecutor:
         status = "BLOCKED" if result.blocked else ("OK" if result.success else "FAIL")
         output_preview = result.output[:80].replace("\n", " ") if result.output else "(empty)"
         logger.debug(
-            f"[LIVE][{agent_name}] {status} ({elapsed_ms:.0f}ms) "
+            f"[LIVE][{agent_name}] {status} ({result.duration_ms:.0f}ms) "
             f"cmd={command[:60]}... → {output_preview}"
         )
         
@@ -524,3 +521,53 @@ class LiveCommandExecutor:
     def reset_episode(self) -> None:
         """Reset per-episode tracking (keep cumulative stats)."""
         self._agent_history.clear()
+
+    # ── Phase 28: Retry logic for transient network errors ───────
+
+    def _is_transient_failure(self, result: LiveCommandResult) -> bool:
+        """Check if a failure looks transient and worth retrying."""
+        if result.blocked or result.success:
+            return False
+        combined = (result.stdout + " " + result.stderr).strip()
+        return any(p.lower() in combined.lower() for p in self._TRANSIENT_PATTERNS)
+
+    def _execute_with_retry(
+        self,
+        command: str,
+        agent_name: str,
+        timeout: int,
+    ) -> LiveCommandResult:
+        """Execute with exponential-backoff retry for transient errors."""
+        last_result: Optional[LiveCommandResult] = None
+        for attempt in range(self.MAX_RETRIES + 1):
+            start = time.monotonic()
+            tool_result = self._runner.execute(command, timeout=timeout)
+            elapsed_ms = (time.monotonic() - start) * 1000
+
+            result = LiveCommandResult(
+                command=command,
+                agent_name=agent_name,
+                executed=tool_result.executed,
+                stdout=tool_result.stdout or "",
+                stderr=tool_result.stderr or "",
+                return_code=tool_result.return_code,
+                blocked=tool_result.blocked,
+                blocked_reason=tool_result.blocked_reason or "",
+                duration_ms=elapsed_ms,
+                target_ip=self.target_ip,
+            )
+            last_result = result
+
+            if result.success or result.blocked or not self._is_transient_failure(result):
+                break  # non-transient — stop immediately
+
+            if attempt < self.MAX_RETRIES:
+                delay = self.RETRY_BASE_DELAY * (2 ** attempt)
+                logger.debug(
+                    f"[LIVE-RETRY] Transient failure on attempt {attempt + 1}, "
+                    f"retrying in {delay:.1f}s: {command[:60]}"
+                )
+                time.sleep(delay)
+
+        assert last_result is not None
+        return last_result

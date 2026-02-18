@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_214249_289c17",
+  "timestamp": 1771447377.4700813,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode with positive reward accumulation (50.00)"
+    ],
+    "fails": [
+      "No successful objective completion (0.00% success rate)",
+      "High mentor call usage (10) indicates heavy guidance dependency"
+    ],
+    "summary": "Single-episode run achieved positive reward but failed to convert actions into a successful objective, indicating process completion without effective exploitation or goal closure."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Action sequence did not reach objective completion despite positive reward signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High reliance on mentor interventions during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_calls_01",
+        "ep001_mentor_calls_10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial scan identifies open TCP services but objective is not yet known",
+      "then_action": "Run full port and version enumeration to build a complete attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sC -sV -p- --min-rate 1000 <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447390.480777,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports (80/443)",
+      "then_action": "Perform web discovery to enumerate paths and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://<target> -w <wordlist> -x php,txt,html"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447390.4807978,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected (port 22 open)",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-auth-methods,ssh2-enum-algos <target>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771447390.480811,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishing full attack surface coverage is a foundational step to improve objective completion."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web discovery is a high-yield reconnaissance action likely to improve success rate."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten Recon-to-Exploit Pipeline",
+      "description": "Instrument a checklist that transitions from enumeration results to at least one concrete exploitation attempt per detected service.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Protocol",
+      "description": "Introduce decision heuristics to choose the next action without mentor input for the first three steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective Validation Step",
+      "description": "Add a final verification action to confirm objective completion before ending the episode.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

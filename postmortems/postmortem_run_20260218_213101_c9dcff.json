@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260218_213101_c9dcff",
+  "timestamp": 1771446681.5440145,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite low success rate",
+      "Maintained stable reward trend across the run"
+    ],
+    "fails": [
+      "No successful episode completions (0% success rate)",
+      "High mentor call count relative to single episode suggests decision uncertainty"
+    ],
+    "summary": "Single-episode run with positive reward but no successful completion, indicating partial progress without task closure."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to complete objective within the episode despite incremental rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_213101_c9dcff_ep001_final"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery yields open ports but no clear exploit path",
+      "then_action": "Run targeted service enumeration with nmap default scripts and version detection",
+      "parameters_template": {
+        "ports": "top-1000",
+        "flags": "-sV -sC"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_213101_c9dcff_ep001_step05"
+      ],
+      "created_at": 1771446692.1902268,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When enumeration stalls after initial scan",
+      "then_action": "Pivot to vulnerability triage using service versions and searchsploit",
+      "parameters_template": {
+        "tool": "searchsploit",
+        "query": "<service> <version>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_213101_c9dcff_ep001_step08"
+      ],
+      "created_at": 1771446692.1902413,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Improves reconnaissance depth to reduce stalls and mentor dependence"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls via structured recon checklist",
+      "description": "Apply a fixed recon sequence (discovery -> service enum -> vuln triage) before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective closure drill",
+      "description": "Add a 10-step closing checklist to ensure the episode reaches a defined success state.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-focused exploitation practice",
+      "description": "Select one detected service and perform end-to-end exploit validation to completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260218_200426_d6759e",
+  "timestamp": 1771441473.763117,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive reward signal in the only episode"
+    ],
+    "fails": [
+      "No episode achieved success criteria (0% success rate)"
+    ],
+    "summary": "Single-episode run produced a positive reward but failed to meet success conditions; more targeted actions are needed to convert reward into objective completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to reach end-goal despite positive intermediate reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_final"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial scan identifies live hosts on a /24 range",
+      "then_action": "Run focused TCP SYN scan on top 1000 ports with service/version detection",
+      "parameters_template": {
+        "targets": "<live_hosts>",
+        "ports": "1-1000",
+        "flags": "-sS -sV --version-light"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771441487.271602,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on any host",
+      "then_action": "Perform lightweight web enumeration to map endpoints and technologies",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "http-title,http-server-header,http-enum",
+        "port": "<http_port>"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771441487.2716153,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Most plausible contributor to positive reward signal in the lone episode"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten discovery-to-enumeration pipeline",
+      "description": "After initial host discovery, immediately pivot to targeted port scans with -sV and NSE scripts for identified services to improve actionable intel",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration depth test",
+      "description": "For each detected service, run a minimal NSE set (e.g., http-*, ssh-*, smb-*) to find exploitable misconfigurations",
+      "priority": "high"
+    },
+    {
+      "title": "Objective alignment check",
+      "description": "Instrument steps to verify goal-state criteria mid-episode to prevent reward without success (e.g., validate access/flag conditions)",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

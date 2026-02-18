@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260218_200406_1f6eca",
+  "timestamp": 1771441452.874454,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero success rate",
+      "Consistent reward trend across the single episode"
+    ],
+    "fails": [
+      "No successful episode completions (0.00% success rate)",
+      "High mentor reliance (10 calls) indicates low autonomy",
+      "Single episode provides insufficient coverage for pattern validation"
+    ],
+    "summary": "The run achieved stable reward but failed to complete objectives, with heavy mentor dependence and limited data for robust generalization."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved despite positive reward signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High mentor dependency during decision-making",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access path is unclear after recon",
+      "then_action": "Prioritize service enumeration by running targeted nmap scripts for discovered ports",
+      "parameters_template": {
+        "ports": "top1000",
+        "scripts": "default,vuln"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771441463.4129925,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When multiple services are detected on a host",
+      "then_action": "Rank services by exploitability and pivot to the highest-risk service first",
+      "parameters_template": {
+        "ranking_criteria": [
+          "version_age",
+          "public_exploits",
+          "auth_required"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771441463.413006,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Improves reconnaissance-to-exploitation transition and reduces indecision"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Enforce a 3-step autonomous decision loop before mentor calls; log decision rationale and outcomes",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused action selection",
+      "description": "Implement a checkpoint system that validates progress toward the primary objective every 5 actions",
+      "priority": "high"
+    },
+    {
+      "title": "Service prioritization test",
+      "description": "Run two episodes comparing exploit-first vs enumerate-all strategies and measure success rate delta",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

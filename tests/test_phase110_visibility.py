@@ -545,7 +545,7 @@ class TestBudgetGateWiring:
         gpt = FakeGPTManager(seed=42)
         coach = SmartCoach(
             agent_name="RedAgent",
-            gpt_manager=gpt,
+            gpt_manager=gpt,  # type: ignore[arg-type]
             budget_controller=None,
         )
         assert coach.budget_controller is None
@@ -559,7 +559,7 @@ class TestBudgetGateWiring:
         bc = AdaptiveBudgetController()
         coach = SmartCoach(
             agent_name="RedAgent",
-            gpt_manager=gpt,
+            gpt_manager=gpt,  # type: ignore[arg-type]
             budget_controller=bc,
         )
         assert coach.budget_controller is bc
@@ -689,7 +689,7 @@ class TestBudgetGateWiring:
         bc = AdaptiveBudgetController(config=BudgetConfig(mentor_budget_total=2))
         coach = SmartCoach(
             agent_name="RedAgent",
-            gpt_manager=gpt,
+            gpt_manager=gpt,  # type: ignore[arg-type]
             budget_controller=bc,
         )
         bc.reset_episode(max_steps=40)

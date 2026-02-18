@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260218_212942_d594a1",
+  "timestamp": 1771446606.688814,
+  "key_outcomes": {
+    "wins": [
+      "Completed baseline enumeration without errors",
+      "Maintained steady reward despite no full compromise"
+    ],
+    "fails": [
+      "Zero episode success (no objective completion)",
+      "High mentor call count indicates uncertainty in next actions"
+    ],
+    "summary": "Single-episode run showed stable reward but no successful objective completion, with heavy reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after initial reconnaissance without transitioning to exploitation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP ports are discovered via initial scan",
+      "then_action": "Run targeted version detection on discovered ports",
+      "parameters_template": {
+        "scan": "nmap -sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771446623.5817873,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected",
+      "then_action": "Perform directory enumeration with common wordlist",
+      "parameters_template": {
+        "tool": "gobuster",
+        "url": "http://<target>",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771446623.5817962,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Collect SSH banner and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey <target>"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771446623.5818017,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable recon progression and low-risk information gain"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Common web enumeration step that consistently expands attack surface"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Post-recon decision tree",
+      "description": "Add a branching plan that maps detected services to specific exploitation paths (e.g., HTTP -> CMS fingerprinting; SMB -> share listing) to reduce stalling.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit validation checklist",
+      "description": "Introduce a checklist to verify version-specific exploits before attempting, reducing mentor dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential discovery loop",
+      "description": "Integrate systematic credential hunting (config files, default creds, service banners) after enumeration.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

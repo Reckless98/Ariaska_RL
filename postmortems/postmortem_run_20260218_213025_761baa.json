@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260218_213025_761baa",
+  "timestamp": 1771446645.2942402,
+  "key_outcomes": {
+    "wins": [
+      "Episode achieved positive total reward (80.00), indicating some effective actions were taken"
+    ],
+    "fails": [
+      "Success rate remained at 0.00%, indicating objective completion was not achieved"
+    ],
+    "summary": "Single-episode run shows partial effectiveness but no objective success; needs focus on completion criteria and end-to-end execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within episode despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target is identified but success criteria are not met",
+      "then_action": "Validate objective checklist and map remaining steps to completion",
+      "parameters_template": {
+        "checklist": [
+          "access_confirmed",
+          "data_exfil_complete",
+          "persistence_set"
+        ],
+        "review_interval_minutes": 10
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_mid"
+      ],
+      "created_at": 1771446658.0002265,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial progress yields positive reward but no success",
+      "then_action": "Run gap analysis to identify missing kill chain phases",
+      "parameters_template": {
+        "phases": [
+          "recon",
+          "initial_access",
+          "privilege_escalation",
+          "lateral_movement",
+          "objectives"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_end"
+      ],
+      "created_at": 1771446658.0002394,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses observed failure to complete objectives despite positive reward"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Drill",
+      "description": "Run a short episode focused solely on completing the explicit success criteria, with periodic checklist validation every 10 minutes.",
+      "priority": "high"
+    },
+    {
+      "title": "Kill Chain Gap Mapping",
+      "description": "After each phase, explicitly document which kill chain step is missing and take a targeted action to close it before proceeding.",
+      "priority": "high"
+    },
+    {
+      "title": "Endgame Focus Run",
+      "description": "Start from mid-episode state (post-access) and practice only endgame steps to drive success rate above 0%.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

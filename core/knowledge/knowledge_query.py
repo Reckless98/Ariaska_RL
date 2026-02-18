@@ -77,25 +77,25 @@ def query_knowledge(
 
     try:
         # Build query embedding
-        query_embedding = _embedder.encode([query], show_progress_bar=False).tolist()
+        query_embedding = _embedder.encode([query], show_progress_bar=False).tolist()  # type: ignore[union-attr]
 
         # Optional phase filter
         where_filter = None
         if phase_filter:
             where_filter = {"phase": phase_filter}
 
-        results = _kb_collection.query(
+        results = _kb_collection.query(  # type: ignore[union-attr]
             query_embeddings=query_embedding,
             n_results=top_k,
-            where=where_filter,
+            where=where_filter,  # type: ignore[arg-type]
         )
 
         if not results or not results.get("documents"):
             return []
 
-        docs = results["documents"][0]
-        metadatas = results.get("metadatas", [[]])[0]
-        distances = results.get("distances", [[]])[0]
+        docs = results["documents"][0]  # type: ignore[index]
+        metadatas = (results.get("metadatas") or [[]])[0]  # type: ignore[index]
+        distances = (results.get("distances") or [[]])[0]  # type: ignore[index]
 
         output = []
         for i, doc in enumerate(docs):

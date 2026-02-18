@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260218_212417_901361",
+  "timestamp": 1771446279.4180665,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward in a single-episode run"
+    ],
+    "fails": [
+      "Zero success rate despite positive reward",
+      "High mentor intervention count (15) indicating low autonomy"
+    ],
+    "summary": "The run achieved moderate reward but no successful episode completion, with frequent mentor reliance indicating gaps in end-to-end execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Tasks progressed but did not reach terminal success condition within the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open ports but no foothold",
+      "then_action": "Prioritize service enumeration with targeted nmap scripts",
+      "parameters_template": {
+        "ports": "top-1000",
+        "scripts": "default,vuln"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771446288.8447473,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor guidance exceeds 10 calls in a single episode",
+      "then_action": "Insert a checkpoint review and re-plan next two actions before proceeding",
+      "parameters_template": {
+        "checkpoint": "post-recon",
+        "replan_horizon_steps": 2
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771446288.8447602,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Generic enumeration prioritization is broadly applicable and supports early kill-chain progression."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence with structured checkpoints",
+      "description": "Enforce a recon\u2192enumeration\u2192exploit planning checkpoint after each phase to reduce mentor calls and increase autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Service enumeration depth test",
+      "description": "Compare default script scans vs. targeted service-specific scripts to improve exploit discovery rates.",
+      "priority": "high"
+    },
+    {
+      "title": "Termination criteria alignment",
+      "description": "Validate that episode success conditions are explicitly checked after each major action to avoid incomplete runs.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

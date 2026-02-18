@@ -1,0 +1,161 @@
+{
+  "run_id": "run_20260218_210655_5db69c",
+  "timestamp": 1771445222.765436,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward despite low success rate",
+      "Sustained reward trend across the single episode"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High mentor intervention count (15) indicates reliance and unstable decision-making",
+      "Single-episode run limits statistical confidence"
+    ],
+    "summary": "The run achieved a modest reward but failed to reach completion, suggesting partial progress with significant guidance and no demonstrated end-to-end success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert reconnaissance findings into a successful exploitation or objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor calls to choose next action",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02",
+        "ep001_step03",
+        "ep001_step04",
+        "ep001_step05",
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10",
+        "ep001_step11",
+        "ep001_step12",
+        "ep001_step13",
+        "ep001_step14",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial discovery is required with no prior host data",
+      "then_action": "Run fast top-ports scan with service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -T4 --top-ports 1000",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771445238.7194238,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected on common ports",
+      "then_action": "Enumerate web surface with directory brute-force",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "url": "http(s)://<target>/",
+        "wordlist": "<common_wordlist>"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771445238.719438,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When an authenticated entry point is required after initial recon",
+      "then_action": "Prioritize credential discovery via service-specific enumeration",
+      "parameters_template": {
+        "services": [
+          "ssh",
+          "ftp",
+          "http"
+        ],
+        "focus": "banner/version-based checks"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771445238.719448,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable baseline recon step that should be consistently applied early"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent next action after HTTP detection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run a full episode with a predefined recon-to-exploit decision tree and limit mentor calls to <5 to encourage autonomous action sequencing.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighter exploit selection",
+      "description": "After service detection, map versions to specific checks (e.g., HTTP header version \u2192 CVE lookup) and attempt only top 1-2 most plausible paths.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon depth vs. time tradeoff",
+      "description": "Compare a fast scan + targeted enum vs. full-port scan to see which yields higher objective completion probability.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

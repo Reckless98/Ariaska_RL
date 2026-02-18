@@ -1,0 +1,35 @@
+{
+  "run_id": "run_20260218_195532_7d792d",
+  "timestamp": 1771440957.9926183,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "No successful episodes recorded (0.00% success rate)",
+      "High mentor dependency (15 calls) without recorded success"
+    ],
+    "summary": "Single-episode run with zero successes and limited telemetry; insufficient data to extract confirmed successful patterns."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [],
+  "memory_ops": [],
+  "next_experiments": [
+    {
+      "title": "Instrument action logging",
+      "description": "Enable step-level action and outcome logging to capture concrete success/failure signals for pattern extraction.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run a controlled episode with mentor calls capped (e.g., max 5) to identify autonomous skill gaps.",
+      "priority": "high"
+    },
+    {
+      "title": "Baseline success criteria",
+      "description": "Define and log explicit success markers per phase (recon, access, post-exploitation) to map rewards to actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

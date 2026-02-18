@@ -1,9 +1,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch">
-  <img src="https://img.shields.io/badge/OpenAI-GPT--Hybrid-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI">
-  <img src="https://img.shields.io/badge/Tests-875%20Passing-brightgreen?style=for-the-badge" alt="Tests">
-  <img src="https://img.shields.io/badge/Phase-15%20Neurovortex-blueviolet?style=for-the-badge" alt="Phase 15">
+  <img src="https://img.shields.io/badge/OpenAI-GPT--5.2--Hybrid-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI">
+  <img src="https://img.shields.io/badge/Tests-1186%20Passing-brightgreen?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/Phase-34-blueviolet?style=for-the-badge" alt="Phase 34">
   <img src="https://img.shields.io/badge/License-Non--Commercial-red?style=for-the-badge" alt="License">
 </p>
 
@@ -17,544 +17,440 @@
     ██║  ██║██║  ██║██║██║  ██║███████║██║  ██╗██║  ██║
     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
             ██████╗ ██╗
-            ██╔══██╗██║           NEUROVORTEX
-            ██████╔╝██║           Autonomous Multi-Agent
-            ██╔══██╗██║           Reinforcement Learning for
-            ██║  ██║███████╗      Cybersecurity Simulation
+            ██╔══██╗██║           Autonomous Multi-Agent
+            ██████╔╝██║           Reinforcement Learning for
+            ██╔══██╗██║           Live Penetration Testing
+            ██║  ██║███████╗
             ╚═╝  ╚═╝╚══════╝      by Filip Volf
 ```
 
 <p align="center">
-  <strong>5 Agents · 6-Source Arbitrated Pipeline · Neuromodulator-Driven Exploration · 107K Knowledge Entries · 875 Tests</strong>
+  <strong>5 Agents · MicroChain + PhaseGuide Intelligence · PPO Actor-Critic v3.0 · 107K Knowledge Entries · 1,186 Tests</strong>
 </p>
 
 ---
 
-## Why This Matters
+## Executive Summary
 
-Penetration testing is manual, expensive, and doesn't scale. Ariaska replaces the "next command" guesswork with an RL-trained decision engine that learns from every step — which exploits work, which fail, and why.
+Ariaska_RL is an autonomous multi-agent reinforcement learning system purpose-built for live authorized penetration testing and CTF engagements. It deploys five specialized agents — Scout, Red, Blue, Shadow, Orion — coordinated by a SmartOrchestrator through a tiered GPT-5.2 hybrid decision pipeline, with PPO Actor-Critic as the primary RL algorithm.
 
-The system doesn't just pick actions. It **reasons**: builds evidence graphs, forms hypotheses about what services are vulnerable, tests them, and consolidates winning strategies into reusable skills. A biologically-inspired neuromodulator system (Phase 15 — Neurovortex) dynamically adjusts exploration, aggression, and learning rate based on real-time signals — dopamine for reward prediction error, norepinephrine for surprise, acetylcholine for attention, serotonin for patience.
+The system operates in live-only mode against real targets (Metasploitable 2/3, HackTheBox). There is no simulated environment. All command execution happens through a sandboxed live executor with RFC1918 validation and IP allowlisting.
 
-Every LLM call is budget-gated, cached, and ROI-tagged. The mentor (GPT) teaches but never drives — the PPO student must predict first, and the gap between student and teacher becomes the training signal (TeacherTrace behavioral cloning).
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        ARIASKA_RL  NEUROVORTEX                       │
-│                                                                      │
-│   101,000+ lines of core Python   ·    201 modules                   │
-│   875 tests (all passing)         ·    51 test files                 │
-│   107,933 knowledge entries       ·    11 search indices             │
-│   5 specialized agents            ·    144+ command templates        │
-│   7 kill chain phases             ·    51 feature flags              │
-│   4 neuromodulators               ·    6-source action arbitrator    │
-│   Budget-gated LLM (877K tokens)  ·    877,500 token/episode cap     │
-│                                                                      │
-│   Primary Target:  HTB / Metasploitable via Docker                   │
-│   Entry Point:     ariaska_cli.py → SmartOrchestrator                │
-│   Python:          3.11+ (developed on 3.13.7)                       │
-└──────────────────────────────────────────────────────────────────────┘
-```
+| Metric | Value |
+|--------|-------|
+| Core modules | 207 |
+| Core SLOC | ~107K Python |
+| Test suite | 1,186 tests across 68 files |
+| Knowledge corpus | 107,933 entries (v2 schema, 18 JSONL partitions) |
+| Knowledge indices | 11 prebuilt indices (~110MB) |
+| Current phase | Phase 34 — PhaseGuidedLLM + Structured Distillation |
+| Author | Filip Volf |
 
 ---
 
-## What Makes It Different
-
-| Feature | Ariaska Neurovortex | Typical RL Pentest Agent |
-|---------|---------------------|--------------------------|
-| Decision source | 6-source arbitrated pipeline (PPO, hypothesis, skill, playbook, registry, mentor) | Single-policy or scripted |
-| Mentor control | Autonomy-scheduled, declining over time, every call traced | Unbounded LLM calls |
-| LLM budget | Per-episode, per-tier, ROI-tagged, cached | Unlimited or hopes-and-prayers |
-| Knowledge | 107K indexed entries (by port, CVE, service, phase, killchain) | Ad-hoc prompts |
-| Memory | Working memory + semantic index + consolidation ("sleep replay") | Flat replay buffer |
-| Exploration | Neuromodulator-driven (DA/NE/ACh/5-HT → entropy, LR, aggression) | Fixed epsilon |
-| Safety | Reflex policy + detection clamp + brute-force guard + aggression ceiling | None or minimal |
-| Multi-agent | 5 specialized agents with phase-dependent activation | Monolithic agent |
-
----
-
-## Table of Contents
-
-- [Why This Matters](#why-this-matters)
-- [What Makes It Different](#what-makes-it-different)
-- [Neurovortex Architecture](#neurovortex-architecture-phase-15)
-- [Decision Pipeline](#decision-pipeline)
-- [Neuromodulator System](#neuromodulator-system)
-- [Budget + ROI Enforcement](#budget--roi-enforcement)
-- [Consolidation Loop](#consolidation-loop-sleep-replay)
-- [The Five Agents](#the-five-agents)
-- [Kill Chain Simulation](#kill-chain-simulation)
-- [Knowledge System](#knowledge-system)
-- [PPO — Primary RL Algorithm](#ppo--primary-rl-algorithm)
-- [Safety Boundary](#safety-boundary)
-- [How to Run](#how-to-run)
-- [Feature Flag Profiles](#feature-flag-profiles)
-- [Benchmarks / KPIs](#benchmarks--kpis)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap-phase-16)
-- [Author](#author)
-- [License](#license)
-
----
-
-## Neurovortex Architecture (Phase 15)
+## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        SmartOrchestrator                            │
-│   ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌────────────────┐  │
-│   │ScoutAgent │  │ RedAgent  │  │ShadowAgent│  │  OrionAgent    │  │
-│   │  (recon)  │  │ (exploit) │  │ (stealth) │  │  (strategy)    │  │
-│   └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └──────┬────────┘  │
-│         └───────────────┼──────────────┼───────────────┘            │
-│                         ▼                                           │
-│                ┌─────────────────┐                                  │
-│                │   SmartCoach    │  ← one per agent, 7.7K lines     │
-│                │                 │                                  │
-│                │  ┌───────────┐  │    ┌──────────────────────────┐  │
-│                │  │ Neuromod  │──┼───▶│ DA · NE · ACh · 5-HT    │  │
-│                │  │ Engine    │  │    │ → entropy, LR, BC, agg   │  │
-│                │  └───────────┘  │    └──────────────────────────┘  │
-│                │  ┌───────────┐  │    ┌──────────────────────────┐  │
-│                │  │  Reflex   │──┼───▶│ detection > 0.7? STOP    │  │
-│                │  │  Policy   │  │    │ brute > 10? HALT         │  │
-│                │  └───────────┘  │    └──────────────────────────┘  │
-│                │  ┌───────────┐  │    ┌──────────────────────────┐  │
-│                │  │Arbitrator │──┼───▶│ PPO·Hyp·Skill·Reg·Mentor│  │
-│                │  │           │  │    │ score → pick best        │  │
-│                │  └───────────┘  │    └──────────────────────────┘  │
-│                │  ┌───────────┐  │    ┌──────────────────────────┐  │
-│                │  │ Working   │──┼───▶│ phase · evidence · disc  │  │
-│                │  │ Memory    │  │    │ TTL slots, to_vector()   │  │
-│                │  └───────────┘  │    └──────────────────────────┘  │
-│                │  ┌───────────┐  │    ┌──────────────────────────┐  │
-│                │  │ Sensory   │──┼───▶│ ring buffer of obs       │  │
-│                │  │ Buffer    │  │    │ feeds neuromod inputs    │  │
-│                │  └───────────┘  │    └──────────────────────────┘  │
-│                └─────────────────┘                                  │
-│                         │                                           │
-│                         ▼  (end of episode)                         │
-│                ┌─────────────────┐                                  │
-│                │ Consolidation   │  "Sleep replay"                  │
-│                │ Engine          │  DA × ACh priority scoring       │
-│                │ → SkillLibrary  │  dedup by state hash             │
-│                │ → BCBuffer      │  bounded 64 samples              │
-│                └─────────────────┘                                  │
-└─────────────────────────────────────────────────────────────────────┘
+ariaska_cli.py
+  └─ SmartOrchestrator (6,882L)
+       ├─ SmartCoach (8,197L) ×5 — one per agent
+       │    ├─ 4-stage decision pipeline: Playbook → PPO → Registry → GPT Mentor
+       │    ├─ MicroChain (P27): nano→mini→nano 3-stage scoring chain
+       │    ├─ PhaseGuidedLLM (P34): structured guidance + distillation packets
+       │    ├─ Evidence Gate (P27): exploit validation (off / log / enforce)
+       │    ├─ Anti-repeat guard + role exclusivity
+       │    └─ TacticalCortex quality gate (7 rule categories)
+       │
+       ├─ GPTManager (1,439L) — centralized LLM gateway
+       │    ├─ BudgetManagerV2 (P17+36): 999K max / 499.5K min floor
+       │    ├─ 4-tier routing: codex / full / mini / nano
+       │    ├─ Response caching by state fingerprint
+       │    └─ ROI tag tracking + burst pool (12%)
+       │
+       ├─ PPOAgent (1,543L) — Actor-Critic v3.0 (R68–R80)
+       │    ├─ 512-dim state, 5-dim action
+       │    ├─ Phase-gated actor heads (HRL-lite)
+       │    ├─ Self-Imitation Learning (SIL)
+       │    ├─ Symlog value compression + cosine entropy schedule
+       │    ├─ Dual-horizon GAE (λ=0.97 + λ=0.70, blend=0.65)
+       │    └─ KL-adaptive LR + spectral norm critic
+       │
+       ├─ 5 Agents (AgentInterface + MemorySyncInterface)
+       │    ├─ ScoutAgent  — recon, port scanning, service fingerprinting
+       │    ├─ RedAgent    — exploitation, privesc, shell acquisition
+       │    ├─ BlueAgent   — defensive, honeypots, credential resets
+       │    ├─ ShadowAgent — stealth, alert monitoring, detection avoidance
+       │    └─ OrionAgent  — strategic coordination, phase transitions
+       │
+       ├─ CyberEnvironment (2,854L) — kill chain state machine
+       ├─ LiveDashboard v5.0 (2,284L) — Rich terminal UI
+       ├─ EventBus — pub/sub step and agent event routing
+       └─ TraceWriter — JSONL structured event logging
 ```
 
 ---
 
-## Decision Pipeline
+## Intelligence Pipeline
 
-Each agent's SmartCoach selects commands through a **6-source arbitrated pipeline**:
+### MicroChain (Phase 27)
 
-```mermaid
-flowchart TD
-    A[Step Input: state + phase + history] --> B{Reflex Policy}
-    B -- STOP_NOISY --> C[Override: safe fallback]
-    B -- VERIFY --> D[Verification command]
-    B -- REDUCE_AGG --> E[Lower aggression, continue]
-    B -- clear --> F{Action Arbitrator}
-    F --> G["PPO Student<br/>action_idx → command"]
-    F --> H["Hypothesis Engine<br/>highest EV hypothesis"]
-    F --> I["SkillLibrary<br/>semantic match"]
-    F --> J["Playbook/Registry<br/>precondition-matched"]
-    F --> K["Mentor GPT<br/>budget-gated, traced"]
-    G & H & I & J & K --> L["Score: EV × confidence × phase_fit<br/>− recency_penalty + aggression_adj"]
-    L --> M[Winner: highest score]
-    M --> N{Anti-Repeat Guard}
-    N -- blocked --> O[Random alternative from role pool]
-    N -- passed --> P[Execute command]
-    P --> Q["Parse output → DiscoveryEvent"]
-    Q --> R["Update: WorkingMemory, EvidenceGraph,<br/>Hypothesis, SemanticIndex"]
-    R --> S["PPO: store_transition"]
-    S --> T["Neuromod: compute DA/NE/ACh/5-HT"]
-    T --> U["Aggression: compute + clamp ≤ 0.85"]
-```
+3-stage iterative LLM scoring chain for command selection:
 
-**Decision source tracking** — every step logs its source: `ppo` | `hypothesis` | `skill_library` | `playbook` | `registry` | `mentor` | `anti_repeat` | `fallback` | `reflex_override`
+| Stage | Model | Function |
+|-------|-------|----------|
+| 1 (nano) | gpt-5.2-nano | Classify tactical situation |
+| 2 (mini) | gpt-5.2-mini | Generate candidate commands (JSON, max 3) |
+| 3 (nano) | gpt-5.2-nano | Score candidates: phase_fit / evidence_support / novelty |
 
----
+Codex escalation triggers when top score < `ESCALATION_THRESHOLD` (default 0.40, tunable via `MC_ESCALATE_THRESHOLD` env var) or stagnation >= 9 steps with scores < 0.55.
 
-## Neuromodulator System
+Ablation toggle: `MC_NANO_ABLATION=1` bypasses nano stages 1+3, replacing with heuristic classify/score for A/B testing.
 
-Four modulators map to control-theory variables that adjust agent behavior in real-time:
+### PhaseGuidedLLM (Phase 34)
 
-| Modulator | Biological Analogy | Control Signal | Effect |
-|-----------|-------------------|----------------|--------|
-| **Dopamine (DA)** | Reward prediction error | `entropy_bonus` | High DA → more exploration after positive surprise |
-| **Norepinephrine (NE)** | Arousal / alertness | `learning_rate_mod` | High NE → faster learning, BUT clamped at 0.75 |
-| **Acetylcholine (ACh)** | Attention / focus | `bc_weight` | High ACh → stronger behavioral cloning from mentor |
-| **Serotonin (5-HT)** | Patience / impulse control | `aggression` | Low 5-HT → more aggressive (less patient) |
+Structured JSON guidance for agents:
+- Phase decision with evidence-driven stay/move conditions
+- 3–6 candidate next actions as template picks
+- Anomaly probes for stagnation/flag-hunting
+- Distillation packet (MentorTrace target) for apprentice policy training
 
-**Inputs** (fed from SensoryBuffer ring buffer each step):
-- `reward_delta` → DA (was reward better/worse than expected?)
-- `novelty` → NE (is this observation new?)
-- `mentor_active` → ACh (is the mentor teaching right now?)
-- `detection_risk` → 5-HT (how close are we to getting caught?)
+Model routing: gpt-5.2-mini default; codex escalation when confidence < 0.45, contradictions detected, or semantic stall >= 8 steps.
 
-**Aggression controller** — HTB-calibrated:
-- Phase baselines: RECON=0.35, ENUM=0.45, EXPLOIT=0.65, PRIVESC=0.75
-- Hard ceiling: 0.85 (never over-commits)
-- NE spike guard: if NE > 0.75, clamp aggression
-- Detection hard clamp: if detection_risk > 0.7, override to 0.3
+### MentorTrace (Phase 30)
 
----
+Structured mentor→apprentice transfer metadata extending TeacherTrace:
+- Decision rationale + confidence + alternatives
+- 16-dim summary feature extraction for state encoder Section 16
+- Bridge to BCBuffer via `to_teacher_trace().to_bc_sample()`
 
-## Budget + ROI Enforcement
-
-Every LLM call must pass three gates: **budget available**, **cache miss**, and **ROI tag present**.
-
-| Tier | Model | Budget | Share | Use Case |
-|------|-------|--------|-------|----------|
-| `codex` | gpt-5.2-codex | 263,250 | 30% | Orion strategic plans, postmortem, mentor reasoning |
-| `full` | gpt-5.2 | 175,500 | 20% | Plan verification, invariant checks |
-| `mini` | gpt-5.2-mini | 263,250 | 30% | Hypothesis ranking, verification, lesson compression |
-| `nano` | gpt-5.2-nano | 175,500 | 20% | Micro classification, cache-key summaries |
-| **Total** | | **877,500** | 100% | **1.5× base allocation per episode** |
-
-**15 valid ROI tags** — every call must justify its existence:
-`classification` · `verification` · `consolidation` · `strategy_plan` · `mentor_teacher` · `parsing` · `tactical_advice` · `reward_shaping` · `postmortem` · `reflex_microtask` · `improves_hypothesis_accuracy` · `reduces_steps_to_foothold` · `reduces_steps_to_root` · `reduces_mentor_reliance` · `increases_chain_coherence`
-
-**If budget exhausted or ROI tag missing → deterministic fallback, no LLM call.**
-
----
-
-## Consolidation Loop ("Sleep Replay")
-
-At the end of each episode, the consolidation engine distills experience into persistent knowledge:
-
-```mermaid
-flowchart TD
-    A[Episode ends] --> B["Collect ConsolidationSamples<br/>from episode transitions"]
-    B --> C["Score by priority:<br/>DA_level × ACh_level"]
-    C --> D[Dedup by state_hash]
-    D --> E["Top 64 samples → ConsolidationBatch"]
-    E --> F{SkillLibrary}
-    F --> G["Promote high-reward<br/>confirmed hypotheses<br/>to persistent SkillCards"]
-    E --> H{BCBuffer}
-    H --> I["Insert mentor TeacherTraces<br/>for BC loss training"]
-    E --> J{Hypothesis Templates}
-    J --> K["Update from confirmed/refuted<br/>evidence results"]
-```
-
-**What this means**: the agent doesn't just forget after each episode. High-value experiences (scored by dopamine × attention) survive as reusable **skills** and **behavioral cloning targets** for future episodes.
-
----
-
-## The Five Agents
-
-| Agent | Role | Domain |
-|-------|------|--------|
-| 🔴 **RedAgent** | Offensive | Exploitation, privilege escalation, exfiltration. Primary PPO-trained. DQN+GPT hybrid with emergency fallbacks. |
-| 🔵 **BlueAgent** | Defensive | Honeypots, credential resets, firewall rules, alert management. Reactive to RedAgent actions. |
-| 🟢 **ScoutAgent** | Recon | Network discovery, port scanning, service fingerprinting, version detection. |
-| 🟣 **ShadowAgent** | Stealth | Alert monitoring, scan timing randomization, detection avoidance, action overrides. |
-| 🟡 **OrionAgent** | Strategic | Coordination, strategic reviews, cross-agent directives, phase transitions. |
-
-**Phase-dependent activation order:**
+### Distillation Pipeline
 
 ```
-RECON:        Scout → Shadow → Orion → Red → Blue
-EXPLOITATION: Red → Shadow → Scout → Orion → Blue
-EXFILTRATION: Red → Shadow → Orion → Scout → Blue
+MentorTrace → TeacherTrace → BCSample → BCBuffer (capacity: 2000, dedup)
+                                              ↓
+                                         PPO BC loss (weight × confidence × decay)
 ```
 
-Each agent implements `AgentInterface` + `MemorySyncInterface` and has its own `SmartCoach` with independent neuromodulator state, working memory, and consolidation pipeline.
+Every mentor call produces a TeacherTrace containing teacher decision, student parallel prediction, divergence measurement, and post-hoc success marking. The BCBuffer maintains thread-safe dedup by (state_hash, action) pairs.
+
+### Evidence Gate (Phase 27)
+
+Validates exploit-phase commands have supporting evidence before execution. Three modes controlled by `FF_STRICT_EXPLOIT_GATE`:
+
+| Mode | Behavior |
+|------|----------|
+| `off` | Gate disabled |
+| `log` | Log rejects without blocking |
+| `enforce` | Block exploit commands lacking evidence, fall back to registry |
 
 ---
 
-## Kill Chain Simulation
+## Token Budget Strategy (Phase 17 + 36)
 
-```
-RECON → ENUMERATION → EXPLOITATION → PRIVILEGE_ESCALATION →
-LATERAL_MOVEMENT → POST_EXPLOITATION → EXFILTRATION
-```
-
-The `CyberEnvironment` (2,854 lines) simulates the full kill chain with phase-gated progression. Rewards escalate from RECON (1.0) through EXFILTRATION (250.0).
-
-**Discovery bonuses:**
-
-| Discovery | Reward |
-|-----------|--------|
-| Open port | 2.5 |
-| Service identified | 5.0 |
-| Version detected | 6.5 |
-| Credential found | 20.0 |
-| Password cracked | 26.0 |
-| Shell obtained | 50.0 |
-| Root shell | 130.0 |
-| Flag captured | 200.0 |
-
-**Primary targets:**
-
-| Port | Service | Vulnerability | Exploit Path |
-|------|---------|---------------|--------------|
-| 21 | vsftpd 2.3.4 | Backdoor | `exploit/unix/ftp/vsftpd_234_backdoor` → root |
-| 139/445 | Samba 3.0.20 | CVE-2007-2447 | `exploit/multi/samba/usermap_script` → root |
-| 1524 | ingreslock | Backdoor | `telnet <target> 1524` → instant root |
-| 6667 | UnrealIRCd | Backdoor | `exploit/unix/irc/unreal_ircd_3281_backdoor` → root |
-| 8180 | Tomcat | Default creds | `tomcat:tomcat` → WAR deploy → shell |
-
----
-
-## Knowledge System
-
-**107,933 entries** across 18 JSONL partitions with **11 prebuilt indices**.
-
-| Source | Entries |
-|--------|---------|
-| ExploitDB | 46,491 |
-| CVEs | 25,467 |
-| Commands | 24,342 |
-| Wordlists | 5,814 |
-| Other (14 files) | 5,819 |
-
-**Indices:** `by_port` (417 keys) · `by_cve` (25K) · `by_service` (193) · `by_phase` (8) · `by_tag` (71K) · `by_template` (205) · `by_platform` (79) · `by_killchain` (6) · `by_vuln_family` (19) · `by_exploit_archetype` (13) · `by_origin` (20)
-
-Each entry follows the `KnowledgeCandidate` v2 schema (14 nested dataclasses) with taxonomy, evidence gates, execution templates, references, and quality metrics.
-
----
-
-## PPO — Primary RL Algorithm
-
-**1,541 lines** with R68–R80 advanced features:
-
-| Feature | Description |
-|---------|-------------|
-| Phase-gated actor heads | HRL-lite: recon/exploit/post-exploit head groups |
-| Self-Imitation Learning | 500-entry SIL buffer for positive-advantage replay |
-| Symlog value compression | DreamerV3-style value scaling |
-| Cosine entropy schedule | With rebound for re-exploration |
-| Dual-horizon GAE | λ=0.97 long + λ=0.70 short, blended at 0.65 |
-| KL-adaptive learning rate | 3e-4 → 1e-5 based on policy divergence |
-| Spectral normalization | On critic for training stability |
-| EMA target network | τ=0.995 with value-surprise intrinsic bonus |
-| Auxiliary phase prediction | Multi-task head predicting current kill chain phase |
-
-**State encoder:** 512-dimensional vector encoding phase, state flags, port presence, service types, numeric features, action history, LLM features, and temporal features.
-
-**Key hyperparameters:**
+BudgetManagerV2 manages per-episode and per-model-tier token allocation:
 
 | Parameter | Value |
 |-----------|-------|
-| State dim | 512 |
-| Action dim | 5 |
-| Hidden dims | [512, 512, 256] |
-| PPO clip | 0.2 (adaptive 0.15–0.25) |
-| Learning rate | 3e-4 → 1e-5 (KL-adaptive) |
-| GAE λ | 0.97 (dual: +0.70 short) |
-| Discount γ | 0.99 |
-| Steps/episode | 40 |
-| Rollout size | 256 |
+| Total budget | 999,000 tokens (~$3.33/episode ceiling) |
+| Min budget floor | 499,500 tokens (50%) |
+| Burst pool | 12% of max budget as reserve |
+| Burst step cap | 3% of max budget per step |
+| Burst cooldown | 5 steps between bursts |
+
+Dynamic scaling: budget scales from $3.33 → $0.50 based on learning maturity signal (`0.4 × avg_success_rate + 0.3 × skill_coverage + 0.2 × discovery_efficiency + 0.1 × (1 - stagnation_rate)`).
+
+### Tier Allocation (Phase 36)
+
+| Tier | Model | Budget | Share | Uses |
+|------|-------|--------|-------|------|
+| codex | gpt-5.2-codex | 199,800 | 20% | Tactical/strategic reasoning, postmortem, analysis |
+| full | gpt-5.2 | 199,800 | 20% | Parsing, interpretation, verification |
+| mini | gpt-5.2-mini | 299,700 | 30% | Playbook selection, structured extraction |
+| nano | gpt-5.2-nano | 299,700 | 30% | Classification, MicroChain stages 1+3, reserve |
 
 ---
 
-## Safety Boundary
+## Agent Roles
 
-**Ariaska operates exclusively against authorized lab targets.**
+| Agent | Role | Domain |
+|-------|------|--------|
+| **ScoutAgent** | `recon` | Network discovery, port scanning, service fingerprinting, version detection |
+| **RedAgent** | `offensive` | Exploitation, privilege escalation, shell acquisition. Primary PPO-trained. DQN+GPT hybrid with emergency fallbacks |
+| **BlueAgent** | `defensive` | Honeypots, credential resets, firewall management, alert handling |
+| **ShadowAgent** | `stealth` | Alert monitoring, scan timing, detection avoidance, action overrides |
+| **OrionAgent** | `strategic` | Cross-agent coordination, strategic reviews, directives, phase transitions |
 
-```
-┌── RFC1918 Enforcement ─────────────────────────────────────────┐
-│   RealToolRunner validates all target IPs are private          │
-│   10.0.0.0/8 · 172.16.0.0/12 · 192.168.0.0/16               │
-├── Reflex Policy ───────────────────────────────────────────────┤
-│   detection_risk > 0.7  →  STOP_NOISY override               │
-│   brute_force > 10      →  HALT (hard cap)                    │
-│   brute + high aggression → REDUCE_AGGRESSION                 │
-├── Aggression Ceiling ──────────────────────────────────────────┤
-│   Hard cap: 0.85 — system never over-commits                  │
-│   NE spike guard: NE > 0.75 → clamp aggression               │
-├── Execution Safety ────────────────────────────────────────────┤
-│   ARIASKA_DRY_RUN=1 → no real commands executed               │
-│   sudo_mode="prompt" → privilege escalation requires gating   │
-│   StubToolRunner in tests → zero real command execution        │
-│   Sandboxed executor → additional safety layer for live runs   │
-├── LLM Safety ──────────────────────────────────────────────────┤
-│   All LLM outputs sanitized before command use                 │
-│   No hardcoded API keys — .env + python-dotenv                │
-│   Budget ceiling prevents runaway LLM costs                    │
-└────────────────────────────────────────────────────────────────┘
-```
+**Phase-dependent activation order** (configured in `SmartOrchestrator._should_activate()`):
+- RECON: Scout → Shadow → Orion → Red → Blue
+- EXPLOITATION: Red → Shadow → Scout → Orion → Blue
+- EXFILTRATION: Red → Shadow → Orion → Scout → Blue
 
 ---
 
-## How to Run
+## Kill Chain Phases
+
+```
+RECON → ENUMERATION → EXPLOITATION → PRIVILEGE_ESCALATION →
+LATERAL_MOVEMENT → POST_EXPLOITATION → EXFILTRATION → CLOSEOUT
+```
+
+Phase progression is enforced by `FF_STRICT_PHASE_LADDER` (default: ON). Commands must match their `AttackPhase` preconditions against the current `CyberEnvironment` state.
+
+---
+
+## Reward System
+
+**File:** `core/llm/reward_calculator.py` (859L)
+
+Symmetric reward range: **[-15.0, +50.0]** (3.3:1 ratio). Positive discoveries are rarer, so they carry higher magnitude.
+
+### Discovery Bonuses
+
+| Discovery | Reward |
+|-----------|--------|
+| open_port | 2.5 |
+| service | 5.0 |
+| version | 6.5 |
+| credential | 20.0 |
+| password | 26.0 |
+| shell | 40.0 |
+| user_flag | 50.0 |
+| root_flag | 50.0 |
+| root_shell | 80.0 |
+
+### Phase Progression Rewards
+
+| Phase | Reward |
+|-------|--------|
+| RECON | 0.0 |
+| ENUMERATION | 5.0 |
+| EXPLOITATION | 15.0 |
+| PRIVILEGE_ESCALATION | 30.0 |
+| LATERAL_MOVEMENT | 45.0 |
+| POST_EXPLOITATION | 60.0 |
+| EXFILTRATION | 75.0 |
+| CLOSEOUT | 90.0 |
+
+---
+
+## Replay Mode (Phase 31)
+
+Replay past engagements from JSONL event traces:
+
+```bash
+python ariaska_cli.py replay traces/events_20260218_142627.jsonl --verbose
+```
+
+Renders step-by-step Rich panels showing agent actions, decision sources, discoveries, reward breakdowns, and phase transitions.
+
+---
+
+## Observability
+
+### LiveDashboard v5.0
+
+Real-time Rich terminal UI showing:
+- Per-agent commands with output, reasoning, and discoveries
+- ASCII sparkline reward trends
+- Phase progression timeline with kill chain bar
+- Decision pipeline visualization (4-stage)
+- Per-coach PPO training metrics
+- Teaching point annotations + budget pressure indicators
+- Discovery board heatmap
+
+### JSONL Structured Logging
+
+Event traces written to `traces/` for post-hoc analysis. Consumed by EpisodeReplayer and postmortem tools.
+
+### EventBus
+
+Pub/sub event routing for decoupled step, agent, and episode events. Subscribers include TraceWriter, LiveDashboard, and analytic collectors.
+
+---
+
+## Feature Flags
+
+51 feature flags in `core/feature_flags.py` with environment variable overrides (prefix `FF_`).
+
+### Profiles (auto-detected by `resolve_profile()`)
+
+| Profile | Condition | LLM Flags |
+|---------|-----------|-----------|
+| CLOUD | `OPENAI_API_KEY` present | All 5 LLM role flags ON |
+| DETERMINISTIC | Running under pytest / `ARIASKA_DRY_RUN=1` | All LLM flags OFF |
+| OFFLINE | No API key | All LLM flags OFF |
+
+### Key Flags
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `FF_USE_MICRO_CHAIN` | ON | MicroChain 3-stage scoring |
+| `FF_STRICT_EXPLOIT_GATE` | enforce | Evidence gate mode (off/log/enforce) |
+| `FF_BUDGET_MANAGER_V2` | ON | Dynamic per-episode token budgets |
+| `FF_STRICT_PHASE_LADDER` | ON | Phase ordering enforcement |
+| `FF_BC_LOSS` | ON | Behavioral cloning loss from TeacherTrace |
+| `FF_TEACHER_TRACE` | ON | TeacherTrace distillation pipeline |
+| `FF_PARALLEL_AGENTS` | ON | Multi-agent parallel activation |
+| `FF_NEUROMODULATORS` | ON | Biologically-inspired exploration control |
+
+---
+
+## Performance Metrics (Reward-Invariant)
+
+These measure real learning quality independent of reward scaling:
+
+| Metric | Description |
+|--------|-------------|
+| `unique_commands` | Distinct commands used per episode |
+| `diversity_ratio` | unique_commands / total_steps |
+| `total_discoveries` | Genuinely new discoveries per episode |
+| `step_at_first_exploit` | Speed to exploitation phase |
+| `completion_bonus_applied` | Whether EXFILTRATION was reached |
+
+Always validate changes with these metrics, not raw reward numbers.
+
+---
+
+## Running Ariaska
 
 ### Prerequisites
 
-- Python 3.11+ (developed on 3.13.7)
+- Python 3.11+ (developed on 3.13)
 - PyTorch 2.0+
-- Docker (for Metasploitable targets)
-- OpenAI API key (optional — system runs in offline mode without it)
+- OpenAI API key (for live LLM; offline mode without)
+- Target machine (Metasploitable 2/3 or HTB)
 
-### Quick Start
-
-```bash
-# Setup
-git clone <repo> && cd Ariaska_RL
-make venv                       # Create virtualenv + install deps
-
-# Simulated training (no network, no LLM needed)
-python ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env sim
-
-# Quick smoke test (3 episodes, deterministic)
-make smoke
-
-# Full test suite (875 tests, ~3 min)
-make test
-```
-
-### HTB Lab Mode
+### Setup
 
 ```bash
-# Activate all 51 feature flags for HTB
-source scripts/activate_htb_flags.sh
-export OPENAI_API_KEY=sk-...
-
-# Run against authorized lab target
-python ariaska_cli.py smart-train --env msf --target 10.10.10.X --episodes 50
-
-# Verify flag activation
-python scripts/verify_flags.py          # 51-flag ledger
-python scripts/validate_activation.py   # Full system validation
+git clone <repo>
+cd Ariaska_RL
+make venv
+cp .env.example .env  # Add OPENAI_API_KEY
 ```
 
-### Makefile Shortcuts
+### CLI Commands
 
 ```bash
-make venv          # Create virtualenv
-make train         # Standard training
-make train-quick   # 10 episodes with metrics
-make train-msf     # Metasploitable Docker
-make smoke         # 3-episode smoke test
-make test          # Full 875-test suite
-make last          # Show last run results
-make clean         # Clean artifacts
+# Live engagement (continuous until flag capture or --steps limit)
+python ariaska_cli.py smart-train --target 10.129.1.54 --steps 500
+
+# CTF mode (auto-close on both user + root flags)
+python ariaska_cli.py smart-train --target 10.129.1.54 --ctf --steps 500
+
+# Watchdog mode (persistent: run, monitor, debug, relaunch until both flags)
+python ariaska_cli.py watchdog --target 10.129.1.54 --max-attempts 10
+
+# Replay a past engagement
+python ariaska_cli.py replay traces/events_*.jsonl --verbose
+
+# System status
+python ariaska_cli.py status
 ```
 
----
+### Makefile Targets
 
-## Feature Flag Profiles
-
-51 flags across Phases 9.5–15.0. All default to safe (OFF) values.
-
-| Profile | Use Case | Active Flags | How to Activate |
-|---------|----------|--------------|-----------------|
-| **OFFLINE** | No API key, simulation only | P14/P15 ON, LLM OFF | Default behavior |
-| **DETERMINISTIC** | pytest / CI | All LLM OFF, dry run | `ARIASKA_DRY_RUN=1` |
-| **CLOUD** | Live training with LLM | LLM ON, budget enforced | Set `OPENAI_API_KEY` |
-| **HTB** | Authorized lab engagement | 48/51 ON, MS2/MS3 OFF | `source scripts/activate_htb_flags.sh` |
-
-The 3 flags kept OFF in HTB mode: `ms2_knowledge_pack`, `ms3_knowledge_pack`, `ms2_simulated_output` — these are target-specific knowledge packs that would bias the agent toward known Metasploitable vulnerabilities.
-
----
-
-## Benchmarks / KPIs
-
-**Reward-invariant metrics** — these measure real learning quality independent of reward scaling:
-
-| Metric | Description | Early (ep 1) | Mid (ep 25) | Mature (ep 50) |
-|--------|-------------|:----------:|:---------:|:------------:|
-| `unique_commands` | Distinct commands per episode | 8 | 18 | 25 |
-| `diversity_ratio` | unique / total steps | 0.20 | 0.45 | 0.63 |
-| `total_discoveries` | New findings per episode | 3 | 12 | 22 |
-| `step_at_first_exploit` | Steps to first exploit | 35 | 18 | 8 |
-| `mentor_call_rate` | Mentor calls / decisions | 0.40 | 0.22 | 0.10 |
-| `autonomy_score` | AutonomyScheduler metric | 0.15 | 0.50 | 0.78 |
-| `budget_pressure` | Token usage / ceiling | 0.05 | 0.35 | 0.60 |
-
-**Target KPIs for a trained agent:**
-- `diversity_ratio` > 0.6
-- `mentor_call_rate` < 0.15
-- `autonomy_score` > 0.7
-- `budget_pressure` < 0.8
-- `step_at_first_exploit` < 10
+```bash
+make test              # Full test suite (1,186 tests)
+make test-fast         # Skip integration tests
+make smoke             # 3 episodes, fast validation
+make train             # MS3 LIVE, 100 episodes
+make train-quick       # MS3 LIVE, 10 episodes
+make train-htb TARGET=10.129.x.x  # HTB target
+make overnight         # Progressive 300 episodes
+make status            # System diagnostics
+make last              # View last training run
+```
 
 ---
 
 ## Testing
 
-**875 tests** across **51 test files**. All passing.
+**Framework:** pytest, 1,186 tests across 68 files.
 
 ```bash
-make test                        # Full suite (~3 min)
-make smoke                       # Quick 3-episode smoke
-pytest tests/ -v --tb=short      # Direct pytest
+make test                              # Full suite
+pytest tests/ -v --tb=short            # Verbose with short tracebacks
+pytest tests/test_phase0_invariants.py # Single file
 ```
 
-**Test isolation:** `tests/conftest.py` provides an autouse fixture that strips all `FF_*` environment variables before each test, ensuring tests run with default flag states regardless of ambient environment.
+### Test Utilities
 
-**Test infrastructure:**
-- `FakeGPTManager(seed=N)` — deterministic LLM responses, token tracking, request history
-- `StubToolRunner` — tracks commands without execution
-- `RealToolRunner` — RFC1918 allowlist, blocked commands, IP validation
-- `ToolResult` — structured output with stdout, stderr, return_code, timed_out
+| Utility | Purpose |
+|---------|---------|
+| `FakeGPTManager(seed=N)` | Deterministic LLM responses, token tracking, request history |
+| `StubToolRunner` | Never executes commands, tracks invocations |
+| `RealToolRunner` | RFC1918 allowlist, blocked command list, IP validation |
 
----
+### Test Pattern
 
-## Project Structure
+```python
+import pytest, os
+from core.testing import FakeGPTManager, get_tool_runner
 
-```
-ariaska_cli.py                    # CLI entry point
-core/                             # 201 modules, 101K lines
-├── agents/                       # 5 agents (Red, Blue, Scout, Shadow, Orion)
-├── algorithms/                   # PPO (1541L), SAC, DDQN, RND, replay buffers
-├── neuro/                        # Neuromodulators, aggression controller, sensory buffer
-├── neurorouter/                  # Reflex policy, action arbitrator, working memory
-├── memory/                       # Semantic index, hybrid memory, cognitive bus
-├── training/                     # SmartCoach (7.7K lines), consolidation engine
-├── orchestration/                # SmartOrchestrator (6.2K lines)
-├── knowledge/                    # KG manager, playbooks, target profiler
-├── llm/                          # GPTManager, BudgetManagerV2, CallCache, mentor
-├── execution/                    # Parser broker (4-stage), live/sandboxed executor
-├── environment/                  # CyberEnvironment (2.8K lines), kill chain
-├── models/                       # State encoder (512-dim), policy net, value net
-├── commands/                     # 144+ command templates by attack phase
-├── telemetry/                    # JSONL structured logging, P15 telemetry
-├── cortex/                       # Executive + tactical decision making
-├── multiagent/                   # Agent manager, memory router, directives
-└── postmortem/                   # GPT end-of-run analysis, skill library
-data/                             # 107K knowledge corpus + 11 indices (~300MB)
-tests/                            # 51 test files, 875 tests
-scripts/                          # Flag activation, index build, validation
+class TestMyFeature:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        os.environ['ARIASKA_DRY_RUN'] = '1'
+        self.gpt = FakeGPTManager(seed=42)
+        self.tool_runner = get_tool_runner(testing=True)
+
+    def test_something(self):
+        from core.agents.red_agent import RedAgent  # Lazy import!
+        agent = RedAgent(gpt_manager=self.gpt, verbosity="quiet")
+        result = agent.act({"phase": "RECON"})
+        assert result is not None
 ```
 
 ---
 
-## Roadmap (Phase 16+)
+## Safety & Lab Scope
 
-- **Progress Estimator** — cheap model predicting "probability we're closer to foothold now than N steps ago" (proprioception for RL)
-- **Multi-Target Campaigns** — pivot between hosts, lateral movement memory
-- **Transfer Learning** — pre-trained weights from simulation → live HTB
-- **Curriculum Scheduling** — automatic difficulty progression across HTB tiers
-- **Distributed Training** — parallel episode rollouts across target farm
-- **Defense-Aware Red** — BlueAgent adversarial co-training
-- **Prompt Distillation** — compress mentor knowledge into smaller local models
-- **Real-Time Dashboard** — Textual TUI with live neuromodulator visualization
+- **Live-only** — all execution against real authorized targets
+- **RFC1918 validation** — `RealToolRunner` only allows private IP ranges
+- **Sandboxed executor** — additional safety layer for command execution
+- **Dry run mode** — `ARIASKA_DRY_RUN=1` prevents real execution
+- **No hardcoded credentials** — `.env` + `python-dotenv`
+- **Deterministic mode** — `--seed` for reproducibility
+- **Ethics mode** — training / assessment / demo profiles
+- **Input sanitization** — all LLM outputs sanitized before command construction
 
 ---
 
-## Author
+## Phase History (27–34)
 
-**Filip Volf** — Design, architecture, and implementation.
+| Phase | Focus |
+|-------|-------|
+| 27 | MicroChain (nano→mini→nano), Evidence Gate, intelligence pipeline, reward boost |
+| 28 | Postmortem refinements, skill library persistence |
+| 29 | Event bus decoupling, trace writer integration |
+| 30 | MentorTrace: structured mentor→apprentice transfer metadata |
+| 31 | EpisodeReplayer: JSONL trace replay via CLI |
+| 32 | MicroChain tuning: env-var configurable escalation threshold |
+| 33 | Budget burst pool, candidate cap, dynamic burst cooldown |
+| 34 | PhaseGuidedLLM: structured guidance + distillation packets, codex escalation |
+
+---
+
+## Knowledge System (v2)
+
+107,933 entries across 18 JSONL partitions in `data/knowledge_candidates_v2/`.
+
+| File | Entries |
+|------|---------|
+| exploitdb.jsonl | 46,491 |
+| cves.jsonl | 25,467 |
+| commands.jsonl | 24,342 |
+| wordlists.jsonl | 5,814 |
+| + 14 more | 5,819 |
+
+11 prebuilt indices in `data/knowledge_indices/`: by_port (417 keys), by_cve (25K), by_service (193), by_phase (8), by_tag (71K), by_template (205), by_platform (79), by_killchain (6), by_vuln_family (19), by_exploit_archetype (13), by_origin (20).
+
+Rebuild: `python scripts/build_knowledge_indices.py`
 
 ---
 
 ## License
 
-**Source Available — Non-Commercial Use Only**
-
-Copyright (c) 2024-2026 Filip Volf. All rights reserved.
-
-This software is available for viewing, study, and non-commercial use. Commercial use, SaaS deployment, and redistribution for profit require a separate license. See [LICENSE](LICENSE) for full terms.
-
-Academic researchers and students may use this software freely for coursework, published research (with citation), and university CTF competitions.
-
----
-
-<p align="center">
-  <sub>Phase 15 Neurovortex — where reinforcement learning meets neuroscience-inspired control theory. 101K+ lines. Every line intentional.</sub>
-</p>
+Source Available Non-Commercial License v1.0. Copyright (c) 2024–2026 Filip Volf.
+See [LICENSE](LICENSE) for full terms.

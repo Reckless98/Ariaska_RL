@@ -29,6 +29,7 @@ Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 13.0
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -41,6 +42,19 @@ if TYPE_CHECKING:
     from core.execution.parser_teacher_output import ParserTeacherOutput
 
 logger = logging.getLogger("ariaska.parser_broker")
+
+# Phase 33.4: High-value tools that justify LLM parsing
+_HIGH_VALUE_TOOLS = frozenset({
+    "nmap", "sudo", "linpeas", "gobuster", "nikto", "curl", "wget",
+    "sqlmap", "hydra", "enum4linux", "smbclient", "ftp", "ssh",
+    "msfconsole", "searchsploit", "dirb", "wfuzz", "ffuf",
+})
+
+# Phases at or above EXPLOIT
+_EXPLOIT_PHASES = frozenset({
+    "EXPLOITATION", "PRIVILEGE_ESCALATION",
+    "LATERAL_MOVEMENT", "POST_EXPLOITATION", "EXFILTRATION",
+})
 
 
 class ParserBroker:
@@ -124,10 +138,15 @@ class ParserBroker:
         # Phase 11.3: Store last interpretation lesson for agent feedback
         self._last_lesson: Optional[Any] = None
 
+        # Phase 33.4: Output hash cache — sha1(tool + command + normalized_output)
+        self._output_cache: Dict[str, List[DiscoveryEvent]] = {}
+        self._stats["cache_hits"] = 0
+
     def reset_episode(self) -> None:
         """Reset per-episode counters."""
         self._llm_calls = 0
         self._venice_calls = 0
+        self._output_cache.clear()  # Phase 33.4: clear hash cache
         if self._sop:
             self._sop.reset_episode()
         # Phase 11.3: Reset LLM interpreter episode counters
@@ -166,12 +185,25 @@ class ParserBroker:
         output = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
         output = output.replace('\r', '')
 
+        # Phase 33.4: Output hash cache — skip re-parsing identical output
+        _tool = command.split()[0].split('/')[-1] if command.strip() else ""
+        _cache_key = hashlib.sha1(
+            f"{_tool}|{command}|{output.strip()}".encode(errors="replace")
+        ).hexdigest()
+        if _cache_key in self._output_cache:
+            self._stats["cache_hits"] = self._stats.get("cache_hits", 0) + 1
+            return self._output_cache[_cache_key]
+
         if effective_mode == "intelligent_fullparse":
             self._stats["fullparse_calls"] += 1
-            return self._parse_fullparse(command, output, agent_name)
+            result = self._parse_fullparse(command, output, agent_name)
         else:
             self._stats["fast_calls"] += 1
-            return self._parse_fast(command, output, agent_name)
+            result = self._parse_fast(command, output, agent_name)
+
+        # Phase 33.4: Store in output hash cache
+        self._output_cache[_cache_key] = result
+        return result
 
     def parse_as_teacher(
         self,
@@ -399,64 +431,80 @@ class ParserBroker:
         command: str,
         output: str,
         agent_name: str,
+        phase: str = "RECON",
     ) -> List[DiscoveryEvent]:
-        """Phase 22: GPT-only intelligent fullparse.
-        
-        GPT-5.2-codex is the PRIMARY and ONLY interpreter. No regex pre-stages,
-        no Venice. The LLM reads the raw output, reasons about what it contains,
-        teaches the agent WHY certain patterns indicate discoveries, and
-        extracts structured findings with full reasoning chains.
-        
-        This maximises interpretation quality at the cost of one GPT call per step.
-        Regex fallback only fires if GPT is exhausted or offline.
+        """Phase 33.4: Strict-gated intelligent fullparse.
+
+        Structured extraction first.  LLM fires only when:
+          - extraction confidence is low (no regex hits), OR
+          - tool is high-value (nmap, sudo -l, linpeas, large web output).
+
+        Default parser model: nano/mini.
+        Codex allowed only if: high-value AND low-confidence AND phase >= EXPLOIT.
         """
-        flat_discoveries = {}
-        source_stage = "gpt_codex"
+        flat_discoveries: Dict[str, Any] = {}
+        source_stage = "regex"
 
-        # ── PRIMARY: GPT-5.2-codex LLM interpreter (full reasoning) ──
-        # Goes straight to GPT for maximum intelligence. Teaches agents
-        # how it parsed what and why via InterpretationLessons.
-        if (
-            self._llm_interpreter
-            and self._llm_interpreter.can_interpret()
-            and len(output.strip()) > 30
-        ):
-            lesson = self._llm_interpreter.interpret(
-                command=command,
-                output=output,
-                agent_name=agent_name,
+        # ── Step 1: Structured extraction first (regex, always) ─────
+        if self._sop:
+            flat_discoveries = self._sop.parse(
+                command=command, output=output, agent_name=agent_name,
             )
-            if lesson and lesson.discoveries:
-                flat_discoveries = lesson.discoveries
-                source_stage = "gpt_codex"
-                self._stats["stage3_hits"] += 1
-                self._stats["lessons_produced"] += 1
-                self._last_lesson = lesson
-                logger.debug(
-                    f"[BROKER-GPT] gpt-5.2-codex | {agent_name} | "
-                    f"found: {list(flat_discoveries.keys())} | "
-                    f"{lesson.latency_ms:.0f}ms"
-                )
+            if flat_discoveries:
+                source_stage = "regex"
+                self._stats["stage1_hits"] += 1
 
-        # ── FALLBACK: Regex only if GPT exhausted/offline ──
         if not flat_discoveries:
-            # Stage 1+2: SmartOutputParser (regex + nano-LLM)
-            if self._sop:
-                flat_discoveries = self._sop.parse(
-                    command=command,
-                    output=output,
-                    agent_name=agent_name,
-                )
-                if flat_discoveries:
-                    source_stage = "regex_fallback"
-                    self._stats["stage1_hits"] += 1
+            flat_discoveries = self._phase19_regex_extract(command, output)
+            if flat_discoveries:
+                source_stage = "regex_p19"
+                self._stats["stage1_hits"] += 1
 
-            # Phase 19: Ultra-smart regex extraction
-            if not flat_discoveries:
-                flat_discoveries = self._phase19_regex_extract(command, output)
-                if flat_discoveries:
-                    source_stage = "regex_p19_fallback"
-                    self._stats["stage1_hits"] += 1
+        regex_found = bool(flat_discoveries)
+
+        # ── Step 2: Decide if LLM parsing is justified ──────────────
+        _tool = command.split()[0].split("/")[-1].lower() if command.strip() else ""
+        is_high_value = _tool in _HIGH_VALUE_TOOLS or len(output) > 2000
+        low_confidence = not regex_found
+        phase_upper = phase.upper() if isinstance(phase, str) else "RECON"
+
+        use_llm = low_confidence or is_high_value
+
+        if use_llm and not regex_found:
+            # Decide model: codex only for high-value + phase >= EXPLOIT
+            use_codex = (
+                is_high_value
+                and low_confidence
+                and phase_upper in _EXPLOIT_PHASES
+            )
+
+            if (
+                use_codex
+                and self._llm_interpreter
+                and self._llm_interpreter.can_interpret()
+                and len(output.strip()) > 30
+            ):
+                lesson = self._llm_interpreter.interpret(
+                    command=command, output=output, agent_name=agent_name,
+                )
+                if lesson and lesson.discoveries:
+                    flat_discoveries = lesson.discoveries
+                    source_stage = "gpt_codex"
+                    self._stats["stage3_hits"] += 1
+                    self._stats["lessons_produced"] += 1
+                    self._last_lesson = lesson
+                    logger.debug(
+                        f"[BROKER-GPT] gpt-5.2-codex | {agent_name} | "
+                        f"found: {list(flat_discoveries.keys())} | "
+                        f"{lesson.latency_ms:.0f}ms"
+                    )
+            elif not flat_discoveries and self._sop and hasattr(self._sop, "_llm_parse"):
+                # Nano/mini fallback for non-codex LLM parsing
+                llm_result = self._sop._llm_parse(command, output, agent_name)
+                if llm_result:
+                    flat_discoveries = llm_result
+                    source_stage = "sop_llm"
+                    self._stats["stage2_hits"] += 1
 
         # # ── Venice stages COMMENTED OUT — Phase 22 GPT-only mode ──
         # # Venice was adding 5-7s latency per call with 6000ms ping.

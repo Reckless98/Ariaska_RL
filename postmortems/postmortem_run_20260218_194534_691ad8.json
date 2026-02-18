@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260218_194534_691ad8",
+  "timestamp": 1771440341.1326528,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial reconnaissance workflow and gathered baseline host information"
+    ],
+    "fails": [
+      "No episode-level success achieved despite positive reward signal",
+      "High mentor reliance indicated by 10 mentor calls in a single episode"
+    ],
+    "summary": "Single-episode run showed partial progress in early-phase tasks but failed to achieve end-state success; mentor dependence suggests gaps in autonomous decision-making."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after reconnaissance without advancing to exploitation or post-exploitation objectives",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host is discovered during initial scan",
+      "then_action": "Run targeted service/version detection on the host",
+      "parameters_template": {
+        "target": "<ip>",
+        "tool": "nmap",
+        "args": "-sV -sC -p- --min-rate 5000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771440353.8465154,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service (HTTP/HTTPS) is detected",
+      "then_action": "Perform content discovery and fingerprinting",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u <url> -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771440353.846528,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early-phase reconnaissance actions that yielded actionable service data"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run the same scenario with mentor calls capped at 2 and enforce a fixed recon\u2192enum\u2192exploit decision tree before seeking help.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit transition drill",
+      "description": "After enumeration, require selection of a top-1 exploit hypothesis and execute a single attempt before any further scanning.",
+      "priority": "high"
+    },
+    {
+      "title": "Time-boxed enumeration",
+      "description": "Limit reconnaissance to 10 minutes and force progression to exploitation or credential attacks to improve end-to-end success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

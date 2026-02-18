@@ -1,0 +1,96 @@
+{
+  "run_id": "run_20260218_201855_fc1f31",
+  "timestamp": 1771442341.4940422,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with positive reward (40.0)"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%",
+      "Only one episode completed, insufficient coverage",
+      "High mentor call count (10) indicates low autonomy"
+    ],
+    "summary": "The run achieved a positive reward in a single episode but failed to meet success criteria, with heavy mentor reliance and insufficient sample size."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Low autonomy requiring frequent mentor guidance",
+      "frequency": 10,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with unknown target state",
+      "then_action": "Perform fast TCP scan to establish open ports before deeper actions",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS -T4 --top-ports 200 --min-rate 1000"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [],
+      "created_at": 1771442354.694227,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial scan identifies any open ports",
+      "then_action": "Run targeted service/version detection on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [],
+      "created_at": 1771442354.6942394,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Service/version detection is a foundational step needed after port discovery to improve decision quality."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Add a rule-based scanning playbook to handle common discovery steps without mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase episode count",
+      "description": "Run at least 10 episodes to validate success rate and reward stability trends.",
+      "priority": "high"
+    },
+    {
+      "title": "Decision checkpointing",
+      "description": "Insert explicit checkpoints after recon to choose exploitation paths based on service fingerprints.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

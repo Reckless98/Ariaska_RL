@@ -1,0 +1,152 @@
+{
+  "run_id": "run_20260218_200341_d57986",
+  "timestamp": 1771441443.554174,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive average reward despite zero success rate",
+      "Consistent mentor usage indicates active guidance seeking"
+    ],
+    "fails": [
+      "No episode completions; success rate at 0%",
+      "High mentor call count suggests stalled decision-making",
+      "Lack of demonstrated kill chain progression beyond recon"
+    ],
+    "summary": "Single-episode run with moderate reward but no task success; indicates partial progress likely confined to early reconnaissance with frequent mentor reliance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after initial reconnaissance without pivoting to exploitation",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance for routine decisions",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05",
+        "ep001_step09",
+        "ep001_step11",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When open ports are identified in initial scan results",
+      "then_action": "Run targeted service enumeration with nmap scripts",
+      "parameters_template": {
+        "ports": "top_discovered",
+        "script": "default,safe"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step06"
+      ],
+      "created_at": 1771441455.9382086,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Perform web fingerprinting and content discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771441455.9382224,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Enumerate SSH configuration and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step10"
+      ],
+      "created_at": 1771441455.9382312,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance action applicable across targets"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Common service discovery step to enable web attack paths"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Pivot Drill",
+      "description": "After service enumeration, immediately select one viable exploit path (web, SSH, SMB) and execute a concrete exploit attempt rather than additional scanning.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Protocol",
+      "description": "Set a maximum of 5 mentor calls per episode and require a self-generated action plan before any call.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Playbooks",
+      "description": "Create short playbooks for SSH and HTTP paths that define the next 3 actions after detection to avoid stalling.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -84,26 +84,27 @@ class TestSmartAgentActivation:
         )
 
     def test_activation_schedule_recon(self):
-        """In RECON phase, ScoutAgent and RedAgent run every step, OrionAgent every 3."""
+        """P36: In RECON phase, ScoutAgent and RedAgent run every step, OrionAgent every 5."""
         from core.orchestration.smart_orchestrator import SmartOrchestrator
 
         schedule = SmartOrchestrator.AGENT_ACTIVATION_SCHEDULE.get("RECON", {})
         assert schedule.get("ScoutAgent") == 1, "Scout should activate every step in RECON"
         assert schedule.get("RedAgent") == 1, "Red should activate every step in RECON"
-        assert schedule.get("OrionAgent") == 3, "Orion should activate every 3 steps in RECON"
+        assert schedule.get("OrionAgent") == 5, "Orion should activate every 5 steps in RECON"
 
     def test_activation_schedule_exploitation(self):
-        """In EXPLOITATION, RedAgent leads (every step), Blue monitors (every 3), ScoutAgent every 3."""
+        """P36: In EXPLOITATION, RedAgent leads (every step), Blue disabled, ScoutAgent disabled."""
         from core.orchestration.smart_orchestrator import SmartOrchestrator
 
         schedule = SmartOrchestrator.AGENT_ACTIVATION_SCHEDULE.get("EXPLOITATION", {})
         assert schedule.get("RedAgent") == 1, "Red should activate every step in EXPLOITATION"
-        # Phase 7.1: Blue is purely defensive — activates every 3 steps for monitoring
-        assert schedule.get("BlueAgent") == 3, "Blue should activate every 3 steps in EXPLOITATION (defensive monitor)"
-        assert schedule.get("ScoutAgent") == 3, "Scout should activate every 3 steps in EXPLOITATION"
+        # P36: Blue disabled in exploitation (no defense needed yet)
+        assert schedule.get("BlueAgent") == 0, "Blue should be disabled in EXPLOITATION"
+        # P36: Scout disabled in exploitation (discovery phase done)
+        assert schedule.get("ScoutAgent") == 0, "Scout should be disabled in EXPLOITATION"
 
     def test_should_activate_logic(self):
-        """_should_activate correctly gates based on step and phase."""
+        """P36: _should_activate returns (bool, str) tuple and correctly gates."""
         from core.orchestration.smart_orchestrator import SmartOrchestrator
         from core.environment.cyber_environment import CyberEnvironment
         from core.gpt_manager import GPTManager
@@ -112,18 +113,23 @@ class TestSmartAgentActivation:
         gpt = GPTManager()
         orch = SmartOrchestrator(env=env, gpt_manager=gpt, verbosity="silent")
 
+        # P36: _should_activate now returns (bool, str) tuples
         # In RECON, ScoutAgent (freq=1) should activate every step
-        # Note: _should_activate uses (step+1) % freq == 0
-        assert orch._should_activate("ScoutAgent", 0, "RECON") is True
-        assert orch._should_activate("ScoutAgent", 1, "RECON") is True
-        assert orch._should_activate("ScoutAgent", 5, "RECON") is True
+        activate, reason = orch._should_activate("ScoutAgent", 0, "RECON")
+        assert activate is True
+        activate, reason = orch._should_activate("ScoutAgent", 1, "RECON")
+        assert activate is True
+        activate, reason = orch._should_activate("ScoutAgent", 5, "RECON")
+        assert activate is True
 
-        # In RECON, OrionAgent (freq=3) should activate every 3 steps
-        # (step+1) % 3 == 0: step 2 (3%3=0), step 5 (6%3=0), step 8 (9%3=0)
-        assert orch._should_activate("OrionAgent", 2, "RECON") is True
-        assert orch._should_activate("OrionAgent", 0, "RECON") is False  # (0+1)%3=1≠0
-        assert orch._should_activate("OrionAgent", 5, "RECON") is True   # (5+1)%3=0
-        assert orch._should_activate("OrionAgent", 3, "RECON") is False  # (3+1)%3=1≠0
+        # In RECON, OrionAgent (freq=5): fires on step 4 (step+1=5, 5%5=0)
+        activate, reason = orch._should_activate("OrionAgent", 4, "RECON")
+        assert activate is True
+        activate, reason = orch._should_activate("OrionAgent", 0, "RECON")
+        # Step 0 always activates for Orion (initial strategy)
+        assert activate is True
+        activate, reason = orch._should_activate("OrionAgent", 9, "RECON")
+        assert activate is True  # (9+1)%5=0
 
 
 class TestTripleAdvisePhaseRemoval:

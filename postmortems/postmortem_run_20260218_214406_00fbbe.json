@@ -1,0 +1,144 @@
+{
+  "run_id": "run_20260218_214406_00fbbe",
+  "timestamp": 1771447473.611254,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero successes, indicating partial progress in intermediate objectives",
+      "High mentor utilization (15 calls) suggests strong feedback loop and willingness to seek guidance"
+    ],
+    "fails": [
+      "Success rate 0% across the episode indicates no completed objectives",
+      "Single-episode run limits statistical confidence and pattern validation"
+    ],
+    "summary": "The run shows partial progress and effective mentor engagement but failed to complete any objectives; more focus on execution and completion is required."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert partial progress into objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor calls without execution follow-through",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_mentor_calls_15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon yields partial progress but no clear exploitation path",
+      "then_action": "Refine enumeration by expanding service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC --version-all -p-"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step_recon"
+      ],
+      "created_at": 1771447486.4123955,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service is identified but exploitation is unclear",
+      "then_action": "Pivot to targeted enumeration with protocol-specific tools",
+      "parameters_template": {
+        "service": "<service_name>",
+        "tool": "<service_specific_tool>",
+        "args": "<focused_enum_args>"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step_enum"
+      ],
+      "created_at": 1771447486.4124115,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When no objective completion occurs by mid-episode",
+      "then_action": "Reassess attack path and prioritize highest-likelihood vector",
+      "parameters_template": {
+        "method": "attack-path-review",
+        "criteria": [
+          "exposed_service_risk",
+          "known_cves",
+          "credential_surface"
+        ]
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step_midpoint"
+      ],
+      "created_at": 1771447486.4124227,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Generalizable improvement for moving from partial progress to actionable enumeration"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Supports deeper service-specific recon when initial identification is insufficient"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expanded Enumeration First",
+      "description": "Begin with full-port scan and aggressive version detection to reduce blind spots and improve exploit path selection",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Targeted Pivoting",
+      "description": "For each identified service, run protocol-specific enumeration tools before attempting exploitation",
+      "priority": "high"
+    },
+    {
+      "title": "Mid-Episode Replanning",
+      "description": "At midpoint, review findings and choose a single highest-likelihood path to completion to avoid diffusion of effort",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

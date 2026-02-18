@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260218_183541_f69bc6",
+  "timestamp": 1771436145.3383603,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial reconnaissance workflow within the episode",
+      "Gathered service-level signals sufficient to drive targeted enumeration"
+    ],
+    "fails": [
+      "No successful episode completions (0.00% success rate)",
+      "High mentor call count (15) indicating low autonomy"
+    ],
+    "summary": "Partial progress in reconnaissance but no end-to-end success; autonomy and exploitation follow-through remain weak."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after initial discovery without converting findings into exploitation or privilege escalation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to ICMP and multiple TCP ports are open",
+      "then_action": "Run targeted service/version detection on discovered ports",
+      "parameters_template": {
+        "flags": "-sV -sC",
+        "ports": "discovered_ports"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771436157.4523296,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on standard ports",
+      "then_action": "Enumerate web content and directories to map attack surface",
+      "parameters_template": {
+        "tool": "gobuster",
+        "url": "http(s)://target",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771436157.4523413,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early-stage recon utility for building a focused attack plan"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit conversion from service discovery",
+      "description": "After -sV/-sC results, immediately search for known exploits (e.g., searchsploit) and attempt one vetted exploit per discovered service.",
+      "priority": "high"
+    },
+    {
+      "title": "Web enumeration to vulnerability triage",
+      "description": "For HTTP targets, follow gobuster results with manual checks for auth bypass, file upload, or outdated CMS plugins.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor calls via decision checkpoints",
+      "description": "Add a structured decision step after recon: choose one service to exploit and commit to a 3-step plan before requesting mentor help.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

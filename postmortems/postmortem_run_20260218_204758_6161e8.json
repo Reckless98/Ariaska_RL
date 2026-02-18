@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260218_204758_6161e8",
+  "timestamp": 1771444086.4015944,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with positive total reward (60.00), indicating some effective actions despite failure to reach success condition"
+    ],
+    "fails": [
+      "Success rate 0% across the run",
+      "Only one episode executed, limiting statistical confidence",
+      "10 mentor calls suggest heavy reliance on guidance"
+    ],
+    "summary": "The run achieved a positive reward but failed the objective; more episodes and reduced mentor dependency are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not reached despite positive intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_204758_6161e8_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial discovery yields limited results but positive reward is obtained",
+      "then_action": "Expand reconnaissance scope with targeted port scan",
+      "parameters_template": {
+        "ports": "1-1000",
+        "timing": "-T3",
+        "service_detection": "-sV"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_204758_6161e8_ep001"
+      ],
+      "created_at": 1771444095.9114747,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls are high in a single episode",
+      "then_action": "Insert a self-check step to verify next action against objective",
+      "parameters_template": {
+        "checklist": [
+          "goal_alignment",
+          "risk_level",
+          "expected_reward"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_204758_6161e8_ep001"
+      ],
+      "created_at": 1771444095.9114935,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Positive reward suggests reconnaissance expansion may have contributed value"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run at least 10 episodes to validate whether positive reward can translate into success and to extract more reliable patterns.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Cap mentor calls at 3 per episode and enforce a self-check step before each call to build autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused action gating",
+      "description": "Add a rule that every third action must explicitly advance the success condition, not just reward accumulation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

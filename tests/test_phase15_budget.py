@@ -15,10 +15,10 @@ class TestBudgetManagerV2:
     """BudgetManagerV2 tests."""
 
     def test_initial_budget(self):
-        from core.llm.budget_manager import BudgetManagerV2
+        from core.llm.budget_manager import BudgetManagerV2, _TOTAL_BUDGET
         bm = BudgetManagerV2()
         stats = bm.get_stats()
-        assert stats["total_budget"] == 877_500
+        assert stats["total_budget"] == _TOTAL_BUDGET
         assert stats["total_used"] == 0
 
     def test_check_budget_allowed(self):

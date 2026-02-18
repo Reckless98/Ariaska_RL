@@ -6,8 +6,8 @@ Per-episode and per-model-tier budget management with ROI tags and
 adaptive cost control.
 
 Phase 17 Dynamic Budget:
-  Episode budget scales from $0.50 to $3.00 based on learning maturity.
-  Early episodes: full $3.00 budget (877K tokens) — heavy GPT steering.
+  Episode budget scales from $0.50 to $3.33 based on learning maturity.
+  Early episodes: full $3.33 budget (999K tokens) — heavy GPT steering.
   As success_rate rises and skill library grows: scales down to minimum
   $0.50 budget (~146K tokens) — agent knows what to do, mentor is luxury.
 
@@ -37,18 +37,29 @@ logger = logging.getLogger("ariaska.llm.budget_manager")
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
-_TOTAL_BUDGET = 877_500  # Max budget (1.5x of 585K) — used at full scale ($3.00/ep)
-_MIN_BUDGET = 146_250    # Min budget (~$0.50/ep) — agent is mature, mentor is luxury
-_MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # ~0.167
+# Phase 36: Hard caps — +23% GPT uplift for live HTB engagements.
+_TOTAL_BUDGET = 999_000   # Phase 36: +23% from 811K — ~$3.33/ep ceiling for codex-primary routing
+_MIN_BUDGET = 499_500     # Phase 36: 50% floor
+_MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # 0.50
 
-# Per-tier budgets (must sum to _TOTAL_BUDGET)
-# Phase 16.0: Shifted codex 30%→35% for heavier postmortem + progress labeling
+# Phase 36: Tier budgets — codex-primary routing gets larger share.
+#   codex *= 1.50  → 199_800  (all reasoning: tactical, strategic, postmortem, analysis)
+#   full  *= 1.20  → 199_800  (parsing, interpretation, verification)
+#   mini  *= 1.10  → 299_700  (playbook selection, structured extraction)
+#   nano  *= 1.10  → 299_700  (classification, micro-chain Stages 1+3, reserve)
+#   Sum = 999,000 ✓
 _TIER_BUDGETS: Dict[str, int] = {
-    "codex": 307_125,    # ~35% — Orion plans, mentor reasoning, postmortem synthesis, progress labeling
-    "full": 157_950,     # ~18% — plan verification, invariant checks, JSON validity
-    "mini": 245_700,     # ~28% — hypothesis ranking, verification, lesson compression
-    "nano": 166_725,     # ~19% — micro classification, cache-key summaries
+    "codex":  199_800,  # 20.0% — all reasoning (tactical+strategic+postmortem)
+    "full":   199_800,  # 20.0% — parsing, interpretation, verification
+    "mini":   299_700,  # 30.0% — playbook selection, structured extraction
+    "nano":   299_700,  # 30.0% — classification, micro-chain, reserve
 }
+
+# Phase 33.2: Dynamic Burst Pool
+_BURST_POOL_RATIO = 0.12     # 12% of max budget as burst reserve
+_BURST_STEP_CAP_RATIO = 0.03 # 3% of max budget per-step burst limit
+_BURST_COOLDOWN_STEPS = 5    # Minimum steps between bursts
+_BURST_TIERS = frozenset({"mini", "codex"})  # Only mini+codex get bursts
 
 # Model → tier mapping
 _MODEL_TIER: Dict[str, str] = {
@@ -84,6 +95,23 @@ VALID_ROI_TAGS: Set[str] = {
 STABLE_ROI_TAGS: Set[str] = {
     "classification",
     "verification",
+}
+
+# P36.1: Learning-acceleration ROI tags that get doubled budget throughput.
+# These are the "learning support" categories: value shaping, reward
+# decomposition, distillation, phase scoring, parser feedback.
+LEARNING_ACCEL_ROI_TAGS: Set[str] = {
+    "value_target_shaping",
+    "advantage_sanity",
+    "reward_decomposition",
+    "distillation_quality",
+    "phase_decision_scoring",
+    "parser_feedback_loop",
+    "micro_chain_scoring",
+    "micro_chain_generation",
+    "micro_chain_classification",
+    "tactical_advice",
+    "reward_shaping",
 }
 
 
@@ -166,7 +194,17 @@ class BudgetManagerV2:
         self._episode_id = ""
         self._budget_scale = 1.0  # Phase 17: current dynamic scale factor
         self._maturity_signal = 0.0  # Phase 17: learning maturity [0,1]
+        # Phase 32: per-tier call counters (requests, not just tokens)
+        self._tier_calls: Dict[str, int] = {}
+        # Phase 33.2: Burst pool state
+        self._burst_pool = int(_TOTAL_BUDGET * _BURST_POOL_RATIO)  # 79,200
+        self._burst_step_cap = int(_TOTAL_BUDGET * _BURST_STEP_CAP_RATIO)  # 19,800
+        self._burst_used = 0
+        self._burst_last_step = -_BURST_COOLDOWN_STEPS  # allow first burst immediately
+        self._burst_count = 0
         self._init_allocations()
+        # P36.1: Learning acceleration boost factor (from governor)
+        self._learn_boost_factor: float = 1.0
 
     def _init_allocations(self) -> None:
         """Initialize per-tier allocations."""
@@ -179,6 +217,12 @@ class BudgetManagerV2:
             self._episode_id = episode_id
             self._total_used = 0
             self._total_denied = 0
+            self._tier_calls = {}
+            # Phase 33.2: Reset burst pool
+            self._burst_pool = int(self._max_budget * _BURST_POOL_RATIO)
+            self._burst_used = 0
+            self._burst_last_step = -_BURST_COOLDOWN_STEPS
+            self._burst_count = 0
             self._init_allocations()
             self._roi_counters.clear()
 
@@ -226,6 +270,34 @@ class BudgetManagerV2:
                 roi_tag=roi_tag,
             )
 
+    def is_learning_accel_tag(self, roi_tag: str) -> bool:
+        """P36.1: Check if ROI tag qualifies for doubled learning-accel budget."""
+        return roi_tag in LEARNING_ACCEL_ROI_TAGS
+
+    def get_effective_tokens(self, estimated_tokens: int, roi_tag: str) -> int:
+        """P36.1: Apply learning boost to token budget for accel tags.
+
+        Learning-acceleration ROI tags get `_learn_boost_factor` applied
+        (default 1.0, max 2.0). This means the budget check is more
+        lenient for these calls — effectively doubling their throughput.
+
+        Args:
+            estimated_tokens: Base token estimate for the call.
+            roi_tag: ROI tag for this call.
+
+        Returns:
+            Effective token count (reduced for budget check, so more
+            calls are allowed within the same budget).
+        """
+        if roi_tag in LEARNING_ACCEL_ROI_TAGS and self._learn_boost_factor > 1.0:
+            # Lower the effective cost so more calls fit in budget
+            return max(1, int(estimated_tokens / self._learn_boost_factor))
+        return estimated_tokens
+
+    def set_learn_boost_factor(self, factor: float) -> None:
+        """P36.1: Set the governor's learning boost factor [0.5, 2.0]."""
+        self._learn_boost_factor = max(0.5, min(2.0, factor))
+
     def record_spend(
         self,
         model: str,
@@ -244,6 +316,9 @@ class BudgetManagerV2:
                 else:
                     alloc.used += tokens_used
                     self._total_used += tokens_used
+
+            # Phase 32: per-tier call counter
+            self._tier_calls[tier] = self._tier_calls.get(tier, 0) + 1
 
             # ROI counter
             if roi_tag not in self._roi_counters:
@@ -412,4 +487,119 @@ class BudgetManagerV2:
     @property
     def estimated_cost_usd(self) -> float:
         """Estimated per-episode cost in USD at current scale."""
-        return self._budget_scale * 3.34
+        return self._budget_scale * 2.20  # Phase 33: 660k → ~$2.20/ep at scale 1.0
+
+    # ── Phase 33.2: Dynamic Burst Pool ──────────────────────────────
+
+    def burst_available(self, step: int, tier: str) -> bool:
+        """
+        Check if a burst allocation is available.
+
+        Burst is allowed only for mini/codex tiers, when:
+          - Pool has remaining tokens
+          - Cooldown has elapsed (5 steps since last burst)
+          - Tier is in _BURST_TIERS
+        """
+        if tier not in _BURST_TIERS:
+            return False
+        with self._lock:
+            remaining = self._burst_pool - self._burst_used
+            if remaining <= 0:
+                return False
+            if step - self._burst_last_step < _BURST_COOLDOWN_STEPS:
+                return False
+            return True
+
+    def burst_request(
+        self,
+        step: int,
+        tier: str,
+        tokens_needed: int,
+        trigger: str,
+    ) -> int:
+        """
+        Request burst tokens for a step.
+
+        Args:
+            step: Current step number in the episode.
+            tier: Model tier requesting burst (must be in _BURST_TIERS).
+            tokens_needed: Tokens requested.
+            trigger: Reason for burst (semantic_stall, strategy_pivot,
+                     mc_escalation_high, low_confidence_streak).
+
+        Returns:
+            Number of burst tokens granted (0 if denied).
+        """
+        if tier not in _BURST_TIERS:
+            return 0
+
+        with self._lock:
+            remaining = self._burst_pool - self._burst_used
+            if remaining <= 0:
+                return 0
+            if step - self._burst_last_step < _BURST_COOLDOWN_STEPS:
+                return 0
+            granted = min(tokens_needed, self._burst_step_cap, remaining)
+            self._burst_used += granted
+            self._burst_last_step = step
+            self._burst_count += 1
+            logger.debug(
+                f"[BURST] +{granted} tokens | tier={tier} trigger={trigger} "
+                f"step={step} pool_remaining={remaining - granted}"
+            )
+            return granted
+
+    def get_burst_stats(self) -> Dict[str, Any]:
+        """Return burst pool statistics."""
+        with self._lock:
+            return {
+                "burst_pool_total": self._burst_pool,
+                "burst_used": self._burst_used,
+                "burst_remaining": self._burst_pool - self._burst_used,
+                "burst_count": self._burst_count,
+                "burst_last_step": self._burst_last_step,
+            }
+
+    # ── Phase 32: Episode Cost Summary ──────────────────────────────
+
+    def get_episode_cost_summary(self) -> Dict[str, Any]:
+        """
+        Return a per-episode cost summary for trace/dashboard.
+
+        Includes calls_by_tier, tokens_by_tier, cost_by_tier, and
+        codex_escalation_rate.
+        """
+        # Cost rates (USD per token, blended input+output average)
+        _COST_PER_TOKEN: Dict[str, float] = {
+            "codex": 0.00001000,   # $10.00 / 1M tokens
+            "full":  0.00001000,   # $10.00 / 1M tokens
+            "mini":  0.00000060,   # $0.60  / 1M tokens
+            "nano":  0.00000010,   # $0.10  / 1M tokens
+        }
+        with self._lock:
+            calls_by_tier: Dict[str, int] = dict(self._tier_calls)
+            tokens_by_tier: Dict[str, int] = {
+                k: v.used for k, v in self._allocations.items()
+            }
+            cost_by_tier: Dict[str, float] = {}
+            for tier, tok in tokens_by_tier.items():
+                rate = _COST_PER_TOKEN.get(tier, 0.000001)
+                cost_by_tier[tier] = round(tok * rate, 6)
+
+            total_calls = sum(calls_by_tier.values()) or 1
+            codex_calls = calls_by_tier.get("codex", 0)
+
+            return {
+                "calls_by_tier": calls_by_tier,
+                "tokens_by_tier": tokens_by_tier,
+                "cost_by_tier": cost_by_tier,
+                "total_cost_usd": round(sum(cost_by_tier.values()), 6),
+                "total_calls": sum(calls_by_tier.values()),
+                "total_tokens": self._total_used,
+                "budget_remaining": self._total_budget - self._total_used,
+                "codex_escalation_rate": round(codex_calls / total_calls, 4),
+                "call_distribution": {
+                    tier: round(calls_by_tier.get(tier, 0) / total_calls, 4)
+                    for tier in ("nano", "mini", "full", "codex")
+                },
+            }

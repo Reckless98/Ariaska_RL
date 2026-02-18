@@ -216,7 +216,7 @@ class FakeGPTManager:
         )
         return result["response"]
     
-    def get_model_for_role(self, agent_id: str = None, task_type: str = None) -> str:
+    def get_model_for_role(self, agent_id: Optional[str] = None, task_type: Optional[str] = None) -> str:
         """Get model based on role/task (deterministic)."""
         if agent_id:
             agent_lower = agent_id.lower()

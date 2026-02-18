@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260218_183746_da0936",
+  "timestamp": 1771436269.1402156,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate",
+      "Completed one full episode without aborts"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "Limited sample size prevents reliable pattern validation"
+    ],
+    "summary": "Single-episode run produced a positive reward but no successful outcomes; more data is needed to validate tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode concluded without meeting success criteria",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with unknown network topology",
+      "then_action": "Run fast host discovery to enumerate live targets",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn -PE -PS22,80,443 -T4 <cidr>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771436283.82795,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is discovered",
+      "then_action": "Perform top-ports scan to identify exposed services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS --top-ports 1000 -T4 <host>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771436283.8279626,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP/HTTPS ports are detected open",
+      "then_action": "Enumerate web services for titles and directories",
+      "parameters_template": {
+        "tool": "nikto",
+        "args": "-h <host> -p 80,443"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771436283.827972,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is essential and safe despite limited episode data"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Top-ports scan accelerates service identification in early kill chain"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern validation",
+      "description": "Run at least 10 episodes to identify consistent success/failure patterns and improve statistical confidence",
+      "priority": "high"
+    },
+    {
+      "title": "Adjust recon depth vs. time budget",
+      "description": "Compare fast scan (-T4 top-ports) vs. full port scan to see which yields higher success conversion",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration sequencing",
+      "description": "Test branching to SSH/HTTP/SMB enumeration immediately after detection rather than sequential full scans",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

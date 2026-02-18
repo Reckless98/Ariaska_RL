@@ -131,13 +131,13 @@ class SmartRewardCalculator:
         "vulnerability": 10.0,  # vulns lead to exploitation
         "cve": 13.0,            # specific CVE = exploit ready
         
-        # Shell/Access discoveries — Phase 6: reduced to fit 50.0 ceiling
-        "shell": 25.0,          # shell = major milestone (was 50)
-        "root_shell": 45.0,     # root = game over (was 130)
+        # Shell/Access discoveries — Phase 27.5: boosted high-value milestones
+        "shell": 40.0,          # shell = major milestone (25→40)
+        "root_shell": 80.0,     # root = game over (45→80, cap lifts via calculate_total)
         "flag": 50.0,           # CTF flag = ultimate goal (was 200)
         
-        # Phase 11.1: Explicit user/root flag capture bonuses
-        "user_flag": 40.0,      # user flag = proof of initial compromise
+        # Phase 11.1 / 27.5: Explicit user/root flag capture bonuses
+        "user_flag": 50.0,      # user flag = proof of initial compromise (40→50)
         "root_flag": 50.0,      # root flag = proof of full compromise (ceiling-matched)
         
         # Web discoveries
@@ -161,6 +161,25 @@ class SmartRewardCalculator:
         "web_parameter": 5.0,   # Injectable parameters are high value
         "api_endpoint": 6.5,    # API endpoints reveal attack surface
         "version_info": 4.5,    # Version info = exploit matching
+    }
+    
+    # Phase 27.5: Output-based failure penalties
+    # Detect common failure patterns in command output and apply scaled
+    # penalties so PPO learns to avoid futile actions.  Conservative
+    # FAILURE_PENALTY_SCALE for first rollout (0.5×).
+    FAILURE_PENALTY_SCALE: float = 0.5
+    FAILURE_PENALTIES: Dict[str, float] = {  # type: ignore[assignment]
+        "command not found": 2.0,       # wrong tool installed / typo
+        "No such file or directory": 1.5,
+        "Connection refused": 1.0,      # port closed or service down
+        "Connection timed out": 0.8,    # host unreachable / filtered
+        "Permission denied": 1.5,       # auth failure (phase-adjusted below)
+        "Access denied": 1.5,
+        "Login incorrect": 1.0,
+        "Authentication failed": 1.0,
+        "No route to host": 1.5,
+        "Name or service not known": 1.0,
+        "unable to connect": 0.8,
     }
     
     def __init__(
@@ -642,6 +661,26 @@ class SmartRewardCalculator:
                 breakdown.failure_penalty = 2.0  # Higher penalty for invalid commands
             
             explanations.append(f"Failure: -{breakdown.failure_penalty:.1f}")
+        
+        # 8b. Phase 27.5: Output-based failure penalties
+        # Scan raw_output for common failure signatures and apply scaled
+        # penalties.  "Permission denied" is softened during PRIVESC/POST
+        # because it's expected when probing for escalation vectors.
+        if raw_output:
+            _output_lower = raw_output.lower()
+            for _pattern, _base_penalty in self.FAILURE_PENALTIES.items():
+                if _pattern.lower() in _output_lower:
+                    _scaled = _base_penalty * self.FAILURE_PENALTY_SCALE
+                    # Soften auth failures during privesc (expected there)
+                    if _pattern.lower() in ("permission denied", "access denied"):
+                        _cur_ord = self._phase_order(current_phase)
+                        if _cur_ord >= 3:  # PRIVESC+
+                            _scaled *= 0.3
+                    breakdown.failure_penalty += _scaled
+                    explanations.append(
+                        f"💥 Output({_pattern[:20]}): -{_scaled:.1f}"
+                    )
+                    break  # one match per step to avoid stacking
         
         # Calculate total
         breakdown.calculate_total()

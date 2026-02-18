@@ -153,9 +153,9 @@ class GPTManager:
     """
     Centralized LLM manager for all agents with role-based model routing.
     
-    Model Routing (Phase 23 — no gpt-4 models):
-    - gpt-5.2-codex: Deep reasoning, strategic, postmortem, exploit planning
-    - gpt-5.2-mini: Parsing, tactical analysis, output interpretation, universal fallback
+    Model Routing (Phase 36 — codex-primary):
+    - gpt-5.2-codex: All reasoning — strategic, tactical, analysis, defensive, recon, postmortem
+    - gpt-5.2-mini: Parsing, output interpretation, playbook selection, structured extraction
     - gpt-5-nano: Lightweight classification, reformatting, boolean checks
     
     Features:
@@ -276,8 +276,8 @@ class GPTManager:
         # Phase 13.0: +100% for ultra-accelerated autonomous learning pipeline
         # Agents need maximum token headroom to learn from GPT reasoning chains,
         # build internal world models, and develop autonomous decision-making
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "585000"))  # Phase 13.0: +100% (was 292.5K) — full reasoning depth for autonomous learning
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "187200"))  # Phase 13.0: +100% (was 93.6K) — per-agent reasoning capacity doubled
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "720000"))  # Phase 36: +23% (was 585K) — codex-primary routing needs more headroom
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "230000"))  # Phase 36: +23% (was 187.2K) — per-agent capacity for codex reasoning
         # Phase 13.0: Reasoning tasks get 5.5× multiplier for deep multi-step chains
         # Supports: exploit reasoning, pwn trajectory analysis, reflective meta-learning,
         # strategic planning, autonomous decision justification, and output interpretation
@@ -644,21 +644,22 @@ class GPTManager:
         Returns:
             str: Model name to use
         """
-        # Tier 3 — CODEX: Deep reasoning, strategic, postmortem, exploit planning
+        # Tier 3 — CODEX: Deep reasoning, strategic, tactical, analysis, exploit planning
+        # Phase 36: Promoted tactical+analysis to codex for smarter command selection
         _codex_tasks = {
             "strategic", "postmortem", "reasoning", "learning",
             "diversify", "exploit_chain",
+            "tactical", "analysis", "defensive", "reconnaissance",  # Phase 36: codex for all reasoning
         }
         if task_type in _codex_tasks:
             return self.strategic_model  # gpt-5.2-codex
         
-        # Tier 2 — MINI: Tactical command decisions, parsing, analysis
+        # Tier 2 — MINI: Parsing, output interpretation, playbook selection
         _mini_tasks = {
-            "tactical", "analysis", "defensive", "reconnaissance",
             "playbook", "parsing", "command_selection", "output_parse",
         }
         if task_type in _mini_tasks:
-            return self.fallback_model  # gpt-5.2-mini — cost-efficient parsing tier
+            return self.fallback_model  # gpt-5.2-mini — structured extraction tier
         
         # Tier 1 — NANO: Simple classification, reformatting, checks
         # "general", "classification", "reformat", "cache", None, or unknown
@@ -873,6 +874,32 @@ class GPTManager:
         # Role-based model selection (unless explicitly overridden)
         if model is None:
             model = self.get_model_for_role(agent_id=agent_id, task_type=task_type)
+        
+        # ── Phase 32: Per-tier soft token ceilings ───────────────────
+        # Clamp max_tokens to tier-appropriate limits to prevent waste.
+        _TIER_OUTPUT_CAPS: Dict[str, int] = {
+            "nano": 450,
+            "mini": 1500,   # Phase 36: +67% for richer parsing output
+            "codex": 2000,  # Phase 36: +67% for deeper reasoning chains
+            "full": 1200,   # Phase 36: +33%
+        }
+        from core.llm.budget_manager import _MODEL_TIER as _tier_map
+        _tier = _tier_map.get(model, "mini")
+        _cap = _TIER_OUTPUT_CAPS.get(_tier, 900)
+        if max_tokens > _cap:
+            max_tokens = _cap
+
+        # Phase 36: Soft input-token ceilings (approx 4 chars/token)
+        _TIER_INPUT_CAPS: Dict[str, int] = {
+            "nano": 2_000,
+            "mini": 10_000,  # Phase 36: +67% for richer context
+            "codex": 20_000, # Phase 36: +67% for full attack context
+            "full": 10_000,  # Phase 36: +67%
+        }
+        _input_cap = _TIER_INPUT_CAPS.get(_tier, 6_000)
+        _char_limit = _input_cap * 4  # rough chars-to-tokens
+        if len(prompt) > _char_limit:
+            prompt = prompt[:_char_limit]
         
         # ── Phase 15.0: BudgetManagerV2 pre-check ───────────────────
         # Estimate tokens and check per-tier budget before proceeding.
@@ -1267,13 +1294,19 @@ class GPTManager:
         """Full GPT activity snapshot for dashboard rendering.
         
         Returns:
-            Dict with cumulative stats, per-step calls, and model breakdown.
+            Dict with cumulative stats, per-step calls, model breakdown,
+            and Phase 32 tier-level cost summary.
         """
         step_calls = self.get_step_calls()
         step_tokens = sum(c.get("tokens", 0) for c in step_calls)
         step_cost = sum(c.get("cost_usd", 0.0) for c in step_calls)
         step_api_calls = sum(1 for c in step_calls if not c.get("cache_hit"))
         step_cache_hits = sum(1 for c in step_calls if c.get("cache_hit"))
+
+        # Phase 32: episode-level tier cost summary from BudgetManagerV2
+        tier_cost_summary: Dict[str, Any] = {}
+        if self._budget_manager_v2 is not None:
+            tier_cost_summary = self._budget_manager_v2.get_episode_cost_summary()
         
         return {
             "cumulative_cost_usd": round(self._cumulative_cost_usd, 4),
@@ -1294,6 +1327,8 @@ class GPTManager:
                 }
                 for model in self.tokens_by_model
             },
+            # Phase 32: per-tier cost summary
+            "tier_cost_summary": tier_cost_summary,
         }
     
     def store_learning_feedback(self, agent_id: str, command: str, 

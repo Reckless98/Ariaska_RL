@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260218_194631_90afb1",
+  "timestamp": 1771440417.2137663,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite no episode success",
+      "Completed at least one full episode without termination"
+    ],
+    "fails": [
+      "Success rate remained at 0.00% for the run",
+      "High mentor call count (15) suggests frequent uncertainty"
+    ],
+    "summary": "The run shows partial progress (positive reward) but no successful episode completions and heavy reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress stalls after initial reconnaissance with no successful exploit or objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a live host is identified during discovery",
+      "then_action": "Run targeted TCP service scan on top ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC --top-ports 1000"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771440432.9787183,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on a host",
+      "then_action": "Enumerate web paths and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://{host}:{port} -w /usr/share/wordlists/dirb/common.txt",
+        "aux_tool": "whatweb"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771440432.9787264,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Enumerate SSH configuration and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-hostkey,ssh2-enum-algos,ssh-auth-methods {host}"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771440432.978731,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Early discovery and targeted service scanning likely contributed to positive reward"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a consistent high-yield step following HTTP detection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance",
+      "description": "Run a full episode using a fixed recon-to-enum playbook (host discovery \u2192 service scan \u2192 protocol-specific enum) before requesting mentor help.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit validation checkpoint",
+      "description": "Add a decision gate after enumeration: only proceed to exploitation if at least one actionable finding (version/CVE, weak auth, exposed admin path) is identified.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first pivot strategy",
+      "description": "If HTTP is detected, prioritize web enumeration and identify credential leaks or admin endpoints before attempting non-web exploits.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

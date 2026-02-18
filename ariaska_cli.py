@@ -56,7 +56,7 @@ console = Console(force_terminal=True)
 # Ensure line buffering so output appears immediately
 if hasattr(sys.stdout, 'reconfigure'):
     try:
-        sys.stdout.reconfigure(line_buffering=True)
+        sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
     except Exception:
         pass
 
@@ -102,13 +102,13 @@ def run_training(
     checkpoint_path: str = "models/enhanced/ppo_live_checkpoint.pt",
     dashboard_mode: str = "live",
     log_jsonl: bool = True,
-    mentor_budget: float = 0.30,
+    mentor_budget: Optional[float] = None,
     mentor_min_rate: float = 0.15,
     mentor_max_rate: float = 0.35,
     resume_path: Optional[str] = None,
     max_tokens_run: Optional[int] = None,
     checkpoint_every: int = 10,
-    anti_forensics: bool = True,
+    anti_forensics: bool = False,
     ethics_mode: str = "training",
     seed_skills: bool = False,
     ctf_mode: bool = False,
@@ -157,7 +157,7 @@ def run_training(
         mentor_warmup_episodes=2,
         mentor_min_rate=mentor_min_rate,
         mentor_max_rate=mentor_max_rate,
-        mentor_budget_pct=mentor_budget,
+        mentor_budget_pct=mentor_budget if mentor_budget is not None else 1.0,  # Phase 36: adaptive default, explicit overrides
         max_steps_per_episode=max_steps,  # Safety limit for continuous run
         default_target=target_ip,
         dashboard_enabled=(verbosity != "quiet"),
@@ -166,7 +166,7 @@ def run_training(
             f"traces/events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
             if log_jsonl else None
         ),
-        difficulty="normal",  # Post-Phase 20: always unrestricted
+        difficulty="normal",
         ctf_mode=ctf_mode,
     )
 
@@ -229,8 +229,8 @@ def run_training(
             console.print(f"[yellow]⚠️ Skill seeding failed: {e}[/yellow]")
 
     # Phase 6.7: Store anti-forensics config on orchestrator
-    orch.anti_forensics_enabled = anti_forensics
-    orch.ethics_mode = ethics_mode
+    orch.anti_forensics_enabled = anti_forensics  # type: ignore[attr-defined]
+    orch.ethics_mode = ethics_mode  # type: ignore[attr-defined]
 
     # Phase 10.3: Suppress noisy INFO loggers during training — all relevant
     # information is shown via Rich dashboard panels. Raw logger.info() lines
@@ -439,6 +439,14 @@ def show_help():
     help_table.add_row("  --target IP", "Target IP (REQUIRED)", "--target 10.129.1.54")
     help_table.add_row("  --ctf", "CTF mode: close on flag capture", "--ctf")
     help_table.add_row("  --verbosity LEVEL", "quiet / standard / verbose", "--verbosity verbose")
+    help_table.add_row("replay <TRACE>", "Replay a JSONL event trace file", "ariaska replay traces/events_*.jsonl")
+    help_table.add_row("  --verbose", "Show stdout snippets in replay", "--verbose")
+    help_table.add_row(
+        "watchdog [OPTIONS]",
+        "🐕 Persistent runner: run, monitor,\ndebug, relaunch until both flags",
+        "ariaska watchdog --target IP",
+    )
+    help_table.add_row("  --max-attempts N", "Max restart attempts (default: 10)", "--max-attempts 20")
     help_table.add_row("status", "Show system status & diagnostics", "ariaska status")
     help_table.add_row("help", "Show this help message", "ariaska help")
 
@@ -448,6 +456,183 @@ def show_help():
         subtitle="Continuous Engagement | Auto-Close on Flag Capture",
         border_style="blue",
     ))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P34-EXT: WATCHDOG RUNNER — persistent engagement until both flags
+# ─────────────────────────────────────────────────────────────────────────────
+def _run_watchdog(args):
+    """
+    Persistent watchdog runner: run engagement, monitor for stagnation,
+    auto-debug, and relaunch until both user.txt and root.txt are captured
+    or max-attempts is exhausted.
+
+    Stagnation detection:
+      - stagnation_steps >= 8 (no new discoveries for 8+ steps)
+      - anti_repeat_rate >= 30% (3/10 steps blocked)
+      - avg confidence < 0.55
+
+    On stagnation: log diagnosis to watchdog trace, restart with new seed.
+    """
+    target_ip = args.target
+    max_steps = args.steps
+    max_attempts = args.max_attempts
+    seed = args.seed
+    verbosity = args.verbosity
+    ctf_mode = args.ctf
+
+    # Watchdog trace file
+    os.makedirs("traces", exist_ok=True)
+    trace_path = f"traces/watchdog_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+
+    console.print(Panel(
+        f"[bold]Target:[/bold] {target_ip}\n"
+        f"[bold]Steps/attempt:[/bold] {max_steps}\n"
+        f"[bold]Max attempts:[/bold] {max_attempts}\n"
+        f"[bold]CTF mode:[/bold] {'ON' if ctf_mode else 'OFF'}\n"
+        f"[bold]Trace:[/bold] {trace_path}\n"
+        f"\n[dim]Will auto-restart on stagnation. Ctrl+C to stop.[/dim]",
+        title="[bold bright_cyan]🐕 ARIASKA Watchdog Runner[/bold bright_cyan]",
+        border_style="bright_cyan",
+        box=box.ROUNDED,
+    ))
+
+    user_flag = False
+    root_flag = False
+    attempt = 0
+
+    while attempt < max_attempts and not (user_flag and root_flag):
+        attempt += 1
+        attempt_seed = (seed + attempt) if seed is not None else None
+        attempt_start = time.time()
+
+        console.print(f"\n[bold bright_cyan]🐕 Watchdog: Attempt {attempt}/{max_attempts}[/bold bright_cyan]")
+
+        # Log attempt start
+        _watchdog_log(trace_path, {
+            "event": "attempt_start",
+            "attempt": attempt, "seed": attempt_seed,
+            "target": target_ip, "max_steps": max_steps,
+            "timestamp": datetime.now().isoformat(),
+        })
+
+        try:
+            results = run_training(
+                max_steps=max_steps,
+                seed=attempt_seed,
+                target_ip=target_ip,
+                mode="live",
+                platform="linux",
+                verbosity=verbosity,
+                ctf_mode=ctf_mode,
+            )
+        except KeyboardInterrupt:
+            console.print("\n[yellow]⚠️ Watchdog interrupted by user[/yellow]")
+            _watchdog_log(trace_path, {
+                "event": "user_interrupt", "attempt": attempt,
+                "timestamp": datetime.now().isoformat(),
+            })
+            break
+        except Exception as e:
+            console.print(f"[red]❌ Attempt {attempt} crashed: {e}[/red]")
+            _watchdog_log(trace_path, {
+                "event": "attempt_crash", "attempt": attempt,
+                "error": str(e), "timestamp": datetime.now().isoformat(),
+            })
+            time.sleep(5)  # Cooldown before restart
+            continue
+
+        elapsed = time.time() - attempt_start
+
+        # Check results
+        if results:
+            user_flag = results.get("user_flag_captured", False) or user_flag
+            root_flag = results.get("root_flag_captured", False) or root_flag
+            ep_metrics = results.get("episode_metrics", {})
+            highest = ep_metrics.get("highest_phase", results.get("highest_phase", "RECON"))
+            reward = ep_metrics.get("total_reward", results.get("total_reward", 0.0))
+            steps = ep_metrics.get("total_steps", results.get("total_steps", 0))
+            unique_cmds = ep_metrics.get("unique_commands_total", 0)
+            discoveries = ep_metrics.get("total_discoveries", 0)
+
+            _watchdog_log(trace_path, {
+                "event": "attempt_complete", "attempt": attempt,
+                "elapsed_s": round(elapsed, 1),
+                "reward": round(reward, 1), "highest_phase": highest,
+                "steps": steps, "unique_cmds": unique_cmds,
+                "discoveries": discoveries,
+                "user_flag": user_flag, "root_flag": root_flag,
+                "user_flag_value": results.get("user_flag_value", ""),
+                "root_flag_value": results.get("root_flag_value", ""),
+                "timestamp": datetime.now().isoformat(),
+            })
+
+            # Stagnation diagnosis
+            lm = ep_metrics.get("learning_metrics", {})
+            max_stag = lm.get("max_stagnation", 0)
+            ar_rate = lm.get("anti_repeat_rate", 0.0)
+            novelty = lm.get("novelty_rate", 0.0)
+
+            stagnation_detected = (
+                max_stag >= 8
+                or ar_rate >= 0.30
+                or (novelty < 0.25 and steps > 20)
+            )
+
+            if stagnation_detected and not (user_flag and root_flag):
+                diagnosis = (
+                    f"stag={max_stag}, AR={ar_rate:.0%}, novelty={novelty:.0%}, "
+                    f"phase={highest}, steps={steps}"
+                )
+                console.print(Panel(
+                    f"[yellow]Stagnation detected:[/yellow] {diagnosis}\n"
+                    f"[dim]Auto-restarting with new seed...[/dim]",
+                    title="[bold yellow]🐕 Watchdog: Stagnation Detected[/bold yellow]",
+                    border_style="yellow", box=box.ROUNDED,
+                ))
+                _watchdog_log(trace_path, {
+                    "event": "stagnation_detected", "attempt": attempt,
+                    "diagnosis": diagnosis, "timestamp": datetime.now().isoformat(),
+                })
+                time.sleep(3)  # Brief cooldown
+                continue
+
+        if user_flag and root_flag:
+            console.print(Panel(
+                f"[bold green]🏆 BOTH FLAGS CAPTURED! 🏆[/bold green]\n\n"
+                f"User: {results.get('user_flag_value', '')}\n"
+                f"Root: {results.get('root_flag_value', '')}\n\n"
+                f"[dim]Attempts: {attempt} │ Total time: {elapsed:.0f}s[/dim]",
+                title="[bold green]🐕 Watchdog: MISSION COMPLETE[/bold green]",
+                border_style="bold green", box=box.ROUNDED,
+            ))
+            _watchdog_log(trace_path, {
+                "event": "mission_complete", "attempt": attempt,
+                "timestamp": datetime.now().isoformat(),
+            })
+            break
+
+    if not (user_flag and root_flag):
+        console.print(Panel(
+            f"[yellow]Exhausted {max_attempts} attempts without full pwn.[/yellow]\n"
+            f"User flag: {'✅' if user_flag else '❌'}\n"
+            f"Root flag: {'✅' if root_flag else '❌'}\n\n"
+            f"[dim]Review: {trace_path}[/dim]",
+            title="[bold yellow]🐕 Watchdog: Max Attempts Reached[/bold yellow]",
+            border_style="yellow", box=box.ROUNDED,
+        ))
+
+    console.print(f"\n[dim]📋 Watchdog trace: {trace_path}[/dim]")
+    console.print(f"[dim]💡 Replay: ariaska replay <trace_file>[/dim]")
+
+
+def _watchdog_log(path: str, data: dict) -> None:
+    """Append a JSONL record to the watchdog trace."""
+    try:
+        with open(path, "a") as f:
+            f.write(json.dumps(data, default=str) + "\n")
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -468,8 +653,6 @@ def main():
     train_p.add_argument("--steps", "-s", type=int, default=500, help="Max steps safety limit (default: 500)")
     train_p.add_argument("--seed", type=int, default=None, help="Random seed (optional, non-deterministic by default)")
     train_p.add_argument("--target", type=str, required=True, help="Target IP (REQUIRED)")
-    # Post-Phase 20: --env removed — always live mode against real target
-    # train_p.add_argument("--env", type=str, default="ms3", ...)
     train_p.add_argument("--ctf", action="store_true", default=False,
                          help="CTF mode: auto-close on user.txt + root.txt flag capture (for HTB/CTF machines)")
     train_p.add_argument("--verbosity", "-v", type=str, default="verbose",
@@ -485,8 +668,8 @@ def main():
                          help="Enable JSONL event logging (default: on)")
     train_p.add_argument("--no-log-jsonl", action="store_true", default=False,
                          help="Disable JSONL event logging")
-    train_p.add_argument("--mentor-budget", type=float, default=0.30,
-                         help="Mentor call budget as fraction of steps (default: 0.30)")
+    train_p.add_argument("--mentor-budget", type=float, default=None,
+                         help="Override adaptive mentor budget with fixed fraction (default: adaptive)")
     train_p.add_argument("--mentor-min-rate", type=float, default=0.15,
                          help="Minimum mentor call rate (default: 0.15)")
     train_p.add_argument("--mentor-max-rate", type=float, default=0.35,
@@ -494,16 +677,14 @@ def main():
     train_p.add_argument("--resume", type=str, default=None,
                          help="Resume from checkpoint path")
     
-    # Post-Phase 20: Difficulty presets removed — always full intelligence, zero restrictions
-    # train_p.add_argument("--difficulty", "-d", type=str, default="normal", ...)
     train_p.add_argument("--max-tokens-run", type=int, default=None,
                          help="Total token budget for the entire run (default: unlimited)")
     train_p.add_argument("--checkpoint-every", type=int, default=10,
                          help="Save PPO checkpoints every N episodes (default: 10)")
 
     # Phase 6.7: Anti-forensics & ethics mode
-    train_p.add_argument("--anti-forensics", action="store_true", default=True,
-                         help="Enable anti-forensics in CLOSEOUT phase (default: ON)")
+    train_p.add_argument("--anti-forensics", action="store_true", default=False,
+                         help="Enable anti-forensics in CLOSEOUT phase (default: OFF)")
     train_p.add_argument("--no-anti-forensics", dest="anti_forensics", action="store_false",
                          help="Disable anti-forensics in CLOSEOUT phase")
     train_p.add_argument("--ethics-mode", type=str, default="training",
@@ -518,8 +699,10 @@ def main():
     train_p.add_argument("--parser-mode", type=str, default="intelligent_fullparse",
                          choices=["fast", "intelligent_fullparse"],
                          help="Parser mode: fast=regex only, intelligent_fullparse=4-stage cascade (default: intelligent_fullparse)")
-    train_p.add_argument("--strict-ladder", action="store_true", default=False,
-                         help="Enable strict phase ladder enforcement (min steps per phase)")
+    train_p.add_argument("--strict-ladder", action="store_true", default=True,
+                         help="Strict phase ladder enforcement (default: ON)")
+    train_p.add_argument("--no-strict-ladder", dest="strict_ladder", action="store_false",
+                         help="Disable strict phase ladder enforcement")
     train_p.add_argument("--adaptive-budget", action="store_true", default=True,
                          help="Enable adaptive LLM budget controller (default: ON)")
     train_p.add_argument("--no-adaptive-budget", dest="adaptive_budget", action="store_false",
@@ -534,6 +717,22 @@ def main():
 
     # Phase 7.1: ingest-htb removed — knowledge is now hardcoded in knowledge_packs.py
 
+    # Phase 31: Replay past engagements from JSONL trace files
+    replay_p = sub.add_parser("replay", help="Replay a JSONL event trace file")
+    replay_p.add_argument("trace_file", type=str, help="Path to the JSONL trace file (e.g. traces/events_*.jsonl)")
+    replay_p.add_argument("--verbose", action="store_true", default=False,
+                          help="Show stdout output snippets for each agent action")
+
+    # P34-EXT: Watchdog runner — persistent engagement until both flags
+    watchdog_p = sub.add_parser("watchdog", help="Persistent watchdog: run, monitor, debug, relaunch until both flags")
+    watchdog_p.add_argument("--target", type=str, required=True, help="Target IP (REQUIRED)")
+    watchdog_p.add_argument("--steps", "-s", type=int, default=500, help="Max steps per attempt (default: 500)")
+    watchdog_p.add_argument("--max-attempts", type=int, default=10, help="Max restart attempts (default: 10)")
+    watchdog_p.add_argument("--seed", type=int, default=None, help="Random seed")
+    watchdog_p.add_argument("--ctf", action="store_true", default=True, help="CTF mode (default: ON)")
+    watchdog_p.add_argument("--verbosity", "-v", type=str, default="verbose",
+                            choices=["quiet", "standard", "verbose"])
+
     sub.add_parser("status", help="Show system status")
     sub.add_parser("help", help="Show help")
 
@@ -545,6 +744,22 @@ def main():
 
     if args.command == "status":
         show_system_status()
+        return
+
+    if args.command == "replay":
+        from core.replay.episode_replayer import replay_trace_file
+        try:
+            replay_trace_file(args.trace_file, verbose=args.verbose, console=console)
+        except FileNotFoundError as e:
+            console.print(f"[red]{e}[/red]")
+            return 1
+        except Exception as e:
+            console.print(f"[red]Replay failed: {e}[/red]")
+            return 1
+        return
+
+    if args.command == "watchdog":
+        _run_watchdog(args)
         return
 
     if args.command == "smart-train":

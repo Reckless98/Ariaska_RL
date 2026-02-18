@@ -1,0 +1,1 @@
+{"episode_id": "run_20260218_211111_6b73fb_ep0000", "run_id": "run_20260218_211111_6b73fb", "episode_number": 0, "start_time": 1771445471.162803, "end_time": 1771445491.3394434, "total_reward": 70.0, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"gpt-5.2-codex": 10}, "avg_confidence": 0.5, "duration": 20.176640510559082}

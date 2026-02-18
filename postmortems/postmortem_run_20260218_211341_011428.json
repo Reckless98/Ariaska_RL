@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260218_211341_011428",
+  "timestamp": 1771445628.5682952,
+  "key_outcomes": {
+    "wins": [
+      "Sustained positive reward signal across the episode (60.0)"
+    ],
+    "fails": [
+      "No successful episode completions (0% success rate)",
+      "High mentor reliance (10 calls) indicating low autonomy"
+    ],
+    "summary": "The run achieved a stable reward but failed to complete objectives, with frequent mentor intervention suggesting gaps in independent decision-making."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after initial progress without converting to objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during decision points",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step6",
+        "ep001_step11",
+        "ep001_step17"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is identified but services are unknown",
+      "then_action": "Run fast TCP port scan to identify exposed services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 -p- --min-rate 1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step2"
+      ],
+      "created_at": 1771445643.400837,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Perform web enumeration to map directories and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://{ip}:{port} -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771445643.4008532,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected on port 22",
+      "then_action": "Enumerate SSH version and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-auth-methods"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1771445643.4008644,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational discovery step that enables all follow-on actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common pivot with high value for objective completion"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence through decision checkpoints",
+      "description": "Introduce explicit decision heuristics after each scan to select the next action without mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-driven kill chain checklist",
+      "description": "Adopt a recon \u2192 enumerate \u2192 exploit \u2192 validate checklist to avoid stalling after reconnaissance.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration depth test",
+      "description": "For detected services, test deeper enumeration scripts/wordlists to improve exploit discovery rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

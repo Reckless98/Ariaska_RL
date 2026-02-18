@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260218_201812_901a51",
+  "timestamp": 1771442321.1107528,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite single-episode run"
+    ],
+    "fails": [
+      "0% success rate indicates objective not achieved",
+      "Limited sample size (1 episode) prevents pattern validation"
+    ],
+    "summary": "Run achieved positive reward but failed to complete objective; more episodes are needed to validate behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved within episode despite accruing reward",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target scope is known and connectivity is available",
+      "then_action": "Run fast TCP port scan to identify open services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS -T4 --top-ports 1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [],
+      "created_at": 1771442332.8828583,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open ports are discovered during initial scan",
+      "then_action": "Perform targeted service/version enumeration on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [],
+      "created_at": 1771442332.8828683,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web service is detected on HTTP/HTTPS",
+      "then_action": "Run directory and technology enumeration",
+      "parameters_template": {
+        "tool": "ffuf",
+        "args": "-w /usr/share/wordlists/dirb/common.txt -u http://<host>/FUZZ"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [],
+      "created_at": 1771442332.882875,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is consistently required at episode start"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern validation",
+      "description": "Run 5\u201310 episodes with identical objectives to collect evidence and refine skill confidence.",
+      "priority": "high"
+    },
+    {
+      "title": "Add success-condition checks",
+      "description": "Instrument the agent to explicitly verify objective completion after each phase to reduce false positives.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive scan depth",
+      "description": "Compare top-ports scan vs full 1-65535 scan on a subset of episodes to measure impact on success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

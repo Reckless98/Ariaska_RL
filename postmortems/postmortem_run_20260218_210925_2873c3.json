@@ -1,0 +1,115 @@
+{
+  "run_id": "run_20260218_210925_2873c3",
+  "timestamp": 1771445373.8946586,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode without crashing and achieved a positive total reward of 50.00"
+    ],
+    "fails": [
+      "Success rate at 0% indicates no objective completion",
+      "High mentor call count (10) suggests frequent guidance needed",
+      "Insufficient episode detail to validate specific tactical successes"
+    ],
+    "summary": "The run was stable and yielded positive reward, but no objectives were completed and heavy mentor reliance indicates gaps in autonomous decision-making."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved despite positive reward, indicating misalignment between reward signals and success criteria",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_210925_2873c3_ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High mentor call dependence suggesting uncertainty at key decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "run_20260218_210925_2873c3_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode begins and objectives are unspecified",
+      "then_action": "Clarify success criteria and define target milestones before executing reconnaissance",
+      "parameters_template": {
+        "milestones": [
+          "identify live hosts",
+          "enumerate ports",
+          "confirm service versions"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_210925_2873c3_ep001_summary"
+      ],
+      "created_at": 1771445386.7871327,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 3 within a single episode",
+      "then_action": "Pause execution and perform a decision checkpoint: summarize state, list hypotheses, choose next action",
+      "parameters_template": {
+        "checkpoint_steps": [
+          "state_summary",
+          "hypotheses",
+          "next_action_rationale"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_210925_2873c3_mentor_calls"
+      ],
+      "created_at": 1771445386.7871466,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Objective clarity is foundational and addresses observed failure to complete goals."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-first run",
+      "description": "Begin the episode by explicitly defining success criteria and intermediate milestones, then track progress against them after each major action.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call reduction drill",
+      "description": "Impose a hard limit of 3 mentor calls and use a structured decision checkpoint when the limit is reached.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward vs. success alignment audit",
+      "description": "After each episode, map rewards to actions taken and verify whether the objective was advanced; adjust action selection accordingly.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

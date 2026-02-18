@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260218_200440_2152a8",
+  "timestamp": 1771441487.298664,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite single-episode run",
+      "Completed run without reward collapse"
+    ],
+    "fails": [
+      "Success rate at 0% indicates objective not met",
+      "Only one episode provides insufficient coverage to validate strategies",
+      "High mentor calls (10) suggest over-reliance on guidance"
+    ],
+    "summary": "Single-episode run shows stable reward but failed to achieve mission success; more episodes and autonomous decision-making are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved within episode despite stable reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    },
+    {
+      "pattern": "High mentor intervention rate indicating lack of confidence in next-step selection",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_02"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery is required at episode start",
+      "then_action": "Perform quick host discovery to map live targets",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn -T4"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_start"
+      ],
+      "created_at": 1771441502.1199484,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is identified",
+      "then_action": "Run focused TCP port scan for top ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS --top-ports 1000 -T4"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_mid"
+      ],
+      "created_at": 1771441502.1199617,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a service port is found open",
+      "then_action": "Enumerate service banners to identify versions",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -T4"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_mid"
+      ],
+      "created_at": 1771441502.1199713,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step likely needed in most episodes"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Focused scanning improves speed-to-visibility"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for strategy validation",
+      "description": "Run 10-20 episodes to collect sufficient evidence for success/failure patterns and refine skill cards.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor calls via preset decision tree",
+      "description": "Introduce a basic recon-to-enum decision flow to minimize mentor intervention and measure autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Time-box recon phase",
+      "description": "Limit recon to first 20% of episode steps and shift to exploitation/goal pursuit to improve success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -37,6 +37,19 @@ def _env_bool(name: str, default: bool = True) -> bool:
     return default
 
 
+_VALID_GATE_MODES = {"off", "log", "enforce"}
+
+
+def _validate_exploit_gate(value: str) -> str:
+    """Validate strict_exploit_gate value; fallback to 'log' on invalid."""
+    cleaned = value.strip().lower()
+    if cleaned in _VALID_GATE_MODES:
+        return cleaned
+    logging.getLogger("ariaska.feature_flags").warning(
+        f"Invalid FF_STRICT_EXPLOIT_GATE='{value}', falling back to 'log'")
+    return "log"
+
+
 @dataclass
 class FeatureFlags:
     """Phase 9.5–9.7 feature flags with env-var overrides."""
@@ -172,6 +185,17 @@ class FeatureFlags:
         default_factory=lambda: _env_bool("FF_CRUSHFTP_TEMPLATES", True))
     erlang_templates: bool = field(
         default_factory=lambda: _env_bool("FF_ERLANG_TEMPLATES", True))
+
+    # ── Phase 27.0: Intelligence Pipeline ───────────────────────────
+    use_micro_chain: bool = field(
+        default_factory=lambda: _env_bool("FF_USE_MICRO_CHAIN", True))
+    strict_exploit_gate: str = field(
+        default_factory=lambda: _validate_exploit_gate(
+            os.environ.get("FF_STRICT_EXPLOIT_GATE", "enforce")))
+    parallel_agents: bool = field(
+        default_factory=lambda: _env_bool("FF_PARALLEL_AGENTS", True))
+    episode_summary_embedding: bool = field(
+        default_factory=lambda: _env_bool("FF_EPISODE_SUMMARY_EMBEDDING", True))
 
 
 # Global singleton

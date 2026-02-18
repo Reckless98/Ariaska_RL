@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260218_195905_cc85fd",
+  "timestamp": 1771441163.6013017,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (70.00)",
+      "Utilized mentor guidance 10 times indicating iterative assistance"
+    ],
+    "fails": [
+      "Success rate at 0.00% with no completed objectives",
+      "Single-episode run limits statistical confidence"
+    ],
+    "summary": "The run shows positive reward accumulation but no successful episode completion; additional iterations and improved objective completion are required."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion failed despite positive reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_195905_cc85fd_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance is required in a new episode",
+      "then_action": "Perform fast port discovery to establish target surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS -p- --min-rate 1000"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_195905_cc85fd_summary"
+      ],
+      "created_at": 1771441173.9370186,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When key ports are identified from discovery",
+      "then_action": "Run targeted service/version enumeration on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <ports>"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260218_195905_cc85fd_summary"
+      ],
+      "created_at": 1771441173.9370317,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational step to enable all subsequent enumeration and exploitation phases"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Directly increases quality of actionable intel for objective completion"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run at least 10 episodes to validate whether the positive reward pattern translates into successful completions.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-driven logging checkpoints",
+      "description": "Introduce explicit checkpoints after recon and enumeration to ensure objective alignment before moving to exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call optimization",
+      "description": "Limit mentor calls to decision points only and evaluate whether reduced dependency improves completion rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

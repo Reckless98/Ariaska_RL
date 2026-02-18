@@ -1,0 +1,150 @@
+{
+  "run_id": "run_20260218_174455_82489d",
+  "timestamp": 1771433096.5823298,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward across the single episode",
+      "Maintained stable reward trend without decline"
+    ],
+    "fails": [
+      "Zero task success rate despite positive reward",
+      "High mentor call count indicates insufficient autonomous decision-making"
+    ],
+    "summary": "The run shows modest reward but no successful episode completion; guidance reliance is high, suggesting gaps in execution and decision quality."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Task completion did not occur despite incremental reward gains",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "High dependence on mentor interventions during action selection",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_02",
+        "ep001_mentor_call_03",
+        "ep001_mentor_call_04",
+        "ep001_mentor_call_05",
+        "ep001_mentor_call_06",
+        "ep001_mentor_call_07",
+        "ep001_mentor_call_08",
+        "ep001_mentor_call_09",
+        "ep001_mentor_call_10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields no clear target",
+      "then_action": "Run a full TCP port scan with service detection",
+      "parameters_template": {
+        "ports": "1-65535",
+        "scan_type": "SYN",
+        "service_detection": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_recon_01"
+      ],
+      "created_at": 1771433111.1493886,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service is detected but exploitation path is unclear",
+      "then_action": "Enumerate service version and known CVEs before proceeding",
+      "parameters_template": {
+        "service": "auto",
+        "version_check": true,
+        "cve_lookup": true
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step_enum_02"
+      ],
+      "created_at": 1771433111.1493988,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a command fails to change state",
+      "then_action": "Validate target reachability and re-check permissions/credentials",
+      "parameters_template": {
+        "ping_check": true,
+        "auth_check": true
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step_action_03"
+      ],
+      "created_at": 1771433111.1494055,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance consistency needed for higher task completion probability"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Improves decision quality when selecting next actions after discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run a new episode with a strict cap of 3 mentor calls and enforce a recon\u2192enum\u2192exploit decision tree.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon quality improvement",
+      "description": "Force a full port scan with service detection before any exploitation attempts and compare success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Action validation checkpoints",
+      "description": "Insert explicit validation steps (reachability, auth, version checks) after every failed action to prevent repeated ineffective attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

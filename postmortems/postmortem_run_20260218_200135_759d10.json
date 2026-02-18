@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260218_200135_759d10",
+  "timestamp": 1771441302.2483497,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "No successful episodes despite positive reward signal",
+      "High mentor call count indicates reliance on guidance",
+      "Single-episode run provides insufficient evidence for stable policy"
+    ],
+    "summary": "The run shows some reward accumulation but zero task success and heavy mentor dependence, indicating exploratory behavior without effective task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance findings into a successful exploitation path",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP ports are discovered in the first scan",
+      "then_action": "Run service/version detection on discovered ports",
+      "parameters_template": {
+        "command": "nmap",
+        "args": "-sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771441314.9370303,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP (80/443) is open",
+      "then_action": "Enumerate web directories and tech stack",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "whatweb"
+        ],
+        "gobuster_args": "dir -u http://<target> -w <wordlist>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771441314.9370396,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (22) is open",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "command": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-auth-methods <target>"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771441314.937045,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline service detection is a prerequisite for downstream actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is high-yield when HTTP is present"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Implement a decision policy that attempts two autonomous actions before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Success conversion drill",
+      "description": "After each recon result, force selection of a concrete exploitation or credential pathway and log outcome.",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-episode stability check",
+      "description": "Run at least 5 episodes with identical targets to validate consistency of recon-to-exploit transitions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

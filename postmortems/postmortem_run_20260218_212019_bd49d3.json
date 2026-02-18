@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260218_212019_bd49d3",
+  "timestamp": 1771446025.876911,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode without crashing",
+      "Accumulated moderate total reward despite failure to achieve objective"
+    ],
+    "fails": [
+      "Zero successful episodes (0.00% success rate)",
+      "High reliance on mentor calls indicating low autonomy",
+      "Insufficient progress to terminal objectives"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to reach success criteria; heavy mentor usage suggests gaps in autonomous decision-making."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after initial reconnaissance without progressing to exploitation or privilege escalation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Overuse of mentor guidance during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance is complete and open ports are identified",
+      "then_action": "Prioritize service-specific enumeration on top 2 exposed services",
+      "parameters_template": {
+        "max_services": 2,
+        "tools": [
+          "nmap",
+          "whatweb"
+        ],
+        "nmap_args": "-sV -sC"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771446040.919096,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected",
+      "then_action": "Run web fingerprinting and directory enumeration",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "gobuster_args": "dir -w /usr/share/wordlists/dirb/common.txt -x php,txt,html"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771446040.9191096,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected but no immediate credentials are available",
+      "then_action": "Collect SSH banner and check for weak auth methods before moving on",
+      "parameters_template": {
+        "nmap_script": "ssh2-enum-algos,ssh-hostkey",
+        "port": 22
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771446040.9191184,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Improves transition from recon to service-focused enumeration"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence during mid-run decisions",
+      "description": "Introduce a policy that forces selection of the next action after recon without mentor calls; log decision latency and outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Enforce service enumeration depth",
+      "description": "Require at least two service-specific enumeration steps after port discovery before attempting exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first branching strategy",
+      "description": "If HTTP is present, prioritize web enumeration path for first 5 steps to test impact on success metrics.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

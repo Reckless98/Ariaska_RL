@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260218_210820_1158c8",
+  "timestamp": 1771445323.5132668,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with a positive total reward of 87.50"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%, indicating no mission-level success",
+      "High mentor call count (15) suggests heavy reliance on guidance"
+    ],
+    "summary": "Limited evidence of successful task completion despite positive reward; heavy mentor dependency and zero success rate indicate the approach needs refinement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "High mentor dependence without translating to episode success",
+      "frequency": 15,
+      "evidence_refs": [
+        "run_20260218_210820_1158c8"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with unknown network surface",
+      "then_action": "Run a fast TCP port scan to establish basic attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 -Pn --top-ports 1000 -oA quick_tcp"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [
+        "run_20260218_210820_1158c8"
+      ],
+      "created_at": 1771445338.3535774,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Enumerate web stack and directories for initial foothold clues",
+      "parameters_template": {
+        "tool": "nmap+gobuster",
+        "args": "nmap -sV -p <port> --script http-title,http-headers,http-methods -oA web_enum && gobuster dir -u http://<ip>:<port> -w /usr/share/wordlists/dirb/common.txt -t 50 -o gobuster_<port>.txt"
+      },
+      "confidence": 0.32,
+      "evidence_refs": [
+        "run_20260218_210820_1158c8"
+      ],
+      "created_at": 1771445338.3535924,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Enumerate SSH service configuration and supported authentication methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh2-enum-algos,ssh-hostkey,ssh-auth-methods -oA ssh_enum"
+      },
+      "confidence": 0.3,
+      "evidence_refs": [
+        "run_20260218_210820_1158c8"
+      ],
+      "created_at": 1771445338.353602,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Basic reconnaissance is essential and should be consistently applied despite limited success evidence."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency through structured recon",
+      "description": "Follow a strict recon checklist (nmap top-ports -> service-specific scripts -> web directory brute-force) before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-focused exploitation hypothesis testing",
+      "description": "After identifying services, formulate 1-2 concrete exploit hypotheses and test them before moving on.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighter feedback loop on failed actions",
+      "description": "Log each command, expected result, and actual output to identify where assumptions diverge.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

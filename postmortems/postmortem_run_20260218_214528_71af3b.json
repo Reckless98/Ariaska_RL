@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260218_214528_71af3b",
+  "timestamp": 1771447555.6018286,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (70.00) in a single episode"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High mentor call count (10) indicating guidance dependency"
+    ],
+    "summary": "The run produced a positive reward but failed to reach success conditions, with notable reliance on mentor calls."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert positive reward into successful episode completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    },
+    {
+      "pattern": "High mentor call usage within a single episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_meta"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon phase yields partial progress but no success flag",
+      "then_action": "Perform targeted service enumeration to close information gaps",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p- --min-rate 2000 <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771447566.4698787,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When progress stalls after initial discovery",
+      "then_action": "Validate reachability and pivot to alternate discovery (web or SMB) based on open ports",
+      "parameters_template": {
+        "decision_map": {
+          "80/443": "gobuster dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt",
+          "445": "smbclient -L //<target> -N"
+        }
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771447566.4698918,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Recon escalation is likely to improve success conversion after partial progress."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls via structured recon checklist",
+      "description": "Run a fixed recon sequence (full port scan -> service scan -> targeted enum) before requesting mentor input to build autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Goal-oriented stopping criteria",
+      "description": "Define explicit success conditions (e.g., credential acquisition, foothold) and validate them at each phase to avoid false progress.",
+      "priority": "high"
+    },
+    {
+      "title": "Branching enumeration paths",
+      "description": "Based on discovered services, immediately pivot to the most promising attack surface (web, SMB, SSH) with targeted tools.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

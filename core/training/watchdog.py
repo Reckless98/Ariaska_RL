@@ -43,6 +43,7 @@ class WatchdogTrigger(str, Enum):
     TARGET_DOWN = "target_down"
     PHASE_STUCK = "phase_stuck"
     WALL_CLOCK = "wall_clock"
+    SEMANTIC_STALL = "semantic_stall"  # Phase 28: same-tool same-target, no new info
 
 
 class HealAction(str, Enum):
@@ -83,6 +84,11 @@ class WatchdogConfig:
 
     # Episode-level wall clock: entire episode exceeds E seconds
     episode_wall_clock_limit: float = 600.0  # 10 minutes per episode
+
+    # Phase 28: Semantic stall — same tool+target, no discoveries, N times
+    semantic_stall_window: int = 6       # look back N commands
+    semantic_stall_threshold: int = 4    # ≥ M semantically similar in window
+    semantic_stall_heal: HealAction = HealAction.FORCE_MENTOR
 
 
 @dataclass
@@ -242,6 +248,40 @@ class TrainingWatchdog:
                 v.mask_until_step = snapshot.step_num + self.config.family_mask_duration
                 self._masked_families[snapshot.command_family] = v.mask_until_step
                 return v
+
+        # ── 2b. SEMANTIC_STALL: same tool+target, no new info ──────
+        # Commands change superficially but don't produce discoveries.
+        # Example: "nmap -sV 10.0.0.1" → "nmap -sV -p 22 10.0.0.1" with
+        # zero discoveries between them.  Detects hamster-wheel behaviour.
+        if (
+            len(self._command_history)
+            >= self.config.semantic_stall_window
+            and self._steps_without_discovery >= self.config.semantic_stall_threshold
+        ):
+            recent_cmds = list(self._command_history)[
+                -self.config.semantic_stall_window :
+            ]
+            recent_fams = list(self._family_history)[
+                -self.config.semantic_stall_window :
+            ]
+            # Check if ≥ threshold commands share the same family
+            from collections import Counter as _Ctr
+            _fam_counts = _Ctr(recent_fams)
+            _dominant_fam, _dom_count = _fam_counts.most_common(1)[0]
+            if _dom_count >= self.config.semantic_stall_threshold:
+                return self._fire(
+                    WatchdogTrigger.SEMANTIC_STALL,
+                    self.config.semantic_stall_heal,
+                    "warning",
+                    f"Semantic stall: '{_dominant_fam}' dominates "
+                    f"{_dom_count}/{self.config.semantic_stall_window} recent "
+                    f"commands with 0 discoveries",
+                    {
+                        "dominant_family": _dominant_fam,
+                        "count": _dom_count,
+                        "steps_dry": self._steps_without_discovery,
+                    },
+                )
 
         # ── 3. PHASE_STUCK: same phase too long ────────────────────
         entered = self._phase_entered_step.get(self._current_phase, 0)

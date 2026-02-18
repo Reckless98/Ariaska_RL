@@ -45,7 +45,7 @@ class AttackContext:
     """
     target: str
     current_phase: AttackPhase = AttackPhase.RECON
-    state_flags: Dict[str, bool] = field(default_factory=dict)
+    state_flags: Dict[str, Any] = field(default_factory=dict)
     command_history: List[str] = field(default_factory=list)
     discoveries: Dict[str, Any] = field(default_factory=dict)
     failed_attempts: List[str] = field(default_factory=list)
@@ -53,6 +53,7 @@ class AttackContext:
     difficulty: str = "unknown"
     platform: str = "unknown"
     services_found: List[str] = field(default_factory=list)
+    _r66_scan_hints: List[str] = field(default_factory=list)
     
     def to_narrative(self) -> str:
         """Convert context to human-readable narrative for LLM."""
@@ -264,9 +265,9 @@ class SmartMentor:
             # Build CVE quick-reference
             cve_text = "\n=== CVE QUICK REFERENCE ===\n"
             for cve in HTB_CVES[:10]:  # Top 10 most relevant
-                cve_text += f"  {cve['id']}: {cve['service']} — {cve['description'][:80]}\n"
-                if cve.get('exploit_module'):
-                    cve_text += f"    Exploit: {cve['exploit_module']}\n"
+                cve_text += f"  {cve.cve_id}: {cve.service} — {cve.description[:80]}\n"
+                if cve.module:
+                    cve_text += f"    Exploit: {cve.module}\n"
         except ImportError:
             ms2_knowledge = ""
             ms3_knowledge = ""
@@ -287,7 +288,7 @@ class SmartMentor:
         venice_aha_context = ""
         try:
             from core.memory.unified_cognitive_bus import CognitiveBus
-            bus = CognitiveBus.get_instance()
+            bus = CognitiveBus()  # singleton via __new__
             mentor_ctx = bus.get_mentor_context(max_items=5)
             if mentor_ctx:
                 venice_aha_context = "\n=== COGNITIVE BUS — CROSS-EPISODE INSIGHTS ===\n"
@@ -313,12 +314,13 @@ class SmartMentor:
             from core.knowledge.kg_manager import KnowledgeGraph
             kg = KnowledgeGraph.get_instance()
             if kg:
-                attack_surface = kg.get_attack_surface(limit=8)
+                attack_surface = kg.get_attack_surface(host_id="target")  # type: ignore[arg-type]
                 if attack_surface:
                     kg_exploit_context = "\n=== KNOWLEDGE GRAPH — ATTACK SURFACE ===\n"
-                    for node_id, data in attack_surface[:8]:
-                        label = data.get("label", node_id)
-                        ntype = data.get("node_type", "")
+                    items = list(attack_surface.items())[:8]
+                    for node_id, data in items:
+                        label = data.get("label", node_id) if isinstance(data, dict) else str(data)
+                        ntype = data.get("node_type", "") if isinstance(data, dict) else ""
                         kg_exploit_context += f"  • [{ntype}] {label}\n"
         except Exception:
             pass
@@ -752,7 +754,7 @@ After ANY shell, read the flag file FIRST.
                         # Create sync client from async client's API key
                         import openai
                         sync_client = openai.OpenAI()
-                    response = await loop.run_in_executor(None, lambda: sync_client.responses.create(
+                    response = await loop.run_in_executor(None, lambda: sync_client.responses.create(  # type: ignore[union-attr]
                         model=self.model,
                         instructions=system_prompt,
                         input=user_prompt,
@@ -783,7 +785,7 @@ After ANY shell, read the flag file FIRST.
                 if uses_responses_api:
                     response_text = getattr(response, 'output_text', '') or ''
                 else:
-                    response_text = response.choices[0].message.content
+                    response_text = response.choices[0].message.content  # type: ignore[union-attr]
                 
                 # Parse response
                 parsed = self._parse_response(response_text)
