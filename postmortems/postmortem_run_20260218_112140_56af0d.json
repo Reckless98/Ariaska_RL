@@ -1,0 +1,145 @@
+{
+  "run_id": "run_20260218_112140_56af0d",
+  "timestamp": 1771410125.1717606,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reconnaissance phase, accumulating 57.5 reward points while identifying multiple accessible services.",
+      "Consistently invoked automated scans that produced actionable data feeds despite not achieving exploit success."
+    ],
+    "fails": [
+      "Unable to progress past host-based privilege escalation\u2014no successful payload delivery or credential capture occurred.",
+      "Repeated pivot attempts failed due to missing lateral movement artifacts; network segmentation remained intact."
+    ],
+    "summary": "Reconnaissance was thorough and yielded consistent data, but follow-up exploitation and lateral movement steps stalled before producing mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts stalled due to lack of writable binaries and missing credentials.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 and 443 show web services with directory listing enabled",
+      "then_action": "Capture directory structure and probe for known CVEs using nikto and dirb",
+      "parameters_template": {
+        "target": "http://<host>",
+        "tools": [
+          "nikto -h <host> -p 80,443",
+          "dirb http://<host>/ -r"
+        ]
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step11"
+      ],
+      "created_at": 1771410142.371345,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH banner reveals outdated OpenSSH version",
+      "then_action": "Launch targeted nmap script scan for CVEs and enumerate valid usernames with ssh-user-enum",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-brute",
+        "username_list": "/usr/share/wordlists/rockyou.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step13"
+      ],
+      "created_at": 1771410142.37136,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB service exposes writeable share",
+      "then_action": "Mount share with smbclient and search for credentials/configs that can escalate privileges",
+      "parameters_template": {
+        "command": "smbclient //<host>/share -U <user> -W <domain>",
+        "post_actions": [
+          "ls",
+          "get smb.conf",
+          "search for plaintext passwords"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step16"
+      ],
+      "created_at": 1771410142.371368,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Directory enumeration reliably produced target intel during reconnaissance."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH metadata consistently identified actionable versioning clues."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privileged SMB Share Exploitation",
+      "description": "Re-execute SMB enumeration with rpcclient smb-vuln* scripts and follow up with SMBexec using captured credentials to validate privilege escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Harvesting via SSH Banner Versions",
+      "description": "Combine ssh-user-enum output with hydra brute-force targeting the outdated OpenSSH instance before attempting reuse on internal hosts.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web Application CVE Verification",
+      "description": "Automate exploitation attempts against verified web service CVEs using zap and burpsuite macros to determine vulnerability to remote code execution.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

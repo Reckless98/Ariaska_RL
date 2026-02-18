@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260218_111818_50a1f8",
+  "timestamp": 1771409922.0116153,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a consistent reconnaissance workflow, reflected in steady reward accumulation and no deviation in strategy despite challenges",
+      "Collected actionable telemetry across 1 episode with 15 mentor calls, enabling data-rich post-run analysis"
+    ],
+    "fails": [
+      "Failed to achieve mission success, as indicated by a 0% success rate despite high reward per episode",
+      "Unable to chain exploitation to post-exploit objectives within the single episode, preventing escalation"
+    ],
+    "summary": "Reconnaissance phase was stable, but the operation stalled before exploitation could complete, leading to zero mission success despite high reward accumulation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stagnation after initial reconnaissance with no follow-up on exploitation opportunities, leading to unmet mission objectives",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to TCP 80/443 with identifiable web content",
+      "then_action": "Run nikto against the target to enumerate known vulnerabilities and default credentials",
+      "parameters_template": {
+        "host": "target_ip",
+        "port": 80,
+        "timeout": 10
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771409938.6052353,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is detected open during scanning",
+      "then_action": "Launch nmap ssh-enum-users and ssh-brute scripts to identify weak credentials",
+      "parameters_template": {
+        "host": "target_ip",
+        "port": 22,
+        "scripts": [
+          "ssh-brute",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771409938.6052434,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a web application exposes login functionality",
+      "then_action": "Execute wfuzz with wordlist to discover hidden endpoints and credentials",
+      "parameters_template": {
+        "url": "http://target_url/FUZZ",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+        "rate": "100"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771409938.605249,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in identifying exploitable web services during reconnaissance"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Follow-up exploitation after reconnaissance",
+      "description": "After identifying services via reconnaissance, initiate targeted exploitation attempts (e.g., use metasploit module exploit/multi/http/wordpress_rce if CMS version matches) before mentor timeout.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential harvesting via SSH combo scan",
+      "description": "Combine cpu-friendly ssh-brute script with harvested usernames to accelerate pivot into the system and verify remote shell possibility.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automated post-exploitation enumeration",
+      "description": "Deploy a post-exploitation script (e.g., meterpreter's post/linux/gather/enum_system) immediately after successful shell to reduce dwell time.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

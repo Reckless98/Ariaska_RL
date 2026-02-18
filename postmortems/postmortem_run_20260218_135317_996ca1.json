@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260218_135317_996ca1",
+  "timestamp": 1771419204.3063083,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode without total reward collapse",
+      "Maintained stable reward trend at 50.0"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates failure to achieve objective",
+      "High mentor call count (10) suggests heavy reliance on guidance",
+      "Insufficient episode data to confirm repeated patterns or effective tactics"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed objective completion; mentor dependence and lack of observable successful tactics limit actionable pattern extraction."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_135317_996ca1_ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required",
+      "then_action": "Run fast TCP scan to identify open ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -T4 --top-ports 1000"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "run_20260218_135317_996ca1_ep001_summary"
+      ],
+      "created_at": 1771419214.5391393,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open ports are identified on a target",
+      "then_action": "Perform service/version detection on open ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports>"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260218_135317_996ca1_ep001_summary"
+      ],
+      "created_at": 1771419214.539148,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is consistently required as a first action despite limited success data."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance",
+      "description": "Run a new episode with a strict limit of 3 mentor calls to evaluate autonomous decision quality.",
+      "priority": "high"
+    },
+    {
+      "title": "Goal-oriented exploration",
+      "description": "Instrument step-level logging to map actions to objective milestones and identify where progress stalls.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-to-exploit transition test",
+      "description": "After service detection, immediately attempt a single targeted enumeration script per service to validate progression.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

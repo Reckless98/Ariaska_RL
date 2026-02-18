@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_141200_79d02a",
+  "timestamp": 1771420322.2312226,
+  "key_outcomes": {
+    "wins": [
+      "Achieved moderate total reward (40.0) despite single-episode run",
+      "Used mentor guidance actively (10 calls), indicating iterative adjustments"
+    ],
+    "fails": [
+      "No episode-level success (0% success rate)",
+      "Only one episode executed, limiting evidence of robust strategy",
+      "No confirmed objective completion signals recorded"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to complete objectives; more systematic reconnaissance-to-exploitation flow is needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion not reached within the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target IP responds to ICMP or appears live",
+      "then_action": "Perform fast TCP port discovery",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -T4 --top-ports 1000"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_recon"
+      ],
+      "created_at": 1771420341.51209,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS ports (80/443) are open",
+      "then_action": "Enumerate web technology stack and directories",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "args": [
+          "-a 3",
+          "dir -u http://{ip}:{port} -w /usr/share/wordlists/dirb/common.txt -t 40"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_recon"
+      ],
+      "created_at": 1771420341.5120993,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH port 22 is open",
+      "then_action": "Enumerate SSH version and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_recon"
+      ],
+      "created_at": 1771420341.5121093,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step that likely contributed to baseline reward"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is high-yield for discovery of footholds in single-episode runs"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Playbook",
+      "description": "Enforce a strict sequence: host discovery \u2192 top-ports scan \u2192 targeted service enumeration \u2192 exploit attempt; log each transition and timebox each phase.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Enumeration Depth",
+      "description": "For each discovered service, run at least two focused enumeration commands (e.g., SMB: smbclient + enum4linux; HTTP: whatweb + gobuster) before moving on.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective Verification Checkpoints",
+      "description": "Add explicit checks for success criteria (e.g., flag file, shell access, credential reuse) after each exploitation attempt to avoid silent failure.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

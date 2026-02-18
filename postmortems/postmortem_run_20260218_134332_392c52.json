@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260218_134332_392c52",
+  "timestamp": 1771418619.0666623,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (40.00) in the single episode",
+      "Consistent reward trend (stable at 40.0)"
+    ],
+    "fails": [
+      "Success rate is 0.00% (no objective completion)",
+      "Only one episode executed, limiting learning signal",
+      "High mentor call count (10) indicating heavy reliance on assistance"
+    ],
+    "summary": "The run shows stable but modest reward without completing objectives; limited episode count and high mentor usage suggest insufficient autonomous progress."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion failed despite positive rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High dependence on mentor guidance",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial episode reward is positive but success criteria are unmet",
+      "then_action": "Increase exploration steps before termination to seek objective completion",
+      "parameters_template": {
+        "extra_steps": 10,
+        "exploration_strategy": "breadth_first"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771418632.2714586,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Insert a self-reliant decision checkpoint to attempt autonomous action before requesting help",
+      "parameters_template": {
+        "mentor_call_cap": 5,
+        "autonomy_window_steps": 3
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771418632.2714667,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Positive reward without success suggests exploration tuning is a relevant recurring need"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor usage indicates opportunity to improve autonomous decision-making"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count",
+      "description": "Run at least 10 episodes to provide sufficient learning signal and evaluate success rate changes.",
+      "priority": "high"
+    },
+    {
+      "title": "Autonomy-first checkpoint",
+      "description": "Limit mentor calls to 5 per episode and enforce 3-step autonomous action before requesting help.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploration depth adjustment",
+      "description": "Add 10 exploratory steps after achieving positive reward to pursue objective completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

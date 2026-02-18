@@ -1,23 +1,23 @@
 {
   "fallback_chains": {
     "tactical": [
-      "gpt-5.1-codex-mini",
-      "gpt-4o-mini"
+      "gpt-5.2-mini",
+      "gpt-5-nano"
     ],
     "strategic": [
       "gpt-5.2-codex",
-      "gpt-5.1-codex-mini",
-      "gpt-4o-mini"
+      "gpt-5.2-mini",
+      "gpt-5-nano"
     ],
     "advanced": [
       "gpt-5.2-codex",
-      "gpt-5.1-codex-mini",
-      "gpt-4o-mini"
+      "gpt-5.2-mini",
+      "gpt-5-nano"
     ],
     "postmortem": [
       "gpt-5.2-codex",
-      "gpt-5.1-codex-mini",
-      "gpt-4o-mini"
+      "gpt-5.2-mini",
+      "gpt-5-nano"
     ]
   },
   "max_cache_size": 1000,

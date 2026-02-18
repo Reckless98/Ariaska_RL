@@ -1,0 +1,130 @@
+{
+  "run_id": "run_20260218_131602_339219",
+  "timestamp": 1771416982.6950152,
+  "key_outcomes": {
+    "wins": [
+      "High cumulative reward despite single episode indicates strong intermediate task completion",
+      "Mentor guidance utilized consistently (10 calls) suggesting adherence to safety constraints"
+    ],
+    "fails": [
+      "No successful episode completion (0% success rate)",
+      "Likely failure in final exploitation/flag validation stages"
+    ],
+    "summary": "The run achieved strong intermediate rewards but failed to convert progress into a completed objective, indicating a breakdown in late-stage kill chain execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Incomplete exploitation or post-exploitation validation after initial access indicators",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to ICMP and at least one TCP port is open",
+      "then_action": "Run targeted service/version scan on open ports",
+      "parameters_template": {
+        "nmap_args": "-sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771416996.9173608,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on a target",
+      "then_action": "Perform web content and directory enumeration",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://<target> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771416996.9173744,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected with a banner present",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "nmap_args": "--script ssh2-enum-algos,ssh-auth-methods -p 22 <target>"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771416996.9173832,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently used in reconnaissance and contributes to high intermediate rewards"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent and productive follow-up when HTTP is present"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Late-stage exploitation verification",
+      "description": "Add an explicit validation step after exploitation attempts to confirm access or capture flags before moving on.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse and pivot checks",
+      "description": "When credentials are found, systematically test them across detected services and hosts to increase success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor-call dependency",
+      "description": "Introduce a decision checklist for common recon-to-exploitation transitions to reduce mentor call count.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

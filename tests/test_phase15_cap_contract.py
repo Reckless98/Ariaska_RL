@@ -17,19 +17,23 @@ os.environ.setdefault("ARIASKA_DRY_RUN", "1")
 
 
 class TestPhase15FlagsDefault:
-    """All Phase 15 flags must default OFF."""
+    """Post-Phase 20: All Phase 15 flags default ON (max intelligence)."""
 
-    def test_all_p15_flags_default_false(self):
+    def test_all_p15_flags_default_true(self):
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        p15_flags = [
+        # Post-Phase 20: All P15 flags are ON by default (max intelligence)
+        p15_flags_all_on = [
             "neuromodulators", "reflex_policy", "action_arbitrator",
-            "working_memory", "consolidation", "aggression_controller",
-            "semantic_index", "budget_manager_v2", "sensory_buffer",
+            "consolidation", "aggression_controller",
+            "budget_manager_v2", "sensory_buffer",
         ]
-        for flag_name in p15_flags:
+        for flag_name in p15_flags_all_on:
             assert hasattr(ff, flag_name), f"Missing flag: {flag_name}"
-            assert getattr(ff, flag_name) is False, f"Flag {flag_name} should default to False"
+            assert getattr(ff, flag_name) is True, f"Flag {flag_name} should default to True (Post-Phase 20)"
+        # These were activated in Phase 19 — verify they're still ON
+        for flag_name in ["working_memory", "semantic_index"]:
+            assert getattr(ff, flag_name) is True, f"Flag {flag_name} should be True (Phase 19)"
 
     def test_p14_flags_still_present(self):
         from core.feature_flags import FeatureFlags

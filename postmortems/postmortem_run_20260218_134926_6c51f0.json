@@ -1,0 +1,112 @@
+{
+  "run_id": "run_20260218_134926_6c51f0",
+  "timestamp": 1771418975.1271942,
+  "key_outcomes": {
+    "wins": [
+      "Completed the single episode with a positive total reward (50.00)"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%, indicating no task completion despite reward"
+    ],
+    "summary": "The run produced positive reward but failed to achieve any successful episode completion, suggesting reward shaping without task success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Task completion not achieved despite positive reward signal",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_134926_6c51f0_ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode ends with positive reward but zero success",
+      "then_action": "Audit reward shaping vs. success criteria and validate terminal conditions",
+      "parameters_template": {
+        "check": [
+          "reward_function",
+          "success_criteria",
+          "termination_logic"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_134926_6c51f0_ep001_summary"
+      ],
+      "created_at": 1771418987.510888,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When success rate is 0% in single-episode runs",
+      "then_action": "Increase diagnostic logging for action selection and environment feedback",
+      "parameters_template": {
+        "logging": [
+          "action_trace",
+          "state_snapshot",
+          "reward_breakdown"
+        ]
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260218_134926_6c51f0_ep001_summary"
+      ],
+      "created_at": 1771418987.5108967,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Positive reward without success is a critical diagnostic pattern to address early."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Zero success rate indicates a need for deeper instrumentation to find failure points."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reward vs Success Alignment Audit",
+      "description": "Instrument reward computation and terminal success flags to identify mismatch causing positive reward without success.",
+      "priority": "high"
+    },
+    {
+      "title": "Action Trace Replay",
+      "description": "Enable step-by-step action and state logging to detect where policy diverges from success paths.",
+      "priority": "high"
+    },
+    {
+      "title": "Single-Episode Sensitivity Test",
+      "description": "Run 5-10 single-episode trials with identical seeds to verify reproducibility of 0% success under current policy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -908,7 +908,7 @@ class KnowledgeGraph:
 
         try:
             import numpy as np
-            query_vec = embedder.encode(query, convert_to_numpy=True)
+            query_vec = embedder.encode(query, convert_to_numpy=True, show_progress_bar=False)
 
             # Get candidate nodes
             candidates = []

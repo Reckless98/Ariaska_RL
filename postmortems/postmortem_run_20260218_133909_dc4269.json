@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260218_133909_dc4269",
+  "timestamp": 1771418370.8395643,
+  "key_outcomes": {
+    "wins": [
+      "Single episode achieved a relatively high total reward (90.00) indicating some effective actions were taken"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%, indicating no objective completion",
+      "High mentor dependency with 10 mentor calls in a single episode"
+    ],
+    "summary": "Despite a strong reward score, the run failed to achieve task completion and relied heavily on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete objectives despite positive reward signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_133909_dc4269_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery begins",
+      "then_action": "Run fast port scan to identify open TCP services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS -T4 --top-ports 1000 -oN quick_scan.txt"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_133909_dc4269_ep001"
+      ],
+      "created_at": 1771418386.7027268,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When common service ports are found open (e.g., 80/443/22/445)",
+      "then_action": "Perform targeted service enumeration with version and script scans",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p 22,80,443,445 -oN svc_enum.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_133909_dc4269_ep001"
+      ],
+      "created_at": 1771418386.7027395,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step likely contributed to the positive reward signal"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten objective validation",
+      "description": "Add explicit checks for success conditions after each major action to ensure rewards align with goal completion",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor reliance",
+      "description": "Limit mentor calls to critical decision points and log the specific knowledge gaps for skill card creation",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path exploration",
+      "description": "After service enumeration, branch into at least two exploitation hypotheses (e.g., web vuln scan vs. auth brute-force) before committing",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

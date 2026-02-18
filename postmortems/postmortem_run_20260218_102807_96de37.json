@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260218_102807_96de37",
+  "timestamp": 1771406912.1594398,
+  "key_outcomes": {
+    "wins": [
+      "Fully enumerated visible web services during first phase, identifying potential injection points.",
+      "Captured initial foothold attempt via misconfigured admin interface, proving exploit viability."
+    ],
+    "fails": [
+      "Failed to pivot after foothold due to firewall rules blocking outbound connections.",
+      "Unable to maintain persistence; repeated session drops forced restart of lateral movement attempts."
+    ],
+    "summary": "Recon and initial compromise succeeded, but containment and persistence strategies require refinement to progress beyond initial shell."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Outbound pivot attempts blocked once internal firewall rules detected, preventing subsequent reconnaissance.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step18",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When unauthenticated HTTP endpoint returns administrative login page",
+      "then_action": "Trigger parameter fuzzing with Burp Intruder and enumerate default credentials",
+      "parameters_template": {
+        "tool": "Burp Intruder",
+        "payload": "default-user-list",
+        "response_check": "200 && login form token"
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step05"
+      ],
+      "created_at": 1771406923.9326112,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 8080 shows active management interface and responds to JSON",
+      "then_action": "Run nmap HTTP scripts (http-auth, http-headers) and capture session via proxy",
+      "parameters_template": {
+        "nmap_scripts": [
+          "http-auth",
+          "http-headers"
+        ],
+        "proxy": "Burp Suite"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11"
+      ],
+      "created_at": 1771406923.9326258,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When foothold obtained but outbound traffic is blocked",
+      "then_action": "Use SOCKS proxy with proxychains to route traffic through accessible pivot node before lateral scans",
+      "parameters_template": {
+        "tool": "proxychains",
+        "proxy": "socks5://10.10.14.1:9050"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step19"
+      ],
+      "created_at": 1771406923.932635,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in initial admin interface discovery and credential capture."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Deploy SOCKS proxy for constrained outbound channels",
+      "description": "Use established foothold to configure SOCKS proxy and rerun internal enumeration, ensuring firewall rules are bypassed before persistence actions.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

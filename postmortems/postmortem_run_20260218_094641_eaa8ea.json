@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_094641_eaa8ea",
+  "timestamp": 1771404409.1463175,
+  "key_outcomes": {
+    "wins": [
+      "Consistently extracted 60 reward metrics across the single episode, indicating reliable execution of reconnaissance phase (run_20260218_094641_eaa8ea_ep001_step05).",
+      "Reached high-fidelity telemetry during initial scanning, allowing clear mapping of perimeter services before escalation attempts (run_20260218_094641_eaa8ea_ep001_step12)."
+    ],
+    "fails": [
+      "Zero percent success rate\u2014did not achieve final objective despite sustained reward, indicating inability to transition from initial foothold to exploitation (run_20260218_094641_eaa8ea_ep001_step20).",
+      "Required 10 mentor calls, highlighting repeated procedural uncertainty and inefficient automation handoffs (run_20260218_094641_eaa8ea_ep001_step08)."
+    ],
+    "summary": "Good reconnaissance consistency, but the workflow stalled before delivering a successful compromise; need to augment exploitation tactics and reduce reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Cannot complete exploitation phase after enumeration; foothold remains untested despite evidence of vulnerable services.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260218_094641_eaa8ea_ep001_step15",
+        "run_20260218_094641_eaa8ea_ep001_step18",
+        "run_20260218_094641_eaa8ea_ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_recon_ssh",
+      "if_condition": "When initial nmap scan shows TCP 22 open with an SSH banner",
+      "then_action": "Run nmap --script sshv1,ssh-auth-methods -p 22 and capture results for logged-in account enumeration",
+      "parameters_template": {
+        "nmap_flags": "--script sshv1,ssh-auth-methods",
+        "port": 22
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_094641_eaa8ea_ep001_step05",
+        "run_20260218_094641_eaa8ea_ep001_step12"
+      ],
+      "created_at": 1771404428.186372,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_enum_http",
+      "if_condition": "When HTTP service presents versioned headers with potential CMS indicators",
+      "then_action": "Launch nikto and dirb scans to enumerate web content, then correlate results with known CVEs",
+      "parameters_template": {
+        "nikto_target": "http://{target}:80",
+        "dirb_wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "run_20260218_094641_eaa8ea_ep001_step07",
+        "run_20260218_094641_eaa8ea_ep001_step10"
+      ],
+      "created_at": 1771404428.1863859,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_exploit_posture",
+      "if_condition": "When reconnaissance yields clear service banners but no immediate exploit path",
+      "then_action": "Validate captured info against known exploit templates (Metasploit module or custom script) before attempting credential brute-force",
+      "parameters_template": {
+        "module_check": "auxiliary/scanner",
+        "posture": "validate"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_094641_eaa8ea_ep001_step15",
+        "run_20260218_094641_eaa8ea_ep001_step18"
+      ],
+      "created_at": 1771404428.186396,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_recon_ssh",
+      "skill_card_id": "skill_recon_ssh",
+      "reason": "High success rate in identifying actionable SSH targets and reducing blind credential attempts."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit Validation Chain",
+      "description": "Automate correlation of enumeration outputs (SSH banners, HTTP headers) with specific exploit modules, then trigger low-risk proof-of-concept attempts to verify kill-chain progression.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Integrate decision-tree prompts for exploitation phase to reduce reliance on mentor input, focusing on deterministic action plans once enumeration data is available.",
+      "priority": "medium"
+    },
+    {
+      "title": "Post-Enumeration Persistence Trials",
+      "description": "After confirmed service vulnerabilities, deploy automated post-exploit tasks (e.g., ls, whoami, persistent shell setup) to ensure repetition builds consistent foothold.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

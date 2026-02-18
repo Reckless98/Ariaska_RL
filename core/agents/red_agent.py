@@ -78,8 +78,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
     """
 
     # --- Configurable constants ---
-    GPT_PRIMARY_MODEL = "gpt-5.1-codex-mini"  # ✅ Phase 5.1: Primary model
-    GPT_FALLBACK_MODEL = "gpt-4o-mini"  # ✅ Fallback when primary unavailable
+    GPT_PRIMARY_MODEL = "gpt-5.2-codex"  # ✅ Phase 5.1: Primary model
+    GPT_FALLBACK_MODEL = "gpt-5.2-mini"  # ✅ Fallback when primary unavailable (Phase 23: no gpt-4)
     GPT_TOKEN_LIMIT = 3000  # ✅ Conservative limit from .env
     epsilon_min = 0.02  # ✅ Minimum exploration
     entropy_beta = 0.01

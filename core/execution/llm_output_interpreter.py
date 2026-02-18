@@ -57,6 +57,10 @@ class InterpretationLesson:
     next_steps: List[str] = field(default_factory=list)       # What to do with these discoveries
     interpretation_chain: str = ""  # Step-by-step reasoning chain
 
+    # Phase 23: GPT-driven phase assessment
+    phase_assessment: Dict[str, Any] = field(default_factory=dict)  # {current_phase_complete, ready_for_next, reasoning, recommended_next_phase}
+    use_regex_hint: bool = False  # GPT says this output type is simple enough for regex
+
     # Meta
     model_used: str = ""
     provider: str = ""           # "venice" or "gpt_fallback"
@@ -139,7 +143,8 @@ class LLMOutputInterpreter:
 
     def can_interpret(self) -> bool:
         """Check if we have budget for another interpretation call."""
-        return self._venice_available() or self._gpt_available()
+        # Phase 22: GPT-only — Venice disabled
+        return self._gpt_available()
 
     def _venice_available(self) -> bool:
         """Check if Venice is available and within budget."""
@@ -162,11 +167,13 @@ class LLMOutputInterpreter:
         known_discoveries: Optional[Dict[str, Any]] = None,
     ) -> InterpretationLesson:
         """
-        Interpret command output using LLM and produce a learning lesson.
+        Phase 22: GPT-only output interpretation with full reasoning.
 
-        Phase 13.0: GPT-5.2-codex is the PRIMARY interpreter for maximum reasoning
-        quality. Venice serves as validator for high-value discoveries and as
-        fallback when GPT budget is exhausted.
+        GPT-5.2-codex is the ONLY interpreter. No Venice calls.
+        Produces InterpretationLessons that teach agents:
+        - HOW to parse output (patterns, keywords, structure)
+        - WHY certain output indicates specific discoveries
+        - WHAT to do next based on findings
 
         Args:
             command: The command that was executed
@@ -190,30 +197,20 @@ class LLMOutputInterpreter:
         # Build the interpretation prompt
         prompt = self._build_prompt(command, output, agent_name, phase, known_discoveries)
 
-        # ── Phase 13.0: Try GPT-5.2-codex first (PRIMARY — deep reasoning) ──
+        # ── GPT-5.2-codex ONLY (Phase 22: no Venice) ──
         if self._gpt_available():
             lesson = self._call_gpt_fallback(prompt, command, agent_name)
             if lesson and lesson.discoveries:
-                # Phase 13.0: Venice validates high-value GPT discoveries
-                # to catch GPT hallucinations on shells, creds, and flags
-                _high_value = any(
-                    k in lesson.discoveries
-                    for k in ("shell", "root_shell", "credential", "flag", "user_flag", "root_flag")
-                    if lesson.discoveries.get(k)
-                )
-                if _high_value and self._venice_available():
-                    validated = self._teacher_validate(lesson, command, output, agent_name)
-                    if validated is not None:
-                        lesson = validated
+                # No Venice validation — GPT-5.2-codex reasoning is authoritative
                 self._record_learned_patterns(agent_name, lesson)
                 return lesson
 
-        # ── Fallback to Venice qwen3-coder (when GPT exhausted) ──
-        if self._venice_available():
-            lesson = self._call_venice(prompt, command, agent_name)
-            if lesson and lesson.discoveries:
-                self._record_learned_patterns(agent_name, lesson)
-                return lesson
+        # # ── Venice COMMENTED OUT — Phase 22 GPT-only mode ──
+        # # Venice was adding 5-7s latency per call (6000ms ping).
+        # # All interpretation handled by GPT-5.2-codex.
+        # if self._venice_available():
+        #     lesson = self._call_venice(prompt, command, agent_name)
+        #     ...
 
         return InterpretationLesson(command=command, agent_name=agent_name)
 
@@ -225,7 +222,7 @@ class LLMOutputInterpreter:
         phase: str,
         known_discoveries: Optional[Dict[str, Any]],
     ) -> str:
-        """Build the interpretation + teaching prompt."""
+        """Build the interpretation + teaching prompt with phase readiness assessment."""
         # Truncate output to keep tokens reasonable
         max_chars = 2000
         truncated = output[:max_chars] if len(output) > max_chars else output
@@ -288,6 +285,13 @@ Respond in JSON with these fields:
         "specific command to run next based on what was found"
     ],
     "interpretation_chain": "Step 1: I see X in the output. Step 2: This means Y. Step 3: Therefore we should Z.",
+    "phase_assessment": {{
+        "current_phase_complete": true/false,
+        "ready_for_next_phase": true/false,
+        "reasoning": "Why the current phase is/isn't complete based on what we've found so far",
+        "recommended_next_phase": "ENUMERATION or null if should stay"
+    }},
+    "use_regex_hint": true/false,
     "confidence": 0.0-1.0
 }}
 
@@ -295,6 +299,8 @@ RULES:
 - Only report NEW discoveries not in ALREADY KNOWN
 - patterns_learned: teach the agent regex/keyword patterns to recognize in future output
 - interpretation_chain: show step-by-step reasoning so the agent learns HOW to interpret
+- phase_assessment: assess whether enough evidence has been gathered to advance the kill chain phase
+- use_regex_hint: if true, this type of output is simple enough for regex parsing (saves tokens next time)
 - Be concise but educational — the agent will memorize this for future steps
 - If nothing useful: return {{"discoveries": {{}}, "reasoning": "No actionable findings", "confidence": 0.1}}
 
@@ -357,7 +363,7 @@ JSON:"""
                 if lesson.discoveries:
                     self._stats["venice_successes"] += 1
                     self._stats["lessons_produced"] += 1
-                    logger.info(
+                    logger.debug(
                         f"[LLM-INTERP] Venice qwen3-coder | {agent_name} | "
                         f"found={list(lesson.discoveries.keys())} | "
                         f"{latency_ms:.0f}ms | {tokens}tok"
@@ -406,8 +412,8 @@ JSON:"""
                 if lesson.discoveries:
                     self._stats["gpt_fallback_successes"] += 1
                     self._stats["lessons_produced"] += 1
-                    logger.info(
-                        f"[LLM-INTERP] gpt-5.2-codex fallback | {agent_name} | "
+                    logger.debug(
+                        f"[LLM-INTERP] gpt-5.2-codex | {agent_name} | "
                         f"found={list(lesson.discoveries.keys())} | "
                         f"{latency_ms:.0f}ms"
                     )
@@ -503,7 +509,7 @@ JSON:"""
                                 latency_ms=latency_ms + apprentice_lesson.latency_ms,
                                 tokens_used=apprentice_lesson.tokens_used,
                             )
-                            logger.info(
+                            logger.debug(
                                 f"[TEACHER] Corrected {agent_name}: "
                                 f"{list(apprentice_lesson.discoveries.keys())} → "
                                 f"{list(corrections.keys())} ({latency_ms:.0f}ms)"
@@ -560,6 +566,14 @@ JSON:"""
             next_steps = data.get("next_steps", [])
             if isinstance(next_steps, list):
                 lesson.next_steps = [str(s)[:200] for s in next_steps[:5]]
+
+            # Phase 23: Extract phase assessment from GPT
+            phase_assess = data.get("phase_assessment", {})
+            if isinstance(phase_assess, dict):
+                lesson.phase_assessment = phase_assess
+
+            # Phase 23: Extract regex hint — GPT decides if regex could handle this
+            lesson.use_regex_hint = bool(data.get("use_regex_hint", False))
 
         except (json.JSONDecodeError, ValueError, TypeError) as e:
             logger.debug(f"[LLM-INTERP] JSON parse error: {e}")

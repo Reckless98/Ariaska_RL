@@ -1,0 +1,138 @@
+{
+  "run_id": "run_20260218_112534_3fa22e",
+  "timestamp": 1771410342.7701807,
+  "key_outcomes": {
+    "wins": [
+      "Captured detailed telemetry and OSINT of the target environment during the single episode to seed future automation.",
+      "Maintained disciplined logging of each action through 10 mentor calls, creating a clear replayable trail."
+    ],
+    "fails": [
+      "Did not achieve foothold due to missing credentials and ineffective exploitation attempts, resulting in 0% success.",
+      "Could not complete post-exploitation objectives because lateral-movement prerequisites (valid shell or persistence) were never reached."
+    ],
+    "summary": "Baseline reconnaissance succeeded in documenting the environment, but exploitation and foothold efforts repeatedly stalled before any privileged access could be gained."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Brute-force or credential spray against exposed services failed consistently because the lab enforced strict lockouts within the 5-minute observation window.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771410358.941226,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with 200 and supplies an X-Powered-By header",
+      "then_action": "Run nikto and gobuster with default wordlists to enumerate directories and potential CVEs quickly",
+      "parameters_template": {
+        "url": "http://{{target}}",
+        "nikto_options": "-ask no",
+        "gobuster_wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771410358.9412398,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential brute-force attempts fail within two retries",
+      "then_action": "Pause further password spraying, capture lockout behavior, and pivot to vulnerability analysis (e.g., searchsploit for detected services).",
+      "parameters_template": {
+        "detection": "login failure threshold reached",
+        "next_tool": "searchsploit"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771410358.941253,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase for SSH service enumeration."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "HTTP service scans consistently produced useful metadata for next steps."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Switch to manual credential collection",
+      "description": "Use targeted OSINT and weak-password lists specific to the environment instead of spray to bypass lockout protection while collecting valid SSH credentials.",
+      "priority": "high"
+    },
+    {
+      "title": "Leverage searchsploit on HTTP stack",
+      "description": "Map HTTP server version and run searchsploit to identify low-complexity exploits, then test with Metasploit auxiliary scanners before brute forcing.",
+      "priority": "medium"
+    },
+    {
+      "title": "Capture and analyze service responses for proxy chaining",
+      "description": "Route reconnaissance through Burp Proxy to fingerprint APIs, look for unsecured JSON endpoints, and determine if chained attacks (XXE/SSRF) are viable.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

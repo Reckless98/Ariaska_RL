@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_095436_f9eba0",
+  "timestamp": 1771404897.600133,
+  "key_outcomes": {
+    "wins": [
+      "Identified critical path but could not complete exploitation due to insufficient payload delivery.",
+      "Maintained operational discipline by escalating for mentor assistance when stuck."
+    ],
+    "fails": [
+      "No successful completion; run ended prematurely with 0% success rate despite high reward hints.",
+      "Repeated reliance on mentor calls (10 total) without achieving goal state."
+    ],
+    "summary": "Run showed high engagement but lacked execution continuity; opportunity to refine autonomous exploit chain."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Shotgun port scans with nmap without follow-up validation once interesting service found",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06",
+        "ep001_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When high-reward service enumeration stalls",
+      "then_action": "Pivot to targeted credential abuse using default SSH keys",
+      "parameters_template": {
+        "service": "ssh",
+        "method": "default-keys"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step08"
+      ],
+      "created_at": 1771404911.1134336,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When crawler discovers reachable web interface but no CVEs tested",
+      "then_action": "Run Burp intruder for input validation and manual fuzzing",
+      "parameters_template": {
+        "tool": "Burp Suite",
+        "mode": "intruder"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771404911.113442,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial reconnaissance returns high reward but exploit stage blocked",
+      "then_action": "Document findings and escalate with precise remediation notes before continuing",
+      "parameters_template": {
+        "template": "recon-summary",
+        "audience": "mentor"
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step10"
+      ],
+      "created_at": 1771404911.113447,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "High success rate in capturing reconnaissance data and communicating blockages"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured Exploit Replay",
+      "description": "Replay reconnaissance results with a focused sequence: targeted nmapOS + ssh enum + initial exploit trial to validate kill chain.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Pivot Automation",
+      "description": "Develop a script to automate default SSH key trials immediately after enumeration to reduce manual delays.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web Interface Fuzzing Template",
+      "description": "Integrate Burp intruder templates for known web panels encountered to streamline input fuzzing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-core/models/state_encoder.py — ARIASKA Rich State Encoder v3.1
-🧠 140+ Meaningful Features | 🎯 Shared Across All Agents | 📊 Normalized & Information-Dense
+core/models/state_encoder.py — ARIASKA Rich State Encoder v3.2
+🧠 221 Meaningful Features | 🎯 Shared Across All Agents | 📊 Normalized & Information-Dense
 
 Replaces the legacy 19-dim encoding (492 dead zeros) with a rich 512-dim
-vector where ~140 dimensions carry meaningful signal about the environment,
+vector where ~221 dimensions carry meaningful signal about the environment,
 attack progress, agent state, temporal dynamics, and reasoning context.
 
 Architecture:
@@ -21,8 +21,10 @@ Architecture:
     Section 11: Discovery Breakdown      [115-122]  8 dims  (Phase 5.2+)
     Section 12: Reasoning Context        [123-142] 20 dims  (Phase 6.9.6)
     Section 13: Tactical Depth           [143-167] 25 dims  (Phase 12.1)
+    Section 14: Progress Estimator       [168-172]  5 dims  (Phase 16.0)
+    Section 15: Campaign Intelligence    [173-220] 48 dims  (Phase 19.0)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~168 / 512  (33% utilisation)
+    Total meaningful dims: ~221 / 512  (43% utilisation)
 """
 
 import torch
@@ -521,8 +523,146 @@ def encode_state(
     vec[idx] = max(-1.0, min(1.0, progress_momentum)) * 0.5 + 0.5  # remap [-1,1] → [0,1]
     idx += 1  # 173 after section 14
 
-    # ─── Remaining dims [173-511] are zero-padded ────────────────────
-    # ~173 meaningful dims / 512 total  (34% utilisation, up from 33%)
+    # ─── Section 15: Phase 19 Campaign Intelligence (48 dims) [173-220] ─
+    # Campaign memory features — accumulated knowledge about the target
+
+    # Credential depth (3 dims)
+    _cred_set = _db.get("credentials", set())
+    _cred_count = len(_cred_set) if isinstance(_cred_set, (set, list)) else 0
+    vec[idx] = min(float(_cred_count) / 10.0, 1.0)          # raw count norm
+    idx += 1
+    vec[idx] = 1.0 if _cred_count >= 3 else float(_cred_count) / 3.0  # saturation
+    idx += 1
+    # Credential diversity — root/admin vs user-level (estimated from flags)
+    _admin_creds = 1.0 if state_flags.get("admin_credentials_known", False) else 0.0
+    vec[idx] = max(_admin_creds, 0.5 if _cred_count > 0 else 0.0)
+    idx += 1  # 176
+
+    # Shell depth (3 dims)
+    _shell_set = _db.get("shells", set())
+    _shell_count = len(_shell_set) if isinstance(_shell_set, (set, list)) else 0
+    vec[idx] = min(float(_shell_count) / 5.0, 1.0)          # shell count norm
+    idx += 1
+    vec[idx] = 1.0 if state_flags.get("root_shell_obtained", False) else (
+        0.5 if _shell_count > 0 else 0.0)                   # shell quality
+    idx += 1
+    vec[idx] = 1.0 if _shell_count >= 2 else 0.0            # multi-shell (pivot-ready)
+    idx += 1  # 179
+
+    # Flag capture progress (2 dims)
+    _flag_set = _db.get("flags_set", set())
+    _flag_count = len(_flag_set) if isinstance(_flag_set, (set, list)) else 0
+    vec[idx] = min(float(_flag_count) / 2.0, 1.0)           # normalised to 2-flag target
+    idx += 1
+    vec[idx] = 1.0 if _flag_count >= 2 else 0.0             # full capture binary
+    idx += 1  # 181
+
+    # Knowledge match density (4 dims) — how well knowledge corpus matches target
+    knowledge_state = state.get("knowledge_state", {})
+    vec[idx] = min(float(knowledge_state.get("matching_candidates", 0)) / 50.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(knowledge_state.get("matching_exploits", 0)) / 20.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(knowledge_state.get("cve_coverage", 0.0)), 1.0)
+    idx += 1
+    vec[idx] = min(float(knowledge_state.get("playbook_match_score", 0.0)), 1.0)
+    idx += 1  # 185
+
+    # Agent coordination state (5 dims) — which agents have contributed
+    agent_state = state.get("agent_contributions", {})
+    for _agent_key in ["scout", "red", "blue", "shadow", "orion"]:
+        _contrib = agent_state.get(_agent_key, 0)
+        vec[idx] = min(float(_contrib) / 10.0, 1.0)
+    idx += 1  # 190
+
+    # Tool availability signals (6 dims)
+    available_tools = state.get("available_tools", set())
+    _tool_groups = [
+        {"nmap", "masscan"},                              # scanner
+        {"msfconsole", "searchsploit"},                   # exploit framework
+        {"hydra", "medusa", "john"},                      # credential attack
+        {"gobuster", "ffuf", "dirb"},                     # web discovery
+        {"tshark", "tcpdump"},                            # packet analysis
+        {"curl", "wget", "python3"},                      # utility
+    ]
+    for _tg in _tool_groups:
+        if isinstance(available_tools, (set, list)):
+            vec[idx] = 1.0 if set(available_tools) & _tg else 0.0
+        idx += 1  # 196
+
+    # Target profile features (5 dims) — HTB-specific awareness
+    target_meta = state.get("target_meta", {})
+    vec[idx] = min(float(target_meta.get("htb_difficulty", 0)) / 10.0, 1.0)
+    idx += 1
+    vec[idx] = 1.0 if target_meta.get("is_htb", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if target_meta.get("is_windows", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if target_meta.get("has_web_app", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if target_meta.get("has_custom_exploit", False) else 0.0
+    idx += 1  # 201
+
+    # Campaign momentum indicators (5 dims)
+    _steps_since_cred = float(state.get("steps_since_credential", current_step))
+    _steps_since_shell = float(state.get("steps_since_shell", current_step))
+    vec[idx] = max(1.0 - _steps_since_cred / 20.0, 0.0)    # cred recency
+    idx += 1
+    vec[idx] = max(1.0 - _steps_since_shell / 20.0, 0.0)   # shell recency
+    idx += 1
+    # Phase velocity: transitions per 10 steps
+    _phase_vel = float(phase_transitions) / max(float(current_step) / 10.0, 0.1)
+    vec[idx] = min(_phase_vel, 1.0)
+    idx += 1
+    # Discovery burst: discoveries in last 5 steps (estimated)
+    _recent_disc_rate = float(state.get("recent_discovery_count", 0)) / 5.0
+    vec[idx] = min(_recent_disc_rate, 1.0)
+    idx += 1
+    # Stall indicator: complement of stagnation—high = making progress
+    vec[idx] = max(1.0 - float(commands_since_discovery) / 15.0, 0.0)
+    idx += 1  # 206
+
+    # Evidence graph summary (5 dims)
+    evidence = state.get("evidence_graph", {})
+    vec[idx] = min(float(evidence.get("nodes", 0)) / 30.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(evidence.get("edges", 0)) / 50.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(evidence.get("attack_paths", 0)) / 5.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(evidence.get("confidence", 0.0)), 1.0)
+    idx += 1
+    vec[idx] = 1.0 if evidence.get("has_root_path", False) else 0.0
+    idx += 1  # 211
+
+    # Working memory utilisation (5 dims)
+    working_mem = state.get("working_memory", {})
+    vec[idx] = min(float(working_mem.get("entries", 0)) / 50.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(working_mem.get("active_hypotheses", 0)) / 10.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(working_mem.get("confirmed_facts", 0)) / 20.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(working_mem.get("pending_tests", 0)) / 10.0, 1.0)
+    idx += 1
+    vec[idx] = min(float(working_mem.get("memory_pressure", 0.0)), 1.0)
+    idx += 1  # 216
+
+    # Attack chain position (5 dims) — where are we in the kill chain pipeline
+    _chain_pos = state.get("attack_chain", {})
+    vec[idx] = 1.0 if _chain_pos.get("recon_complete", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if _chain_pos.get("foothold_obtained", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if _chain_pos.get("privesc_achieved", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if _chain_pos.get("lateral_ready", False) else 0.0
+    idx += 1
+    vec[idx] = 1.0 if _chain_pos.get("exfil_ready", False) else 0.0
+    idx += 1  # 221 after section 15
+
+    # ─── Remaining dims [221-511] are zero-padded ────────────────────
+    # ~221 meaningful dims / 512 total  (43% utilisation, up from 34%)
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

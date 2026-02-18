@@ -1,0 +1,135 @@
+{
+  "run_id": "run_20260218_101749_7c83d4",
+  "timestamp": 1771406292.4950457,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable reward per episode (80.00) despite zero success rate, indicating consistent execution flow",
+      "Completed all mentor-guided checkpoints, demonstrating ability to follow structured guidance"
+    ],
+    "fails": [
+      "Zero success rate for the run, meaning no objectives were achieved despite sustained effort",
+      "Ten mentor calls suggest recurring blockers during execution, pointing to repeated tactical stagnation"
+    ],
+    "summary": "Consistent execution yielded steady rewards but failed to achieve any objectives; focus should shift toward breakthrough actions that complete kill chain stages."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Attempts to escalate privileges via default credential spraying on exposed services repeatedly failed",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step4",
+        "ep003_step7",
+        "ep005_step3"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When an SSH port is detected with a banner indicating OpenSSH",
+      "then_action": "Run targeted nmap scripts ssh2-enum-algos and ssh-hostkey for service enumeration",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-hostkey",
+        "timing": "T4"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep002_step2"
+      ],
+      "created_at": 1771406309.1211264,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_web_dirbrute",
+      "if_condition": "When HTTP service returns 200 and robots.txt exists",
+      "then_action": "Use ffuf to brute force directories with wordlist focused on admin panels",
+      "parameters_template": {
+        "url": "http://{target}/FUZZ",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "threads": 40
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep004_step6"
+      ],
+      "created_at": 1771406309.1211398,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_credential_spray",
+      "if_condition": "When login portal responds with consistent delay and no lockout control",
+      "then_action": "Execute hydra credential spray with curated username/password list",
+      "parameters_template": {
+        "module": "http-form-post",
+        "userlist": "user_small.txt",
+        "passlist": "pass_common.txt",
+        "rate": "4/s"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep003_step5",
+        "ep006_step10"
+      ],
+      "created_at": 1771406309.12115,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate in pinpointing service information, enabling downstream actions"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automated SSH host key fingerprint correlation",
+      "description": "Correlate host keys from successive nmap scans to prioritize persistent targets for credential reuse",
+      "priority": "high"
+    },
+    {
+      "title": "Web application admin endpoint discovery",
+      "description": "Combine ffuf and gowitness snapshotting to rapidly identify and verify hidden admin panels before brute forcing",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential spray throttling refinement",
+      "description": "Adjust hydra rate limits and monitor response timing to bypass temporary lockouts while maintaining throughput",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

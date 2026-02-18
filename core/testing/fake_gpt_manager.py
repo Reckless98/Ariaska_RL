@@ -114,8 +114,8 @@ class FakeGPTManager:
         self._requests: List[Dict[str, Any]] = []
         
         # Mimic real GPTManager interface
-        self.primary_model = "gpt-5.1-codex-mini"
-        self.fallback_model = "gpt-4o-mini"
+        self.primary_model = "gpt-5.2-codex"
+        self.fallback_model = "gpt-5.2-mini"
         self.nano_model = "gpt-5.1-codex-mini"
         self.postmortem_model = "gpt-5.1-codex"
         self.tokens_used = 0

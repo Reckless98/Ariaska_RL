@@ -77,7 +77,7 @@ def query_knowledge(
 
     try:
         # Build query embedding
-        query_embedding = _embedder.encode([query]).tolist()
+        query_embedding = _embedder.encode([query], show_progress_bar=False).tolist()
 
         # Optional phase filter
         where_filter = None

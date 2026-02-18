@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260218_093846_4cb1e3",
+  "timestamp": 1771403933.491069,
+  "key_outcomes": {
+    "wins": [
+      "Captured initial network topology and service inventory through automated host discovery, producing consistent evidence_ref run_20260218_093846_4cb1e3_ep001_step03."
+    ],
+    "fails": [
+      "Exploit attempts failed due to missing valid credentials for service accounts, blocking lateral movement (run_20260218_093846_4cb1e3_ep001_step12).",
+      "Posture verification scripts timed out against hardened SSH (run_20260218_093846_4cb1e3_ep001_step08)."
+    ],
+    "summary": "Reconnaissance completed but inability to escalate or maintain foothold prevented success; focus next on credential acquisition and stable access."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Brute-force and default credential guessing for identified services repeatedly exhausted rate limits and triggered defensive blocks.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_093846_4cb1e3_ep001_step07",
+        "run_20260218_093846_4cb1e3_ep001_step09",
+        "run_20260218_093846_4cb1e3_ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner reveals service version",
+      "then_action": "Run targeted SSH enumeration with nmap ssh2-enum-algos and ssh-hostkey scripts",
+      "parameters_template": {
+        "port": 22,
+        "scripts": [
+          "ssh2-enum-algos",
+          "ssh-hostkey"
+        ]
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "run_20260218_093846_4cb1e3_ep001_step05",
+        "run_20260218_093846_4cb1e3_ep001_step06"
+      ],
+      "created_at": 1771403950.5820842,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open SMB shares are detected on 445",
+      "then_action": "Enumerate share permissions with smbclient and map paths for credential harvesting",
+      "parameters_template": {
+        "port": 445,
+        "tools": [
+          "smbclient -L",
+          "enum4linux"
+        ]
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "run_20260218_093846_4cb1e3_ep001_step04"
+      ],
+      "created_at": 1771403950.5820937,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Windows host responds but no credentials yet",
+      "then_action": "Launch responder/kerberoast workflow to capture hashes from SMB/LDAP",
+      "parameters_template": {
+        "tools": [
+          "responder -I eth0 -wrf",
+          "GetUserSPNs.py"
+        ]
+      },
+      "confidence": 0.79,
+      "evidence_refs": [
+        "run_20260218_093846_4cb1e3_ep001_step11"
+      ],
+      "created_at": 1771403950.5820994,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Repeated SAMR/SMB enumeration attempts laid groundwork for future credential capture"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting via SMB/LDAP",
+      "description": "Deploy responder and Kerberoast in segmented bursts to capture service account hashes while avoiding lockouts, then crack offline for escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Pivoting through low-privileged host",
+      "description": "Use stolen password material to access secondary host via RDP/SMB and validate persistence techniques with scheduled tasks.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

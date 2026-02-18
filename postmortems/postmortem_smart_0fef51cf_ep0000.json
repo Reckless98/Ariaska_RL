@@ -1,0 +1,87 @@
+{
+  "run_id": "smart_0fef51cf_ep0000",
+  "timestamp": 1771421403.599994,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (112.88)"
+    ],
+    "fails": [
+      "Overall success rate 0.00% (no successful episode)",
+      "No mentor calls or guidance utilized"
+    ],
+    "summary": "Single-episode run yielded positive reward but no successful completion; insufficient data for strong pattern extraction."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with no prior intel",
+      "then_action": "Perform baseline discovery: enumerate live hosts and top ports",
+      "parameters_template": {
+        "scan_type": "tcp_syn",
+        "ports": "top-100",
+        "rate": "normal"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep000_overall"
+      ],
+      "created_at": 1771421418.8487844,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a host is discovered during baseline discovery",
+      "then_action": "Run service version detection on discovered open ports",
+      "parameters_template": {
+        "service_detection": true,
+        "version_intensity": "default"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep000_overall"
+      ],
+      "created_at": 1771421418.8487978,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern clarity",
+      "description": "Run 5-10 episodes with consistent reconnaissance steps to gather evidence of effective action sequences and success triggers.",
+      "priority": "high"
+    },
+    {
+      "title": "Add success criteria checkpoints",
+      "description": "Define intermediate objectives (e.g., initial foothold, credential discovery) to better attribute reward to specific actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Enable mentor calls during stalled states",
+      "description": "Invoke mentor assistance after a fixed number of no-progress steps to identify missed opportunities.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

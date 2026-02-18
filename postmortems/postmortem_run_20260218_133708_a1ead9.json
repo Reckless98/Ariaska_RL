@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260218_133708_a1ead9",
+  "timestamp": 1771418235.1565223,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite low success rate",
+      "Completed full episode with consistent reward"
+    ],
+    "fails": [
+      "Zero success rate across the run",
+      "High mentor call count indicating low agent autonomy"
+    ],
+    "summary": "The run shows stable reward but no successful outcomes, indicating ineffective action sequencing and over-reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Action selection did not convert reward into task success",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_133708_a1ead9_ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields no success signal after 3 actions",
+      "then_action": "Trigger a systematic port scan using nmap with service/version detection",
+      "parameters_template": {
+        "target": "<ip>",
+        "flags": "-sV -sC -Pn -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_133708_a1ead9_ep001_summary"
+      ],
+      "created_at": 1771418247.642522,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 within an episode",
+      "then_action": "Pause to re-evaluate goals and prioritize a single high-value vector (RDP/SMB/SSH)",
+      "parameters_template": {
+        "priority_services": [
+          "3389",
+          "445",
+          "22"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_133708_a1ead9_ep001_summary"
+      ],
+      "created_at": 1771418247.6425388,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success flag is false",
+      "then_action": "Pivot to credential discovery and verify access paths before exploitation",
+      "parameters_template": {
+        "checks": [
+          "creds in configs",
+          "weak passwords",
+          "default accounts"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_133708_a1ead9_ep001_summary"
+      ],
+      "created_at": 1771418247.6425467,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon via targeted nmap scanning is a reliable first step when progress stalls."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run an episode with a hard cap of 3 mentor calls and force a recon-to-enum-to-verify pipeline.",
+      "priority": "high"
+    },
+    {
+      "title": "Success conversion checkpoint",
+      "description": "Insert a checkpoint after every 3 actions to validate success signals and adjust plan if none are achieved.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-prioritized enumeration",
+      "description": "When services are discovered, rank by likelihood of access (SMB/RDP/SSH) and fully enumerate top 1 before moving on.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

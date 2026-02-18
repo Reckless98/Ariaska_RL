@@ -144,11 +144,11 @@ class RunLogger:
             return
         line = (
             f"[{run_tag}] EP{ep} s{step:02d} "
-            f"phase={phase[:12]:12s} "
-            f"macro={macro[:8]:8s} "
+            f"phase={phase[:14]:14s} "
+            f"macro={macro[:10]:10s} "
             f"conf={macro_conf:.2f} "
             f"coh={coherence:.2f} "
-            f"src={source[:8]:8s} "
+            f"src={source[:16]:16s} "
             f"r+={reward_delta:+7.1f} "
             f"rnd={intrinsic:+5.2f} "
             f"ar={'1' if anti_repeat else '0'} "

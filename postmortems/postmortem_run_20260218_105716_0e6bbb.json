@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260218_105716_0e6bbb",
+  "timestamp": 1771408642.5101175,
+  "key_outcomes": {
+    "wins": [
+      "Nmap reconnaissance successfully enumerated live hosts and identified three TCP services (22, 80, 443) allowing focused follow-up",
+      "Captured consistent HTTP headers that revealed application stack for potential exploitation paths"
+    ],
+    "fails": [
+      "Failed to obtain valid credentials after repeated brute-force attempts on SSH (port 22), limiting lateral movement",
+      "Privilege escalation attempts stalled due to strong syscall restrictions on target host"
+    ],
+    "summary": "Reconnaissance delivered high-quality targeting data, but brute-force credential gathering and privilege escalation remain blocked, preventing mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Password spraying on SSH without context repeatedly returned lockouts and no valid logins",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_105716_0e6bbb_ep01_step04",
+        "run_20260218_105716_0e6bbb_ep01_step07",
+        "run_20260218_105716_0e6bbb_ep01_step09"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_105716_0e6bbb_ep01_step03"
+      ],
+      "created_at": 1771408660.7456708,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with identifiable CMS headers",
+      "then_action": "Execute targeted nikto scan followed by CMS-specific content discovery",
+      "parameters_template": {
+        "target": "http://<live_ip>",
+        "plugins": [
+          "all"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_105716_0e6bbb_ep01_step05"
+      ],
+      "created_at": 1771408660.745681,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When authentication attempts fail repeatedly on SSH",
+      "then_action": "Switch to low-noise credential profiling via harvester and Burp suite inbound capture",
+      "parameters_template": {
+        "tools": [
+          "theHarvester",
+          "Burp Intruder"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260218_105716_0e6bbb_ep01_step08"
+      ],
+      "created_at": 1771408660.745687,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Shift to passive credential harvesting",
+      "description": "Deploy harvester-focused reconnaissance and monitor for exposed credentials instead of noisy brute-force attempts on SSH to avoid lockouts.",
+      "priority": "high"
+    },
+    {
+      "title": "Leverage HTTP-based misconfigurations",
+      "description": "Use CMS-specific fuzzing and directory brute forcing to find exploitable admin panels or outdated plugins on the identified HTTP service.",
+      "priority": "medium"
+    },
+    {
+      "title": "Investigate lateral movement pathways",
+      "description": "Map accessible SMB/NFS shares from live hosts to find stored credentials or misconfigurations that could facilitate privilege escalation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

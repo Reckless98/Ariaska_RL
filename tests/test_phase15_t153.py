@@ -31,7 +31,7 @@ def _make_coach(agent_name="TestAgent"):
     from core.training.smart_coach import SmartCoach
     return SmartCoach(
         agent_name=agent_name,
-        gpt_manager=gpt,
+        gpt_manager=gpt,  # type: ignore[arg-type]
         model="test-model",
     )
 
@@ -127,11 +127,13 @@ class TestSemanticIndex:
 class TestWorkingMemoryWiring:
     """Test WM wiring in SmartCoach reset_episode + decide."""
 
-    def test_wm_none_flags_off(self):
-        """With flags OFF, working memory is None."""
+    def test_wm_none_flags_off(self, monkeypatch):
+        """With flags explicitly OFF, working memory is None."""
+        monkeypatch.setenv("FF_WORKING_MEMORY", "0")
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_working_memory is None
+        _reset_flags()
 
     def test_wm_initialized_flag_on(self, monkeypatch):
         """With FF_WORKING_MEMORY=1, working memory is initialized."""
@@ -147,6 +149,7 @@ class TestWorkingMemoryWiring:
         _reset_flags()
         coach = _make_coach()
         wm = coach._p15_working_memory
+        assert wm is not None
         wm.push("test", "content", priority=0.5)
         assert len(wm) == 1
         coach.reset_episode(episode=1)
@@ -159,6 +162,7 @@ class TestWorkingMemoryWiring:
         _reset_flags()
         coach = _make_coach()
         si = coach._p15_semantic_index
+        assert si is not None
         si.add("test command")
         assert len(si) == 1
         coach.reset_episode(episode=1)
@@ -171,15 +175,16 @@ class TestWorkingMemoryWiring:
 class TestConsolidationWiring:
     """Test consolidation sample collection and replay wiring."""
 
-    def test_consol_none_flags_off(self):
-        """With flags OFF, consolidation engine is None."""
+    def test_consol_none_flags_off(self, monkeypatch):
+        """With flags explicitly OFF, consolidation engine is None."""
+        monkeypatch.setenv("FF_CONSOLIDATION", "0")
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_consolidation_engine is None
+        _reset_flags()
 
-    def test_consol_initialized_flag_on(self, monkeypatch):
-        """With FF_CONSOLIDATION=1, consolidation engine is initialized."""
-        monkeypatch.setenv("FF_CONSOLIDATION", "1")
+    def test_consol_initialized_flag_on(self):
+        """Post-Phase 20: consolidation defaults ON, engine is initialized."""
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_consolidation_engine is not None
@@ -201,21 +206,21 @@ class TestConsolidationWiring:
 class TestBudgetManagerV2Wiring:
     """Test BudgetManagerV2 wiring in GPTManager."""
 
-    def test_bm2_none_flags_off(self):
-        """With flags OFF, budget manager is None."""
+    def test_bm2_none_flags_off(self, monkeypatch):
+        """With flags explicitly OFF, budget manager is None."""
+        monkeypatch.setenv("FF_BUDGET_MANAGER_V2", "0")
         _reset_flags()
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True)
         assert gpt._budget_manager_v2 is None
+        _reset_flags()
 
-    def test_bm2_initialized_flag_on(self, monkeypatch):
-        """With FF_BUDGET_MANAGER_V2=1, budget manager is initialized."""
-        monkeypatch.setenv("FF_BUDGET_MANAGER_V2", "1")
+    def test_bm2_initialized_flag_on(self):
+        """Post-Phase 20: budget_manager_v2 defaults ON, manager is initialized."""
         _reset_flags()
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True)
         assert gpt._budget_manager_v2 is not None
-        _reset_flags()
 
     def test_bm2_reset_on_episode(self, monkeypatch):
         """reset_episode() resets budget manager."""
@@ -224,6 +229,7 @@ class TestBudgetManagerV2Wiring:
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True)
         bm = gpt._budget_manager_v2
+        assert bm is not None
         # Simulate spend
         bm.record_spend("gpt-5.2-mini", 1000, "tactical")
         stats = bm.get_stats()
@@ -255,20 +261,26 @@ class TestBudgetManagerV2Wiring:
 class TestCAPContractT153:
     """CAP contract: flags OFF = zero behavior change."""
 
-    def test_no_p15_attributes_leak_when_off(self):
-        """All P15 components are None when all flags are off."""
+    def test_no_p15_attributes_leak_when_off(self, monkeypatch):
+        """P15 components are None when explicitly turned OFF."""
+        monkeypatch.setenv("FF_WORKING_MEMORY", "0")
+        monkeypatch.setenv("FF_SEMANTIC_INDEX", "0")
+        monkeypatch.setenv("FF_CONSOLIDATION", "0")
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_working_memory is None
         assert coach._p15_consolidation_engine is None
         assert coach._p15_semantic_index is None
+        _reset_flags()
 
-    def test_gpt_manager_no_bm2_when_off(self):
-        """GPTManager has no budget manager when flag is off."""
+    def test_gpt_manager_no_bm2_when_off(self, monkeypatch):
+        """GPTManager has no budget manager when flag is explicitly off."""
+        monkeypatch.setenv("FF_BUDGET_MANAGER_V2", "0")
         _reset_flags()
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True)
         assert gpt._budget_manager_v2 is None
+        _reset_flags()
 
     def test_record_result_no_crash_flags_off(self):
         """record_result works without P15 components active."""
@@ -299,11 +311,13 @@ class TestCAPContractT153:
 class TestSemanticIndexWiring:
     """Test semantic index wiring in SmartCoach."""
 
-    def test_si_none_flags_off(self):
-        """With flags OFF, semantic index is None."""
+    def test_si_none_flags_off(self, monkeypatch):
+        """With flags explicitly OFF, semantic index is None."""
+        monkeypatch.setenv("FF_SEMANTIC_INDEX", "0")
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_semantic_index is None
+        _reset_flags()
 
     def test_si_initialized_flag_on(self, monkeypatch):
         """With FF_SEMANTIC_INDEX=1, semantic index is initialized."""

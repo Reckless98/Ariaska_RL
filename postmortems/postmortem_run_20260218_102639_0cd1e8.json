@@ -1,0 +1,144 @@
+{
+  "run_id": "run_20260218_102639_0cd1e8",
+  "timestamp": 1771406804.7429552,
+  "key_outcomes": {
+    "wins": [
+      "Collected comprehensive asset/service inventory through structured reconnaissance scans",
+      "Captured context for potential attack paths despite not achieving foothold"
+    ],
+    "fails": [
+      "Never translated reconnaissance intelligence into an exploitation attempt; no lateral movement achieved",
+      "Repeated attempts to access services were blocked by defensive controls, so no privileges escalated"
+    ],
+    "summary": "Reconnaissance phase executed thoroughly but engagement stalled before initial access; next steps must adapt to access limitations."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance data gathered but no exploitation vector pursued, leaving kill chain incomplete",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_102639_step8"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When HTTP/HTTPS services detected with recognizable headers",
+      "then_action": "Run Nikto scan followed by Gobuster directory brute-force to enumerate hidden endpoints",
+      "parameters_template": {
+        "tool_sequence": [
+          "nikto -host {target}:{port}",
+          "gobuster dir -u https://{target}:{port} -w /usr/share/wordlists/raft.txt"
+        ],
+        "timeout": "5m"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_102639_step4"
+      ],
+      "created_at": 1771406826.6496017,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open and banner indicates standard OpenSSH",
+      "then_action": "Launch targeted Hydra brute-force profile using curated wordlist with rate limits",
+      "parameters_template": {
+        "tool": "hydra",
+        "service": "ssh",
+        "target": "{target}",
+        "wordlist": "/usr/share/wordlists/rockyou.txt",
+        "parallel": 4
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_102639_step6"
+      ],
+      "created_at": 1771406826.6496108,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB shares enumerated but access denied",
+      "then_action": "Collect share names and apply sequential credential spraying using cracked hashes",
+      "parameters_template": {
+        "tool_sequence": [
+          "enum4linux -a {target}",
+          "crackmapexec smb {target} -u {userlist} -p {passlist} --continue"
+        ],
+        "credential_sources": [
+          "local cache",
+          "previous runs"
+        ]
+      },
+      "confidence": 0.48,
+      "evidence_refs": [
+        "run_20260218_102639_step7"
+      ],
+      "created_at": 1771406826.649617,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Web reconnaissance consistently yielded actionable service details"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH detection triggered repeatable brute-force workflow"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Targeted web exploit chain",
+      "description": "Use HTTP enumeration data to identify outdated CMS/plugins and attempt Metasploit auxiliary/module exploits with verified CVEs",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse via SMB/LDAP",
+      "description": "Feed harvested usernames into SMB/LDAP authentication attempts using CrackMapExec with locked-out service monitoring",
+      "priority": "medium"
+    },
+    {
+      "title": "Out-of-band phishing vector testing",
+      "description": "Craft deceptive SSH banner/email lure referencing reconnaissance findings to coax user interaction with our payload",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

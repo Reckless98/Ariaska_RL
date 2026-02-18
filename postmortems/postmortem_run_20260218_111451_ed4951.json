@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260218_111451_ed4951",
+  "timestamp": 1771409715.5740151,
+  "key_outcomes": {
+    "wins": [
+      "Identified exposed SMB share on 10.0.5.12 and documented reachable file paths for later exploitation.",
+      "Executed multi-host scanning sweep with masscan followed by focused nmap timing profile, completing in under 12 minutes despite network anomalies."
+    ],
+    "fails": [
+      "Failed to escalate privileges after compromising service account due to missing local privilege escalation binaries.",
+      "Unable to maintain persistence; scheduled tasks deployment detected and rolled back in subsequent monitoring."
+    ],
+    "summary": "Reconnaissance phase completed with high visibility into external services, but follow-up exploitation/stability actions need refinement to convert into success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation stagnation after initial foothold, likely due to missing exploitation tooling and privilege limitations.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step22",
+        "ep001_step35",
+        "ep001_step40"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12"
+      ],
+      "created_at": 1771409733.484482,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB named pipe access responds without authentication",
+      "then_action": "Enumerate shares via smbclient and map writable directories before mounting",
+      "parameters_template": {
+        "command": "smbclient -L \\\\10.0.5.12 -N",
+        "followup": "smbclient \\\\10.0.5.12\\shared -N"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step19"
+      ],
+      "created_at": 1771409733.4844906,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Windows domain services detected and Kerberos AS-REQs available",
+      "then_action": "Request TGT with impacket-getTGT followed by AS-REP roast of non-preauth users",
+      "parameters_template": {
+        "command": "impacket-getTGT target.com/user",
+        "flag": "--roast"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step24"
+      ],
+      "created_at": 1771409733.484496,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in SSH reconnaissance phase and repeatable nmap scripting pattern."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent SMB share discovery drove subsequent data collection opportunities."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Post-exploitation toolchain audit",
+      "description": "Verify availability of local privilege escalation binaries (juicy potato, mimikatz) on target path and stage execution via scheduled task to bypass AV.",
+      "priority": "high"
+    },
+    {
+      "title": "Persistence hardening test",
+      "description": "Deploy alternate persistence via WMI subscription and monitor for detection before reapplying to confirm rollback behavior is trackable.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential harvest verification",
+      "description": "Capture NTLM hashes from SMB connections using responder + Inveigh to validate ability to re-use for lateral movement.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

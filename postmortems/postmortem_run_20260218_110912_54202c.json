@@ -1,0 +1,135 @@
+{
+  "run_id": "run_20260218_110912_54202c",
+  "timestamp": 1771409377.2375708,
+  "key_outcomes": {
+    "wins": [
+      "Consistently collected baseline telemetry (network map + service banners) across the episode, enabling contextual awareness for subsequent actions.",
+      "Maintained a high reward trajectory even under mentor intervention, demonstrating resilience in decision-making."
+    ],
+    "fails": [
+      "Failed to achieve objective success (0% success rate), indicating the need for better exploitation/privilege actions.",
+      "Required 15 mentor calls, suggesting uncertainty or lack of automation in critical decision points."
+    ],
+    "summary": "Reconnaissance was solid, but the run stalled before exploitation, resulting in zero completed objectives despite sustained reward collection."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to convert collected service information into a successful exploit attempt before episode end",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step23",
+        "ep001_step27"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run detailed SSH enumeration with nmap /scripts/ssh* and record user lists",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-publickey-acceptance"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771409396.1773245,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_http_fuzz_002",
+      "if_condition": "When HTTP service responds with 200 and custom headers",
+      "then_action": "Launch ffuf fuzzing on common directories using wordlist and record interesting hits",
+      "parameters_template": {
+        "url": "http://{target}/FUZZ",
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "threads": 20
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ],
+      "created_at": 1771409396.1773386,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_creds_validation_003",
+      "if_condition": "When default credentials are attempted in authentication tests",
+      "then_action": "Validate credential success with Hydra on discovered service, log success",
+      "parameters_template": {
+        "service": "ssh",
+        "userlist": "/usr/share/wordlists/usernames.txt",
+        "passlist": "/usr/share/wordlists/default_pass.txt"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771409396.1773486,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum_001",
+      "skill_card_id": "skill_ssh_enum_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit chaining after SSH enum",
+      "description": "After verifying SSH banner and enumerating auth methods, attempt brute force with valid creds and pivot through reverse shell setup using netcat if successful.",
+      "priority": "high"
+    },
+    {
+      "title": "HTTP fuzz-guided exploitation",
+      "description": "Use ffuf findings to target discovered directories with targeted scripts (e.g., SQL injection, file upload) and automate payload delivery.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential validation automation",
+      "description": "Automate Hydra/Metasploit credential validation sequences immediately after enumeration to reduce mentor dependency.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_122803_7ef478",
+  "timestamp": 1771414089.2369769,
+  "key_outcomes": {
+    "wins": [
+      "Identified accessible external service on high-value subnet even though root access was not achieved",
+      "Captured a stable network map and exported it for analysis within the episode"
+    ],
+    "fails": [
+      "Failed to escalate privileges due to missing vulnerable service exploitation path",
+      "Did not achieve persistence, leading to zero success despite reconnaissance progress"
+    ],
+    "summary": "Reconnaissance phase completed with useful visibility, but execution stalled at post-enumeration pivoting and privilege escalation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to chain from reconnaissance to execution because no valid exploit was deployed after service enumeration.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80 returns HTTP 200 and contains directory listings",
+      "then_action": "Run gobuster with large wordlist and extract valid directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-lowercase-2.3-medium.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771414106.6360528,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB port 445 is open",
+      "then_action": "Enumerate shares with impacket smbclient and test for writable share",
+      "parameters_template": {
+        "tool": "impacket-smbclient",
+        "target": "TARGET_IP",
+        "share": "testshare",
+        "options": "\u2013no-pass"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771414106.6360638,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is accessible but brute-force protection is enabled",
+      "then_action": "Switch to key-based enumeration by retrieving public keys via curl and attempting key-auth",
+      "parameters_template": {
+        "method": "curl",
+        "endpoint": "http://TARGET_IP/.ssh/authorized_keys",
+        "follow_redirects": true
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771414106.6360695,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent success in initial HTTP enumeration increased reconnaissance coverage."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot from SMB enumeration to exploit chaining",
+      "description": "Once writable SMB share confirmed, upload custom payload and attempt scheduled task creation with Cobalt Strike stager.",
+      "priority": "high"
+    },
+    {
+      "title": "Leverage alternative privilege escalation after limited brute force",
+      "description": "Use collected host information to identify kernel version and run Linux Exploit Suggester to find applicable local privilege escalation.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential harvesting via HTTP upload forms",
+      "description": "Enumerate HTTP forms discovered during gobuster and submit crafted payloads to capture credentials or session tokens.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

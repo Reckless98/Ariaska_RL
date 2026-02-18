@@ -37,8 +37,8 @@ class TestPhase110FeatureFlags:
     def test_default_values(self):
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.parser_mode == "fast"
-        assert ff.strict_phase_ladder is False
+        assert ff.parser_mode == "intelligent_fullparse"  # Post-Phase 20: always fullparse
+        assert ff.strict_phase_ladder is True  # Post-Phase 20: ON by default
         assert ff.adaptive_budget is True
         assert ff.learning_signal_export is True
 
@@ -55,9 +55,10 @@ class TestPhase110FeatureFlags:
         profile = resolve_profile()
         ff = get_feature_flags()
         assert profile == "DETERMINISTIC"
-        # In deterministic mode, Phase 11.0 flags should be disabled
-        assert ff.strict_phase_ladder is False
-        assert ff.adaptive_budget is False
+        # Post-Phase 20: strict_phase_ladder and adaptive_budget stay ON (max intelligence)
+        # Only learning_signal_export is disabled in DETERMINISTIC
+        assert ff.strict_phase_ladder is True
+        assert ff.adaptive_budget is True  # Post-Phase 20: always ON
         assert ff.learning_signal_export is False
         reset_feature_flags()
 
@@ -497,17 +498,17 @@ class TestStepEventPhase110:
 # ─── Phase Ladder ────────────────────────────────────────────────────────────
 
 class TestPhaseLadder:
-    """Phase ladder gate in SmartCoach."""
+    """Phase 23: Discovery-driven phase ladder in SmartCoach."""
 
-    def test_ladder_min_steps_defined(self):
+    def test_phase_readiness_criteria_defined(self):
         from core.training.smart_coach import SmartCoach
-        assert hasattr(SmartCoach, "PHASE_LADDER_MIN_STEPS")
-        ladder = SmartCoach.PHASE_LADDER_MIN_STEPS
-        assert "RECON" in ladder
-        assert "EXPLOITATION" in ladder
-        assert ladder["RECON"] >= 1
+        assert hasattr(SmartCoach, "PHASE_READINESS_CRITERIA")
+        criteria = SmartCoach.PHASE_READINESS_CRITERIA
+        assert "RECON" in criteria
+        assert "EXPLOITATION" in criteria
+        assert callable(criteria["RECON"]["check"])
 
-    def test_ladder_all_phases_covered(self):
+    def test_phase_readiness_all_phases_covered(self):
         from core.training.smart_coach import SmartCoach
         expected_phases = [
             "RECON", "ENUMERATION", "EXPLOITATION",
@@ -515,7 +516,21 @@ class TestPhaseLadder:
             "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT",
         ]
         for phase in expected_phases:
-            assert phase in SmartCoach.PHASE_LADDER_MIN_STEPS, f"Missing phase: {phase}"
+            assert phase in SmartCoach.PHASE_READINESS_CRITERIA, f"Missing phase: {phase}"
+            assert "check" in SmartCoach.PHASE_READINESS_CRITERIA[phase]
+            assert "description" in SmartCoach.PHASE_READINESS_CRITERIA[phase]
+
+    def test_recon_readiness_requires_ports_and_services(self):
+        from core.training.smart_coach import SmartCoach
+        check = SmartCoach.PHASE_READINESS_CRITERIA["RECON"]["check"]
+        # Empty board = not ready
+        assert not check({})
+        # One port only = not ready
+        assert not check({"ports": {22}})
+        # Two ports but no services = not ready
+        assert not check({"ports": {22, 80}})
+        # Two ports + one service = ready
+        assert check({"ports": {22, 80}, "services": {"ssh"}})
 
 
 # ─── Budget Gate Wiring ──────────────────────────────────────────────────────

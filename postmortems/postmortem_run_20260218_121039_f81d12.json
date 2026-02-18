@@ -1,0 +1,128 @@
+{
+  "run_id": "run_20260218_121039_f81d12",
+  "timestamp": 1771413045.8544059,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance pacing across the only episode, achieving the base reward target of 50 while remaining within expected decision timelines.",
+      "Captured detailed service discovery notes (e.g., SSH and HTTP) enabling future focused enumeration attempts."
+    ],
+    "fails": [
+      "Unable to achieve mission success; success rate remained 0% as no decisive foothold/persistence was established.",
+      "Repeatedly stalled during initial credential harvesting phases, preventing lateral movement."
+    ],
+    "summary": "Reconnaissance was steady but the run stalled before privilege escalation or persistence, leaving the attack surface assessed but not leveraged."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-scanning credential harvesting attempts failed to pivot into lateral movement or persistence within the same episode.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771413059.877206,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service on port 80/443 responds with directory listing or web app fingerprint",
+      "then_action": "Execute gobuster bruteforce and nikto scan",
+      "parameters_template": {
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771413059.8772202,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After initial port scan completes",
+      "then_action": "Correlate open services with known CVEs via searchsploit",
+      "parameters_template": {
+        "service": "$open_service",
+        "version": "$version"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771413059.8772292,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reliability in identifying SSH footholds for later exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvest Follow-up",
+      "description": "After confirming SSH/HTTP services, immediately run targeted credential harvesting (hydra/brute forcing default creds) and capture any success for reuse.",
+      "priority": "high"
+    },
+    {
+      "title": "Expand Web Recon Depth",
+      "description": "Layer gobuster findings into nikto+wpscan scans to identify exploitable CMS/plugins before pivoting.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automate CVE Cross-check",
+      "description": "Pipe Nmap service/version output into searchsploit and record high-probability exploit candidates for rapid testing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,97 @@
+{
+  "run_id": "smart_f14c548d_ep0000",
+  "timestamp": 1771418462.6464143,
+  "key_outcomes": {
+    "wins": [
+      "Achieved 100% success rate in the only episode",
+      "High total reward indicates strong task completion"
+    ],
+    "fails": [],
+    "summary": "Single-episode run completed successfully with high reward; no failures observed, but limited data for pattern analysis."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target service is discovered during reconnaissance",
+      "then_action": "Fingerprint the service version and enumerate with appropriate scripts/modules",
+      "parameters_template": {
+        "phase": "recon",
+        "action": "service_fingerprint"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep0000_summary"
+      ],
+      "created_at": 1771418472.2116103,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an attack path is identified",
+      "then_action": "Prioritize exploitation steps that maximize reward with minimal risk",
+      "parameters_template": {
+        "phase": "exploit",
+        "strategy": "low_risk_high_reward"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep0000_summary"
+      ],
+      "created_at": 1771418472.211621,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Successful completion suggests effective reconnaissance-to-enumeration transition."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High reward indicates effective exploitation prioritization."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Multi-episode stability test",
+      "description": "Run at least 10 episodes to validate consistency and identify any latent failure patterns.",
+      "priority": "high"
+    },
+    {
+      "title": "Detailed telemetry capture",
+      "description": "Log step-level actions and outcomes to enable granular skill extraction and failure analysis.",
+      "priority": "high"
+    },
+    {
+      "title": "Robustness under variation",
+      "description": "Introduce environment variability (service mix/ports) to test generalization of current strategies.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

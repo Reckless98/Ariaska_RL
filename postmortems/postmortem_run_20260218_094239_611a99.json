@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260218_094239_611a99",
+  "timestamp": 1771404180.0703409,
+  "key_outcomes": {
+    "wins": [
+      "Mapped internal network topology with initial nmap sweep, identifying three hosts in the 172.16.5.0/24 range and their open ports (ep001_step03, ep001_step05)",
+      "Captured initial service banners on host 172.16.5.12, confirming SSH and HTTP versions for future targeting (ep001_step07)"
+    ],
+    "fails": [
+      "Unable to escalate privileges on target 172.16.5.12 due to lack of valid SSH credentials and no recognized exploit chain (ep001_step12, ep001_step15)",
+      "Repeated mentor intervention to resume reconnaissance after losing session persistence, indicating deficient session management strategy (ep001_step09, ep001_step13)",
+      "Failed to exploit web application due to ineffective payload delivery and missing input sanitization insights (ep001_step11)"
+    ],
+    "summary": "Reconnaissance phase partially successful with detailed service enumeration, but inability to obtain valid credentials or exploit services stalled progression, warranting focused credential harvesting and exploitation experimentation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Multiple attempts to maintain session persistence on 172.16.5.12 failed because SSH credentials were not harvested or reused effectively.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step13",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When an SSH banner is exposed on a reachable host",
+      "then_action": "Perform targeted SSH enumeration with nmap scripting to validate authentication methods and banner versions",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-publickey,ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771404200.3415935,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_http_enum",
+      "if_condition": "When HTTP service responds with status 200 and directory listing disabled",
+      "then_action": "Run gobuster with wordlist apt base + extensions, then capture HTTP response bodies for injection markers",
+      "parameters_template": {
+        "url": "http://172.16.5.12",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+        "extensions": "php,txt,html"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step11"
+      ],
+      "created_at": 1771404200.341608,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_port_clip",
+      "if_condition": "When multiple open ports identified during initial scan",
+      "then_action": "Prioritize further scans with nmap args '-A -p-' to uncover additional services and guess OS reliably",
+      "parameters_template": {
+        "arguments": "-sC -sV -A -p-",
+        "target": "172.16.5.0/24"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771404200.3416176,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "High success capturing SSH metadata during reconnaissance, valuable for follow-up credential strategies."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvesting via SSH Banner Analysis",
+      "description": "Use collected SSH banner details to try default/public keys against the host (ssh -i /path/to/cataloged_key user@172.16.5.12) and combine with Hydra multi-user brute-force leveraging captured user list to obtain valid credentials.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Service Injection Testing",
+      "description": "Automate POST injection payloads against identified HTTP endpoints using Burp Suite Intruder with payloads from the top 50 common web shells to find unsanitized input.",
+      "priority": "medium"
+    },
+    {
+      "title": "Session Recovery After SSH Disruption",
+      "description": "Deploy netcat reverse shell listener post-exploitation and script keep-alive checks (while loop + cron) so future SSH sessions survive brief disruptions.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260218_134255_4fde54",
+  "timestamp": 1771418595.8221455,
+  "key_outcomes": {
+    "wins": [
+      "Collected telemetry across a full episode without interruption",
+      "Achieved nonzero total reward despite no episode success"
+    ],
+    "fails": [
+      "Success rate 0.00% across the run",
+      "Insufficient mentor guidance relative to failure rate (10 mentor calls, no success)"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to reach objective success; needs tighter action sequencing and stronger exploitation follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progressed through reconnaissance without converting findings into a confirmed foothold",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_134255_4fde54_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When at least one TCP port is discovered open during initial scan",
+      "then_action": "Run focused service/version detection on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_134255_4fde54_ep001"
+      ],
+      "created_at": 1771418609.2315118,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Enumerate web surface for common paths and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260218_134255_4fde54_ep001"
+      ],
+      "created_at": 1771418609.2315257,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Service/version detection is a prerequisite to exploitation and should be standardized"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighter Recon-to-Exploit Loop",
+      "description": "After service detection, immediately map each service to a candidate exploit or misconfiguration checklist before moving on.",
+      "priority": "high"
+    },
+    {
+      "title": "HTTP Enumeration Depth",
+      "description": "If HTTP is detected, extend enumeration with technology fingerprinting (e.g., whatweb) and a second pass with larger wordlist.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Timing",
+      "description": "Trigger mentor call only after an explicit exploit hypothesis is formed to improve guidance quality.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

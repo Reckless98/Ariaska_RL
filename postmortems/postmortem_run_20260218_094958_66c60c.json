@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260218_094958_66c60c",
+  "timestamp": 1771404623.3703449,
+  "key_outcomes": {
+    "wins": [
+      "Mapped initial network perimeter quickly, identifying key services (SSH, HTTP) within the first five minutes and documenting their versions for targeted exploits.",
+      "Maintained situational awareness via mentor check-ins, allowing rapid course corrections when enumeration data conflicted with initial hypotheses."
+    ],
+    "fails": [
+      "Failed to obtain valid credentials after repeated SSH brute-force attempts, leaving lateral movement stalled.",
+      "Did not successfully exploit identified HTTP service misconfigurations, resulting in zero privilege escalation and mission success."
+    ],
+    "summary": "Reconnaissance was thorough and data-rich, but follow-up exploitation and credential acquisition steps consistently stalled, preventing mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "SSH brute-force attempts consumed time without yielding credentials, slowing progress and increasing detection risk.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_094958_66c60c_ep1_step06",
+        "run_20260218_094958_66c60c_ep1_step11"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner observed showing service version",
+      "then_action": "Run targeted SSH enumeration with nmap scripting engine and gather supported algorithms",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_094958_66c60c_ep1_step03",
+        "run_20260218_094958_66c60c_ep1_step05"
+      ],
+      "created_at": 1771404645.0736182,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP server responds with verbose headers and outdated server string",
+      "then_action": "Use nikto + dirsearch chaining to discover hidden endpoints and configuration leaks",
+      "parameters_template": {
+        "toolchain": [
+          "nikto",
+          "dirsearch"
+        ],
+        "timeout": 120
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_094958_66c60c_ep1_step08"
+      ],
+      "created_at": 1771404645.0736327,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH enumeration yields banner but brute force fails",
+      "then_action": "Switch to password spraying using known default lists with lockout monitoring",
+      "parameters_template": {
+        "wordlist": "top-500-defaults.txt",
+        "max-attempts": 2
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260218_094958_66c60c_ep1_step12"
+      ],
+      "created_at": 1771404645.0736432,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase delivering actionable SSH metadata."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Focused Credential Harvesting",
+      "description": "Pivot from brute force to targeted password spraying combined with monitoring for lockouts and adaptive delay to preserve access opportunities.",
+      "priority": "high"
+    },
+    {
+      "title": "HTTP Misconfiguration Exploit Run",
+      "description": "Chain nikto-detected issues with a bespoke exploit script against the outdated HTTP server to gain command execution.",
+      "priority": "high"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

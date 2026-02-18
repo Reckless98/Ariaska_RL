@@ -58,8 +58,7 @@ _MODEL_TIER: Dict[str, str] = {
     "gpt-5.2-mini": "mini",
     "gpt-5-nano": "nano",
     "gpt-5.2-nano": "nano",
-    "gpt-4o-mini": "mini",
-    "gpt-4o": "full",
+    # Phase 23: no gpt-4 models — all routing is gpt-5.x
 }
 
 # Valid ROI tags

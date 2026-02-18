@@ -70,15 +70,16 @@ class TestFeatureFlagGating:
         from core.feature_flags import get_feature_flags
         assert get_feature_flags().privilege_gating is True
 
-    def test_optional_subsystems_default_off(self):
+    def test_optional_subsystems_default_on(self):
+        """Post-Phase 20: All capabilities ON by default — max intelligence."""
         from core.feature_flags import get_feature_flags
         ff = get_feature_flags()
-        assert ff.allow_sudo is False
-        assert ff.allow_live_install is False
-        assert ff.wordlist_mutation is False
-        assert ff.port_knocking is False
-        assert ff.proxy_capture is False
-        assert ff.payload_encoding is False
+        assert ff.allow_sudo is True
+        assert ff.allow_live_install is True
+        assert ff.wordlist_mutation is True
+        assert ff.port_knocking is True
+        assert ff.proxy_capture is True
+        assert ff.payload_encoding is True
 
     def test_proxy_capture_respects_flag(self):
         from core.tools.web_proxy_layer import WebProxyLayer

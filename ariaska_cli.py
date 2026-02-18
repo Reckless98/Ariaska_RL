@@ -16,7 +16,20 @@ import random
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
-from collections import Counter
+
+# ── Suppress noisy library output BEFORE any imports trigger loading ────────
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("SENTENCE_TRANSFORMERS_HOME", os.path.join(str(Path.home()), ".cache", "torch", "sentence_transformers"))
+import logging as _logging
+for _noisy in ("sentence_transformers", "huggingface_hub", "transformers",
+               "huggingface_hub.utils._http", "sentence_transformers.SentenceTransformer",
+               "filelock"):
+    _logging.getLogger(_noisy).setLevel(_logging.ERROR)
+# Suppress tqdm progress bars globally (Batches: from sentence-transformers)
+os.environ.setdefault("TQDM_DISABLE", "1")
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -38,7 +51,7 @@ for _noisy in ("httpx", "openai", "openai._base_client", "httpcore"):
 load_dotenv()
 
 # Force Rich terminal rendering — ensures full Rich UI even if accidentally piped
-console = Console(force_terminal=True, width=140)
+console = Console(force_terminal=True)
 
 # Ensure line buffering so output appears immediately
 if hasattr(sys.stdout, 'reconfigure'):
@@ -80,47 +93,45 @@ _deterministic_mode = _init_deterministic_mode()
 # SMART-TRAIN (consolidated from train_phase4.py)
 # ─────────────────────────────────────────────────────────────────────────────
 def run_training(
-    episodes: int = 100,
-    max_steps: int = 40,
-    seed: int = 42,
-    target_ip: str = "172.28.0.10",
+    max_steps: int = 500,
+    seed: Optional[int] = None,
+    target_ip: str = "10.129.1.54",
     mode: str = "live",
     platform: str = "linux",
-    difficulty: str = "easy",
     verbosity: str = "verbose",
-    checkpoint_path: str = "models/enhanced/ppo_checkpoint.pt",
-    dashboard_mode: str = "rich",
+    checkpoint_path: str = "models/enhanced/ppo_live_checkpoint.pt",
+    dashboard_mode: str = "live",
     log_jsonl: bool = True,
     mentor_budget: float = 0.30,
     mentor_min_rate: float = 0.15,
     mentor_max_rate: float = 0.35,
     resume_path: Optional[str] = None,
-    difficulty_preset: str = "normal",
     max_tokens_run: Optional[int] = None,
     checkpoint_every: int = 10,
     anti_forensics: bool = True,
     ethics_mode: str = "training",
     seed_skills: bool = False,
+    ctf_mode: bool = False,
 ):
     """
-    Consolidated training loop with PPO metrics, checkpoint persistence,
-    and rich reporting.
+    Single continuous engagement against target.
+    Auto-closes when both user.txt and root.txt flags are captured.
 
     Args:
-        episodes: Number of training episodes.
-        max_steps: Maximum steps per episode.
-        seed: Random seed for reproducibility.
-        target_ip: Target IP for the environment.
-        mode: 'simulated' or 'live'.
+        max_steps: Safety limit on total steps (default 500).
+        seed: Random seed (optional, None = non-deterministic).
+        target_ip: Target IP (REQUIRED).
+        mode: Always 'live'.
         platform: Target platform hint.
-        difficulty: Difficulty preset.
         verbosity: 'quiet', 'standard', or 'verbose'.
         checkpoint_path: Path for PPO checkpoint save/load.
+        ctf_mode: If True, auto-close immediately on flag capture.
 
     Returns:
-        Dictionary with full training results.
+        Dictionary with engagement results and flag capture state.
     """
-    set_seed(seed)
+    if seed is not None:
+        set_seed(seed)
 
     from core.orchestration.smart_orchestrator import SmartOrchestrator, SmartOrchestratorConfig
     from core.environment.cyber_environment import CyberEnvironment
@@ -141,21 +152,22 @@ def run_training(
     gpt = GPTManager.get_instance()
 
     config = SmartOrchestratorConfig(
-        model="gpt-5.1-codex-mini",
+        model="gpt-5.2-codex",
         mentor_mode="adaptive",
         mentor_warmup_episodes=2,
         mentor_min_rate=mentor_min_rate,
         mentor_max_rate=mentor_max_rate,
         mentor_budget_pct=mentor_budget,
-        max_steps_per_episode=max_steps,
+        max_steps_per_episode=max_steps,  # Safety limit for continuous run
         default_target=target_ip,
         dashboard_enabled=(verbosity != "quiet"),
-        dashboard_mode="live" if dashboard_mode == "rich" else dashboard_mode,
+        dashboard_mode="live" if dashboard_mode in ("rich", "live") else dashboard_mode,
         event_jsonl_path=(
             f"traces/events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
             if log_jsonl else None
         ),
-        difficulty=difficulty_preset,
+        difficulty="normal",  # Post-Phase 20: always unrestricted
+        ctf_mode=ctf_mode,
     )
 
     orch = SmartOrchestrator(
@@ -176,15 +188,12 @@ def run_training(
     ckpt_mgr = CheckpointManager(config=CheckpointConfig(
         checkpoint_dir=os.path.dirname(checkpoint_path) or "models/enhanced",
         checkpoint_name=os.path.basename(checkpoint_path),
-        auto_save_interval=5,
+        auto_save_interval=50,  # Auto-save every 50 steps in continuous mode
         target_health_enabled=(mode == "live"),
         target_ip=target_ip if mode == "live" else "",
     ))
 
     # ── Training Loop ────────────────────────────────────────────────────
-    all_rewards = []
-    all_phases = []
-    episode_data = []
     start_time = time.time()
 
     # Phase 6.6: Initialize overnight guardrails
@@ -207,54 +216,8 @@ def run_training(
         log_rotator=LogRotator(),
     )
 
-    # ── Phase 10.2: Polished Training Start Banner with Algorithm Stack ──
-    try:
-        algo_status = {
-            "PPO": orch.ppo_agent is not None,
-            "DDQN": any(
-                hasattr(c, 'ddqn_macro') and c.ddqn_macro is not None
-                for c in orch.coaches.values()
-            ),
-            "CognitionNode": any(
-                hasattr(c, 'cognition_node') and c.cognition_node is not None
-                for c in orch.coaches.values()
-            ),
-            "SIL": any(
-                hasattr(c, '_sil_buffer') and c._sil_buffer is not None
-                for c in orch.coaches.values()
-            ),
-            "RND": orch.rnd_curiosity is not None,
-            "SAC": any(
-                hasattr(c, 'sac_agent') and c.sac_agent is not None
-                for c in orch.coaches.values()
-            ),
-        }
-        orch.dashboard.print_training_start(
-            config={
-                "episodes": episodes,
-                "steps_per_episode": max_steps,
-                "seed": seed,
-                "env": "ms3" if "172.28.0.11" in target_ip else "ms2" if "172.28.0.10" in target_ip else "sim",
-                "target": target_ip,
-                "difficulty": difficulty_preset,
-                "live": mode == "live",
-                "mentor_budget": int(mentor_budget * 100),
-            },
-            agents=list(orch.agents.keys()),
-            algorithms=algo_status,
-            target=target_ip,
-        )
-    except Exception as e:
-        # Fallback to legacy banner
-        console.print(Panel(
-            f"[bold cyan]ARIASKA Smart Training v6.9 — CLOSEOUT Enforced[/bold cyan]\n\n"
-            f"Episodes: {episodes}  |  Steps/ep: {max_steps}  |  Seed: {seed}\n"
-            f"Target: {target_ip}  |  Mode: {mode.upper()}  |  Difficulty: {difficulty_preset.upper()}\n"
-            f"Anti-forensics: {'[green]ON[/green]' if anti_forensics else '[red]OFF[/red]'}  |  Ethics: {ethics_mode.upper()}\n"
-            f"Verbosity: {verbosity}  |  Checkpoint: {checkpoint_path}",
-            title="🚀 Training Start",
-            border_style="cyan",
-        ))
+    # Phase 25: Banner is printed once by SmartOrchestrator.run_training()
+    # with full GPT model info — no duplicate banner here.
 
     # Phase 6.7: Pre-seed SkillLibrary with expert knowledge
     if seed_skills:
@@ -289,114 +252,18 @@ def run_training(
         # so raise it to ERROR; raise all others to WARNING.
         _lg.setLevel(_logging.ERROR if _lg_name == "core.gpt_manager" else _logging.WARNING)
 
-    # Phase 6.9: NO Rich Progress wrapper — it causes carriage-return interleaving
-    # with Python logging, producing the "glued monster line" UI bug.
-    # Instead: simple console.print after each episode. Clean, visible, no overlap.
-    for ep in range(episodes):
-        # Phase 6.6: Pre-episode guardrail check
-        if not guardrails.pre_episode_check(ep):
-            console.print(f"[yellow]⚠️ Guardrails stopped training at episode {ep}[/yellow]")
-            break
-        
-        episode_id = f"phase5_ep{ep:04d}"
-        ep_result = orch.run_episode(
-            episode_id=episode_id,
-            episode_number=ep,
-            target=target_ip,
-            difficulty=difficulty,
+    # ── Single Continuous Engagement — orchestrator handles everything ──
+    # run_training() forces episodes=1 internally and runs until flag capture
+    # or max_steps safety limit. Auto-close triggers on user.txt + root.txt.
+    try:
+        result = orch.run_training(
+            episodes=1,
+            target_ip=target_ip,
             platform=platform,
         )
-
-        reward = ep_result.get("total_reward", 0.0)
-        highest = ep_result.get("highest_phase", "RECON")
-        steps = ep_result.get("total_steps", 0)
-        all_rewards.append(reward)
-        all_phases.append(highest)
-
-        ppo_metrics = {
-            "updates_fired": ep_result.get("ppo_updates_fired", 0),
-            "avg_policy_loss": ep_result.get("ppo_avg_policy_loss", 0.0),
-            "avg_value_loss": ep_result.get("ppo_avg_value_loss", 0.0),
-            "avg_entropy": ep_result.get("ppo_avg_entropy", 0.0),
-        }
-        sources = {
-            "ppo": ep_result.get("decisions_ppo", 0),
-            "playbook": ep_result.get("decisions_playbook", 0),
-            "registry": ep_result.get("decisions_registry", 0),
-            "anti_repeat": ep_result.get("decisions_anti_repeat", 0),
-            "codex_meta": ep_result.get("decisions_codex_meta", 0),
-        }
-
-        ep_info = {
-            "episode": ep + 1,
-            "reward": reward,
-            "highest_phase": highest,
-            "steps": steps,
-            "ppo_updates": ppo_metrics.get("updates_fired", 0),
-            "policy_loss": ppo_metrics.get("avg_policy_loss", 0.0),
-            "value_loss": ppo_metrics.get("avg_value_loss", 0.0),
-            "entropy": ppo_metrics.get("avg_entropy", 0.0),
-            "sources": sources,
-            # Phase 5.1: reward-invariant metrics
-            "unique_commands": ep_result.get("unique_commands_total", 0),
-            "unique_templates": ep_result.get("unique_templates_total", 0),
-            "command_diversity": ep_result.get("command_diversity_ratio", 0.0),
-            "total_discoveries": ep_result.get("total_discoveries", 0),
-            "step_at_first_exploit": ep_result.get("step_at_first_exploit", -1),
-        }
-        episode_data.append(ep_info)
-
-        # Phase 6.2: Auto-checkpoint every 5 episodes
-        # NOTE: Guardrail checkpoint (below) handles per-agent PPO saves.
-        # The auto-save here only fires if get_ppo_state_dicts() exists and
-        # returns non-empty data; otherwise it's skipped to avoid creating
-        # stale files that collide with the directory-based final save.
-        if ckpt_mgr.should_auto_save(ep):
-            try:
-                state_dict = orch.get_ppo_state_dicts() if hasattr(orch, 'get_ppo_state_dicts') else {}
-                if state_dict:  # Only save if we got real state data
-                    ckpt_mgr.auto_save(state_dict, ep, metadata={
-                        "episode": ep,
-                        "avg_reward": sum(all_rewards[-10:]) / max(len(all_rewards[-10:]), 1),
-                        "highest_phase": highest,
-                    })
-            except Exception as exc:
-                console.print(f"[yellow]⚠️ Auto-checkpoint failed: {exc}[/yellow]")
-
-        # Phase 6.6: Post-episode guardrail checkpoint
-        ckpt_path = guardrails.post_episode_check(ep, difficulty_preset)
-        if ckpt_path:
-            try:
-                orch.save_ppo_checkpoints(ckpt_path)
-                guardrails.checkpoint.record_save(ckpt_path)
-                if verbosity != "quiet":
-                    console.print(f"[green]💾 Guardrail checkpoint saved: {ckpt_path}[/green]")
-            except Exception as exc:
-                console.print(f"[yellow]Guardrail checkpoint failed: {exc}[/yellow]")
-
-        recent = all_rewards[-10:]
-        avg_recent = sum(recent) / len(recent)
-
-        # Phase 6.9: Clean episode progress line — no Rich Progress overlay
-        if verbosity != "quiet":
-            ppo_str = ""
-            if ppo_metrics.get("updates_fired", 0) > 0:
-                ppo_str = (
-                    f"PPO[upd:{ppo_metrics.get('updates_fired',0)} "
-                    f"π:{ppo_metrics.get('avg_policy_loss',0):.3f} "
-                    f"V:{ppo_metrics.get('avg_value_loss',0):.3f} "
-                    f"H:{ppo_metrics.get('avg_entropy',0):.3f}]"
-                )
-            pct = (ep + 1) / episodes * 100
-            elapsed_so_far = time.time() - start_time
-            console.print(
-                f"[bold cyan]━━ Ep {ep+1}/{episodes} ({pct:.0f}%) ━━[/bold cyan] "
-                f"R:[bold {'green' if reward > 0 else 'red'}]{reward:+.0f}[/bold {'green' if reward > 0 else 'red'}]  "
-                f"avg10:{avg_recent:+.0f}  "
-                f"phase:[bold yellow]{highest}[/bold yellow]  "
-                f"{ppo_str}  "
-                f"[dim]{elapsed_so_far:.0f}s[/dim]"
-            )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]⚠️ Engagement interrupted by user[/yellow]")
+        result = {}
 
     elapsed = time.time() - start_time
 
@@ -409,84 +276,91 @@ def run_training(
     orch.save_ppo_checkpoints(checkpoint_path)
 
     # ── Summary ──────────────────────────────────────────────────────────
-    if not all_rewards:
-        console.print("[yellow]⚠️ No episodes completed — nothing to summarise.[/yellow]")
-        return {"episode_data": [], "avg_reward": 0.0}
-    avg_reward = sum(all_rewards) / len(all_rewards)
-    max_reward = max(all_rewards)
-    min_reward = min(all_rewards)
-    last10_avg = sum(all_rewards[-10:]) / min(10, len(all_rewards))
+    if not result:
+        console.print("[yellow]⚠️ No results — engagement may have been interrupted.[/yellow]")
+        return {"result": {}, "duration_s": elapsed}
 
-    phase_counts = Counter(all_phases)
-    phase_dist_str = "  ".join(f"{p}:{c}" for p, c in phase_counts.most_common())
-    # CLOSEOUT implies EXFILTRATION was already reached — count both
-    exfil_count = phase_counts.get("EXFILTRATION", 0) + phase_counts.get("CLOSEOUT", 0)
-    exfil_pct = exfil_count / len(all_phases) * 100
-    closeout_pct = phase_counts.get("CLOSEOUT", 0) / len(all_phases) * 100
+    ep_metrics = result.get("episode_metrics", {})
+    reward = ep_metrics.get("total_reward", result.get("total_reward", 0.0))
+    highest = ep_metrics.get("highest_phase", result.get("highest_phase", "RECON"))
+    steps = ep_metrics.get("total_steps", result.get("total_steps", 0))
+    user_flag = result.get("user_flag_captured", False)
+    root_flag = result.get("root_flag_captured", False)
+    user_val = result.get("user_flag_value", "")
+    root_val = result.get("root_flag_value", "")
 
-    summary_table = Table(title="📊 ARIASKA Training Summary", box=box.ROUNDED)
+    summary_table = Table(title="📊 ARIASKA Engagement Summary", box=box.ROUNDED)
     summary_table.add_column("Metric", style="cyan", width=24)
-    summary_table.add_column("Value", style="bold white", width=30)
+    summary_table.add_column("Value", style="bold white", width=40)
     summary_table.add_column("Quality", style="dim", width=16)
-    summary_table.add_row("Episodes", str(episodes), "")
-    summary_table.add_row("Steps/Episode", str(max_steps), "")
-    summary_table.add_row("Duration", f"{elapsed:.1f}s ({elapsed/episodes:.2f}s/ep)", "")
-    summary_table.add_row("Avg Reward", f"[bold green]{avg_reward:+.1f}[/bold green]",
-                          f"{'🔥 excellent' if avg_reward > 1200 else '✅ good' if avg_reward > 800 else '⚠️ moderate'}")
-    summary_table.add_row("Last-10 Avg", f"{last10_avg:+.1f}",
-                          f"{'📈' if last10_avg > avg_reward else '📉'} vs overall")
-    summary_table.add_row("Max Reward", f"[green]{max_reward:+.1f}[/green]", "")
-    summary_table.add_row("Min Reward", f"{min_reward:+.1f}",
-                          f"spread: {max_reward - min_reward:.0f}")
-    summary_table.add_row("Reward StdDev", f"±{(sum((r - avg_reward)**2 for r in all_rewards) / max(len(all_rewards), 1))**0.5:.1f}",
-                          f"{'🎯 consistent' if (sum((r - avg_reward)**2 for r in all_rewards) / max(len(all_rewards), 1))**0.5 < 200 else '📊 variable'}")
-    summary_table.add_row("─" * 24, "─" * 24, "─" * 16)
-    summary_table.add_row("📤 EXFILTRATION %", f"[bold {'green' if exfil_pct >= 80 else 'yellow'}]{exfil_pct:.0f}%[/bold {'green' if exfil_pct >= 80 else 'yellow'}] ({exfil_count}/{len(all_phases)} episodes)",
-                          f"{'🏆 domination' if exfil_pct == 100 else '✅ strong' if exfil_pct >= 80 else '⚠️ needs work'}")
-    summary_table.add_row("🧹 CLOSEOUT %", f"[bold {'green' if closeout_pct >= 30 else 'yellow'}]{closeout_pct:.0f}%[/bold {'green' if closeout_pct >= 30 else 'yellow'}] ({phase_counts.get('CLOSEOUT', 0)}/{len(all_phases)} episodes)",
-                          f"{'🏆 clean' if closeout_pct == 100 else ''}")
-    summary_table.add_row("─" * 24, "─" * 24, "─" * 16)
-    summary_table.add_row("Phase Distribution", phase_dist_str, "")
+    summary_table.add_row("Mode", "CONTINUOUS", "")
+    summary_table.add_row("Target", target_ip, "")
+    summary_table.add_row("Total Steps", str(steps), f"limit: {max_steps}")
+    summary_table.add_row("Duration", f"{elapsed:.1f}s ({elapsed/max(steps,1):.2f}s/step)", "")
+    summary_table.add_row("Total Reward", f"[bold green]{reward:+.1f}[/bold green]",
+                          f"{'🔥 excellent' if reward > 1200 else '✅ good' if reward > 800 else '⚠️ moderate'}")
+    summary_table.add_row("Highest Phase", f"[bold yellow]{highest}[/bold yellow]", "")
+    summary_table.add_row("─" * 24, "─" * 40, "─" * 16)
+    summary_table.add_row("🏴 user.txt",
+                          f"[bold green]CAPTURED: {user_val}[/bold green]" if user_flag else "[red]NOT FOUND[/red]",
+                          "🏆" if user_flag else "")
+    summary_table.add_row("🏴 root.txt",
+                          f"[bold green]CAPTURED: {root_val}[/bold green]" if root_flag else "[red]NOT FOUND[/red]",
+                          "🏆" if root_flag else "")
+
+    if user_flag and root_flag:
+        summary_table.add_row("─" * 24, "─" * 40, "─" * 16)
+        summary_table.add_row("RESULT", "[bold green]COMPLETE PWN 🎉[/bold green]", "🏆🏆🏆")
+
+    # Reward-invariant metrics
+    summary_table.add_row("─" * 24, "─" * 40, "─" * 16)
+    summary_table.add_row("Unique Commands", str(ep_metrics.get("unique_commands_total", 0)), "")
+    summary_table.add_row("Command Diversity", f"{ep_metrics.get('command_diversity_ratio', 0.0):.2f}", "")
+    summary_table.add_row("Total Discoveries", str(ep_metrics.get("total_discoveries", 0)), "")
+    summary_table.add_row("First Exploit Step", str(ep_metrics.get("step_at_first_exploit", -1)), "")
     console.print(summary_table)
 
     # Decision source summary
-    agg_sources: dict = {}
-    for ed in episode_data:
-        for k, v in ed.get("sources", {}).items():
-            agg_sources[k] = agg_sources.get(k, 0) + v
-    if agg_sources:
-        total_decisions = sum(agg_sources.values()) or 1
+    sources = {
+        "ppo": ep_metrics.get("decisions_ppo", result.get("decisions_ppo", 0)),
+        "playbook": ep_metrics.get("decisions_playbook", result.get("decisions_playbook", 0)),
+        "registry": ep_metrics.get("decisions_registry", result.get("decisions_registry", 0)),
+        "anti_repeat": ep_metrics.get("decisions_anti_repeat", result.get("decisions_anti_repeat", 0)),
+        "codex_meta": ep_metrics.get("decisions_codex_meta", result.get("decisions_codex_meta", 0)),
+    }
+    total_decisions = sum(sources.values()) or 1
+    if any(sources.values()):
         src_table = Table(title="🎯 Decision Sources", box=box.SIMPLE)
         src_table.add_column("Source", style="cyan")
         src_table.add_column("Count", style="white")
         src_table.add_column("Percent", style="yellow")
-        for src, cnt in sorted(agg_sources.items(), key=lambda x: -x[1]):
-            src_table.add_row(src, str(cnt), f"{cnt/total_decisions*100:.1f}%")
+        for src, cnt in sorted(sources.items(), key=lambda x: -x[1]):
+            if cnt > 0:
+                src_table.add_row(src, str(cnt), f"{cnt/total_decisions*100:.1f}%")
         console.print(src_table)
 
     # Save results
-    results_path = f"artifacts/phase5_{episodes}ep_results.json"
+    results_path = f"artifacts/engagement_{datetime.now().strftime('%Y%m%d_%H%M%S')}_results.json"
     os.makedirs("artifacts", exist_ok=True)
     results = {
         "timestamp": datetime.now().isoformat(),
-        "episodes": episodes,
         "max_steps": max_steps,
         "seed": seed,
         "target_ip": target_ip,
-        "mode": mode,
+        "mode": "continuous",
         "duration_s": elapsed,
-        "avg_reward": avg_reward,
-        "last10_avg": last10_avg,
-        "max_reward": max_reward,
-        "min_reward": min_reward,
-        "exfil_pct": exfil_pct,
-        "closeout_pct": closeout_pct,
-        "phase_distribution": dict(phase_counts),
-        "decision_sources": agg_sources,
-        "episode_data": episode_data,
+        "total_reward": reward,
+        "highest_phase": highest,
+        "total_steps": steps,
+        "user_flag_captured": user_flag,
+        "root_flag_captured": root_flag,
+        "user_flag_value": user_val,
+        "root_flag_value": root_val,
+        "decision_sources": sources,
+        "episode_metrics": ep_metrics,
     }
     with open(results_path, "w") as f:
-        json.dump(results, f, indent=2)
+        json.dump(results, f, indent=2, default=str)
     console.print(f"\n[green]💾 Results saved to {results_path}[/green]")
     console.print(f"[green]💾 PPO checkpoint saved to {checkpoint_path}[/green]")
 
@@ -557,26 +431,21 @@ def show_help():
 
     help_table.add_row(
         "smart-train [OPTIONS]",
-        "🧠 Full RL training with PPO,\nplaybooks, 144 pentesting cmds",
-        "ariaska smart-train --episodes 100",
+        "🧠 Continuous engagement with\nPPO, auto-close on flag capture",
+        "ariaska smart-train --target IP",
     )
-    help_table.add_row("  --episodes N", "Number of training episodes", "--episodes 50")
-    help_table.add_row("  --steps N", "Max steps per episode (default 120)", "--steps 150")
-    help_table.add_row("  --seed N", "Random seed (default 42)", "--seed 123")
-    help_table.add_row("  --target IP", "Target IP for environment", "--target 192.168.56.101")
-    help_table.add_row(
-        "  --env ENV",
-        "Environment preset:\nsim, msf, msf3, htb",
-        "--env msf",
-    )
+    help_table.add_row("  --steps N", "Max steps safety limit (default 500)", "--steps 1000")
+    help_table.add_row("  --seed N", "Random seed (optional)", "--seed 123")
+    help_table.add_row("  --target IP", "Target IP (REQUIRED)", "--target 10.129.1.54")
+    help_table.add_row("  --ctf", "CTF mode: close on flag capture", "--ctf")
     help_table.add_row("  --verbosity LEVEL", "quiet / standard / verbose", "--verbosity verbose")
     help_table.add_row("status", "Show system status & diagnostics", "ariaska status")
     help_table.add_row("help", "Show this help message", "ariaska help")
 
     console.print(Panel(
         help_table,
-        title="🧠 ARIASKA_RL v5.0 — Cybersecurity RL Training",
-        subtitle="Phase 5: Metasploitable 2 Ready",
+        title="🧠 ARIASKA_RL — Autonomous Cybersecurity RL",
+        subtitle="Continuous Engagement | Auto-Close on Flag Capture",
         border_style="blue",
     ))
 
@@ -595,23 +464,23 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     # smart-train
-    train_p = sub.add_parser("smart-train", help="Run RL training")
-    train_p.add_argument("--episodes", "-e", type=int, default=100, help="Number of episodes")
-    train_p.add_argument("--steps", "-s", type=int, default=40, help="Max steps per episode (default: 40)")
-    train_p.add_argument("--seed", type=int, default=42, help="Random seed")
-    train_p.add_argument("--target", type=str, default=None, help="Target IP")
-    train_p.add_argument("--env", type=str, default="ms3",
-                         choices=["sim", "msf", "msf2", "ms2", "msf3", "ms3", "htb"],
-                         help="Environment preset (default: msf = live MS3. Use ms2 for Metasploitable 2)")
+    train_p = sub.add_parser("smart-train", help="Run continuous engagement against target")
+    train_p.add_argument("--steps", "-s", type=int, default=500, help="Max steps safety limit (default: 500)")
+    train_p.add_argument("--seed", type=int, default=None, help="Random seed (optional, non-deterministic by default)")
+    train_p.add_argument("--target", type=str, required=True, help="Target IP (REQUIRED)")
+    # Post-Phase 20: --env removed — always live mode against real target
+    # train_p.add_argument("--env", type=str, default="ms3", ...)
+    train_p.add_argument("--ctf", action="store_true", default=False,
+                         help="CTF mode: auto-close on user.txt + root.txt flag capture (for HTB/CTF machines)")
     train_p.add_argument("--verbosity", "-v", type=str, default="verbose",
                          choices=["quiet", "standard", "verbose"])
     train_p.add_argument("--checkpoint", type=str, default=None,
                          help="PPO checkpoint path (auto-selected per mode if omitted)")
     
     # Phase 6.2: New flags
-    train_p.add_argument("--dashboard", type=str, default="rich",
-                         choices=["textual", "rich", "off"],
-                         help="Dashboard mode (default: rich)")
+    train_p.add_argument("--dashboard", type=str, default="live",
+                         choices=["live", "textual", "rich", "off"],
+                         help="Dashboard mode (default: live for Rich step panels)")
     train_p.add_argument("--log-jsonl", action="store_true", default=True,
                          help="Enable JSONL event logging (default: on)")
     train_p.add_argument("--no-log-jsonl", action="store_true", default=False,
@@ -625,10 +494,8 @@ def main():
     train_p.add_argument("--resume", type=str, default=None,
                          help="Resume from checkpoint path")
     
-    # Phase 6.6: Difficulty presets & overnight guardrails
-    train_p.add_argument("--difficulty", "-d", type=str, default="ms3_live",
-                         choices=["normal","medium","hard","ms3_medium","ms3_hard","ms3_live"],
-                         help="Difficulty preset: normal=all services, medium=no instant-root, hard=multi-step only, ms3_medium/ms3_hard/ms3_live=MS3-specific (default: ms3_live)")
+    # Post-Phase 20: Difficulty presets removed — always full intelligence, zero restrictions
+    # train_p.add_argument("--difficulty", "-d", type=str, default="normal", ...)
     train_p.add_argument("--max-tokens-run", type=int, default=None,
                          help="Total token budget for the entire run (default: unlimited)")
     train_p.add_argument("--checkpoint-every", type=int, default=10,
@@ -648,9 +515,9 @@ def main():
                          help="Disable pre-seeding of SkillLibrary")
 
     # Phase 11.0: Full Visibility & Step Discipline
-    train_p.add_argument("--parser-mode", type=str, default="fast",
+    train_p.add_argument("--parser-mode", type=str, default="intelligent_fullparse",
                          choices=["fast", "intelligent_fullparse"],
-                         help="Parser mode: fast=regex only, intelligent_fullparse=4-stage cascade (default: fast)")
+                         help="Parser mode: fast=regex only, intelligent_fullparse=4-stage cascade (default: intelligent_fullparse)")
     train_p.add_argument("--strict-ladder", action="store_true", default=False,
                          help="Enable strict phase ladder enforcement (min steps per phase)")
     train_p.add_argument("--adaptive-budget", action="store_true", default=True,
@@ -662,8 +529,7 @@ def main():
     train_p.add_argument("--no-learning-signals", dest="learning_signals", action="store_false",
                          help="Disable learning signal export")
 
-    # Legacy positional support: smart-train <episodes> [env_flag]
-    train_p.add_argument("pos_episodes", nargs="?", type=int, default=None)
+    # Legacy positional support removed — continuous mode uses --steps only
     train_p.add_argument("pos_env", nargs="?", type=str, default=None)
 
     # Phase 7.1: ingest-htb removed — knowledge is now hardcoded in knowledge_packs.py
@@ -682,43 +548,13 @@ def main():
         return
 
     if args.command == "smart-train":
-        ENV_PRESETS = {
-            "sim": {"target_ip": "10.10.10.10", "mode": "simulated", "platform": "linux", "difficulty": "medium"},
-            "msf": {"target_ip": os.environ.get("ARIASKA_MSF3_IP", "172.28.0.11"), "mode": "live", "platform": "linux", "difficulty": "medium"},
-            "ms2": {"target_ip": os.environ.get("ARIASKA_MSF_IP", "172.28.0.10"), "mode": "live", "platform": "linux", "difficulty": "easy"},
-            "msf2": {"target_ip": os.environ.get("ARIASKA_MSF_IP", "172.28.0.10"), "mode": "live", "platform": "linux", "difficulty": "easy"},
-            "msf3": {"target_ip": os.environ.get("ARIASKA_MSF3_IP", "172.28.0.11"), "mode": "live", "platform": "linux", "difficulty": "medium"},
-            "ms3": {"target_ip": os.environ.get("ARIASKA_MSF3_IP", "172.28.0.11"), "mode": "live", "platform": "linux", "difficulty": "medium"},
-            "htb": {"target_ip": os.environ.get("ARIASKA_HTB_IP", "10.10.10.x"), "mode": "live", "platform": "unknown", "difficulty": "hard"},
-        }
+        # ─── Continuous Engagement — single run until flag capture ───
+        target_ip = args.target  # Required argument
+        checkpoint_path = args.checkpoint or "models/enhanced/ppo_live_checkpoint.pt"
 
-        # Per-mode checkpoint paths
-        CHECKPOINT_PATHS = {
-            "simulated": "models/enhanced/ppo_sim_checkpoint.pt",
-            "live": "models/enhanced/ppo_live_checkpoint.pt",
-        }
-
-        episodes = args.pos_episodes or args.episodes
-        env_key = args.env
-        if args.pos_env:
-            env_key = args.pos_env.lstrip("-")
-            if env_key not in ENV_PRESETS:
-                if "." in env_key:
-                    ENV_PRESETS["custom"] = {"target_ip": env_key, "mode": "live", "platform": "unknown", "difficulty": "medium"}
-                    env_key = "custom"
-                else:
-                    env_key = "ms3"  # Default to MS3 live
-
-        preset = ENV_PRESETS.get(env_key, ENV_PRESETS["msf"])
-        target_ip = args.target or preset["target_ip"]
-        
-        # Auto-select checkpoint path based on mode if not explicitly provided
-        checkpoint_path = args.checkpoint or CHECKPOINT_PATHS.get(preset["mode"], "models/enhanced/ppo_checkpoint.pt")
-
-        os.environ["ARIASKA_MODE"] = preset["mode"]
-        if preset["mode"] == "live":
-            os.environ["ARIASKA_LIVE_MODE"] = "true"
-            os.environ["ARIASKA_TARGET_IP"] = target_ip
+        os.environ["ARIASKA_MODE"] = "live"
+        os.environ["ARIASKA_LIVE_MODE"] = "true"
+        os.environ["ARIASKA_TARGET_IP"] = target_ip
 
         # Phase 11.0: Apply CLI flags to feature flags
         try:
@@ -732,13 +568,11 @@ def main():
 
         try:
             results = run_training(
-                episodes=episodes,
                 max_steps=args.steps,
                 seed=args.seed,
                 target_ip=target_ip,
-                mode=preset["mode"],
-                platform=preset["platform"],
-                difficulty=preset["difficulty"],
+                mode="live",
+                platform="linux",
                 verbosity=args.verbosity,
                 checkpoint_path=checkpoint_path,
                 dashboard_mode=args.dashboard,
@@ -747,12 +581,12 @@ def main():
                 mentor_min_rate=args.mentor_min_rate,
                 mentor_max_rate=args.mentor_max_rate,
                 resume_path=args.resume,
-                difficulty_preset=args.difficulty,
                 max_tokens_run=args.max_tokens_run,
                 checkpoint_every=args.checkpoint_every,
                 anti_forensics=args.anti_forensics,
                 ethics_mode=args.ethics_mode,
                 seed_skills=args.seed_skills,
+                ctf_mode=args.ctf,
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

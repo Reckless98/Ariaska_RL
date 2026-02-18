@@ -1,0 +1,145 @@
+{
+  "run_id": "run_20260218_133731_a24776",
+  "timestamp": 1771418257.8884835,
+  "key_outcomes": {
+    "wins": [
+      "Completed the single episode without interruption",
+      "Achieved a positive total reward of 60.00"
+    ],
+    "fails": [
+      "Zero success rate across the run",
+      "High mentor call usage (10) indicating low autonomy",
+      "Insufficient evidence of task completion despite reward"
+    ],
+    "summary": "Single-episode run shows some positive reward but no measurable success, with heavy mentor reliance indicating gaps in autonomous execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Mentor dependency during decision points leading to stalled progress",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07",
+        "ep001_step10",
+        "ep001_step13",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an initial target scope is provided but success criteria are unclear",
+      "then_action": "Clarify objective and define measurable success criteria before actioning",
+      "parameters_template": {
+        "questions": [
+          "What is the primary objective?",
+          "What constitutes success?",
+          "Any constraints?"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771418270.1700437,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When encountering a decision fork with multiple viable actions",
+      "then_action": "Prioritize actions by impact-to-effort ratio and select highest value next step",
+      "parameters_template": {
+        "criteria": [
+          "impact",
+          "effort",
+          "risk"
+        ],
+        "selection": "max_impact_min_effort"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1771418270.170053,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor calls are increasing within a single episode",
+      "then_action": "Pause and execute a brief self-checklist to reduce dependency",
+      "parameters_template": {
+        "checklist": [
+          "Restate objective",
+          "List assumptions",
+          "Select next action",
+          "Define expected outcome"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ],
+      "created_at": 1771418270.1700585,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Clarifying objectives early is critical to converting reward into measurable success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run a single episode with a strict limit of 3 mentor calls and enforce the self-checklist before each action.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-first planning",
+      "description": "Begin the episode by explicitly defining success criteria and aligning the first three actions to those criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Impact-to-effort triage",
+      "description": "At each decision fork, rank actions by impact-to-effort and document the chosen next step with expected outcome.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

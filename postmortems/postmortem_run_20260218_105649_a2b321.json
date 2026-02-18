@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_105649_a2b321",
+  "timestamp": 1771408617.256181,
+  "key_outcomes": {
+    "wins": [
+      "Reached credential validation stage and collected authentication error codes that guide next pivot attempt",
+      "Maintained steady reward accumulation (60 points) despite failure, indicating partial progress in reconnaissance",
+      "Engaged mentor 10 times, showing deliberate attempt to correct trajectory with guided feedback"
+    ],
+    "fails": [
+      "Failed to achieve overall success; success rate 0% indicates no critical system compromise",
+      "Repeated reliance on default port scanning without validating service access led to stalled exploitation attempts",
+      "Summary: Reconnaissance advances exist, but the campaign faltered at authentication/exploitation phases and did not complete the kill chain"
+    ],
+    "summary": "Reconnaissance showed promise by capturing key service data, but repeated authentication/exploitation shortcomings prevented mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Probe of SSH services without validating credentials or pivot opportunities, resulting in dead-end exploit attempts",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771408632.6896873,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When username list is available after reconnaissance",
+      "then_action": "Run Hydra/Patator password spraying with observed username list and adaptive delay",
+      "parameters_template": {
+        "tool": "hydra",
+        "protocol": "ssh",
+        "userlist": "recon_usernames.txt",
+        "passlist": "common_passwords.txt",
+        "delay": "1s"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1771408632.6897016,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When service banner matches vulnerable version pattern",
+      "then_action": "Execute targeted exploit module with auxiliary pre-checks",
+      "parameters_template": {
+        "module": "auxiliary/scanner/ssh/ssh_version",
+        "target": "discovered_host",
+        "check": true
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step11"
+      ],
+      "created_at": 1771408632.6897113,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in initial SSH reconnaissance and reliable service detection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential spraying with adaptive lockout handling",
+      "description": "Leverage learned username and password patterns to run Hydra with adaptive delays and lockout awareness to increase chance of SSH login.",
+      "priority": "high"
+    },
+    {
+      "title": "Pivot from authenticated shell to lateral reconnaissance",
+      "description": "Upon successful SSH access, immediately enumerate local network segments and credentials to expand foothold.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validate exploitation candidates before brute forcing",
+      "description": "Use banner version checks to confirm vulnerabilities prior to aggressive exploitation to reduce noise and focus on high-value targets.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

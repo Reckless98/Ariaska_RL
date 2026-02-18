@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260218_131639_79fe4b",
+  "timestamp": 1771417017.8154585,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive reward (70.0), indicating some effective actions taken during the episode",
+      "Completed the episode without negative reward drift, suggesting stable baseline behavior"
+    ],
+    "fails": [
+      "Success rate 0%, no episode-level objectives met",
+      "Only one episode collected, limiting pattern confidence"
+    ],
+    "summary": "The run shows baseline competence with positive reward but failed to achieve the success condition; more targeted actions are needed to convert progress into wins."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is reachable and no open ports have been identified",
+      "then_action": "Run a fast full TCP port scan with service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -T4 -sV --open -oA scan_initial"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771417033.0655818,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP(S) service is detected on any port",
+      "then_action": "Perform web fingerprinting and directory discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "args": {
+          "whatweb": "http://<target>:<port>",
+          "gobuster": "dir -u http://<target>:<port> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+        }
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771417033.0655966,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance action likely contributed to positive reward baseline"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Common follow-up enumeration step to convert discovery into actionable findings"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten recon-to-enum transition",
+      "description": "After initial port discovery, immediately chain service-specific enumeration (HTTP/SMB/SSH) and verify credential surface to drive success conditions.",
+      "priority": "high"
+    },
+    {
+      "title": "Add targeted vulnerability checks",
+      "description": "Integrate Nmap NSE checks for detected services (e.g., --script http-vuln*, smb-vuln*) to surface exploitable paths earlier.",
+      "priority": "high"
+    },
+    {
+      "title": "Improve episode goal tracking",
+      "description": "Instrument step-level success markers to ensure actions align with objective completion rather than only reward accumulation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

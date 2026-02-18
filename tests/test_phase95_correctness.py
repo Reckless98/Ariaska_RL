@@ -66,15 +66,15 @@ class TestFeatureFlags:
             set_feature_flag("nonexistent_flag", True)
         reset_feature_flags()
 
-    def test_new_features_default_off(self):
-        """Architecture/KG/LLM flags default to OFF (safe rollout)."""
+    def test_new_features_default_on(self):
+        """Post-Phase 20: All flags default ON (max intelligence)."""
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.target_profiler_pipeline is False
-        assert ff.kg_write is False
-        assert ff.dagger_corrections is False
-        assert ff.llm_strategic_planner is False
-        assert ff.llm_judge_ranker is False
+        assert ff.target_profiler_pipeline is True
+        assert ff.kg_write is True
+        assert ff.dagger_corrections is True
+        assert ff.llm_strategic_planner is True
+        assert ff.llm_judge_ranker is True
 
 
 class TestDDQNSingleSelect:

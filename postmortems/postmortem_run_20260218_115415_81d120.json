@@ -1,0 +1,130 @@
+{
+  "run_id": "run_20260218_115415_81d120",
+  "timestamp": 1771412062.35839,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable control loop throughout the single episode, collecting consistent telemetry (Reward: 40.0).",
+      "Recorded ten mentor interventions, enabling actionable feedback capture for refinement."
+    ],
+    "fails": [
+      "Failed to progress past initial entry path, resulting in 0% success rate despite completing reconnaissance.",
+      "Unable to translate reconnaissance data into privilege escalation steps, halting kill-chain advancement."
+    ],
+    "summary": "Run remained stout on data collection but stalled at bridging reconnaissance to exploitation; prioritized focus should shift to validating access paths and elevating privileges."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance completed but no follow-up on exposed services, leading to idle sessions.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771412074.1284654,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service on port 80/443 responds with static content",
+      "then_action": "Execute Nikto scan followed by dirbuster to identify hidden entry points",
+      "parameters_template": {
+        "scanner": "nikto",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771412074.1284778,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When vulnerable SMB share enumerated",
+      "then_action": "Launch smbclient with recurse checking and capture share file list",
+      "parameters_template": {
+        "tool": "smbclient",
+        "options": "-L -N"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771412074.1284823,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automated SSH attempt after banner enumeration",
+      "description": "Script sequential SSH banner capture and credential spray using gathered usernames to verify access possibilities.",
+      "priority": "high"
+    },
+    {
+      "title": "HTTP entry-point enumeration follow-through",
+      "description": "After HTTP service detection, chain Nikto and DirBuster results into proxy-assisted fuzzing for hidden endpoints.",
+      "priority": "medium"
+    },
+    {
+      "title": "SMB share validation to escalate to file exfiltration",
+      "description": "Leverage smbclient outputs to identify writable shares and test simple payload write permissions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

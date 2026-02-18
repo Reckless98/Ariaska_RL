@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_144022_fd6926",
+  "timestamp": 1771422024.410159,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero success rate",
+      "Utilized mentor calls for guidance during the episode"
+    ],
+    "fails": [
+      "Zero successful episode completions (0.00% success rate)",
+      "High reliance on mentor calls without converting to success"
+    ],
+    "summary": "The run generated positive reward but failed to achieve any successful episode completion, indicating gaps in execution despite guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert reconnaissance findings into a valid exploit or lateral move",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor reliance without clear decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ping and has at least one open TCP port",
+      "then_action": "Run a focused service/version scan on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target_ip>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771422042.971645,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on a target port",
+      "then_action": "Enumerate web content and common directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://<target_ip>:<port> -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771422042.9716527,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB ports 139 or 445 are open",
+      "then_action": "Enumerate SMB shares and anonymous access",
+      "parameters_template": {
+        "tool": "smbclient",
+        "args": "-L //<target_ip> -N"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771422042.9716578,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline service enumeration is a consistent prerequisite for downstream actions."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent pivot point for initial access opportunities."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-exploit decision checkpoint",
+      "description": "Introduce a mandatory decision step after enumeration to select the top 1-2 likely exploit paths and execute them immediately.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction protocol",
+      "description": "Limit mentor calls to one per phase and require a written hypothesis before invoking guidance.",
+      "priority": "medium"
+    },
+    {
+      "title": "Service-specific playbook validation",
+      "description": "For each detected service, validate a minimal playbook (e.g., SSH, SMB, HTTP) and measure conversion to access.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

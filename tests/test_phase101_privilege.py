@@ -291,17 +291,20 @@ class TestFeatureFlagPrivilege:
         ff = FeatureFlags()
         assert ff.privilege_gating is True
 
-    def test_allow_sudo_default_off(self):
+    def test_allow_sudo_default_on(self):
+        """Post-Phase 20: allow_sudo ON by default — full autonomy."""
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.allow_sudo is False
+        assert ff.allow_sudo is True
 
-    def test_allow_live_install_default_off(self):
+    def test_allow_live_install_default_on(self):
+        """Post-Phase 20: allow_live_install ON by default — max capability."""
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.allow_live_install is False
+        assert ff.allow_live_install is True
 
     def test_sudo_mode_default(self):
+        """Post-Phase 20: sudo_mode is noninteractive — full autonomy."""
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.sudo_mode == "prompt"
+        assert ff.sudo_mode == "noninteractive"

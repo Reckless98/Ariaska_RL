@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260218_133950_4c4a02",
+  "timestamp": 1771418413.0272093,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with positive total reward (90.00), indicating some effective actions were taken"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates no episode-level objectives were achieved",
+      "Only one episode limits confidence in inferred patterns"
+    ],
+    "summary": "The run shows some positive reward but failed to achieve success criteria; more episodes and clearer outcome signals are needed to validate effective behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode-level success condition not met despite accumulating reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon produces a positive reward signal in early steps",
+      "then_action": "Continue systematic service discovery before exploitation",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC",
+        "scope": "top-1000-ports"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_ep001"
+      ],
+      "created_at": 1771418427.0490026,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When no clear success is achieved after initial actions",
+      "then_action": "Prioritize validating objective alignment and pivot to alternative enumeration paths",
+      "parameters_template": {
+        "checklist": [
+          "verify target scope",
+          "reconfirm open ports",
+          "enumerate web/ssh/smb"
+        ],
+        "iteration_limit": 2
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260218_ep001"
+      ],
+      "created_at": 1771418427.0490174,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Positive reward suggests recon-style actions may be contributing value and should be retained"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Expand episode count",
+      "description": "Run at least 5 episodes to gather enough evidence for pattern validation and failure repetition analysis.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective alignment checks",
+      "description": "Add explicit checks after recon to ensure actions map to success criteria before proceeding.",
+      "priority": "high"
+    },
+    {
+      "title": "Alternative enumeration paths",
+      "description": "Systematically try service-specific enumeration sequences (web, SSH, SMB) when success stalls.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

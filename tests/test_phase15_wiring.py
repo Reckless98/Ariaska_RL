@@ -46,7 +46,7 @@ def _make_coach(agent_name="TestAgent"):
     from core.training.smart_coach import SmartCoach
     return SmartCoach(
         agent_name=agent_name,
-        gpt_manager=gpt,
+        gpt_manager=gpt,  # type: ignore[arg-type]
         model="test-model",
     )
 
@@ -131,8 +131,14 @@ class TestPPONeuromodHook:
 class TestSmartCoachP15Init:
     """Test SmartCoach Phase 15 component initialization."""
 
-    def test_p15_attrs_exist_flags_off(self):
-        """With flags OFF (default), P15 components are None."""
+    def test_p15_attrs_exist_flags_off(self, monkeypatch):
+        """With flags explicitly OFF, P15 components are None."""
+        for flag in [
+            "FF_NEUROMODULATORS", "FF_REFLEX_POLICY", "FF_ACTION_ARBITRATOR",
+            "FF_WORKING_MEMORY", "FF_CONSOLIDATION", "FF_AGGRESSION_CONTROLLER",
+            "FF_SEMANTIC_INDEX", "FF_SENSORY_BUFFER",
+        ]:
+            monkeypatch.setenv(flag, "0")
         from core.feature_flags import reset_feature_flags
         reset_feature_flags()
         coach = _make_coach("TestAgent")
@@ -145,6 +151,7 @@ class TestSmartCoachP15Init:
         assert coach._p15_sensory_buffer is None
         assert coach._p15_working_memory is None
         assert coach._p15_consolidation_engine is None
+        reset_feature_flags()
 
     def test_p15_attrs_neuromod_on(self, monkeypatch):
         """With FF_NEUROMODULATORS=1, engine is initialized."""
@@ -179,14 +186,14 @@ class TestSmartCoachP15Init:
 class TestNeuromodInDecide:
     """Verify neuromod compute does not crash in decide() context."""
 
-    def test_neuromod_state_after_decide_flags_off(self):
-        """With flags OFF, _p15_neuromod_state stays None after decide()."""
+    def test_neuromod_state_after_decide_flags_on(self):
+        """Post-Phase 20: flags ON by default, neuromod state initialized after decide()."""
         coach = _make_coach("TestAgent")
         step_ctx = _make_step_ctx(agent_name="TestAgent")
         result = coach.decide(step_ctx)
         assert result is not None
-        # Neuromod state should still be None (flags off)
-        assert coach._p15_neuromod_state is None
+        # Post-Phase 20: neuromod defaults ON, state should be populated
+        assert coach._p15_neuromod_state is not None
 
 
 # ── T15.2 Tests: CAP Contract ──────────────────────────────────────────────
@@ -197,25 +204,20 @@ class TestCAPContractT152:
     Flags OFF → zero behavior change compared to Phase 14.
     """
 
-    def test_decide_returns_valid_result_flags_off(self):
-        """decide() returns a valid SmartDecisionResult with all P15 flags OFF."""
+    def test_decide_returns_valid_result_flags_on(self):
+        """Post-Phase 20: decide() returns a valid SmartDecisionResult with all flags ON."""
         coach = _make_coach("RedAgent")
         step_ctx = _make_step_ctx(agent_name="RedAgent")
         result = coach.decide(step_ctx)
         # Must always get a result back
         assert result is not None
         assert result.command is not None
-        # Source should NOT be reflex or arbitrator (flags off)
-        assert result.source != "reflex"
-        assert not result.source.startswith("arbitrator")
 
-    def test_no_additional_llm_calls_flags_off(self):
-        """With flags OFF, Phase 15 does not make any additional LLM calls."""
+    def test_decide_no_crash_all_flags_on(self):
+        """Post-Phase 20: decide() with all P15 components active doesn't crash."""
         coach = _make_coach("ScoutAgent")
         step_ctx = _make_step_ctx(agent_name="ScoutAgent")
         result = coach.decide(step_ctx)
-        # Phase 15 should not add any NEW GPT calls
-        # (existing mentor calls may fire, but P15 components don't call GPT)
         assert result is not None
 
 

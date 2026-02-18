@@ -1,0 +1,136 @@
+{
+  "run_id": "run_20260218_131131_795b73",
+  "timestamp": 1771416718.2069848,
+  "key_outcomes": {
+    "wins": [
+      "Collected baseline network topology and host enumeration data within first five steps, providing a clear scope for further exploitation.",
+      "Automated reconnaissance scripts consistently returned service banners, which can be used to tailor future payload development."
+    ],
+    "fails": [
+      "Failed to elevate privileges or pivot despite multiple attempts, indicating missing lateral movement capability or exploitable service.",
+      "Did not achieve objective within allotted steps, resulting in 0% success rate for the run."
+    ],
+    "summary": "Reconnaissance phase was solid with clear data collection, but exploitation and post-exploitation stages stalled, suggesting needs in privilege escalation and persistence tooling."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to exploit identified SSH service, likely due to missing valid credentials or overlooked brute-force thresholds.",
+      "frequency": 7,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step20",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771416730.475165,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB shares are listed but no credentials yet",
+      "then_action": "Launch smbclient null-session enumeration and capture share listings",
+      "parameters_template": {
+        "command": "smbclient -L \\\\{{target_ip}} -N"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771416730.4751742,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "After banner enumeration identifies potential web server",
+      "then_action": "Run nikto scan focusing on common vuln endpoints",
+      "parameters_template": {
+        "target": "{{target_url}}",
+        "plugin": "all"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step13"
+      ],
+      "created_at": 1771416730.4751792,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SMB enumeration provided consistent share details for follow-up analysis"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential brute-forcing of exposed SSH",
+      "description": "Use hydra with top 100 passwords and usernames gathered from earlier reconnaissance to attempt login on SSH port 22.",
+      "priority": "high"
+    },
+    {
+      "title": "Lightweight SMB exploitation check",
+      "description": "Run crackmapexec with discovered SMB shares to verify anonymous access or weak credential reuse for lateral movement.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web vulnerability scan guided by banner results",
+      "description": "Feed service banner output into targeted Nikto/Owasp ZAP scans to identify exploitable endpoints before brute forcing form inputs.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

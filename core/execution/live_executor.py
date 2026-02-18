@@ -261,7 +261,7 @@ class LiveCommandExecutor:
         self._total_blocked = 0
         self._total_duration_ms = 0.0
         
-        logger.info(
+        logger.debug(
             f"LiveCommandExecutor initialized: target={target_ip}, "
             f"dry_run={dry_run}"
         )
@@ -288,7 +288,7 @@ class LiveCommandExecutor:
                 f"Some commands may fail."
             )
         else:
-            logger.info(f"[P17-TOOLS] All {len(self._CRITICAL_TOOLS)} critical tools available.")
+            logger.debug(f"[P17-TOOLS] All {len(self._CRITICAL_TOOLS)} critical tools available.")
     
     def is_tool_available(self, tool_name: str) -> bool:
         """Check if a specific tool is available on the system."""
@@ -413,7 +413,7 @@ class LiveCommandExecutor:
         # Avoid duplicates
         if cred not in self._ssh_credentials:
             self._ssh_credentials.append(cred)
-            logger.info(f"[CRED-STORE] Registered credential: {username}@{service}")
+            logger.debug(f"[CRED-STORE] Registered credential: {username}@{service}")
         # Always update default to latest
         self._default_ssh_user = username
         self._default_ssh_pass = password
@@ -472,7 +472,7 @@ class LiveCommandExecutor:
                         f"-o ConnectTimeout=5 {self._default_ssh_user}@{self.target_ip} "
                         f"'{escaped_cmd}'"
                     )
-                    logger.warning(
+                    logger.debug(
                         f"[LIVE-AUTOWRAP] Wrapped with discovered creds "
                         f"({self._default_ssh_user}): {cmd_stripped[:50]}..."
                     )

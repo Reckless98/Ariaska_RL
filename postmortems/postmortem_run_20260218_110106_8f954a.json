@@ -1,0 +1,136 @@
+{
+  "run_id": "run_20260218_110106_8f954a",
+  "timestamp": 1771408888.792667,
+  "key_outcomes": {
+    "wins": [
+      "Isolated a single training episode where reconnaissance produced measurable reward (47.5 points) despite no overall success."
+    ],
+    "fails": [
+      "Failed to achieve success within the episode; no persistence or exploitation established.",
+      "Received 15 mentor calls, indicating repeated stalls or missteps during pathway execution."
+    ],
+    "summary": "Reconnaissance yielded data but was not followed by decisive exploitation; process stalled before kill chain closure."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to progress beyond initial scanning phase into exploitation; subsequent steps consistently aborted due to missing credentials or pivot path.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 enumerated with HTTP service metadata",
+      "then_action": "Run nikto + gobuster to identify misconfigurations and directories",
+      "parameters_template": {
+        "nikto": "--h Host:TARGET --port 80",
+        "gobuster": "dir -u http://TARGET -w /usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771408909.0615118,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 22 is open and banner shows OpenSSH",
+      "then_action": "Run detailed SSH enumeration followed by password spraying with Hydra",
+      "parameters_template": {
+        "ssh-audit": "ssh-audit TARGET:22",
+        "hydra": "-L users.txt -P passwords.txt ssh://TARGET"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step13"
+      ],
+      "created_at": 1771408909.0615203,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a vulnerable web app identified with CVE references",
+      "then_action": "Launch targeted exploit using searchsploit proof-of-concept and validate in canonical sandbox",
+      "parameters_template": {
+        "searchsploit": "--id 12345",
+        "exploit": "python exploit.py TARGET"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step17"
+      ],
+      "created_at": 1771408909.061526,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward correlation from reconnaissance tools during initial scan stage."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent indicator of SSH enumerations being the next logical step after port scan."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Deploy focused exploitation workflow",
+      "description": "After successful reconnaissance, pipe findings into targeted exploit modules (e.g., Metasploit auxiliary/web exploit) to validate vulnerability impact and capture flags.",
+      "priority": "high"
+    },
+    {
+      "title": "Improve credential access and pivot logic",
+      "description": "Incorporate password spraying/hydra results into session builders and confirm ability to escalate from user to root with local exploit.",
+      "priority": "medium"
+    },
+    {
+      "title": "Automate response to failed exploit steps",
+      "description": "Implement retry or fallback strategies when exploitation returns low confidence to reduce mentor calls and repeated stalemates.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

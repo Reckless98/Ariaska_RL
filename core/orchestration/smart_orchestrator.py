@@ -84,9 +84,9 @@ class SmartOrchestratorConfig:
     # Logging
     mentor_log_dir: str = "traces"
     
-    # Attack context — Phase 6.9.5: MS3 is new default target
-    default_target: str = "172.28.0.11"
-    default_difficulty: str = "easy"
+    # Attack context — Post-Phase 20: always live, target from CLI
+    default_target: str = ""  # Post-Phase 20: must be specified via CLI --target
+    # default_difficulty: str = "normal"  # Post-Phase 20: REMOVED — always unrestricted
     default_platform: str = "linux"
     
     # Dashboard settings
@@ -100,8 +100,13 @@ class SmartOrchestratorConfig:
     # Phase 6.2: EventBus JSONL logging
     event_jsonl_path: Optional[str] = None
     
-    # Phase 6.6: Difficulty preset
-    difficulty: str = "normal"  # "normal", "medium", "hard"
+    # Post-Phase 20: Difficulty presets REMOVED — always unrestricted
+    # difficulty: str = "normal"  # Legacy, kept for reference only
+    difficulty: str = "normal"  # Always normal = zero restrictions
+
+    # Phase 26: CTF mode — auto-close on flag capture (user+root), skip CLOSEOUT.
+    # Without --ctf, the system only terminates on reaching CLOSEOUT with flags.
+    ctf_mode: bool = False
 
 
 @dataclass
@@ -199,7 +204,7 @@ class SmartOrchestrator:
         trace_writer: Optional["TraceWriter"] = None,
         skill_library: Optional["SkillLibrary"] = None,
         config: Optional[SmartOrchestratorConfig] = None,
-        verbosity: str = "standard",
+        verbosity: str = "verbose",  # Post-Phase 20: max verbosity by default
     ):
         self.env = env
         self.gpt_manager = gpt_manager
@@ -314,19 +319,22 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("OrionPostmortem", "warn", str(e)[:40]))
         
-        # ─── PHASE 7.2: Venice Reasoning Layer — humanlike output analysis ──
+        # ─── PHASE 7.2: Venice Reasoning Layer — DISABLED (Phase 22: GPT-only) ──
+        # Venice adds 5-7s latency per call (6000ms ping). All reasoning
+        # now handled by GPT-5.2-codex through LLMOutputInterpreter.
         self.venice_reasoning = None
-        try:
-            from core.llm.venice_reasoning import VeniceReasoningLayer
-            self.venice_reasoning = VeniceReasoningLayer(
-                gpt_manager=gpt_manager,
-                call_budget_per_episode=15,
-                min_output_length=30,
-                enable_cross_episode_memory=True,
-            )
-            _init_modules.append(("VeniceReasoning", "ok", "glm-4.7-flash"))
-        except Exception as e:
-            _init_modules.append(("VeniceReasoning", "warn", str(e)[:40]))
+        _init_modules.append(("VeniceReasoning", "off", "Phase 22: GPT-only"))
+        # try:
+        #     from core.llm.venice_reasoning import VeniceReasoningLayer
+        #     self.venice_reasoning = VeniceReasoningLayer(
+        #         gpt_manager=gpt_manager,
+        #         call_budget_per_episode=15,
+        #         min_output_length=30,
+        #         enable_cross_episode_memory=True,
+        #     )
+        #     _init_modules.append(("VeniceReasoning", "ok", "glm-4.7-flash"))
+        # except Exception as e:
+        #     _init_modules.append(("VeniceReasoning", "warn", str(e)[:40]))
         
         # ─── PHASE 8: DecisionLogger — JSONL decision telemetry ──
         self.decision_logger = None
@@ -426,11 +434,11 @@ class SmartOrchestrator:
             _ff = get_feature_flags()
             self.parser_broker = ParserBroker(
                 gpt_manager=gpt_manager,
-                venice=self.venice_reasoning,
-                enable_venice=True,
+                venice=None,              # Phase 22: Venice disabled — GPT-only
+                enable_venice=False,       # Phase 22: GPT-5.2-codex handles all parsing
                 enable_gpt=True,
-                max_llm_calls_per_episode=40,   # Phase 13.0: +100% (was 20) — GPT-5.2-codex primary parser
-                max_venice_calls_per_episode=25,  # Phase 13.0: +67% (was 15) — Venice second-brain validation
+                max_llm_calls_per_episode=80,   # Phase 22: doubled — GPT handles everything
+                max_venice_calls_per_episode=0,  # Phase 22: Venice disabled
                 default_mode=_ff.parser_mode,
             )
             _init_modules.append(("ParserBroker", "ok", f"v2.0 mode={_ff.parser_mode}"))
@@ -456,8 +464,9 @@ class SmartOrchestrator:
             _init_modules.append(("AdaptiveBudget", "warn", str(e)[:40]))
         
         # Phase 12.1: Wire budget controller into Venice reasoning
-        if self.budget_controller is not None and self.venice_reasoning is not None:
-            self.venice_reasoning._budget_controller = self.budget_controller
+        # Phase 22: Venice disabled — GPT-only mode
+        # if self.budget_controller is not None and self.venice_reasoning is not None:
+        #     self.venice_reasoning._budget_controller = self.budget_controller
         
         # ─── PHASE 11.0: LearningSignalExporter ──
         self.learning_exporter = None
@@ -524,25 +533,9 @@ class SmartOrchestrator:
         self.coaches: Dict[str, SmartCoach] = {}
         self._init_smart_coaches()
         
-        # Phase 6.6: Store difficulty preset for simulated output filtering
+        # Post-Phase 20: Difficulty presets REMOVED — always unrestricted
+        # self._difficulty_preset = None  # Legacy, no preset ever loaded
         self._difficulty_preset = None
-        _diff_name = getattr(self.config, 'difficulty', 'normal')
-        if _diff_name and _diff_name != "normal":
-            try:
-                from core.training.difficulty_presets import get_preset
-                # Phase 6.9.6: Auto-select MS3-specific presets when targeting MS3
-                _target = getattr(self.config, 'default_target', '')
-                if _target and '172.28.0.11' in str(_target):
-                    ms3_preset_name = f"ms3_{_diff_name}"
-                    try:
-                        self._difficulty_preset = get_preset(ms3_preset_name)
-                        logger.info(f"[DIFFICULTY] Auto-selected MS3 preset: {ms3_preset_name}")
-                    except ValueError:
-                        self._difficulty_preset = get_preset(_diff_name)
-                else:
-                    self._difficulty_preset = get_preset(_diff_name)
-            except Exception:
-                pass
         
         # Shared attack context (all agents see same state)
         self.attack_context: Optional[AttackContext] = None
@@ -835,9 +828,9 @@ class SmartOrchestrator:
             show_reward_breakdown=True,
             show_discoveries=True,
             show_output=True,
-            max_action_width=80,
-            max_output_lines=6,
-            max_output_width=90,
+            max_action_width=0,   # 0 = no limit — dynamic width
+            max_output_lines=0,   # 0 = no limit — show full output
+            max_output_width=0,   # 0 = no limit — dynamic width
         )
         dashboard = LiveDashboard(config=dash_config)
         logger.debug("LiveDashboard v3.0 initialized (Phase 6.5 full-visibility)")
@@ -1009,7 +1002,7 @@ class SmartOrchestrator:
             # Phase 11.1: Tripled mentor policy for Red/Orion — they learn exploit reasoning
             if agent_name in _tripled_agents:
                 policy = MentorPolicy(tripled_policy_config)
-                logger.info(f"[MENTOR-11.1] {agent_name}: TRIPLED mentor policy — min_rate={tripled_policy_config.min_mentor_rate:.2f}, max_calls=90")
+                logger.debug(f"[MENTOR-11.1] {agent_name}: TRIPLED mentor policy — min_rate={tripled_policy_config.min_mentor_rate:.2f}, max_calls=90")
             else:
                 policy = MentorPolicy(policy_config)
             
@@ -1043,18 +1036,8 @@ class SmartOrchestrator:
                 budget_controller=self.budget_controller,
             )
         
-        # Phase 6.6: Inject difficulty preset into all coaches
-        difficulty_name = getattr(self.config, 'difficulty', 'normal')
-        if difficulty_name and difficulty_name != "normal":
-            try:
-                from core.training.difficulty_presets import get_preset
-                preset = get_preset(difficulty_name)
-                for coach in self.coaches.values():
-                    coach.difficulty_preset = preset
-                logger.debug(f"[DIFFICULTY] All coaches set to {preset.name}: {preset.description}")
-            except Exception as e:
-                logger.warning(f"Failed to set difficulty preset '{difficulty_name}': {e}")
-        
+        # Phase 6.6: Difficulty presets disabled — all commands unrestricted
+        # Legacy code kept for backwards compat but 'normal' preset is no-op
         logger.debug(f"Initialized smart coaches: {list(self.coaches.keys())}")
     
     def set_run_dir(self, run_dir: str):
@@ -1068,7 +1051,7 @@ class SmartOrchestrator:
     def init_attack(
         self,
         target: str,
-        difficulty: str = "medium",
+        difficulty: str = "normal",
         platform: str = "unknown",
     ) -> AttackContext:
         """
@@ -1076,7 +1059,7 @@ class SmartOrchestrator:
         
         Args:
             target: Target IP or hostname
-            difficulty: Target difficulty (easy, medium, hard, insane)
+            difficulty: Target difficulty (legacy, default: normal = unrestricted)
             platform: Target platform (linux, windows, unknown)
             
         Returns:
@@ -1244,6 +1227,8 @@ class SmartOrchestrator:
             # HTB Capability Upgrade
             "credentials_list": [], "capabilities": set(),
             "downloaded_files": set(), "hashes": [],
+            # Phase 24: Flag capture values for auto-close
+            "user_flag_value": "", "root_flag_value": "",
         }
         
         # Phase 5.2: Cross-agent discovery deduplication
@@ -1263,9 +1248,9 @@ class SmartOrchestrator:
         if self._parse_cache:
             self._parse_cache.reset_episode()
         
-        # ─── PHASE 7.2: Reset Venice reasoning layer per episode ─────
-        if self.venice_reasoning:
-            self.venice_reasoning.reset_episode()
+        # ─── PHASE 7.2: Venice reasoning layer — DISABLED (Phase 22: GPT-only) ──
+        # if self.venice_reasoning:
+        #     self.venice_reasoning.reset_episode()
         
         # ─── PHASE 8: DecisionLogger episode start ──────────────────
         if self.decision_logger is not None:
@@ -1363,6 +1348,57 @@ class SmartOrchestrator:
         platform = platform or state.get("os", self.config.default_platform)
         self.init_attack(target, difficulty, platform)
         
+        # ─── PHASE 19: HTB auto-profile loader ──────────────────────
+        # Auto-detect HTB targets (10.10.10.x / 10.10.11.x) and load
+        # machine profiles from data/htb_extractions/ if available.
+        self._htb_profile = None
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff = get_feature_flags()
+            if getattr(_ff, "htb_auto_profile", False):
+                _is_htb = (target.startswith("10.10.10.") or 
+                           target.startswith("10.10.11."))
+                if _is_htb:
+                    self._target_profile = "htb"
+                    import json, pathlib
+                    _htb_dir = pathlib.Path("data/htb_extractions")
+                    if _htb_dir.exists():
+                        # Try to find a profile matching the target
+                        _machine_name = getattr(self.config, "machine_name", None)
+                        _profile_path = None
+                        if _machine_name:
+                            _candidate = _htb_dir / f"{_machine_name.lower()}.json"
+                            if _candidate.exists():
+                                _profile_path = _candidate
+                        if not _profile_path:
+                            # Search all profiles for matching IP
+                            for _pf in sorted(_htb_dir.glob("*.json")):
+                                try:
+                                    _pd = json.loads(_pf.read_text())
+                                    if _pd.get("target_ip") == target:
+                                        _profile_path = _pf
+                                        break
+                                except Exception:
+                                    continue
+                        if _profile_path:
+                            _htb_data = json.loads(_profile_path.read_text())
+                            self._htb_profile = _htb_data
+                            # Pre-seed discovery board with known info
+                            if self.attack_context:
+                                for _phase_info in _htb_data.get("phases", []):
+                                    for _port in _phase_info.get("ports", []):
+                                        self.attack_context.discoveries.setdefault("open_port", set()).add(str(_port))
+                                _diff = _htb_data.get("difficulty", difficulty)
+                                self.attack_context.difficulty = _diff
+                            logger.info(
+                                f"[P19] HTB profile loaded: {_profile_path.name} "
+                                f"({_htb_data.get('name', 'unknown')})"
+                            )
+                        else:
+                            logger.debug(f"[P19] HTB target {target} — no profile found")
+        except Exception as e:
+            logger.debug(f"[P19] HTB profile load skipped: {e}")
+        
         # ─── PHASE 6.3: Inject campaign memory into attack context ───
         if self.campaign_memory and self.attack_context:
             self.campaign_memory.inject_into_attack_context(self.attack_context)
@@ -1451,6 +1487,25 @@ class SmartOrchestrator:
             # was never updated, and the ≥12 PRIV_ESC forced cascade could
             # never fire (step - step = 0 always).
             _pre_step_phase = self.attack_context.current_phase.name
+            
+            # ── Phase 23: SMART RECON ENFORCEMENT — discovery-driven, not step-counted ──
+            # In cybersecurity, recon is ALWAYS the first step. Instead of a hardcoded
+            # step count, we check the discovery board: if we haven't found ports/services,
+            # we stay in RECON regardless of step number. This is LLM-friendly — the GPT
+            # parser drives discoveries, and the discovery board gates advancement.
+            if self.attack_context:
+                _recon_ports = len(self.discovery_board.get("ports", set()))
+                _recon_services = len(self.discovery_board.get("services", set()))
+                _recon_ready = _recon_ports >= 2 and _recon_services >= 1
+                if not _recon_ready and self.attack_context.current_phase != AttackPhase.RECON:
+                    logger.debug(
+                        f"[Phase23] Step {step}: Enforcing RECON (was {self.attack_context.current_phase.name}) "
+                        f"— need ≥2 ports (have {_recon_ports}) and ≥1 service (have {_recon_services})"
+                    )
+                    self.attack_context.current_phase = AttackPhase.RECON
+                    if self.attack_context.state_flags:
+                        self.attack_context.state_flags["_highest_reached_phase"] = AttackPhase.RECON
+                    _pre_step_phase = "RECON"
             
             # Run all agents
             step_agent_results, env_reward, new_state, done = self._run_step(
@@ -1700,24 +1755,39 @@ class SmartOrchestrator:
                         if _ev.get("event") == "phase_ladder":
                             _step_teaching_points.append(_ev.get("detail", ""))
             
-            self.dashboard.print_step(
-                step=step,
-                phase=self.attack_context.current_phase.name.lower(),
-                mode_tag="LIVE" if self._is_live_mode else "SIM",
-                agent_infos=agent_infos,
-                skipped_agents=skipped_agents,
-                global_reward=env_reward,
-                done=done,
-                reward_breakdown=reward_breakdown_dict,
-                discovery_board=disc_board_display,
-                parser_stats=_parser_stats,
-                reasoning_events=_reasoning_events if _reasoning_events else None,
-                # Phase 11.0: New dashboard parameters
-                teaching_points=_step_teaching_points if _step_teaching_points else None,
-                budget_snapshot=_step_budget_snapshot,
-                parse_explanations=_step_parse_explanations if _step_parse_explanations else None,
-                phase_state=_step_phase_state,
-            )
+            # Phase 23: Collect GPT activity snapshot for dashboard visibility
+            _gpt_activity = None
+            if hasattr(self.gpt_manager, 'get_gpt_activity_snapshot'):
+                _gpt_activity = self.gpt_manager.get_gpt_activity_snapshot()
+
+            try:
+                self.dashboard.print_step(
+                    step=step,
+                    phase=self.attack_context.current_phase.name.lower(),
+                    mode_tag="LIVE" if self._is_live_mode else "SIM",
+                    agent_infos=agent_infos,
+                    skipped_agents=skipped_agents,
+                    global_reward=env_reward,
+                    done=done,
+                    reward_breakdown=reward_breakdown_dict,
+                    discovery_board=disc_board_display,
+                    parser_stats=_parser_stats,
+                    reasoning_events=_reasoning_events if _reasoning_events else None,
+                    teaching_points=_step_teaching_points if _step_teaching_points else None,
+                    budget_snapshot=_step_budget_snapshot,
+                    parse_explanations=_step_parse_explanations if _step_parse_explanations else None,
+                    phase_state=_step_phase_state,
+                    gpt_activity=_gpt_activity,
+                )
+            except Exception as _ps_err:
+                import sys
+                print(
+                    f"\n[DASHBOARD-ERR] print_step crashed: {type(_ps_err).__name__}: {_ps_err}\n"
+                    f"  step={step}, agents={len(agent_infos)}, skipped={len(skipped_agents)}",
+                    flush=True, file=sys.stderr,
+                )
+                import traceback
+                traceback.print_exc(file=sys.stderr)
             
             # ─── R66: Coherence + RND + JSONL + HUD instrumentation ──────
             _r66_phase = self.attack_context.current_phase.name
@@ -1815,7 +1885,7 @@ class SmartOrchestrator:
                 ))
                 _r66_tag = getattr(self, '_r66_env_tag', 'sim')
                 self.run_logger.print_hud_line(
-                    run_tag=f"R{getattr(self.config, 'seed', '?')} {_r66_tag}",
+                    run_tag=f"{_r66_tag}",
                     ep=episode_number, step=step, phase=_r66_phase,
                     macro=_r66_macro_name, macro_conf=_r66_macro_conf,
                     coherence=_r66_coherence, source=_r66_source,
@@ -1902,7 +1972,7 @@ class SmartOrchestrator:
                         f"(Red=attacker, Scout=recon, Shadow=stealth, Blue=defense, Orion=you).\n"
                         f"This is a {_review_type} for episode progress.\n\n"
                         f"TARGET: {target} (LIVE {'Metasploitable 3' if '0.11' in str(target) else 'Metasploitable 2'} Linux)\n"
-                        f"Step: {step}/{self.config.max_steps} | Phase: {_phase}\n"
+                        f"Step: {step}/{self.config.max_steps_per_episode} | Phase: {_phase}\n"
                         f"Flags: shell={'YES' if _flags.get('shell_obtained') else 'NO'}, "
                         f"root={'YES' if _flags.get('root_shell_obtained') else 'NO'}, "
                         f"creds={'YES' if _flags.get('credentials_known') else 'NO'}, "
@@ -2111,7 +2181,6 @@ class SmartOrchestrator:
                         f"reducing explore gate to 2 (was {self.POST_SHELL_EXPLORE_STEPS})"
                     )
                 if _steps_since_shell < _min_explore:
-                    from core.environment.cyber_environment import AttackPhase
                     self.attack_context._current_phase = AttackPhase.POST_EXPLOITATION
                     current_phase = "POST_EXPLOITATION"
                     logger.info(
@@ -2180,21 +2249,82 @@ class SmartOrchestrator:
             # Once all cleanup commands executed, engagement is done.
             # =========================================================================
             if self.attack_context.current_phase.name == "CLOSEOUT" and not done:
-                if any(
+                # Phase 25: Only end on CLOSEOUT if flags were actually captured.
+                # Without flags, CLOSEOUT is premature — keep hunting.
+                _flags_in_closeout = self.discovery_board.get("flags_set", set())
+                _closeout_has_flags = (
+                    "user_flag_captured" in _flags_in_closeout
+                    and "root_flag_captured" in _flags_in_closeout
+                )
+                if _closeout_has_flags and any(
                     getattr(coach, 'closeout_complete', False)
                     for coach in self.coaches.values()
                 ):
                     done = True
                     self.episode_termination_reason = TerminationReason.GOAL_REACHED
                     logger.info(
-                        "[CLOSEOUT-COMPLETE] All 13 cleanup tasks done. "
+                        "[CLOSEOUT-COMPLETE] All cleanup tasks done + flags captured. "
                         "Engagement complete — ending episode."
                     )
                     self.dashboard.add_event(
                         "closeout_complete",
-                        "✅ All cleanup done. Episode complete!",
+                        "✅ All cleanup done + flags captured. Episode complete!",
                         agent="system"
                     )
+                elif not _closeout_has_flags:
+                    # No flags yet — revert to EXPLOITATION to keep hunting
+                    logger.info(
+                        "[CLOSEOUT-NOFLAG] Reached CLOSEOUT without flags. "
+                        "Reverting to EXPLOITATION to continue hunting."
+                    )
+                    self.attack_context.current_phase = AttackPhase.EXPLOITATION
+                    self.dashboard.add_event(
+                        "closeout_revert",
+                        "🔄 No flags captured — reverting to EXPLOITATION",
+                        agent="system"
+                    )
+
+            # =========================================================================
+            # PHASE 26: AUTO-CLOSE ON FLAG CAPTURE (CTF MODE)
+            # In --ctf mode (HTB CTF machines): terminate immediately when both
+            # user.txt and root.txt flags are captured. Skips CLOSEOUT cleanup.
+            # Without --ctf: flags are tracked but termination only occurs
+            # through CLOSEOUT phase completion with cleanup.
+            # =========================================================================
+            _flags_set = self.discovery_board.get("flags_set", set())
+            _has_user_flag = "user_flag_captured" in _flags_set
+            _has_root_flag = "root_flag_captured" in _flags_set
+            if (_has_user_flag or _has_root_flag) and not done:
+                _uf = self.discovery_board.get("user_flag_value", "")
+                _rf = self.discovery_board.get("root_flag_value", "")
+                if _has_user_flag and _has_root_flag and self.config.ctf_mode:
+                    # CTF mode: Both flags — complete pwn, terminate immediately
+                    self.episode_termination_reason = TerminationReason.GOAL_REACHED
+                    done = True
+                    logger.info(f"[CTF-CLOSE] COMPLETE PWN — user.txt + root.txt captured!")
+                    console.print(Panel(
+                        f"[bold green]🏆 TARGET FULLY PWNED! 🏆[/bold green]\n\n"
+                        f"[cyan]User Flag:[/cyan]  [bold white]{_uf}[/bold white]\n"
+                        f"[red]Root Flag:[/red]  [bold white]{_rf}[/bold white]\n\n"
+                        f"[dim]Step {step} │ Time: {time.time() - self.start_time:.0f}s │ "
+                        f"Reward: {episode_reward:+.0f}[/dim]",
+                        title="🎯 COMPLETE PWN",
+                        border_style="bold green",
+                    ))
+                elif _has_user_flag and not _has_root_flag:
+                    # User flag only — keep going for root
+                    if step % 5 == 0:  # Periodic reminder
+                        console.print(
+                            f"  [green]🚩 User flag captured ({_uf[:32]}...) — "
+                            f"hunting for root.txt[/green]"
+                        )
+                elif _has_root_flag and not _has_user_flag:
+                    # Root flag only — keep going for user (unusual but possible)
+                    if step % 5 == 0:
+                        console.print(
+                            f"  [red]🚩 Root flag captured ({_rf[:32]}...) — "
+                            f"hunting for user.txt[/red]"
+                        )
 
             # =========================================================================
             # PHASE 0.1: CHECK STUCK_ABORT TERMINATION
@@ -2290,21 +2420,9 @@ class SmartOrchestrator:
                     total_intrinsic=self.run_logger._episode_intrinsic,
                 )
                 self.run_logger.log_episode(ep_summary)
-                self.run_logger.print_episode_summary(
-                    run_tag=self.run_logger.run_tag,
-                    ep=episode_number,
-                    total_reward=episode_reward,
-                    steps=len(step_results),
-                    highest_phase=metrics.get("highest_phase", "RECON"),
-                    sources=_sources,
-                    discoveries=metrics.get("total_discoveries", 0),
-                    unique_cmds=metrics.get("unique_commands", 0),
-                    anti_repeat=_ar_count,
-                    codex_calls=_codex_count,
-                    macro_switches=metrics.get("ddqn_switches", 0),
-                    avg_coherence=_avg_coh,
-                    avg_macro_conf=_avg_mconf,
-                )
+                # Phase 25: Removed run_logger.print_episode_summary() —
+                # the dashboard.print_episode_summary() below renders the
+                # full Rich episode summary. No duplicate compact box.
         except Exception as e:
             logger.debug(f"R66 episode summary error: {e}")
         
@@ -2477,6 +2595,11 @@ class SmartOrchestrator:
                     for k, v in self.discovery_board.items()
                 }
 
+            # Phase 23: Get GPT cost summary for episode summary
+            _gpt_cost = None
+            if hasattr(self.gpt_manager, 'get_cost_summary'):
+                _gpt_cost = self.gpt_manager.get_cost_summary()
+
             self.dashboard.print_episode_summary(
                 episode=episode_number,
                 total_reward=episode_reward,
@@ -2488,6 +2611,7 @@ class SmartOrchestrator:
                 ddqn_metrics=_ddqn_agg,
                 decision_sources=source_counts,
                 discovery_board=_disc_board,
+                gpt_cost_summary=_gpt_cost,
             )
         except Exception as e:
             logger.warning(f"Phase 10.2: Episode summary display failed: {e}")
@@ -2583,7 +2707,7 @@ class SmartOrchestrator:
                     
                     if pm_result and pm_result.skill_cards:
                         for sc in pm_result.skill_cards:
-                            self.skill_library.add(sc)
+                            self.skill_library.promote(sc, reason="postmortem")
                         logger.info(
                             f"Phase 8.2: Postmortem generated {len(pm_result.skill_cards)} skill cards"
                         )
@@ -2601,7 +2725,7 @@ class SmartOrchestrator:
                                 pass
                     
                     # Save skill library
-                    self.skill_library.save()
+                    self.skill_library._save_library()
                 except Exception as e:
                     logger.warning(f"Phase 8.2: Postmortem error: {e}")
         
@@ -2677,7 +2801,7 @@ class SmartOrchestrator:
                     ]
                     for hva in _high_value_actions[:5]:  # Top 5 high-value actions
                         from core.postmortem.skill_library import SkillCard
-                        self.skill_library.add(SkillCard(
+                        self.skill_library.promote(SkillCard(
                             name=f"ep{episode_number}_hv_{hva.agent_id}_{hva.data.get('command', 'cmd')[:20]}",
                             trigger=f"phase={hva.data.get('phase', 'unknown')}",
                             template=hva.data.get("command", ""),
@@ -2759,15 +2883,16 @@ class SmartOrchestrator:
                     
                     self.campaign_memory.record_pwn_trajectory(
                         episode_num=episode_number,
-                        exploit_chain=cmd_chain,
-                        exploit_reasoning=f"Phase={highest_phase}, reward={episode_reward:.1f}",
-                        vulnerabilities_exploited=list(self.discovery_board.get("vulns", set())),
+                        target=target or self.config.default_target,
+                        command_chain=cmd_chain,
+                        reasoning_chain=[f"Phase={highest_phase}, reward={episode_reward:.1f}"],
+                        vulns_exploited=list(self.discovery_board.get("vulns", set())),
                         entry_point=_entry,
-                        privilege_escalation_method=_privesc,
-                        user_flag_captured=_user_flag,
-                        root_flag_captured=_root_flag,
-                        loopholes_found=[],
-                        lessons_learned=f"Reached {highest_phase} with {len(cmd_chain)} commands",
+                        privesc_method=_privesc,
+                        user_flag=_user_flag,
+                        root_flag=_root_flag,
+                        loopholes=[],
+                        lessons=[f"Reached {highest_phase} with {len(cmd_chain)} commands"],
                     )
                 
                 # Auto-save every 5 episodes
@@ -2976,6 +3101,10 @@ class SmartOrchestrator:
         for coach in self.coaches.values():
             if hasattr(coach, 'clear_step_commands'):
                 coach.clear_step_commands()
+
+        # Phase 23: Clear per-step GPT call buffer so we track only this step's calls
+        if hasattr(self.gpt_manager, 'clear_step_calls'):
+            self.gpt_manager.clear_step_calls()
         
         # Process each agent IN ORDER - each sees what previous agents picked
         # Use PHASE-OPTIMIZED order for maximum synergy
@@ -3115,7 +3244,7 @@ class SmartOrchestrator:
                             phase=ctx.current_phase if ctx else None,
                             mentor_call=False,
                         )
-                        logger.warning(
+                        logger.debug(
                             f"[FOLLOWUP-Q][{agent_name}] Consumed: {decision.command[:80]} "
                             f"(source={fq_entry.get('source')}, remaining={len(self.followup_queue)})"
                         )
@@ -3304,57 +3433,13 @@ class SmartOrchestrator:
                         )
             
             # ─────────────────────────────────────────────────────────────
-            # PHASE 7.2: VENICE REASONING LAYER — humanlike output analysis
-            # Runs AFTER regex parser, enhances with LLM-extracted insights.
-            # Venice finds discoveries regex missed + generates "aha" moments.
-            # Only in LIVE mode — simulated output doesn't need LLM analysis.
+            # PHASE 7.2: VENICE REASONING — DISABLED (Phase 22: GPT-only)
+            # Venice added 5-7s latency per call (6000ms ping).
+            # All output analysis now handled by GPT-5.2-codex through
+            # ParserBroker → LLMOutputInterpreter pipeline.
             # ─────────────────────────────────────────────────────────────
-            if self.venice_reasoning and self.venice_reasoning.can_analyze() and self._is_live_mode:
-                try:
-                    venice_insight = self.venice_reasoning.analyze_output(
-                        command=result.decision.command or "",
-                        output=output_to_parse,
-                        phase=self.attack_context.current_phase.name if self.attack_context else "RECON",
-                        known_discoveries={
-                            k: list(v) if isinstance(v, set) else v
-                            for k, v in self.discovery_board.items()
-                        },
-                    )
-                    # Merge Venice-discovered items into agent_discoveries
-                    if venice_insight.has_discoveries:
-                        if not agent_discoveries:
-                            agent_discoveries = {}
-                        for port in venice_insight.discovered_ports:
-                            agent_discoveries.setdefault("ports", []).append(str(port))
-                        for svc in venice_insight.discovered_services:
-                            agent_discoveries.setdefault("services", []).append(svc)
-                        for cred in venice_insight.discovered_credentials:
-                            agent_discoveries.setdefault("credentials", []).append(cred)
-                        for user in venice_insight.discovered_users:
-                            agent_discoveries.setdefault("users", []).append(user)
-                        # Phase 9: Merge Venice vulns and paths (previously silently dropped)
-                        for vuln in getattr(venice_insight, 'discovered_vulns', []):
-                            agent_discoveries.setdefault("vulns", []).append(vuln)
-                        for path in getattr(venice_insight, 'exploitation_paths', []):
-                            agent_discoveries.setdefault("web_paths", []).append(path)
-                    # Store aha context on the decision for downstream use
-                    if venice_insight.has_aha:
-                        result.decision.reasoning += f" | 💡 Venice: {venice_insight.top_aha.insight[:80]}"
-                    
-                    # Phase 9: Feed Venice insights into CognitiveBus
-                    if self.cognitive_bus and venice_insight.has_aha:
-                        try:
-                            self.cognitive_bus.record_insight(
-                                agent_id=result.agent_name,
-                                insight=venice_insight.top_aha.insight,
-                                source="venice_glm",
-                                confidence=venice_insight.top_aha.confidence if hasattr(venice_insight.top_aha, 'confidence') else 0.7,
-                                tags=["venice", "aha"],
-                            )
-                        except Exception:
-                            pass
-                except Exception as e:
-                    logger.debug(f"Venice reasoning failed for {result.agent_name}: {e}")
+            # Venice reasoning layer commented out — see Phase 22 notes
+            pass  # GPT-5.2-codex handles all output interpretation via parser_broker
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 6.5: COMMAND-BASED SHELL DETECTION
@@ -3728,17 +3813,23 @@ class SmartOrchestrator:
                     ctx.set_state_flag("artifacts_removed")
                     ctx.set_state_flag("closeout_completed")
 
-                # ─── Phase 11.1: User/Root flag capture ──────────────
+                # ─── Phase 11.1 + 24: User/Root flag capture + auto-close ──
                 if agent_discoveries.get("user_flag"):
                     ctx.set_state_flag("user_flag_captured")
                     _uf_val = agent_discoveries["user_flag"]
+                    if isinstance(_uf_val, list):
+                        _uf_val = _uf_val[0] if _uf_val else ""
                     logger.info(f"[FLAG-CAPTURE] user_flag captured by {result.agent_name}: {_uf_val[:40]}")
                     self.discovery_board["flags_set"].add("user_flag_captured")
+                    self.discovery_board["user_flag_value"] = str(_uf_val)
                 if agent_discoveries.get("root_flag"):
                     ctx.set_state_flag("root_flag_captured")
                     _rf_val = agent_discoveries["root_flag"]
+                    if isinstance(_rf_val, list):
+                        _rf_val = _rf_val[0] if _rf_val else ""
                     logger.info(f"[FLAG-CAPTURE] root_flag captured by {result.agent_name}: {_rf_val[:40]}")
                     self.discovery_board["flags_set"].add("root_flag_captured")
+                    self.discovery_board["root_flag_value"] = str(_rf_val)
 
                 # ─── PHASE 4: Update discovery board for cross-agent sharing ─
                 _new_ports_found = False
@@ -3765,7 +3856,7 @@ class SmartOrchestrator:
                                 "ttl": 15,
                             })
                         if _reuse_cmds:
-                            logger.warning(
+                            logger.debug(
                                 f"[CRED-REUSE-RETRIGGER] New ports discovered — "
                                 f"queued {len(_reuse_cmds)} reuse commands for "
                                 f"{len(_stored_creds)} stored creds"
@@ -3890,7 +3981,20 @@ class SmartOrchestrator:
                 if agent_discoveries.get("vulnerability"):
                     self.discovery_board["vulns"].add("found")
                 for path in agent_discoveries.get("web_path", []):
-                    self.discovery_board["web_paths"].add(str(path))
+                    _path_str = str(path).strip("/").strip()
+                    # Phase 23: Sanitize web paths — reject IPs, domains, empty, single-char
+                    # Phase 24: Also reject version-number-like paths (3.6, 1.18.0, etc.)
+                    if (not _path_str
+                        or _path_str == "."
+                        or _path_str == ".."
+                        or len(_path_str) < 2
+                        or re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', _path_str)
+                        or re.match(r'^\d+(\.\d+)+$', _path_str)  # version numbers like 3.6, 1.18.0
+                        or _path_str.startswith("http")
+                        or _path_str in ("index.html", "index.php", "#", "#about", "#testimonials")):
+                        logger.debug(f"[WEB_PATH_DISC] Rejected invalid path: '{_path_str}'")
+                        continue
+                    self.discovery_board["web_paths"].add(_path_str)
                     logger.debug(
                         f"[WEB_PATH_DISC] Added '{path}' to discovery_board.web_paths "
                         f"from {result.agent_name}. Board now: {self.discovery_board['web_paths']}"
@@ -4394,7 +4498,41 @@ class SmartOrchestrator:
                 ports.update(re.findall(pattern, output_lower))
         if ports:
             # Phase 7.3: Filter to valid service port range only
-            discoveries["open_port"] = [int(p) for p in ports if p.isdigit() and 1 <= int(p) <= 65535]
+            # Phase 24: Filter out false positives from version strings
+            # Version strings like "8.9p1", "nginx/1.18.0", "5.0.51a", "3.0.20"
+            # contain numbers that regex picks up as port numbers.
+            # Reject ports that appear as version components.
+            _VERSION_FALSE_POSITIVE_PATTERN = re.compile(
+                r'(?:'
+                r'[\w.-]+/\d+\.\d+(?:\.\d+)?'  # nginx/1.18.0
+                r'|[\w]+\s+\d+\.\d+(?:\.\d+)?[a-z]*'  # OpenSSH 8.9p1
+                r'|\d+\.\d+\.\d+[a-z]?'  # 5.0.51a
+                r')',
+                re.IGNORECASE,
+            )
+            _version_nums = set()
+            for vm in _VERSION_FALSE_POSITIVE_PATTERN.finditer(output):
+                # Extract all bare numbers from version strings
+                for num in re.findall(r'(?<!\d)(\d{1,3})(?!\d)', vm.group()):
+                    _version_nums.add(num)
+            
+            valid_ports = []
+            for p in ports:
+                if not p.isdigit():
+                    continue
+                pi = int(p)
+                if pi < 1 or pi > 65535:
+                    continue
+                # If this number appears in nmap "X/tcp open" format, trust it
+                # (these are always real ports)
+                if re.search(rf'\b{p}/(?:tcp|udp)\s+open', output_lower):
+                    valid_ports.append(pi)
+                elif p in _version_nums and pi < 100:
+                    # Small numbers from version strings are almost always false
+                    continue
+                else:
+                    valid_ports.append(pi)
+            discoveries["open_port"] = valid_ports
         
         # Service discovery (enhanced with version info)
         # NOTE: Word boundaries (\b) prevent false positives from group names
@@ -4920,7 +5058,7 @@ class SmartOrchestrator:
                 if cred_dict not in self.discovery_board.get("credentials_list", []):
                     self.discovery_board.setdefault("credentials_list", []).append(cred_dict)
                     
-                    logger.warning(
+                    logger.debug(
                         f"[CRED-EXTRACT] Structured credential: "
                         f"{cred.username}:{cred.password[:3]}*** "
                         f"(service={cred.source_service}, source={cred.source})"
@@ -4951,13 +5089,13 @@ class SmartOrchestrator:
                                     "ttl": 15,  # Valid for 15 more steps
                                 })
                             if reuse_cmds:
-                                logger.warning(
+                                logger.debug(
                                     f"[CRED-REUSE] Queued {len(reuse_cmds)} reuse commands "
                                     f"for {cred.username} in followup_queue: "
                                     f"{[c['service'] for c in reuse_cmds]}"
                                 )
                             else:
-                                logger.warning(
+                                logger.debug(
                                     f"[CRED-REUSE] No reuse cmds generated for {cred.username} "
                                     f"(known_ports={known_ports}, source_svc={cred.source_service})"
                                 )
@@ -5142,11 +5280,11 @@ class SmartOrchestrator:
             _all_target_ports = _all_msf2_ports
             _target_services = None  # Will use MSF2_SERVICES below
         
-        # Phase 6.6: Filter out difficulty-blocked ports
-        _difficulty = getattr(self, '_difficulty_preset', None)
-        if _difficulty and _difficulty.blocked_ports:
-            _all_msf2_ports = [p for p in _all_msf2_ports if p not in _difficulty.blocked_ports]
-            _all_target_ports = [p for p in _all_target_ports if p not in _difficulty.blocked_ports]
+        # Post-Phase 20: Difficulty port filtering REMOVED — all ports available
+        # _difficulty = getattr(self, '_difficulty_preset', None)
+        # if _difficulty and _difficulty.blocked_ports:
+        #     _all_msf2_ports = [p for p in _all_msf2_ports if p not in _difficulty.blocked_ports]
+        #     _all_target_ports = [p for p in _all_target_ports if p not in _difficulty.blocked_ports]
         MSF2_PORTS = random.sample(
             _all_target_ports, k=min(random.randint(6, 12), len(_all_target_ports))
         )
@@ -5510,6 +5648,26 @@ class SmartOrchestrator:
         for prefix, output in SIMULATED_OUTPUTS.items():
             if cmd_lower.startswith(prefix.lower()):
                 return output
+        
+        # Phase 19: CrushFTP / Erlang / PCAP / vhost simulated outputs
+        if "crushftp" in cmd_lower or "getuserlist" in cmd_lower or "c2f=" in cmd_lower:
+            if "setuseritem" in cmd_lower or "reset_password" in cmd_lower or "password" in cmd_lower:
+                return f"HTTP/1.1 200 OK\n{{'response': 'OK', 'user': 'crushadmin', 'action': 'setUserItem', 'result': 'success'}}\n[+] CrushFTP admin password reset successful\n[+] crushadmin password changed to controlled value\ncredential: crushadmin:Pwned2025!"
+            return f"HTTP/1.1 200 OK\nContent-Type: text/xml\n<users>\n  <user><username>crushadmin</username><admin>true</admin></user>\n  <user><username>anonymous</username><admin>false</admin></user>\n</users>\n[+] CVE-2025-31161: CrushFTP auth bypass — admin user list retrieved\n[+] Admin user: crushadmin\nvulnerability: CVE-2025-31161 CrushFTP auth bypass"
+        if "crushftp_ftp" in cmd_lower or ("curl" in cmd_lower and "ftp://" in cmd_lower and "shell.php" in cmd_lower):
+            return f"  % Total    % Received % Xferd  Average Speed\n                                 Dload  Upload   Total\n100  1247    0     0  100  1247      0   4989  0:00:01\n226 Transfer complete.\n[+] Webshell uploaded to CrushFTP WebInterface\n[+] Access at http://{target}/WebInterface/shell.php"
+        if "crushftp_ssh" in cmd_lower or ("sshpass" in cmd_lower and "crushadmin" in cmd_lower):
+            return f"Warning: Permanently added '{target}' (ECDSA) to the list of known hosts.\nLast login: Mon Jun 16 14:23:17 2025 from 10.10.14.2\ncrushadmin@soulmate:~$ id\nuid=1001(crushadmin) gid=1001(crushadmin) groups=1001(crushadmin)\ncrushadmin@soulmate:~$ pwd\n/home/crushadmin\ncrushadmin@soulmate:~$ cat user.txt\nFLAG{{us3r_pwn3d_soulmate_2025}}\ncredential: crushadmin:Pwned2025!"
+        if "erlang.cookie" in cmd_lower or "erlang_cookie" in cmd_lower:
+            return f"JQXWZPTSARFESQIB\n[+] Erlang magic cookie extracted: JQXWZPTSARFESQIB\n[+] Cookie location: /var/lib/erlang/.erlang.cookie\ncredential: erlang_cookie:JQXWZPTSARFESQIB"
+        if "erlang_otp" in cmd_lower or ("erl " in cmd_lower and "setcookie" in cmd_lower) or "remsh" in cmd_lower:
+            return f"Erlang/OTP 25 [erts-13.2]\nEshell V13.2  (abort with ^G)\n(target@soulmate)1> os:cmd(\"id\").\n\"uid=0(root) gid=0(root) groups=0(root)\\n\"\n(target@soulmate)2> os:cmd(\"cat /root/root.txt\").\n\"FLAG{{r00t_pwn3d_soulmate_2025}}\\n\"\n[+] CVE-2025-32433: Erlang/OTP RCE — root shell achieved\nflag: FLAG{{r00t_pwn3d_soulmate_2025}}"
+        if "tshark" in cmd_lower and ("pcap" in cmd_lower or ".cap" in cmd_lower):
+            return f"USER\tnathan\nPASS\tBuck3tH4TF0RM3!\nUSER\tnathan\nPASS\tBuck3tH4TF0RM3!\n[+] tshark PCAP extraction — FTP credentials found\ncredential: nathan:Buck3tH4TF0RM3!"
+        if "pcap_download" in cmd_lower or ("wget" in cmd_lower and ".pcap" in cmd_lower):
+            return f"--2025-06-16 14:30:00--  http://{target}/data/0.pcap\nConnecting to {target}:80... connected.\nHTTP request sent, awaiting response... 200 OK\nLength: 23482 (23K) [application/vnd.tcpdump.pcap]\nSaving to: '/tmp/capture.pcap'\n\n/tmp/capture.pcap          100%[=====>]  22.93K  --.-KB/s    in 0s\n\n2025-06-16 14:30:01 (195 MB/s) - '/tmp/capture.pcap' saved [23482/23482]\nUSER nathan\nPASS Buck3tH4TF0RM3!\n[+] PCAP downloaded and parsed — FTP credentials extracted\ncredential: nathan:Buck3tH4TF0RM3!"
+        if "vhost" in cmd_lower or ("gobuster" in cmd_lower and "vhost" in cmd_lower) or ("ffuf" in cmd_lower and "Host:" in cmd_lower):
+            return f"===============================================================\nGobuster v3.6\n===============================================================\n[+] Url:          http://{target}\n[+] Method:       GET\n[+] Wordlist:     /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt\n===============================================================\nFound: ftp.soulmate.htb Status: 200 [Size: 4523]\nFound: admin.soulmate.htb Status: 301 [Size: 0]\n===============================================================\n[+] 2 vhosts discovered"
         
         # Phase 11.1: Flag file keyword fallbacks (before generic fallbacks)
         if "user.txt" in cmd_lower or "user_flag" in cmd_lower or "local.txt" in cmd_lower:
@@ -5976,11 +6134,18 @@ class SmartOrchestrator:
             len(unique_cmds) / len(all_commands) if all_commands else 0.0
         )
         
-        # Discovery count (from reward calculators)
+        # Discovery count — from discovery board (ground truth) + reward calculators
         total_discoveries = 0
-        for coach in self.coaches.values():
-            if hasattr(coach, 'reward_calculator') and coach.reward_calculator:
-                total_discoveries += len(coach.reward_calculator.discoveries)
+        # Count actual discoveries from the discovery board
+        for _disc_key in ("ports", "services", "credentials", "vulns", "shells", "users", "web_paths"):
+            _disc_items = self.discovery_board.get(_disc_key, set())
+            if isinstance(_disc_items, (set, list)):
+                total_discoveries += len(_disc_items)
+        # Fallback: also count from reward calculators if board is empty
+        if total_discoveries == 0:
+            for coach in self.coaches.values():
+                if hasattr(coach, 'reward_calculator') and coach.reward_calculator:
+                    total_discoveries += len(coach.reward_calculator.discoveries)
         metrics["total_discoveries"] = total_discoveries
         
         # Step at first exploit (how quickly agent reaches exploitation)
@@ -6008,6 +6173,13 @@ class SmartOrchestrator:
                     step_at_first_exploit = idx
                     break
         metrics["step_at_first_exploit"] = step_at_first_exploit
+        
+        # Phase 24: Flag capture state
+        _flags = self.discovery_board.get("flags_set", set())
+        metrics["user_flag_captured"] = "user_flag_captured" in _flags
+        metrics["root_flag_captured"] = "root_flag_captured" in _flags
+        metrics["user_flag_value"] = self.discovery_board.get("user_flag_value", "")
+        metrics["root_flag_value"] = self.discovery_board.get("root_flag_value", "")
         
         return metrics
     
@@ -6171,24 +6343,30 @@ class SmartOrchestrator:
         self,
         episodes: int = 10,
         target_ip: Optional[str] = None,
-        difficulty: str = "medium",
+        difficulty: str = "normal",
         platform: str = "unknown",
     ) -> Dict[str, Any]:
         """
-        Run complete training loop with smart command generation.
+        Run continuous penetration test against a live target.
         
-        This is the main entry point for training with SmartOrchestrator.
+        Phase 24: Episodes removed — runs as a single continuous engagement
+        with auto-termination on user+root flag capture. The `episodes` param
+        is retained for backwards compat but defaults to 1 internally.
+        Steps are the only loop with a high safety limit (default 500).
         
         Args:
-            episodes: Number of episodes to run
+            episodes: Ignored for live targets (always 1 continuous run)
             target_ip: Target IP address
-            difficulty: Target difficulty
+            difficulty: Target difficulty (default: normal = zero restrictions)
             platform: Target platform (linux, windows, unknown)
             
         Returns:
             Training results with metrics
         """
         import uuid
+        
+        # Phase 24: Force single continuous episode for live targets
+        episodes = 1
         
         self.run_id = f"smart_{uuid.uuid4().hex[:8]}"
         self.total_episodes = episodes
@@ -6210,14 +6388,13 @@ class SmartOrchestrator:
         
         target = target_ip or self.config.default_target
         
-        # ─── R66: Initialize per-run components ─────────────────────
-        _env_tag = "ms3" if "172.28.0.11" in str(target) else "ms2"
-        _seed = getattr(self.config, 'seed', 42)
+        # Post-Phase 20: Simplified env tag — always "live"
+        _env_tag = "live"
         
         # R66: JSONL RunLogger
         try:
             from core.logging.jsonl_logger import RunLogger
-            _run_tag = f"r{_seed}_{_env_tag}"
+            _run_tag = f"ariaska_{_env_tag}"
             self.run_logger = RunLogger(run_tag=_run_tag, log_dir="logs", hud_every=1)
         except Exception as e:
             logger.warning(f"R66: RunLogger init failed: {e}")
@@ -6226,7 +6403,7 @@ class SmartOrchestrator:
         # R66: Scan Randomizer
         try:
             from core.analytics.scan_randomizer import ScanRandomizer
-            self.scan_randomizer = ScanRandomizer(seed=_seed, env_name=_env_tag)
+            self.scan_randomizer = ScanRandomizer(seed=42, env_name=_env_tag)
         except Exception as e:
             logger.warning(f"R66: ScanRandomizer init failed: {e}")
             self.scan_randomizer = None
@@ -6235,7 +6412,7 @@ class SmartOrchestrator:
         if self.rnd_curiosity:
             self.rnd_curiosity.set_target_mode(_env_tag)
         
-        logger.info(f"Starting smart training: {episodes} episodes, target={target}")
+        logger.info(f"Starting smart training: continuous run, max_steps={self.config.max_steps_per_episode}, target={target}")
         self._r66_env_tag = _env_tag
         
         # Phase 8: Start DecisionLogger run
@@ -6243,19 +6420,19 @@ class SmartOrchestrator:
             try:
                 self.decision_logger.start_run(
                     run_id=self.run_id,
-                    config={"episodes": episodes, "target": target, "env": _env_tag, "seed": _seed},
+                    config={"episodes": episodes, "target": target, "env": _env_tag},
                 )
             except Exception as e:
                 logger.debug(f"DecisionLogger start_run failed: {e}")
         
-        # R66: Set env tag + increased codex budget on coaches
+        # Post-Phase 20: All coaches get max codex budget — always maximum intelligence
         for _cn, _coach in self.coaches.items():
             if hasattr(_coach, '_r66_env_tag'):
                 _coach._r66_env_tag = _env_tag
-            # MS3 gets higher codex budget (harder target)
-            if _env_tag == "ms3" and hasattr(_coach, '_codex_meta_max_per_episode'):
-                _coach._codex_meta_max_per_episode = 8
-                _coach._codex_strategic_max_per_episode = 4
+            # Max codex budget for ALL targets — maximum intelligence always
+            if hasattr(_coach, '_codex_meta_max_per_episode'):
+                _coach._codex_meta_max_per_episode = 15
+                _coach._codex_strategic_max_per_episode = 8
         
         # ─── PHASE 10.2: Polished Training Start Banner ─────────────
         try:
@@ -6265,11 +6442,7 @@ class SmartOrchestrator:
                     hasattr(c, 'ddqn_macro') and c.ddqn_macro is not None
                     for c in self.coaches.values()
                 ),
-                "CognitionNode": False,  # Removed (Phase 12.1)
-                "SIL": any(
-                    hasattr(c, '_sil_buffer') and c._sil_buffer is not None
-                    for c in self.coaches.values()
-                ),
+                "SIL": self.ppo_agent is not None and hasattr(self.ppo_agent, 'sil_buffer'),
                 "RND": self.rnd_curiosity is not None,
                 "SAC": any(
                     hasattr(c, 'sac_agent') and c.sac_agent is not None
@@ -6278,15 +6451,21 @@ class SmartOrchestrator:
             }
             self.dashboard.print_training_start(
                 config={
-                    "episodes": episodes,
-                    "steps_per_episode": self.config.max_steps,
-                    "seed": _seed,
-                    "env": _env_tag,
+                    "mode": "continuous",
+                    "episodes": "Continuous",
+                    "steps_per_episode": self.config.max_steps_per_episode,
+                    "env": "live",  # Post-Phase 20: always live
                     "target": str(target),
-                    "difficulty": difficulty,
-                    "live": self._is_live_mode,
+                    "difficulty": "normal",  # Post-Phase 20: always unrestricted
+                    "live": True,  # Post-Phase 20: always live
                     "mentor_budget": int(self.config.mentor_budget_pct * 100)
                         if hasattr(self.config, 'mentor_budget_pct') else 30,
+                    # Phase 23: GPT model visibility
+                    "gpt_primary": getattr(self.gpt_manager, 'primary_model', '?'),
+                    "gpt_nano": getattr(self.gpt_manager, 'nano_model', '?'),
+                    "gpt_postmortem": getattr(self.gpt_manager, 'postmortem_model', '?'),
+                    "gpt_token_limit": getattr(self.gpt_manager, 'token_limit', 0),
+                    "auto_close": "CTF: user.txt + root.txt (immediate)" if self.config.ctf_mode else "CLOSEOUT phase with cleanup",
                 },
                 agents=list(self.agents.keys()),
                 algorithms=algo_status,
@@ -6295,66 +6474,52 @@ class SmartOrchestrator:
         except Exception as e:
             logger.debug(f"Phase 10.2: Training start banner failed: {e}")
         
-        for ep in range(episodes):
-            episode_id = f"{self.run_id}_ep{ep:04d}"
-            
-            logger.info(f"[DIAG] Training loop: starting episode {ep}/{episodes}")
-            # Run episode
-            metrics = self.run_episode(
-                episode_id=episode_id,
-                episode_number=ep,
-                target=target,
-                difficulty=difficulty,
-                platform=platform,
-            )
-            logger.info(f"[DIAG] Training loop: episode {ep} returned, reward={metrics.get('total_reward', 0):.1f}")
-            
-            all_metrics.append(metrics)
-            episode_rewards.append(metrics["total_reward"])
-            phase_progressions.append(metrics.get("phase_progression", ["RECON"]))
-            
-            # Update skill library size in dashboard
-            if self.skill_library:
-                self.dashboard.set_skill_library_size(len(self.skill_library))
-            
-            # ─── Phase 9.2: ReflectiveCortex — accumulate & reflect ───
-            if self.reflective_cortex:
-                try:
-                    self.reflective_cortex.accumulate_episode(metrics)
-                    if self.reflective_cortex.should_reflect(ep):
-                        reflection = self.reflective_cortex.reflect(current_episode=ep)
-                        if reflection.insights:
-                            # Apply insights to coaches and mentors
-                            _first_coach = next(iter(self.coaches.values()), None)
-                            _mentor = getattr(_first_coach, '_mentor', None) if _first_coach else None
-                            self.reflective_cortex.apply_insights(
-                                reflection,
-                                smart_coach=_first_coach,
-                                mentor=_mentor,
-                                knowledge_graph=self.knowledge_graph,
-                            )
-                            logger.info(
-                                f"Phase 9.2: Reflection cycle {reflection.cycle_id}: "
-                                f"{len(reflection.insights)} insights applied"
-                            )
-                except Exception as e:
-                    logger.debug(f"Phase 9.2: Reflection failed: {e}")
+        # Phase 24: Single continuous run — no episode loop
+        episode_id = f"{self.run_id}_ep0000"
+        
+        logger.info(f"[DIAG] Starting continuous engagement against {target}")
+        metrics = self.run_episode(
+            episode_id=episode_id,
+            episode_number=0,
+            target=target,
+            difficulty=difficulty,
+            platform=platform,
+        )
+        logger.info(f"[DIAG] Engagement complete, reward={metrics.get('total_reward', 0):.1f}")
+        
+        all_metrics.append(metrics)
+        episode_rewards.append(metrics["total_reward"])
+        phase_progressions.append(metrics.get("phase_progression", ["RECON"]))
+        
+        # Update skill library size in dashboard
+        if self.skill_library:
+            self.dashboard.set_skill_library_size(len(self.skill_library))
         
         # Compute final metrics
         total_time = time.time() - self.start_time
         
+        # Phase 24: Check if flags were captured
+        _user_flag = metrics.get("user_flag_captured", False)
+        _root_flag = metrics.get("root_flag_captured", False)
+        _user_flag_val = metrics.get("user_flag_value", "")
+        _root_flag_val = metrics.get("root_flag_value", "")
+        
         final_metrics = {
-            "avg_reward_recent": sum(episode_rewards[-10:]) / min(len(episode_rewards), 10),
-            "avg_confidence_recent": 0.5,  # TODO: track from coaches
-            "avg_mentor_rate_recent": 0.2,  # TODO: track from coaches
+            "total_reward": episode_rewards[0] if episode_rewards else 0.0,
+            "total_steps": metrics.get("total_steps", 0),
+            "highest_phase": metrics.get("highest_phase", "RECON"),
             "skill_library_size": len(self.skill_library) if self.skill_library else 0,
-            "reward_trend": self._calculate_trend(episode_rewards),
+            "user_flag_captured": _user_flag,
+            "root_flag_captured": _root_flag,
+            "user_flag_value": _user_flag_val,
+            "root_flag_value": _root_flag_val,
+            "reward_trend": "stable",
         }
         
         # Print final run summary
         self.dashboard.print_run_summary(
             run_id=self.run_id,
-            total_episodes=episodes,
+            total_episodes=1,
             total_time=total_time,
             final_metrics=final_metrics,
         )
@@ -6371,23 +6536,17 @@ class SmartOrchestrator:
         # Return results compatible with existing training system
         return {
             "session_id": self.run_id,
-            "episodes_completed": episodes,
+            "episodes_completed": 1,
             "total_training_time": total_time,
-            "final_score": final_metrics["avg_reward_recent"],
-            "final_coordination": 0.8,  # TODO: compute from agent interactions
+            "final_score": episode_rewards[0] if episode_rewards else 0.0,
+            "user_flag_captured": _user_flag,
+            "root_flag_captured": _root_flag,
+            "user_flag_value": _user_flag_val,
+            "root_flag_value": _root_flag_val,
             "final_metrics": {
-                "avg_reward": sum(episode_rewards) / max(len(episode_rewards), 1),
-                "coordination_score": 0.8,
-                "highest_phase": max(
-                    (p[-1] for p in phase_progressions),
-                    key=lambda x: ["RECON", "ENUMERATION", "EXPLOITATION", 
-                                   "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
-                                   "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"].index(x)
-                    if x in ["RECON", "ENUMERATION", "EXPLOITATION", 
-                             "PRIVILEGE_ESCALATION", "LATERAL_MOVEMENT",
-                             "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT"] else 0,
-                    default="RECON"
-                ),
+                "total_reward": episode_rewards[0] if episode_rewards else 0.0,
+                "total_steps": metrics.get("total_steps", 0),
+                "highest_phase": phase_progressions[0][-1] if phase_progressions and phase_progressions[0] else "RECON",
             },
             "all_episode_metrics": all_metrics,
         }

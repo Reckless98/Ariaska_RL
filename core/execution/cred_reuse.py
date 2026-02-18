@@ -116,7 +116,7 @@ class CredentialReuseEngine:
         
         cred.target_ip = self.target_ip
         self._credentials.append(cred)
-        logger.info(
+        logger.debug(
             f"[CRED-REUSE] New credential stored: {cred.username}:{cred.password[:3]}*** "
             f"(source={cred.source}, service={cred.source_service})"
         )
@@ -191,7 +191,7 @@ class CredentialReuseEngine:
                 self._tried_combinations.add(combo_key)
         
         if commands:
-            logger.info(
+            logger.debug(
                 f"[CRED-REUSE] Generated {len(commands)} reuse commands for "
                 f"{cred.username} across services: "
                 f"{', '.join(c['service'] for c in commands)}"
@@ -220,7 +220,7 @@ class CredentialReuseEngine:
         for cred in self._credentials:
             if cred.username == username and cred.password == password:
                 cred.confirmed_on.add(service)
-                logger.info(f"[CRED-REUSE] Confirmed: {username} works on {service}")
+                logger.debug(f"[CRED-REUSE] Confirmed: {username} works on {service}")
                 break
     
     def mark_failure(self, username: str, password: str, service: str) -> None:

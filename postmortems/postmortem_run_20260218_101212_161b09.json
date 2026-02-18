@@ -1,0 +1,129 @@
+{
+  "run_id": "run_20260218_101212_161b09",
+  "timestamp": 1771405939.8483102,
+  "key_outcomes": {
+    "wins": [
+      "Successfully completed initial reconnaissance and service discovery in under 5 minutes, providing a clear view of the attack surface",
+      "Maintained session persistence on compromised host long enough to gather relevant telemetry for analysts",
+      "Automated credential dumping workflow reduced manual steps, delivering repeatable results"
+    ],
+    "fails": [
+      "Full privilege escalation attempt failed due to missing writable service executable, halting lateral movement",
+      "Attempted command execution callback was blocked by endpoint protection before payload could beacon",
+      "No successful persistence or cleanup phase, leaving compromised host in high-detection state"
+    ],
+    "summary": "Reconnaissance and initial exploitation were achieved efficiently, but post-exploitation stability and privilege escalation remain unresolved, preventing successful mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation always fails when relying on sudo access checks without fallback to kernel exploit",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step27",
+        "ep001_step33",
+        "ep001_step35"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 3389 is open and Windows host detected",
+      "then_action": "Deploy RDP service enumeration and screenshot reconnaissance",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "rdp-enum-encryption",
+        "port": 3389
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771405952.9501815,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial shell access is obtained on Windows host",
+      "then_action": "Execute automated local enumeration script and dump credentials via mimikatz",
+      "parameters_template": {
+        "script": "PowerView",
+        "module": "Get-NetUser",
+        "tool": "mimikatz"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1771405952.9501905,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When Linux host exposes sudo without password",
+      "then_action": "Attempt sudo -l and execute privileged binaries with controlled payload",
+      "parameters_template": {
+        "command": "sudo -l",
+        "payload": "/usr/bin/less /etc/shadow"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step22"
+      ],
+      "created_at": 1771405952.9501963,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Repeated success gathering credentials during post-exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Kernel exploit fallback",
+      "description": "Integrate public kernel escalation modules (e.g., Dirty Pipe) when sudo-based escalation fails to gain SYSTEM",
+      "priority": "high"
+    },
+    {
+      "title": "Endpoint evasion tuning",
+      "description": "Test alternative command obfuscation and payload delivery timing to avoid AV detection during callback",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

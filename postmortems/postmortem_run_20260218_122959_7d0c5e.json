@@ -1,0 +1,148 @@
+{
+  "run_id": "run_20260218_122959_7d0c5e",
+  "timestamp": 1771414204.7440627,
+  "key_outcomes": {
+    "wins": [
+      "Completed comprehensive network reconnaissance, cataloging all live hosts via masscan/nmap combo",
+      "Discovered vulnerable SMB share and mapped permissions, identifying potential lateral movement pathway"
+    ],
+    "fails": [
+      "Failed to establish persistent foothold due to missing credential harvesting and lack of scheduled persistence routines",
+      "No privilege escalation achieved; attempted exploits timed out or lacked necessary privileges"
+    ],
+    "summary": "Reconnaissance was thorough and asset cataloging strong, but exploitation/persistence phases stalled, leaving no lasting control."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated brute-force SSH login attempts without leveraging harvested credentials or password spraying frameworks, leading to account lockouts or detection",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep002_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771414214.4656444,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_smb_enum",
+      "if_condition": "When SMB ports (139/445) respond and anonymous login allowed",
+      "then_action": "Use smbclient and crackmapexec to list shares and gather session info",
+      "parameters_template": {
+        "tools": [
+          "smbclient",
+          "crackmapexec"
+        ],
+        "flags": [
+          "-L",
+          "--shares"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771414214.4656532,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_recon_document",
+      "if_condition": "After completing network host scan",
+      "then_action": "Update knowledge base with open ports, services, OS versions, and identified vulnerabilities",
+      "parameters_template": {
+        "format": "csv",
+        "fields": [
+          "ip",
+          "port",
+          "service",
+          "cvss"
+        ]
+      },
+      "confidence": 0.9,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771414214.4656591,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High success rate of SSH reconnaissance leading to actionable targets"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_recon_document",
+      "skill_card_id": "skill_recon_document",
+      "reason": "Consistent value in documenting situational awareness for later phases"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential harvesting via SMB enumeration",
+      "description": "Use impacket-secretsdump or smbmap with discovered credentials to dump SAM/LSA data, aiming to escalate privileges and seed later brute-force without repeated lockouts",
+      "priority": "high"
+    },
+    {
+      "title": "Deploy persistence via scheduled task using identified service account",
+      "description": "Once valid local account harvested from SMB/LSA, create a scheduled task via schtasks.exe to ensure session retention between recon phases",
+      "priority": "medium"
+    },
+    {
+      "title": "Phased password spraying with detected account list",
+      "description": "Employ custom Hydra/Medusa runs with slow timing to avoid lockouts, focusing on accounts found during recon, then switch to credential reuse exploits",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -71,6 +71,14 @@ class SkillLibrary:
         self._load_library()
         
         logger.debug(f"SkillLibrary initialized with {len(self.skills)} skills")
+
+    def __len__(self) -> int:
+        """Return number of skills in the library."""
+        return len(self.skills)
+
+    def __bool__(self) -> bool:
+        """SkillLibrary is always truthy (it exists as an object)."""
+        return True
     
     def _load_library(self):
         """Load skill library from disk."""
@@ -448,13 +456,13 @@ class SkillLibrary:
                 import numpy as np
 
                 # Embed query
-                query_emb = self._embedder.encode(query_text, normalize_embeddings=True)
+                query_emb = self._embedder.encode(query_text, normalize_embeddings=True, show_progress_bar=False)
 
                 # Embed skills (lazy, cached)
                 for sid, skill in self.skills.items():
                     if sid not in self._skill_embeddings:
                         self._skill_embeddings[sid] = self._embedder.encode(
-                            skill.if_condition, normalize_embeddings=True
+                            skill.if_condition, normalize_embeddings=True, show_progress_bar=False
                         )
 
                 # Compute cosine similarities

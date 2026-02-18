@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260218_110702_6a50bd",
+  "timestamp": 1771409243.1947434,
+  "key_outcomes": {
+    "wins": [
+      "Confirmed consistent reconnaissance coverage across target by running targeted port scans, yielding high-reward data even without full mission success.",
+      "Maintained disciplined logging/reporting cadence across mentor interactions (10 calls) to maximize visibility for remediation-focused feedback."
+    ],
+    "fails": [
+      "Unable to achieve mission success (0% success rate) indicating that post-scan actions such as exploitation or privilege escalation stalled.",
+      "Session management failed to persist beyond initial probing, preventing follow-on exploitation or data exfiltration."
+    ],
+    "summary": "Reconnaissance phase delivered repeatable intelligence (reward 70), but execution blocked at exploitation/persistence stage, so next steps must expand on actionable follow-ons from enumeration data."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-enumeration execution stopped because credential validation or exploitation was never attempted after port/service discovery.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a previously unknown service responds on TCP/22 with an SSH banner",
+      "then_action": "Conduct SSH enumeration using Nmap with SSH scripts to collect supported algorithms and authentication methods",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771409260.2919564,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When service banners are collected from enumeration",
+      "then_action": "Pivot to banner-specific exploitation planning (check for outdated versions or misconfigurations via CVE search)",
+      "parameters_template": {
+        "service": "ssh",
+        "version": "extracted-banner"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771409260.291966,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reconnaissance yields high-value hosts but session persistence is lacking",
+      "then_action": "Schedule immediate credential harvesting (e.g., Hydra/Medusa) or brute-force follow-up to secure initial foothold while the host is accessible",
+      "parameters_template": {
+        "target_host": "discovered-host",
+        "protocol": "ssh",
+        "thread_count": 16
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771409260.2919724,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured Exploitation Playbook",
+      "description": "Use enumeration output to map services to known CVEs and attempt targeted exploitation (Metasploit auxiliary/exploit modules) while capturing all output.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential Harvesting Run",
+      "description": "Launch Hydra against discovered services with curated username/password lists to gain an initial shell; prioritize protocols with valid banners.",
+      "priority": "medium"
+    },
+    {
+      "title": "Session Persistence Verification",
+      "description": "After establishing access, test persistence techniques (e.g., scheduled tasks, cron jobs) to confirm ability to maintain foothold beyond a single session.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

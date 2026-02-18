@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260218_144734_1698b5",
+  "timestamp": 1771422456.3346963,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward signal (60.0) indicating partial progress through the episode"
+    ],
+    "fails": [
+      "No episode-level success achieved (0.00% success rate)",
+      "High mentor call count (10) suggests frequent guidance required"
+    ],
+    "summary": "Single-episode run showed steady partial progress but failed to complete the objective, indicating gaps in execution depth and decision autonomy."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled before objective completion despite positive reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "High reliance on mentor guidance during mid-episode decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery identifies live targets",
+      "then_action": "Run targeted service discovery on top ports",
+      "parameters_template": {
+        "ports": "1-1000",
+        "timing": "T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771422468.456792,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports",
+      "then_action": "Perform HTTP title and tech stack enumeration",
+      "parameters_template": {
+        "ports": [
+          80,
+          443,
+          8080
+        ],
+        "scripts": [
+          "http-title",
+          "http-server-header"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771422468.4568028,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Early-stage reconnaissance contributed to positive reward accumulation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective completion push",
+      "description": "Extend post-enumeration actions into exploit validation to convert partial progress into success; add explicit decision points for exploitation vs. lateral movement.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction",
+      "description": "Introduce a deterministic decision tree for mid-episode actions to reduce guidance dependency by at least 30%.",
+      "priority": "high"
+    },
+    {
+      "title": "Deep service enumeration",
+      "description": "After top-ports scan, expand to targeted service-specific scripts to identify actionable weaknesses.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

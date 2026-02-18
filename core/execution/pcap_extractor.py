@@ -173,6 +173,14 @@ class PcapExtractor:
         http_creds = self._tshark_http_auth(pcap_path)
         creds.extend(http_creds)
 
+        # Phase 19: Extract telnet credentials
+        telnet_creds = self._tshark_telnet(pcap_path)
+        creds.extend(telnet_creds)
+
+        # Phase 19: Extract SMTP credentials
+        smtp_creds = self._tshark_smtp(pcap_path)
+        creds.extend(smtp_creds)
+
         return creds
 
     def _tshark_ftp(self, pcap_path: str) -> List[PcapCredential]:
@@ -318,6 +326,9 @@ class PcapExtractor:
         # Also look for generic credential patterns
         generic_patterns = [
             r'(?:login|username)[:\s=]+(\S+)\s+(?:password|passwd)[:\s=]+(\S+)',
+            # Phase 19: Enhanced patterns
+            r'(?:user|usr)[:\s=]+(\S+)\s+(?:pass|pwd)[:\s=]+(\S+)',
+            r'(\w+@\w+\.\w+)[:\s]+(\S{4,})',  # email:password patterns
         ]
         for pattern in generic_patterns:
             for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -330,7 +341,89 @@ class PcapExtractor:
                     extraction_method=method,
                 ))
 
+        # Phase 19: Telnet credential patterns from strings output
+        telnet_user_pass = re.findall(
+            r'login:\s*(\S+).*?Password:\s*(\S+)', text, re.IGNORECASE | re.DOTALL
+        )
+        for user, passwd in telnet_user_pass:
+            if user.lower() not in ("", "last"):
+                creds.append(PcapCredential(
+                    username=user, password=passwd,
+                    protocol="telnet", source_file=source_file,
+                    extraction_method=method,
+                ))
+
         return creds
+
+    def _tshark_telnet(self, pcap_path: str) -> List[PcapCredential]:
+        """Phase 19: Extract telnet credentials using tshark data stream reassembly."""
+        try:
+            result = subprocess.run(
+                [
+                    "tshark", "-r", pcap_path,
+                    "-Y", "telnet",
+                    "-T", "fields",
+                    "-e", "telnet.data",
+                ],
+                capture_output=True, text=True, timeout=self.timeout,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return []
+
+            # Telnet data comes as individual characters — reconstruct
+            raw = result.stdout.replace("\n", "").replace("\t", "")
+            # Look for login/password sequences in reconstructed data
+            return self._parse_ftp_credentials(
+                raw, pcap_path, "tshark_telnet"
+            )
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            logger.debug(f"[PCAP] tshark telnet extraction failed: {e}")
+            return []
+
+    def _tshark_smtp(self, pcap_path: str) -> List[PcapCredential]:
+        """Phase 19: Extract SMTP AUTH credentials using tshark."""
+        try:
+            result = subprocess.run(
+                [
+                    "tshark", "-r", pcap_path,
+                    "-Y", "smtp.req.command == AUTH",
+                    "-T", "fields",
+                    "-e", "smtp.req.parameter",
+                ],
+                capture_output=True, text=True, timeout=self.timeout,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return []
+
+            import base64
+            creds: List[PcapCredential] = []
+            for line in result.stdout.strip().split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                # AUTH PLAIN base64(user\x00user\x00pass) or AUTH LOGIN sequences
+                parts = line.split()
+                for part in parts:
+                    try:
+                        decoded = base64.b64decode(part).decode("utf-8", errors="replace")
+                        # PLAIN format: \x00username\x00password
+                        segments = decoded.split("\x00")
+                        segments = [s for s in segments if s]
+                        if len(segments) >= 2:
+                            creds.append(PcapCredential(
+                                username=segments[0], password=segments[-1],
+                                protocol="smtp", source_file=pcap_path,
+                                extraction_method="tshark",
+                            ))
+                    except Exception:
+                        pass
+
+            return creds
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+            logger.debug(f"[PCAP] tshark SMTP extraction failed: {e}")
+            return []
 
     def analyze_pcap_summary(self, pcap_path: str) -> Dict[str, int]:
         """

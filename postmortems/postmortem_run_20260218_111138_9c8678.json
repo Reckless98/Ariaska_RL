@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260218_111138_9c8678",
+  "timestamp": 1771409504.6302695,
+  "key_outcomes": {
+    "wins": [
+      "Completed multi-subnet reconnaissance with masscan and targeted nmap follow-up within the allotted time, producing a prioritized host list (ep001_step04, ep001_step07).",
+      "Captured initial service fingerprints and identified an outdated web application stack for potential exploitation (ep001_step10)."
+    ],
+    "fails": [
+      "Failed to gain valid credentials after repeated brute-force attempts against the exposed SSH service, leading to stall in lateral movement (ep001_step15, ep001_step18).",
+      "No successful privilege escalation attempts on the discovered Linux host despite identifying sudo misconfigurations (ep001_step21)."
+    ],
+    "summary": "Reconnaissance executed effectively, but attack chain stalled in credential acquisition and privilege escalation, resulting in zero successful missions despite valuable service insights."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Credential brute force attempts against SSH repeatedly timed out or hit lockout without success, indicating either strong password policies or incorrect targeting.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step17",
+        "ep001_step19"
+      ]
+    },
+    {
+      "pattern": "Privilege escalation playbooks relying on sudo misconfigurations repeatedly failed to yield root shells despite multiple verification checks.",
+      "frequency": 2,
+      "evidence_refs": [
+        "ep001_step21",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When masscan identifies open ports 22 and 80 on a host",
+      "then_action": "Run targeted nmap -sV with default scripts and additional HTTP enumeration with gobuster",
+      "parameters_template": {
+        "nmap_args": "-p22,80 -sV --script default,vuln",
+        "gobuster_opts": "-u http://{target}:80 -w /usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.88,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771409523.973554,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH banner reveals OpenSSH 7.x and login prompt available",
+      "then_action": "Use hydra with curated credential list and parallel threads to attempt lightweight password spraying",
+      "parameters_template": {
+        "hydra_opts": "-L creds/usernames.txt -P creds/passwords.txt -t 8 -f ssh://{target}:22"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step17"
+      ],
+      "created_at": 1771409523.9735627,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When sudo -l reveals user can run specific command without password",
+      "then_action": "Exploit sudo misconfiguration to spawn shell via python or bash -c",
+      "parameters_template": {
+        "command": "sudo -u root /usr/bin/python3 -c 'import pty; pty.spawn(\"/bin/bash\")'"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step21",
+        "ep001_step22"
+      ],
+      "created_at": 1771409523.973569,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in actionable reconnaissance and service enumeration phases."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Harvesting via Web Form",
+      "description": "Assess if captured outdated web app exposes login form suitable for SQLi/CSRF-assisted credential extraction to bypass SSH brute force.",
+      "priority": "high"
+    },
+    {
+      "title": "Local Privilege Escalation via Kernel Exploit",
+      "description": "Switch to checking kernel version and running linux-exploit-suggester then attempt verified exploit such as dirtycow if applicable.",
+      "priority": "medium"
+    },
+    {
+      "title": "Pivot Using HTTP Proxy",
+      "description": "Deploy proxychains through www-data shell to reach internal hosts and extend lateral movement.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -198,6 +198,35 @@ MS3_LIVE = DifficultyPreset(
     ),
 )
 
+# ── HTB (Hack The Box) — ZERO restrictions ──────────────────────────
+# HTB targets are REAL machines with REAL services. No artificial
+# blocking — the agent needs ALL commands and ALL intelligence.
+
+HTB = DifficultyPreset(
+    name="htb",
+    description=(
+        "HTB Live: Zero restrictions. All commands, ports, and services available. "
+        "Full intelligent parsing. Real target — no simulated output."
+    ),
+    blocked_commands=frozenset(),     # NOTHING blocked
+    blocked_ports=frozenset(),         # NOTHING hidden
+    blocked_services=frozenset(),      # NOTHING masked
+    phase_threshold_multiplier=1.0,    # Normal progression
+    mentor_hint=(
+        "MODE: HTB LIVE — This is a REAL Hack The Box machine.\n"
+        "RULES:\n"
+        "  1) All commands are ALLOWED — no artificial restrictions\n"
+        "  2) Run nmap FIRST to discover real open ports and services\n"
+        "  3) Identify the attack surface from REAL scan results\n"
+        "  4) Look for CVEs, default credentials, misconfigurations\n"
+        "  5) Chain exploits: recon → foothold → privesc → flags\n"
+        "  6) User flag is typically in /home/<user>/user.txt\n"
+        "  7) Root flag is typically in /root/root.txt\n"
+        "CRITICAL: This is a real machine. Real output. Real shells.\n"
+        "Do NOT use simulated output patterns. Parse REAL command output."
+    ),
+)
+
 DIFFICULTY_PRESETS: Dict[str, DifficultyPreset] = {
     "normal": NORMAL,
     "medium": MEDIUM,
@@ -205,6 +234,7 @@ DIFFICULTY_PRESETS: Dict[str, DifficultyPreset] = {
     "ms3_medium": MS3_MEDIUM,
     "ms3_hard": MS3_HARD,
     "ms3_live": MS3_LIVE,
+    "htb": HTB,
 }
 
 

@@ -53,11 +53,11 @@ class FeatureFlags:
     tactical_cortex_gate: bool = field(
         default_factory=lambda: _env_bool("FF_TACTICAL_CORTEX_GATE", True))
     tactical_ppo_block: bool = field(
-        default_factory=lambda: _env_bool("FF_TACTICAL_PPO_BLOCK", False))
+        default_factory=lambda: _env_bool("FF_TACTICAL_PPO_BLOCK", True))
     executive_cortex: bool = field(
         default_factory=lambda: _env_bool("FF_EXECUTIVE_CORTEX", True))
     target_profiler_pipeline: bool = field(
-        default_factory=lambda: _env_bool("FF_TARGET_PROFILER_PIPELINE", False))
+        default_factory=lambda: _env_bool("FF_TARGET_PROFILER_PIPELINE", True))
     kr_enrichment: bool = field(
         default_factory=lambda: _env_bool("FF_KR_ENRICHMENT", True))
     kr_confidence_threshold: float = 0.3
@@ -72,42 +72,42 @@ class FeatureFlags:
 
     # ── Phase 9.7+: KG & LLM ───────────────────────────────────────
     kg_write: bool = field(
-        default_factory=lambda: _env_bool("FF_KG_WRITE", False))
+        default_factory=lambda: _env_bool("FF_KG_WRITE", True))
     llm_strategic_planner: bool = field(
-        default_factory=lambda: _env_bool("FF_LLM_STRATEGIC_PLANNER", False))
+        default_factory=lambda: _env_bool("FF_LLM_STRATEGIC_PLANNER", True))
     llm_tactical_advisor: bool = field(
-        default_factory=lambda: _env_bool("FF_LLM_TACTICAL_ADVISOR", False))
+        default_factory=lambda: _env_bool("FF_LLM_TACTICAL_ADVISOR", True))
     llm_judge_ranker: bool = field(
-        default_factory=lambda: _env_bool("FF_LLM_JUDGE_RANKER", False))
+        default_factory=lambda: _env_bool("FF_LLM_JUDGE_RANKER", True))
     llm_postmortem_skills: bool = field(
-        default_factory=lambda: _env_bool("FF_LLM_POSTMORTEM_SKILLS", False))
+        default_factory=lambda: _env_bool("FF_LLM_POSTMORTEM_SKILLS", True))
     dagger_corrections: bool = field(
-        default_factory=lambda: _env_bool("FF_DAGGER_CORRECTIONS", False))
+        default_factory=lambda: _env_bool("FF_DAGGER_CORRECTIONS", True))
     ingest_pipeline: bool = field(
-        default_factory=lambda: _env_bool("FF_INGEST_PIPELINE", False))
+        default_factory=lambda: _env_bool("FF_INGEST_PIPELINE", True))
 
     # ── Phase 10.1: Pre-HTB Capability Hardening ────────────────────
     privilege_gating: bool = field(
         default_factory=lambda: _env_bool("FF_PRIVILEGE_GATING", True))
     allow_sudo: bool = field(
-        default_factory=lambda: _env_bool("FF_ALLOW_SUDO", False))
+        default_factory=lambda: _env_bool("FF_ALLOW_SUDO", True))
     allow_live_install: bool = field(
-        default_factory=lambda: _env_bool("FF_ALLOW_LIVE_INSTALL", False))
-    sudo_mode: str = "prompt"  # "prompt" | "noninteractive"
+        default_factory=lambda: _env_bool("FF_ALLOW_LIVE_INSTALL", True))
+    sudo_mode: str = "noninteractive"  # Full autonomy
     wordlist_mutation: bool = field(
-        default_factory=lambda: _env_bool("FF_WORDLIST_MUTATION", False))
+        default_factory=lambda: _env_bool("FF_WORDLIST_MUTATION", True))
     port_knocking: bool = field(
-        default_factory=lambda: _env_bool("FF_PORT_KNOCKING", False))
+        default_factory=lambda: _env_bool("FF_PORT_KNOCKING", True))
     proxy_capture: bool = field(
-        default_factory=lambda: _env_bool("FF_PROXY_CAPTURE", False))
+        default_factory=lambda: _env_bool("FF_PROXY_CAPTURE", True))
     payload_encoding: bool = field(
-        default_factory=lambda: _env_bool("FF_PAYLOAD_ENCODING", False))
+        default_factory=lambda: _env_bool("FF_PAYLOAD_ENCODING", True))
 
     # ── Phase 11.0: Full Visibility & Step Discipline ───────────────
     parser_mode: str = field(
-        default_factory=lambda: os.environ.get("FF_PARSER_MODE", "fast"))
+        default_factory=lambda: os.environ.get("FF_PARSER_MODE", "intelligent_fullparse"))
     strict_phase_ladder: bool = field(
-        default_factory=lambda: _env_bool("FF_STRICT_PHASE_LADDER", False))
+        default_factory=lambda: _env_bool("FF_STRICT_PHASE_LADDER", True))  # Post-Phase 20: ON by default
     adaptive_budget: bool = field(
         default_factory=lambda: _env_bool("FF_ADAPTIVE_BUDGET", True))
     learning_signal_export: bool = field(
@@ -115,51 +115,63 @@ class FeatureFlags:
 
     # ── Phase 14.0: Autonomous Reasoning Architecture ───────────────
     evidence_graph: bool = field(
-        default_factory=lambda: _env_bool("FF_EVIDENCE_GRAPH", False))
+        default_factory=lambda: _env_bool("FF_EVIDENCE_GRAPH", True))
     hypothesis_engine: bool = field(
-        default_factory=lambda: _env_bool("FF_HYPOTHESIS_ENGINE", False))
+        default_factory=lambda: _env_bool("FF_HYPOTHESIS_ENGINE", True))
     strategy_plan: bool = field(
-        default_factory=lambda: _env_bool("FF_STRATEGY_PLAN", False))
+        default_factory=lambda: _env_bool("FF_STRATEGY_PLAN", True))
     autonomy_scheduler: bool = field(
-        default_factory=lambda: _env_bool("FF_AUTONOMY_SCHEDULER", False))
+        default_factory=lambda: _env_bool("FF_AUTONOMY_SCHEDULER", True))
     bc_loss: bool = field(
-        default_factory=lambda: _env_bool("FF_BC_LOSS", False))
+        default_factory=lambda: _env_bool("FF_BC_LOSS", True))
     teacher_trace: bool = field(
-        default_factory=lambda: _env_bool("FF_TEACHER_TRACE", False))
+        default_factory=lambda: _env_bool("FF_TEACHER_TRACE", True))
     aux_heads: bool = field(
-        default_factory=lambda: _env_bool("FF_AUX_HEADS", False))
+        default_factory=lambda: _env_bool("FF_AUX_HEADS", True))
     parser_teacher: bool = field(
-        default_factory=lambda: _env_bool("FF_PARSER_TEACHER", False))
+        default_factory=lambda: _env_bool("FF_PARSER_TEACHER", True))
     ms2_knowledge_pack: bool = field(
-        default_factory=lambda: _env_bool("FF_MS2_KNOWLEDGE_PACK", False))
+        default_factory=lambda: _env_bool("FF_MS2_KNOWLEDGE_PACK", True))
     ms3_knowledge_pack: bool = field(
-        default_factory=lambda: _env_bool("FF_MS3_KNOWLEDGE_PACK", False))
+        default_factory=lambda: _env_bool("FF_MS3_KNOWLEDGE_PACK", True))
     ms2_simulated_output: bool = field(
-        default_factory=lambda: _env_bool("FF_MS2_SIMULATED_OUTPUT", False))
+        default_factory=lambda: _env_bool("FF_MS2_SIMULATED_OUTPUT", True))
 
     # ── Phase 15.0: NEUROVORTEX — Biologically-Inspired Control ─────
     neuromodulators: bool = field(
-        default_factory=lambda: _env_bool("FF_NEUROMODULATORS", False))
+        default_factory=lambda: _env_bool("FF_NEUROMODULATORS", True))
     reflex_policy: bool = field(
-        default_factory=lambda: _env_bool("FF_REFLEX_POLICY", False))
+        default_factory=lambda: _env_bool("FF_REFLEX_POLICY", True))
     action_arbitrator: bool = field(
-        default_factory=lambda: _env_bool("FF_ACTION_ARBITRATOR", False))
+        default_factory=lambda: _env_bool("FF_ACTION_ARBITRATOR", True))
     working_memory: bool = field(
-        default_factory=lambda: _env_bool("FF_WORKING_MEMORY", False))
+        default_factory=lambda: _env_bool("FF_WORKING_MEMORY", True))
     consolidation: bool = field(
-        default_factory=lambda: _env_bool("FF_CONSOLIDATION", False))
+        default_factory=lambda: _env_bool("FF_CONSOLIDATION", True))
     aggression_controller: bool = field(
-        default_factory=lambda: _env_bool("FF_AGGRESSION_CONTROLLER", False))
+        default_factory=lambda: _env_bool("FF_AGGRESSION_CONTROLLER", True))
     semantic_index: bool = field(
-        default_factory=lambda: _env_bool("FF_SEMANTIC_INDEX", False))
+        default_factory=lambda: _env_bool("FF_SEMANTIC_INDEX", True))
     budget_manager_v2: bool = field(
-        default_factory=lambda: _env_bool("FF_BUDGET_MANAGER_V2", False))
+        default_factory=lambda: _env_bool("FF_BUDGET_MANAGER_V2", True))
     sensory_buffer: bool = field(
-        default_factory=lambda: _env_bool("FF_SENSORY_BUFFER", False))
+        default_factory=lambda: _env_bool("FF_SENSORY_BUFFER", True))
 
     # ── Phase 16.0: Progress Estimator ──────────────────────────────
     progress_estimator: bool = field(
-        default_factory=lambda: _env_bool("FF_PROGRESS_ESTIMATOR", False))
+        default_factory=lambda: _env_bool("FF_PROGRESS_ESTIMATOR", True))
+
+    # ── Phase 19.0: HTB Hardening & Intelligence ────────────────────
+    htb_auto_profile: bool = field(
+        default_factory=lambda: _env_bool("FF_HTB_AUTO_PROFILE", True))
+    phase19_regex: bool = field(
+        default_factory=lambda: _env_bool("FF_PHASE19_REGEX", True))
+    pcap_extraction: bool = field(
+        default_factory=lambda: _env_bool("FF_PCAP_EXTRACTION", True))
+    crushftp_templates: bool = field(
+        default_factory=lambda: _env_bool("FF_CRUSHFTP_TEMPLATES", True))
+    erlang_templates: bool = field(
+        default_factory=lambda: _env_bool("FF_ERLANG_TEMPLATES", True))
 
 
 # Global singleton
@@ -246,11 +258,25 @@ def resolve_profile() -> str:
         else:
             for flag in llm_flags:
                 setattr(_ff, flag, False)
-            # Phase 11.0: Non-cloud profiles stay in fast mode
+            # Post-Phase 20: Always intelligent_fullparse, all profiles
+            if not os.environ.get("FF_PARSER_MODE"):
+                _ff.parser_mode = "intelligent_fullparse"
             if profile == "DETERMINISTIC":
-                _ff.strict_phase_ladder = False
-                _ff.adaptive_budget = False
+            # Post-Phase 20: Keep strict_phase_ladder ON even in tests
+            # _ff.strict_phase_ladder = False  # Legacy: was disabled in tests
                 _ff.learning_signal_export = False
+
+        # Phase 19: Auto-switch to fullparse for HTB/live targets
+        # Even non-CLOUD profiles benefit from fullparse when parsing
+        # real tool output from live targets.
+        if not os.environ.get("FF_PARSER_MODE"):
+            _target = os.environ.get("ARIASKA_TARGET", "")
+            _env_type = os.environ.get("ARIASKA_ENV", "")
+            if (_target.startswith("10.10.10.") or
+                _target.startswith("10.10.11.") or
+                _env_type in ("htb", "live", "msf")):
+                _ff.parser_mode = "intelligent_fullparse"
+                logger.info("[P19] Auto-switched parser to intelligent_fullparse for live/HTB target")
 
     logger.info(f"[PROFILE] Resolved profile: {profile} "
                 f"(api_key={'yes' if has_api_key else 'no'}, "

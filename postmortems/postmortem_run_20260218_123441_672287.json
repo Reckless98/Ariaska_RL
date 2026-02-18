@@ -1,0 +1,138 @@
+{
+  "run_id": "run_20260218_123441_672287",
+  "timestamp": 1771414488.710913,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable foothold through initial reconnaissance using automated scanners",
+      "Captured environment data (reachable hosts/service banners) enabling targeted follow-on actions"
+    ],
+    "fails": [
+      "Failed to escalate privileges after obtaining service access, resulting in zero success rate for the episode",
+      "Over-relied on default exploit paths without verifying current patch levels, leading to unsuccessful payload deployment"
+    ],
+    "summary": "Reconnaissance and enumeration completed, but the operation stalled during privilege escalation and payload delivery, yielding no successful compromise."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation step consistently fails when attempting exploits against outdated Windows services without validating patch status",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_123441_672287_step_priv_esc_1",
+        "run_20260218_123441_672287_step_priv_esc_2"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_123441_672287_step_recon_ssh"
+      ],
+      "created_at": 1771414503.1391652,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB port 445 is detected on Windows hosts",
+      "then_action": "Invoke smb-enum-users + smb-enum-shares via enum4linux",
+      "parameters_template": {
+        "host": "$target",
+        "commands": [
+          "enum4linux -U $target",
+          "enum4linux -S $target"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_123441_672287_step_enum_smb"
+      ],
+      "created_at": 1771414503.139179,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When foothold established but escalation modules fail",
+      "then_action": "Collect system info via post exploitation, verify patch levels, and pivot to manual exploit selection",
+      "parameters_template": {
+        "modules": [
+          "post/windows/gather/enum_applications",
+          "post/windows/gather/enum_patches"
+        ]
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_123441_672287_step_post_exploit"
+      ],
+      "created_at": 1771414503.1391892,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent SMB enumeration leads to detailed target mapping"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Experiment 1 \u2013 Targeted Privilege Escalation",
+      "description": "Prioritize manual verification of patch levels after enumeration and apply tailored Windows privilege escalation modules (e.g., local exploits with matched CVE checks) rather than default chaining.",
+      "priority": "high"
+    },
+    {
+      "title": "Experiment 2 \u2013 Adaptive Payload Delivery",
+      "description": "Test staged payloads with low detection noise and verify compatibility before deployment, combining with post-exploitation enumeration to guide payload selection.",
+      "priority": "medium"
+    },
+    {
+      "title": "Experiment 3 \u2013 Hybrid Recon",
+      "description": "Mix automated scans with manual banner analysis to confirm service versions before selecting exploits, reducing misfires on patched targets.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

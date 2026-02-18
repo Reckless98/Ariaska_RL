@@ -333,7 +333,7 @@ class CheckpointManager:
         # 3. Skill library snapshot path (it saves itself to JSON)
         if orchestrator.skill_library:
             try:
-                orchestrator.skill_library.save()
+                orchestrator.skill_library._save_library()
                 full_state["skill_library_path"] = str(
                     getattr(orchestrator.skill_library, '_path', 'data/skill_library.json')
                 )

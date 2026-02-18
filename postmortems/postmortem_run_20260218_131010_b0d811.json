@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260218_131010_b0d811",
+  "timestamp": 1771416637.5021024,
+  "key_outcomes": {
+    "wins": [
+      "Captured service banner data during the initial scan, confirming target application versions",
+      "Maintained continuous situational awareness by logging every mentor call and ensuring recorded reward trends for post-mortem analysis"
+    ],
+    "fails": [
+      "Failed to progress past the initial foothold stage, resulting in 0% success rate despite repeated attempts",
+      "No pivot or lateral movement occurred, leaving the attack surface unexploited and limiting total reward to reconnaissance-level points"
+    ],
+    "summary": "Run focused on reconnaissance but stalled before exploitation, yielding valuable intel for refinement but no successful compromise."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to escalate privileges after initial banner enumeration",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260218_131010_b0d811_ep001_step12",
+        "run_20260218_131010_b0d811_ep001_step14",
+        "run_20260218_131010_b0d811_ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 is discovered open with HTTP response indicating application framework",
+      "then_action": "Run nikto scan followed by curl probing with specific headers to fingerprint version",
+      "parameters_template": {
+        "targets": [
+          "10.0.0.5"
+        ],
+        "ports": [
+          80,
+          443
+        ],
+        "tools": [
+          "nikto",
+          "curl"
+        ],
+        "curl_headers": [
+          "-H \"User-Agent: Mozilla/5.0\"",
+          "-H \"Accept: text/html\""
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_131010_b0d811_ep001_step03",
+        "run_20260218_131010_b0d811_ep001_step05"
+      ],
+      "created_at": 1771416647.8393762,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is open and default credentials may apply",
+      "then_action": "Attempt password spraying using sshpass with curated credential list",
+      "parameters_template": {
+        "tool": "sshpass",
+        "credential_list": [
+          "admin:admin",
+          "root:toor",
+          "user:password123"
+        ],
+        "port": 22,
+        "timeout": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_131010_b0d811_ep001_step07",
+        "run_20260218_131010_b0d811_ep001_step09"
+      ],
+      "created_at": 1771416647.8393989,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable enumeration success provides high-quality service banners for downstream exploits"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential-focused SSH exploitation",
+      "description": "Perform automated sshpass spraying followed by hydra brute force when port 22 allows login attempts, capturing success/lockout patterns",
+      "priority": "high"
+    },
+    {
+      "title": "HTTP application fuzzing",
+      "description": "Use wfuzz with target-specific parameter lists derived from nikto findings to discover hidden endpoints and potential injection points",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

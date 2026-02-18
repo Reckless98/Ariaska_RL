@@ -29,21 +29,27 @@ class TestFeatureFlagGating:
         reset_feature_flags()
         reset_role_cache()
 
-    def test_all_roles_off_by_default(self):
+    def test_all_roles_on_by_default(self):
+        """Post-Phase 20: All flags default ON for max intelligence."""
         ff = get_feature_flags()
-        assert ff.llm_strategic_planner is False
-        assert ff.llm_tactical_advisor is False
-        assert ff.llm_judge_ranker is False
-        assert ff.llm_postmortem_skills is False
-        assert ff.dagger_corrections is False
+        assert ff.llm_strategic_planner is True
+        assert ff.llm_tactical_advisor is True
+        assert ff.llm_judge_ranker is True
+        assert ff.llm_postmortem_skills is True
+        assert ff.dagger_corrections is True
 
     def test_get_role_returns_none_when_off(self):
         gpt = MagicMock()
+        # Explicitly turn off to test gating still works
+        for flag in ["llm_strategic_planner", "llm_tactical_advisor",
+                      "llm_judge_ranker", "llm_postmortem_skills", "dagger_corrections"]:
+            set_feature_flag(flag, False)
         for role in LLMRole:
             assert get_role(role, gpt) is None
 
     def test_get_role_returns_instance_when_on(self):
         gpt = MagicMock()
+        # Already ON by default, but be explicit
         set_feature_flag("llm_strategic_planner", True)
         planner = get_role(LLMRole.STRATEGIC_PLANNER, gpt)
         assert planner is not None
@@ -53,11 +59,11 @@ class TestFeatureFlagGating:
     def test_role_enabled_respects_flag_toggle(self):
         gpt = MagicMock()
         role = StrategicPlanner(gpt_manager=gpt)
+        assert role.enabled is True  # ON by default now
+        set_feature_flag("llm_strategic_planner", False)
         assert role.enabled is False
         set_feature_flag("llm_strategic_planner", True)
         assert role.enabled is True
-        set_feature_flag("llm_strategic_planner", False)
-        assert role.enabled is False
 
 
 class TestBudgetLimits:
@@ -101,7 +107,8 @@ class TestStrategicPlanner:
         reset_feature_flags()
 
     def test_generate_plan_disabled(self):
-        reset_feature_flags()  # All OFF
+        reset_feature_flags()
+        set_feature_flag("llm_strategic_planner", False)  # Explicitly disable
         gpt = MagicMock()
         planner = StrategicPlanner(gpt_manager=gpt)
         result = planner.generate_plan("10.0.0.1", "ms2", ["ssh", "ftp"])
@@ -202,6 +209,7 @@ class TestGetStats:
 
     def test_stats_structure(self):
         gpt = MagicMock()
+        set_feature_flag("llm_tactical_advisor", False)  # Explicitly disable for test
         advisor = TacticalAdvisor(gpt_manager=gpt)
         stats = advisor.get_stats()
         assert stats["role"] == "tactical_advisor"

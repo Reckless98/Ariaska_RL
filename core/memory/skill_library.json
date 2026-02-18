@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "last_updated": 1771372702.284411,
-  "skill_count": 324,
+  "last_updated": 1771414214.4661467,
+  "skill_count": 333,
   "skills": {
     "skill_001": {
       "id": "skill_001",
@@ -274,17 +274,18 @@
     },
     "skill_recon_ssh": {
       "id": "skill_recon_ssh",
-      "if_condition": "When port 22 is open and SSH banner retrieved",
-      "then_action": "Execute targeted SSH enumeration using specialized nmap scripts to gather user accounts and authentication mechanisms.",
+      "if_condition": "When initial nmap scan shows TCP 22 open with an SSH banner",
+      "then_action": "Run nmap --script sshv1,ssh-auth-methods -p 22 and capture results for logged-in account enumeration",
       "parameters_template": {
-        "port": 22,
-        "script": "ssh-auth-methods,ssh-hostkey"
+        "nmap_flags": "--script sshv1,ssh-auth-methods",
+        "port": 22
       },
-      "confidence": 0.72,
+      "confidence": 0.78,
       "evidence_refs": [
-        "run_20260210_220615_1140bc_step4"
+        "run_20260218_094641_eaa8ea_ep001_step05",
+        "run_20260218_094641_eaa8ea_ep001_step12"
       ],
-      "created_at": 1770757593.6935894,
+      "created_at": 1771404428.186372,
       "usage_count": 0,
       "success_rate": 0.0,
       "preconditions": {},
@@ -2387,21 +2388,21 @@
     },
     "skill_web_recon": {
       "id": "skill_web_recon",
-      "if_condition": "When HTTP/HTTPS service responds on any port",
-      "then_action": "Launch gobuster scan and input validation tests to reveal hidden directories",
+      "if_condition": "When a web service responds with directory listings or server headers",
+      "then_action": "Launch gobuster with wordlist + take baseline Burp request to identify reusable paths",
       "parameters_template": {
-        "ports": [
-          80,
-          443
-        ],
-        "wordlist": "common.txt"
+        "wordlist": "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
       },
-      "confidence": 0.74,
+      "confidence": 0.81,
       "evidence_refs": [
-        "ep001_step09",
-        "ep001_step11"
+        "ep001_step08",
+        "ep001_step09"
       ],
-      "created_at": 1771203032.3613832,
+      "created_at": 1771407000.9394326,
       "usage_count": 0,
       "success_rate": 0.0,
       "preconditions": {},
@@ -7209,6 +7210,240 @@
         "run_20260217_221558_0fedac_ep1_step05"
       ],
       "created_at": 1771362993.012938,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_ssh_enumeration": {
+      "id": "skill_ssh_enumeration",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771404069.5735347,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_web_scan": {
+      "id": "skill_web_scan",
+      "if_condition": "When HTTP service responds with banner indicating Apache or nginx",
+      "then_action": "Launch gobuster/dirbuster with wordlist for subdirectory discovery",
+      "parameters_template": {
+        "target_url": "http://{{ip}}",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771404069.5735445,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "htb_soulmate_foothold": {
+      "id": "htb_soulmate_foothold",
+      "if_condition": "Target matches HTB Soulmate (linux/easy) pattern",
+      "then_action": "CVE-2025-31161 CrushFTP auth bypass \u2192 FTP upload \u2192 RCE",
+      "parameters_template": {},
+      "confidence": 0.87,
+      "evidence_refs": [
+        "htb_soulmate"
+      ],
+      "created_at": 1771405413.5572107,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "htb_soulmate_privesc": {
+      "id": "htb_soulmate_privesc",
+      "if_condition": "User shell on linux matching HTB Soulmate",
+      "then_action": "Erlang/OTP SSH RCE via port forward \u2192 root",
+      "parameters_template": {},
+      "confidence": 0.85,
+      "evidence_refs": [
+        "htb_soulmate"
+      ],
+      "created_at": 1771405413.563486,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_service_enum": {
+      "id": "skill_service_enum",
+      "if_condition": "When HTTP service responds with unique headers",
+      "then_action": "Launch targeted directory brute-force using ffuf",
+      "parameters_template": {
+        "url": "http://{{target}}/FUZZ",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "threads": 40
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step11"
+      ],
+      "created_at": 1771406797.1582212,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_http_lab": {
+      "id": "skill_http_lab",
+      "if_condition": "When HTTP service returns outdated Apache/nginx banner",
+      "then_action": "Launch nikto scan focused on script vulnerabilities and outdated headers before running Metasploit auxiliary",
+      "parameters_template": {
+        "target": "%%TARGET_IP%%",
+        "port": 80,
+        "tool": "nikto",
+        "options": "-h %%TARGET_IP%% -port 80 -Format txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step09"
+      ],
+      "created_at": 1771410331.7039685,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_ssh_scan": {
+      "id": "skill_ssh_scan",
+      "if_condition": "When SSH port 22 is open and banner indicates OpenSSH 8.x",
+      "then_action": "Run targeted SSH enumeration using nmap ssh-* scripts and capture key exchange",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-publickey",
+        "timeout": "60s"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771413037.3487425,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_http_fingerprint": {
+      "id": "skill_http_fingerprint",
+      "if_condition": "When HTTP service returns a 200 response with predictable headers",
+      "then_action": "Invoke curl + ffuf to enumerate endpoints, then cross-check with CMS-specific OSINT",
+      "parameters_template": {
+        "curl_args": [
+          "-I",
+          "http://{target}"
+        ],
+        "ffuf_args": [
+          "-u",
+          "http://{target}/FUZZ",
+          "-w",
+          "/usr/share/wordlists/common.txt"
+        ]
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771413201.3982162,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_recon_document": {
+      "id": "skill_recon_document",
+      "if_condition": "After completing network host scan",
+      "then_action": "Update knowledge base with open ports, services, OS versions, and identified vulnerabilities",
+      "parameters_template": {
+        "format": "csv",
+        "fields": [
+          "ip",
+          "port",
+          "service",
+          "cvss"
+        ]
+      },
+      "confidence": 0.9,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06"
+      ],
+      "created_at": 1771414214.4656591,
       "usage_count": 0,
       "success_rate": 0.0,
       "preconditions": {},

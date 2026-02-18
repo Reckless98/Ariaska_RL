@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260218_110419_31636d",
+  "timestamp": 1771409081.8153598,
+  "key_outcomes": {
+    "wins": [
+      "Identified initial foothold vector via exposed HTTP admin interface (evidence: ep001_step04).",
+      "Captured service banners for later fingerprinting (evidence: ep001_step06)."
+    ],
+    "fails": [
+      "Unable to escalate privileges after initial access due to missing writable directories (evidence: ep001_step12).",
+      "Command execution attempts failed when running post-exploitation scripts because of strict execution policies (evidence: ep001_step14)."
+    ],
+    "summary": "Run achieved strong reconnaissance but failed to capitalize on foothold, resulting in zero overall success despite solid service enumeration."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Post-exploitation scripts unable to run because agent lacks permissions and target enforces strict execution policies.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner indicates OpenSSH.",
+      "then_action": "Run targeted SSH enumeration with Nmap scripting engine.",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771409097.9884348,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_http_recon",
+      "if_condition": "When HTTP admin interface responds with status 200 and accessible endpoints.",
+      "then_action": "Enumerate hidden endpoints using Gobuster and capture responses.",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/common.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step05"
+      ],
+      "created_at": 1771409097.9884486,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_banner_capture",
+      "if_condition": "When new service detected during scan.",
+      "then_action": "Capture service banners with Nmap -sV and log results for correlation.",
+      "parameters_template": {
+        "scan_flags": "-sV",
+        "output": "service_banners.xml"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771409097.9884574,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "High relevance for reconnaissance and repeated success capturing SSH metadata."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_http_recon",
+      "skill_card_id": "skill_http_recon",
+      "reason": "Consistently identifies admin endpoints that provide foothold opportunities."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege escalation via scheduled tasks",
+      "description": "Enumerate scheduled tasks and services for writable configuration files and attempt DLL hijack or service abuse aligned with strict execution policies.",
+      "priority": "high"
+    },
+    {
+      "title": "Script execution bypass",
+      "description": "Use custom PowerShell scripts signed with self-generated certificate to bypass execution policy and execute post-exploitation payloads.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential harvesting from HTTP admin interface",
+      "description": "Submit default credential combos against exposed HTTP interface while capturing responses to inform future brute-force attempts.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

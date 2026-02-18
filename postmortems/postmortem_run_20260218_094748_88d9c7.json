@@ -1,0 +1,152 @@
+{
+  "run_id": "run_20260218_094748_88d9c7",
+  "timestamp": 1771404476.3303282,
+  "key_outcomes": {
+    "wins": [
+      "Completed structured reconnaissance covering initial host discovery and service enumeration within first 5 steps",
+      "Captured consistent vulnerability data for the web-facing service set, enabling focused later attempts",
+      "Maintained session persistence long enough to gather configuration artifacts before each reset"
+    ],
+    "fails": [
+      "Unable to translate reconnaissance data into a successful exploitation chain, resulting in 0% success rate",
+      "Repeated authentication failures against the SMB service despite identifying valid usernames in telemetry",
+      "Exploitation phase timed out before privilege escalation could be attempted, leaving final payload delivery pending"
+    ],
+    "summary": "Reconnaissance efforts are solid, but execution falters during exploitation and post-exploitation, preventing end-to-end success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "SSH brute force attempts repeatedly failed due to account lockouts and lack of adaptive password strategy",
+      "frequency": 4,
+      "evidence_refs": [
+        "run_20260218_094748_step08",
+        "run_20260218_094748_step12"
+      ]
+    },
+    {
+      "pattern": "SMB share enumeration succeeded yet exploitation attempts stalled because no writable upload path was found",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260218_094748_step15",
+        "run_20260218_094748_step16"
+      ]
+    },
+    {
+      "pattern": "Post-exploitation modules aborted after service detection due to missing secondary payload staging",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_094748_step19",
+        "run_20260218_094748_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_094748_step05",
+        "run_20260218_094748_step07"
+      ],
+      "created_at": 1771404494.6449003,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB service responds with anonymous access allowed",
+      "then_action": "Enumerate shares with smbclient and test for writable directories",
+      "parameters_template": {
+        "command": "smbclient -N -L //target",
+        "test_path": "\\\\target\\public"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_094748_step11"
+      ],
+      "created_at": 1771404494.6449132,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP service exposes a predictable admin interface",
+      "then_action": "Use dirbuster wordlists to enumerate admin endpoints before brute forcing credentials",
+      "parameters_template": {
+        "url": "http://target/admin",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_094748_step14"
+      ],
+      "created_at": 1771404494.6449227,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in identifying usable SSH metadata during reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reliable share enumeration leading to insights on writable targets"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured SSH credential spraying",
+      "description": "Combine the identified username list with a constrained password set, include account lockout avoidance, and pivot from successful nmap ssh-auth-methods results",
+      "priority": "high"
+    },
+    {
+      "title": "SMB writable share exploitation",
+      "description": "Leverage the writable \\public share discovered to deploy a minimal payload, then chain into post-exploitation modules for privilege escalation",
+      "priority": "medium"
+    },
+    {
+      "title": "Admin portal fuzzing before credential attacks",
+      "description": "Use dirbuster enumeration results to map hidden admin endpoints and then target those with tailored credential spraying to avoid detection",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

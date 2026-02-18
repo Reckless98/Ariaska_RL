@@ -318,6 +318,13 @@ class ParserBroker:
             if flat_discoveries:
                 self._stats["stage1_hits"] += 1
 
+        # Phase 19: Ultra-smart regex patterns for CrushFTP, Erlang, PCAP, vhost
+        if not flat_discoveries:
+            flat_discoveries = self._phase19_regex_extract(command, output)
+            if flat_discoveries:
+                self._stats["stage1_hits"] += 1
+                source_stage = "regex_p19"
+
         events = DiscoveryEvent.from_flat_discoveries(
             discoveries=flat_discoveries,
             source_stage=source_stage,
@@ -327,38 +334,90 @@ class ParserBroker:
         self._stats["total_events"] += len(events)
         return events
 
+    def _phase19_regex_extract(
+        self,
+        command: str,
+        output: str,
+    ) -> Dict[str, Any]:
+        """Phase 19: Ultra-smart regex extraction for CrushFTP, Erlang, PCAP, vhost patterns."""
+        import re
+        discoveries: Dict[str, Any] = {}
+        output_lower = output.lower()
+
+        # CrushFTP auth bypass / user list
+        if "getuserlist" in output_lower or "crushftp" in output_lower:
+            usernames = re.findall(r'<username>(\w+)</username>', output)
+            if usernames:
+                discoveries["credential"] = True
+                discoveries.setdefault("users", []).extend(usernames)
+            if "cve-2025-31161" in output_lower or "auth bypass" in output_lower:
+                discoveries["vulnerability"] = True
+                discoveries.setdefault("cve", []).append("CVE-2025-31161")
+
+        # Erlang cookie extraction
+        cookie_match = re.search(r'erlang.*cookie.*?:\s*(\S+)', output, re.IGNORECASE)
+        if cookie_match:
+            discoveries["credential"] = True
+
+        # Erlang OTP RCE
+        if "erlang/otp" in output_lower and "uid=0(root)" in output:
+            discoveries["root_shell"] = True
+            discoveries["shell"] = True
+
+        # tshark/PCAP FTP credentials (tab-separated USER/PASS)
+        ftp_users = re.findall(r'USER\s+(\S+)', output)
+        ftp_passes = re.findall(r'PASS\s+(\S+)', output)
+        if ftp_users and ftp_passes:
+            for u in ftp_users:
+                if u.lower() not in ("anonymous", "ftp", "guest"):
+                    discoveries["credential"] = True
+                    break
+
+        # vhost discovery
+        vhost_matches = re.findall(r'Found:\s+(\S+\.(?:htb|local|internal))\s', output)
+        if vhost_matches:
+            discoveries.setdefault("web_paths", []).extend(vhost_matches)
+
+        # Generic credential pattern (Phase 19 enhanced)
+        for match in re.finditer(r'credential:\s*(\S+):(\S+)', output):
+            discoveries["credential"] = True
+
+        # Flag patterns
+        flag_match = re.search(r'FLAG\{[^}]+\}', output)
+        if flag_match:
+            discoveries["flag"] = True
+
+        # CVE patterns (universal)
+        for cve_match in re.finditer(r'(CVE-\d{4}-\d+)', output):
+            discoveries["vulnerability"] = True
+            discoveries.setdefault("cve", []).append(cve_match.group(1))
+
+        return discoveries
+
     def _parse_fullparse(
         self,
         command: str,
         output: str,
         agent_name: str,
     ) -> List[DiscoveryEvent]:
-        """Intelligent fullparse: 4-stage cascade with LLM enrichment."""
+        """Phase 22: GPT-only intelligent fullparse.
+        
+        GPT-5.2-codex is the PRIMARY and ONLY interpreter. No regex pre-stages,
+        no Venice. The LLM reads the raw output, reasons about what it contains,
+        teaches the agent WHY certain patterns indicate discoveries, and
+        extracts structured findings with full reasoning chains.
+        
+        This maximises interpretation quality at the cost of one GPT call per step.
+        Regex fallback only fires if GPT is exhausted or offline.
+        """
         flat_discoveries = {}
-        source_stage = "regex"
+        source_stage = "gpt_codex"
 
-        # ── Stage 1+2: SmartOutputParser (regex + nano-LLM) ───────
-        if self._sop:
-            flat_discoveries = self._sop.parse(
-                command=command,
-                output=output,
-                agent_name=agent_name,
-            )
-            if flat_discoveries:
-                sop_stats = self._sop.get_stats()
-                if sop_stats.get("llm_discoveries", 0) > 0:
-                    source_stage = "sop_llm"
-                    self._stats["stage2_hits"] += 1
-                else:
-                    source_stage = "regex"
-                    self._stats["stage1_hits"] += 1
-
-        # ── Stage 3: LLM Interpreter (Venice qwen3-coder → gpt-5.2-mini) ──
-        # Phase 11.3: Replaces hardcoded Venice rationaliser with
-        # LLM-driven interpreter that teaches agents to reason about output
+        # ── PRIMARY: GPT-5.2-codex LLM interpreter (full reasoning) ──
+        # Goes straight to GPT for maximum intelligence. Teaches agents
+        # how it parsed what and why via InterpretationLessons.
         if (
-            not flat_discoveries
-            and self._llm_interpreter
+            self._llm_interpreter
             and self._llm_interpreter.can_interpret()
             and len(output.strip()) > 30
         ):
@@ -369,44 +428,47 @@ class ParserBroker:
             )
             if lesson and lesson.discoveries:
                 flat_discoveries = lesson.discoveries
-                source_stage = "llm_interpreter"  # Venice qwen3-coder or gpt-5.2-mini
+                source_stage = "gpt_codex"
                 self._stats["stage3_hits"] += 1
                 self._stats["lessons_produced"] += 1
                 self._last_lesson = lesson
                 logger.debug(
-                    f"[BROKER-S3] LLM interpreter ({lesson.provider}/{lesson.model_used}) "
-                    f"found: {list(flat_discoveries.keys())} for {agent_name}"
+                    f"[BROKER-GPT] gpt-5.2-codex | {agent_name} | "
+                    f"found: {list(flat_discoveries.keys())} | "
+                    f"{lesson.latency_ms:.0f}ms"
                 )
 
-        # ── Stage 3 Legacy Fallback: Venice rationaliser ──────────
-        # Only fires if LLM interpreter is unavailable
-        if (
-            not flat_discoveries
-            and not self._llm_interpreter
-            and self._enable_venice
-            and self._venice_calls < self._max_venice_calls
-            and len(output.strip()) > 30
-        ):
-            venice_discoveries = self._venice_rationalise(command, output)
-            if venice_discoveries:
-                flat_discoveries = venice_discoveries
-                source_stage = "venice"
-                self._stats["stage3_hits"] += 1
-                self._venice_calls += 1
+        # ── FALLBACK: Regex only if GPT exhausted/offline ──
+        if not flat_discoveries:
+            # Stage 1+2: SmartOutputParser (regex + nano-LLM)
+            if self._sop:
+                flat_discoveries = self._sop.parse(
+                    command=command,
+                    output=output,
+                    agent_name=agent_name,
+                )
+                if flat_discoveries:
+                    source_stage = "regex_fallback"
+                    self._stats["stage1_hits"] += 1
 
-        # ── Stage 4: GPT finaliser (last resort) ─────────────────
-        if (
-            not flat_discoveries
-            and self._enable_gpt
-            and self._llm_calls < self._max_llm_calls
-            and len(output.strip()) > 50
-        ):
-            gpt_discoveries = self._gpt_finalise(command, output, agent_name)
-            if gpt_discoveries:
-                flat_discoveries = gpt_discoveries
-                source_stage = "gpt_finaliser"
-                self._stats["stage4_hits"] += 1
-                self._llm_calls += 1
+            # Phase 19: Ultra-smart regex extraction
+            if not flat_discoveries:
+                flat_discoveries = self._phase19_regex_extract(command, output)
+                if flat_discoveries:
+                    source_stage = "regex_p19_fallback"
+                    self._stats["stage1_hits"] += 1
+
+        # # ── Venice stages COMMENTED OUT — Phase 22 GPT-only mode ──
+        # # Venice was adding 5-7s latency per call with 6000ms ping.
+        # # All interpretation now handled by GPT-5.2-codex.
+        # if (
+        #     not flat_discoveries
+        #     and self._enable_venice
+        #     and self._venice_calls < self._max_venice_calls
+        #     and len(output.strip()) > 30
+        # ):
+        #     venice_discoveries = self._venice_rationalise(command, output)
+        #     ...
 
         # Convert to DiscoveryEvents
         events = DiscoveryEvent.from_flat_discoveries(

@@ -1,0 +1,150 @@
+{
+  "run_id": "run_20260218_093913_1fb3ec",
+  "timestamp": 1771403960.2185185,
+  "key_outcomes": {
+    "wins": [
+      "Documented full surface mapping of accessible subnets and captured initial service banners before escalation attempts",
+      "Maintained persistent connectivity with the training lab despite repeated network resets, enabling consistent data collection"
+    ],
+    "fails": [
+      "Failed to achieve mission objective \u2014 exploitation chain never completed after 10 mentor calls and no successful payload delivery",
+      "Repeated remediation attempts were required because privilege escalation steps did not progress past locked-down services"
+    ],
+    "summary": "Reconnaissance was thorough, but the team repeatedly stalled during lateral movement and never completed exploitation; focus now should shift to aggressive service enumeration and prioritized access paths."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Every exploitation attempt stalled immediately after initial port scan, indicating pivoting efforts never reached a vulnerable service",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step06",
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner reveals OpenSSH",
+      "then_action": "Run SSH enumeration with targeted nmap scripts to grab version details and supported ciphers",
+      "parameters_template": {
+        "scanner": "nmap",
+        "ports": "22",
+        "scripts": [
+          "ssh-hostkey",
+          "ssh-auth-methods",
+          "sshv1"
+        ]
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step07"
+      ],
+      "created_at": 1771403979.4597816,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP port responds with multi-stage redirect chains",
+      "then_action": "Pipe requests through Burp\u2019s intruder to trace headers and look for weak session identifiers",
+      "parameters_template": {
+        "tool": "Burp Intruder",
+        "mode": "Sniper",
+        "payload_positions": [
+          "Cookie",
+          "Authorization"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step11"
+      ],
+      "created_at": 1771403979.4597995,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential reuse is suspected after initial recon",
+      "then_action": "Use CrackMapExec to test common AD credentials across found hosts",
+      "parameters_template": {
+        "tool": "crackmapexec",
+        "protocol": "smb",
+        "userlist": "common_creds.txt",
+        "ip_range": "10.0.0.0/24"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step16"
+      ],
+      "created_at": 1771403979.4598095,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Repeatedly surfaced new data during HTTP analysis"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "HTTP session fixation probing",
+      "description": "Craft chained requests targeting HTTP endpoints uncovered during recon to identify weak session controls, then attempt cookie reuse for privilege escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "SMB credential spraying with rotated accounts",
+      "description": "Apply CrackMapExec across discovered hosts with a curated credential set while capturing failed login patterns, aiming to find an exploitable account before further lateral movement.",
+      "priority": "medium"
+    },
+    {
+      "title": "Aggressive SSH tunneling follow-up",
+      "description": "After running SSH enumeration, attempt to manually brute-force weak ciphers and escalate to interactive shell with sourced credentials to validate access path.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

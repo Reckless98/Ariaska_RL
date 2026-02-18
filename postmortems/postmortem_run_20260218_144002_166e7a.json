@@ -1,0 +1,129 @@
+{
+  "run_id": "run_20260218_144002_166e7a",
+  "timestamp": 1771422006.897772,
+  "key_outcomes": {
+    "wins": [
+      "Sustained positive reward (77.5) despite zero episode success, indicating partial progress in intermediate tasks",
+      "High mentor utilization (15 calls) suggests active guidance and learning opportunities"
+    ],
+    "fails": [
+      "0.00% success rate indicates no end-to-end objective completion",
+      "Single episode limits generalization and trend analysis"
+    ],
+    "summary": "The run achieved moderate reward but failed to complete the full objective; guidance was used heavily, suggesting partial task execution without full chain completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Incomplete kill-chain progression from reconnaissance to exploitation and post-exploitation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is reachable and initial scan is required",
+      "then_action": "Run fast TCP port discovery with nmap",
+      "parameters_template": {
+        "target": "<ip>",
+        "flags": "-Pn -sS --top-ports 1000 -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771422020.652981,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on port 80/443",
+      "then_action": "Enumerate web directories and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "url": "http://<ip>",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "flags": "-x php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771422020.6529906,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (port 22) is open",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*",
+        "flags": "-sV"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771422020.6529965,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step that enables downstream enumeration and targeting"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Full-chain completion focus",
+      "description": "Prioritize a complete recon\u2192enum\u2192exploit\u2192post-exploit chain on a single target, explicitly documenting decision points between stages.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Limit mentor calls to critical blockers only and enforce a self-driven decision log to improve autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific exploitation drills",
+      "description": "For each open port discovered, run one targeted exploitation attempt using a known technique or validated PoC.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

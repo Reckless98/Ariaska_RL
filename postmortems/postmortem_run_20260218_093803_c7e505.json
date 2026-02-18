@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260218_093803_c7e505",
+  "timestamp": 1771403909.0127296,
+  "key_outcomes": {
+    "wins": [
+      "Collected consistent reconnaissance metrics across target network segments, feeding into reliable environment mapping for future runs",
+      "Maintained steady reward score despite zero success rate, indicating controlled experimentation without catastrophic detours"
+    ],
+    "fails": [
+      "Failed to translate reconnaissance data into actionable exploitation, as evidenced by zero success rate",
+      "Multiple mentor interventions (15 calls) suggest difficulties in progressing past initial discovery phase"
+    ],
+    "summary": "Run prioritized controlled reconnaissance but lacked follow-through to exploitation, resulting in zero successful completions despite stable reward."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Recognition of open services without subsequent exploitation attempts",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 80/443 is identified with HTTP service from reconnaissance",
+      "then_action": "Run targeted directory enumeration followed by automated vulnerability scan",
+      "parameters_template": {
+        "tool": "gobuster",
+        "options": {
+          "url": "http://<target>",
+          "wordlist": "/usr/share/wordlists/common.txt",
+          "extensions": "php,html,txt"
+        }
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step11"
+      ],
+      "created_at": 1771403924.6749382,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is confirmed open after nmap discovery",
+      "then_action": "Run ssh enumeration scripts with nmap and attempt weak credential list",
+      "parameters_template": {
+        "tool": "nmap",
+        "options": {
+          "p": "22",
+          "script": "ssh-auth-methods,ssh2-enum-algos"
+        }
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step14"
+      ],
+      "created_at": 1771403924.6749477,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB shares enumerated using discovery tools",
+      "then_action": "Enumerate SMB with smbclient and attempt credential reuse",
+      "parameters_template": {
+        "commands": [
+          "smbclient -L //<target> -N",
+          "smbclient //target/share -U user%pass"
+        ]
+      },
+      "confidence": 0.61,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step16"
+      ],
+      "created_at": 1771403924.6749537,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success confidence in HTTP enumeration that sets stage for exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Validate exploit pathways after recon",
+      "description": "From successful HTTP and SMB reconnaissance data, attempt specific exploitation (e.g., CVE-2020-1337 for SMB, CVE-2021-41773 for HTTP path traversal) to verify end-to-end workflow",
+      "priority": "high"
+    },
+    {
+      "title": "Automate transition from discovery to exploitation",
+      "description": "Implement scripted handoff: once open services detected, trigger associated skill card orchestrations (gobuster -> Nessus scanning, smbclient -> credential spray), reducing reliance on manual mentor intervention",
+      "priority": "medium"
+    },
+    {
+      "title": "Reduce mentor calls by improving decision heuristics",
+      "description": "Refine policy for selecting next action after reconnaissance completes, prioritizing exploitation heuristics with explicit thresholds to decrease mentor reliance",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

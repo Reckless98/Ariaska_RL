@@ -1,70 +1,76 @@
 {
   "run_id": "phase5_ep0000",
-  "timestamp": 1771343247.044698,
+  "timestamp": 1771415366.8345401,
   "key_outcomes": {
     "wins": [
-      "Achieved 100% success rate across the run",
-      "High total reward (2715.42) indicating effective policy execution",
-      "No mentor calls required, suggesting autonomous performance"
+      "Completed a full episode without mentor assistance"
     ],
-    "fails": [],
-    "summary": "Single-episode run completed successfully with strong reward and no assistance required."
+    "fails": [
+      "No successful episodes (0% success rate)",
+      "Lack of observable successful tactics to generalize"
+    ],
+    "summary": "Single-episode run achieved high reward but no task success; insufficient evidence of effective, repeatable tactics."
   },
-  "repeated_failure_patterns": [],
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert high reward signals into task success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep0000_end"
+      ]
+    }
+  ],
   "skill_cards": [
     {
       "id": "skill_001",
-      "if_condition": "When a target host responds to initial discovery",
-      "then_action": "Perform full TCP port scan with service detection",
+      "if_condition": "When initial reconnaissance is completed and open ports are identified",
+      "then_action": "Prioritize service enumeration on top 3 ports by running targeted nmap scripts",
       "parameters_template": {
-        "scan": "full_tcp",
-        "service_detection": true
+        "top_n": 3,
+        "nmap_args": "-sV --script default"
       },
-      "confidence": 0.78,
+      "confidence": 0.55,
       "evidence_refs": [
-        "phase5_ep0000_step_discovery"
+        "ep0000_step1"
       ],
-      "created_at": 1771343258.8708904,
+      "created_at": 1771415377.6566577,
       "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     },
     {
       "id": "skill_002",
-      "if_condition": "When HTTP/HTTPS service is detected",
-      "then_action": "Enumerate web tech stack and common paths",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Perform web fingerprinting and directory discovery",
       "parameters_template": {
         "tools": [
           "whatweb",
-          "dirsearch"
+          "gobuster"
         ],
-        "wordlist": "common"
+        "wordlist": "common.txt"
       },
-      "confidence": 0.74,
+      "confidence": 0.52,
       "evidence_refs": [
-        "phase5_ep0000_step_webenum"
+        "ep0000_step2"
       ],
-      "created_at": 1771343258.871111,
+      "created_at": 1771415377.6566708,
       "usage_count": 0,
-      "success_rate": 0.0
-    },
-    {
-      "id": "skill_003",
-      "if_condition": "When a vulnerable service version is identified",
-      "then_action": "Search for known exploits and validate safely",
-      "parameters_template": {
-        "sources": [
-          "cve",
-          "exploitdb"
-        ],
-        "validation": "non-invasive"
-      },
-      "confidence": 0.7,
-      "evidence_refs": [
-        "phase5_ep0000_step_vulntriage"
-      ],
-      "created_at": 1771343258.871145,
-      "usage_count": 0,
-      "success_rate": 0.0
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
     }
   ],
   "memory_ops": [
@@ -72,29 +78,23 @@
       "operation": "promote",
       "target": "skill_001",
       "skill_card_id": "skill_001",
-      "reason": "Baseline discovery-to-port-scan flow contributed to successful episode."
-    },
-    {
-      "operation": "promote",
-      "target": "skill_002",
-      "skill_card_id": "skill_002",
-      "reason": "Web enumeration is a high-yield next step after service detection."
+      "reason": "Core reconnaissance sequencing likely required despite lack of success"
     }
   ],
   "next_experiments": [
     {
-      "title": "Multi-episode stability check",
-      "description": "Run 5\u201310 episodes to confirm reward consistency and identify hidden failure modes.",
+      "title": "Improve recon-to-exploit transition",
+      "description": "After enumeration, attempt at least one targeted exploit path per detected service using version-specific checks.",
       "priority": "high"
     },
     {
-      "title": "Adaptive service-specific enumeration",
-      "description": "Branch enumeration paths based on detected services (e.g., SMB, FTP, SSH) and measure reward impact.",
+      "title": "Add structured web testing",
+      "description": "If HTTP is present, run standardized web checks: tech fingerprinting, dir brute-force, and basic vuln scans.",
       "priority": "high"
     },
     {
-      "title": "Exploit validation guardrails",
-      "description": "Add a lightweight validation step before exploit attempts to reduce false positives.",
+      "title": "Instrument episode logging",
+      "description": "Capture step-level actions and outcomes to identify which phases yield reward without success.",
       "priority": "medium"
     }
   ],

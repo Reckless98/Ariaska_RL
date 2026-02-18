@@ -33,7 +33,7 @@ def _make_coach(agent_name="TestAgent"):
     from core.training.smart_coach import SmartCoach
     return SmartCoach(
         agent_name=agent_name,
-        gpt_manager=gpt,
+        gpt_manager=gpt,  # type: ignore[arg-type]
         model="test-model",
     )
 
@@ -64,6 +64,8 @@ class TestP15Telemetry:
         from core.telemetry.p15_telemetry import collect_agent_snapshot
         coach = _make_coach()
         # Push something into working memory
+        assert coach._p15_working_memory is not None
+        assert coach._p15_semantic_index is not None
         coach._p15_working_memory.push("test", "content")
         coach._p15_semantic_index.add("nmap -sV")
         snap = collect_agent_snapshot(coach)
@@ -170,8 +172,14 @@ class TestCallCacheCrossEpisode:
 class TestFinalCAPContract:
     """Final CAP: flags OFF = zero behavior change."""
 
-    def test_all_p15_none_flags_off(self):
-        """Every P15 component is None when all flags are OFF."""
+    def test_all_p15_none_flags_off(self, monkeypatch):
+        """P15 components are None when explicitly turned OFF."""
+        for flag in [
+            "FF_NEUROMODULATORS", "FF_REFLEX_POLICY", "FF_ACTION_ARBITRATOR",
+            "FF_WORKING_MEMORY", "FF_CONSOLIDATION", "FF_AGGRESSION_CONTROLLER",
+            "FF_SEMANTIC_INDEX", "FF_SENSORY_BUFFER",
+        ]:
+            monkeypatch.setenv(flag, "0")
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_neuromod_engine is None
@@ -185,22 +193,19 @@ class TestFinalCAPContract:
         assert coach._p15_working_memory is None
         assert coach._p15_consolidation_engine is None
         assert coach._p15_semantic_index is None
+        _reset_flags()
 
-    def test_gpt_manager_no_bm2_flags_off(self):
-        """GPTManager has no budget manager when flags OFF."""
+    def test_gpt_manager_no_bm2_flags_off(self, monkeypatch):
+        """GPTManager has no budget manager when flag explicitly OFF."""
+        monkeypatch.setenv("FF_BUDGET_MANAGER_V2", "0")
         _reset_flags()
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True)
         assert gpt._budget_manager_v2 is None
+        _reset_flags()
 
-    def test_all_flags_on_coach_init(self, monkeypatch):
-        """All P15 flags ON: coach initializes all components without crash."""
-        for flag in [
-            "FF_NEUROMODULATORS", "FF_REFLEX_POLICY", "FF_ACTION_ARBITRATOR",
-            "FF_WORKING_MEMORY", "FF_CONSOLIDATION", "FF_AGGRESSION_CONTROLLER",
-            "FF_SEMANTIC_INDEX", "FF_SENSORY_BUFFER",
-        ]:
-            monkeypatch.setenv(flag, "1")
+    def test_all_flags_on_coach_init(self):
+        """Post-Phase 20: All P15 flags default ON, coach initializes all components."""
         _reset_flags()
         coach = _make_coach()
         assert coach._p15_neuromod_engine is not None
@@ -214,17 +219,13 @@ class TestFinalCAPContract:
         assert coach._p15_initialized is True
         _reset_flags()
 
-    def test_reset_episode_all_flags_no_crash(self, monkeypatch):
-        """reset_episode with all flags ON doesn't crash."""
-        for flag in [
-            "FF_NEUROMODULATORS", "FF_REFLEX_POLICY", "FF_ACTION_ARBITRATOR",
-            "FF_WORKING_MEMORY", "FF_CONSOLIDATION", "FF_AGGRESSION_CONTROLLER",
-            "FF_SEMANTIC_INDEX", "FF_SENSORY_BUFFER",
-        ]:
-            monkeypatch.setenv(flag, "1")
+    def test_reset_episode_all_flags_no_crash(self):
+        """Post-Phase 20: reset_episode with all flags ON (default) doesn't crash."""
         _reset_flags()
         coach = _make_coach()
         # Push some state into components
+        assert coach._p15_working_memory is not None
+        assert coach._p15_semantic_index is not None
         coach._p15_working_memory.push("k", "v")
         coach._p15_semantic_index.add("test")
         coach._p15_consolidation_samples = [1, 2, 3]

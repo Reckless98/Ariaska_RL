@@ -2921,7 +2921,7 @@ class SmartCoach:
             # discovers paths like /data, we MUST explore them immediately (curl + IDOR)
             # before the playbook chain continues with unrelated steps.
             result = web_followup
-            logger.info(
+            logger.debug(
                 f"[WEB_FOLLOWUP][{self.agent_name}] Fired: {web_followup.command[:80]}"
             )
         elif playbook_result is not None:
@@ -3032,12 +3032,13 @@ class SmartCoach:
             # Red/Orion get TRIPLED rates for exploit reasoning learning
             _is_key_agent = self.agent_name in ("RedAgent", "OrionAgent")
             if _is_key_agent:
-                # Phase 18: Moderate PPO autonomy — 1.0 → 0.50 over 100 episodes
-                # PPO must eventually own decisions to learn real exploitation.
-                base_mentor_rate = max(0.50, min(1.0, 1.00 - self.current_episode * 0.005))
+                # Phase 19: PPO early exploration — start at 0.70 not 1.0
+                # Gives PPO 30% autonomous decisions from episode 1.
+                # Decay: 0.70 → 0.40 over 150 episodes (slower, more stable)
+                base_mentor_rate = max(0.40, min(0.70, 0.70 - self.current_episode * 0.002))
             else:
-                # Phase 18: Non-key agents — 1.0 → 0.35 over ~80 episodes
-                base_mentor_rate = max(0.35, min(1.0, 1.00 - self.current_episode * 0.008))
+                # Phase 19: Non-key agents — start at 0.65 → 0.25 over ~80 episodes
+                base_mentor_rate = max(0.25, min(0.65, 0.65 - self.current_episode * 0.005))
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -3053,8 +3054,8 @@ class SmartCoach:
             # Phase 11.5: Confidence-gated dynamic floor/ceiling (+50%)
             # When PPO is confident (high ppo_confidence_boost) → tighten mentor bounds
             # When PPO is unsure (low ppo_confidence_boost) → widen bounds for reasoning
-            _dynamic_floor = 0.35 if not _is_key_agent else 0.50  # Phase 18: Let PPO lead
-            _dynamic_ceiling = 0.95 if not _is_key_agent else 1.0
+            _dynamic_floor = 0.25 if not _is_key_agent else 0.40  # Phase 19: PPO leads earlier
+            _dynamic_ceiling = 0.85 if not _is_key_agent else 0.70
             if ppo_confidence_boost > 0.06:
                 # PPO is confident — reduce mentor floor to save tokens
                 _dynamic_floor *= max(0.6, 1.0 - ppo_confidence_boost * 3)
@@ -3373,20 +3374,12 @@ class SmartCoach:
                     logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
 
         # =========================================================================
-        # PHASE 6.6: DIFFICULTY GATE — Block commands banned by current preset
+        # PHASE 6.6: DIFFICULTY GATE — REMOVED (Post-Phase 20)
+        # All commands unrestricted. Zero difficulty gating. Max intelligence.
         # =========================================================================
-        if self.difficulty_preset is not None and result.template_name:
-            if result.template_name in self.difficulty_preset.blocked_commands:
-                logger.info(
-                    f"[{self.agent_name}] DIFFICULTY-BLOCKED: '{result.template_name}' "
-                    f"banned in {self.difficulty_preset.name} mode"
-                )
-                # Replace with alternative from same phase
-                alt = self._get_difficulty_alternative(step_ctx)
-                if alt is not None:
-                    result = alt
-                    result.source = "difficulty_gate"
-                    result.reasoning = f"Difficulty {self.difficulty_preset.name}: {result.template_name} blocked → alternative"
+        # if self.difficulty_preset is not None and result.template_name:
+        #     if result.template_name in self.difficulty_preset.blocked_commands:
+        #         ...
         
         # =========================================================================
         # R52: UNIFIED PHASE-STUCK ESCALATION SHORTCUT (replaces R49/R50/R51)
@@ -5218,25 +5211,63 @@ class SmartCoach:
     }
 
     # =====================================================================
-    # PHASE 11.0: STRICT PHASE LADDER GATE
+    # PHASE 23: SMART PHASE LADDER — DISCOVERY-DRIVEN, NOT STEP-COUNTED
     # =====================================================================
-
-    # Minimum steps per phase before advancement is allowed
-    PHASE_LADDER_MIN_STEPS = {
-        "RECON": 3,
-        "ENUMERATION": 3,
-        "EXPLOITATION": 2,
-        "PRIVILEGE_ESCALATION": 2,
-        "LATERAL_MOVEMENT": 1,
-        "POST_EXPLOITATION": 1,
-        "EXFILTRATION": 1,
-        "CLOSEOUT": 1,
+    # Instead of hardcoded step minimums, phase advancement is gated by
+    # what the agents have actually discovered. The GPT parser drives
+    # discoveries into the discovery board, and the phase ladder checks
+    # whether enough evidence exists to advance. This is self-learning:
+    # as GPT teaches patterns and agents improve, they find things faster
+    # and advance phases naturally.
+    
+    PHASE_READINESS_CRITERIA = {
+        "RECON": {
+            "description": "Need ports and at least one service identified",
+            "check": lambda board: (
+                len(board.get("ports", set())) >= 2
+                and len(board.get("services", set())) >= 1
+            ),
+        },
+        "ENUMERATION": {
+            "description": "Need detailed service info or web paths discovered",
+            "check": lambda board: (
+                len(board.get("services", set())) >= 2
+                or len(board.get("web_paths", set())) >= 1
+                or len(board.get("vulns", set())) >= 1
+            ),
+        },
+        "EXPLOITATION": {
+            "description": "Need credentials, vulnerabilities, or shells",
+            "check": lambda board: (
+                len(board.get("credentials", set())) >= 1
+                or len(board.get("vulns", set())) >= 1
+                or len(board.get("shells", set())) >= 1
+            ),
+        },
+        "PRIVILEGE_ESCALATION": {
+            "description": "Need an active shell or confirmed credential access",
+            "check": lambda board: (
+                len(board.get("shells", set())) >= 1
+                or len(board.get("credentials", set())) >= 1
+            ),
+        },
+        # Later phases advance freely once we have shells/access
+        "LATERAL_MOVEMENT": {"description": "Shell access sufficient", "check": lambda board: True},
+        "POST_EXPLOITATION": {"description": "Shell access sufficient", "check": lambda board: True},
+        "EXFILTRATION": {"description": "Shell access sufficient", "check": lambda board: True},
+        "CLOSEOUT": {"description": "Always allowed", "check": lambda board: True},
     }
 
     def _phase_ladder_gate(self, step_ctx: "SmartStepContext") -> str:
         """
-        Phase ladder enforcement. Tracks steps per phase and returns a
-        teaching point if the agent hasn't met the minimum step requirement.
+        Phase 23: Smart phase ladder enforcement using discovery board.
+        
+        Instead of counting steps, checks whether the discovery board has
+        enough evidence to justify being in the current phase. If not,
+        clamps back to the appropriate phase.
+        
+        The GPT parser drives discoveries → discovery board gates phases.
+        As agents learn better patterns, they advance faster naturally.
 
         Returns:
             Teaching point string, or empty string if no gate triggered.
@@ -5251,30 +5282,48 @@ class SmartCoach:
             return ""
 
         phase_name = ctx.current_phase.name
+        
+        # Get the discovery board from step context
+        discovery_board = getattr(step_ctx, 'discovery_board', None)
+        if discovery_board is None:
+            discovery_board = {}
 
-        # Initialize step tracking per phase if needed
-        if not hasattr(self, '_phase_step_counts'):
-            self._phase_step_counts: Dict[str, int] = {}
-        if not hasattr(self, '_phase_ladder_last_phase'):
-            self._phase_ladder_last_phase: str = ""
-
-        # Detect phase change
-        if phase_name != self._phase_ladder_last_phase:
-            self._phase_ladder_last_phase = phase_name
-
-        # Increment step count for current phase
-        self._phase_step_counts[phase_name] = self._phase_step_counts.get(phase_name, 0) + 1
-
-        # Check if minimum met
-        min_steps = self.PHASE_LADDER_MIN_STEPS.get(phase_name, 1)
-        current_steps = self._phase_step_counts.get(phase_name, 0)
-
-        if current_steps < min_steps:
-            teaching = (
-                f"Phase {phase_name}: step {current_steps}/{min_steps} minimum. "
-                f"Complete {min_steps - current_steps} more steps before advancing."
+        # Check if ALL prerequisite phases have sufficient discoveries
+        from core.commands.command_registry import AttackPhase
+        PHASE_ORDER = [
+            "RECON", "ENUMERATION", "EXPLOITATION", "PRIVILEGE_ESCALATION",
+            "LATERAL_MOVEMENT", "POST_EXPLOITATION", "EXFILTRATION", "CLOSEOUT",
+        ]
+        current_idx = PHASE_ORDER.index(phase_name) if phase_name in PHASE_ORDER else 0
+        
+        # Check earlier phases for readiness
+        for earlier_phase in PHASE_ORDER[:current_idx]:
+            criteria = self.PHASE_READINESS_CRITERIA.get(earlier_phase, {})
+            check_fn = criteria.get("check", lambda b: True)
+            description = criteria.get("description", "")
+            
+            if not check_fn(discovery_board):
+                # Not ready — clamp back to the unfinished phase
+                try:
+                    clamped = AttackPhase[earlier_phase]
+                    ctx.current_phase = clamped
+                    teaching = (
+                        f"SMART LADDER: {phase_name} → {earlier_phase} "
+                        f"(reason: {description})"
+                    )
+                    return teaching
+                except (KeyError, ValueError):
+                    pass
+        
+        # Check current phase readiness too — advisory teaching
+        criteria = self.PHASE_READINESS_CRITERIA.get(phase_name, {})
+        check_fn = criteria.get("check", lambda b: True)
+        if not check_fn(discovery_board):
+            description = criteria.get("description", "")
+            return (
+                f"Phase {phase_name}: not yet ready to advance. "
+                f"Need: {description}"
             )
-            return teaching
 
         return ""
 
@@ -5536,7 +5585,7 @@ class SmartCoach:
             # Third: extract links from IDOR-successful pages (find download URLs)
             if path_clean not in self._explored_web_path_html:
                 self._explored_web_path_html.add(path_clean)
-                logger.warning(
+                logger.debug(
                     f"[WEB_FOLLOWUP][{self.agent_name}] Phase3: extracting links from /{path_clean}/0"
                 )
                 cmd = (
@@ -5563,7 +5612,7 @@ class SmartCoach:
             # Tries /download/N (common webapp pattern), then /path/N/download.
             if path_clean not in self._explored_web_path_downloads:
                 self._explored_web_path_downloads.add(path_clean)
-                logger.warning(
+                logger.debug(
                     f"[WEB_FOLLOWUP][{self.agent_name}] Phase4: downloading from /download/0-3"
                 )
                 cmd = (

@@ -42,7 +42,7 @@ from rich.layout import Layout
 from rich import box
 
 # Force Rich terminal rendering — ensures full Rich UI even if accidentally piped
-console = Console(force_terminal=True, width=140)
+console = Console(force_terminal=True)
 
 # ─── Sparkline characters ────────────────────────────────────────────────────
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
@@ -84,6 +84,18 @@ SOURCE_STYLES = {
     "sil": ("💎", "bright_green"),
     "ddqn": ("🎲", "bright_cyan"),
     "cognition": ("🧠", "bright_white"),
+    "gpt_codex": ("🧠", "bright_green"),
+    "gpt_primary": ("🧠", "bright_green"),
+    "arbitrator_ppo": ("🤖", "green"),
+    "arbitrato": ("🤖", "green"),
+    "regex_fallback": ("🔍", "dim"),
+    "regex_p19": ("🔍", "dim"),
+    "web_followup": ("🌐", "bright_cyan"),
+    "web_follo": ("🌐", "bright_cyan"),
+    "cred_reuse": ("🔑", "bright_yellow"),
+    "cred_reus": ("🔑", "bright_yellow"),
+    "followup_queue": ("📋", "bright_yellow"),
+    "followup_": ("📋", "bright_yellow"),
     "fallback": ("⚡", "dim"),
     "unknown": ("❓", "dim"),
 }
@@ -92,8 +104,7 @@ SOURCE_STYLES = {
 ALGO_ICONS = {
     "PPO": ("🤖", "green", "Proximal Policy Optimization"),
     "DDQN": ("🎲", "cyan", "Double DQN Macro-Actions"),
-    "CognitionNode": ("🧠", "bright_white", "Cognitive Architecture"),
-    "SIL": ("💎", "bright_green", "Self-Imitation Learning"),
+    "SIL": ("💎", "bright_green", "Self-Imitation Learning (PPO integrated)"),
     "RND": ("🔮", "magenta", "Random Network Distillation"),
     "SAC": ("🌊", "blue", "Soft Actor-Critic"),
 }
@@ -173,9 +184,9 @@ class DashboardConfig:
     mode: str = "live"  # "off", "summary", "live"
     watch_rate: float = 1.0
     trend_window: int = 20
-    max_action_width: int = 80
-    max_output_lines: int = 3
-    max_output_width: int = 80
+    max_action_width: int = 0  # 0 = no limit
+    max_output_lines: int = 0  # 0 = no limit
+    max_output_width: int = 0  # 0 = no limit
     show_guidance: bool = True
     show_reward_breakdown: bool = True
     show_discoveries: bool = True
@@ -284,7 +295,7 @@ class LiveDashboard:
         self.decision_source_history: List[Dict[str, int]] = []  # per-episode source counts
         self.discovery_board_snapshot: Dict[str, set] = {}
         self.algo_active: Dict[str, bool] = {  # which algorithms are active
-            "PPO": False, "DDQN": False, "CognitionNode": False,
+            "PPO": False, "DDQN": False,
             "SIL": False, "RND": False, "SAC": False,
         }
         self.training_config: Dict[str, Any] = {}  # stored at training start
@@ -444,14 +455,23 @@ class LiveDashboard:
         # Left: Training Configuration
         config_lines = []
         config_lines.append(f"[bold cyan]Target:[/bold cyan]      {target or config.get('target', '?')}")
-        config_lines.append(f"[bold cyan]Episodes:[/bold cyan]    {config.get('episodes', '?')}")
-        config_lines.append(f"[bold cyan]Steps/Ep:[/bold cyan]    {config.get('steps_per_episode', 40)}")
-        config_lines.append(f"[bold cyan]Seed:[/bold cyan]        {config.get('seed', '?')}")
-        config_lines.append(f"[bold cyan]Environment:[/bold cyan] {config.get('env', 'simulation')}")
-        config_lines.append(f"[bold cyan]Difficulty:[/bold cyan]  {config.get('difficulty', 'medium')}")
-        config_lines.append(f"[bold cyan]Mode:[/bold cyan]        {'[bold green]LIVE[/bold green]' if config.get('live', False) else '[yellow]SIMULATION[/yellow]'}")
+        config_lines.append(f"[bold cyan]Mode:[/bold cyan]        [bold bright_green]CONTINUOUS LIVE[/bold bright_green]")
+        config_lines.append(f"[bold cyan]Max Steps:[/bold cyan]   {config.get('steps_per_episode', 500)}")
+        auto_close = config.get('auto_close', '')
+        if auto_close:
+            _ac_style = "bright_green" if "CTF" in auto_close else "yellow"
+            config_lines.append(f"[bold cyan]Auto-Close:[/bold cyan]  [{_ac_style}]{auto_close}[/{_ac_style}]")
         if config.get('mentor_budget'):
             config_lines.append(f"[bold cyan]Mentor:[/bold cyan]      {config.get('mentor_budget')}% budget")
+        # Phase 23: GPT model info
+        if config.get('gpt_primary'):
+            config_lines.append(f"[bold cyan]GPT Model:[/bold cyan]   [bright_green]{config['gpt_primary']}[/bright_green]")
+        if config.get('gpt_nano') and config.get('gpt_nano') != config.get('gpt_primary'):
+            config_lines.append(f"[bold cyan]GPT Nano:[/bold cyan]    [dim]{config['gpt_nano']}[/dim]")
+        if config.get('gpt_postmortem') and config.get('gpt_postmortem') != config.get('gpt_primary'):
+            config_lines.append(f"[bold cyan]GPT Post:[/bold cyan]    [dim]{config['gpt_postmortem']}[/dim]")
+        if config.get('gpt_token_limit'):
+            config_lines.append(f"[bold cyan]Token Lim:[/bold cyan]   {config['gpt_token_limit']:,}/episode")
         config_panel = Panel(
             "\n".join(config_lines),
             title="[bold]⚙️  Configuration[/bold]",
@@ -488,7 +508,7 @@ class LiveDashboard:
         algo_configs = {
             "PPO": "clip=0.2, γ=0.99, λ=0.97, lr=3e-4→1e-5",
             "DDQN": "macro-actions, ε-greedy, target network",
-            "CognitionNode": "multi-brain arbitration (PPO/SAC/DDQN)",
+
             "SIL": "500-entry golden buffer, top-K replay",
             "RND": "intrinsic motivation, novelty bonus",
             "SAC": "entropy-regularized, dual Q-networks",
@@ -506,6 +526,28 @@ class LiveDashboard:
             )
 
         console.print(algo_table)
+
+        # ── GPT MODEL ROUTING ────────────────────────────────────────
+        gpt_lines = []
+        _gpt_primary = config.get('gpt_primary', '?')
+        _gpt_nano = config.get('gpt_nano', '?')
+        _gpt_post = config.get('gpt_postmortem', '?')
+        _tok_lim = config.get('gpt_token_limit', 0)
+        gpt_lines.append(f"[bright_green]🧠 Primary:[/bright_green]    {_gpt_primary}")
+        if _gpt_nano != _gpt_primary:
+            gpt_lines.append(f"[dim]⚡ Nano:[/dim]       {_gpt_nano}")
+        if _gpt_post != _gpt_primary:
+            gpt_lines.append(f"[dim]📊 Postmortem:[/dim] {_gpt_post}")
+        if _tok_lim:
+            gpt_lines.append(f"[cyan]📏 Budget:[/cyan]     {_tok_lim:,} tokens/episode")
+        gpt_lines.append(f"[cyan]💳 Tracking:[/cyan]   Per-call prompt/response visibility")
+        if gpt_lines:
+            console.print(Panel(
+                "\n".join(gpt_lines),
+                title="[bold]🤖  GPT Intelligence Layer[/bold]",
+                border_style="bright_green",
+                padding=(0, 2),
+            ))
 
         # ── DECISION PIPELINE ────────────────────────────────────────
         pipeline = (
@@ -738,12 +780,19 @@ class LiveDashboard:
         lines = []
 
         if discovery_board:
-            # Snapshot for trending
-            self.discovery_board_snapshot = {
-                k: set(v) if isinstance(v, (set, list)) else v
-                for k, v in discovery_board.items()
-                if k != "phase"
-            }
+            # Snapshot for trending (skip internal keys and unhashable types)
+            self.discovery_board_snapshot = {}
+            for k, v in discovery_board.items():
+                if k.startswith("_") or k == "phase":
+                    continue
+                if isinstance(v, (set, list)):
+                    # Only convert to set if all items are hashable
+                    try:
+                        self.discovery_board_snapshot[k] = set(v)
+                    except TypeError:
+                        self.discovery_board_snapshot[k] = list(v)
+                else:
+                    self.discovery_board_snapshot[k] = v
 
             DISC_ICONS = {
                 "ports": ("🔓", "cyan"),
@@ -762,8 +811,11 @@ class LiveDashboard:
                     count = len(items)
                     if count > 0:
                         # Show items (up to 6)
-                        item_strs = [str(i)[:20] for i in sorted(items) if str(i)][:6]
-                        suffix = f" (+{count - 6})" if count > 6 else ""
+                        try:
+                            item_strs = [str(i) for i in sorted(items) if str(i)]
+                        except TypeError:
+                            item_strs = [str(i) for i in items if str(i)]
+                        suffix = ""
                         lines.append(
                             f"  {icon} [{color}]{key:<12}[/{color}] "
                             f"[bold]{count:3d}[/bold]  "
@@ -850,6 +902,8 @@ class LiveDashboard:
         budget_snapshot: Optional[Dict[str, Any]] = None,
         parse_explanations: Optional[List[Dict[str, Any]]] = None,
         phase_state: Optional[Dict[str, Any]] = None,
+        # Phase 23: GPT call visibility
+        gpt_activity: Optional[Dict[str, Any]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -880,36 +934,51 @@ class LiveDashboard:
         mentor_str = f"📡 {self.episode_mentor_calls_total}" if self.episode_mentor_calls_total else ""
         done_tag = " [bold green]✅ DONE[/bold green]" if done else ""
 
+        # Phase 23: GPT cost in header
+        gpt_cost_str = ""
+        if gpt_activity:
+            _cum = gpt_activity.get("cumulative_cost_usd", 0.0)
+            if _cum > 0:
+                _cost_clr = "red" if _cum > 1.0 else "yellow" if _cum > 0.25 else "green"
+                gpt_cost_str = f" │ [{_cost_clr}]💳${_cum:.3f}[/{_cost_clr}]"
+
         # ── STEP HEADER ──────────────────────────────────────────────
         console.print(
-            f"\n[dim]{'┄' * 3}[/dim] "
-            f"[bold cyan]Step {step + 1:2d}[/bold cyan] │ "
+            f"\n[bold bright_white on blue]{'═' * 90}[/bold bright_white on blue]"
+        )
+        console.print(
+            f"[bold bright_white on blue]  ▶ Step {step + 1:2d}[/bold bright_white on blue] │ "
             f"[cyan]{ep_str}[/cyan] │ "
             f"[bold yellow]{mode_tag}[/bold yellow] │ "
             f"{phase_icon} [bold]{phase_upper}[/bold] │ "
             f"[bold {reward_color}]R:{global_reward:+.1f}[/bold {reward_color}] │ "
             f"[dim]{mentor_str}[/dim] │ "
-            f"[dim]{step_spark}[/dim]{done_tag}"
+            f"[dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}"
         )
 
         # ── AGENT TABLE ──────────────────────────────────────────────
+        # Dynamic width: no fixed widths, expand=True lets Rich auto-size
+        # based on terminal width and content.
         table = Table(
-            box=box.SIMPLE_HEAVY, show_header=True,
-            header_style="bold", padding=(0, 1), expand=True,
+            box=box.HEAVY_EDGE, show_header=True,
+            header_style="bold white on dark_blue", padding=(0, 1),
+            expand=True, show_lines=True,
         )
-        table.add_column("Agent", style="bold", width=14)
-        table.add_column("Source", width=14)
-        table.add_column("Command", width=36, no_wrap=True, overflow="ellipsis")
-        table.add_column("Output / Disc", width=54, no_wrap=True, overflow="ellipsis")
-        table.add_column("Reward", width=8, justify="right")
+        table.add_column("Agent", style="bold", ratio=1, no_wrap=True)
+        table.add_column("Source", ratio=1, no_wrap=True)
+        table.add_column("Command", ratio=3, no_wrap=False, overflow="fold")
+        table.add_column("Reward", ratio=1, justify="right", no_wrap=True)
 
-        # Active agents
+        # Active agents — each gets a row in the summary table,
+        # then a full verbose output+discovery panel below
         active = [a for a in agent_infos if not a.skipped]
+        _verbose_panels = []  # Collect panels for after the table
+
         for a in active:
             icon, _role, style = AGENT_ICONS.get(
                 a.agent_name, ("🤖", "Agent", "dim")
             )
-            # Better source key matching — try full name, truncated, and prefix
+            # Better source key matching
             src_raw = a.source or "unknown"
             src_key = src_raw[:8]
             src_icon, src_style = SOURCE_STYLES.get(
@@ -922,55 +991,86 @@ class LiveDashboard:
             )
 
             agent_label = f"{icon} {a.agent_name.replace('Agent', '')}"
-            source_label = f"{src_icon}{src_raw[:11]}"
+            source_label = f"{src_icon}{src_raw}"
             if a.mentor_call:
                 source_label += " 📡"
 
-            cmd = (a.command or "(none)")[:34]
-
-            # Output: flatten to single line, truncate
-            out = ""
-            if a.command_output:
-                out = a.command_output.strip().replace("\n", " │ ")[:40]
+            cmd = a.command or "(none)"
 
             # Reward display
             if a.reward > 0:
-                r_str = f"[green]{a.reward:+.1f}[/green]"
+                r_str = f"[bold green]{a.reward:+.1f}[/bold green]"
             elif a.reward < 0:
-                r_str = f"[red]{a.reward:+.1f}[/red]"
+                r_str = f"[bold red]{a.reward:+.1f}[/bold red]"
             else:
-                r_str = "[dim]-[/dim]"
-
-            # Discoveries
-            disc = ""
-            if a.discoveries:
-                parts = []
-                for dtype, items in a.discoveries.items():
-                    if items and isinstance(items, (list, set, tuple)):
-                        parts.append(
-                            f"{dtype}:{','.join(str(i) for i in list(items)[:3])}"
-                        )
-                    elif items and isinstance(items, str):
-                        parts.append(f"{dtype}:{items}")
-                disc = "; ".join(parts)[:30] if parts else ""
-
-            # Merged Output / Discoveries cell
-            if out and disc:
-                out_disc = f"[dim]{out}[/dim] [green]» {disc}[/green]"
-            elif disc:
-                out_disc = f"[green]{disc}[/green]"
-            elif out:
-                out_disc = f"[dim]{out}[/dim]"
-            else:
-                out_disc = "[dim]-[/dim]"
+                r_str = "[dim]+0.0[/dim]"
 
             table.add_row(
                 f"[{style}]{agent_label}[/{style}]",
                 f"[{src_style}]{source_label}[/{src_style}]",
                 f"[white]{cmd}[/white]",
-                out_disc,
                 r_str,
             )
+
+            # ── Build verbose output + discoveries panel per agent ──
+            panel_parts = []
+
+            # Full command output — multi-line, no truncation
+            if a.command_output and a.command_output.strip():
+                _out_lines = a.command_output.strip().split("\n")
+                # Show ALL lines (investor demo = full verbosity)
+                _out_text = "\n".join(_out_lines)
+                panel_parts.append(f"[bold white]📋 Output:[/bold white]")
+                panel_parts.append(f"[dim]{_out_text}[/dim]")
+            else:
+                panel_parts.append("[dim]📋 Output: (no output)[/dim]")
+
+            # Mentor reasoning if present
+            if a.mentor_reasoning:
+                panel_parts.append(f"")
+                panel_parts.append(f"[bright_yellow]💬 Mentor:[/bright_yellow] {a.mentor_reasoning}")
+
+            # Discoveries — HIGHLIGHTED and verbose, ALL items shown
+            if a.discoveries:
+                panel_parts.append(f"")
+                _disc_icon_map = {
+                    "open_port": "🔓", "service": "⚙️", "credential": "🔑",
+                    "version": "📌", "vulnerability": "💀", "shell": "💀",
+                    "user": "👤", "web_path": "🌐", "hostname": "🏷️",
+                    "os": "💻", "technology": "🔧", "flag": "🚩",
+                }
+                for dtype, items in a.discoveries.items():
+                    _di = _disc_icon_map.get(dtype, "🟢")
+                    if items and isinstance(items, (list, set, tuple)):
+                        _item_list = list(items)
+                        for _item in _item_list:
+                            panel_parts.append(
+                                f"  [bold bright_green]{_di} {dtype.upper()}:[/bold bright_green] "
+                                f"[bold white on dark_green] {_item} [/bold white on dark_green]"
+                            )
+                    elif items and isinstance(items, str):
+                        panel_parts.append(
+                            f"  [bold bright_green]{_di} {dtype.upper()}:[/bold bright_green] "
+                            f"[bold white on dark_green] {items} [/bold white on dark_green]"
+                        )
+
+            # Confidence
+            _conf = a.confidence
+            _conf_style = "bold green" if _conf >= 0.7 else "yellow" if _conf >= 0.4 else "red"
+            panel_parts.append(f"")
+            panel_parts.append(
+                f"[dim]Confidence:[/dim] [{_conf_style}]{_conf:.0%}[/{_conf_style}] │ "
+                f"[dim]Tokens:[/dim] {a.tokens_used}"
+            )
+
+            _panel_border = "bright_green" if a.discoveries else ("cyan" if a.reward > 0 else "dim")
+            _verbose_panels.append(Panel(
+                "\n".join(panel_parts),
+                title=f"[bold]{icon} {a.agent_name}[/bold]",
+                border_style=_panel_border,
+                expand=True,
+                padding=(0, 1),
+            ))
 
         # Skipped agents
         for name, reason in skipped_agents.items():
@@ -979,53 +1079,80 @@ class LiveDashboard:
                 f"[dim]{icon} {name.replace('Agent', '')}[/dim]",
                 "[dim]💤 skip[/dim]",
                 f"[dim]{reason}[/dim]",
-                "", "",
+                "",
             )
 
         console.print(table)
 
-        # ── FOOTER: Discovery board + Reward breakdown ───────────────
-        footer = []
+        # ── Per-agent verbose panels (output + discoveries) ──────────
+        for _vp in _verbose_panels:
+            console.print(_vp)
+
+        # ── DISCOVERY BOARD — Full highlighted panel ─────────────────
         if discovery_board and self.config.show_discoveries:
             db = discovery_board
-            for key, icon_s in [("ports", "🔓"), ("services", "⚙️"),
-                                ("credentials", "🔑"), ("shells", "💀")]:
+            _db_parts = []
+            _db_icon_map = {
+                "ports": ("🔓", "bright_cyan", "PORTS"),
+                "services": ("⚙️", "bright_green", "SERVICES"),
+                "credentials": ("🔑", "bold bright_yellow", "CREDENTIALS"),
+                "vulns": ("💀", "bold red", "VULNS"),
+                "shells": ("💀", "bold bright_red", "SHELLS"),
+                "users": ("👤", "bright_magenta", "USERS"),
+                "web_paths": ("🌐", "bright_blue", "WEB PATHS"),
+            }
+            for key, (icon_s, style_s, label) in _db_icon_map.items():
                 items = db.get(key, set())
                 if items:
-                    footer.append(f"{icon_s} {len(items)} {key[:5]}")
+                    if isinstance(items, (set, list)):
+                        _items_str = ", ".join(str(i) for i in sorted(items, key=str))
+                    else:
+                        _items_str = str(items)
+                    _db_parts.append(
+                        f"  [{style_s}]{icon_s} {label} ({len(items)}):[/{style_s}] {_items_str}"
+                    )
+            if _db_parts:
+                console.print(Panel(
+                    "\n".join(_db_parts),
+                    title="[bold bright_green]🗺️  Discovery Board[/bold bright_green]",
+                    border_style="bright_green",
+                    expand=True,
+                    padding=(0, 1),
+                ))
 
+        # ── REWARD BREAKDOWN ─────────────────────────────────────────
         if reward_breakdown and self.config.show_reward_breakdown:
             rb = reward_breakdown
             rp = []
             if rb.get("base", 0):
                 rp.append(f"base:{rb['base']:+.1f}")
             if rb.get("novelty_bonus", 0):
-                rp.append(f"[green]+nov:{rb['novelty_bonus']:+.1f}[/green]")
+                rp.append(f"[bold green]+novelty:{rb['novelty_bonus']:+.1f}[/bold green]")
             if rb.get("redundancy_penalty", 0):
-                rp.append(f"[red]rep:{rb['redundancy_penalty']:+.1f}[/red]")
+                rp.append(f"[bold red]repeat:{rb['redundancy_penalty']:+.1f}[/bold red]")
             if rb.get("phase_bonus", 0):
-                rp.append(f"[cyan]phase:{rb['phase_bonus']:+.1f}[/cyan]")
+                rp.append(f"[bold cyan]phase:{rb['phase_bonus']:+.1f}[/bold cyan]")
             if rp:
-                footer.append(f"💰 {' '.join(rp)}")
+                console.print(f"  💰 [bold]Reward:[/bold] {' │ '.join(rp)}")
 
-        if footer:
-            console.print(f"  [dim]{' │ '.join(footer)}[/dim]")
-
-        # ── PARSER STAGE VISIBILITY (Phase 10.3) ─────────────────────
+        # ── PARSER STAGE VISIBILITY (Phase 23: GPT-Primary) ────────────
         if parser_stats:
             total = parser_stats.get("total_calls", 0)
             if total > 0:
                 parts = [f"[dim]calls:{total}[/dim]"]
-                stage1 = parser_stats.get("stage1_hits", 0)
-                stage2 = parser_stats.get("stage2_hits", 0)
-                if stage1:
-                    parts.append(f"🔍regex:{stage1}")
-                if stage2:
-                    parts.append(f"🧠nano-LLM:{stage2}")
+                gpt_hits = parser_stats.get("stage3_hits", 0) + parser_stats.get("gpt_fallback_successes", 0)
+                regex_hits = parser_stats.get("stage1_hits", 0)
+                lessons = parser_stats.get("lessons_produced", 0)
+                patterns = parser_stats.get("patterns_learned", 0)
+                if gpt_hits:
+                    parts.append(f"[bright_green]🧠gpt:{gpt_hits}[/bright_green]")
+                if regex_hits:
+                    parts.append(f"🔍regex:{regex_hits}")
+                if lessons:
+                    parts.append(f"[cyan]📚lessons:{lessons}[/cyan]")
+                if patterns:
+                    parts.append(f"[magenta]🧬patterns:{patterns}[/magenta]")
                 empty = parser_stats.get("empty_outputs", 0)
-                fallback = total - stage1 - stage2 - empty
-                if fallback > 0:
-                    parts.append(f"[dim]→inline:{fallback}[/dim]")
                 if empty:
                     parts.append(f"[dim]empty:{empty}[/dim]")
                 console.print(f"  [dim]🔬 Parser:[/dim] {' │ '.join(parts)}")
@@ -1040,7 +1167,7 @@ class LiveDashboard:
             for ev in _other_events[:3]:
                 ev_type = ev.get("type", "")
                 agent = ev.get("agent", "")
-                msg = ev.get("message", "")[:100]
+                msg = ev.get("message", "")
                 if ev_type == "tc_block":
                     console.print(f"  [yellow]🛡️ [{agent}] TC Block:[/yellow] [dim]{msg}[/dim]")
                 elif ev_type == "phase_gate":
@@ -1056,25 +1183,25 @@ class LiveDashboard:
                     box=box.SIMPLE_HEAVY,
                     show_header=True,
                     header_style="bold bright_yellow",
-                    width=136,
+                    expand=True,
                     padding=(0, 1),
                 )
-                qa_table.add_column("Agent", style="bold cyan", width=12, no_wrap=True)
-                qa_table.add_column("Q (Prompt)", style="white", width=50)
-                qa_table.add_column("A (LLM Response)", style="bright_green", width=70)
+                qa_table.add_column("Agent", style="bold cyan", min_width=12, no_wrap=True)
+                qa_table.add_column("Q (Prompt)", style="white", no_wrap=False)
+                qa_table.add_column("A (LLM Response)", style="bright_green", no_wrap=False)
                 for ev in _mentor_events[:3]:
                     _agent = ev.get("agent", "")[:12]
                     _msg = ev.get("message", "")
                     # Parse Q=... → A=... format from mentor reasoning
                     if "→ A=" in _msg:
                         _q_part, _a_part = _msg.split("→ A=", 1)
-                        _q = _q_part.replace("Q=", "").strip()[:48]
-                        _a = _a_part.strip()[:68]
+                        _q = _q_part.replace("Q=", "").strip()
+                        _a = _a_part.strip()
                     elif "Q=" in _msg:
-                        _q = _msg.replace("Q=", "").strip()[:48]
+                        _q = _msg.replace("Q=", "").strip()
                         _a = "-"
                     else:
-                        _q = _msg[:48]
+                        _q = _msg
                         _a = "-"
                     qa_table.add_row(_agent, _q, _a)
                 console.print(f"  [bright_yellow]💬 LLM Communication:[/bright_yellow]")
@@ -1082,8 +1209,8 @@ class LiveDashboard:
 
         # ── PHASE 11.0: TEACHING POINTS ──────────────────────────────
         if teaching_points:
-            for tp in teaching_points[:3]:
-                console.print(f"  [bright_yellow]📚 Teaching:[/bright_yellow] [dim]{tp[:120]}[/dim]")
+            for tp in teaching_points:
+                console.print(f"  [bright_yellow]📚 Teaching:[/bright_yellow] [dim]{tp}[/dim]")
 
         # ── PHASE 11.0: BUDGET PRESSURE ──────────────────────────────
         if budget_snapshot:
@@ -1107,29 +1234,134 @@ class LiveDashboard:
                 f"venice:{venice_rem}[/dim]"
             )
 
-        # ── PHASE 11.0: PARSE EXPLANATIONS ───────────────────────────
+        # ── PHASE 23: GPT API CALL VISIBILITY ───────────────────────
+        if gpt_activity:
+            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
+            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
+            total_req = gpt_activity.get("total_requests", 0)
+            total_tok = gpt_activity.get("total_tokens", 0)
+            cache_hits = gpt_activity.get("cache_hits", 0)
+            step_calls = gpt_activity.get("step_calls", [])
+            step_api = gpt_activity.get("step_api_calls", 0)
+            step_cache = gpt_activity.get("step_cache_hits", 0)
+            step_tok = gpt_activity.get("step_tokens", 0)
+            step_cost = gpt_activity.get("step_cost_usd", 0.0)
+
+            # Cost color coding
+            if cum_cost > 1.0:
+                cost_style = "bold red"
+            elif cum_cost > 0.25:
+                cost_style = "yellow"
+            else:
+                cost_style = "green"
+
+            # Cumulative summary line
+            model_parts = []
+            for mname, mdata in gpt_activity.get("models", {}).items():
+                short_name = mname.replace("gpt-", "").replace("-codex", "c")
+                model_parts.append(
+                    f"{short_name}:{mdata.get('requests', 0)}r/${mdata.get('cost_usd', 0):.3f}"
+                )
+            models_str = " ".join(model_parts) if model_parts else ""
+
+            console.print(
+                f"  [bright_cyan]💳 GPT:[/bright_cyan] "
+                f"[{cost_style}]${cum_cost:.4f}[/{cost_style}] "
+                f"[dim]ep:${ep_cost:.4f} │ "
+                f"calls:{total_req} │ tokens:{total_tok:,} │ "
+                f"cache:{cache_hits} │ {models_str}[/dim]"
+            )
+
+            # Per-step call details (show actual prompts/responses)
+            if step_calls:
+                console.print(
+                    f"  [bright_cyan]  ↳ Step:[/bright_cyan] "
+                    f"[dim]{step_api} API + {step_cache} cached │ "
+                    f"tokens:{step_tok:,} │ ${step_cost:.5f}[/dim]"
+                )
+                for call in step_calls[:4]:  # Show up to 4 calls per step
+                    _model = call.get("model", "?").replace("gpt-", "").replace("-codex", "c")
+                    _agent = call.get("agent_id", "?")[:8]
+                    _task = call.get("task_type", "?")[:8]
+                    _tok = call.get("tokens", 0)
+                    _in_tok = call.get("input_tokens", 0)
+                    _out_tok = call.get("output_tokens", 0)
+                    _cost = call.get("cost_usd", 0.0)
+                    _lat = call.get("latency_ms", 0)
+                    _cached = call.get("cache_hit", False)
+                    _prompt = call.get("prompt_snippet", "")
+                    _resp = call.get("response_snippet", "")
+
+                    if _cached:
+                        console.print(
+                            f"    [dim]📦 CACHE │ {_agent}/{_task} │ "
+                            f"Q: {_prompt}[/dim]"
+                        )
+                        console.print(
+                            f"    [dim]  └─ A: {_resp}[/dim]"
+                        )
+                    else:
+                        tok_detail = f"{_in_tok}→{_out_tok}" if _in_tok or _out_tok else str(_tok)
+                        console.print(
+                            f"    [bright_green]🧠 {_model}[/bright_green] "
+                            f"[cyan]{_agent}/{_task}[/cyan] "
+                            f"[dim]{tok_detail}tok ${_cost:.4f} {_lat}ms[/dim]"
+                        )
+                        console.print(
+                            f"    [dim]  Q: {_prompt}[/dim]"
+                        )
+                        console.print(
+                            f"    [bright_green]  A: {_resp}[/bright_green]"
+                        )
+
+                if len(step_calls) > 4:
+                    console.print(
+                        f"    [dim]  ... +{len(step_calls) - 4} more calls[/dim]"
+                    )
+
+        # ── PHASE 23: GPT INTERPRETATION REASONING ──────────────────
         if parse_explanations:
             for pe in parse_explanations[:3]:
                 stage = pe.get("stage", "?")
                 dtype = pe.get("discovery_type", "?")
                 dval = pe.get("discovery_value", "?")
-                reason = pe.get("reasoning", "")[:80]
-                console.print(
-                    f"  [dim]🔬 Parse ({stage}):[/dim] "
-                    f"[green]{dtype}={dval}[/green] [dim]{reason}[/dim]"
-                )
+                reason = pe.get("reasoning", "")
+                chain = pe.get("interpretation_chain", "")
+                if stage in ("gpt_codex", "gpt_fallback", "gpt"):
+                    console.print(
+                        f"  [bright_green]🧠 GPT:[/bright_green] "
+                        f"[green]{dtype}={dval}[/green] "
+                        f"[dim]{reason}[/dim]"
+                    )
+                    if chain:
+                        console.print(f"    [dim]└─ {chain}[/dim]")
+                else:
+                    console.print(
+                        f"  [dim]🔬 Parse ({stage}):[/dim] "
+                        f"[green]{dtype}={dval}[/green] [dim]{reason}[/dim]"
+                    )
 
-        # ── PHASE 11.0: PHASE LADDER STATE ───────────────────────────
+        # ── PHASE 23: SMART PHASE LADDER STATE ────────────────────────
         if phase_state:
-            steps_in = phase_state.get("steps_in_phase", 0)
-            min_req = phase_state.get("min_steps_required", 0)
             tp = phase_state.get("teaching_point", "")
-            if min_req > 0 and steps_in < min_req:
-                console.print(
-                    f"  [yellow]🪜 Phase Ladder:[/yellow] "
-                    f"[dim]{steps_in}/{min_req} steps in {phase_state.get('current_phase', '?')}[/dim]"
-                    + (f" — [yellow]{tp[:80]}[/yellow]" if tp else "")
-                )
+            current = phase_state.get("current_phase", "?")
+            if tp:
+                # Discovery-driven phase readiness
+                if "SMART LADDER" in tp:
+                    console.print(
+                        f"  [bright_red]🪜 Phase Ladder:[/bright_red] "
+                        f"[yellow]{tp}[/yellow]"
+                    )
+                elif "not yet ready" in tp:
+                    console.print(
+                        f"  [yellow]🪜 Phase {current}:[/yellow] "
+                        f"[dim]{tp}[/dim]"
+                    )
+                else:
+                    console.print(
+                        f"  [green]🪜 Phase {current}:[/green] "
+                        f"[dim]{tp}[/dim]"
+                    )
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
@@ -1138,6 +1370,10 @@ class LiveDashboard:
             self._print_events(recent[-2:])
 
         self.last_print_step = step
+
+        # Ensure all Rich output is flushed to terminal immediately
+        import sys
+        sys.stdout.flush()
 
     # ─── Event printer ───────────────────────────────────────────────────────
 
@@ -1165,15 +1401,16 @@ class LiveDashboard:
             title="[bold]Agent Performance[/bold]",
             show_header=True, header_style="bold magenta",
             border_style="dim", box=box.ROUNDED, padding=(0, 1),
+            expand=True,
         )
-        table.add_column("Agent", style="bold", width=14)
-        table.add_column("Phase", width=14)
-        table.add_column("Cmds", width=5, justify="right")
-        table.add_column("Uniq", width=5, justify="right")
-        table.add_column("Ep Reward", width=10, justify="right")
-        table.add_column("Conf", width=6, justify="center")
-        table.add_column("Mentor", width=6, justify="center")
-        table.add_column("Top Source", width=12)
+        table.add_column("Agent", style="bold", ratio=2, no_wrap=True)
+        table.add_column("Phase", ratio=2, no_wrap=True)
+        table.add_column("Cmds", ratio=1, justify="right")
+        table.add_column("Uniq", ratio=1, justify="right")
+        table.add_column("Ep Reward", ratio=2, justify="right")
+        table.add_column("Conf", ratio=1, justify="center")
+        table.add_column("Mentor", ratio=1, justify="center")
+        table.add_column("Top Source", ratio=2)
 
         for agent_name, stats in sorted(self.agent_stats.items()):
             icon = AGENT_ICONS.get(agent_name, ("🤖", "", ""))[0]
@@ -1217,6 +1454,7 @@ class LiveDashboard:
         ddqn_metrics: Optional[Dict[str, Any]] = None,
         decision_sources: Optional[Dict[str, int]] = None,
         discovery_board: Optional[Dict[str, Any]] = None,
+        gpt_cost_summary: Optional[Dict[str, Any]] = None,
     ):
         self.current_episode = episode
         self.episode_rewards.append(total_reward)
@@ -1232,8 +1470,8 @@ class LiveDashboard:
             show_header=True, header_style="bold green",
             border_style="green", box=box.ROUNDED,
         )
-        table.add_column("Metric", style="bold cyan", width=22)
-        table.add_column("Value", justify="right", width=14)
+        table.add_column("Metric", style="bold cyan", min_width=20)
+        table.add_column("Value", justify="right", min_width=14)
         table.add_column("Δ / Trend", width=28)
 
         avg_step = (
@@ -1301,12 +1539,14 @@ class LiveDashboard:
                 all_sources[src] = all_sources.get(src, 0) + cnt
         total_decisions = sum(all_sources.values()) or 1
         src_parts = []
-        for src, cnt in sorted(all_sources.items(), key=lambda x: -x[1])[:4]:
+        for src, cnt in sorted(all_sources.items(), key=lambda x: -x[1]):
             pct = cnt / total_decisions * 100
             src_icon = SOURCE_STYLES.get(src[:8], ("", "dim"))[0]
-            src_parts.append(f"{src_icon}{src}:{pct:.0f}%")
+            src_parts.append(f"{src_icon}{src}:{cnt}({pct:.0f}%)")
         if src_parts:
-            table.add_row("Decision Mix", " ".join(src_parts), "")
+            # Show top sources in Value column, rest in Trend column
+            table.add_row("Decision Mix", " ".join(src_parts[:3]),
+                          " ".join(src_parts[3:]) if len(src_parts) > 3 else "")
 
         if ppo_metrics:
             if ppo_metrics.get("updates"):
@@ -1347,6 +1587,22 @@ class LiveDashboard:
                 f"{s}:{c}" for s, c in sorted(self.parser_stage_counts.items(), key=lambda x: -x[1])
             )
             table.add_row("🔍 Parser", parser_str, "")
+
+        # Phase 23: GPT Cost Summary
+        if gpt_cost_summary:
+            _cum = gpt_cost_summary.get("cumulative_usd", 0.0)
+            _ep = gpt_cost_summary.get("episode_usd", 0.0)
+            _cost_clr = "red" if _cum > 1.0 else "yellow" if _cum > 0.25 else "green"
+            models_info = gpt_cost_summary.get("models", {})
+            model_parts = []
+            for mname, mdata in models_info.items():
+                short = mname.replace("gpt-", "").replace("-codex", "c")
+                model_parts.append(f"{short}:{mdata.get('requests', 0)}r/{mdata.get('tokens', 0):,}t")
+            table.add_row(
+                "💳 GPT Cost",
+                f"[{_cost_clr}]${_cum:.4f}[/{_cost_clr}]",
+                f"ep: ${_ep:.4f}  {' '.join(model_parts)}"
+            )
 
         console.print(table)
 
@@ -1426,7 +1682,7 @@ class LiveDashboard:
         if self.episode_discoveries:
             parts = []
             for dtype, items in sorted(self.episode_discoveries.items()):
-                istr = ", ".join(str(i)[:20] for i in sorted(items)[:8])
+                istr = ", ".join(str(i) for i in sorted(items))
                 parts.append(f"[bold]{dtype}[/bold]: {istr}")
             console.print(Panel(
                 "\n".join(parts),

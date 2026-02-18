@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_103035_4a1c14",
+  "timestamp": 1771407059.2131937,
+  "key_outcomes": {
+    "wins": [
+      "Completed one full episode with consistent reward accumulation, indicating perseverance through the training scenario.",
+      "Triggered mentor assistance efficiently (15 calls) to stay aligned with expected behavior."
+    ],
+    "fails": [
+      "Zero success rate across the run despite accumulating reward, suggesting repeated failure to achieve final objective.",
+      "High dependency on mentor guidance, indicating potential gaps in autonomous decision-making."
+    ],
+    "summary": "Run showed determination to work through the scenario but failed to complete the mission; focus should shift toward closing the final objective and reducing reliance on mentors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Task completion stalled after intermediate reconnaissance despite steady reward increases.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Final objective not reached despite multiple mentor interventions, indicating difficulty in chaining actions toward goal.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an initial scan returns multiple services with version banners",
+      "then_action": "Run targeted nmap service/version scripts before exploitation",
+      "parameters_template": {
+        "command": "nmap -sV -sC -p- --version-all -oA scan_initial {{target}}"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771407073.1332257,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When credential-based paths are required after service enumeration",
+      "then_action": "Attempt default credential login using Hydra on identified services",
+      "parameters_template": {
+        "service": "ssh",
+        "target": "{{target}}",
+        "wordlist": "/usr/share/wordlists/rockyou.txt"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step15"
+      ],
+      "created_at": 1771407073.1332428,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor prompts recur after stalled progress",
+      "then_action": "Review last three actions and run automated reasoning check with internal checklist",
+      "parameters_template": {
+        "checklist_id": "recon_exploit_gap",
+        "window": 3
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step18"
+      ],
+      "created_at": 1771407073.1332543,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent use of detailed scans contributes to reward accumulation during reconnaissance."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Self-checking after mentor prompts can reduce repeated stagnation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Drill",
+      "description": "Focus on chaining the reconnaissance results into a concrete exploitation step and confirm final objective reach within a single episode, minimizing mentor assists.",
+      "priority": "high"
+    },
+    {
+      "title": "Autonomous Decision Validation",
+      "description": "Simulate decisions with no mentor calls for the middle phase, using the reasoning checkpoints defined in skill_003 to stay on track.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential Access Automation",
+      "description": "Implement an automated default credential check after service enumeration using skill_002 to streamline moving from reconnaissance to access.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -866,13 +866,25 @@ class CyberEnvironment:
 
     def _perform_live_scan(self, target: str, scan_command: str) -> List[int]:
         """
-        Perform actual scan against live target (for live mode only)
-        Returns list of discovered ports
+        Perform actual scan against live target (for live mode only).
+        Returns list of discovered ports.
+
+        NOTE: In live mode the SmartOrchestrator runs every command through
+        LiveCommandExecutor *after* env.step(), so running python-nmap here
+        is redundant and causes a 120 s stall per scan step.  We skip the
+        internal nmap scan entirely and let LiveCommandExecutor handle it.
         """
         if not self.live_mode:
             console.print("[yellow]⚠ Live scanning attempted in simulation mode[/yellow]")
             return []
-            
+
+        # ── PHASE 20: Skip redundant python-nmap scan ───────────────
+        # LiveCommandExecutor will execute the real nmap command and the
+        # orchestrator's discovery parser will extract ports/services.
+        # Returning [] here avoids a 120 s timeout stall per scan step.
+        logger.debug(f"[ENV] Skipping internal nmap — LiveCommandExecutor handles live scans for {target}")
+        return []
+
         cache_key = f"{target}_{scan_command.split()[0]}"
         if cache_key in self.scan_results_cache:
             cache_entry = self.scan_results_cache[cache_key]

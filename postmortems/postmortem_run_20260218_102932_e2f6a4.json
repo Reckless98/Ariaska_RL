@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260218_102932_e2f6a4",
+  "timestamp": 1771406980.0596762,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial infrastructure reconnaissance within first 5 minutes, identifying 4 live hosts (ep001_step06)",
+      "Documented exposed web service on port 8080 with preliminary content analysis (ep001_step09)"
+    ],
+    "fails": [
+      "Could not capture any objective markers; exploitation attempts for user and root flags were unsuccessful (ep001_step22)",
+      "Repeated meterpreter deployment failed due to missing writable directories and defensive monitoring alerts (ep001_step18)"
+    ],
+    "summary": "Run favored rapid reconnaissance but stalled during exploitation, producing high telemetry (reward 60) without achieving success criteria."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation attempts aborted when the target SSH service presented a strict banner and immediate IDS detection, forcing session tear-down.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step17"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with targeted nmap scripts followed by ssh-audit",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh2-enum-algos,ssh-auth-methods"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step11"
+      ],
+      "created_at": 1771407000.939414,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_web_recon",
+      "if_condition": "When a web service responds with directory listings or server headers",
+      "then_action": "Launch gobuster with wordlist + take baseline Burp request to identify reusable paths",
+      "parameters_template": {
+        "wordlist": "/usr/share/seclists/Discovery/Web-Content/common.txt",
+        "extensions": [
+          "php",
+          "html"
+        ]
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09"
+      ],
+      "created_at": 1771407000.9394326,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_ps_check",
+      "if_condition": "When foothold is gained with limited shell",
+      "then_action": "Run linpeas and collect sudo -l output before privilege escalation",
+      "parameters_template": {
+        "tool": "linpeas.sh",
+        "options": "--quiet"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step16"
+      ],
+      "created_at": 1771407000.9394424,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "Consistently collected SSH service data quickly, enabling follow-on enumeration despite failed exploit attempts"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_web_recon",
+      "skill_card_id": "skill_web_recon",
+      "reason": "Web content discovery mapped directories that will inform future exploitation planning"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Strengthen SSH persistence attempts",
+      "description": "After successful SSH enumeration, test credential stuffing or key-based auth to bypass banner restrictions and avoid IDS triggers.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate internal web path discovery",
+      "description": "Feed gobuster findings into Burp Intruder to validate overlooked endpoints for file upload or config disclosure.",
+      "priority": "medium"
+    },
+    {
+      "title": "Improve post-exploitation context",
+      "description": "If shell is obtained, immediately run linpeas and sudo -l to catalog privilege escalation vectors before IDS resets the session.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

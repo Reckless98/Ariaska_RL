@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "last_updated": 1771421841.0542386,
+  "skill_count": 2,
+  "skills": {
+    "skill_001": {
+      "id": "skill_001",
+      "if_condition": "When a target service is discovered during reconnaissance",
+      "then_action": "Fingerprint the service version and enumerate with appropriate scripts/modules",
+      "parameters_template": {
+        "phase": "recon",
+        "action": "service_fingerprint"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep0000_summary"
+      ],
+      "created_at": 1771418472.2116103,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_002": {
+      "id": "skill_002",
+      "if_condition": "When an attack path is identified",
+      "then_action": "Prioritize exploitation steps that maximize reward with minimal risk",
+      "parameters_template": {
+        "phase": "exploit",
+        "strategy": "low_risk_high_reward"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep0000_summary"
+      ],
+      "created_at": 1771418472.211621,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  }
+}

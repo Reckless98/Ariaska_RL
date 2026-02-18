@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_110612_8bb9fa",
+  "timestamp": 1771409197.730243,
+  "key_outcomes": {
+    "wins": [
+      "Successfully mapped the target perimeter using multi-stage reconnaissance, capturing service banners and OS hints that earned the high reward of 77.5 despite no objective completion.",
+      "Maintained active feedback loops with the mentor (15 calls) to adjust tooling and prioritize observable weaknesses, preventing wasted actions."
+    ],
+    "fails": [
+      "Could not convert the recon advantage into a captured objective; the final access/exfiltration stage remained incomplete and success rate stayed at 0%.",
+      "No persistence or privilege escalation path was secured, leading to abandonment after reconnaissance despite strong initial intelligence."
+    ],
+    "summary": "Reconnaissance-phase actions were strong and well-informed, but the chain broke at the exploitation/persistence segment, so future runs must translate intel into access and retention."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to escalate privileges after initial access attempts, causing the engagement to end with no objective completion.",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery returns open TCP ports and identifiable service banners",
+      "then_action": "Run comprehensive recon with nmap service/version scripts and enumerate SMB/HTTP endpoints for viable exploit paths",
+      "parameters_template": {
+        "ports": "21,22,80,139,443,445",
+        "scripts": "default,safe"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771409220.151291,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH port 22 is reachable and credentials/api keys are unknown",
+      "then_action": "Execute targeted username enumeration (hydra/cewl) and leverage default keylists before brute forcing",
+      "parameters_template": {
+        "tool": "hydra",
+        "module": "ssh",
+        "timeout": "15s"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771409220.1512995,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When low-privilege shell is obtained but privilege escalation is unconfirmed",
+      "then_action": "Inspect sudoers, SUID binaries, and kernel exploits using linpeas/plaid",
+      "parameters_template": {
+        "script": "linpeas.sh",
+        "timeout": "3m"
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step17"
+      ],
+      "created_at": 1771409220.151305,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit chaining after recon",
+      "description": "Take the detailed enumeration output (service versions, OS fingerprint) and correlate with CVEs/tool-specific exploits (Metasploit) to achieve initial code execution.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation automation",
+      "description": "Run linpeas/plaid immediately after shell access to systematically identify SUID binaries or sudo misconfigurations and script targeted exploits.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence verification",
+      "description": "After initial access, deploy SSH authorized_keys/backdoor and confirm persistence survives a service restart before concluding the run.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

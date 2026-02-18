@@ -1,9 +1,10 @@
-# core/gpt_manager.py — ARIASKA GPTManager v5.0 APEX (GPT-5-mini + Multi-Model Routing)
+# core/gpt_manager.py — ARIASKA GPTManager v6.0 (GPT-5.2-codex + Mini + Nano)
 # Centralized LLM Gateway: Role-Based Routing, Cross-Platform, Learning-Enhanced
-# Models: GPT-5-mini (primary), GPT-4o-mini (fallback), GPT-5-nano (lightweight), GPT-5.2-2025-12-11 (postmortem/walkthrough)
+# Models: gpt-5.2-codex (primary), gpt-5.2-mini (parsing/fallback), gpt-5-nano (lightweight)
 
 import os
 import logging
+from collections import deque
 from typing import Dict, Any, Optional, List
 import time
 import json
@@ -152,11 +153,10 @@ class GPTManager:
     """
     Centralized LLM manager for all agents with role-based model routing.
     
-    Model Routing:
-    - GPT-5-mini: Primary model for Red/Orion agents (strategy/tactics)
-    - GPT-4o-mini: Fallback model when GPT-5-mini unavailable
-    - GPT-5-nano: Lightweight model for Scout/Shadow/Blue (classification/rewrites)
-    - GPT-5.2 (gpt-5.2-2025-12-11): Deep reasoning for postmortem + walkthrough analysis
+    Model Routing (Phase 23 — no gpt-4 models):
+    - gpt-5.2-codex: Deep reasoning, strategic, postmortem, exploit planning
+    - gpt-5.2-mini: Parsing, tactical analysis, output interpretation, universal fallback
+    - gpt-5-nano: Lightweight classification, reformatting, boolean checks
     
     Features:
     - Role-based automatic routing
@@ -184,22 +184,21 @@ class GPTManager:
         "embedding": "gpt-5.1-codex-mini",
         "postmortem": "gpt-5.2-codex",
         # Fallbacks
-        "general": "gpt-5.1-codex-mini",
-        "default": "gpt-5.1-codex-mini",
+        "general": "gpt-5.2-mini",
+        "default": "gpt-5.2-mini",
     }
     
-    FALLBACK_MODEL = "gpt-4o-mini"  # Universal fallback
+    FALLBACK_MODEL = "gpt-5.2-mini"  # Universal fallback (Phase 23: no gpt-4)
 
     # Cost per 1K tokens (USD) — approximate, input+output blended average
     COST_PER_1K_TOKENS: Dict[str, float] = {
         "gpt-5-nano": 0.00010,
         "gpt-5-mini": 0.00040,
+        "gpt-5.2-mini": 0.00060,
         "gpt-5.1-codex-mini": 0.00150,
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
         "gpt-5.2": 0.01000,
-        "gpt-4o-mini": 0.00015,
-        "gpt-4o": 0.00250,
         # Venice AI models
         "qwen3-coder-480b-a35b-instruct": 0.000315,
     }
@@ -255,9 +254,9 @@ class GPTManager:
             )
         
         # Model configuration from environment or defaults
-        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5.1-codex-mini")
-        self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-4o-mini")
-        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5.1-codex-mini")
+        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5.2-codex")
+        self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-5.2-mini")
+        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5-nano")
         self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2-codex")
         self.strategic_model = os.getenv("GPT_STRATEGIC_MODEL", "gpt-5.2-codex")
         
@@ -319,6 +318,12 @@ class GPTManager:
         self.requests_by_model: Dict[str, int] = {}     # model_name → request count
         self._cumulative_cost_usd: float = 0.0           # running total $
         self._episode_cost_usd: float = 0.0              # per-episode $
+
+        # ── Phase 23: GPT Call Log for dashboard visibility ──────────
+        # Ring buffer of recent API calls so the Rich dashboard can show
+        # exactly what prompts were sent, what came back, tokens & cost.
+        self._call_log: deque = deque(maxlen=200)  # full session log
+        self._step_calls: List[Dict[str, Any]] = []  # per-step buffer (cleared each step)
         
         # ── Phase 15.0: BudgetManagerV2 (flag-gated) ────────────────
         self._budget_manager_v2 = None
@@ -618,16 +623,19 @@ class GPTManager:
     
     def get_model_for_role(self, agent_id: Optional[str] = None, task_type: Optional[str] = None) -> str:
         """
-        Get appropriate model based on agent role and task type.
+        Get appropriate model based on 3-tier cost-optimized routing.
         
-        Phase 12.1: ALL mentor/planning/teaching/reasoning tasks use gpt-5.2-codex.
-        Only lightweight classification tasks (output parsing, reformatting) use
-        the cheaper codex-mini model to save tokens.
-        
-        Role-based routing:
-        - Mentor/tactical/reasoning/analysis → GPT-5.2-codex (full reasoning)
-        - Lightweight parsing/classification → GPT-5.1-codex-mini (fast, cheap)
-        - Postmortem → GPT-5.2-codex (deep reasoning)
+        Tier 1 — NANO (gpt-5-nano, $0.0001/1K tokens):
+            Simple classification, output reformatting, cache key generation,
+            boolean checks, template selection.
+            
+        Tier 2 — MINI (gpt-5.2-mini, $0.0006/1K tokens):
+            Command parsing, tactical decisions, playbook selection,
+            defensive analysis, reconnaissance planning, output interpretation.
+            
+        Tier 3 — CODEX (gpt-5.2-codex, $0.01/1K tokens):
+            Strategic reasoning, exploit chain planning, postmortem analysis,
+            deep learning/teaching, diversification.
         
         Args:
             agent_id: Agent identifier (e.g., "RedAgent", "ScoutAgent")
@@ -636,19 +644,25 @@ class GPTManager:
         Returns:
             str: Model name to use
         """
-        # Phase 12.1: All reasoning-intensive tasks use strategic model (gpt-5.2-codex)
-        # This includes mentor guidance, tactical decisions, strategic planning,
-        # analysis, learning/teaching, diversification, and reasoning.
-        _reasoning_tasks = {
-            "tactical", "reasoning", "learning", "analysis",
-            "strategic", "diversify", "postmortem", "defensive",
-            "reconnaissance",
+        # Tier 3 — CODEX: Deep reasoning, strategic, postmortem, exploit planning
+        _codex_tasks = {
+            "strategic", "postmortem", "reasoning", "learning",
+            "diversify", "exploit_chain",
         }
-        if task_type in _reasoning_tasks:
+        if task_type in _codex_tasks:
             return self.strategic_model  # gpt-5.2-codex
         
-        # Everything else (general, parsing, classification) uses primary (codex-mini)
-        return self.primary_model
+        # Tier 2 — MINI: Tactical command decisions, parsing, analysis
+        _mini_tasks = {
+            "tactical", "analysis", "defensive", "reconnaissance",
+            "playbook", "parsing", "command_selection", "output_parse",
+        }
+        if task_type in _mini_tasks:
+            return self.fallback_model  # gpt-5.2-mini — cost-efficient parsing tier
+        
+        # Tier 1 — NANO: Simple classification, reformatting, checks
+        # "general", "classification", "reformat", "cache", None, or unknown
+        return self.nano_model  # gpt-5-nano
     
     def get_model_for_task(self, task_type: str) -> str:
         """
@@ -891,6 +905,23 @@ class GPTManager:
                         model=model, tokens_used=0,
                         roi_tag=_bm2_roi_tag, cache_hit=True,
                     )
+                # Phase 23: Record cache hit in call log
+                _cache_record = {
+                    "timestamp": time.time(),
+                    "model": model,
+                    "agent_id": agent_id,
+                    "task_type": task_type,
+                    "prompt_snippet": prompt[:80].replace("\n", " ").strip(),
+                    "response_snippet": self.cache[cache_key]["response"][:80].replace("\n", " ").strip(),
+                    "tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                    "cache_hit": True,
+                    "latency_ms": 0,
+                }
+                self._call_log.append(_cache_record)
+                self._step_calls.append(_cache_record)
                 return self.cache[cache_key]["response"]
         
         # Rate limiting
@@ -1060,6 +1091,24 @@ class GPTManager:
                             model=model, tokens_used=tokens_used,
                             roi_tag=_bm2_roi_tag,
                         )
+
+                    # Phase 23: Record call in visibility log for dashboard
+                    _call_record = {
+                        "timestamp": time.time(),
+                        "model": model,
+                        "agent_id": agent_id,
+                        "task_type": task_type,
+                        "prompt_snippet": prompt[:120].replace("\n", " ").strip(),
+                        "response_snippet": content[:120].replace("\n", " ").strip(),
+                        "tokens": tokens_used,
+                        "input_tokens": getattr(response.usage, 'input_tokens', 0) or getattr(response.usage, 'prompt_tokens', 0) or 0,
+                        "output_tokens": getattr(response.usage, 'output_tokens', 0) or getattr(response.usage, 'completion_tokens', 0) or 0,
+                        "cost_usd": step_cost,
+                        "cache_hit": False,
+                        "latency_ms": int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0,
+                    }
+                    self._call_log.append(_call_record)
+                    self._step_calls.append(_call_record)
                 
                 # Sanitize if it's a command
                 if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
@@ -1151,7 +1200,7 @@ class GPTManager:
     def dual_llm_feedback(self, prompt: str, agent_id: str = "unknown", 
                          task_type: str = "tactical") -> str:
         """
-        Simplified dual feedback - just use GPT-4o-mini for everything
+        Simplified dual feedback — routes through standard model routing.
         This maintains API compatibility with old dual_llm_feedback calls
         """
         return self.gpt_request(prompt, task_type, agent_id)
@@ -1192,6 +1241,59 @@ class GPTManager:
             "cumulative_usd": round(self._cumulative_cost_usd, 6),
             "episode_usd": round(self._episode_cost_usd, 6),
             "models": breakdown,
+        }
+
+    # ── Phase 23: GPT Call Visibility for Dashboard ──────────────────
+
+    def get_step_calls(self) -> List[Dict[str, Any]]:
+        """Return GPT calls made since last clear (i.e. this step).
+        
+        Each entry: {timestamp, model, agent_id, task_type, prompt_snippet,
+                     response_snippet, tokens, input_tokens, output_tokens,
+                     cost_usd, cache_hit, latency_ms}
+        """
+        return list(self._step_calls)
+
+    def clear_step_calls(self) -> None:
+        """Clear the per-step call buffer. Call at the START of each step."""
+        self._step_calls.clear()
+
+    def get_recent_calls(self, n: int = 10) -> List[Dict[str, Any]]:
+        """Return the last N GPT calls from the session ring buffer."""
+        calls = list(self._call_log)
+        return calls[-n:] if len(calls) > n else calls
+
+    def get_gpt_activity_snapshot(self) -> Dict[str, Any]:
+        """Full GPT activity snapshot for dashboard rendering.
+        
+        Returns:
+            Dict with cumulative stats, per-step calls, and model breakdown.
+        """
+        step_calls = self.get_step_calls()
+        step_tokens = sum(c.get("tokens", 0) for c in step_calls)
+        step_cost = sum(c.get("cost_usd", 0.0) for c in step_calls)
+        step_api_calls = sum(1 for c in step_calls if not c.get("cache_hit"))
+        step_cache_hits = sum(1 for c in step_calls if c.get("cache_hit"))
+        
+        return {
+            "cumulative_cost_usd": round(self._cumulative_cost_usd, 4),
+            "episode_cost_usd": round(self._episode_cost_usd, 4),
+            "total_requests": self.stats.get("total_requests", 0),
+            "total_tokens": self.stats.get("tokens_used_total", 0),
+            "cache_hits": self.stats.get("cache_hits", 0),
+            "step_calls": step_calls,
+            "step_tokens": step_tokens,
+            "step_cost_usd": round(step_cost, 6),
+            "step_api_calls": step_api_calls,
+            "step_cache_hits": step_cache_hits,
+            "models": {
+                model: {
+                    "tokens": self.tokens_by_model.get(model, 0),
+                    "requests": self.requests_by_model.get(model, 0),
+                    "cost_usd": round((self.tokens_by_model.get(model, 0) / 1000.0) * self.COST_PER_1K_TOKENS.get(model, 0.001), 4),
+                }
+                for model in self.tokens_by_model
+            },
         }
     
     def store_learning_feedback(self, agent_id: str, command: str, 
@@ -1248,7 +1350,7 @@ class GPTManager:
     def test_connectivity(self) -> dict:
         """Test GPT connectivity and return status"""
         try:
-            test_prompt = "Respond with 'ARIASKA GPT-4o-mini is operational'"
+            test_prompt = "Respond with 'ARIASKA GPT is operational'"
             response = self.gpt_request(test_prompt, "general", "test", max_tokens=20)
             
             return {

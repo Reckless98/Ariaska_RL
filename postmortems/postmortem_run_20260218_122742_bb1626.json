@@ -1,0 +1,135 @@
+{
+  "run_id": "run_20260218_122742_bb1626",
+  "timestamp": 1771414069.0618947,
+  "key_outcomes": {
+    "wins": [
+      "Consistent engagement with mentor feedback (10 mentor calls), showing commitment to improving tactics.",
+      "Completed single episode with maximum reward reported (60.00), indicating ability to reach key objective conditions despite zero success rate."
+    ],
+    "fails": [
+      "Zero success rate indicates failure to achieve defined mission goal despite high reward metrics.",
+      "Lack of progression past initial reconnaissance phase; likely poor lateral movement or privilege escalation."
+    ],
+    "summary": "Agent demonstrated persistence and reward accumulation but failed to close the attack chain; focus needed on translating reconnaissance gains into actionable exploitation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to pivot from initial access to deeper exploitation, stopping post-recon without privilege escalation.",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step16",
+        "ep001_step19",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,sshv1,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771414080.4327474,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service presents login or form page",
+      "then_action": "Use gobuster or ffuf for bruteforce directories and parameter discovery",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step14"
+      ],
+      "created_at": 1771414080.4327564,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials are identified in reconnaissance logs",
+      "then_action": "Attempt credential reuse via proxychains first to avoid detection",
+      "parameters_template": {
+        "tool": "proxychains",
+        "command": "ssh user@target",
+        "timeout": 30
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step17",
+        "ep001_step20"
+      ],
+      "created_at": 1771414080.432762,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase for SSH service enumeration"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pipeline SSH access to escalation",
+      "description": "After confirming SSH service, execute credential reuse via proxychains and then escalate using sudo enumeration scripts (e.g., sudo -l, custom script); focus on translating access into privilege escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate web directory discovery",
+      "description": "Run gobuster with tuned wordlists and recursive scans to expose hidden endpoints; use findings to identify API keys or hidden admin portals.",
+      "priority": "medium"
+    },
+    {
+      "title": "Correlation of mentor feedback",
+      "description": "Review mentor guidance across all 10 calls to incorporate missing tactics, especially around lateral movement and persistence.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

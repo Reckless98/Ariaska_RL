@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_122936_0ddcf8",
+  "timestamp": 1771414183.555333,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reconnaissance, collecting multi-host fingerprints to inform next moves despite limited progress.",
+      "Successfully kept telemetry active throughout the episode, yielding full scoring trace to review.",
+      "Engaged mentor guidance early, aligning tactics with lab constraints."
+    ],
+    "fails": [
+      "Could not acquire valid credentials, resulting in failure to pivot beyond initial access and zero mission success.",
+      "Missed opportunity to exploit post-exploitation data due to insufficient credential harvesting.",
+      "Excessive mentor calls (15) without translating advice into actionable exploits."
+    ],
+    "summary": "Reconnaissance succeeded in mapping the perimeter, but the run stalled at credential acquisition, preventing mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to harvest credentials after SSH/SMB enumeration resulting in dead-end sessions.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,sshv1"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771414197.3643064,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB shares are enumerated without credentials",
+      "then_action": "Invoke smbclient/smbmap to list shares and capture anonymous access paths",
+      "parameters_template": {
+        "command": "smbmap -H {{target}} -u '' -p ''"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771414197.3643155,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential stuffing fails",
+      "then_action": "Switch to manual OSINT and local file searches for plaintext files before brute forcing",
+      "parameters_template": {
+        "search_paths": [
+          "/etc",
+          "/home"
+        ],
+        "tools": [
+          "find",
+          "grep"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771414197.3643212,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential collection pivot",
+      "description": "After successful SSH/SMB enumeration, launch targeted file search for password stores (use find/strings) and couple with custom Hydra batch for discovered usernames.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate anonymous SMB harvest",
+      "description": "Leverage smbmap with -R flag to recursively list share contents, then schedule follow-up parsing for credentials before brute forcing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

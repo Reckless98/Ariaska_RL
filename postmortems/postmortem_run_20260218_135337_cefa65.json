@@ -1,0 +1,95 @@
+{
+  "run_id": "run_20260218_135337_cefa65",
+  "timestamp": 1771419223.6602035,
+  "key_outcomes": {
+    "wins": [
+      "Achieved non-zero total reward (40.00), indicating some partial progress within the episode"
+    ],
+    "fails": [
+      "Success rate 0.00% across the run",
+      "Only one episode executed, limiting learning signal",
+      "High mentor calls (10) suggesting reliance without consolidation into autonomous success"
+    ],
+    "summary": "The run shows partial progress but no successful completions; additional episodes and stronger autonomous execution are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "No successful completion despite partial reward gains",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_135337_cefa65_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial progress is made but success criteria are not met in a single episode",
+      "then_action": "Increase episode count and diversify attempts to consolidate partial gains into a completed objective",
+      "parameters_template": {
+        "episodes": 5,
+        "variation": "target/approach"
+      },
+      "confidence": 0.45,
+      "evidence_refs": [
+        "run_20260218_135337_cefa65_ep001"
+      ],
+      "created_at": 1771419235.839023,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 per episode with 0% success rate",
+      "then_action": "Implement post-mentor call checkpoints and retry the last action autonomously before requesting further guidance",
+      "parameters_template": {
+        "max_mentor_calls_before_checkpoint": 5,
+        "retry_limit": 2
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260218_135337_cefa65_ep001"
+      ],
+      "created_at": 1771419235.8390324,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [],
+  "next_experiments": [
+    {
+      "title": "Increase episode count",
+      "description": "Run 5\u201310 episodes to gather more learning signal and validate whether partial rewards can be converted into successful completions.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call throttling",
+      "description": "Cap mentor calls at 5 per episode and add autonomous retries after each mentor step to improve self-sufficiency.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-episode debrief logging",
+      "description": "Record the last 3 actions before failure and rerun with a single variable changed to identify the blocking step.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

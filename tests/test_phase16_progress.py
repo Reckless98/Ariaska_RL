@@ -448,10 +448,10 @@ class TestAutonomySchedule:
 class TestFeatureFlag:
     """Test FF_PROGRESS_ESTIMATOR flag."""
 
-    def test_default_off(self):
+    def test_default_on(self):
         from core.feature_flags import FeatureFlags
         ff = FeatureFlags()
-        assert ff.progress_estimator is False
+        assert ff.progress_estimator is True  # Post-Phase 20: default ON
 
     def test_env_enable(self):
         os.environ["FF_PROGRESS_ESTIMATOR"] = "1"

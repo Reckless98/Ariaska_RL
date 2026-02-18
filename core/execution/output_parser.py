@@ -121,7 +121,7 @@ class OutputParser:
         "wget": "_parse_curl",
         # HTB Capability Upgrade
         "strings": "_parse_pcap_strings",
-        "tshark": "_parse_pcap_strings",
+        "tshark": "_parse_tshark",
         "getcap": "_parse_getcap",
         "hashcat": "_parse_hashcat",
         "john": "_parse_john",
@@ -130,6 +130,8 @@ class OutputParser:
         "impacket-GetNPUsers": "_parse_impacket_hash",
         "impacket-GetUserSPNs": "_parse_impacket_hash",
         "bloodhound-python": "_parse_bloodhound",
+        # Phase 19: CrushFTP / Erlang / vhost
+        "erl": "_parse_erlang",
     }
     
     def __init__(self, known_ports_path: Optional[str] = None):
@@ -837,3 +839,103 @@ class OutputParser:
         self._all_discovered_services.clear()
         self._all_credentials.clear()
         self._all_vulns.clear()
+
+    # =========================================================================
+    # Phase 19: Ultra-Smart Parsers — CrushFTP, Erlang, tshark, vhost
+    # =========================================================================
+
+    def _parse_tshark(self, command: str, output: str) -> ParsedOutput:
+        """Parse tshark PCAP extraction output for credentials."""
+        result = ParsedOutput(command=command, phase="enumeration")
+
+        # FTP USER/PASS in tshark -T fields format (tab-separated)
+        users: list = []
+        current_user = None
+        for line in output.split("\n"):
+            parts = line.strip().split("\t")
+            if len(parts) >= 2:
+                cmd_part, arg = parts[0].strip(), parts[1].strip()
+                if cmd_part == "USER":
+                    current_user = arg
+                elif cmd_part == "PASS" and current_user:
+                    if current_user.lower() not in ("anonymous", "ftp", "guest"):
+                        result.credentials.append({
+                            "username": current_user,
+                            "password": arg,
+                            "source": "pcap_tshark",
+                        })
+                        if current_user not in result.users:
+                            result.users.append(current_user)
+                    current_user = None
+
+        # Also catch inline credential patterns
+        for match in re.finditer(r'credential:\s*(\S+):(\S+)', output):
+            result.credentials.append({
+                "username": match.group(1),
+                "password": match.group(2),
+                "source": "pcap",
+            })
+
+        result.success = len(result.credentials) > 0
+        return result
+
+    def _parse_erlang(self, command: str, output: str) -> ParsedOutput:
+        """Parse Erlang OTP RCE output — uid, flags, cookie."""
+        result = ParsedOutput(command=command, phase="privilege_escalation")
+
+        # Erlang cookie in output
+        cookie_match = re.search(r'cookie[:\s]+(\S+)', output, re.IGNORECASE)
+        if cookie_match:
+            result.credentials.append({
+                "username": "erlang_cookie",
+                "password": cookie_match.group(1),
+                "source": "erlang",
+            })
+
+        # uid=0(root) — root shell confirmation
+        uid_match = re.search(r'uid=0\(root\)', output)
+        if uid_match:
+            result.success = True
+            result.sessions.append({
+                "type": "root_shell",
+                "via": "erlang_otp_rce",
+            })
+
+        # Flag extraction
+        flag_match = re.search(r'FLAG\{[^}]+\}', output)
+        if flag_match:
+            result.extra_info = result.extra_info or ""
+            result.extra_info += f" flag={flag_match.group(0)}"
+            result.success = True
+
+        return result
+
+    def parse_crushftp(self, command: str, output: str) -> ParsedOutput:
+        """Parse CrushFTP API responses — user lists, password resets."""
+        result = ParsedOutput(command=command, phase="exploitation")
+
+        # XML user list from getUserList
+        user_pattern = r'<username>(\w+)</username>'
+        for match in re.finditer(user_pattern, output):
+            username = match.group(1)
+            if username not in result.users:
+                result.users.append(username)
+
+        # CVE detection
+        if "CVE-2025-31161" in output or "auth bypass" in output.lower():
+            result.vulnerabilities.append("CVE-2025-31161")
+            result.success = True
+
+        # Credential extraction from credential: markers
+        for match in re.finditer(r'credential:\s*(\S+):(\S+)', output):
+            result.credentials.append({
+                "username": match.group(1),
+                "password": match.group(2),
+                "source": "crushftp",
+            })
+
+        # Password reset confirmation
+        if "password changed" in output.lower() or "success" in output.lower():
+            result.success = True
+
+        return result

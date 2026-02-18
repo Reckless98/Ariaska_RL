@@ -118,8 +118,15 @@ class AttackContext:
         """Set a state flag."""
         self.state_flags[flag] = value
         
-        # Auto-detect phase advancement
+        # Phase 21: Track highest reached phase for sequential enforcement.
+        # Pass it via state_flags so get_phase_from_state can clamp advances.
+        self.state_flags["_highest_reached_phase"] = self.current_phase
+        
+        # Auto-detect phase advancement (sequential — max +1 phase per call)
         self.current_phase = get_phase_from_state(self.state_flags)
+        
+        # Update tracker after advancement
+        self.state_flags["_highest_reached_phase"] = self.current_phase
     
     def add_service(self, service: str, port: Optional[int] = None) -> None:
         """Add a discovered service."""

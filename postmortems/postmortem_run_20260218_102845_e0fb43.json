@@ -1,0 +1,149 @@
+{
+  "run_id": "run_20260218_102845_e0fb43",
+  "timestamp": 1771406952.4066434,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial network discovery quickly, identifying 3 live hosts and 2 open service ports within the first 5 steps.",
+      "Captured SMB share listings using smbclient that revealed potential credential files for further analysis."
+    ],
+    "fails": [
+      "Unable to convert gathered service banners into valid credential pairs; brute force attempts against SSH/SMB stopped after 3 attempts without success.",
+      "No successful privilege escalation despite locating writable scripts on target host, indicating missing payload handling."
+    ],
+    "summary": "Reconnaissance phase shows promise with rapid asset awareness, but credential acquisition and escalation remain blockers, keeping success rate at 0%."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Credential brute-force attempts were repeatedly throttled by account lockouts, failing to pivot into the host despite valid usernames.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260218_102845_step04",
+        "run_20260218_102845_step07",
+        "run_20260218_102845_step09"
+      ]
+    },
+    {
+      "pattern": "Privilege escalation scripts executed without sufficient data about environment variables, resulting in access denied responses.",
+      "frequency": 2,
+      "evidence_refs": [
+        "run_20260218_102845_step12",
+        "run_20260218_102845_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_102845_step02",
+        "run_20260218_102845_step05"
+      ],
+      "created_at": 1771406969.8085408,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB shares list accessible and anonymous login succeeds",
+      "then_action": "Use smbclient to list share contents and search for credential files",
+      "parameters_template": {
+        "share": "public",
+        "command": "dir"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_102845_step06",
+        "run_20260218_102845_step08"
+      ],
+      "created_at": 1771406969.8085544,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When valid usernames known but login fails repeatedly",
+      "then_action": "Switch to targeted Hydra with low-frequency delay to avoid lockouts",
+      "parameters_template": {
+        "service": "ssh",
+        "users": [
+          "admin",
+          "test"
+        ],
+        "delay": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_102845_step07",
+        "run_20260218_102845_step09"
+      ],
+      "created_at": 1771406969.8085651,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in quickly cataloging SSH service information during reconnaissance"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reliable retrieval of SMB share insight that feeds downstream credential discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Implement slow-rate credential spraying",
+      "description": "Deploy CredSpray with a low request rate (1 attempt per 5 seconds) against both SSH and SMB services to reduce lockouts while probing known usernames.",
+      "priority": "high"
+    },
+    {
+      "title": "Automate writable script analysis",
+      "description": "Enumerate writable paths via enumeration and run linpeas to catalog potential sudo misconfigurations before executing privilege escalation payloads.",
+      "priority": "medium"
+    },
+    {
+      "title": "Chase SMB laddering context",
+      "description": "Use smbmap with recursive file reads to extract configuration files for further context on domain users and service secrets.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

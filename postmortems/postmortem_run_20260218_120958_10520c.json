@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260218_120958_10520c",
+  "timestamp": 1771413023.4276814,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial reconnaissance sweep and documented all visible services after the first wave of scans",
+      "Established reliable mapping of the external perimeter leading to isolated service targets for follow-up"
+    ],
+    "fails": [
+      "Unable to gain shell access as credential harvesting steps were never completed",
+      "Post-exploitation actions stalled due to missed opportunity to use discovered SMTP service for lateral movement"
+    ],
+    "summary": "Reconnaissance progressed well with clear service enumeration, but the play stalled before exploitation and lateral steps, leaving success rate at 0%."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Authentication brute-force attempts were not executed despite enumerated SSH banner indicating possible weak keys",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_scan",
+      "if_condition": "When SSH port 22 is open and banner indicates OpenSSH 8.x",
+      "then_action": "Run targeted SSH enumeration using nmap ssh-* scripts and capture key exchange",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-publickey",
+        "timeout": "60s"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step06"
+      ],
+      "created_at": 1771413037.3487425,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_smtp_info",
+      "if_condition": "SMTP service identified on port 25 with VRFY enabled",
+      "then_action": "Use smtp-user-enum and manual RCPT commands to enumerate valid recipients",
+      "parameters_template": {
+        "port": 25,
+        "script": "smtp-commands",
+        "users": "users.lst"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771413037.3487566,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_enum_web",
+      "if_condition": "HTTP service responds with custom headers",
+      "then_action": "Run gobuster directory brute force followed by nikto for potential misconfigs",
+      "parameters_template": {
+        "port": 80,
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "nikto": "enabled"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step04"
+      ],
+      "created_at": 1771413037.3487659,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_scan",
+      "skill_card_id": "skill_ssh_scan",
+      "reason": "High success rate in reconnaissance phase when matching SSH banners"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "SSH bruteforce with captured key materials",
+      "description": "Attempt password spraying against SSH port 22 using discovered usernames and weak password list from recon",
+      "priority": "high"
+    },
+    {
+      "title": "SMTP relay probe",
+      "description": "Use valid SMTP recipients to test relaying capabilities and potential credential capture via targeted phishing",
+      "priority": "medium"
+    },
+    {
+      "title": "Web app misconfiguration exploitation",
+      "description": "Deploy gobuster-discovered paths and test them with nikto output to find vulnerable upload or config endpoints",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

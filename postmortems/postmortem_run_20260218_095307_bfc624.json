@@ -1,0 +1,147 @@
+{
+  "run_id": "run_20260218_095307_bfc624",
+  "timestamp": 1771404810.9681225,
+  "key_outcomes": {
+    "wins": [
+      "Maintained situational awareness across the episode with precise reward logging, enabling clear act/reward correlations for future tuning",
+      "Triggered 15 mentor interactions that provided repeated validation and guidance, ensuring rapid response when faced with setbacks"
+    ],
+    "fails": [
+      "Run failed to achieve objective despite high average reward, indicating inability to close the attack chain (success rate 0%)",
+      "Discrete exploit attempts stagnated after reconnaissance, suggesting missing follow-through on privilege escalation or lateral movement",
+      "High mentor dependency indicates insufficient autonomous decision-making when pivoting through the environment"
+    ],
+    "summary": "High reward accumulation demonstrates effective reconnaissance, but persistent inability to reach mission success points to weakness in follow-up exploitation or post-compromise actions, necessitating tighter kill-chain progression."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to convert host discovery into successful exploit attempts, likely due to lack of automated vulnerability validation after port enumeration",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step21",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step09"
+      ],
+      "created_at": 1771404829.8063562,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS (ports 80/443) respond with application banners",
+      "then_action": "Launch nikto scan followed by wfuzz on discovered endpoints",
+      "parameters_template": {
+        "ports": [
+          80,
+          443
+        ],
+        "nikto_opts": "-host {{target}} -output nikto.log",
+        "wfuzz_opts": "-c -b cookies.txt -f fuzz_payloads.txt http://{{target}}/FUZZ"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step10"
+      ],
+      "created_at": 1771404829.8063653,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials harvested from unexpected sources",
+      "then_action": "Validate by attempting lateral SSH/SMB connections and document successful access",
+      "parameters_template": {
+        "protocols": [
+          "ssh",
+          "smb"
+        ],
+        "timeout": 10
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step20"
+      ],
+      "created_at": 1771404829.8063755,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate detecting SSH endpoints during reconnaissance boosts early kill-chain momentum"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent HTTP/HTTPS banner exploitation provides repeatable entry points for follow-up actions"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential Validation After Banner Enumeration",
+      "description": "After successful port/banners scans, immediately validate suspected credentials via scripted SSH/SMB logins to convert reconnaissance into foothold.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Vulnerability Verification",
+      "description": "Chain nmap NSE and targeted exploit scripts right after discovery to confirm exploitability before moving on.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor Interaction Reduction Drill",
+      "description": "Attempt two full episodes with limited mentor calls by relying on established skill cards to enforce autonomous decision-making.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

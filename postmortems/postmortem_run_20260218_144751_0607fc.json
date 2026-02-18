@@ -1,0 +1,148 @@
+{
+  "run_id": "run_20260218_144751_0607fc",
+  "timestamp": 1771422473.0272892,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (50.00) despite no episode wins",
+      "Consistent reward with no variance across the single episode"
+    ],
+    "fails": [
+      "Success rate 0.00% (no completed objectives)",
+      "High mentor dependency (10 calls) for a single episode"
+    ],
+    "summary": "The run shows stable reward accumulation but no objective completion, indicating tactical execution gaps and heavy reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion failure despite positive reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "High mentor call usage without corresponding success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_meta"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When no objective is achieved by mid-episode and reward is positive",
+      "then_action": "Shift to concrete objective validation steps (service discovery and target verification)",
+      "parameters_template": {
+        "tools": [
+          "nmap"
+        ],
+        "flags": "-sV -sC",
+        "timing": "T3"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ],
+      "created_at": 1771422488.413538,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 3 in a single episode",
+      "then_action": "Trigger a structured decision checkpoint with a short plan before further actions",
+      "parameters_template": {
+        "checkpoint_format": [
+          "current_state",
+          "goal",
+          "next_3_actions"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step_meta"
+      ],
+      "created_at": 1771422488.413551,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Run a post-episode gap analysis to identify missing objective validations and next probes",
+      "parameters_template": {
+        "fields": [
+          "missed_objectives",
+          "evidence_gaps",
+          "next_probes"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771422488.4135606,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Encourages objective validation to convert positive reward into successful outcomes"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reduces mentor dependency by enforcing structured decision-making"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-First Recon Pivot",
+      "description": "Mid-episode, force a pivot to concrete objective validation using nmap -sV -sC to identify actionable services.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Budgeting",
+      "description": "Limit mentor calls to 3 and insert a decision checkpoint before any further assistance is requested.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-Episode Gap Review",
+      "description": "Add a structured review after each episode to enumerate missed validations and plan next probes.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

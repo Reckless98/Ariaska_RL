@@ -1,0 +1,136 @@
+{
+  "run_id": "run_20260218_105824_5176b3",
+  "timestamp": 1771408725.2603476,
+  "key_outcomes": {
+    "wins": [
+      "Completed initial reconnaissance probe and documented open services, demonstrating reliable basic scan coverage.",
+      "Consistently collected environment context enabling prioritization of high-value targets despite overall mission failure."
+    ],
+    "fails": [
+      "Failed to pivot from reconnaissance to exploitation steps, resulting in zero success despite full episode run.",
+      "Did not effectively manage mentor directives, leading to 15 mentor calls with no overall success."
+    ],
+    "summary": "Reconnaissance stage executed, but failure to transition to exploitation and resolve defender challenges prevented mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Unable to move past initial exploitation due to missing credential harvesting and privilege escalation actions.",
+      "frequency": 3,
+      "evidence_refs": [
+        "run_20260218_105824_5176b3_ep1_step12",
+        "run_20260218_105824_5176b3_ep1_step20"
+      ]
+    },
+    {
+      "pattern": "Exhausted mentor calls without actionable follow-through, suggesting inefficient handling of guidance.",
+      "frequency": 2,
+      "evidence_refs": [
+        "run_20260218_105824_5176b3_ep1_step5",
+        "run_20260218_105824_5176b3_ep1_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_105824_5176b3_ep1_step5"
+      ],
+      "created_at": 1771408741.12752,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 80 or 443 responds with no auth headers and directory listing disabled",
+      "then_action": "Execute Dirb crawl followed by nikto for web vulns",
+      "parameters_template": {
+        "url": "http://<target>",
+        "wordlist": "/usr/share/wordlists/common.txt"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "run_20260218_105824_5176b3_ep1_step8"
+      ],
+      "created_at": 1771408741.1275337,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credentials collected from service banner or config file",
+      "then_action": "Attempt automated credential reuse via Hydra against service-list",
+      "parameters_template": {
+        "target": "<ip>",
+        "module": "hydra",
+        "service": "ssh"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "run_20260218_105824_5176b3_ep1_step15"
+      ],
+      "created_at": 1771408741.1275432,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Credential reuse escalation",
+      "description": "After enumerating services, prioritize credential capture and reuse via Hydra and Metasploit auxiliary modules to gain shell access.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated post-scan exploitation triage",
+      "description": "Integrate nmap results with a scripted decision tree to escalate promising ports (SSH/HTTP) to dedicated exploitation tools without waiting for mentor guidance.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor call efficiency drill",
+      "description": "Track assumptions before calling mentor and record post-call actions to ensure each call leads to concrete steps.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

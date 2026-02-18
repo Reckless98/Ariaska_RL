@@ -1,0 +1,149 @@
+{
+  "run_id": "run_20260218_095046_f3b85d",
+  "timestamp": 1771404669.5509238,
+  "key_outcomes": {
+    "wins": [
+      "Consistent reward accumulation (70.0) indicating stable execution of scouting actions.",
+      "Mentor calls were leveraged (10 total) ensuring guidance-driven decisions during the run."
+    ],
+    "fails": [
+      "Did not achieve success condition (0% success rate) due to repeated inability to progress beyond initial foothold.",
+      "Final reward plateaued without evidence of high-value action such as lateral movement or privilege escalation."
+    ],
+    "summary": "Scouting-phase actions were steady, but the agent failed to leverage the reconnaissance to achieve mission objectives, leaving the kill chain incomplete."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to transition from discovery to exploitation; attack stopped after port scanning without follow-up action.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep002_step05",
+        "ep004_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_enum",
+      "if_condition": "When SSH port identified during scan (e.g., port 22 open)",
+      "then_action": "Execute SSH enumeration using nmap ssh scripts to capture banner and supported ciphers.",
+      "parameters_template": {
+        "tool": "nmap",
+        "ports": "22",
+        "scripts": [
+          "ssh-hostkey",
+          "ssh-auth-methods",
+          "ssh2-enum-algos"
+        ]
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep003_step02"
+      ],
+      "created_at": 1771404691.6662,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_http_enum",
+      "if_condition": "When HTTP service detected during reconnaissance",
+      "then_action": "Run nikto/gobuster to map directories and capture application version.",
+      "parameters_template": {
+        "tools": [
+          {
+            "name": "nikto",
+            "options": "-h"
+          },
+          {
+            "name": "gobuster",
+            "options": "dir -u http://<target> -w /usr/share/wordlists/common.txt"
+          }
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep002_step07",
+        "ep005_step01"
+      ],
+      "created_at": 1771404691.6662164,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_post_scan_focus",
+      "if_condition": "When reconnaissance completes with high-value open service list",
+      "then_action": "Prioritize exploitation payload development for top service (e.g., SSH/HTTP) and validate with targeted modules.",
+      "parameters_template": {
+        "decision_matrix": "Rank services by exploitability and align tools like Metasploit, Hydra, or custom scripts."
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep006_step04",
+        "ep007_step02"
+      ],
+      "created_at": 1771404691.6662269,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_enum",
+      "skill_card_id": "skill_ssh_enum",
+      "reason": "Consistent success in identifying SSH targets and actionable data from banners"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_http_enum",
+      "skill_card_id": "skill_http_enum",
+      "reason": "Reliable enumeration results that surface application metadata for exploitation planning"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Revisit Recon-to-Exploitation Gap",
+      "description": "After gathering open services, immediately trigger a measurable exploitation attempt (e.g., Hydra for SSH or Nikto results for HTTP) to validate pivot capability.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Service Prioritization",
+      "description": "Implement scoring to rank services by exploitability and feed into decision engine so post-scan actions follow high-confidence targets.",
+      "priority": "medium"
+    },
+    {
+      "title": "Batch Lateral-Movement Validation",
+      "description": "When initial exploitation succeeds, script credential reuse or pass-the-hash attempts to confirm ability to move beyond the compromised node.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

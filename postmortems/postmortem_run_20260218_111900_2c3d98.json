@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_111900_2c3d98",
+  "timestamp": 1771409962.765217,
+  "key_outcomes": {
+    "wins": [
+      "Mapped the external attack surface and correctly identified all exposed services on the perimeter hosts (run_20260218_111900_2c3d98_ep1_step4 to step6).",
+      "Captured initial metadata for SSH and HTTP banners, providing context for subsequent exploitation attempts (run_20260218_111900_2c3d98_ep1_step7).",
+      "Triggered and logged the first credential harvesting attempt, yielding high-value telemetry despite the overall lack of success (reward trend shows consistent scoring)."
+    ],
+    "fails": [
+      "Failed to escalate privileges after gaining initial access due to missing valid credentials or flawed post-exploitation workflow (run_20260218_111900_2c3d98_ep1_step12).",
+      "Unable to persist within the environment; cleanup routines likely reverted foothold before lateral movement (run_20260218_111900_2c3d98_ep1_step14).",
+      "Total mission success rate remains at 0% despite positive intermediate rewards, indicating incomplete kill chain execution."
+    ],
+    "summary": "Reconnaissance phase performed well, but exploitation and persistence steps faltered\u2014focus on bridging the gap between initial access and privilege escalation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to execute privilege escalation scripts after capturing initial shells",
+      "frequency": 5,
+      "evidence_refs": [
+        "run_20260218_111900_2c3d98_ep1_step12",
+        "run_20260218_111900_2c3d98_ep1_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-publickey-acceptance,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_111900_2c3d98_ep1_step5",
+        "run_20260218_111900_2c3d98_ep1_step7"
+      ],
+      "created_at": 1771409986.084915,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service on port 80/443 identifies login form",
+      "then_action": "Launch Burp Intruder sequence targeting authentication parameters",
+      "parameters_template": {
+        "target": "http://{{host}}:{{port}}/login",
+        "payloads": "common-usernames.txt,common-passwords.txt",
+        "concurrency": 5
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "run_20260218_111900_2c3d98_ep1_step8",
+        "run_20260218_111900_2c3d98_ep1_step10"
+      ],
+      "created_at": 1771409986.0849319,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When low-privileged shell establishes on Linux host",
+      "then_action": "Run LinPEAS/localRecon and capture output to shared repo",
+      "parameters_template": {
+        "script": "linpeas.sh",
+        "output_path": "/tmp/linpeas.out"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_111900_2c3d98_ep1_step11",
+        "run_20260218_111900_2c3d98_ep1_step13"
+      ],
+      "created_at": 1771409986.0849452,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent data gathering post-initial-access"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privileged Escalation via Scheduled Tasks",
+      "description": "Enumerate writable directories for cron/systemd units, stage payload and trigger with elevated rights to break out of limited shell.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated Credential Harvesting Retry",
+      "description": "Re-run multi-threaded HTTP auth brute force using updated wordlists from first run, then pivot to SSH with newly discovered creds.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence Verification Sweep",
+      "description": "Deploy and test persistence modules (e.g., mimic Windows service or cron job) in a controlled manner to ensure foothold survives cleanup.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

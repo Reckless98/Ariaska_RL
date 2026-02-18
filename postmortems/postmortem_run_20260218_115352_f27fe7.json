@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260218_115352_f27fe7",
+  "timestamp": 1771412039.5314555,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable foothold on initial target host allowing repeated reconnaissance attempts",
+      "Consistently invoked environment-specific tooling without crashing training run"
+    ],
+    "fails": [
+      "Unable to escalate privileges past initial access, leading to 0% success rate",
+      "Excessive mentor calls (10) without translating guidance into successful actions"
+    ],
+    "summary": "Reconnaissance was steady, but exploitation and post-exploitation phases repeatedly stalled, preventing any successful mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts failed due to lack of valid service account credentials and missing sudo permissions.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step15",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When SSH login succeeds but sudo rights unavailable",
+      "then_action": "Audit local sudoers and scheduled tasks for misconfigurations with LinPEAS",
+      "parameters_template": {
+        "tool": "LinPEAS.sh",
+        "flags": "--inline --timeout 120"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step17"
+      ],
+      "created_at": 1771412052.4199498,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 80 or 443 responds with custom web content",
+      "then_action": "Run dirsearch with common wordlists to enumerate hidden administrative panels",
+      "parameters_template": {
+        "tool": "dirsearch",
+        "url": "http://target",
+        "wordlist": "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step11"
+      ],
+      "created_at": 1771412052.419965,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When nmap reveals SMB/NetBIOS services",
+      "then_action": "Use smbclient enumshares followed by cracking with impacket-secretsdump",
+      "parameters_template": {
+        "tool": "smbclient",
+        "command": "-L \\\\target -U guest"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771412052.4199739,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High relevance when SSH access is the only foothold; repeated checks for sudo misconfigurations can unlock escalation paths."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Sudo misconfiguration focus",
+      "description": "Prioritize scripted LinPEAS execution after SSH login to catalog all sudo and cron entries before attempting escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Web admin portal pivot",
+      "description": "Leverage dirsearch findings to identify exposed admin endpoints, then test default creds with Burp Intruder automation.",
+      "priority": "medium"
+    },
+    {
+      "title": "SMB share persistence",
+      "description": "Enumerate SMB shares and attempt to harvest credentials via impacket-secretsdump, focusing on writable shares for file upload.",
+      "priority": "low"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
