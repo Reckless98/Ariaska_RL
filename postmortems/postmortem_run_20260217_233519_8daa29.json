@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260217_233519_8daa29",
+  "timestamp": 1771367741.1708727,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stability across the run with consistent reward acquisition (Avg Reward 70.0) indicating reliable execution of baseline steps.",
+      "Successfully completed multiple mentor call-guided checkpoints, providing insights for future decision-making."
+    ],
+    "fails": [
+      "0% success rate indicates inability to reach mission objective or final exploit delivery.",
+      "High reliance on mentor calls (10 in 1 episode) signals gaps in autonomous decision-making."
+    ],
+    "summary": "Run demonstrated procedural stability but lacked strategic impact; focus should shift to decisive pivots that lead to objective completion without heavy mentor oversight."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation phase stalls after initial reconnaissance, indicating insufficient vulnerability identification or chaining.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step25",
+        "ep001_step30",
+        "ep001_step42"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh-hostkey"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771367748.4388607,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web port 80/443 is reachable and no WAF fingerprint detected",
+      "then_action": "Launch nikto scan followed by ffuf for directory discovery",
+      "parameters_template": {
+        "target": "http://{ip}",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step14",
+        "ep001_step20"
+      ],
+      "created_at": 1771367748.4388697,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When credential harvesting tools available and target supports SMB or FTP",
+      "then_action": "Deploy default credential check with Hydra",
+      "parameters_template": {
+        "service": "smb",
+        "userlist": "/opt/users.txt",
+        "passlist": "/opt/passwords.txt"
+      },
+      "confidence": 0.69,
+      "evidence_refs": [
+        "ep001_step27",
+        "ep001_step33"
+      ],
+      "created_at": 1771367748.438876,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High success rate in SSH enumeration that informed later actions."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web scanning reliably produced actionable targets during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Structured post-recon exploitation relay",
+      "description": "After completing reconnaissance (ports, services), immediately map vulnerabilities (nmap --script vuln + searchsploit) and attempt low-privilege exploit chains using identified CVEs to break out of the recon loop.",
+      "priority": "high"
+    },
+    {
+      "title": "Autonomous decision threshold tuning",
+      "description": "Reduce mentor call dependency by introducing confidence thresholds for moving from enumeration to exploitation (e.g., only call mentor when no high-confidence CVE found after 3 scans).",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential brute-force automation",
+      "description": "Integrate gathered service banners with credential brute-force automation (hydra) triggered when default accounts detected to accelerate lateral movement.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

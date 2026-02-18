@@ -45,13 +45,20 @@ class ConsolidationSample:
     hypothesis_confirmed: bool = False
     trace_summary: str = ""       # bounded to 256 chars
     state_hash: str = ""          # for dedup
+    progress_delta: float = 0.0   # Phase 16.0: progress change at this step
 
     def priority_score(self) -> float:
-        """Compute consolidation priority score."""
+        """Compute consolidation priority score.
+
+        Phase 16.0: Added progress_delta factor — high-progress steps
+        are prioritized for replay (learning from momentum).
+        """
         da_score = abs(self.da_level - 0.5) * 2.0  # distance from baseline
         ach_score = self.ach_level
         confirm_bonus = 1.0 if self.hypothesis_confirmed else 0.0
-        return 0.4 * da_score + 0.3 * ach_score + 0.3 * confirm_bonus
+        progress_score = abs(self.progress_delta)  # large |delta| = informative
+        return (0.3 * da_score + 0.25 * ach_score
+                + 0.25 * confirm_bonus + 0.2 * progress_score)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

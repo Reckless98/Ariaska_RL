@@ -484,6 +484,18 @@ class EvidenceGraph:
     def edge_count(self) -> int:
         return len(self._edges)
 
+    def recent_delta(self, window: int = 3) -> int:
+        """Return count of nodes added in the last `window` steps.
+
+        Used by neuromodulator system to gauge evidence accumulation rate.
+        If no step tracking is available, returns total node count as proxy.
+        """
+        if not self._nodes:
+            return 0
+        max_step = max((n.source_step for n in self._nodes.values()), default=0)
+        cutoff = max(0, max_step - window)
+        return sum(1 for n in self._nodes.values() if n.source_step > cutoff)
+
     def reset(self) -> None:
         """Reset for new episode."""
         self._nodes.clear()

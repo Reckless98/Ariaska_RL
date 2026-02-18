@@ -46,7 +46,7 @@ export FF_PROXY_CAPTURE=1
 export FF_PAYLOAD_ENCODING=1
 
 # ── Phase 11.0: Full Visibility & Step Discipline ──────────────────────────
-export FF_PARSER_MODE=teacher
+export FF_PARSER_MODE=intelligent_fullparse
 export FF_STRICT_PHASE_LADDER=1
 export FF_ADAPTIVE_BUDGET=1
 export FF_LEARNING_SIGNAL_EXPORT=1
@@ -75,6 +75,9 @@ export FF_AGGRESSION_CONTROLLER=1
 export FF_SEMANTIC_INDEX=1
 export FF_BUDGET_MANAGER_V2=1
 export FF_SENSORY_BUFFER=1
+
+# ── Phase 16.0: Progress Estimator ─────────────────────────────────────────
+export FF_PROGRESS_ESTIMATOR=1
 
 # ── Runtime Safety ─────────────────────────────────────────────────────────
 # DO NOT set ARIASKA_DRY_RUN=1 here — this is for live lab mode

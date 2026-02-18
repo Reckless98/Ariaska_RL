@@ -243,6 +243,10 @@ class LiveCommandExecutor:
             allowed_hostnames=allowed_hostnames or [],
         )
         
+        # ── Phase 17: Verify critical pentesting tools are installed ─
+        self._available_tools: Dict[str, bool] = {}
+        self._check_tool_availability()
+        
         # ── Credential store for SSH auto-wrap ──────────────────────
         # Populated via set_credentials() when creds are discovered.
         # Multiple credential pairs supported (tried in order).
@@ -261,6 +265,38 @@ class LiveCommandExecutor:
             f"LiveCommandExecutor initialized: target={target_ip}, "
             f"dry_run={dry_run}"
         )
+    
+    # ── Phase 17: Tool availability verification ─────────────────
+    _CRITICAL_TOOLS = [
+        "nmap", "gobuster", "hydra", "sshpass", "nikto", "searchsploit",
+        "msfconsole", "curl", "wget", "netcat", "mysql", "psql",
+        "telnet", "ssh", "smbclient", "enum4linux",
+    ]
+    
+    def _check_tool_availability(self) -> None:
+        """Check which pentesting tools are installed on the system."""
+        import shutil
+        missing = []
+        for tool in self._CRITICAL_TOOLS:
+            available = shutil.which(tool) is not None
+            self._available_tools[tool] = available
+            if not available:
+                missing.append(tool)
+        if missing:
+            logger.warning(
+                f"[P17-TOOLS] Missing tools ({len(missing)}): {', '.join(missing)}. "
+                f"Some commands may fail."
+            )
+        else:
+            logger.info(f"[P17-TOOLS] All {len(self._CRITICAL_TOOLS)} critical tools available.")
+    
+    def is_tool_available(self, tool_name: str) -> bool:
+        """Check if a specific tool is available on the system."""
+        return self._available_tools.get(tool_name, False)
+    
+    def get_missing_tools(self) -> List[str]:
+        """Return list of missing critical tools."""
+        return [t for t, avail in self._available_tools.items() if not avail]
     
     def execute(
         self,

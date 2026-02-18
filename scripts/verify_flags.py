@@ -73,6 +73,8 @@ FIELD_ENV_MAP = {
     "semantic_index": "FF_SEMANTIC_INDEX",
     "budget_manager_v2": "FF_BUDGET_MANAGER_V2",
     "sensory_buffer": "FF_SENSORY_BUFFER",
+    # Phase 16.0
+    "progress_estimator": "FF_PROGRESS_ESTIMATOR",
 }
 
 # Expected values for HTB mode

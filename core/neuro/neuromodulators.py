@@ -84,6 +84,9 @@ class NeuromodulatorInputs:
     steps_since_progress: int = 0
     detection_risk: float = 0.0
 
+    # Phase 16.0: Progress Estimator signal
+    progress_estimate: float = 0.5   # continuous [0, 1] from ProgressEstimator
+
 
 # ── Engine ──────────────────────────────────────────────────────────────────
 
@@ -108,10 +111,12 @@ class NeuromodulatorEngine:
         if prev is None:
             prev = NeuromodulatorState()
 
-        # ── DA: reward prediction error (RPE) ────────────────────────
+        # ── DA: reward prediction error (RPE) + progress signal ─────
         rpe = inputs.realized_reward - inputs.predicted_value
         # Sigmoid-like mapping of RPE to [0, 1]
-        raw_da = 1.0 / (1.0 + math.exp(-rpe * 2.0)) if abs(rpe) < 20 else (1.0 if rpe > 0 else 0.0)
+        raw_da_rpe = 1.0 / (1.0 + math.exp(-rpe * 2.0)) if abs(rpe) < 20 else (1.0 if rpe > 0 else 0.0)
+        # Phase 16.0: Blend RPE with progress estimate (70% RPE + 30% progress)
+        raw_da = 0.7 * raw_da_rpe + 0.3 * inputs.progress_estimate
         da = _clamp(self._ema(prev.da, raw_da))
 
         # ── NE: uncertainty signal ───────────────────────────────────
@@ -133,10 +138,12 @@ class NeuromodulatorEngine:
 
         # ── 5-HT: stability ─────────────────────────────────────────
         # High when stable progress, low when replanning or stuck
+        # Phase 16.0: Use continuous progress_estimate instead of integer steps_since_progress
         replan_signal = 1.0 - min(1.0, inputs.replan_count / 5.0)
+        progress_signal = inputs.progress_estimate  # continuous [0,1] — high progress = high stability
         stuck_signal = 1.0 - min(1.0, inputs.steps_since_progress / 10.0)
         risk_signal = 1.0 - inputs.detection_risk
-        raw_sht = 0.35 * replan_signal + 0.35 * stuck_signal + 0.3 * risk_signal
+        raw_sht = 0.25 * replan_signal + 0.25 * progress_signal + 0.25 * stuck_signal + 0.25 * risk_signal
         sht = _clamp(self._ema(prev.sht, raw_sht))
 
         return NeuromodulatorState(da=da, ne=ne, ach=ach, sht=sht)

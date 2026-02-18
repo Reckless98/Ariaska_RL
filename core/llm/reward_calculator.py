@@ -247,6 +247,9 @@ class SmartRewardCalculator:
         state_flags: Dict[str, bool],
         new_discoveries: Optional[Dict[str, Any]] = None,
         shared_discoveries: Optional[Set[str]] = None,
+        # Phase 16.0: Progress Estimator integration
+        progress_delta: Optional[float] = None,
+        estimator_confidence: float = 0.0,
     ) -> RewardBreakdown:
         """
         Calculate reward for a command execution.
@@ -302,9 +305,23 @@ class SmartRewardCalculator:
                 breakdown.base_reward = _hindsight
                 explanations.append(f"🔄 Hindsight({_disc_count}d): +{_hindsight:.1f}")
         
-        # 1b. Progress bonus - small reward for taking action (not guaranteed success)
-        breakdown.progress_bonus = self.progress_bonus_per_step  # Phase 5.1: honest 1.0/step
-        explanations.append(f"Progress: +{breakdown.progress_bonus:.1f}")
+        # 1b. Progress bonus — Phase 16.0: dynamic from ProgressEstimator
+        # When estimator is confident (>0.3), progress_delta shapes the bonus:
+        #   positive delta → large bonus (up to 3.0), negative → penalty (down to -1.0)
+        # Falls back to flat 1.0/step when estimator unavailable or low-confidence.
+        if progress_delta is not None and estimator_confidence > 0.3:
+            _shaped_bonus = progress_delta * 3.0
+            _shaped_bonus = max(-1.0, min(3.0, _shaped_bonus))
+            # Blend with flat baseline proportional to confidence
+            _blend = min(estimator_confidence, 1.0)
+            breakdown.progress_bonus = (
+                _blend * _shaped_bonus + (1.0 - _blend) * self.progress_bonus_per_step
+            )
+            explanations.append(f"Progress(P16): {breakdown.progress_bonus:+.2f} "
+                                f"(delta={progress_delta:.3f}, conf={estimator_confidence:.2f})")
+        else:
+            breakdown.progress_bonus = self.progress_bonus_per_step  # Phase 5.1: honest 1.0/step
+            explanations.append(f"Progress: +{breakdown.progress_bonus:.1f}")
         
         # 2. Novelty bonus - reward trying NEW commands (calibrated for PPO)
         # Phase 4: Reduced from 8→5 to prevent novelty-seeking over objective progress
@@ -579,9 +596,9 @@ class SmartRewardCalculator:
                 if r > 0
             )
             efficiency_rate = recent_useful / min(len(self.reward_history), self.efficiency_window) if self.reward_history else 0
-            breakdown.efficiency_bonus = efficiency_rate * 1.0
-            if breakdown.efficiency_bonus > 0:
-                explanations.append(f"Efficiency: +{breakdown.efficiency_bonus:.1f}")
+            breakdown.efficiency_bonus += efficiency_rate * 1.0  # Phase 18: += not = (was overwriting speed bonus)
+            if efficiency_rate > 0:
+                explanations.append(f"Efficiency: +{efficiency_rate:.1f}")
         
         # 7b. DIVERSITY BONUS - reward using different command prefixes
         # Industry standard: encourage broad exploration across tool categories

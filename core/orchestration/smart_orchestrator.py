@@ -209,6 +209,16 @@ class SmartOrchestrator:
         
         self.run_dir: Optional[str] = None
         
+        # ─── Phase 17: Ensure resolve_profile() is called ────────
+        # Belt-and-suspenders: if CLI didn't call it, do it here.
+        # Safe to call multiple times (idempotent).
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            try:
+                from core.feature_flags import resolve_profile
+                resolve_profile()
+            except Exception:
+                pass
+        
         # ─── Suppress sub-module init noise ─────────────────────────
         # All init status is shown via the Rich init table instead
         _prev_log_level = logging.getLogger().level
@@ -1152,6 +1162,50 @@ class SmartOrchestrator:
         # Reset token budgets
         if self.gpt_manager:
             self.gpt_manager.reset_episode(episode_id=episode_number)
+        
+        # ─── PHASE 17: Dynamic budget scaling + mentor maturity ──────
+        # Compute learning maturity from skill library + campaign memory,
+        # then scale token budget ($0.50–$3.00/ep) and mentor floor (0.60→0.08).
+        _maturity = 0.0
+        try:
+            _bm2 = getattr(self.gpt_manager, '_budget_manager_v2', None) if self.gpt_manager else None
+            if _bm2 is not None and hasattr(_bm2, 'compute_dynamic_budget'):
+                # Gather maturity signals
+                _skill_count = len(getattr(self.skill_library, 'skills', {})) if self.skill_library else 0
+                _max_skills = 200  # Approximate capacity for full MS2/MS3 coverage
+                _prior = self.campaign_memory.get_prior_knowledge() if self.campaign_memory else {}
+                _episodes_trained = _prior.get('episodes_completed', episode_number)
+                _best_phase = _prior.get('best_phase_ever', 'RECON')
+                _phase_ranks = {"RECON": 0.0, "ENUMERATION": 0.15, "EXPLOITATION": 0.4,
+                                "PRIVILEGE_ESCALATION": 0.6, "LATERAL_MOVEMENT": 0.7,
+                                "POST_EXPLOITATION": 0.8, "EXFILTRATION": 0.95, "CLOSEOUT": 1.0}
+                _success_rate = _phase_ranks.get(_best_phase, 0.0)
+                _discovery_eff = min(1.0, _prior.get('total_unique_discoveries', 0) / 30.0)
+                _stagnation = max(0.0, 1.0 - _episodes_trained / max(episode_number + 1, 1)) if episode_number > 5 else 0.0
+                
+                _scale = _bm2.compute_dynamic_budget(
+                    avg_success_rate=_success_rate,
+                    skill_count=_skill_count,
+                    max_skills=_max_skills,
+                    discovery_efficiency=_discovery_eff,
+                    stagnation_rate=_stagnation,
+                    episode=episode_number,
+                )
+                _bm2.apply_dynamic_scale(_scale)
+                _maturity = _bm2.maturity_signal
+                logger.debug(
+                    f"[P17-BUDGET] ep={episode_number} maturity={_maturity:.2f} "
+                    f"scale={_scale:.3f} est_cost=${_bm2.estimated_cost_usd:.2f} "
+                    f"skills={_skill_count} best={_best_phase}"
+                )
+        except Exception as e:
+            logger.debug(f"Phase 17: Dynamic budget scaling error: {e}")
+        
+        # Phase 17: Propagate maturity to all mentor policies
+        for _coach in self.coaches.values():
+            _mp = getattr(_coach, 'mentor_policy', None)
+            if _mp is not None and hasattr(_mp, 'set_maturity'):
+                _mp.set_maturity(_maturity)
         
         # PHASE 2A: Reset per-agent GPT call counters
         for agent in self.agents.values():
@@ -2551,6 +2605,63 @@ class SmartOrchestrator:
                 except Exception as e:
                     logger.warning(f"Phase 8.2: Postmortem error: {e}")
         
+        # ─── PHASE 16.0: Progress Estimator — retroactive labeling + MLP training ──
+        # After postmortem analysis, label the episode's progress trajectory
+        # and train the progress MLP. Autonomy schedule gates GPT labeling.
+        try:
+            for _p16_cn, _p16_coach in self.coaches.items():
+                _p16_pe = getattr(_p16_coach, '_p16_progress_estimator', None)
+                if _p16_pe is None:
+                    continue
+
+                # Build run trace for retroactive labeling
+                _p16_run_trace = {
+                    "run_id": episode_id,
+                    "total_reward": episode_reward,
+                    "total_steps": len(step_results),
+                    "success_rate": 1.0 if highest_phase in ("CLOSEOUT", "EXFILTRATION") else 0.0,
+                    "phase_progression": phase_progression,
+                    "discoveries": {
+                        k: list(v) if isinstance(v, set) else v
+                        for k, v in self.discovery_board.items()
+                        if k != "phase"
+                    },
+                }
+
+                # Autonomy schedule: GPT label only when needed
+                _p16_gpt_mgr = None
+                if _p16_pe.should_gpt_label(episode_number) and self._is_live_mode:
+                    _p16_gpt_mgr = self.gpt_manager
+
+                # Retroactive labeling (GPT or heuristic)
+                _p16_labels = _p16_pe.label_episode_retroactively(
+                    _p16_run_trace, gpt_manager=_p16_gpt_mgr,
+                )
+
+                # Add collected state vectors to dataset
+                _p16_states = getattr(_p16_coach, '_p16_episode_states', [])
+                if _p16_states and _p16_labels:
+                    _p16_pe.add_labels_to_dataset(_p16_states, _p16_labels)
+
+                # Train MLP on updated dataset
+                _p16_train_metrics = _p16_pe.train_mlp()
+
+                # Save dataset
+                _p16_pe.save()
+
+                logger.info(
+                    f"[P16] {_p16_cn}: labels={len(_p16_labels)} "
+                    f"dataset={_p16_pe.dataset_size} "
+                    f"conf={_p16_pe.confidence:.2f} "
+                    f"autonomy={_p16_pe.get_autonomy_level()} "
+                    f"mlp_loss={_p16_train_metrics.get('loss', -1):.4f}"
+                )
+                metrics[f"p16_{_p16_cn}_confidence"] = _p16_pe.confidence
+                metrics[f"p16_{_p16_cn}_dataset"] = _p16_pe.dataset_size
+                metrics[f"p16_{_p16_cn}_autonomy"] = _p16_pe.get_autonomy_level()
+        except Exception as e:
+            logger.debug(f"[P16] Progress Estimator end-of-episode error: {e}")
+
         # ─── Phase 9: Orion Learning Optimizer — CognitiveBus narrative analysis ──
         # Feed episode narrative back into skill library for cross-episode learning.
         try:
@@ -3661,6 +3772,75 @@ class SmartOrchestrator:
                             )
                 for svc in agent_discoveries.get("service", []):
                     self.discovery_board["services"].add(svc)
+                
+                # ─── Phase 18: Scout→Red knowledge-driven handoff ────
+                # When new ports OR services are discovered, query the
+                # knowledge corpus for matching exploit commands and push
+                # them into followup_queue so Red picks them up next step.
+                _new_svcs = [s for s in agent_discoveries.get("service", [])
+                             if s not in self.discovery_board.get("_kb_queried_svcs", set())]
+                _new_port_list = [p for p in agent_discoveries.get("open_port", [])
+                                  if p not in self.discovery_board.get("_kb_queried_ports", set())]
+                if _new_port_list or _new_svcs:
+                    try:
+                        from data.knowledge_retriever import get_knowledge_retriever
+                        _kr = get_knowledge_retriever(lazy=True)
+                        if _kr._loaded:
+                            _kb_cmds_added = 0
+                            # Track what we've already queried to avoid duplicates
+                            self.discovery_board.setdefault("_kb_queried_ports", set())
+                            self.discovery_board.setdefault("_kb_queried_svcs", set())
+                            
+                            for _np in _new_port_list:
+                                self.discovery_board["_kb_queried_ports"].add(_np)
+                                try:
+                                    _entries = _kr.by_port(int(_np), max_results=5)
+                                    for _entry in _entries:
+                                        for _cmd_key in ("exploitation_commands", "enumeration_commands", "commands"):
+                                            for _cmd in (_entry.get(_cmd_key, []) or [])[:2]:
+                                                if isinstance(_cmd, str) and len(_cmd) > 5:
+                                                    _target = (self.attack_context.target if self.attack_context else getattr(self.config, 'default_target', 'TARGET'))
+                                                    self.followup_queue.append({
+                                                        "command": _cmd.replace("{target}", _target or "TARGET"),
+                                                        "source": "kb_handoff",
+                                                        "priority": 90,
+                                                        "description": f"KB exploit for port {_np}",
+                                                        "ttl": 12,
+                                                    })
+                                                    _kb_cmds_added += 1
+                                except (ValueError, TypeError):
+                                    pass
+                                    
+                            for _ns in _new_svcs:
+                                self.discovery_board["_kb_queried_svcs"].add(_ns)
+                                try:
+                                    _svc_key = str(_ns).split("/")[0].strip().lower()
+                                    _entries = _kr.by_service(_svc_key, max_results=5)
+                                    for _entry in _entries:
+                                        for _cmd_key in ("exploitation_commands", "enumeration_commands", "commands"):
+                                            for _cmd in (_entry.get(_cmd_key, []) or [])[:2]:
+                                                if isinstance(_cmd, str) and len(_cmd) > 5:
+                                                    _target = (self.attack_context.target if self.attack_context else getattr(self.config, 'default_target', 'TARGET'))
+                                                    self.followup_queue.append({
+                                                        "command": _cmd.replace("{target}", _target or "TARGET"),
+                                                        "source": "kb_handoff",
+                                                        "priority": 85,
+                                                        "description": f"KB exploit for {_svc_key}",
+                                                        "ttl": 12,
+                                                    })
+                                                    _kb_cmds_added += 1
+                                except (ValueError, TypeError):
+                                    pass
+                            
+                            if _kb_cmds_added > 0:
+                                logger.warning(
+                                    f"[KB-HANDOFF] Scout→Red: queued {_kb_cmds_added} "
+                                    f"knowledge-matched exploit commands for "
+                                    f"ports={_new_port_list}, services={_new_svcs}"
+                                )
+                    except Exception as _kbe:
+                        logger.debug(f"[KB-HANDOFF] Knowledge retriever unavailable: {_kbe}")
+
                 for user in agent_discoveries.get("user", []):
                     self.discovery_board["users"].add(user)
                 if agent_discoveries.get("credential"):
@@ -5316,6 +5496,15 @@ class SmartOrchestrator:
             # Container Escape
             "docker_escape": f"[+] Docker socket found at /var/run/docker.sock\n[+] Creating privileged container...\n[+] Mounting host filesystem at /mnt/host\n[+] Host root access obtained!\nroot@host:/# id\nuid=0(root) gid=0(root) groups=0(root)\n[+] Container escape successful — host root shell",
             "lxd_escape": f"[+] User is member of lxd group\n[+] Importing Alpine image...\n[+] Mounting host root at /mnt/root\nroot@alpine:/mnt/root# id\nuid=0(root) gid=0(root)\n[+] LXD container escape — host filesystem mounted",
+            
+            # Phase 18: Direct Exploit Scripts (MSF-free)
+            "echo -e 'user backdoor": f"220 (vsFTPd 2.3.4)\n331 Please specify the password.\n230 Login successful.\n[+] vsftpd 2.3.4 backdoor triggered!\nConnected to {target}.\nEscape character is '^]'.\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:/# whoami\nroot\n[+] Root shell obtained via vsftpd backdoor on port 6200",
+            "echo 'ab;": f":irc.TestIRC NOTICE AUTH :*** Looking up your hostname...\n:irc.TestIRC NOTICE AUTH :*** Found your hostname\nuid=0(root) gid=0(root) groups=0(root)\nroot:$1$bkJBMQK4$x0QgLvSTK/Do4nxz3q2:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/bin/sh\n[+] UnrealIRCd backdoor RCE — root shell obtained",
+            "timeout 10 rlogin": f"Last login: Mon Jan 20 03:14:17 from gateway\nroot@metasploitable:~# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:~# whoami\nroot\n[+] rlogin root shell — no authentication required",
+            "mysql -h": f"+---------+------------------+\n| user    | password         |\n+---------+------------------+\n| root    |                  |\n| debian  | *6BB4837EB74329  |\n+---------+------------------+\n@@version: 5.0.51a-3ubuntu5\nroot:$1$bkJBMQK4$x0QgLvSTK:0:0:root:/root:/bin/bash\nmsfadmin:$1$XN10Zj2c$Rt/zzCW3mLtUWA:1000:1000:::/bin/bash\n[+] MySQL root no-password — credential and file read successful\ncredential: root: (no password) mysql_user:debian-sys-maint",
+            "pgpassword=postgres": f"COPY 1\nuid=0(root) gid=0(root) groups=0(root)\nroot:$1$bkJBMQK4$x0QgLvSTK:0:0:root:/root:/bin/bash\n               version\n---------------------------------\n PostgreSQL 8.3.0\n  usename  |               passwd\n-----------+-------------------------------------\n postgres  | md5aabbccdd11223344\n[+] PostgreSQL COPY TO PROGRAM RCE — root shell\ncredential: postgres:postgres",
+            "mkdir -p /tmp/nfs": f"total 68\ndrwx------ 14 root root 4096 Jun 20 01:36 .\ndrwxr-xr-x 21 root root 4096 May 20 15:28 ..\n-rw-------  1 root root 1375 May 20 16:00 .bash_history\n-rw-r--r--  1 root root  570 Jan 31  2010 .bashrc\nroot:$1$bkJBMQK4$x0QgLvSTK/Do4nxz3q2:0:0:root:/root:/bin/bash\nmsfadmin:$1$XN10Zj2c$Rt/zzCW3mLtUWA:1000:1000:::/bin/bash\nservice:$1$kR3ue7JZ$7GxELDupr5Ohp6GuKhCS:0:0:::/bin/sh\n[+] NFS root mount — full filesystem access including /etc/shadow\ncredential: msfadmin:$1$XN10Zj2c root:$1$bkJBMQK4",
+            "curl -s -u tomcat": f"OK - Deployed application at context path /pwned\nuid=110(tomcat55) gid=65534(nogroup) groups=65534(nogroup)\n[+] Tomcat WAR deploy — webshell RCE achieved\ncredential: tomcat:tomcat",
         }
         
         for prefix, output in SIMULATED_OUTPUTS.items():
@@ -5328,6 +5517,16 @@ class SmartOrchestrator:
         if "root.txt" in cmd_lower or "root_flag" in cmd_lower or "proof.txt" in cmd_lower:
             return f"FLAG{{r00t_pwn3d_{target.replace('.', '_')}_2026}}"
         
+        # Phase 18: Direct exploit keyword fallbacks
+        if "usermap_script" in cmd_lower or ("smbclient" in cmd_lower and "=`" in cmd_lower):
+            return f"[+] CVE-2007-2447 Samba usermap_script triggered on {target}\n[+] Command execution via username field\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:/# id\nuid=0(root) gid=0(root)\n[+] Root shell obtained via Samba 3.0.20 exploit"
+        if "vsftpd" in cmd_lower or ("backdoor" in cmd_lower and "6200" in cmd_lower):
+            return f"220 (vsFTPd 2.3.4)\n331 Please specify the password.\n[+] Backdoor triggered!\nConnected to {target} port 6200.\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)\n[+] vsftpd backdoor root shell"
+        if "1524" in cmd_lower and ("telnet" in cmd_lower or "nc" in cmd_lower):
+            return f"Trying {target}...\nConnected to {target}.\nEscape character is '^]'.\nroot@metasploitable:/# id\nuid=0(root) gid=0(root) groups=0(root)\nroot@metasploitable:/# whoami\nroot\n[+] Ingreslock root shell on port 1524"
+        if "6667" in cmd_lower and ("nc" in cmd_lower or "ab;" in cmd_lower):
+            return f":irc.TestIRC NOTICE AUTH :*** Looking up your hostname...\nuid=0(root) gid=0(root) groups=0(root)\n[+] UnrealIRCd backdoor — root RCE"
+
         # Fallback: try matching command keywords
         if "exploit" in cmd_lower or "meterpreter" in cmd_lower:
             return f"[*] Exploiting target {target}\n[+] Backdoor triggered\n[+] shell session 1 opened ({target}:6200 -> 10.10.14.2:8080)\nroot@metasploitable:/#"

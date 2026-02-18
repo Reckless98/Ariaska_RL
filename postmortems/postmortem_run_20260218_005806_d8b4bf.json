@@ -1,0 +1,146 @@
+{
+  "run_id": "run_20260218_005806_d8b4bf",
+  "timestamp": 1771372693.2629905,
+  "key_outcomes": {
+    "wins": [
+      "Collected comprehensive external reconnaissance, identifying 6 live hosts and 4 critical service banners, yielding the full 60-point reward for visibility scoring.",
+      "Established a repeatable foothold approach through automated SMB enumeration despite no final compromise, proving the reconnaissance toolchain and workflow."
+    ],
+    "fails": [
+      "All privilege escalation attempts aborted after repeated failure to exploit patched kernel vulnerabilities (Evidence: multiple mentor calls pointing to insufficient escalation technique).",
+      "Unable to achieve persistence or exfiltration stages, yielding a 0% success rate despite completing earlier kill chain steps."
+    ],
+    "summary": "Reconnaissance phase executed strongly with clear enumeration results, but the run repeatedly failed to transition into reliable privilege escalation and persistence, indicating the need for updated exploit techniques and lateral movement planning."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation attempts consistently blocked by patched kernel exploits and lack of valid credentials.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step17",
+        "ep001_step19"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_ssh_recon",
+      "if_condition": "When SSH port 22 is open and a banner is detected",
+      "then_action": "Run nmap with ssh-related NSE scripts to gather version details and supported algorithms",
+      "parameters_template": {
+        "command": "nmap -p 22 --script=ssh2-enum-algos,ssh-hostkey,ssh-auth-methods",
+        "timeout": "30s"
+      },
+      "confidence": 0.88,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771372702.2671762,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_smb_enum",
+      "if_condition": "When SMB ports (445/139) respond on a host",
+      "then_action": "Launch smbclient and CrackMapExec enumeration to list shares and exposed credentials",
+      "parameters_template": {
+        "command": "crackmapexec smb <target> --shares",
+        "timeout": "45s"
+      },
+      "confidence": 0.82,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771372702.2671998,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_walkthrough_osint",
+      "if_condition": "When initial topology scan yields multiple hosts",
+      "then_action": "Correlate with open-source intelligence (OSINT) to prioritize targets by exploitability",
+      "parameters_template": {
+        "sources": [
+          "Shodan",
+          "Censys",
+          "GitHub"
+        ],
+        "filters": {
+          "port": [
+            22,
+            80,
+            445
+          ]
+        }
+      },
+      "confidence": 0.76,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771372702.2672164,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_ssh_recon",
+      "skill_card_id": "skill_ssh_recon",
+      "reason": "High success rate in collecting actionable SSH details during reconnaissance phase"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_smb_enum",
+      "skill_card_id": "skill_smb_enum",
+      "reason": "Reliable enumeration of SMB services provided consistent insight into share exposure"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Pivot to credential harvesting",
+      "description": "Use intercepted SMB/SSH banners to launch targeted credential spraying and temporary lateral movement, then validate with CrackMapExec.",
+      "priority": "high"
+    },
+    {
+      "title": "Test alternate privilege escalation chains",
+      "description": "Deploy manual kernel exploit scripts with updated patches or revert to local Windows token impersonation techniques based on host patch level.",
+      "priority": "high"
+    },
+    {
+      "title": "Execute persistence validation",
+      "description": "After achieving limited shell, deploy scheduled task persistence, then verify rebuild capability with audit logs.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -684,6 +684,28 @@ class SmartCoach:
         except Exception as e:
             logger.debug(f"[P15] Init skipped for {agent_name}: {e}")
 
+        # =====================================================================
+        # PHASE 16.0: Progress Estimator — Proprioceptive progress sensing.
+        # Answers "How close am I to foothold / root?" with two continuous
+        # signals. MLP trained from GPT retroactive labels + heuristic bootstrap.
+        # Feature-flag gated: FF_PROGRESS_ESTIMATOR (default OFF).
+        # =====================================================================
+        self._p16_progress_estimator = None
+        self._p16_progress_estimate = None
+        self._p16_episode_states: list = []
+        self._p16_episode_boards: list = []
+        try:
+            from core.feature_flags import get_feature_flags
+            _ff16 = get_feature_flags()
+            if _ff16.progress_estimator:
+                from core.neuro.progress_estimator import ProgressEstimator
+                self._p16_progress_estimator = ProgressEstimator()
+                logger.debug(f"[P16] {agent_name}: progress_estimator=ON "
+                             f"(dataset={self._p16_progress_estimator.dataset_size}, "
+                             f"confidence={self._p16_progress_estimator.confidence:.2f})")
+        except Exception as e:
+            logger.debug(f"[P16] Init skipped for {agent_name}: {e}")
+
         self._init_cloud_roles()
     
     def _init_smart_mentor(self):
@@ -2381,6 +2403,31 @@ class SmartCoach:
                     _p15_det_risk = ctx.state_flags.get("detection_risk", 0.0)
                 _p15_reward = _discovery_board.get("last_reward", 0.0) if isinstance(_discovery_board, dict) else 0.0
 
+                # Phase 16.0: Compute progress estimate and feed into neuromod
+                _p16_progress_val = 0.5
+                if self._p16_progress_estimator is not None:
+                    try:
+                        _p16_state_vec = step_ctx.state.get("_state_vector", [0.0] * 512)
+                        _p16_est = self._p16_progress_estimator.estimate(
+                            _p16_state_vec, _discovery_board
+                        )
+                        self._p16_progress_estimate = _p16_est
+                        _p16_progress_val = _p16_est.combined
+                        # Collect for end-of-episode labeling
+                        self._p16_episode_states.append(list(_p16_state_vec[:512]))
+                        self._p16_episode_boards.append(
+                            {k: list(v) if isinstance(v, set) else v
+                             for k, v in _discovery_board.items()}
+                            if isinstance(_discovery_board, dict) else {}
+                        )
+                        logger.debug(
+                            f"[P16] {self.agent_name}: fp={_p16_est.foothold_progress:.2f} "
+                            f"rp={_p16_est.root_progress:.2f} delta={_p16_est.delta:.3f} "
+                            f"conf={_p16_est.confidence:.2f} src={_p16_est.source}"
+                        )
+                    except Exception as e:
+                        logger.debug(f"[P16] Progress estimate failed: {e}")
+
                 _nm_inputs = NeuromodulatorInputs(
                     predicted_value=_p15_predicted_value,
                     realized_reward=_p15_reward,
@@ -2394,6 +2441,7 @@ class SmartCoach:
                     replan_count=0,
                     steps_since_progress=_p15_stag,
                     detection_risk=_p15_det_risk,
+                    progress_estimate=_p16_progress_val,
                 )
                 self._p15_neuromod_state = self._p15_neuromod_engine.compute(
                     _nm_inputs, self._p15_neuromod_state,
@@ -2512,13 +2560,14 @@ class SmartCoach:
                     if _reflex_cmd:
                         _target = ctx.target if ctx else "10.0.0.1"
                         _reflex_cmd = _reflex_cmd.replace("{target}", _target)
+                        _action_val = getattr(_reflex_override.action, 'value', 'unknown')
                         logger.info(
-                            f"[P15][REFLEX] {self.agent_name}: {_reflex_override.action.value} → "
+                            f"[P15][REFLEX] {self.agent_name}: {_action_val} → "
                             f"'{_reflex_cmd[:60]}' (rule={_reflex_override.source_rule})"
                         )
                         self._step_reasoning_log.append({
                             "event": "reflex",
-                            "action": _reflex_override.action.value,
+                            "action": _action_val,
                             "rule": _reflex_override.source_rule,
                         })
                         return SmartDecisionResult(
@@ -2983,11 +3032,12 @@ class SmartCoach:
             # Red/Orion get TRIPLED rates for exploit reasoning learning
             _is_key_agent = self.agent_name in ("RedAgent", "OrionAgent")
             if _is_key_agent:
-                # Phase 12.0: +50% for Red/Orion mentor guidance — starts at 1.0, decays to 0.94
-                base_mentor_rate = max(0.94, min(1.0, 1.88 - self.current_episode * 0.006))
+                # Phase 18: Moderate PPO autonomy — 1.0 → 0.50 over 100 episodes
+                # PPO must eventually own decisions to learn real exploitation.
+                base_mentor_rate = max(0.50, min(1.0, 1.00 - self.current_episode * 0.005))
             else:
-                # Phase 12.0: +50% for all agents — starts at 1.0, decays to 0.75
-                base_mentor_rate = max(0.75, min(1.0, 1.56 - self.current_episode * 0.008))
+                # Phase 18: Non-key agents — 1.0 → 0.35 over ~80 episodes
+                base_mentor_rate = max(0.35, min(1.0, 1.00 - self.current_episode * 0.008))
             
             # Accelerate decay if PPO is learning well (low entropy = confident)
             ppo_confidence_boost = 0.0
@@ -3003,7 +3053,7 @@ class SmartCoach:
             # Phase 11.5: Confidence-gated dynamic floor/ceiling (+50%)
             # When PPO is confident (high ppo_confidence_boost) → tighten mentor bounds
             # When PPO is unsure (low ppo_confidence_boost) → widen bounds for reasoning
-            _dynamic_floor = 0.75 if not _is_key_agent else 0.94  # Phase 12.0: +50% (was 0.59/0.89)
+            _dynamic_floor = 0.35 if not _is_key_agent else 0.50  # Phase 18: Let PPO lead
             _dynamic_ceiling = 0.95 if not _is_key_agent else 1.0
             if ppo_confidence_boost > 0.06:
                 # PPO is confident — reduce mentor floor to save tokens
@@ -3109,9 +3159,11 @@ class SmartCoach:
                             _teacher_action_idx = 0  # default
                             if self.action_mapper and result.template_name:
                                 try:
-                                    _teacher_action_idx = self.action_mapper.template_to_action(
+                                    _teacher_action_idx = self.action_mapper.command_to_action(
                                         result.template_name
                                     )
+                                    if _teacher_action_idx < 0:
+                                        _teacher_action_idx = 0
                                 except Exception:
                                     _teacher_action_idx = 0
                             trace = TeacherTrace(
@@ -3122,11 +3174,11 @@ class SmartCoach:
                                 teacher_template=result.template_name or "",
                                 rationale=result.mentor_reasoning or "",
                                 confidence=result.confidence,
-                                student_action_idx=_student_action_idx,
+                                student_action_idx=_student_action_idx if _student_action_idx is not None else 0,
                                 student_command=_student_command or "",
                                 student_template=_student_template or "",
-                                student_log_prob=_student_log_prob,
-                                student_confidence=_student_confidence,
+                                student_log_prob=_student_log_prob if _student_log_prob is not None else 0.0,
+                                student_confidence=_student_confidence if _student_confidence is not None else 0.0,
                                 episode=self.current_episode,
                                 step=step_ctx.step,
                                 agent_id=self.agent_name,
@@ -3190,6 +3242,15 @@ class SmartCoach:
                     if should_call_gpt and not gpt_available:
                         logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
         
+        # =========================================================================
+        # PHASE 17: NULL SAFETY — guarantee `result` is never None past this point.
+        # If the entire decision cascade failed to produce a result, fall back to
+        # registry (guaranteed to return a valid SmartDecisionResult).
+        # =========================================================================
+        if result is None:
+            logger.warning(f"[{self.agent_name}] Decision cascade returned None — registry fallback")
+            result = self._decide_from_registry(step_ctx, proposed_action, confidence)
+
         # =========================================================================
         # FINAL SAFETY: Check role exclusivity BEFORE anti-repeat
         # =========================================================================
@@ -3409,9 +3470,8 @@ class SmartCoach:
             # Store negative PPO trajectory if this overrides a PPO decision
             if self._ppo_pending is not None:
                 try:
-                    ppo = _lazy_ppo()
-                    if ppo is not None:
-                        ppo.store_transition(
+                    if self.ppo_agent is not None:
+                        self.ppo_agent.store_transition(
                             self._ppo_pending['state'],
                             self._ppo_pending['action'],
                             self._ppo_pending['log_prob'],
@@ -4637,17 +4697,40 @@ class SmartCoach:
                 )
                 # Get knowledge suggestions for discovered ports/services
                 _kb_suggestions = set()
-                _discovered_ports = list(ctx.state_flags.keys()) if ctx else []
-                for _flag in _discovered_ports:
-                    if _flag.startswith("port_"):
+                # Phase 18: Fix knowledge retrieval — pull actual discovered
+                # ports from step_ctx.state["discovery_board"] instead of
+                # state_flags (which never contains port_* keys).
+                _disc_board = step_ctx.state.get("discovery_board", {}) if step_ctx else {}
+                _disc_ports: set = set(_disc_board.get("ports", []))
+                if not _disc_ports and ctx:
+                    # Fallback: extract from discoveries dict
+                    for _dp in ctx.discoveries.get("open_port", []):
                         try:
-                            _pnum = int(_flag.replace("port_", ""))
-                            _svc_entries = kr.by_port(_pnum, max_results=3)
-                            for _se in _svc_entries:
-                                if hasattr(_se, "commands") and _se.commands:
-                                    _kb_suggestions.update(_se.commands[:2])
-                        except (ValueError, AttributeError):
+                            _disc_ports.add(int(_dp))
+                        except (ValueError, TypeError):
                             pass
+                for _pnum in _disc_ports:
+                    try:
+                        _svc_entries = kr.by_port(int(_pnum), max_results=3)
+                        for _se in _svc_entries:
+                            # Entries are dicts with "commands" key
+                            _cmds = _se.get("commands", []) if isinstance(_se, dict) else (getattr(_se, "commands", []) or [])
+                            _kb_suggestions.update(_cmds[:2])
+                    except (ValueError, AttributeError, TypeError):
+                        pass
+                # Also query by discovered services
+                _disc_services = list(_disc_board.get("services", []))
+                if not _disc_services and ctx and hasattr(ctx, 'services_found'):
+                    _disc_services = list(ctx.services_found) if ctx.services_found else []
+                for _svc_name in _disc_services:
+                    try:
+                        _svc_entries = kr.by_service(
+                            str(_svc_name).split("/")[0].strip(), max_results=3)
+                        for _se in _svc_entries:
+                            _cmds = _se.get("commands", []) if isinstance(_se, dict) else (getattr(_se, "commands", []) or [])
+                            _kb_suggestions.update(_cmds[:2])
+                    except (ValueError, AttributeError, TypeError):
+                        pass
 
                 # Match KB suggestions against registry templates
                 if _kb_suggestions and filtered_commands is not None:
@@ -5858,6 +5941,27 @@ class SmartCoach:
                     min(self._reasoning_highest_reward / 300.0, 1.0)
                     if hasattr(self, '_reasoning_highest_reward') else 0.0
                 ),
+                # Phase 16.0: Progress Estimator signals
+                progress_foothold=(
+                    self._p16_progress_estimate.foothold_progress
+                    if self._p16_progress_estimate else 0.0
+                ),
+                progress_root=(
+                    self._p16_progress_estimate.root_progress
+                    if self._p16_progress_estimate else 0.0
+                ),
+                progress_delta=(
+                    self._p16_progress_estimate.delta
+                    if self._p16_progress_estimate else 0.0
+                ),
+                estimator_confidence=(
+                    self._p16_progress_estimate.confidence
+                    if self._p16_progress_estimate else 0.0
+                ),
+                progress_momentum=(
+                    self._p16_progress_estimate.momentum
+                    if self._p16_progress_estimate else 0.0
+                ),
             )
 
             # Build mask: only commands in filtered_commands AND in mapper
@@ -6796,6 +6900,15 @@ class SmartCoach:
             state_flags=self.attack_context.state_flags,
             new_discoveries=new_discoveries,
             shared_discoveries=shared_discoveries,
+            # Phase 16.0: Progress Estimator signal for dynamic reward shaping
+            progress_delta=(
+                self._p16_progress_estimate.delta
+                if self._p16_progress_estimate else None
+            ),
+            estimator_confidence=(
+                self._p16_progress_estimate.confidence
+                if self._p16_progress_estimate else 0.0
+            ),
         )
         
         # D2: Populate discovery_details for _emit_step_event tracking
@@ -6917,6 +7030,11 @@ class SmartCoach:
                         decision.command[:100],
                         decision.phase.name if hasattr(decision.phase, 'name') else str(decision.phase),
                         _step_c,
+                    ),
+                    # Phase 16.0: Progress delta for priority scoring
+                    progress_delta=(
+                        self._p16_progress_estimate.delta
+                        if self._p16_progress_estimate else 0.0
                     ),
                 )
                 if not hasattr(self, '_p15_consolidation_samples'):
@@ -7448,6 +7566,13 @@ class SmartCoach:
             self._p15_semantic_index.clear()
         # Consolidation samples collected during episode
         self._p15_consolidation_samples: list = []
+
+        # ─── PHASE 16.0: Reset Progress Estimator per-episode state ──
+        if self._p16_progress_estimator is not None:
+            self._p16_progress_estimator.reset_episode()
+        self._p16_progress_estimate = None
+        self._p16_episode_states = []
+        self._p16_episode_boards = []
 
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode

@@ -105,6 +105,12 @@ def encode_state(
     anti_repeat_ratio: float = 0.0,
     reward_trend: float = 0.0,
     highest_reward_step: float = 0.0,
+    # Phase 16.0: Progress Estimator signals
+    progress_foothold: float = 0.0,
+    progress_root: float = 0.0,
+    progress_delta: float = 0.0,
+    estimator_confidence: float = 0.0,
+    progress_momentum: float = 0.0,
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -503,8 +509,20 @@ def encode_state(
     vec[idx] = max(min((float(_total_disc) - _expected_disc_at_step) / 10.0, 1.0), 0.0)
     idx += 1  # 168 after section 13
 
-    # ─── Remaining dims [168-511] are zero-padded ────────────────────
-    # ~168 meaningful dims / 512 total  (33% utilisation, up from 28%)
+    # ─── Section 14: Phase 16.0 Progress Estimator (5 dims) ─────────
+    vec[idx] = max(0.0, min(1.0, progress_foothold))
+    idx += 1  # 169
+    vec[idx] = max(0.0, min(1.0, progress_root))
+    idx += 1  # 170
+    vec[idx] = max(-1.0, min(1.0, progress_delta)) * 0.5 + 0.5  # remap [-1,1] → [0,1]
+    idx += 1  # 171
+    vec[idx] = max(0.0, min(1.0, estimator_confidence))
+    idx += 1  # 172
+    vec[idx] = max(-1.0, min(1.0, progress_momentum)) * 0.5 + 0.5  # remap [-1,1] → [0,1]
+    idx += 1  # 173 after section 14
+
+    # ─── Remaining dims [173-511] are zero-padded ────────────────────
+    # ~173 meaningful dims / 512 total  (34% utilisation, up from 33%)
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

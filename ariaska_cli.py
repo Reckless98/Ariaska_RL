@@ -126,6 +126,10 @@ def run_training(
     from core.environment.cyber_environment import CyberEnvironment
     from core.gpt_manager import GPTManager
 
+    # Phase 17: Auto-detect profile and enable LLM flags if API key present
+    from core.feature_flags import resolve_profile
+    _profile = resolve_profile()
+
     # Environment
     env = CyberEnvironment(defer_reset=False)
     env.mode = mode

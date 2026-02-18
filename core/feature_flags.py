@@ -157,6 +157,10 @@ class FeatureFlags:
     sensory_buffer: bool = field(
         default_factory=lambda: _env_bool("FF_SENSORY_BUFFER", False))
 
+    # ── Phase 16.0: Progress Estimator ──────────────────────────────
+    progress_estimator: bool = field(
+        default_factory=lambda: _env_bool("FF_PROGRESS_ESTIMATOR", False))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

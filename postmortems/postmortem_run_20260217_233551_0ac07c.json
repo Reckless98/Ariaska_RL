@@ -1,0 +1,142 @@
+{
+  "run_id": "run_20260217_233551_0ac07c",
+  "timestamp": 1771367759.3929963,
+  "key_outcomes": {
+    "wins": [
+      "Enumerated exposed HTTP/SSH services and collected version banners within first 3 minutes (ep001_step03).",
+      "Captured weak HTTP auth mechanism enabling plan for credential stuffing (ep001_step07)."
+    ],
+    "fails": [
+      "Unable to deliver successful exploitation payloads; no system compromise achieved despite persistence attempts.",
+      "Mentor required intervention 10 times indicating recurring decision bottlenecks in lateral movement planning."
+    ],
+    "summary": "Reconnaissance was effective and surfaced clear attack surfaces, but exploitation and persistence phases failed to progress, resulting in zero mission success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation phase retries triggered by inability to bypass outdated payload filters, stalling rootcode delivery.",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When http service returns default login panel and content-type html",
+      "then_action": "Run dirsearch with medium depth to identify hidden admin panels",
+      "parameters_template": {
+        "url": "http://<target>:80/",
+        "wordlist": "directory-list-2.3-medium.txt",
+        "extensions": "php,html"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771367768.0989208,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SSH service banner reveals OpenSSH 7.x",
+      "then_action": "Invoke nmap with ssh-brute and ssh2-enum-algos scripts for credential validation and key info",
+      "parameters_template": {
+        "port": 22,
+        "scripts": [
+          "ssh-brute",
+          "ssh2-enum-algos"
+        ]
+      },
+      "confidence": 0.81,
+      "evidence_refs": [
+        "ep001_step05",
+        "ep001_step08"
+      ],
+      "created_at": 1771367768.0989354,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP basic auth challenge observed",
+      "then_action": "Use hydra with user list from recon and default password set to test credentials quickly",
+      "parameters_template": {
+        "url": "http://<target>:80/",
+        "method": "http-get",
+        "userlist": "recon_users.txt",
+        "passlist": "default_passwords.txt"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771367768.0989444,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent recon wins identifying admin paths to focus exploitation."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH enumeration yielded actionable data even though exploitation remains pending."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Deploy customized HTTP exploit chains",
+      "description": "Chain dirsearch findings with Burp Intruder to craft specialized payloads for identified admin panel vulnerabilities.",
+      "priority": "high"
+    },
+    {
+      "title": "Optimize SSH brute force strategy",
+      "description": "Integrate credential patterns derived from service banners with Hydra and limit rate to avoid lockouts while expanding password lists.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence via web shell upload",
+      "description": "Post-auth HTTP request to upload a minimal PHP web shell once valid creds from hydra are confirmed, then validate remote command execution.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

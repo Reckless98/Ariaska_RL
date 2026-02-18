@@ -38,6 +38,7 @@ from core.execution.discovery_event import DiscoveryEvent, DiscoveryType
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
     from core.telemetry.unified_trace import ParseExplanation
+    from core.execution.parser_teacher_output import ParserTeacherOutput
 
 logger = logging.getLogger("ariaska.parser_broker")
 
@@ -158,6 +159,12 @@ class ParserBroker:
         if not output or len(output.strip()) < 5:
             self._stats["empty_outputs"] += 1
             return []
+
+        # Phase 18: Strip ANSI escape codes from raw output before any
+        # regex stage — real tools emit colour/cursor sequences.
+        import re as _re
+        output = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+        output = output.replace('\r', '')
 
         if effective_mode == "intelligent_fullparse":
             self._stats["fullparse_calls"] += 1

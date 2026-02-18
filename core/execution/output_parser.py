@@ -152,6 +152,12 @@ class OutputParser:
         if not command or not output:
             return ParsedOutput(command=command or "", error="Empty command or output")
         
+        # Phase 18: Strip ANSI escape codes — real tool output contains
+        # colour/cursor sequences that break all regex patterns.
+        import re as _re
+        output = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+        output = output.replace('\r', '')
+        
         # Identify tool from command
         tool = self._identify_tool(command)
         

@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260218_004350_aca914",
+  "timestamp": 1771371853.997411,
+  "key_outcomes": {
+    "wins": [
+      "Identified perimeter services quickly (open ports 22/80/443) and captured banner data for SSH and HTTP via initial nmap sweep (run_20260218_004350_aca914_ep1_step03).",
+      "Successfully chained HTTP probing with nikto and dirb to catalog web-assets, enabling focused payload delivery (run_20260218_004350_aca914_ep1_step07)."
+    ],
+    "fails": [
+      "Could not elevate privileges after initial foothold\u2014sudo misconfiguration exploitation attempts were blocked (run_20260218_004350_aca914_ep1_step15).",
+      "Persistence strategy never established due to lack of credential capture, leaving session ephemeral and ending the episode prematurely."
+    ],
+    "summary": "Reconnaissance and initial exploitation were strong, but operations stalled on privilege escalation and persistence, leaving no successful mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Privilege escalation stalled due to missing writable sudoers entry and failure to identify setuid binaries.",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260218_004350_aca914_ep1_step15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "run_20260218_004350_aca914_ep1_step05"
+      ],
+      "created_at": 1771371863.108744,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service responds with Server header and 200 status",
+      "then_action": "Trigger nikto scan and dirb for common directories",
+      "parameters_template": {
+        "url": "http://<target_ip>",
+        "options": [
+          "-Tuning 9",
+          "-Format txt"
+        ]
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "run_20260218_004350_aca914_ep1_step07",
+        "run_20260218_004350_aca914_ep1_step08"
+      ],
+      "created_at": 1771371863.1087613,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When initial foothold obtained but sudo rights unclear",
+      "then_action": "Enumerate sudo permissions and local setuid binaries",
+      "parameters_template": {
+        "commands": [
+          "sudo -l",
+          "find / -perm -4000 -type f -print"
+        ],
+        "timeout": 120
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260218_004350_aca914_ep1_step15"
+      ],
+      "created_at": 1771371863.108772,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High success rate in web discovery stage enabling follow-on exploitation."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "SSH enumeration consistently uncovers allowable auth methods for later attack planning."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Privilege escalation with SUID audit",
+      "description": "After foothold, run targeted sudo -l and find SUID searches from compromised host; validate use of cameleon payloads for any writable binaries.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential harvesting via HTTP form fuzzing",
+      "description": "Use Burp Intruder/ffuf on discovered login endpoints to capture default credentials for pivoting and persistence.",
+      "priority": "medium"
+    },
+    {
+      "title": "Persistence via scheduled task creation",
+      "description": "If escalation still blocked, drop a reverse shell script and register persistence (cron/service) to maintain access between runs.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}

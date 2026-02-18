@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260218_005255_c02fd2",
+  "timestamp": 1771372385.0479364,
+  "key_outcomes": {
+    "wins": [
+      "Completed comprehensive reconnaissance with Nmap service/version scan and captured SSH and HTTP banners (ep001_step4).",
+      "Mapped internal network segments via ping sweep and recorded firewall rules for later pivoting (ep001_step6)."
+    ],
+    "fails": [
+      "Failed to convert initial access into a stable shell due to outdated exploit; shell attempt terminated by sandbox (ep001_step9).",
+      "Privilege escalation attempt aborted after sudo misconfiguration blocked the privilege drop plan (ep001_step11)."
+    ],
+    "summary": "Reconnaissance yielded accurate service intelligence, but exploitation and post-exploitation phases stalled before a stable foothold or escalation could be achieved."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Repeated inability to stabilize an interactive shell after initial exploit attempts due to sandbox resets or insufficient payload persistence.",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step13"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with Nmap scripting engine to identify supported cipher suites and user lists",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep001_step4"
+      ],
+      "created_at": 1771372392.8263862,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service returns identifiable CMS or API endpoints",
+      "then_action": "Invoke Nikto and Dirbuster to enumerate directories and input validation vectors",
+      "parameters_template": {
+        "host": "{{target}}",
+        "port": 80,
+        "tool": "nikto,-h{{target}}",
+        "tool_secondary": "dirbuster,-uhttp://{{target}}/",
+        "depth": 3
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step6"
+      ],
+      "created_at": 1771372392.826399,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a writable SMB share is discovered without authentication",
+      "then_action": "Attempt to upload a reverse shell binary and trigger it via scheduled task or service restart",
+      "parameters_template": {
+        "share": "\\\\\\\\{{target}}\\\\share",
+        "binary": "rev_shell.exe",
+        "trigger": "schtasks /run /tn \"Updater\""
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771372392.8264067,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High accuracy in SSH banner collection and service fingerprinting during reconnaissance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Persistent shell delivery via alternate exploit vector",
+      "description": "Attempt multi-stage payload delivery over HTTP (Meterpreter stager) to withstand sandbox resets and maintain a reliable command channel.",
+      "priority": "high"
+    },
+    {
+      "title": "Automated privilege escalation enumeration",
+      "description": "Execute LinPEAS/WinPEAS via constrained shell to inspect sudo/scheduled tasks for misconfigurations enabling privilege escalation.",
+      "priority": "medium"
+    },
+    {
+      "title": "Pivoting to internal network segments",
+      "description": "Use SSH port forwarding from the initial host to reach adjacent subnets, then re-run discovery scans from that vantage point.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.1-codex-mini",
+  "dry_run": false,
+  "validation_passed": true
+}
