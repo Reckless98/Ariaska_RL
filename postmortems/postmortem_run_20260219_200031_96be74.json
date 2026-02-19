@@ -1,0 +1,151 @@
+{
+  "run_id": "run_20260219_200031_96be74",
+  "timestamp": 1771527644.3442464,
+  "key_outcomes": {
+    "wins": [
+      "Accumulated positive reward despite no episode success, indicating some effective sub-steps",
+      "Completed full episode without timeout"
+    ],
+    "fails": [
+      "No successful episode completion (0% success rate)",
+      "High mentor call usage (10) suggesting instability or uncertainty",
+      "Single-episode dataset limits confidence in learned patterns"
+    ],
+    "summary": "The run shows partial progress with positive reward but no task completion; guidance dependency remains high and results are statistically thin."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert reconnaissance findings into exploitation or privilege escalation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor intervention during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05",
+        "ep001_step09",
+        "ep001_step12",
+        "ep001_step15",
+        "ep001_step17",
+        "ep001_step20",
+        "ep001_step23",
+        "ep001_step26",
+        "ep001_step29"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When target host is identified and TCP ports are unknown",
+      "then_action": "Run fast TCP scan with nmap to identify open ports",
+      "parameters_template": {
+        "ports": "1-1000",
+        "options": "-sS -T4 --open"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771527661.023048,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on port 80 or 443",
+      "then_action": "Perform web fingerprinting and directory discovery",
+      "parameters_template": {
+        "fingerprint_tool": "whatweb",
+        "dir_enum_tool": "gobuster",
+        "gobuster_options": "dir -u http://TARGET -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771527661.023057,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB (port 445) is open",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tool": "smbclient",
+        "options": "-L //TARGET -N"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771527661.0230625,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step consistently executed in the episode"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web service handling is a high-value branch for future success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run an episode with a strict limit of 3 mentor calls to encourage autonomous decision-making and validate learned recon-to-exploit transitions",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path rehearsal",
+      "description": "After initial port scan, follow a deterministic playbook (web enum \u2192 vuln scan \u2192 exploit attempt) to test conversion from recon to compromise",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-episode validation",
+      "description": "Execute at least 5 episodes to confirm repeatable patterns and improve confidence in skill card promotion",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

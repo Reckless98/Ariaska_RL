@@ -1,0 +1,131 @@
+{
+  "run_id": "run_20260219_200226_58a593",
+  "timestamp": 1771527763.8358366,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate",
+      "Completed a full episode without crashes or missing mentor calls"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates objectives not met",
+      "Single-episode run limits statistical confidence",
+      "High mentor call count suggests weak autonomous decision-making"
+    ],
+    "summary": "The run produced a positive reward but failed to meet mission success criteria; more episodes and better autonomous sequencing are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Insufficient exploitation follow-through after reconnaissance",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_unknown"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When at least one TCP port is discovered open on a target",
+      "then_action": "Run targeted version detection and default script enumeration on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_unknown"
+      ],
+      "created_at": 1771527779.4946022,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Perform web tech fingerprinting and directory discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "whatweb_args": "<url>",
+        "gobuster_args": "dir -u <url> -w <wordlist> -t 20"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step_unknown"
+      ],
+      "created_at": 1771527779.4946165,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Enumerate SSH version and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-auth-methods <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step_unknown"
+      ],
+      "created_at": 1771527779.4946265,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline service enumeration is foundational for later exploit selection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for statistical signal",
+      "description": "Run 10\u201320 episodes with identical target class to validate whether reward correlates with actual success.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighter recon-to-exploit pipeline",
+      "description": "Add explicit decision gate: after service enumeration, attempt at least one exploit or credential test per high-value service.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call reduction trial",
+      "description": "Cap mentor calls at 3 per episode to force autonomous chaining of recon \u2192 enumeration \u2192 exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

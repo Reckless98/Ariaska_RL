@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260219_185442_31b0b6",
+  "timestamp": 1771523700.1503756,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite single episode"
+    ],
+    "fails": [
+      "0.00% success rate indicates failure to complete objective"
+    ],
+    "summary": "Single-episode run produced positive reward but no successful completion, suggesting early-step rewards without end-state success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite positive intermediate reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon yields open port information",
+      "then_action": "Prioritize service enumeration with nmap default scripts",
+      "parameters_template": {
+        "flags": "-sC -sV",
+        "target": "<IP>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_recon"
+      ],
+      "created_at": 1771523711.0240629,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When no immediate exploit path is found",
+      "then_action": "Run targeted vulnerability scan on identified services",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "--script vuln",
+        "target": "<IP>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step_enum"
+      ],
+      "created_at": 1771523711.0240827,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon-to-enum step is essential for progression despite low success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve post-recon decisioning",
+      "description": "After initial port discovery, branch into service-specific enumeration (e.g., HTTP, SSH, SMB) before attempting any exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Add vulnerability script pass",
+      "description": "Incorporate a dedicated nmap vuln script scan on discovered services to identify exploit paths earlier.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten success criteria",
+      "description": "Define explicit end-state objectives and validate completion to avoid positive reward without success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,135 @@
+{
+  "run_id": "run_20260219_185126_9970b6",
+  "timestamp": 1771523500.6563945,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with positive reward (50.00)",
+      "Maintained consistent reward across recent trend"
+    ],
+    "fails": [
+      "Overall success rate at 0.00% indicates objective not achieved",
+      "High mentor call count (10) suggests heavy reliance on guidance"
+    ],
+    "summary": "The run produced a positive reward but failed to achieve success, indicating partial progress without task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial episode reward is positive but success flag is false",
+      "then_action": "Review termination condition and align action policy to success criteria",
+      "parameters_template": {
+        "review_items": [
+          "success_condition",
+          "termination_reason",
+          "last_actions"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771523510.8743355,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Insert a self-check step before each mentor call to attempt autonomous resolution",
+      "parameters_template": {
+        "self_check_steps": [
+          "restate goal",
+          "evaluate state",
+          "propose next action"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771523510.8743467,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Run a failure-mode review and adjust exploration-exploitation balance",
+      "parameters_template": {
+        "adjustments": [
+          "increase exploration",
+          "reduce risky actions",
+          "prioritize success criteria"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771523510.8743606,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses mismatch between reward and success outcome"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Success-Criteria Alignment Audit",
+      "description": "Instrument episode end-state logging to trace why success was not triggered despite positive reward.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Protocol",
+      "description": "Add a mandatory self-check decision step before requesting mentor guidance to build autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploration Tuning",
+      "description": "Adjust policy to prioritize actions that directly satisfy success conditions over reward-only actions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260219_194803_d1a9e2",
+  "timestamp": 1771526903.5214205,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with total reward of 80.00 despite zero success rate",
+      "High mentor utilization (10 calls) indicates active guidance seeking"
+    ],
+    "fails": [
+      "No successful episodes (0.00% success rate)",
+      "Insufficient conversion of guidance into successful outcomes"
+    ],
+    "summary": "Single-episode run achieved moderate reward but produced no successes; primary issue is failure to translate mentor guidance into effective action sequences."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete objective despite mentor guidance",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial episode reward is positive but success rate is 0%",
+      "then_action": "Review end-state failure reason and map it to a corrective action in the next attempt",
+      "parameters_template": {
+        "review_window": "last_10_steps",
+        "mapping_output": "action_fix_list"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771526915.5899696,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Consolidate mentor guidance into a single execution plan before taking further actions",
+      "parameters_template": {
+        "plan_steps": 3,
+        "decision_gate": "confirm_before_execute"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771526915.5899832,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Directly addresses the gap between reward accumulation and objective success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Mentor Guidance Consolidation",
+      "description": "After the 3rd mentor call, pause to synthesize guidance into a 3-step plan and execute without further mentor input unless blocked.",
+      "priority": "high"
+    },
+    {
+      "title": "Failure-Point Replay",
+      "description": "Replay the final 10 steps of the episode and identify the earliest divergent action that led to failure; test a corrected action path.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective Checkpointing",
+      "description": "Insert explicit checkpoints after each major action to verify alignment with the objective and adjust immediately if drift is detected.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

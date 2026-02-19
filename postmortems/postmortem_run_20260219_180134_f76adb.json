@@ -1,0 +1,100 @@
+{
+  "run_id": "run_20260219_180134_f76adb",
+  "timestamp": 1771520510.5870476,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward of 80.00 in a single episode"
+    ],
+    "fails": [
+      "Success rate remained at 0.00% despite positive reward"
+    ],
+    "summary": "The run shows limited overall effectiveness: reward was positive but no successful completions were recorded, indicating partial progress without task success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Positive reward without task completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode yields positive reward but success rate is 0%",
+      "then_action": "Review terminal phase actions for completion criteria and add explicit finalization steps",
+      "parameters_template": {
+        "review_scope": "end_state_conditions",
+        "add_step": "finalize_task"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771520521.02679,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When only a single episode is available",
+      "then_action": "Increase episode count for variance analysis and pattern discovery",
+      "parameters_template": {
+        "min_episodes": 5,
+        "seed_variation": true
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "run_20260219_180134_f76adb"
+      ],
+      "created_at": 1771520521.0268054,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses the core gap between reward and completion, likely improving success rate."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode diversity",
+      "description": "Run at least 5 episodes with varied seeds to detect consistent success blockers and stabilize the reward-to-success relationship.",
+      "priority": "high"
+    },
+    {
+      "title": "Completion criteria audit",
+      "description": "Instrument end-of-episode checks to ensure all required finalization steps are executed before termination.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-signal alignment test",
+      "description": "Adjust or log reward components to verify they correlate with task completion rather than intermediate progress.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,141 @@
+{
+  "run_id": "run_20260219_181327_f6b345",
+  "timestamp": 1771521225.1318007,
+  "key_outcomes": {
+    "wins": [
+      "Achieved non-zero total reward indicating some positive task completion",
+      "Completed a full episode without interruption"
+    ],
+    "fails": [
+      "Overall success rate was 0%, indicating end-goal not achieved",
+      "High mentor call count (10) suggests reliance on guidance and lack of autonomy"
+    ],
+    "summary": "Single-episode run with partial progress but no final objective completion; guidance dependency remains high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful exploitation chain",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor intervention during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to ping and has open TCP ports",
+      "then_action": "Run targeted nmap service/version detection on discovered ports",
+      "parameters_template": {
+        "ports": "open",
+        "flags": "-sV -sC"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771521239.8694432,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on a target",
+      "then_action": "Enumerate web content and common paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771521239.8694575,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Gather SSH configuration and banner details",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh-*",
+        "port": 22
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771521239.8694675,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step likely contributed to positive reward"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common next-step after service discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit Chain Validation",
+      "description": "Map discovered services to known CVEs and attempt a full exploit chain from recon to shell to improve success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Drill",
+      "description": "Repeat the scenario with a hard cap of 3 mentor calls to encourage autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-Enumeration Decision Tree",
+      "description": "Implement a decision checklist after enumeration to select the most promising attack vector.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260219_193355_6dba4b",
+  "timestamp": 1771526051.352973,
+  "key_outcomes": {
+    "wins": [
+      "High episode reward indicates some effective actions or partial objectives met"
+    ],
+    "fails": [
+      "Success rate 0% suggests failure to achieve final objectives",
+      "Only one episode limits confidence and pattern validation"
+    ],
+    "summary": "Single-episode run with strong reward but no successful completion; more data needed to confirm effective behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite accruing reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ICMP and at least one TCP port is open",
+      "then_action": "Run targeted service/version scan on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step4"
+      ],
+      "created_at": 1771526061.9515293,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Enumerate web endpoints and technologies",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "--script http-enum,http-title -p <port> <target>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771526061.9515529,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Collect SSH banner and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "--script ssh2-enum-algos -p 22 <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771526061.9515693,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Early reconnaissance likely contributed to high reward despite no final success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective completion focus",
+      "description": "Add a post-enumeration step to verify exploitation path or flag capture to improve success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Episode replication",
+      "description": "Run 5 additional episodes with the same target profile to validate whether high reward correlates with successful outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific deep dives",
+      "description": "Branch enumeration based on detected services (SSH/HTTP/DB) and track which leads to objective progress.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

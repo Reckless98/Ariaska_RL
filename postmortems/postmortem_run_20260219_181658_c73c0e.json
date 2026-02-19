@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260219_181658_c73c0e",
+  "timestamp": 1771521430.2378705,
+  "key_outcomes": {
+    "wins": [
+      "Maintained engagement with mentor guidance across the episode",
+      "Accumulated positive reward despite no full task success"
+    ],
+    "fails": [
+      "No successful episode completion (0% success rate)",
+      "High mentor reliance (10 calls) indicating low autonomy"
+    ],
+    "summary": "Single-episode run with positive reward but no task success; performance suggests partial progress without completing the objective and heavy dependence on mentoring."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert intermediate progress into a completed objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields partial indicators but no clear exploit path",
+      "then_action": "Branch into service-specific enumeration with targeted scripts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC --script safe,default -p-"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771521445.6860576,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When progress stalls after initial recon",
+      "then_action": "Pivot to validating hypotheses using a single high-confidence probe before expanding scope",
+      "parameters_template": {
+        "probe_type": "banner_grab",
+        "timeout_seconds": 3
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771521445.6860716,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Structured recon branching helped sustain positive reward despite lack of completion"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Attempt a full episode with a capped mentor call budget of 3 to improve autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path validation",
+      "description": "Introduce a forced checkpoint: after recon, require a single hypothesis test (e.g., specific service probe) before continuing enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon depth vs. breadth",
+      "description": "Compare two runs: one with full port sweep first, another with top-1000 ports plus service scripts, to see which yields faster actionable leads.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

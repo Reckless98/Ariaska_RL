@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260219_184936_ed161c",
+  "timestamp": 1771523390.8705292,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward across the episode",
+      "Demonstrated at least one effective action sequence yielding reward"
+    ],
+    "fails": [
+      "Overall success rate remained at 0% indicating objectives not completed",
+      "High mentor call count suggests reliance on guidance and inconsistent autonomy"
+    ],
+    "summary": "Despite earning reward, the run did not achieve task success and showed heavy mentor reliance, indicating incomplete kill-chain progression."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery finds at least one live host",
+      "then_action": "Run a full TCP port scan with service/version detection on the live host",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -sV -T4"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771523403.4605145,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service (HTTP/HTTPS) is detected",
+      "then_action": "Enumerate web paths and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771523403.4605277,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (22/tcp) is open",
+      "then_action": "Perform SSH banner and authentication method enumeration",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p22 --script ssh2-enum-algos,ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.63,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771523403.4605358,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core recon step that consistently enables downstream enumeration"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Handoff",
+      "description": "After full port scan, prioritize service-specific enumeration and attempt a single targeted exploit based on detected version signatures.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Enumeration Depth Increase",
+      "description": "Expand web content discovery using multiple wordlists and check for common misconfigurations (robots.txt, backup files).",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Attempt a full episode with a predefined decision tree to reduce mentor calls by at least 50%.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

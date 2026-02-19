@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260219_211838_666435",
+  "timestamp": 1771532334.187092,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (+60) in the single episode",
+      "Completed the episode without termination errors"
+    ],
+    "fails": [
+      "Overall success rate was 0% despite positive reward",
+      "Only one episode executed, limiting statistical confidence"
+    ],
+    "summary": "The run produced a positive reward but failed to meet success criteria. More episodes and clearer success-oriented actions are needed to validate performance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reward gained without meeting defined success criteria",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance is required against an unknown host",
+      "then_action": "Run fast TCP port scan to identify open services",
+      "parameters_template": {
+        "command": "nmap",
+        "args": "-sS -sV -T4 -Pn -p- <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771532347.4893932,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on common ports",
+      "then_action": "Perform web enumeration to discover directories and technologies",
+      "parameters_template": {
+        "command": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771532347.4894083,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "command": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-auth-methods <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771532347.4894183,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Base reconnaissance is foundational and likely contributed to positive reward."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common next step when HTTP is present."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count",
+      "description": "Run 10+ episodes with identical settings to establish reliable success metrics and reduce variance.",
+      "priority": "high"
+    },
+    {
+      "title": "Success-criteria alignment",
+      "description": "Instrument the agent to explicitly pursue defined success conditions (e.g., privilege escalation or flag capture) after reconnaissance.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-to-exploit handoff test",
+      "description": "Add a rule-based handoff from service discovery to targeted exploitation (e.g., HTTP -> CVE checks, SSH -> credential audit) and measure success impact.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
