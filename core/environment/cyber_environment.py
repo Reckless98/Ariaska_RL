@@ -1555,11 +1555,13 @@ class CyberEnvironment:
         """Check if phase transition criteria are met.
         
         Phase 6.4: DISCOVERY-GATED transitions for live MS2 training.
+        Phase 40: Confidence-weighted readiness scoring for smarter advancement.
+        
         Agents must demonstrate REAL progress (actual discoveries) to
         advance, not just run N commands of the right category.
         
         Gates:
-            RECON → ENUMERATION:   ≥3 ports discovered
+            RECON → ENUMERATION:   ≥3 ports discovered (or readiness ≥ 0.7)
             ENUMERATION → EXPLOIT: ≥2 services identified OR credentials known
             EXPLOIT → PRIVESC:     shell obtained
             PRIVESC → EXFILTRATE:  root shell OR admin access
@@ -1584,20 +1586,23 @@ class CyberEnvironment:
         counter_threshold = self.phase_transitions[current]["threshold"]
         counter_met = self.phase_progress[current] >= counter_threshold
         
+        # ── Phase 40: Compute readiness score ───────────────────────
+        readiness = self._compute_phase_readiness(current)
+        
         # ── Phase 6.4: Discovery gates (require REAL evidence) ──────
         # Counter must ALSO be met (backward compat). Discovery gate
         # is the binding constraint — prevents trivial phase advancement.
         discovery_gate_met = False
         
         if current == "recon":
-            # Need at least 3 real ports discovered
+            # Need at least 3 real ports discovered OR high readiness
             n_ports = len(self.open_ports) if self.open_ports else 0
-            discovery_gate_met = n_ports >= 3
+            discovery_gate_met = n_ports >= 3 or readiness >= 0.7
         elif current == "enumeration":
             # Need services identified OR credentials
             n_services = len(self.services) if self.services else 0
             has_creds = self.credentials_found
-            discovery_gate_met = n_services >= 2 or has_creds
+            discovery_gate_met = n_services >= 2 or has_creds or readiness >= 0.7
         elif current == "exploit":
             # Need shell access
             has_shell = len(self.active_shells) > 0 or self.privilege_level not in ("none", "")
@@ -1622,14 +1627,47 @@ class CyberEnvironment:
                 self.done = True
             else:
                 self.current_phase = next_phase
-                console.print(f"[green]✓ Phase transition: {current} → {next_phase}[/green]")
+                console.print(
+                    f"[green]✓ Phase transition: {current} → {next_phase}"
+                    f" (readiness={readiness:.2f})[/green]"
+                )
                 
                 self.state = self.get_global_state()
                 
                 self._visualize_state_change("Phase transition", {
                     "previous_phase": current,
-                    "new_phase": next_phase
+                    "new_phase": next_phase,
+                    "readiness_score": readiness,
                 })
+
+    def _compute_phase_readiness(self, current_phase: str) -> float:
+        """Phase 40: Compute weighted readiness score for phase advancement.
+        
+        Returns a score [0.0, 1.0] indicating how ready we are to advance.
+        """
+        n_ports = len(self.open_ports) if self.open_ports else 0
+        n_services = len(self.services) if self.services else 0
+        has_creds = 1.0 if self.credentials_found else 0.0
+        has_version = 1.0 if n_services > 0 else 0.0
+        has_shell = 1.0 if (len(self.active_shells) > 0 or
+                            self.privilege_level not in ("none", "")) else 0.0
+        is_root = 1.0 if self.privilege_level in ("root", "admin", "SYSTEM") else 0.0
+
+        if current_phase == "recon":
+            # Weight: ports most important, services and versions also count
+            port_score = min(1.0, n_ports / 3.0)
+            svc_score = min(1.0, n_services / 2.0)
+            return 0.5 * port_score + 0.3 * svc_score + 0.2 * has_version
+        elif current_phase == "enumeration":
+            svc_score = min(1.0, n_services / 2.0)
+            return 0.4 * svc_score + 0.3 * has_creds + 0.3 * has_version
+        elif current_phase == "exploit":
+            return 0.6 * has_shell + 0.3 * has_creds + 0.1 * (min(1.0, n_services / 3.0))
+        elif current_phase == "privesc":
+            return 0.7 * is_root + 0.3 * has_shell
+        elif current_phase == "exfiltrate":
+            return 1.0 if self.data_exfiltrated else 0.0
+        return 0.0
 
     # ─────────────────────────────────────────────
     # 👁️ Orion Strategic Oversight

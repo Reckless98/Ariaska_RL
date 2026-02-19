@@ -242,6 +242,8 @@ class LiveDashboard:
         # Per-agent tracking
         self.agent_stats: Dict[str, Dict[str, Any]] = {}
 
+        # Phase 40: Discovery sparkline history
+        self.discovery_counts_history: deque = deque(maxlen=30)
         # Episode tracking
         self.current_episode = 0
         self.episode_rewards: List[float] = []
@@ -996,6 +998,416 @@ class LiveDashboard:
         return " ".join(parts)
 
     # =========================================================================
+    # Phase 40: Dashboard v6 — New panel builders
+    # =========================================================================
+
+    def _build_phase_progress_bar(self, current_phase: str) -> Panel:
+        """Build a horizontal phase progress chain showing kill chain position.
+
+        Renders all 8 phases with filled/empty block indicators and
+        the current phase highlighted.
+
+        Returns:
+            Rich Panel with the phase progress visualization
+        """
+        phases = [
+            ("RECON", "🔍"), ("ENUMERATION", "📋"),
+            ("EXPLOITATION", "💥"), ("PRIVILEGE_ESCALATION", "👑"),
+            ("LATERAL_MOVEMENT", "↔️"), ("POST_EXPLOITATION", "📡"),
+            ("EXFILTRATION", "📤"), ("CLOSEOUT", "🧹"),
+        ]
+        phase_upper = current_phase.upper()
+        parts: list[str] = []
+        reached = False
+        current_idx = -1
+        for i, (p, icon) in enumerate(phases):
+            if p == phase_upper:
+                current_idx = i
+                break
+
+        for i, (p, icon) in enumerate(phases):
+            short = p[:4]
+            if i < current_idx:
+                # Completed phases
+                parts.append(f"[green]{icon}{short}[/green] [green]████[/green]")
+            elif i == current_idx:
+                # Current phase — highlighted
+                parts.append(
+                    f"[bold bright_yellow]{icon}{short}[/bold bright_yellow] "
+                    f"[bright_yellow]██▓░[/bright_yellow]"
+                )
+            else:
+                # Future phases
+                parts.append(f"[dim]{icon}{short} ░░░░[/dim]")
+
+        chain = "  →  ".join(parts)
+        return Panel(
+            chain,
+            title="[bold bright_white]🗺️ Kill Chain Progress[/bold bright_white]",
+            border_style="bright_blue",
+            box=box.ROUNDED,
+            padding=(0, 1),
+            expand=True,
+        )
+
+    def _build_decision_chain_panel(
+        self,
+        agent_infos: List['AgentStepInfo'],
+    ) -> Panel:
+        """Build a vertical decision pipeline visualization per agent.
+
+        Shows the top-down flow: Source → Gates → Result for each active agent.
+
+        Returns:
+            Rich Panel containing decision chain table
+        """
+        table = Table(
+            box=box.SIMPLE_HEAVY,
+            show_header=True,
+            header_style="bold bright_white",
+            padding=(0, 1),
+            expand=True,
+            border_style="bright_magenta",
+        )
+        table.add_column("Agent", style="bold", ratio=1, no_wrap=True)
+        table.add_column("Pipeline Stage", ratio=2, no_wrap=False)
+        table.add_column("Result", ratio=2, no_wrap=False, overflow="fold")
+        table.add_column("Score", ratio=1, justify="right", no_wrap=True)
+
+        active = [a for a in agent_infos if not a.skipped]
+        for a in active:
+            icon = AGENT_ICONS.get(a.agent_name, ("🤖", "Agent", "dim"))[0]
+            agent_label = f"{icon} {a.agent_name.replace('Agent', '')}"
+
+            # Build decision trace from agent info
+            decision_trace = getattr(a, 'decision_trace', None) or []
+            if decision_trace:
+                for i, entry in enumerate(decision_trace):
+                    stage = entry.get("stage", "?")
+                    result = entry.get("result", "—")
+                    score = entry.get("score", "")
+                    passed = entry.get("passed", True)
+
+                    # Style based on pass/fail
+                    if not passed:
+                        result_str = f"[red]✗ {result}[/red]"
+                    elif result == "—" or result == "SKIP":
+                        result_str = f"[dim]{result}[/dim]"
+                    else:
+                        result_str = f"[green]{result}[/green]"
+
+                    score_str = f"{score:.2f}" if isinstance(score, (int, float)) and score > 0 else ""
+
+                    # Only show agent name on first row
+                    row_agent = agent_label if i == 0 else ""
+                    table.add_row(row_agent, stage, result_str, score_str)
+
+                # Final row showing selected command
+                cmd = getattr(a, 'command', '') or ''
+                cmd_short = cmd[:60] + "..." if len(cmd) > 60 else cmd
+                source = getattr(a, 'source', '') or ''
+                table.add_row(
+                    "",
+                    f"[bold]→ FINAL[/bold]",
+                    f"[bold bright_green]{cmd_short}[/bold bright_green]",
+                    f"[bold]{source}[/bold]",
+                )
+            else:
+                # No trace available — show summary
+                source = getattr(a, 'source', '') or ''
+                cmd = getattr(a, 'command', '') or ''
+                cmd_short = cmd[:60] + "..." if len(cmd) > 60 else cmd
+                conf = getattr(a, 'confidence', 0.0)
+                conf_str = f"{conf:.0%}" if conf else ""
+                table.add_row(agent_label, f"[dim]{source}[/dim]", cmd_short, conf_str)
+
+            # Separator between agents
+            if a != active[-1]:
+                table.add_row("", "─" * 20, "─" * 30, "─" * 6, style="dim")
+
+        return Panel(
+            table,
+            title="[bold bright_magenta]🔗 Decision Chain[/bold bright_magenta]",
+            border_style="bright_magenta",
+            box=box.ROUNDED,
+            padding=(0, 0),
+            expand=True,
+        )
+
+    def _build_step_metrics_panel(
+        self,
+        reward_breakdown: Optional[Dict[str, Any]] = None,
+        parser_stats: Optional[Dict[str, Any]] = None,
+        budget_snapshot: Optional[Dict[str, Any]] = None,
+        gpt_activity: Optional[Dict[str, Any]] = None,
+    ) -> Panel:
+        """Build a compact step metrics panel.
+
+        Combines reward, parser, budget, and cost info into one panel.
+
+        Returns:
+            Rich Panel with step metrics
+        """
+        lines: list[str] = []
+
+        # Reward breakdown
+        if reward_breakdown:
+            parts = []
+            for k, v in reward_breakdown.items():
+                if isinstance(v, (int, float)) and v != 0:
+                    color = "green" if v > 0 else "red"
+                    parts.append(f"[{color}]{k}:{v:+.1f}[/{color}]")
+            if parts:
+                lines.append(f"💰 Reward    {' │ '.join(parts)}")
+
+        # Parser stats
+        if parser_stats:
+            pc = parser_stats.get("parser_calls", 0)
+            rc = parser_stats.get("regex_matches", 0)
+            lines.append(f"🔬 Parser    calls:{pc} │ 🔍regex:{rc}")
+
+        # Budget
+        if budget_snapshot:
+            pressure = budget_snapshot.get("pressure_pct", 0)
+            mentor_rem = budget_snapshot.get("mentor_remaining", 0)
+            mentor_max = budget_snapshot.get("mentor_max", 0)
+            venice_rem = budget_snapshot.get("venice_remaining", 0)
+            p_color = "green" if pressure < 50 else "yellow" if pressure < 80 else "red"
+            lines.append(
+                f"[{p_color}]{'🟢' if pressure < 50 else '🟡' if pressure < 80 else '🔴'} "
+                f"Budget[/{p_color}]    pressure:{pressure}% │ "
+                f"mentor:{mentor_rem}/{mentor_max} │ venice:{venice_rem}"
+            )
+
+        # GPT cost
+        if gpt_activity:
+            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
+            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
+            total_calls = gpt_activity.get("total_calls", 0)
+            total_tokens = gpt_activity.get("total_tokens", 0)
+            cache_hits = gpt_activity.get("cache_hits", 0)
+            cost_color = "red" if cum_cost > 1.0 else "yellow" if cum_cost > 0.25 else "green"
+            lines.append(
+                f"[{cost_color}]💳 GPT[/{cost_color}]       "
+                f"${cum_cost:.4f} │ ep:${ep_cost:.4f} │ "
+                f"calls:{total_calls} │ tokens:{total_tokens:,} │ cache:{cache_hits}"
+            )
+
+        if not lines:
+            lines.append("[dim]No metrics available[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold bright_cyan]📊 Step Metrics[/bold bright_cyan]",
+            border_style="cyan",
+            box=box.ROUNDED,
+            expand=True,
+            padding=(0, 2),
+        )
+
+    def _build_learning_panel(
+        self,
+        snapshot: Dict[str, Any],
+        step: int,
+    ) -> Panel:
+        """Build learning dashboard panel (returns Panel instead of printing).
+
+        Shows: discovery totals/deltas, novelty rate, stagnation, anti-repeat,
+        milestones, model mix, cost efficiency.
+
+        Returns:
+            Rich Panel with learning metrics
+        """
+        # Row 1: Discovery summary
+        tp = snapshot.get("total_ports", 0)
+        ts = snapshot.get("total_services", 0)
+        tc = snapshot.get("total_creds", 0)
+        tsh = snapshot.get("total_shells", 0)
+        tpaths = snapshot.get("total_paths", 0)
+
+        np_ = snapshot.get("new_ports", 0)
+        ns = snapshot.get("new_services", 0)
+        nc = snapshot.get("new_creds", 0)
+        nsh = snapshot.get("new_shells", 0)
+
+        def _delta(n: int) -> str:
+            return f"[green]+{n}[/green]" if n > 0 else "[dim]+0[/dim]"
+
+        disc_line = (
+            f"🔓 Ports: {tp} ({_delta(np_)}) │ "
+            f"⚙️  Services: {ts} ({_delta(ns)}) │ "
+            f"🔑 Creds: {tc} ({_delta(nc)}) │ "
+            f"💀 Shells: {tsh} ({_delta(nsh)}) │ "
+            f"🌐 Paths: {tpaths}"
+        )
+
+        # Row 2: Learning quality
+        novelty = snapshot.get("novelty_rate", 0.0)
+        stag = snapshot.get("stagnation_steps", 0)
+        ar_total = snapshot.get("anti_repeat_total", 0)
+        total_cmds = snapshot.get("total_commands", 0)
+        unique_tmpls = snapshot.get("unique_templates", 0)
+        phase_changes = snapshot.get("phase_changes", 0)
+
+        nov_color = "green" if novelty > 0.6 else "yellow" if novelty > 0.3 else "red"
+        stag_color = "green" if stag < 3 else "yellow" if stag < 6 else "red"
+
+        quality_line = (
+            f"[{nov_color}]📈 Novelty: {novelty:.0%}[/{nov_color}] "
+            f"({unique_tmpls}/{total_cmds} unique) │ "
+            f"[{stag_color}]⏳ Stagnation: {stag} steps[/{stag_color}] │ "
+            f"🔁 Anti-Repeat: {ar_total} │ "
+            f"🔀 Phase Changes: {phase_changes}"
+        )
+
+        # Row 3: Window metrics
+        window = snapshot.get("window", {})
+        window_line = ""
+        if window:
+            wd = window.get("discoveries_delta", 0)
+            wnov = window.get("novelty_rate", 0.0)
+            war = window.get("anti_repeat_rate", 0.0)
+            wstag = window.get("stagnation_avg", 0.0)
+            wpt = window.get("phase_thrash", 0)
+            wcpd = window.get("cost_per_discovery", 0.0)
+            ws = window.get("window_size", 5)
+            wd_color = "green" if wd > 0 else "red"
+            window_line = (
+                f"[dim]Window({ws}):[/dim] "
+                f"[{wd_color}]Δdisc={wd}[/{wd_color}] │ "
+                f"nov={wnov:.0%} │ AR={war:.0%} │ "
+                f"stag_avg={wstag:.1f} │ thrash={wpt} │ "
+                f"$/disc=${wcpd:.4f}"
+            )
+
+        # Row 4: Milestones
+        milestones = snapshot.get("milestones", {})
+        ms_parts = []
+        ms_icons = {
+            "first_port": "🔓", "first_service": "⚙️",
+            "first_creds": "🔑", "first_foothold": "💀",
+            "user_flag": "🚩", "root_flag": "🏴",
+        }
+        for key, icon in ms_icons.items():
+            val = milestones.get(key, -1)
+            if val >= 0:
+                ms_parts.append(f"[green]{icon} {key}@s{val}[/green]")
+        milestone_line = " │ ".join(ms_parts) if ms_parts else "[dim]No milestones yet[/dim]"
+
+        # Row 5: Model mix
+        mix = snapshot.get("model_mix", {})
+        mix_calls = mix.get("calls", {})
+        mix_cost = mix.get("total_cost", 0.0)
+        cache_rate = mix.get("cache_hit_rate", 0.0)
+        mix_line = (
+            f"🧠 codex:{mix_calls.get('codex', 0)} "
+            f"mini:{mix_calls.get('mini', 0)} "
+            f"nano:{mix_calls.get('nano', 0)} │ "
+            f"💰 ${mix_cost:.4f} │ "
+            f"📦 cache: {cache_rate:.0%}"
+        )
+
+        # Row 6: Discovery sparkline (Phase 40)
+        disc_history = list(self.discovery_counts_history) if hasattr(self, 'discovery_counts_history') else []
+        spark_line = ""
+        if disc_history:
+            spark = sparkline(disc_history, width=20)
+            spark_line = f"[dim]📈 Discovery trend:[/dim] {spark}"
+
+        lines = [disc_line, quality_line]
+        if window_line:
+            lines.append(window_line)
+        lines.append(milestone_line)
+        lines.append(mix_line)
+        if spark_line:
+            lines.append(spark_line)
+
+        return Panel(
+            "\n".join(lines),
+            title=f"[bold bright_green]📊 Learning Dashboard (step {step + 1})[/bold bright_green]",
+            border_style="bright_green",
+            box=box.ROUNDED,
+            expand=True,
+            padding=(0, 2),
+        )
+
+    def _build_system_log_panel(
+        self,
+        events: List['EventRecord'],
+    ) -> Optional[Panel]:
+        """Build system log panel wrapping recent events in a styled panel.
+
+        Returns:
+            Rich Panel with system log, or None if no events
+        """
+        if not events:
+            return None
+
+        EV = {
+            "stuck": ("🔴", "bold red"), "stuck_abort": ("🔴", "bold red"),
+            "mentor_fail": ("❌", "red"), "parse_fail": ("❌", "red"),
+            "repeat_warn": ("🔁", "yellow"), "budget_warn": ("⚠️", "yellow"),
+            "phase_change": ("🔵", "bold blue"), "new_discovery": ("🟢", "bold green"),
+            "mentor_call": ("📡", "cyan"), "forced_novel": ("🆕", "bright_yellow"),
+            "watchdog": ("🐕", "red"), "neg_streak": ("🟡", "yellow"),
+        }
+
+        lines: list[str] = []
+        for ev in events[-5:]:
+            kind = getattr(ev, 'kind', 'info')
+            icon, style = EV.get(kind, ("ℹ️", "dim"))
+            msg = getattr(ev, 'message', str(ev))
+            lines.append(f"[{style}]{icon} {msg}[/{style}]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold dim]📋 System Log[/bold dim]",
+            border_style="dim",
+            box=box.ROUNDED,
+            padding=(0, 2),
+            expand=True,
+        )
+
+    def _build_target_profile_panel(
+        self,
+        discovery_board: Optional[Dict[str, Any]] = None,
+        step: int = 0,
+    ) -> Optional[Panel]:
+        """Build target profile panel shown on first steps.
+
+        Shows: target IP, detected OS, discovered services count.
+
+        Returns:
+            Rich Panel with target info, or None if too early
+        """
+        if not discovery_board or step > 3:
+            return None
+
+        target = discovery_board.get("target_ip", "")
+        if not target:
+            return None
+
+        ports = discovery_board.get("ports", set())
+        services = discovery_board.get("services", set())
+        os_hint = discovery_board.get("os_hint", "Unknown")
+
+        lines = [
+            f"  🎯 Target:    [bold bright_white]{target}[/bold bright_white]",
+            f"  🖥️  OS Hint:   [bright_cyan]{os_hint}[/bright_cyan]",
+            f"  🔓 Ports:     [green]{len(ports)}[/green] discovered",
+            f"  ⚙️  Services:  [blue]{len(services)}[/blue] identified",
+        ]
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold bright_white]🎯 Target Profile[/bold bright_white]",
+            border_style="bright_white",
+            box=box.ROUNDED,
+            padding=(0, 2),
+            expand=True,
+        )
+
+    # =========================================================================
     # UNIFIED STEP DISPLAY — The one and only step printer (Phase 6.5)
     # =========================================================================
     def print_step(
@@ -1072,6 +1484,15 @@ class LiveDashboard:
             f"[dim]{mentor_str}[/dim]  [dim]{step_spark}[/dim]{gpt_cost_str}{done_tag}",
             style="bright_blue",
         )
+
+        # ── Phase 40: PHASE PROGRESS BAR ──────────────────────────────
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff
+            _ff = _get_ff()
+            if getattr(_ff, 'dashboard_v6', False):
+                console.print(self._build_phase_progress_bar(phase_upper))
+        except Exception:
+            pass
 
         # ── AGENT TABLE ──────────────────────────────────────────────
         # Phase 36: ROUNDED box for beautiful demo appearance
@@ -1229,6 +1650,15 @@ class LiveDashboard:
         for _vp in _verbose_panels:
             console.print(_vp)
 
+        # ── Phase 40: DECISION CHAIN PANEL ────────────────────────────
+        if _use_v6 and agent_infos:
+            try:
+                _dc_panel = self._build_decision_chain_panel(agent_infos)
+                if _dc_panel:
+                    console.print(_dc_panel)
+            except Exception:
+                pass
+
         # ── DISCOVERY BOARD — Full highlighted panel ─────────────────
         if discovery_board and self.config.show_discoveries:
             db = discovery_board
@@ -1260,14 +1690,18 @@ class LiveDashboard:
                     f"[bold bright_green]🗺️  Discovery Board[/bold bright_green]"
                     f"[dim]  ─  {_total_discoveries} total findings[/dim]"
                 )
-                console.print(Panel(
+                _discovery_panel = Panel(
                     "\n".join(_db_parts),
                     title=_db_title,
                     border_style="bright_green",
                     box=box.ROUNDED,
                     expand=True,
                     padding=(0, 2),
-                ))
+                )
+                # Phase 40: defer printing — will be paired with metrics
+                _v6_discovery_panel = _discovery_panel
+            else:
+                _v6_discovery_panel = None
 
         # ══════════════════════════════════════════════════════════════
         # METRICS PANEL — Reward, Parser, Budget, GPT, Phase in one box
@@ -1378,8 +1812,9 @@ class LiveDashboard:
                 _metrics_lines.append(f"[bright_yellow]📚 Teaching[/bright_yellow]  {tp}")
 
         # ── Render the unified metrics panel ──
+        _v6_metrics_panel = None
         if _metrics_lines:
-            console.print(Panel(
+            _v6_metrics_panel = Panel(
                 "\n".join(_metrics_lines),
                 title="[bold bright_white]📊 Step Metrics[/bold bright_white]",
                 subtitle="[dim]phase · budget · cost · learning[/dim]",
@@ -1387,7 +1822,27 @@ class LiveDashboard:
                 box=box.ROUNDED,
                 expand=True,
                 padding=(0, 2),
+            )
+
+        # ── Phase 40 v6: Side-by-side Discovery Board + Metrics ──────
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff2
+            _ff2 = _get_ff2()
+            _use_v6 = getattr(_ff2, 'dashboard_v6', False)
+        except Exception:
+            _use_v6 = False
+
+        if _use_v6 and _v6_discovery_panel and _v6_metrics_panel:
+            console.print(Columns(
+                [_v6_discovery_panel, _v6_metrics_panel],
+                expand=True,
+                equal=True,
             ))
+        else:
+            if _v6_discovery_panel:
+                console.print(_v6_discovery_panel)
+            if _v6_metrics_panel:
+                console.print(_v6_metrics_panel)
 
         # ── DECISION REASONING VISIBILITY (P36: ALWAYS VISIBLE) ──────
         if reasoning_events:
@@ -1528,16 +1983,21 @@ class LiveDashboard:
 
                 if len(step_calls) > 4:
                     _gpt_lines.append(f"[dim]  ... +{len(step_calls) - 4} more calls[/dim]")
-                console.print(Panel(
+                _v6_gpt_panel = Panel(
                     "\n".join(_gpt_lines),
                     title="[bold bright_cyan]🔌 GPT Calls This Step[/bold bright_cyan]",
                     border_style="bright_cyan",
                     box=box.ROUNDED,
                     expand=True,
                     padding=(0, 2),
-                ))
+                )
+            else:
+                _v6_gpt_panel = None
+        else:
+            _v6_gpt_panel = None
 
         # ── GPT INTERPRETATION REASONING ─────────────────────────────
+        _v6_parser_panel = None
         if parse_explanations:
             _pe_lines = []
             for pe in parse_explanations[:3]:
@@ -1559,24 +2019,69 @@ class LiveDashboard:
                         f"[green]{dtype}={dval}[/green] {reason}"
                     )
             if _pe_lines:
-                console.print(Panel(
+                _v6_parser_panel = Panel(
                     "\n".join(_pe_lines),
                     title="[bold bright_cyan]🔬 Parser Interpretations[/bold bright_cyan]",
                     border_style="cyan",
                     box=box.ROUNDED,
                     expand=True,
                     padding=(0, 2),
-                ))
+                )
+
+        # ── Phase 40 v6: Side-by-side GPT + Parser ──────────────────
+        if _use_v6 and _v6_gpt_panel and _v6_parser_panel:
+            console.print(Columns(
+                [_v6_gpt_panel, _v6_parser_panel],
+                expand=True,
+                equal=True,
+            ))
+        else:
+            if _v6_gpt_panel:
+                console.print(_v6_gpt_panel)
+            if _v6_parser_panel:
+                console.print(_v6_parser_panel)
 
         # ── P34-EXT: LEARNING METRICS PANEL ─────────────────────────
         if learning_snapshot:
-            self._print_learning_panel(learning_snapshot, step)
+            # Phase 40: Track discovery counts for sparkline
+            _disc_count = (
+                learning_snapshot.get("total_ports", 0) +
+                learning_snapshot.get("total_services", 0) +
+                learning_snapshot.get("total_creds", 0) +
+                learning_snapshot.get("total_shells", 0)
+            )
+            self.discovery_counts_history.append(_disc_count)
+
+            # Phase 40 v6: Use new panel builder for learning + wrap events
+            if _use_v6:
+                _learning_panel = self._build_learning_panel(
+                    learning_snapshot, step
+                )
+                console.print(_learning_panel)
+            else:
+                self._print_learning_panel(learning_snapshot, step)
+
+        # ── Phase 40: TARGET PROFILE PANEL (v6) ──────────────────────
+        if _use_v6 and discovery_board:
+            try:
+                _tp_panel = self._build_target_profile_panel(
+                    discovery_board, step
+                )
+                if _tp_panel:
+                    console.print(_tp_panel)
+            except Exception:
+                pass
 
         # ── EVENTS (last 3 seconds, max 2) ───────────────────────────
         now = time.time()
         recent = [e for e in self.events if now - e.timestamp < 3]
         if recent:
-            self._print_events(recent[-2:])
+            if _use_v6:
+                _sys_log = self._build_system_log_panel(recent[-3:])
+                if _sys_log:
+                    console.print(_sys_log)
+            else:
+                self._print_events(recent[-2:])
 
         self.last_print_step = step
 

@@ -1,0 +1,127 @@
+{
+  "run_id": "run_20260219_175815_5c0e00",
+  "timestamp": 1771520310.698213,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with positive total reward (50.0), indicating some progress on task execution"
+    ],
+    "fails": [
+      "No successful episode outcome (success rate 0.00%)",
+      "High mentor reliance (10 mentor calls) suggests gaps in autonomous decision-making"
+    ],
+    "summary": "Despite a positive reward signal, the run did not achieve any successful outcomes and required frequent mentor intervention, indicating unstable task completion and over-reliance on guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Mentor intervention required after initial recon decisions",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new target assessment with no prior service visibility",
+      "then_action": "Run fast TCP port discovery to establish attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS --top-ports 1000 -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771520328.09562,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When initial scan identifies open web ports (80/443)",
+      "then_action": "Perform HTTP service enumeration and fingerprinting",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p 80,443"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771520328.0956337,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (22/tcp) is detected during recon",
+      "then_action": "Enumerate SSH algorithms and version for potential weaknesses",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script ssh2-enum-algos -p 22"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771520328.0956426,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishing attack surface early reduced uncertainty and aligned with positive reward signal"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls with scripted recon flow",
+      "description": "Run a standardized recon pipeline (fast scan \u2192 service scan \u2192 targeted scripts) without mentor input to test autonomy and consistency.",
+      "priority": "high"
+    },
+    {
+      "title": "Success criteria alignment",
+      "description": "Instrument the run with explicit success checkpoints (service discovery, access gain, objective reached) to identify where success fails.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-signal validation",
+      "description": "Compare reward events against objective completion to ensure reward correlates with actual success conditions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

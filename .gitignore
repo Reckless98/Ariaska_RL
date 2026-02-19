@@ -73,3 +73,6 @@ data/lmdb_store/
 .DS_Store
 data/knowledge_sources_cache/
 data/knowledge_repos_snapshots/
+
+# Claude Code personal overrides
+.claude/settings.local.json

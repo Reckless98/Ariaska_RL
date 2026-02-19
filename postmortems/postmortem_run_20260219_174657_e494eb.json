@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260219_174657_e494eb",
+  "timestamp": 1771519632.6832826,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero success rate",
+      "High mentor utilization indicating active guidance during run"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "Single-episode run limits reliability of observed behavior"
+    ],
+    "summary": "The run achieved a positive reward but failed to complete the episode successfully, indicating partial progress without achieving the end objective."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode ends without success despite accruing reward, suggesting incomplete final objective or terminal action",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open TCP ports",
+      "then_action": "Run targeted service/version enumeration on discovered ports",
+      "parameters_template": {
+        "ports": "discovered",
+        "scan_type": "-sV -sC",
+        "timing": "-T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771519644.9670632,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor guidance is available mid-episode",
+      "then_action": "Prioritize mentor-recommended objective path and validate against current state",
+      "parameters_template": {
+        "validate_state": true,
+        "recheck_targets": true
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771519644.9670777,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step applicable across targets and likely contributed to reward gain"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Single-episode objective completion focus",
+      "description": "Constrain actions to a minimal reconnaissance\u2192exploit\u2192verify chain to ensure terminal success condition is met within one episode.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call reduction trial",
+      "description": "Limit mentor calls to top-3 decision points and compare success rate to evaluate autonomy impact.",
+      "priority": "high"
+    },
+    {
+      "title": "End-state validation checkpoint",
+      "description": "Insert a verification step after each major action to confirm objective progress before proceeding.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

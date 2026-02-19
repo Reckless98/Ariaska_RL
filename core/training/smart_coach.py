@@ -147,6 +147,9 @@ class SmartDecisionResult:
     # Phase 27: Evidence gate result
     evidence_gate_result: str = ""  # "", "pass", "log_reject", "enforce_reject"
     evidence_gate_reasons: List[str] = field(default_factory=list)
+
+    # Phase 40: Decision chain trace — records each pipeline stage
+    decision_trace: List[Dict[str, Any]] = field(default_factory=list)
     
     @property
     def chosen_action(self) -> str:
@@ -2366,6 +2369,18 @@ class SmartCoach:
 
         return None
 
+    def _trace_stage(
+        self, stage: str, result: str, score: float = 0.0, passed: bool = True
+    ) -> None:
+        """Phase 40: Record a decision pipeline stage for v6 dashboard trace."""
+        if hasattr(self, '_decision_trace'):
+            self._decision_trace.append({
+                "stage": stage,
+                "result": result[:80] if result else "",
+                "score": round(score, 3),
+                "passed": passed,
+            })
+
     def decide(
         self,
         step_ctx: SmartStepContext,
@@ -2398,6 +2413,8 @@ class SmartCoach:
         
         # Phase 10.3: Collect reasoning events for dashboard visibility
         self._step_reasoning_log: List[Dict[str, Any]] = []
+        # Phase 40: Decision chain trace for v6 dashboard
+        self._decision_trace: List[Dict[str, Any]] = []
         # Phase 38 X3: Per-step LLM call counter — cap at 3 to prevent redundant calls
         self._step_llm_calls: int = 0
         _MAX_LLM_CALLS_PER_STEP = 3
@@ -3475,6 +3492,8 @@ class SmartCoach:
             logger.debug(f"[EV-GATE] Error: {e}")
         result.evidence_gate_result = _eg_result_str
         result.evidence_gate_reasons = _eg_reasons
+        self._trace_stage("source", result.source or "unknown", result.confidence, True)
+        self._trace_stage("evidence_gate", _eg_result_str, 1.0 if _eg_result_str == "pass" else 0.0, _eg_result_str != "enforce_reject")
 
         # Pre-compute ppo_bypass flag — needed by TacticalCortex and anti-repeat
         ppo_bypass = (result.source in ("ppo", "privesc_escalation", "codex_meta", "cognition_node") and is_valid_role)
@@ -3591,6 +3610,13 @@ class SmartCoach:
                         )
                 except Exception as e:
                     logger.warning(f"[{self.agent_name}] TacticalCortex assess error: {e}")
+
+        # Phase 40: Trace tactical cortex result
+        if _tactical_assessment is not None:
+            _tc_verdict = getattr(_tactical_assessment, 'verdict', None)
+            _tc_vname = _tc_verdict.name if _tc_verdict and hasattr(_tc_verdict, 'name') else 'unknown'
+            _tc_conf = getattr(_tactical_assessment, 'confidence', 0.5)
+            self._trace_stage('tactical_cortex', _tc_vname, _tc_conf, getattr(_tactical_assessment, 'approved', True))
 
         # =========================================================================
         # R52: UNIFIED PHASE-STUCK ESCALATION SHORTCUT (replaces R49/R50/R51)
@@ -4086,6 +4112,16 @@ class SmartCoach:
         # Log mentor call if applicable
         if result.mentor_call and self.mentor_log_path:
             self._log_mentor_call(step_ctx, proposed_action, result)
+
+        # Phase 40: Attach decision trace to result for dashboard visualization
+        if hasattr(self, '_decision_trace') and self._decision_trace:
+            result.decision_trace = list(self._decision_trace)
+        elif not result.decision_trace:
+            # Minimal trace from source field
+            result.decision_trace = [
+                {"stage": result.source or "unknown", "result": "selected",
+                 "score": result.confidence, "passed": True}
+            ]
         
         return result
     

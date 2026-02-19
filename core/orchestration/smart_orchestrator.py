@@ -34,10 +34,15 @@ class TerminationReason(Enum):
     STUCK_ABORT = "stuck_abort"  # Too many forced-novel failures
     ENV_DONE = "env_done"
     ERROR = "error"
+from rich.console import Console as _RichConsole
+from rich.panel import Panel as _RichPanel
 from core.llm.reward_calculator import SmartRewardCalculator, RewardBreakdown
 from core.training.smart_coach import SmartCoach, SmartDecisionResult, SmartStepContext
 from core.observability import LiveDashboard, DashboardConfig
 from core.tracing.event_bus import EventBus, StepEvent, AgentStepRecord, GenericEvent, EventKind
+
+# Module-level console for CTF celebration panels (Phase 40 fix)
+_orch_console = _RichConsole(force_terminal=True)
 
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
@@ -820,6 +825,28 @@ class SmartOrchestrator:
                 _init_modules.append(("LiveExecutor", "fail", str(e)[:40]))
                 self._is_live_mode = False  # Fall back to sim
         
+        # ─── Phase 40: SSH Session Pool ─────────────────────────────
+        self._ssh_pool = None
+        try:
+            from core.feature_flags import get_feature_flags as _p40_ff
+            if getattr(_p40_ff(), 'ssh_pool', False):
+                from core.execution.ssh_pool import SSHSessionPool
+                self._ssh_pool = SSHSessionPool()
+                _init_modules.append(("SSHPool", "ok", "persistent sessions"))
+        except Exception as e:
+            _init_modules.append(("SSHPool", "warn", str(e)[:40]))
+
+        # ─── Phase 40: Command Pool Narrower ────────────────────────
+        self._pool_narrower = None
+        try:
+            from core.feature_flags import get_feature_flags as _p40_ff2
+            if getattr(_p40_ff2(), 'pool_narrower', False):
+                from core.ops.pool_narrower import CommandPoolNarrower
+                self._pool_narrower = CommandPoolNarrower()
+                _init_modules.append(("PoolNarrower", "ok", "adaptive filter"))
+        except Exception as e:
+            _init_modules.append(("PoolNarrower", "warn", str(e)[:40]))
+
         # ─── Restore logging level ──────────────────────────────────
         logging.getLogger().setLevel(_prev_log_level)
         
@@ -2760,7 +2787,7 @@ class SmartOrchestrator:
                     self.episode_termination_reason = TerminationReason.GOAL_REACHED
                     done = True
                     logger.info(f"[CTF-CLOSE] COMPLETE PWN — user.txt + root.txt captured!")
-                    console.print(Panel(
+                    _orch_console.print(_RichPanel(
                         f"[bold green]🏆 TARGET FULLY PWNED! 🏆[/bold green]\n\n"
                         f"[cyan]User Flag:[/cyan]  [bold white]{_uf}[/bold white]\n"
                         f"[red]Root Flag:[/red]  [bold white]{_rf}[/bold white]\n\n"
@@ -2772,14 +2799,14 @@ class SmartOrchestrator:
                 elif _has_user_flag and not _has_root_flag:
                     # User flag only — keep going for root
                     if step % 5 == 0:  # Periodic reminder
-                        console.print(
+                        _orch_console.print(
                             f"  [green]🚩 User flag captured ({_uf[:32]}...) — "
                             f"hunting for root.txt[/green]"
                         )
                 elif _has_root_flag and not _has_user_flag:
                     # Root flag only — keep going for user (unusual but possible)
                     if step % 5 == 0:
-                        console.print(
+                        _orch_console.print(
                             f"  [red]🚩 Root flag captured ({_rf[:32]}...) — "
                             f"hunting for user.txt[/red]"
                         )
@@ -4210,6 +4237,19 @@ class SmartOrchestrator:
                 if "credential" in agent_discoveries:
                     ctx.set_state_flag("credentials_known")
                     logger.info(f"[PHASE-ADVANCE] credentials_known set by {result.agent_name}")
+
+                    # Phase 40: Register credentials with SSH pool
+                    if self._ssh_pool is not None and ctx.target:
+                        try:
+                            _cred_list = ctx.state_flags.get("credentials_list", [])
+                            for _cr in _cred_list[-3:]:  # Last 3 creds
+                                if isinstance(_cr, dict) and _cr.get("username") and _cr.get("password"):
+                                    self._ssh_pool.add_credentials(
+                                        _cr["username"], _cr["password"],
+                                        ctx.target, port=int(_cr.get("port", 22))
+                                    )
+                        except Exception:
+                            pass
                 
                 # Vulnerability/SQLi discovery → advance to EXPLOITATION
                 if agent_discoveries.get("vulnerability"):
@@ -4554,6 +4594,34 @@ class SmartOrchestrator:
                 # Set web_paths_discovered flag when any web paths found
                 if self.discovery_board.get("web_paths"):
                     self.discovery_board["flags_set"].add("web_paths_discovered")
+
+                    # Phase 40: Auto-queue probes for interesting web paths
+                    try:
+                        from core.feature_flags import get_feature_flags as _p40_awp
+                        if getattr(_p40_awp(), 'auto_web_probe', False):
+                            _HIGH_VALUE_PATHS = {
+                                "/download", "/data", "/capture", "/backup",
+                                "/upload", "/admin", "/api", "/config",
+                                "/secret", "/private", "/files", "/export",
+                            }
+                            _web_paths_set = self.discovery_board.get("web_paths", set())
+                            for wp in list(_web_paths_set)[-5:]:
+                                wp_lower = str(wp).lower().rstrip("/")
+                                if wp_lower in _HIGH_VALUE_PATHS:
+                                    _probe_key = f"_auto_probed_{wp_lower}"
+                                    if not ctx.state_flags.get(_probe_key):
+                                        ctx.set_state_flag(_probe_key)
+                                        if not hasattr(self, '_auto_probe_queue'):
+                                            self._auto_probe_queue = []
+                                        self._auto_probe_queue.append(
+                                            f"curl -sL http://{ctx.target}{wp_lower}"
+                                        )
+                                        logger.info(
+                                            f"[P40-AUTO-PROBE] Queued probe for {wp_lower}"
+                                        )
+                    except Exception:
+                        pass
+
                 self.discovery_board["phase"] = ctx.current_phase.name
                 self.discovery_board["flags_set"] = set(
                     k for k, v in ctx.state_flags.items() if v
@@ -5956,6 +6024,13 @@ class SmartOrchestrator:
         # Phase 9.5: Cache regex fallback result
         if self._parse_cache is not None and agent_id:
             self._parse_cache.put(episode_id, step_idx, agent_id, output, discoveries)
+
+        # Phase 40: Auto-detect target OS from output
+        if self._pool_narrower is not None and output:
+            try:
+                self._pool_narrower.detect_os_from_output(output)
+            except Exception:
+                pass
         
         return discoveries
     

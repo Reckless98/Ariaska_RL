@@ -265,6 +265,30 @@ class FeatureFlags:
     debug_trace: bool = field(
         default_factory=lambda: _env_bool("FF_DEBUG_TRACE", True))
 
+    # ── Phase 40.0: UI/UX Overhaul ─────────────────────────────────
+    dashboard_v6: bool = field(
+        default_factory=lambda: _env_bool("FF_DASHBOARD_V6", True))
+
+    # ── Phase 40.1: Persistent SSH Session Pool ────────────────────
+    ssh_pool: bool = field(
+        default_factory=lambda: _env_bool("FF_SSH_POOL", True))
+
+    # ── Phase 40.2: Parallel Agent Execution ───────────────────────
+    parallel_exec: bool = field(
+        default_factory=lambda: _env_bool("FF_PARALLEL_EXEC", True))
+
+    # ── Phase 40.3: OS-Aware Command Filtering ────────────────────
+    os_aware_filter: bool = field(
+        default_factory=lambda: _env_bool("FF_OS_AWARE_FILTER", True))
+
+    # ── Phase 40.4: Adaptive Command Pool Narrowing ────────────────
+    pool_narrower: bool = field(
+        default_factory=lambda: _env_bool("FF_POOL_NARROWER", True))
+
+    # ── Phase 40.5: Web Path Auto-Discovery Pipeline ──────────────
+    auto_web_probe: bool = field(
+        default_factory=lambda: _env_bool("FF_AUTO_WEB_PROBE", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

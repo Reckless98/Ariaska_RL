@@ -4,13 +4,13 @@
 
 ## Identity
 
-**Ariaska_RL** — Autonomous multi-agent reinforcement learning system for live authorized penetration testing. 5 specialized agents, tiered GPT-5.2 hybrid decision pipeline, PPO Actor-Critic v3.0 primary RL, 107K v2 knowledge corpus, ~107K lines of Python across 207 modules.
+**Ariaska_RL** — Autonomous multi-agent reinforcement learning system for live authorized penetration testing. 5 specialized agents, tiered GPT-5.2 hybrid decision pipeline, PPO Actor-Critic v3.0 primary RL, 107K v2 knowledge corpus, ~154K lines of Python across 340 modules.
 
 **Author:** Filip Volf
 **Python:** 3.11+ (developed on 3.13)
 **Entry:** `ariaska_cli.py` → `SmartOrchestrator.run_training()`
-**Tests:** 1,186 collected, 1,186 passing (68 test files)
-**Current Phase:** Phase 34 — PhaseGuidedLLM + Structured Distillation
+**Tests:** 1,753 collected, 1,753 passing (84 test files)
+**Current Phase:** Phase 39 — Trust Weights + Orion Deep-Rethink + CAP Regression Gate
 
 ---
 
@@ -32,7 +32,7 @@ These are non-negotiable. Violation of any invariant breaks the system.
 12. **Evidence Gate default = `enforce`** — `FF_STRICT_EXPLOIT_GATE` must stay `enforce` unless explicitly changed
 13. **MicroChain escalation threshold = 0.40** — tunable via `MC_ESCALATE_THRESHOLD` env var only
 14. **Git policy: `master` branch only** — no feature branches, no PRs
-15. **Test baseline: 1,186 tests** — all must pass after any change
+15. **Test baseline: 1,753 tests** — all must pass after any change
 
 ---
 
@@ -65,7 +65,7 @@ core/
 │   ├── enhanced_agent_base.py              # EnhancedAgentBase mixin
 │   └── redagent_brain.py                   # RedAgent brain (extended cognition)
 ├── algorithms/
-│   ├── ppo_agent.py              (1543L)   # PPOAgent — primary RL, Actor-Critic v3.0 (R68-R80)
+│   ├── ppo_agent.py              (1735L)   # PPOAgent — primary RL, Actor-Critic v3.0 (R68-R80)
 │   ├── command_action_mapper.py            # PPO action_idx <-> CommandTemplate mapping
 │   ├── replay_buffer.py                    # PER with dedup
 │   ├── sac_agent.py                        # Soft Actor-Critic (alternative)
@@ -73,15 +73,15 @@ core/
 │   ├── rnd_curiosity.py                    # RND intrinsic motivation
 │   └── cognition_node.py                   # Cognitive architecture node
 ├── commands/
-│   ├── command_registry.py       (3507L)   # 144+ CommandTemplates by AttackPhase
+│   ├── command_registry.py       (4560L)   # 294 CommandTemplates by AttackPhase
 │   ├── command_enrichment.py               # Enrich commands with knowledge
 │   └── learned_commands.py                 # Runtime-discovered command store
 ├── environment/
-│   ├── cyber_environment.py      (2854L)   # CyberEnvironment — kill chain state machine
+│   ├── cyber_environment.py      (2879L)   # CyberEnvironment — kill chain state machine
 │   ├── metasploitable_handler.py           # MS2/MS3 Docker integration
 │   └── context_detector.py                 # Environment context detection
 ├── execution/
-│   ├── parser_broker.py          (291L)    # 4-stage parser: regex->SOP->Venice->GPT
+│   ├── parser_broker.py          (291L)    # 4-stage parser: regex→SOP→Venice→GPT
 │   ├── output_parser.py                    # Smart output parsing
 │   ├── discovery_event.py                  # DiscoveryEvent schema
 │   ├── live_executor.py                    # Real command execution
@@ -100,13 +100,13 @@ core/
 │   ├── ms2_exploit_graph.py                # Metasploitable 2 exploit graph
 │   └── ms3_exploit_graph.py                # Metasploitable 3 exploit graph
 ├── llm/
-│   ├── micro_chain.py            (610L)    # Phase 27: MicroChain nano->mini->nano 3-stage scoring
-│   ├── phase_guided_llm.py       (714L)    # Phase 34: PhaseGuidedLLM self-guidance + distillation
-│   ├── llm_policy_bridge.py      (775L)    # Phase 37: Level 5 GPT↔RL bridge (prior, features, teacher, anneal)
+│   ├── micro_chain.py            (781L)    # Phase 27: MicroChain nano→mini→nano 3-stage scoring
+│   ├── phase_guided_llm.py       (818L)    # Phase 34: PhaseGuidedLLM self-guidance + distillation
+│   ├── llm_policy_bridge.py      (774L)    # Phase 37: Level 5 GPT↔RL bridge (prior, features, teacher, anneal)
 │   ├── mentor_trace.py           (210L)    # Phase 30: MentorTrace for structured distillation
-│   ├── smart_mentor.py          (1386L)    # SmartMentor + DualMentor (GPT + Venice)
-│   ├── reward_calculator.py      (859L)    # SmartRewardCalculator — shaped rewards
-│   ├── budget_manager.py         (559L)    # Phase 17+36: BudgetManagerV2 with dynamic scaling
+│   ├── smart_mentor.py          (1366L)    # SmartMentor + DualMentor (GPT + Venice)
+│   ├── reward_calculator.py      (906L)    # SmartRewardCalculator — shaped rewards
+│   ├── budget_manager.py         (605L)    # Phase 17+38: BudgetManagerV2 with dynamic scaling
 │   ├── cloud_roles.py                      # Cloud role definitions for LLM
 │   ├── venice_reasoning.py                 # Venice AI reasoning integration
 │   ├── codex_personas.py                   # LLM persona definitions
@@ -121,7 +121,7 @@ core/
 │   ├── campaign_memory.py                  # Campaign-level persistent memory
 │   └── chroma_memory_store.py              # ChromaDB vector memory
 ├── models/
-│   ├── state_encoder.py          (438L)    # 512-dim state encoder
+│   ├── state_encoder.py          (698L)    # 512-dim state encoder
 │   ├── policy_net.py                       # Dueling DQN PolicyNet (legacy)
 │   ├── advanced_networks.py                # Attention + residual + NoisyLinear
 │   └── value_net.py                        # Value network
@@ -131,10 +131,10 @@ core/
 │   ├── memory_router.py                    # PER with SumTree, SQLite persistence
 │   └── strategic_directive.py              # Cross-agent directive protocol
 ├── orchestration/
-│   ├── smart_orchestrator.py    (6882L)    # Main training loop — THE BRAIN
+│   ├── smart_orchestrator.py    (7614L)    # Main training loop — THE BRAIN
 │   └── orchestrator.py                     # Base orchestrator
 ├── training/
-│   ├── smart_coach.py           (8197L)    # Per-agent hybrid decision pipeline (LARGEST FILE)
+│   ├── smart_coach.py           (8403L)    # Per-agent hybrid decision pipeline (LARGEST FILE)
 │   ├── mentor_policy.py                    # Annealing mentor call rates
 │   ├── mentor_controller.py                # MentorController + MentorEngagement + MentorTier
 │   └── ariaska_trainer.py                  # High-level training config
@@ -150,16 +150,40 @@ core/
 │   ├── orion_postmortem.py                 # GPT end-of-run analysis
 │   └── skill_library.py                    # Persistent SkillCard store
 ├── observability/
-│   └── live_dashboard.py        (2284L)    # LiveDashboard v5.0 — Rich terminal UI
+│   └── live_dashboard.py        (2436L)    # LiveDashboard v5.0 — Rich terminal UI
+├── ops/                                    # Phase 38-39: Operational subsystems (5,653L total)
+│   ├── ops_hub.py                (524L)    # OpsHub — central pre-flight + post-step orchestration
+│   ├── orion_rethink.py          (578L)    # Phase 39: Orion deep-rethink escalation
+│   ├── trust_weights.py          (357L)    # Phase 39: Trust weight annealing per agent
+│   ├── debug_trace.py            (345L)    # Phase 39: Debug trace instrumentation
+│   ├── phase_invariants.py       (302L)    # Phase 38: Phase hardening + shell validation
+│   ├── ops_state_encoder.py      (349L)    # Phase 38: Ops-aware state encoder extensions
+│   ├── engagement_metrics.py     (269L)    # Phase 38: Token flex + engagement metrics
+│   ├── discovery_trust.py        (231L)    # Phase 38: Discovery trust engine
+│   ├── token_flex.py             (254L)    # Phase 38: Dynamic token budget flex
+│   ├── exploit_confidence.py     (240L)    # Exploit confidence scoring
+│   ├── exploit_cooldown.py       (200L)    # Exploit cooldown management
+│   ├── domain_manager.py         (245L)    # Multi-domain management
+│   ├── hosts_manager.py          (188L)    # Target hosts tracking
+│   ├── shell_validator.py        (236L)    # Shell session validation
+│   ├── command_lockout.py        (198L)    # Phase 38: Anti-repeat + cooldown
+│   ├── execution_classifier.py   (193L)    # Execution result classification
+│   ├── sudo_handler.py           (260L)    # Sudo privilege handling
+│   ├── tool_installer.py         (317L)    # Runtime tool dependency installation
+│   └── ops_dashboard_panels.py   (234L)    # Ops dashboard panels for LiveDashboard
+├── state/                                  # Phase 35: State management (953L total)
+│   ├── canonical_state.py        (208L)    # Single source of truth state
+│   ├── coherence_chain.py        (540L)    # 4-step nano coherence micro-chain
+│   └── live_trace.py             (205L)    # Append-only JSONL live trace
 ├── testing/
 │   ├── fake_gpt_manager.py                 # FakeGPTManager — deterministic mock
 │   └── tool_runner.py                      # StubToolRunner / RealToolRunner + ToolResult
 ├── telemetry/                              # Unified trace, event telemetry
 ├── analytics/                              # Coherence, replay analysis, scan randomizer
 ├── logging/                                # JSONL structured logging
-├── gpt_manager.py               (1439L)   # Centralized LLM gateway — ALL LLM calls here
+├── gpt_manager.py               (1494L)   # Centralized LLM gateway — ALL LLM calls here
 ├── runtime_flags.py                        # Global runtime flags (offline, dry_run, etc.)
-├── feature_flags.py              (317L)    # 51 feature flags, 3 profiles, env-var overrides
+├── feature_flags.py              (384L)    # 76 feature flags, 3 profiles, env-var overrides
 └── ui/                                     # Textual TUI dashboard
 
 data/
@@ -176,7 +200,7 @@ scripts/
 ├── htb_readiness.py                        # HTB readiness assessment
 └── tool_dependency_audit.py                # Audit tool dependencies
 
-tests/                                      # 68 test files, 1,186 tests total
+tests/                                      # 84 test files, 1,753 tests total
 ```
 
 ---
@@ -226,12 +250,12 @@ class NewAgent(AgentInterface, MemorySyncInterface):
 
 ## Decision Pipeline (SmartCoach)
 
-Each agent's `SmartCoach` (8,197L) selects commands via **4-stage hybrid pipeline**:
+Each agent's `SmartCoach` (8,403L) selects commands via **4-stage hybrid pipeline**:
 
 ```
 1. PLAYBOOK    ->  Curriculum-guided chain (anneals 60% -> 10%)
 2. PPO         ->  RL policy network (action_dim=5 via CommandActionMapper)
-3. REGISTRY    ->  Precondition-matched from CommandRegistry (144+ templates)
+3. REGISTRY    ->  Precondition-matched from CommandRegistry (294 templates)
 4. GPT MENTOR  ->  SmartMentor / DualMentor LLM (rate-limited, annealed)
 ```
 
@@ -392,7 +416,7 @@ MicroChain + PhaseGuide + Mentor ─┐
 
 ## Token Budget (Phase 17 + 36)
 
-**File:** `core/llm/budget_manager.py` (559L)
+**File:** `core/llm/budget_manager.py` (605L)
 
 | Constant | Value | Notes |
 |----------|-------|-------|
@@ -437,9 +461,9 @@ On enforce reject, `result.reasoning` is set to `"evidence_gate_enforce: <reason
 
 ## Reward System
 
-**File:** `core/llm/reward_calculator.py` (859L)
+**File:** `core/llm/reward_calculator.py` (906L)
 
-Symmetric reward range: **[-15.0, +50.0]** (3.3:1 ratio).
+Reward range: **[-15.0, +100.0]** (Phase 38 raised ceiling 50→100 for proper gradient).
 
 **Discovery bonuses:**
 
@@ -463,7 +487,7 @@ Symmetric reward range: **[-15.0, +50.0]** (3.3:1 ratio).
 
 ## CyberEnvironment
 
-**File:** `core/environment/cyber_environment.py` (2,854L)
+**File:** `core/environment/cyber_environment.py` (2,879L)
 
 Kill chain phases:
 ```
@@ -477,7 +501,7 @@ Key methods: `reset()`, `step(action)` -> (state, reward, done, info), `get_glob
 
 ## SmartOrchestrator — THE BRAIN
 
-**File:** `core/orchestration/smart_orchestrator.py` (6,882L)
+**File:** `core/orchestration/smart_orchestrator.py` (7,614L)
 
 ```
 run_training(max_steps, target_ip)         # Continuous engagement loop
@@ -502,7 +526,7 @@ discovery_board = {
 
 ## GPTManager — LLM Gateway
 
-**File:** `core/gpt_manager.py` (1,439L) — **ALL LLM calls go through this.**
+**File:** `core/gpt_manager.py` (1,494L) — **ALL LLM calls go through this.**
 
 ```python
 # CORRECT
@@ -545,7 +569,7 @@ No gpt-4 models remain. All routing is gpt-5.x.
 
 ## Feature Flags
 
-**File:** `core/feature_flags.py` (317L) — 51 flags with env-var overrides (prefix `FF_`).
+**File:** `core/feature_flags.py` (384L) — 76 flags with env-var overrides (prefix `FF_`).
 
 **Profiles** (auto-detected by `resolve_profile()`):
 
@@ -569,12 +593,27 @@ No gpt-4 models remain. All routing is gpt-5.x.
 | `FF_NEUROMODULATORS` | ON | Biologically-inspired control |
 | `FF_EVIDENCE_GRAPH` | ON | Evidence graph reasoning |
 | `FF_HYPOTHESIS_ENGINE` | ON | Hypothesis engine |
+| `FF_OPS_HUB` | ON | P38: OpsHub pre-flight + post-step orchestration |
+| `FF_OPS_PREFLIGHT` | ON | P38: OpsHub pre-flight authority |
+| `FF_DISCOVERY_TRUST` | ON | P38: Discovery trust engine |
+| `FF_PHASE_INVARIANTS` | ON | P38: Phase hardening + shell validation |
+| `FF_COMMAND_LOCKOUT` | ON | P38: Anti-repeat + cooldown |
+| `FF_ENGAGEMENT_METRICS` | ON | P38: Token flex + engagement metrics |
+| `FF_TOKEN_FLEX` | ON | P38: Dynamic token budget flex |
+| `FF_OPS_STATE_ENCODER` | ON | P38: Ops-aware state encoder extensions |
+| `FF_EXPLOIT_CONFIDENCE` | ON | P38: Exploit confidence scoring |
+| `FF_EXPLOIT_COOLDOWN` | ON | P38: Exploit cooldown management |
+| `FF_SHELL_VALIDATOR` | ON | P38: Shell session validation |
+| `FF_ORION_RETHINK` | ON | P39: Orion deep-rethink escalation |
+| `FF_TRUST_WEIGHTS` | ON | P39: Trust weight annealing per agent |
+| `FF_CAP_GATE` | ON | P39: CAP regression gate |
+| `FF_DEBUG_TRACE` | ON | P39: Debug trace instrumentation |
 
 ---
 
 ## Command Registry
 
-**File:** `core/commands/command_registry.py` (3,507L) — 144+ commands.
+**File:** `core/commands/command_registry.py` (4,560L) — 294 commands.
 
 ```python
 register(CommandTemplate(
@@ -631,7 +670,7 @@ from core.algorithms.ppo_agent import PPOAgent  # <- WILL CAUSE CIRCULAR IMPORT
 
 ## Testing
 
-**Framework:** pytest, 1,186 tests across 68 files. All passing.
+**Framework:** pytest, 1,753 tests across 84 files. All passing.
 
 ```bash
 make test              # Full suite
@@ -763,7 +802,7 @@ When generating code for this project:
 - [ ] Handle `torch.device` — check CUDA, default CPU
 - [ ] Respect phase system — commands must match `AttackPhase` + `preconditions`
 - [ ] Write tests with `FakeGPTManager` + `StubToolRunner`
-- [ ] Keep 1,186-test baseline passing
+- [ ] Keep 1,753-test baseline passing
 - [ ] Use reward-invariant metrics for validation
 - [ ] Type hints on all function signatures
 - [ ] Google-style docstrings on public APIs
@@ -790,7 +829,7 @@ When generating code for this project:
 | Min budget | 574,425 tokens | `BudgetManagerV2` |
 | MicroChain threshold | 0.40 | `micro_chain.py` |
 | PhaseGuide codex threshold | 0.45 | `phase_guided_llm.py` |
-| Reward range | [-15.0, +50.0] | `reward_calculator.py` |
+| Reward range | [-15.0, +100.0] | `reward_calculator.py` |
 | BCBuffer capacity | 2000 | `teacher_trace.py` |
 | LLM feature dim | 256 | `llm_policy_bridge.py` |
 | Enhanced state dim | 768 (512+256) | `state_encoder.py` |
@@ -814,4 +853,8 @@ When generating code for this project:
 | 32 | MicroChain tuning: env-var configurable escalation threshold |
 | 33 | Budget burst pool, candidate cap, dynamic burst cooldown |
 | 34 | PhaseGuidedLLM: structured guidance + distillation packets |
+| 35 | CanonicalState single source of truth, CoherenceChain 4-step nano validation, LiveTrace append-only JSONL, port parsing hardening |
+| 36 | Codex-primary model routing, fast-learn metrics, +23% token headroom, dashboard improvements |
 | 37 | Level 5 GPT↔RL Neural Integration: LLMPolicyBridge, KL teacher distillation, ranking margin loss, value reg, teacher anneal, dashboard panel |
+| 38 | OpsHub authority (19 modules, 5,653L), discovery trust, phase invariants, command lockout, engagement metrics, reward ceiling 50→100, budget +15% |
+| 39 | Trust Weights + Orion Deep-Rethink escalation, CAP regression gate, debug trace instrumentation |

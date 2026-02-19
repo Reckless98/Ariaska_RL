@@ -75,6 +75,9 @@ class CommandTemplate:
     verify_template: str = ""           # Template name to verify success after execution
     required_tool: str = ""             # Tool binary required (for ToolRegistry live-install)
 
+    # Phase 40: OS affinity — "linux", "windows", or "any" (default)
+    os_affinity: str = "any"
+
     def get_usage_context(self) -> str:
         """Get a formatted string describing when/why to use this command."""
         parts = [self.description]
@@ -4550,6 +4553,38 @@ register(CommandTemplate(
     not_when="If no AD credentials available or target is not Active Directory",
     follows_after=["gpp_decrypt", "impacket_GetNPUsers"],
 ))
+
+
+# ─── Phase 40: Auto-tag OS affinity based on tags/preconditions ───────────────
+def _auto_tag_os_affinity() -> int:
+    """Infer os_affinity from existing tags and preconditions."""
+    _WINDOWS_SIGNALS = {"windows", "winrm", "ad", "powershell", "pth", "mimikatz",
+                        "bloodhound", "meterpreter_windows", "psexec"}
+    _LINUX_SIGNALS = {"linux", "ssh_keys", "linpeas", "pspy", "suid"}
+    _WIN_PRECOND = {"windows_shell_obtained", "winrm_service_found",
+                    "winpeas_uploaded", "meterpreter_shell_obtained"}
+    _LINUX_PRECOND = {"shell_obtained", "ssh_credentials_known"}
+
+    tagged = 0
+    for name, tpl in COMMAND_REGISTRY.items():
+        if tpl.os_affinity != "any":
+            continue
+        tags_lower = {t.lower() for t in tpl.tags}
+        precond_lower = {p.lower() for p in tpl.preconditions}
+
+        win_score = len(tags_lower & _WINDOWS_SIGNALS) + len(precond_lower & _WIN_PRECOND)
+        lin_score = len(tags_lower & _LINUX_SIGNALS) + len(precond_lower & _LINUX_PRECOND)
+
+        if win_score > 0 and lin_score == 0:
+            tpl.os_affinity = "windows"
+            tagged += 1
+        elif lin_score > 0 and win_score == 0:
+            tpl.os_affinity = "linux"
+            tagged += 1
+    return tagged
+
+
+_auto_tag_os_affinity()
 
 
 # Print stats when module loads (for debugging)
