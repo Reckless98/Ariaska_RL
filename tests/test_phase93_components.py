@@ -601,7 +601,7 @@ class TestCommandEnrichment:
     def test_command_count_unchanged(self):
         """Enrichment should not add/remove commands."""
         from core.commands.command_registry import COMMAND_REGISTRY
-        assert len(COMMAND_REGISTRY) == 277, f"Expected 277 commands, got {len(COMMAND_REGISTRY)}"
+        assert len(COMMAND_REGISTRY) == 279, f"Expected 279 commands, got {len(COMMAND_REGISTRY)}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

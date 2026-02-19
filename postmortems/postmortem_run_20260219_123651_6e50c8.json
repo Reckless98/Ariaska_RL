@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260219_123651_6e50c8",
+  "timestamp": 1771501028.2586672,
+  "key_outcomes": {
+    "wins": [
+      "Sustained positive reward signal despite zero success outcomes",
+      "High utilization of mentor calls suggests active feedback integration"
+    ],
+    "fails": [
+      "Zero success rate indicates terminal objectives were not achieved",
+      "Only one episode limits generalization and stability assessment"
+    ],
+    "summary": "The run achieved a positive reward but failed to complete the target objective; additional episodes are needed to validate and stabilize successful behaviors."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to meet terminal success criteria by episode end",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When mentor feedback is available during a stalled progression",
+      "then_action": "Incorporate mentor guidance into the next action selection",
+      "parameters_template": {
+        "use_feedback": true,
+        "apply_to_next_step": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step12"
+      ],
+      "created_at": 1771501041.6606295,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward remains positive but success is not achieved",
+      "then_action": "Prioritize actions aligned with terminal objectives over exploratory actions",
+      "parameters_template": {
+        "objective_bias": 0.7,
+        "exploration_bias": 0.3
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step15",
+        "ep001_step18"
+      ],
+      "created_at": 1771501041.6606393,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Mentor guidance was repeatedly available and likely beneficial for next-step decisions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Positive reward without success suggests a need to bias toward terminal objectives"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run 5\u201310 episodes with identical settings to assess whether positive reward translates to improved success rate over time.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused action bias",
+      "description": "Adjust policy to increase selection of terminal-objective actions when reward trend is positive but success is not achieved.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor feedback gating",
+      "description": "Test applying mentor feedback only when progress stalls for 3+ steps to reduce dependence and improve autonomous success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,116 @@
+{
+  "run_id": "run_20260219_035104_e25440",
+  "timestamp": 1771469488.4224093,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward of 80.00 in the single episode",
+      "Reward trend is stable at 80.0 indicating consistent outcome"
+    ],
+    "fails": [
+      "Success rate was 0.00%, indicating failure to complete the objective",
+      "High mentor reliance with 10 calls suggests autonomy gaps",
+      "Only 1 episode limits pattern confidence and generalization"
+    ],
+    "summary": "Despite earning positive reward, the run failed to achieve task success and relied heavily on mentor calls; more episodes and autonomy are needed to validate and improve performance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite positive reward signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependency during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reward is positive but success remains 0%",
+      "then_action": "Run a gap analysis to identify missing success criteria and adjust task policy",
+      "parameters_template": {
+        "metric_threshold": 0,
+        "review_scope": "episode"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771469498.9056711,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Prioritize autonomy by enforcing a decision budget and documenting rationale per step",
+      "parameters_template": {
+        "mentor_call_limit": 5,
+        "decision_log": true
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771469498.9056902,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses the mismatch between reward and success outcomes observed in the run"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor dependency suggests need for autonomy safeguards"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomy-First Episode",
+      "description": "Run a new episode with a strict mentor-call cap of 3 and require documented step reasoning to reduce dependency.",
+      "priority": "high"
+    },
+    {
+      "title": "Success-Criteria Alignment",
+      "description": "Instrument the environment to log success criteria at each step and compare against actions that yield reward.",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-Episode Validation",
+      "description": "Execute 5 consecutive episodes to validate whether reward trends correlate with success outcomes.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

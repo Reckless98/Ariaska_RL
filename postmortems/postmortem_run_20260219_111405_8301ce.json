@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260219_111405_8301ce",
+  "timestamp": 1771496059.5058527,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high total reward despite low success rate"
+    ],
+    "fails": [
+      "Overall success rate was 0% across the run",
+      "High number of mentor calls (10) suggests insufficient autonomy"
+    ],
+    "summary": "Strong reward signals but no episode-level successes; execution likely inconsistent and required frequent mentor intervention."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode failed to complete objective despite positive reward signal",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reward is positive but success flag is false",
+      "then_action": "Prioritize objective validation checks before proceeding to next phase",
+      "parameters_template": {
+        "validation": [
+          "flag_check",
+          "goal_state_check"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771496070.458647,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in an episode",
+      "then_action": "Switch to a structured playbook with explicit phase gating",
+      "parameters_template": {
+        "phases": [
+          "recon",
+          "enum",
+          "exploit",
+          "validate"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771496070.4586604,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses mismatch between reward signals and success outcomes"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Mitigates overreliance on mentor calls via phase gating"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-validation checkpoints",
+      "description": "Insert explicit goal/flag validation after each phase to prevent false progress",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction drill",
+      "description": "Limit mentor calls to 3 and enforce a written decision tree for next actions",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-signal calibration",
+      "description": "Compare reward spikes with actual success conditions to refine action selection",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

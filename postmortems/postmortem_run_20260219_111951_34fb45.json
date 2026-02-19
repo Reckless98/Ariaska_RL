@@ -1,0 +1,99 @@
+{
+  "run_id": "run_20260219_111951_34fb45",
+  "timestamp": 1771496407.4650493,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high episode reward (90.0) indicating partial task progress despite overall failure"
+    ],
+    "fails": [
+      "Success rate 0.00% across 1 episode",
+      "Insufficient episode data to confirm repeated successful tactics"
+    ],
+    "summary": "Single-episode run produced a high reward but no successful completion, indicating partial progress without achieving the objective."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not achieved despite accumulating reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is discovered in the environment",
+      "then_action": "Run fast TCP port scan to identify exposed services",
+      "parameters_template": {
+        "command": "nmap -Pn -sS --top-ports 1000 <target_ip>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771496420.0530467,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS ports are open",
+      "then_action": "Enumerate web server with service/version detection",
+      "parameters_template": {
+        "command": "nmap -Pn -sV -p 80,443 <target_ip>"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771496420.0530665,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is essential for progressing from partial reward to full success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten objective validation",
+      "description": "Instrument episode logging to capture final goal checks and failure reasons to differentiate partial progress from full success.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-targeted enumeration",
+      "description": "After initial scan, chain service-specific enumeration (e.g., HTTP, SMB, SSH) to improve path to completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Add step-level telemetry",
+      "description": "Record per-step actions and outcomes to enable pattern mining and reliable skill extraction.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

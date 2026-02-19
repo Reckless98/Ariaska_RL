@@ -317,9 +317,9 @@ class TestLLMRouting(unittest.TestCase):
         self.assertEqual(model_map.get("tactical"), "gpt-5.2-codex")
         self.assertEqual(model_map.get("strategic"), "gpt-5.2-codex")
         
-        # Analysis uses gpt-5.2-codex, classification stays mini
+        # Analysis uses gpt-5.2-codex, classification upgraded to codex (Phase 38)
         self.assertEqual(model_map.get("analysis"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("classification"), "gpt-5.1-codex-mini")
+        self.assertEqual(model_map.get("classification"), "gpt-5.2-codex")
     
     def test_gpt_manager_init_without_api_key(self):
         """Test that GPTManager can be instantiated without API key."""

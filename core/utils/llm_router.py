@@ -243,7 +243,7 @@ class LLMRouter:
                 return {
                     "content": content,
                     "success": True,
-                    "model_used": "gpt-5.1-codex-mini",
+                    "model_used": "gpt-5.2-codex",
                     "tokens": tokens,
                     "latency": elapsed,
                     "metadata": {"task_type": task_type}

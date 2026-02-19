@@ -1549,9 +1549,15 @@ class SmartCoach:
                 return None
         
         ctx = step_ctx.attack_context
-        # Phase 8.0: Rich reasoning context with chain memory + failures
-        _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
-        _services = ctx.services_found if hasattr(ctx, "services_found") else []
+        # Phase 38: State Integrity Gate — use discovery_board (ground truth)
+        # instead of ctx.discoveries which may be stale/empty.
+        _disc_board_src = getattr(step_ctx, 'state', {}).get('discovery_board', {})
+        _ports = list(_disc_board_src.get("ports", []))[:10] if _disc_board_src else (
+            ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
+        )
+        _services = list(_disc_board_src.get("services", []))[:5] if _disc_board_src else (
+            ctx.services_found if hasattr(ctx, "services_found") else []
+        )
         
         # Build enriched prompt with cross-episode learning
         _failures_str = ""
@@ -1650,7 +1656,7 @@ class SmartCoach:
                 task_type="reasoning",
                 agent_id=self.agent_name,
                 max_tokens=410,  # Phase 11.5: +50% (was 273) for ultra-deep mentor→apprentice reasoning
-                model="gpt-5.1-codex-mini",
+                model="gpt-5.2-codex",
             )
             if response:
                 logger.info(
@@ -2392,6 +2398,9 @@ class SmartCoach:
         
         # Phase 10.3: Collect reasoning events for dashboard visibility
         self._step_reasoning_log: List[Dict[str, Any]] = []
+        # Phase 38 X3: Per-step LLM call counter — cap at 3 to prevent redundant calls
+        self._step_llm_calls: int = 0
+        _MAX_LLM_CALLS_PER_STEP = 3
         
         # =====================================================================
         # PHASE 6.9: CLOSEOUT HARD GATE
@@ -2725,6 +2734,8 @@ class SmartCoach:
         mentor_engagement: Optional[MentorEngagement] = None
         
         if self.mentor_controller is not None:
+            # Phase 38 X2: Sync stagnation counter to SmartCoach's canonical value
+            self.mentor_controller._stagnation_steps = getattr(self, '_stagnation_steps', 0)
             # Use the new 3-tier controller
             phase_changed = (prev_phase is not None and current_phase != prev_phase)
             # Phase 9.0: Pass DDQN confidence for macro-uncertainty trigger
@@ -2957,7 +2968,7 @@ class SmartCoach:
             try:
                 _mc_templates = [c.name for c in filtered_commands[:20]] if filtered_commands else []
                 _mc_recent = list(self.episode_used_commands)[-10:] if self.episode_used_commands else []
-                _mc_stag = step_ctx.get("stagnation_steps", 0) if isinstance(step_ctx, dict) else 0
+                _mc_stag = getattr(self, '_stagnation_steps', 0)  # Phase 38: fix stagnation pass-through
                 _mc_role = self.agent_role.get("role", self.agent_name) if isinstance(self.agent_role, dict) else str(self.agent_role or self.agent_name)
                 _mc_out = self._micro_chain.decide(
                     phase=current_phase.name if hasattr(current_phase, 'name') else str(current_phase),
@@ -2986,6 +2997,8 @@ class SmartCoach:
                         f"{_mc_out.selected.command[:60]} (score={_mc_out.selected.score:.2f}, "
                         f"escalated={_mc_out.escalated})"
                     )
+                    # Phase 38 X3: Count MicroChain as 1-3 LLM calls (stages)
+                    self._step_llm_calls += 2 if not _mc_out.escalated else 3
             except Exception as e:
                 logger.debug(f"[MICRO-CHAIN][{self.agent_name}] Error: {e}")
 
@@ -2999,7 +3012,7 @@ class SmartCoach:
         if micro_chain_result is None and self._phase_guided is not None:
             try:
                 _pg_phase = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
-                _pg_stag = step_ctx.get("stagnation_steps", 0) if isinstance(step_ctx, dict) else 0
+                _pg_stag = getattr(self, '_stagnation_steps', 0)  # Phase 38: fix stagnation pass-through
                 _pg_templates = [
                     {"name": c.name, "phase": c.phase.name if hasattr(c.phase, 'name') else str(c.phase)}
                     for c in (filtered_commands[:15] if filtered_commands else [])
@@ -3032,6 +3045,8 @@ class SmartCoach:
                         f"[PHASE-GUIDE][{self.agent_name}] Guided: "
                         f"{_pg_best.template_name} (conf={_pg_result.phase_decision.confidence:.2f})"
                     )
+                    # Phase 38 X3: Track PhaseGuided LLM call
+                    self._step_llm_calls += 1
                     self._step_reasoning_log.append({
                         "type": "phase_guided",
                         "agent": self.agent_name,
@@ -3709,13 +3724,20 @@ class SmartCoach:
         
         # R42: PPO bypass should NOT apply to heavy prefix repeats.
         # In R41, Orion PPO looped ldapsearch 4+ times because PPO was fully exempt.
-        # Now: if PPO picks the same prefix ≥3 times, treat it like non-PPO.
+        # Phase 38: Use template_name for family classification instead of prefix-only.
+        # This prevents false-positive blocks on semantically distinct commands
+        # that share a tool prefix (e.g., nmap_service_version vs nmap_udp_scan).
         # R50: privesc_escalation is a forced emergency override — NEVER revoke its bypass.
-        if ppo_bypass and result.source == "ppo" and prefix_repeat_count >= 3:
+        _result_template = getattr(result, 'template_name', '') or ''
+        _template_repeat_count = sum(
+            1 for c in all_cmds
+            if getattr(c, 'template_name', self._extract_tool_prefix(c if isinstance(c, str) else '')) == _result_template
+        ) if _result_template else prefix_repeat_count
+        if ppo_bypass and result.source == "ppo" and _template_repeat_count >= 3:
             ppo_bypass = False
             logger.info(
                 f"[{self.agent_name}] PPO bypass revoked: "
-                f"prefix '{result_prefix}' used {prefix_repeat_count}x in episode"
+                f"template '{_result_template or result_prefix}' used {_template_repeat_count}x in episode"
             )
         
         # Determine action family for this command
@@ -3789,17 +3811,37 @@ class SmartCoach:
                 if get_feature_flags().ppo_reward_attribution_fix:
                     if self.ppo_agent is not None:
                         try:
+                            # Phase 38 X1: Differentiated override penalties
+                            # instead of flat -3.0 for all overrides
+                            _override_penalties = {
+                                "anti_repeat": -1.0,       # Soft: PPO wasn't wrong, just redundant
+                                "registry": -1.5,          # Registry found better match
+                                "mentor": -2.0,            # Mentor override — moderate
+                                "dual_mentor": -2.0,
+                                "micro_chain": -2.0,
+                                "phase_guided": -2.0,
+                                "playbook": -2.5,          # Curriculum-guided override
+                                "fallback": -3.0,          # PPO produced garbage
+                            }
+                            _override_reason = result.source or "unknown"
+                            # Evidence gate enforce gets its own penalty
+                            if getattr(result, 'evidence_gate_result', '') == "enforce_reject":
+                                _penalty = -2.0
+                                _override_reason = "evidence_gate"
+                            else:
+                                _penalty = _override_penalties.get(_override_reason, -3.0)
+                            
                             self.ppo_agent.store_transition(
                                 state=self._ppo_pending["state"],
                                 action=self._ppo_pending["action"],
                                 log_prob=self._ppo_pending["log_prob"],
-                                reward=-3.0,  # Penalty: PPO's choice was overridden
+                                reward=_penalty,
                                 value=self._ppo_pending["value"],
                                 done=False,
                             )
                             logger.debug(
-                                f"[PPO-ATTRIB-FIX][{self.agent_name}] Stored -3.0 penalty "
-                                f"for replaced PPO action, clearing _ppo_pending"
+                                f"[PPO-ATTRIB-FIX][{self.agent_name}] Stored {_penalty:.1f} penalty "
+                                f"for override by {_override_reason}, clearing _ppo_pending"
                             )
                         except Exception:
                             pass
@@ -3874,9 +3916,10 @@ class SmartCoach:
                 f"(exploitation-level). Should I focus on post-exploitation or privesc instead?"
             )
         
-        if _needs_reasoning and gpt_available:
+        if _needs_reasoning and gpt_available and self._step_llm_calls < _MAX_LLM_CALLS_PER_STEP:
             mentor_advice = self._ask_mentor_reasoning(step_ctx, _reasoning_question)
             if mentor_advice:
+                self._step_llm_calls += 1  # Phase 38 X3: Track LLM call
                 # Inject reasoning into the result
                 result.mentor_reasoning = (
                     f"[REASONING-CHECK] {mentor_advice[:200]} | "
@@ -4217,19 +4260,25 @@ class SmartCoach:
         self._reasoning_failures = []
         self._reasoning_plan = None
     
-    def _build_reasoning_context(self, ctx: "AttackContext", step: int) -> str:
+    def _build_reasoning_context(self, ctx: "AttackContext", step: int,
+                                   discovery_board: Optional[Dict[str, Any]] = None) -> str:
         """Build a rich reasoning context string for mentor/LLM calls.
         
         Phase 8.0: Includes attack chain history, failures, hypotheses,
         and cross-episode best chain info for better strategic reasoning.
+        Phase 38: Uses discovery_board (ground truth) for ports/services.
         """
         parts = []
         parts.append(f"Step {step} | Phase: {ctx.current_phase.name}")
         parts.append(f"Target: {ctx.target}")
         
-        # Discoveries summary
-        _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
-        _services = ctx.services_found if hasattr(ctx, "services_found") else []
+        # Phase 38: Prefer discovery_board (ground truth) over ctx.discoveries
+        if discovery_board:
+            _ports = list(discovery_board.get("ports", []))[:10]
+            _services = list(discovery_board.get("services", []))[:5]
+        else:
+            _ports = ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
+            _services = ctx.services_found if hasattr(ctx, "services_found") else []
         parts.append(f"Ports: {len(_ports)} | Services: {len(_services)}")
         parts.append(f"Creds: {'YES' if ctx.state_flags.get('credentials_known') else 'NO'}")
         parts.append(f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}")
@@ -4438,8 +4487,8 @@ class SmartCoach:
                 f"nmap -sC -p 21,22,80,443 {target}",
                 f"nmap --script vuln -p 21,22,80 {target}",
                 f"nmap -sV --version-intensity 5 -p 21,22,80 {target}",
-                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt -t 50",
-                f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,302 -t 50",
+                f"gobuster dir -u http://{target} -w /usr/share/dirb/wordlists/common.txt -x php,html,txt -t 50 --no-error -b 302,404",
+                f"ffuf -u http://{target}/FUZZ -w /usr/share/dirb/wordlists/common.txt -mc 200,301 -t 50",
                 f"curl -s http://{target}/ | head -100",
                 f"whatweb http://{target}",
                 f"dig @{target} ANY",
@@ -4493,7 +4542,7 @@ class SmartCoach:
                 f"nmap --script vuln -p 21,22,80 {target}",
                 f"nmap -sC -p 21,22,80 {target}",
                 f"curl -s http://{target}/ | head -50",
-                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt -t 50",
+                f"gobuster dir -u http://{target} -w /usr/share/dirb/wordlists/common.txt -x php,html,txt -t 50 --no-error -b 302,404",
             ] + ([
                 f"nmap --script smb-enum-shares -p 139,445 {target}",
                 f"nmap --script mysql-info -p 3306 {target}",
@@ -6707,13 +6756,13 @@ class SmartCoach:
             if self._p37_llm_bridge is not None and self._p37_llm_bridge.enabled:
                 try:
                     _p37_guidance = self._p37_llm_bridge.compute_guidance(
-                        state_dict=ctx.state if hasattr(ctx, 'state') else {},
+                        state_dict=ctx.state_flags if ctx.state_flags else {},
                         micro_chain_result=getattr(self, '_p37_last_mc_result', None),
                         phase_guide_result=getattr(self, '_p37_last_pg_result', None),
                         mentor_confidence=getattr(self, '_last_mentor_confidence', 0.5),
-                        phase=current_phase_str if current_phase_str else "RECON",
-                        step=ctx.current_step if hasattr(ctx, 'current_step') else 0,
-                        episode=ctx.current_episode if hasattr(ctx, 'current_episode') else 0,
+                        phase=ctx.current_phase.name if ctx.current_phase else "RECON",
+                        step=step_ctx.step if step_ctx else 0,
+                        episode=self.current_episode,
                     )
                     self._p37_last_guidance = _p37_guidance
                     _p37_prior = _p37_guidance.action_prior
@@ -8107,7 +8156,7 @@ def create_smart_coach(
     agent_name: str,
     gpt_manager: "GPTManager",
     mentor_policy: Optional[MentorPolicy] = None,
-    model: str = "gpt-5.1-codex-mini",
+    model: str = "gpt-5.2-codex",
 ) -> SmartCoach:
     """
     Factory function to create a SmartCoach.

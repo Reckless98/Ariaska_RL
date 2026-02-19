@@ -1,0 +1,96 @@
+{
+  "run_id": "smart_9e556320_ep0000",
+  "timestamp": 1771465361.5561337,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full training run without mentor calls"
+    ],
+    "fails": [
+      "Zero success rate across the only episode",
+      "No observable reward trend due to single episode"
+    ],
+    "summary": "Single-episode run achieved moderate total reward but no successful outcomes; insufficient data for trend analysis."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode ended without success criteria being met",
+      "frequency": 1,
+      "evidence_refs": [
+        "smart_9e556320_ep0000"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new training run with a single episode",
+      "then_action": "Increase episode count to at least 5 to enable trend analysis and reduce variance",
+      "parameters_template": {
+        "min_episodes": 5
+      },
+      "confidence": 0.45,
+      "evidence_refs": [],
+      "created_at": 1771465374.1070726,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Collect detailed step logs and failure reasons before continuing training",
+      "parameters_template": {
+        "log_level": "debug",
+        "capture_failure_reason": true
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771465374.1070855,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Enables actionable trend analysis and stabilizes performance metrics"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase Episode Count",
+      "description": "Run 5-10 episodes to establish a reward trend and identify repeatable behaviors.",
+      "priority": "high"
+    },
+    {
+      "title": "Enable Detailed Failure Logging",
+      "description": "Capture step-level failure reasons to pinpoint where success criteria break down.",
+      "priority": "high"
+    },
+    {
+      "title": "Baseline Policy Comparison",
+      "description": "Compare current policy performance against a known baseline to identify regression or misconfiguration.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

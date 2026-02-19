@@ -1,0 +1,113 @@
+{
+  "run_id": "run_20260219_034000_68a070",
+  "timestamp": 1771468823.2602227,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward indicates some effective actions despite overall failure"
+    ],
+    "fails": [
+      "Success rate 0% across 1 episode",
+      "High mentor call count (15) suggests heavy guidance and low autonomy"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to complete objectives; reliance on mentor interventions likely impeded progress."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Incomplete attack chain progression after initial reconnaissance",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step14"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When multiple mentor calls occur within the same phase",
+      "then_action": "Pause and enumerate alternatives before committing to next action",
+      "parameters_template": {
+        "max_calls_in_phase": 3,
+        "action": "enumerate_options"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step12"
+      ],
+      "created_at": 1771468834.3147302,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reconnaissance yields partial indicators but no clear exploit path",
+      "then_action": "Expand service enumeration with targeted scans",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC -p-",
+        "timing": "T3"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step14"
+      ],
+      "created_at": 1771468834.314742,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Frequent mentor calls indicate need for autonomous decision scaffolding"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce Mentor Dependency",
+      "description": "Enforce a limit of 2 mentor calls per phase and require a self-generated decision tree before escalation.",
+      "priority": "high"
+    },
+    {
+      "title": "Structured Recon Expansion",
+      "description": "When initial recon is inconclusive, trigger a full-port scan with service detection before moving to exploitation attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Kill Chain Checkpointing",
+      "description": "Insert explicit checkpoints after recon and enumeration to verify readiness for exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -223,6 +223,8 @@ class TestPhaseGuidedLLM:
         assert any(c["model"] == "gpt-5.2-codex" for c in gpt._calls)
 
     def test_escalation_on_low_confidence(self):
+        """Phase 38 D1: Post-parse escalation removed (model always codex).
+        Now verify low-confidence input still produces a valid result with single call."""
         from core.llm.phase_guided_llm import PhaseGuidedLLM
         low_conf = json.loads(_good_response())
         low_conf["phase_decision"]["phase_confidence"] = 0.3
@@ -234,9 +236,9 @@ class TestPhaseGuidedLLM:
             discovery_board=self.board, available_templates=self.templates,
         )
         assert result is not None
-        # Should have made 2 calls: mini first, then codex escalation
-        assert len(gpt._calls) == 2
-        assert gpt._calls[1]["model"] == "gpt-5.2-codex"
+        # Phase 38 D1: Only 1 call — model is always codex, no post-parse re-run
+        assert len(gpt._calls) == 1
+        assert gpt._calls[0]["model"] == "gpt-5.2-codex"
 
     def test_candidates_capped(self):
         from core.llm.phase_guided_llm import PhaseGuidedLLM, _MAX_CANDIDATES

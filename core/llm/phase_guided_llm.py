@@ -9,8 +9,8 @@ Produces structured JSON guidance for Ariaska agents:
   - Distillation packet (MentorTrace target) for apprentice policy training
 
 All LLM calls go through GPTManager (never ``import openai`` directly).
-Model routing: gpt-5.2-mini default; codex escalation only when confidence < 0.45,
-contradictions detected, or semantic stall >= 8 steps.
+Model routing: gpt-5.2-codex for all schema-bound JSON calls.
+Escalation logic retained for confidence < 0.45, contradictions, or stall >= 8 steps.
 
 Author: Phase 34
 """
@@ -213,24 +213,116 @@ class PhaseGuidanceResult:
 
 # ── Helper: safe JSON extraction ────────────────────────────────────────────
 
+def _fix_json_quirks(text: str) -> str:
+    """Fix common LLM JSON quirks: trailing commas, single quotes, etc."""
+    # Remove trailing commas before } or ]
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+    # Replace single-quoted keys/values with double-quoted (simple heuristic)
+    # Only when the text has no double-quotes (all single-quoted)
+    if "'" in text and '"' not in text:
+        text = text.replace("'", '"')
+    return text
+
+
+def _try_parse(text: str) -> Optional[Dict[str, Any]]:
+    """Try json.loads, then fix quirks and retry."""
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # Retry with quirks fixed
+    try:
+        fixed = _fix_json_quirks(text)
+        obj = json.loads(fixed)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return None
+
+
+def _brace_match(text: str) -> Optional[str]:
+    """Extract the outermost balanced {...} block using brace counting."""
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    # Unbalanced — try closing it
+    if depth > 0:
+        return text[start:] + "}" * depth
+    return None
+
+
 def _extract_json(text: str) -> Optional[Dict[str, Any]]:
-    """Extract JSON object from LLM response (handles fencing)."""
+    """Extract JSON object from LLM response using multiple strategies.
+
+    Strategies (tried in order):
+      1. Direct parse of full text
+      2. Extract from ```json ... ``` fences
+      3. Balanced brace-matching extraction
+      4. First { to last } with quirk fixing
+    """
     if not text or not isinstance(text, str):
         return None
     text = text.strip()
-    # Try to extract from ```json ... ``` blocks
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+
+    # Reject obvious non-JSON (offline/echo placeholders)
+    if text.startswith(("[OFFLINE]", "echo ", "nmap ", "ping ", "netstat ")):
+        logger.debug("[PHASE-GUIDE] _extract_json: rejected placeholder: %s", text[:60])
+        return None
+
+    # Strategy 1: Direct parse
+    result = _try_parse(text)
+    if result:
+        return result
+
+    # Strategy 2: Fenced code block
+    fenced = re.search(r"```(?:json)?\s*(.+?)\s*```", text, re.DOTALL)
     if fenced:
-        text = fenced.group(1)
-    # Find first { to last }
+        result = _try_parse(fenced.group(1).strip())
+        if result:
+            return result
+
+    # Strategy 3: Balanced brace matching
+    matched = _brace_match(text)
+    if matched:
+        result = _try_parse(matched)
+        if result:
+            return result
+
+    # Strategy 4: First { to last } (last resort)
     start = text.find("{")
     end = text.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return None
-    try:
-        return json.loads(text[start:end + 1])
-    except (json.JSONDecodeError, ValueError):
-        return None
+    if start != -1 and end > start:
+        result = _try_parse(text[start:end + 1])
+        if result:
+            return result
+
+    logger.debug("[PHASE-GUIDE] _extract_json: all strategies failed on: %s", text[:120])
+    return None
 
 
 def _safe_get(d: Any, key: str, default: Any = "") -> Any:
@@ -276,30 +368,21 @@ def _infer_phase(discovery_board: Dict[str, Any], current_phase: str) -> str:
 
 # ── Prompt builder ───────────────────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are PHASE GUIDE for Ariaska_RL (authorized pentesting lab).
-You MUST output ONLY a single JSON object. No prose, no markdown, no explanation.
-Do NOT wrap in ```json``` fences. Output raw JSON starting with { and ending with }.
-
-Always include "phase_tag":"P34" inside both phase_decision and distillation_packet.
-
-EVIDENCE RULES (HARD):
-- If discovery_board.ports is empty: phase MUST be RECON. Candidates MUST be port-discovery only.
-- If ports exist but no service versions: phase MUST be RECON or ENUM. No exploit candidates.
-- EXPLOIT only with: confirmed service + plausible vector + testable next step.
-- PRIVESC only after foothold evidence (shell/creds validated).
-- Never assume unseen services/ports exist.
-- Never propose FTP/IRC/Telnet/MySQL commands unless those services appear in discovery_board.
-
-DECISION HEURISTICS:
-- Stagnation >= 8 steps: include 1 ANOMALY_PROBE + 1 STRATEGY_PIVOT candidate.
-- Avoid repeating command families recently used unless justified.
-- Prefer "enumerate → confirm → test" over "jump to exploit".
-
-JSON SCHEMA:
-{"phase_decision":{"chosen_phase":"RECON","phase_confidence":0.8,"phase_goal":"","stay_conditions":[],"move_on_conditions":[],"contradictions":[],"phase_tag":"P34"},"anomalies":[],"candidates":[{"template_name":"","family":"","why":"","expected_outcome":"","stop_condition":"","confidence":0.5,"risk":"low","tags":[]}],"selection":{"best_template_name":"","runner_up_template_name":"","selection_reason":"","should_escalate_to_codex":false,"escalation_reason":""},"distillation_packet":{"observation":"","reasoning":"","action_target":{"template_name":"","why":""},"expected_outcome":"","phase_target":"","confidence_target":0.5,"gating_notes":{"expected_gate_result":"PASS","reasons":[]},"phase_tag":"P34"}}
-"""
+_SYSTEM_PROMPT = (
+    "You are PHASE GUIDE for Ariaska_RL pentesting lab. "
+    "Output ONLY a raw JSON object. No prose, no markdown fences. "
+    'Include "phase_tag":"P34" in phase_decision and distillation_packet. '
+    "Keys: phase_decision, anomalies, candidates, selection, distillation_packet. "
+    "phase_decision needs: chosen_phase, phase_confidence (0-1), phase_goal, stay_conditions[], move_on_conditions[], contradictions[], phase_tag. "
+    "candidates[]: template_name, family, why, expected_outcome, stop_condition, confidence, risk, tags[]. "
+    "selection: best_template_name, runner_up_template_name, selection_reason, should_escalate_to_codex, escalation_reason. "
+    "distillation_packet: observation, reasoning, action_target{template_name,why}, expected_outcome, phase_target, confidence_target, gating_notes{expected_gate_result,reasons[]}, phase_tag."
+)
 
 _JSON_RETRY_PROMPT = "Your previous response was not valid JSON. Output ONLY a raw JSON object. No text before or after. Start with { and end with }."
+
+_MINIMAL_RETRY_PROMPT = '''Fill in this JSON template. Replace ALL "__" with real values. Output ONLY the completed JSON.
+{"phase_decision":{"chosen_phase":"__","phase_confidence":0.5,"phase_goal":"__","stay_conditions":[],"move_on_conditions":[],"contradictions":[],"phase_tag":"P34"},"anomalies":[],"candidates":[{"template_name":"__","family":"__","why":"__","expected_outcome":"__","stop_condition":"__","confidence":0.5,"risk":"low","tags":[]}],"selection":{"best_template_name":"__","runner_up_template_name":"","selection_reason":"__","should_escalate_to_codex":false,"escalation_reason":""},"distillation_packet":{"observation":"__","reasoning":"__","action_target":{"template_name":"__","why":"__"},"expected_outcome":"__","phase_target":"__","confidence_target":0.5,"gating_notes":{"expected_gate_result":"PASS","reasons":[]},"phase_tag":"P34"}}'''
 
 
 def _build_user_prompt(input_data: Dict[str, Any]) -> str:
@@ -324,8 +407,8 @@ class PhaseGuidedLLM:
     packet compatible with MentorTrace.
 
     Model routing:
-      - Default: gpt-5.2-mini
-      - Escalate to gpt-5.2-codex if:
+      - Default: gpt-5.2-codex (schema-bound JSON generation)
+      - Additional escalation if:
         (a) confidence < 0.45 after scoring, OR
         (b) contradictions detected, OR
         (c) semantic stall >= 8 steps with no new discoveries
@@ -385,7 +468,9 @@ class PhaseGuidedLLM:
             len(contradictions) > 0
             or stagnation_steps >= _STALL_THRESHOLD
         )
-        model = "gpt-5.2-codex" if should_escalate else "gpt-5.2-mini"
+        # MODEL POLICY: Always use codex for schema-bound JSON generation.
+        # Escalation flag kept for logging / downstream awareness.
+        model = "gpt-5.2-codex"
 
         # Build input payload
         input_data = {
@@ -400,17 +485,19 @@ class PhaseGuidedLLM:
             "last_output_excerpt": last_output_excerpt[:500],
         }
 
-        # LLM call
+        # LLM call — use analysis task_type + 30s timeout for structured JSON
         prompt = _build_user_prompt(input_data)
         raw = self._gpt.gpt_request(
             prompt=prompt,
-            task_type="tactical",
+            task_type="analysis",
             agent_id=f"phase_guide_{agent_role}",
-            max_tokens=800,
+            max_tokens=1200,
             model=model,
             system_prompt=_SYSTEM_PROMPT,
+            timeout=30,
         )
         self._call_count += 1
+        logger.debug("[PHASE-GUIDE] Raw response (attempt 1, %d chars): %.200s", len(raw) if raw else 0, raw)
 
         # Parse response
         parsed = _extract_json(raw)
@@ -419,20 +506,46 @@ class PhaseGuidedLLM:
             logger.debug("[PHASE-GUIDE] First parse failed, retrying with JSON-only prompt")
             raw_retry = self._gpt.gpt_request(
                 prompt=_JSON_RETRY_PROMPT + "\n\n" + prompt,
-                task_type="tactical",
+                task_type="analysis",
+                agent_id=f"phase_guide_{agent_role}",
+                max_tokens=1200,
+                model=model,
+                system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
+                timeout=30,
+            )
+            self._call_count += 1
+            logger.debug("[PHASE-GUIDE] Raw response (attempt 2, %d chars): %.200s", len(raw_retry) if raw_retry else 0, raw_retry)
+            parsed = _extract_json(raw_retry)
+
+        if parsed is None:
+            # 3rd retry: minimal fill-in-the-blanks template (very small prompt)
+            logger.debug("[PHASE-GUIDE] Attempt 2 failed, trying minimal template (attempt 3)")
+            mini_prompt = (
+                f"Current phase: {inferred_phase}. "
+                f"Ports: {list(discovery_board.get('ports', []))[:10]}. "
+                f"Services: {list(discovery_board.get('services', []))[:5]}. "
+                f"Step: {step_id}. Agent: {agent_role}.\n\n"
+                + _MINIMAL_RETRY_PROMPT
+            )
+            raw_min = self._gpt.gpt_request(
+                prompt=mini_prompt,
+                task_type="analysis",
                 agent_id=f"phase_guide_{agent_role}",
                 max_tokens=800,
                 model=model,
-                system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
+                system_prompt="Complete the JSON template. Output ONLY the filled JSON.",
+                timeout=20,
             )
             self._call_count += 1
-            parsed = _extract_json(raw_retry)
-            if parsed is None:
-                logger.warning("[PHASE-GUIDE] JSON retry also failed — using deterministic heuristics")
-                return self._heuristic_fallback(
-                    inferred_phase, discovery_board, available_templates,
-                    stagnation_steps, agent_role, model,
-                )
+            logger.debug("[PHASE-GUIDE] Raw response (attempt 3, %d chars): %.200s", len(raw_min) if raw_min else 0, raw_min)
+            parsed = _extract_json(raw_min)
+
+        if parsed is None:
+            logger.warning("[PHASE-GUIDE] All 3 JSON attempts failed — using deterministic heuristics")
+            return self._heuristic_fallback(
+                inferred_phase, discovery_board, available_templates,
+                stagnation_steps, agent_role, model,
+            )
 
         # Build result from parsed JSON
         result = self._build_result(
@@ -440,31 +553,8 @@ class PhaseGuidedLLM:
             model, should_escalate,
         )
 
-        # Post-parse confidence check: escalate if low confidence
-        if (
-            not should_escalate
-            and result.phase_decision.phase_confidence < _CODEX_ESCALATION_CONFIDENCE
-            and self._gpt.can_make_request()
-        ):
-            # Re-run with codex
-            logger.info("[PHASE-GUIDE] Confidence < 0.45, escalating to codex")
-            model = "gpt-5.2-codex"
-            raw2 = self._gpt.gpt_request(
-                prompt=prompt,
-                task_type="tactical",
-                agent_id=f"phase_guide_{agent_role}",
-                max_tokens=800,
-                model=model,
-                system_prompt=_SYSTEM_PROMPT,
-            )
-            self._call_count += 1
-            self._escalation_count += 1
-            parsed2 = _extract_json(raw2)
-            if parsed2 is not None:
-                result = self._build_result(
-                    parsed2, inferred_phase, contradictions,
-                    model, True,
-                )
+        # Phase 38 D1: Post-parse codex escalation removed — model is always
+        # gpt-5.2-codex since PR-4, so the re-run was dead code burning tokens.
 
         # Validate phase_tag presence
         if not result.validate():

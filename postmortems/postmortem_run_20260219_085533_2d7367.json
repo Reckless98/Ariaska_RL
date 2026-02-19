@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260219_085533_2d7367",
+  "timestamp": 1771487758.4056742,
+  "key_outcomes": {
+    "wins": [
+      "Collected initial host and service discovery data",
+      "Maintained positive reward despite overall failure"
+    ],
+    "fails": [
+      "No episode-level success (0.00% success rate)",
+      "High mentor call count indicates reliance and decision uncertainty"
+    ],
+    "summary": "Single-episode run achieved partial reconnaissance progress but failed to convert into a successful outcome; needs tighter decision-making and exploitation follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Stalled after reconnaissance without selecting a concrete exploitation path",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance before executing actions",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required on an unknown network segment",
+      "then_action": "Run a fast ping sweep to identify live hosts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn 10.0.0.0/24"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771487772.1206453,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When live hosts are identified and service inventory is needed",
+      "then_action": "Perform targeted TCP service enumeration on common ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p 21,22,80,443 10.0.0.15"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771487772.1206532,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP/HTTPS is detected on a target host",
+      "then_action": "Run web content discovery to map endpoints",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://10.0.0.15 -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step12"
+      ],
+      "created_at": 1771487772.1206577,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early-stage host discovery sets up subsequent enumeration."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Service enumeration is a necessary bridge between discovery and exploitation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit path selection drill",
+      "description": "After service enumeration, force a single exploit hypothesis (e.g., weak SSH, web vuln) and execute a full attempt before branching.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction challenge",
+      "description": "Limit mentor calls to 3 and document decision rationale for each action to build autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-focused exploitation follow-through",
+      "description": "If HTTP is found, complete a full cycle: content discovery \u2192 vuln scan (e.g., nikto) \u2192 exploit attempt.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

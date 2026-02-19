@@ -28,7 +28,7 @@ These are non-negotiable. Violation of any invariant breaks the system.
 8. **`ARIASKA_DRY_RUN=1`** — env var for safe test execution
 9. **STATE_DIM = 512** — hardcoded everywhere, change requires full network rebuild
 10. **Never modify PPO core** without explicit instruction — PPO is finely tuned (R80+)
-11. **BudgetManagerV2 clamps** — 999K max, 499.5K min (50% floor). Do not change without instruction.
+11. **BudgetManagerV2 clamps** — 1,148,850 max, 574,425 min (50% floor). Do not change without instruction.
 12. **Evidence Gate default = `enforce`** — `FF_STRICT_EXPLOIT_GATE` must stay `enforce` unless explicitly changed
 13. **MicroChain escalation threshold = 0.40** — tunable via `MC_ESCALATE_THRESHOLD` env var only
 14. **Git policy: `master` branch only** — no feature branches, no PRs
@@ -396,8 +396,8 @@ MicroChain + PhaseGuide + Mentor ─┐
 
 | Constant | Value | Notes |
 |----------|-------|-------|
-| `_TOTAL_BUDGET` | 999,000 | ~$3.33/episode ceiling |
-| `_MIN_BUDGET` | 499,500 | 50% floor |
+| `_TOTAL_BUDGET` | 1,148,850 | ~$3.83/episode ceiling |
+| `_MIN_BUDGET` | 574,425 | 50% floor |
 | `_BURST_POOL_RATIO` | 0.12 | 12% of max as burst reserve |
 | `_BURST_STEP_CAP_RATIO` | 0.03 | 3% per-step burst limit |
 | `_BURST_COOLDOWN_STEPS` | 5 | Min steps between bursts |
@@ -786,8 +786,8 @@ When generating code for this project:
 | SIL coef | 0.25 (SIL buffer: 500) | `PPOConfig` |
 | Minibatch size | 16 | `PPOConfig` |
 | Mentor anneal | 60% -> 10% | `MentorPolicy` |
-| Total budget | 999K tokens | `BudgetManagerV2` |
-| Min budget | 499.5K tokens | `BudgetManagerV2` |
+| Total budget | 1,148,850 tokens | `BudgetManagerV2` |
+| Min budget | 574,425 tokens | `BudgetManagerV2` |
 | MicroChain threshold | 0.40 | `micro_chain.py` |
 | PhaseGuide codex threshold | 0.45 | `phase_guided_llm.py` |
 | Reward range | [-15.0, +50.0] | `reward_calculator.py` |

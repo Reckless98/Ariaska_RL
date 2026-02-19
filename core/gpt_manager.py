@@ -167,6 +167,11 @@ class GPTManager:
     """
     
     # Model configuration — Phase 12.1: All reasoning tasks → gpt-5.2-codex
+    # ── Model routing constants (Phase 38: centralized, no hardcoded strings) ──
+    MODEL_CODEX = "gpt-5.2-codex"       # Primary decision model
+    MODEL_MINI  = "gpt-5.2-mini"        # Free-text / fallback
+    MODEL_NANO  = "gpt-5-nano"          # Classification / lightweight parse
+
     # This map is kept for test compatibility. Actual routing is in get_model_for_role().
     MODEL_MAP = {
         # All agents use gpt-5.2-codex for reasoning/mentor tasks
@@ -180,8 +185,8 @@ class GPTManager:
         "strategic": "gpt-5.2-codex",
         "reasoning": "gpt-5.2-codex",
         "analysis": "gpt-5.2-codex",
-        "classification": "gpt-5.1-codex-mini",   # Lightweight parsing only
-        "embedding": "gpt-5.1-codex-mini",
+        "classification": "gpt-5.2-codex",   # Phase 38: upgraded from codex-mini
+        "embedding": "gpt-5.2-codex",         # Phase 38: upgraded from codex-mini
         "postmortem": "gpt-5.2-codex",
         # Fallbacks
         "general": "gpt-5.2-mini",
@@ -195,7 +200,7 @@ class GPTManager:
         "gpt-5-nano": 0.00010,
         "gpt-5-mini": 0.00040,
         "gpt-5.2-mini": 0.00060,
-        "gpt-5.1-codex-mini": 0.00150,
+        "gpt-5.1-codex-mini": 0.00150,   # Legacy — kept for cost tracking
         "gpt-5.1-codex": 0.00600,
         "gpt-5.2-codex": 0.01000,
         "gpt-5.2": 0.01000,
@@ -459,6 +464,40 @@ class GPTManager:
     # for this prefix to avoid treating placeholders as executable commands.
     OFFLINE_SENTINEL = "[OFFLINE]"
 
+    # Schema-compliant fallback for analysis/phase-guide callers.
+    # Returned when the real API is unavailable so downstream JSON parsers
+    # always receive valid JSON instead of echo/nmap command strings.
+    _ANALYSIS_FALLBACK_JSON = json.dumps({
+        "phase_decision": {
+            "chosen_phase": "RECON", "phase_confidence": 0.3,
+            "phase_goal": "fallback", "stay_conditions": [],
+            "move_on_conditions": [], "contradictions": [],
+            "phase_tag": "P34",
+        },
+        "anomalies": [],
+        "candidates": [{
+            "template_name": "nmap_basic", "family": "nmap",
+            "why": "Fallback — API unavailable", "expected_outcome": "port discovery",
+            "stop_condition": "any output", "confidence": 0.3,
+            "risk": "low", "tags": ["fallback"],
+        }],
+        "selection": {
+            "best_template_name": "nmap_basic",
+            "runner_up_template_name": "",
+            "selection_reason": "LLM fallback",
+            "should_escalate_to_codex": True,
+            "escalation_reason": "API unavailable",
+        },
+        "distillation_packet": {
+            "observation": "API fallback", "reasoning": "LLM unavailable",
+            "action_target": {"template_name": "nmap_basic", "why": "fallback"},
+            "expected_outcome": "port discovery", "phase_target": "RECON",
+            "confidence_target": 0.3,
+            "gating_notes": {"expected_gate_result": "PASS", "reasons": ["fallback"]},
+            "phase_tag": "P34",
+        },
+    })
+
     def _get_offline_placeholder(self, task_type: str) -> str:
         """Get a deterministic placeholder response for offline mode.
         
@@ -470,7 +509,7 @@ class GPTManager:
             "defensive": "netstat -an",
             "reconnaissance": "ping 10.10.10.10",
             "diversify": "nslookup 10.10.10.10",
-            "analysis": f"{self.OFFLINE_SENTINEL} analysis unavailable.",
+            "analysis": self._ANALYSIS_FALLBACK_JSON,
             "reasoning": f"{self.OFFLINE_SENTINEL} reasoning unavailable.",
             "postmortem": f"{self.OFFLINE_SENTINEL} postmortem analysis unavailable.",
             "general": f"{self.OFFLINE_SENTINEL} LLM unavailable."
@@ -834,15 +873,20 @@ class GPTManager:
         return command.strip()
     
     def _create_cache_key(self, prompt: str, task_type: str, agent_id: str) -> str:
-        """Create a cache key for the request"""
-        content = f"{task_type}|{agent_id}|{prompt[:100]}"
+        """Create a cache key for the request.
+        
+        Phase 38: Use full prompt hash to prevent stale cache hits when
+        discovery state changes (e.g., ports/services differ between steps).
+        """
+        content = f"{task_type}|{agent_id}|{prompt}"
         return hashlib.md5(content.encode()).hexdigest()
     
     def gpt_request(self, prompt: str, task_type: str = "general", 
                    agent_id: str = "unknown", max_tokens: int = 150,
                    model: Optional[str] = None, allow_fallback: bool = True,
                    timeout: Optional[int] = None,
-                   system_prompt: Optional[str] = None) -> str:
+                   system_prompt: Optional[str] = None,
+                   response_format: Optional[str] = None) -> str:
         """
         Make a request to GPT with role-based model routing.
         
@@ -857,6 +901,8 @@ class GPTManager:
             system_prompt: Optional custom system prompt override. When provided,
                 replaces the internal task_type-based system prompt. Used by
                 ReflectiveCortex and other callers needing specialized prompts.
+            response_format: Optional response format hint. "json_object" forces
+                the API to return valid JSON (Chat Completions only, not codex/Responses API).
             
         Returns:
             str: The model's response
@@ -871,6 +917,8 @@ class GPTManager:
         
         if not self.can_make_request(task_type=task_type):
             logger.warning(f"Token limit reached for episode ({self.tokens_used}/{self.token_limit}, task={task_type})")
+            if task_type == "analysis":
+                return self._ANALYSIS_FALLBACK_JSON
             return "echo 'Token limit reached'"
         
         # Role-based model selection (unless explicitly overridden)
@@ -1015,6 +1063,9 @@ class GPTManager:
                     # Only add temperature for models that support it (not gpt-5.x, o1, o3)
                     if not uses_new_api:
                         request_params["temperature"] = 0.7 if task_type == "diversify" else 0.3
+                    # Phase 38: JSON mode — force structured output when requested
+                    if response_format == "json_object" and not uses_responses_api:
+                        request_params["response_format"] = {"type": "json_object"}
                     return self.client.chat.completions.create(**request_params)
             
             # Execute with aggressive timeout using ThreadPoolExecutor
@@ -1039,6 +1090,7 @@ class GPTManager:
                         "defensive": "netstat -an",
                         "reconnaissance": "ping 10.10.10.10",
                         "diversify": "nslookup 10.10.10.10",
+                        "analysis": self._ANALYSIS_FALLBACK_JSON,
                         "general": "echo 'GPT timeout - using fallback'"
                     }
                     return fallback_commands.get(task_type, "echo 'GPT timeout'")
@@ -1055,6 +1107,7 @@ class GPTManager:
                     "defensive": "netstat -an", 
                     "reconnaissance": "ping 10.10.10.10",
                     "diversify": "nslookup 10.10.10.10",
+                    "analysis": self._ANALYSIS_FALLBACK_JSON,
                     "general": "echo 'GPT error - using fallback'"
                 }
                 return fallback_commands.get(task_type, "echo 'GPT error'")
@@ -1168,6 +1221,7 @@ class GPTManager:
                     "defensive": "netstat -tlnp",
                     "reconnaissance": "nmap -sC -sV {target}",
                     "diversify": "nikto -h {target}",
+                    "analysis": self._ANALYSIS_FALLBACK_JSON,
                     "general": "echo 'Empty GPT response — fallback'"
                 }
                 return fallback_commands.get(task_type, "echo 'Empty GPT response'")

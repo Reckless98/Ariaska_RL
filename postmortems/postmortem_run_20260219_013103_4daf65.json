@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260219_013103_4daf65",
+  "timestamp": 1771461072.9720857,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive reward signal despite overall failure, indicating partial progress in early phases"
+    ],
+    "fails": [
+      "Zero success rate across the single episode",
+      "High mentor call count (10) suggests uncertainty or weak autonomy"
+    ],
+    "summary": "Single-episode run shows partial progress but no successful completion; guidance reliance is high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode ended without achieving success despite positive intermediate reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependence during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial network scan is required with no prior host visibility",
+      "then_action": "Run a fast TCP SYN scan on top ports to establish attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 --top-ports 1000 <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461085.2468607,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service is detected on a port during recon",
+      "then_action": "Perform version detection to enrich service fingerprinting",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p <port> <target>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461085.2468753,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP service is detected on standard ports",
+      "then_action": "Enumerate web content and directories with common wordlists",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target>:<port> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461085.2468853,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step needed to reduce mentor dependence"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls with structured recon checklist",
+      "description": "Apply a fixed recon sequence: fast scan \u2192 version scan \u2192 service-specific enumeration, and only call mentor after completing the checklist.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-driven branching",
+      "description": "Introduce decision rules that trigger protocol-specific enumeration (HTTP, SMB, SSH) immediately after detection.",
+      "priority": "medium"
+    },
+    {
+      "title": "Time-boxed exploration",
+      "description": "Limit each phase to a time budget to avoid stagnation and force progression to exploitation attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

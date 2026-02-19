@@ -1,0 +1,89 @@
+{
+  "run_id": "run_20260219_030248_427df6",
+  "timestamp": 1771466588.01472,
+  "key_outcomes": {
+    "wins": [
+      "Single episode completed with positive total reward"
+    ],
+    "fails": [
+      "Success rate reported as 0.00% despite positive reward",
+      "Insufficient episode-level telemetry to confirm specific tactic successes"
+    ],
+    "summary": "The run yielded a positive reward but no successful episode outcome; lack of step-level data limits concrete pattern extraction."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ICMP ping and TCP ports are unknown",
+      "then_action": "Run fast TCP port discovery scan",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS --min-rate 1000 -p-"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [],
+      "created_at": 1771466597.942769,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on a target",
+      "then_action": "Perform service and version enumeration with NSE scripts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script http-enum,http-title,http-headers -p 80,443"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [],
+      "created_at": 1771466597.9427948,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance step; useful despite missing evidence"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Add step-level telemetry",
+      "description": "Capture episode step traces (tool, target, parameters, outcome) to enable concrete pattern extraction and failure analysis.",
+      "priority": "high"
+    },
+    {
+      "title": "Align reward with success criteria",
+      "description": "Verify reward function and success conditions to explain positive reward alongside 0% success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase episode count",
+      "description": "Run 10\u201320 episodes to gather sufficient evidence for repeated failure patterns and successful skill cards.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

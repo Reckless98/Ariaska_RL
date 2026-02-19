@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260219_013726_3a018e",
+  "timestamp": 1771461467.4763927,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive reward signal indicating some useful action sequences were executed"
+    ],
+    "fails": [
+      "No episode completed successfully (0.00% success rate)",
+      "High mentor call count (10) suggests insufficient autonomous decision-making"
+    ],
+    "summary": "Single-episode run showed partial progress but failed to achieve the objective; guidance reliance remained high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not reached despite positive intermediate reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during critical decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is discovered but services are unknown",
+      "then_action": "Perform fast full-port discovery with nmap to enumerate exposed services",
+      "parameters_template": {
+        "flags": "-p- --min-rate 1000 -sS -Pn",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02"
+      ],
+      "created_at": 1771461480.1600623,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an open TCP service is identified on a standard port",
+      "then_action": "Run targeted service/version detection and relevant default scripts",
+      "parameters_template": {
+        "flags": "-sV -sC -p <port>",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771461480.1600738,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web service (80/443) is detected",
+      "then_action": "Enumerate web endpoints and technologies with lightweight tools",
+      "parameters_template": {
+        "tool": "whatweb",
+        "args": "<url>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771461480.1600814,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step that increases likelihood of identifying viable attack paths"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Improves fidelity of service data needed to advance the kill chain"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Attempt full recon-to-enum flow without mentor calls; only consult after two failed branching attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Branching on service discovery",
+      "description": "For each discovered service, immediately execute a tailored enumeration step (e.g., SMB, SSH, HTTP) to improve path selection.",
+      "priority": "high"
+    },
+    {
+      "title": "Tight feedback loop on failed objectives",
+      "description": "Add mid-episode checkpoints to verify objective alignment and adjust strategy before time/steps run out.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -879,7 +879,8 @@ class SmartOrchestrator:
                 return False, self.SKIP_REASONS["shadow_no_creds"]
 
         # ── Scout completion gate: skip if ports+services already discovered ──
-        if agent_name == "ScoutAgent" and phase_upper not in ("RECON", "LATERAL_MOVEMENT"):
+        # Phase 39: Keep Scout active in ENUMERATION for vhost/deeper discovery
+        if agent_name == "ScoutAgent" and phase_upper not in ("RECON", "ENUMERATION", "LATERAL_MOVEMENT"):
             ports = board.get("ports", []) if isinstance(board, dict) else []
             services = board.get("services", []) if isinstance(board, dict) else []
             if len(ports) >= 2 and len(services) >= 1:
@@ -1366,7 +1367,7 @@ class SmartOrchestrator:
         # ─── PHASE 9: CognitiveBus episode start ────────────────────
         if self.cognitive_bus:
             try:
-                target_info = target or self.config.target_ip or "unknown"
+                target_info = target or self.config.default_target or "unknown"
                 self.cognitive_bus.start_episode(
                     episode_id=episode_id,
                     target=target_info,
@@ -2349,6 +2350,75 @@ class SmartOrchestrator:
             # Track phase progression
             current_phase = self.attack_context.current_phase.name
             
+            # ─── Phase 38: PHASE FSM HARD INVARIANTS ────────────────
+            # Validate that the current phase satisfies hard prerequisites.
+            # If an invariant is violated, demote to the highest valid phase.
+            _state_flags = self.attack_context.state_flags
+            _phase_invariant_violations = []
+            
+            # ─── Phase 39: ENUMERATION DURATION GATE ─────────────────
+            # Prevent premature EXPLOITATION by requiring at least
+            # MIN_ENUM_STEPS steps in ENUMERATION before the system can
+            # advance.  This ensures vhost discovery, directory busting,
+            # and service fingerprinting have time to run.
+            _MIN_ENUM_STEPS = 3
+            if current_phase == "EXPLOITATION":
+                _enum_start = self._phase_start_step.get("ENUMERATION", step)
+                _enum_steps = step - _enum_start
+                if _enum_steps < _MIN_ENUM_STEPS:
+                    logger.info(
+                        f"[P39-ENUM-GATE] EXPLOITATION demoted → ENUMERATION "
+                        f"(only {_enum_steps}/{_MIN_ENUM_STEPS} enum steps done)"
+                    )
+                    try:
+                        self.attack_context._current_phase = AttackPhase.ENUMERATION
+                        current_phase = "ENUMERATION"
+                    except (AttributeError, KeyError):
+                        pass
+            
+            if current_phase == "PRIVILEGE_ESCALATION":
+                if not _state_flags.get("shell_obtained"):
+                    _phase_invariant_violations.append(
+                        "PRIVILEGE_ESCALATION requires shell_obtained"
+                    )
+            elif current_phase in ("LATERAL_MOVEMENT", "POST_EXPLOITATION"):
+                if not _state_flags.get("shell_obtained"):
+                    _phase_invariant_violations.append(
+                        f"{current_phase} requires shell_obtained"
+                    )
+            elif current_phase == "EXFILTRATION":
+                if not _state_flags.get("shell_obtained"):
+                    _phase_invariant_violations.append(
+                        "EXFILTRATION requires shell_obtained"
+                    )
+            
+            if _phase_invariant_violations:
+                # Determine the correct phase to demote to
+                _has_ports = bool(self.discovery_board.get("ports"))
+                _has_services = bool(self.discovery_board.get("services"))
+                _has_creds = _state_flags.get("credentials_known")
+                _has_shell = _state_flags.get("shell_obtained")
+                
+                if _has_shell:
+                    _correct_phase = "PRIVILEGE_ESCALATION"
+                elif _has_creds or _has_services:
+                    _correct_phase = "EXPLOITATION"
+                elif _has_ports:
+                    _correct_phase = "ENUMERATION"
+                else:
+                    _correct_phase = "RECON"
+                
+                logger.warning(
+                    f"[P38-FSM-INVARIANT] Phase desync: {current_phase} "
+                    f"violated: {'; '.join(_phase_invariant_violations)}. "
+                    f"Demoting to {_correct_phase}."
+                )
+                try:
+                    self.attack_context._current_phase = AttackPhase[_correct_phase]
+                    current_phase = _correct_phase
+                except (KeyError, AttributeError):
+                    pass
+            
             # R55: Ensure current phase is always registered in _phase_start_step.
             # This is the safety net for the race condition fix — if a phase was
             # never registered (e.g., initial EXPLOITATION phase from campaign
@@ -2377,7 +2447,10 @@ class SmartOrchestrator:
             # shell detection. After 10 steps in EXPLOITATION with
             # credentials_known, force shell_obtained to unlock PRIV_ESC.
             # This simulates successful SSH login with known credentials.
-            if current_phase == "EXPLOITATION":
+            # Phase 39: Disabled in CTF mode — HTB requires REAL shell evidence.
+            # False credential detection from msfconsole/gpp-decrypt output was
+            # triggering premature shell_obtained via this cascade.
+            if current_phase == "EXPLOITATION" and not self.config.ctf_mode:
                 _exploit_step_count = step - self._phase_start_step.get("EXPLOITATION", step)
                 _has_creds = self.attack_context.state_flags.get("credentials_known")
                 if _exploit_step_count >= 10 and _has_creds:
@@ -3646,9 +3719,32 @@ class SmartOrchestrator:
         # =====================================================================
         if self._is_live_mode and self.live_executor:
             # ── LIVE MODE: Real command execution per agent ──────────
+            _live_target = self.config.default_target or ""
             for result in agent_results:
+                # ── Phase 39: Resolve target placeholders ────────────
+                # MicroChain / LLM-generated commands may contain
+                # $TARGET, {target}, {target_range}, {ip}, TARGET etc.
+                # Replace them with the actual target IP before execution.
+                _exec_cmd = result.decision.command or ""
+                if _live_target:
+                    import re as _re_sub
+                    _exec_cmd = _exec_cmd.replace("$TARGET", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{target}", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{target_range}", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{ip}", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{target_ip}", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{host}", _live_target)
+                    _exec_cmd = _exec_cmd.replace("{rhost}", _live_target)
+                    # Also replace 10.10.10.10 placeholder with actual target
+                    _exec_cmd = _exec_cmd.replace("10.10.10.10", _live_target)
+                    # Replace bare "TARGET" (word boundary) but not inside paths
+                    _exec_cmd = _re_sub.sub(
+                        r'\bTARGET\b', _live_target, _exec_cmd
+                    )
+                    result.decision.command = _exec_cmd
+
                 live_result = self.live_executor.execute(
-                    result.decision.command,
+                    _exec_cmd,
                     result.agent_name,
                 )
                 result.decision.command_output = live_result.output
@@ -4811,8 +4907,53 @@ class SmartOrchestrator:
         # domain_admin_obtained from these module listings.
         _REFERENCE_COMMANDS = ("searchsploit", "msfconsole -q -x 'search",
                                "msfconsole -q -x \"search", "msfvenom",
-                               "exploit-db", "apt ", "pip ")
-        skip_discovery_parse = any(tag in cmd_lower for tag in _REFERENCE_COMMANDS)
+                               "exploit-db", "apt ", "pip ",
+                               "gpp-decrypt",  # Phase 39: GPP decrypt is never target discovery
+                               )
+        _is_reference = any(tag in cmd_lower for tag in _REFERENCE_COMMANDS)
+        skip_discovery_parse = _is_reference
+        
+        # Phase 39 Fix-14: Reference commands can NEVER produce real target
+        # discoveries.  Return empty immediately — SmartOutputParser regex/LLM
+        # extracts CVEs, services, credentials, web_paths, etc. from exploit
+        # TITLES and descriptions, inflating rewards by 30-50 per step.
+        if _is_reference:
+            logger.debug(
+                f"[P39-REF-BLOCK] Blocked ALL discoveries for reference command: "
+                f"{command[:60]}"
+            )
+            return {}
+        
+        # Phase 39: Exploit tool commands — these attempt real exploits
+        # but produce massive noise in failure output ("Exploit completed",
+        # "exploit/unix/...", banner text with service names).
+        # Skip service/credential/vuln parsing, but KEEP shell detection active
+        # so successful exploits are still detected.
+        _EXPLOIT_TOOL_COMMANDS = (
+            "msfconsole -q -x 'use",
+            'msfconsole -q -x "use',
+            "msfconsole -q -x 'exploit",
+        )
+        _skip_exploit_noise = any(tag in cmd_lower for tag in _EXPLOIT_TOOL_COMMANDS)
+        if _skip_exploit_noise:
+            skip_discovery_parse = True  # Skip service/cred/vuln/hash/lateral/domain_admin
+        
+        # Phase 39 Fix-14: Clean up SmartOutputParser false discoveries
+        # SmartOutputParser runs BEFORE skip_discovery_parse is computed,
+        # so its regex/LLM results may include false services, credentials,
+        # vulnerabilities from exploit tool output.  For exploit tools, keep
+        # ONLY shell/root_shell detection — strip everything else.
+        if skip_discovery_parse and smart_result:
+            _KEEP_FOR_EXPLOIT = {"shell", "root_shell"}
+            _sp_removed = [k for k in list(discoveries.keys())
+                           if k not in _KEEP_FOR_EXPLOIT]
+            for k in _sp_removed:
+                del discoveries[k]
+            if _sp_removed:
+                logger.debug(
+                    f"[P39-SP-CLEAN] Stripped SmartOutputParser false discoveries "
+                    f"{_sp_removed} for exploit command: {command[:60]}"
+                )
         
         # HTB Fix: Detect local-only commands that don't target the remote host.
         # Commands like 'getcap -r /', 'find /usr -perm -4000', 'env', 'perl -e'
@@ -4950,30 +5091,91 @@ class SmartOrchestrator:
                 "tomcat": r"\btomcat\b|8180/tcp|8009/tcp|\bajp\b",
             }
 
+            # Phase 38: ServiceBinding — map services to their canonical ports.
+            # If output explicitly mentions "PORT/tcp open SERVICE" it's trusted.
+            # Otherwise, require the canonical port to be in discovery_board.
+            _SERVICE_CANONICAL_PORTS: Dict[str, set] = {
+                "ssh": {22, 2222},
+                "http": {80, 8080, 8000, 8888},
+                "https": {443, 8443},
+                "smb": {139, 445},
+                "ftp": {21},
+                "mysql": {3306},
+                "mssql": {1433},
+                "postgresql": {5432},
+                "rdp": {3389},
+                "smtp": {25, 587},
+                "telnet": {23},
+                "dns": {53},
+                "irc": {6667, 6697},
+                "vnc": {5900, 5901},
+                "rmi": {1099},
+                "distcc": {3632},
+                "nfs": {2049, 111},
+                "tomcat": {8080, 8180, 8009},
+            }
+            # Gather known open ports from discovery_board and current discoveries
+            _known_open_ports: set = set()
+            for _bp in self.discovery_board.get("ports", set()):
+                try:
+                    _known_open_ports.add(int(_bp))
+                except (ValueError, TypeError):
+                    pass
+            for _dp in discoveries.get("open_port", []):
+                try:
+                    _known_open_ports.add(int(_dp))
+                except (ValueError, TypeError):
+                    pass
+
+            # Check if output explicitly says "PORT/tcp open SERVICE" (nmap format)
+            _explicit_port_services: set = set()
+            for _m in re.finditer(r'(\d+)/tcp\s+open\s+(\S+)', _clean_output):
+                _explicit_port_services.add(_m.group(2).lower())
+                try:
+                    _known_open_ports.add(int(_m.group(1)))
+                except (ValueError, TypeError):
+                    pass
+
             for svc, pattern in service_patterns.items():
                 if re.search(pattern, _clean_output):
+                    # Phase 38: Validate service against known open ports
+                    _svc_ports = _SERVICE_CANONICAL_PORTS.get(svc, set())
+                    _port_bound = bool(_known_open_ports & _svc_ports) if _svc_ports else True
+                    _explicitly_reported = svc in _explicit_port_services
+                    if not _port_bound and not _explicitly_reported:
+                        logger.debug(
+                            f"[SVC-BIND] Rejected service '{svc}': "
+                            f"canonical ports {_svc_ports} not in open ports {_known_open_ports}"
+                        )
+                        continue
                     if "service" not in discoveries:
                         discoveries["service"] = []
                     if svc not in discoveries.get("service", []):
                         discoveries["service"].append(svc)
         
         # ─── Phase 5: Version info discovery ─────────────────────────
-        version_patterns = [
-            r"(?:vsftpd|openssh|apache|samba|mysql|postgresql|tomcat|unrealircd|distccd|bind|php|ruby|python)\s*[\d\.]+[^\s]*",
-            r"(?:Server|banner):\s*\S+[\s/][\d\.]+",
-            r"(?:version|ver):\s*[\d\.]+",
-        ]
-        versions_found = []
-        for pattern in version_patterns:
-            matches = re.findall(pattern, output, re.IGNORECASE)
-            versions_found.extend(matches)
-        if versions_found:
-            discoveries["version_info"] = list(set(v.strip() for v in versions_found[:5]))
+        # Phase 39: Guard with skip_discovery_parse — searchsploit/msfconsole
+        # output contains version strings ("OpenSSH 8.2p1", "vsftpd 3.0.3")
+        # in exploit TITLES, not from scanning the target.
+        if not skip_discovery_parse:
+            version_patterns = [
+                r"(?:vsftpd|openssh|apache|samba|mysql|postgresql|tomcat|unrealircd|distccd|bind|php|ruby|python)\s*[\d\.]+[^\s]*",
+                r"(?:Server|banner):\s*\S+[\s/][\d\.]+",
+                r"(?:version|ver):\s*[\d\.]+",
+            ]
+            versions_found = []
+            for pattern in version_patterns:
+                matches = re.findall(pattern, output, re.IGNORECASE)
+                versions_found.extend(matches)
+            if versions_found:
+                discoveries["version_info"] = list(set(v.strip() for v in versions_found[:5]))
         
         # Credential patterns (enhanced)
         # Phase 8.2 Batch 14: Skip for reference commands (msfconsole search
         # output contains "password", "Login" in module names/descriptions)
+        # Phase 38: 3-stage credential sanitization: detect → validate → confirm
         if not skip_discovery_parse:
+            # Stage 1: Raw detection — broad patterns
             cred_patterns = [
                 r"password[:\s]+\S+",
                 r"login:\s*\w+\s+password",
@@ -4988,27 +5190,81 @@ class SmartOrchestrator:
                 r"(?:^|\n)USER\s+(?!anonymous|ftp)\w+",
                 r"\bPASS\s+\S{4,}",
             ]
+            # Stage 2: False-positive rejection patterns
+            _cred_false_positives = [
+                r"password[:\s]+\*+",          # masked passwords like "password: ****"
+                r"password[:\s]+<\w+>",        # template placeholders like "password: <pass>"
+                r"password[:\s]+\{",           # variable substitutions like "password: {var}"
+                r"password[:\s]+\$\{?\w+",     # env vars like "password: $PASS"
+                r"password[:\s]+none",         # explicit "none"
+                r"password[:\s]+unknown",      # unknown
+                r"password[:\s]+N/A",          # N/A
+                r"password[:\s]+required",     # "password required"
+                r"password[:\s]+file",         # "password file"
+                r"password[:\s]+authentication",  # "password authentication"
+                r"password[:\s]+policy",       # "password policy"
+                r"password[:\s]+expired",      # "password expired"
+                r"password[:\s]+change",       # "password change"
+                r"password[:\s]+reset",        # "password reset"
+                r"password[:\s]+for\s",        # "password for user"
+                # Phase 39: Brute-force tool failure patterns
+                r"0 valid passwords? found",   # hydra failure summary
+                r"0 of \d+ target.* completed.*0 valid",  # hydra final line
+                r"no valid passwords? found",  # generic brute-force failure
+                r"password.*not found",        # password not found
+                r"LOGIN_FAILED",               # patator/medusa failure
+                r"authentication failed",      # generic auth failure
+                r"Access denied",              # explicit access denied
+                r"incorrect password",         # wrong password
+                r"invalid password",           # invalid password
+                r"wrong password",             # wrong password
+            ]
+            _raw_cred_detected = False
             for pattern in cred_patterns:
                 if re.search(pattern, output, re.IGNORECASE):
-                    if not _skip_critical_discoveries:
-                        discoveries["credential"] = "password_found"
+                    _raw_cred_detected = True
                     break
+
+            # Stage 2: Validate — reject false positives
+            if _raw_cred_detected:
+                _is_false_positive = False
+                for _fp_pat in _cred_false_positives:
+                    if re.search(_fp_pat, output, re.IGNORECASE):
+                        _is_false_positive = True
+                        logger.debug(
+                            f"[CRED-SANITIZE] Rejected false-positive credential: "
+                            f"matched '{_fp_pat}'"
+                        )
+                        break
+
+                # Stage 3: Confirm — only set if not a false positive
+                if not _is_false_positive and not _skip_critical_discoveries:
+                    discoveries["credential"] = "password_found"
         
         # User discovery
-        user_patterns = [
-            r"user:\[(\w+)\]",             # rpcclient
-            r"user found:\s*(\w+)",        # wpscan
-            r"Admin Email:\s*(\S+)",       # whois
-            r"login:\s*(\w+)",             # hydra
-            r"VALID USERNAME:\s*(\w+)",    # kerbrute
-            r"User:\s*(\w+)\s+Password",  # patator/medusa
-            r"VRFY\s+(\w+)\s+\(250",      # smtp-user-enum
-        ]
-        users = []
-        for pattern in user_patterns:
-            users.extend(re.findall(pattern, output, re.IGNORECASE))
-        if users:
-            discoveries["user"] = list(set(users))
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            # Phase 39: Suppress hydra login: pattern if brute-force failed
+            _hydra_failed = bool(re.search(
+                r"0 valid passwords? found|0 of \d+ target.* completed.*0 valid",
+                output, re.IGNORECASE
+            ))
+            user_patterns = [
+                r"user:\[(\w+)\]",             # rpcclient
+                r"user found:\s*(\w+)",        # wpscan
+                r"Admin Email:\s*(\S+)",       # whois
+                r"VALID USERNAME:\s*(\w+)",    # kerbrute
+                r"User:\s*(\w+)\s+Password",  # patator/medusa
+                r"VRFY\s+(\w+)\s+\(250",      # smtp-user-enum
+            ]
+            # Only include hydra login: pattern if hydra actually succeeded
+            if not _hydra_failed:
+                user_patterns.append(r"login:\s*(\w+)")  # hydra success
+            users = []
+            for pattern in user_patterns:
+                users.extend(re.findall(pattern, output, re.IGNORECASE))
+            if users:
+                discoveries["user"] = list(set(users))
         
         # Vulnerability patterns
         # Phase 8.2 Batch 14: Skip for reference commands (msfconsole search
@@ -5040,92 +5296,140 @@ class SmartOrchestrator:
                     break
         
         # Directory/path discovery (web)
-        # Match Status: 200, 301, 302, 403 (all indicate valid paths)
-        if re.search(r"(?:Status:|CODE:)\s*(?:200|301|302|403)", output):
-            # ffuf/gobuster format: "path  [Status: 200, ...]" or "/path (Status: 200)"
-            path_matches = re.findall(
-                r"([\w\-\.]+)\s+\[Status:\s*(?:200|301|302)\b",
-                output,
-            )
-            # Also catch nmap/dirb format: "/path (Status: 200)"
-            path_matches += re.findall(
-                r"/([\w\-\.]+)(?:\s*\(Status:\s*(?:200|301|302))",
-                output,
-            )
-            if path_matches:
-                discoveries["web_path"] = list(set(
-                    p for p in path_matches if p and len(p) > 1
-                ))
+        # Phase 39 Fix-14: Guard with skip_discovery_parse — exploit tool
+        # output can contain path-like strings that falsely trigger web_path
+        if not skip_discovery_parse:
+            # Match Status: 200, 301, 302, 403 (all indicate valid paths)
+            if re.search(r"(?:Status:|CODE:)\s*(?:200|301|302|403)", output):
+                # ffuf/gobuster format: "path  [Status: 200, ...]" or "/path (Status: 200)"
+                path_matches_200 = re.findall(
+                    r"([\w\-\.]+)\s+\[Status:\s*(?:200|301)\b",
+                    output,
+                )
+                path_matches_302 = re.findall(
+                    r"([\w\-\.]+)\s+\[Status:\s*302\b",
+                    output,
+                )
+                # Also catch nmap/dirb format: "/path (Status: 200)"
+                path_matches_200 += re.findall(
+                    r"/([\w\-\.]+)(?:\s*\(Status:\s*(?:200|301))",
+                    output,
+                )
+                path_matches_302 += re.findall(
+                    r"/([\w\-\.]+)(?:\s*\(Status:\s*302)",
+                    output,
+                )
+                # Phase 39: Mass-302 redirect filter — if nearly ALL
+                # responses are 302, the target has a catch-all redirect
+                # (common with CrushFTP/nginx).  Only keep 200/301 hits
+                # in that case.  Cap web_path discoveries at 30 max.
+                _total = len(path_matches_200) + len(path_matches_302)
+                if _total > 10 and len(path_matches_302) / max(_total, 1) > 0.7:
+                    logger.info(
+                        f"[P39-302-FILTER] Suppressed {len(path_matches_302)} mass-302 "
+                        f"redirects ({len(path_matches_200)} real 200/301 kept)"
+                    )
+                    path_matches = path_matches_200
+                else:
+                    path_matches = path_matches_200 + path_matches_302
+                if path_matches:
+                    discoveries["web_path"] = list(set(
+                        p for p in path_matches if p and len(p) > 1
+                    ))[:30]
+                    discoveries["directory"] = True
+            # Also catch feroxbuster/dirsearch format
+            ferox_paths = re.findall(r"(?:(?:200|301|302)\s+GET\s+|^\[(?:200|301|302)\]\s*http://\S+?)((?:/[\w\-\.]+)+)", output, re.MULTILINE)
+            if ferox_paths:
+                _existing = discoveries.get("web_path", [])
+                discoveries["web_path"] = list(set(_existing + [p.strip("/").split("/")[-1] for p in ferox_paths]))[:30]
                 discoveries["directory"] = True
-        # Also catch feroxbuster/dirsearch format
-        ferox_paths = re.findall(r"(?:(?:200|301|302)\s+GET\s+|^\[(?:200|301|302)\]\s*http://\S+?)((?:/[\w\-\.]+)+)", output, re.MULTILINE)
-        if ferox_paths:
-            discoveries["web_path"] = list(set(discoveries.get("web_path", []) + [p.strip("/").split("/")[-1] for p in ferox_paths]))
-            discoveries["directory"] = True
+            # Phase 39: Filter out local filesystem paths from web_path discoveries
+            _local_prefixes = (
+                "/usr/", "/etc/", "/var/", "/home/", "/bin/", "/sbin/",
+                "/lib/", "/tmp/", "/opt/", "/root/", "/dev/", "/proc/",
+                "/sys/", "/run/", "/snap/",
+            )
+            if "web_path" in discoveries:
+                discoveries["web_path"] = [
+                    p for p in discoveries["web_path"]
+                    if not any(p.startswith(pfx) or f"/{p}".startswith(pfx) for pfx in _local_prefixes)
+                ]
+                if not discoveries["web_path"]:
+                    del discoveries["web_path"]
         
         # ─── Phase 5: Subdomain discovery ────────────────────────────
         # Phase 6.5: Tightened — require valid subdomain format (not IPs or version strings)
-        subdomain_patterns = [
-            r"((?:[a-z][a-z0-9\-]+\.){2,}[a-z]{2,})\s*(?:->|→|-->)\s*\d+\.\d+",  # fierce/amass
-        ]
-        subdomains = set()
-        for pattern in subdomain_patterns:
-            for m in re.findall(pattern, output, re.IGNORECASE):
-                # Reject IP-like or version-like strings
-                if not re.match(r'^\d', m) and '.' in m and len(m) > 5:
-                    subdomains.add(m)
-        if subdomains:
-            discoveries["subdomain"] = list(subdomains)[:10]
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            subdomain_patterns = [
+                r"((?:[a-z][a-z0-9\-]+\.){2,}[a-z]{2,})\s*(?:->|→|-->)\s*\d+\.\d+",  # fierce/amass
+            ]
+            subdomains = set()
+            for pattern in subdomain_patterns:
+                for m in re.findall(pattern, output, re.IGNORECASE):
+                    # Reject IP-like or version-like strings
+                    if not re.match(r'^\d', m) and '.' in m and len(m) > 5:
+                        subdomains.add(m)
+            if subdomains:
+                discoveries["subdomain"] = list(subdomains)[:10]
         
         # ─── Phase 5: DNS record discovery ───────────────────────────
         # Phase 6.5: Tightened — only match real DNS zone-file format lines
-        dns_records = []
-        dns_patterns = [
-            r"^(\S+)\.\s+\d+\s+IN\s+(A|AAAA|MX|NS|TXT|CNAME|SOA)\s+(\S+)$",
-        ]
-        for pattern in dns_patterns:
-            matches = re.findall(pattern, output, re.MULTILINE | re.IGNORECASE)
-            for m in matches:
-                if len(m) >= 3 and len(m[0]) > 2 and '.' in m[0]:
-                    dns_records.append({"type": m[1], "value": m[2]})
-        if dns_records:
-            discoveries["dns_record"] = dns_records[:8]
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            dns_records = []
+            dns_patterns = [
+                r"^(\S+)\.\s+\d+\s+IN\s+(A|AAAA|MX|NS|TXT|CNAME|SOA)\s+(\S+)$",
+            ]
+            for pattern in dns_patterns:
+                matches = re.findall(pattern, output, re.MULTILINE | re.IGNORECASE)
+                for m in matches:
+                    if len(m) >= 3 and len(m[0]) > 2 and '.' in m[0]:
+                        dns_records.append({"type": m[1], "value": m[2]})
+            if dns_records:
+                discoveries["dns_record"] = dns_records[:8]
         
         # ─── Phase 5: Web parameter discovery ────────────────────────
-        param_patterns = [
-            r"(?:parameter|param)s?\s*(?:found|discovered)?:?\s*([\w,\s]+)",
-            r"\?(\w+)=(?:FUZZ|test|id)",
-            r"Valid parameters found:\s*(.+?)$",
-        ]
-        params = set()
-        for pattern in param_patterns:
-            matches = re.findall(pattern, output, re.IGNORECASE | re.MULTILINE)
-            for m in matches:
-                for p in re.split(r"[,\s]+", m):
-                    p = p.strip()
-                    if p and len(p) > 1 and p.isalnum():
-                        params.add(p)
-        if params:
-            discoveries["web_parameter"] = list(params)[:10]
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            param_patterns = [
+                r"(?:parameter|param)s?\s*(?:found|discovered)?:?\s*([\w,\s]+)",
+                r"\?(\w+)=(?:FUZZ|test|id)",
+                r"Valid parameters found:\s*(.+?)$",
+            ]
+            params = set()
+            for pattern in param_patterns:
+                matches = re.findall(pattern, output, re.IGNORECASE | re.MULTILINE)
+                for m in matches:
+                    for p in re.split(r"[,\s]+", m):
+                        p = p.strip()
+                        if p and len(p) > 1 and p.isalnum():
+                            params.add(p)
+            if params:
+                discoveries["web_parameter"] = list(params)[:10]
         
         # ─── Phase 5: API endpoint discovery ─────────────────────────
-        api_patterns = [
-            r"((?:/api/[\w/\-]+)+)",
-            r"\[(?:url|linkfinder)\]\s*(http\S*/api\S*)",
-        ]
-        endpoints = set()
-        for pattern in api_patterns:
-            matches = re.findall(pattern, output, re.IGNORECASE)
-            endpoints.update(matches)
-        if endpoints:
-            discoveries["api_endpoint"] = list(endpoints)[:8]
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            api_patterns = [
+                r"((?:/api/[\w/\-]+)+)",
+                r"\[(?:url|linkfinder)\]\s*(http\S*/api\S*)",
+            ]
+            endpoints = set()
+            for pattern in api_patterns:
+                matches = re.findall(pattern, output, re.IGNORECASE)
+                endpoints.update(matches)
+            if endpoints:
+                discoveries["api_endpoint"] = list(endpoints)[:8]
         
         # Share discovery (SMB)
-        share_matches = re.findall(r"(?:Disk|IPC):\s*(\w+)|\\\\[^\\]+\\(\w+)", output)
-        if share_matches:
-            shares = [s[0] or s[1] for s in share_matches if s[0] or s[1]]
-            if shares:
-                discoveries["smb_share"] = list(set(shares))
+        # Phase 39 Fix-14: Guard with skip_discovery_parse
+        if not skip_discovery_parse:
+            share_matches = re.findall(r"(?:Disk|IPC):\s*(\w+)|\\\\[^\\]+\\(\w+)", output)
+            if share_matches:
+                shares = [s[0] or s[1] for s in share_matches if s[0] or s[1]]
+                if shares:
+                    discoveries["smb_share"] = list(set(shares))
         
         # File discovery (sensitive files)
         # Phase 8.2 Batch 14: Skip for reference commands
@@ -6140,15 +6444,24 @@ class SmartOrchestrator:
             if cmd_lower.startswith(prefix.lower()):
                 return output
         
-        # Phase 19: CrushFTP / Erlang / PCAP / vhost simulated outputs
+        # Phase 19+38: CrushFTP / Erlang / PCAP / vhost simulated outputs
+        # S3 PUT webshell upload (must check before generic crushftp match)
+        if ("crushftp_s3_put" in cmd_lower) or ("curl" in cmd_lower and "PUT" in cmd_lower and "WEBPROD" in cmd_lower):
+            return f"HTTP/1.1 201 Created\nContent-Length: 0\n[+] Webshell uploaded to /WEBPROD/ via S3 PUT as ben\n[+] Access at http://{target}/cmd.php\n[+] Note: cleanup script deletes new files within ~2 min"
+        # Webshell command execution
+        if ("crushftp_webshell" in cmd_lower) or ("curl" in cmd_lower and "cmd=" in cmd_lower and ("cmd.php" in cmd_lower or "shell.php" in cmd_lower)):
+            return f"uid=33(www-data) gid=33(www-data) groups=33(www-data)\nwww-data@soulmate:/var/www/soulmate.htb/public$\n[+] RCE achieved via webshell — running as www-data"
+        # getLog arbitrary file read
+        if ("crushftp_getlog" in cmd_lower) or ("getlog" in cmd_lower and "path=" in cmd_lower):
+            return f"HTTP/1.1 200 OK\nroot:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\ncrushadmin:x:1001:1001::/home/crushadmin:/bin/bash\nben:x:1002:1002::/home/ben:/bin/bash\njenna:x:1003:1003::/home/jenna:/bin/bash\n[+] CVE-2025-31161: Arbitrary file read via getLog API\nuser: crushadmin\nuser: ben\nuser: jenna"
+        # CrushFTP admin login on port 8080
+        if ("crushftp_login" in cmd_lower) or ("command=login" in cmd_lower and "crushadmin" in cmd_lower):
+            return f"HTTP/1.1 200 OK\n<loginResult><response>success</response><c2f>a1b2</c2f></loginResult>\n[+] CrushFTP admin login successful on port 8080\n[+] Authenticated as crushadmin\ncredential: crushadmin:04E2xAXYFfDsEYtu"
+        # Generic CrushFTP auth bypass / getUserList
         if "crushftp" in cmd_lower or "getuserlist" in cmd_lower or "c2f=" in cmd_lower:
-            if "setuseritem" in cmd_lower or "reset_password" in cmd_lower or "password" in cmd_lower:
-                return f"HTTP/1.1 200 OK\n{{'response': 'OK', 'user': 'crushadmin', 'action': 'setUserItem', 'result': 'success'}}\n[+] CrushFTP admin password reset successful\n[+] crushadmin password changed to controlled value\ncredential: crushadmin:Pwned2025!"
-            return f"HTTP/1.1 200 OK\nContent-Type: text/xml\n<users>\n  <user><username>crushadmin</username><admin>true</admin></user>\n  <user><username>anonymous</username><admin>false</admin></user>\n</users>\n[+] CVE-2025-31161: CrushFTP auth bypass — admin user list retrieved\n[+] Admin user: crushadmin\nvulnerability: CVE-2025-31161 CrushFTP auth bypass"
-        if "crushftp_ftp" in cmd_lower or ("curl" in cmd_lower and "ftp://" in cmd_lower and "shell.php" in cmd_lower):
-            return f"  % Total    % Received % Xferd  Average Speed\n                                 Dload  Upload   Total\n100  1247    0     0  100  1247      0   4989  0:00:01\n226 Transfer complete.\n[+] Webshell uploaded to CrushFTP WebInterface\n[+] Access at http://{target}/WebInterface/shell.php"
+            return f"HTTP/1.1 200 OK\nContent-Type: text/xml\n<users>\n  <user><username>crushadmin</username><admin>true</admin></user>\n  <user><username>ben</username><admin>false</admin></user>\n  <user><username>jenna</username><admin>false</admin></user>\n  <user><username>anonymous</username><admin>false</admin></user>\n</users>\n[+] CVE-2025-31161: CrushFTP S3 auth bypass — user list retrieved\n[+] Admin user: crushadmin\n[+] Users: ben, jenna\nvulnerability: CVE-2025-31161 CrushFTP auth bypass\nuser: crushadmin\nuser: ben\nuser: jenna"
         if "crushftp_ssh" in cmd_lower or ("sshpass" in cmd_lower and "crushadmin" in cmd_lower):
-            return f"Warning: Permanently added '{target}' (ECDSA) to the list of known hosts.\nLast login: Mon Jun 16 14:23:17 2025 from 10.10.14.2\ncrushadmin@soulmate:~$ id\nuid=1001(crushadmin) gid=1001(crushadmin) groups=1001(crushadmin)\ncrushadmin@soulmate:~$ pwd\n/home/crushadmin\ncrushadmin@soulmate:~$ cat user.txt\nFLAG{{us3r_pwn3d_soulmate_2025}}\ncredential: crushadmin:Pwned2025!"
+            return f"Warning: Permanently added '{target}' (ECDSA) to the list of known hosts.\nLast login: Mon Jun 16 14:23:17 2025 from 10.10.14.2\ncrushadmin@soulmate:~$ id\nuid=1001(crushadmin) gid=1001(crushadmin) groups=1001(crushadmin)\ncrushadmin@soulmate:~$ pwd\n/home/crushadmin\ncrushadmin@soulmate:~$ cat user.txt\nFLAG{{us3r_pwn3d_soulmate_2025}}\ncredential: crushadmin:04E2xAXYFfDsEYtu"
         if "erlang.cookie" in cmd_lower or "erlang_cookie" in cmd_lower:
             return f"JQXWZPTSARFESQIB\n[+] Erlang magic cookie extracted: JQXWZPTSARFESQIB\n[+] Cookie location: /var/lib/erlang/.erlang.cookie\ncredential: erlang_cookie:JQXWZPTSARFESQIB"
         if "erlang_otp" in cmd_lower or ("erl " in cmd_lower and "setcookie" in cmd_lower) or "remsh" in cmd_lower:

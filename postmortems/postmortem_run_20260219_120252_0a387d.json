@@ -1,0 +1,96 @@
+{
+  "run_id": "run_20260219_120252_0a387d",
+  "timestamp": 1771498986.2228858,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward (50.0) across the single episode",
+      "High mentor engagement (10 calls) suggests active guidance utilization"
+    ],
+    "fails": [
+      "Success rate was 0.00%, indicating objectives were not achieved",
+      "Only one episode executed, limiting pattern validation and generalization"
+    ],
+    "summary": "The run shows stable reward but failed to achieve task success; guidance was heavily used, suggesting gaps in autonomous execution."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access path is unclear after reconnaissance",
+      "then_action": "Invoke mentor-assisted decision to select next enumeration target",
+      "parameters_template": {
+        "mentor_call": true,
+        "decision_context": "post-recon_target_selection"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step11"
+      ],
+      "created_at": 1771498999.320007,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward stagnates despite completed actions",
+      "then_action": "Reassess objectives and pivot to highest-value asset based on recon data",
+      "parameters_template": {
+        "pivot_strategy": "asset_value_based",
+        "timebox_minutes": 10
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ],
+      "created_at": 1771498999.3200204,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Mentor-guided decisions appear to sustain progress when the path forward is ambiguous."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomy-first recon-to-enum pipeline",
+      "description": "Run a full recon and enumeration sequence without mentor calls for the first 10 minutes, then compare success and reward trajectory.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective clarity checkpoint",
+      "description": "Insert a mid-episode checkpoint to restate objectives and map current findings to the kill chain before proceeding.",
+      "priority": "medium"
+    },
+    {
+      "title": "Mentor call reduction trial",
+      "description": "Limit mentor calls to a maximum of 3 per episode to encourage independent decision-making while tracking success impact.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

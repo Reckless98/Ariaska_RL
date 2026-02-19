@@ -155,7 +155,7 @@ class PostmortemResult:
     next_experiments: List[Dict[str, Any]] = field(default_factory=list)
     
     # Metadata
-    model_used: str = "gpt-5.1-codex-mini"
+    model_used: str = "gpt-5.2-codex"
     dry_run: bool = False
     validation_passed: bool = False
     raw_response: str = ""

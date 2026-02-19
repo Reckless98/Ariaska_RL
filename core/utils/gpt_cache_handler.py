@@ -10,7 +10,7 @@ class GPTCacheHandler:
         self.cache = {}
         self.gpt_manager = GPTManager.get_instance()
 
-    def query(self, prompt, model="gpt-5.1-codex-mini", agent_id=None):
+    def query(self, prompt, model="gpt-5.2-codex", agent_id=None):
         """
         Query GPT via GPTManager with caching and fallback. Use agent_id for token tracking.
         """

@@ -1,0 +1,156 @@
+{
+  "run_id": "run_20260219_010813_3562a5",
+  "timestamp": 1771459699.7053704,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward (50.0) despite low success rate",
+      "Single-episode run completed with stable reward trend"
+    ],
+    "fails": [
+      "Success rate at 0.00% indicates objective not achieved",
+      "High mentor call count (10) suggests reliance on guidance"
+    ],
+    "summary": "Run achieved positive reward but failed to complete the objective; focus should shift to improving end-to-end execution with fewer mentor interventions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite positive intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "High dependency on mentor guidance during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step1",
+        "ep001_step2",
+        "ep001_step3",
+        "ep001_step4",
+        "ep001_step5",
+        "ep001_step6",
+        "ep001_step7",
+        "ep001_step8",
+        "ep001_step9",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access requires service discovery on an unknown target",
+      "then_action": "Run fast TCP port scan followed by targeted service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "fast_scan": "-p- --min-rate 1000",
+        "service_detect": "-sV -sC -p {open_ports}"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step2",
+        "ep001_step3"
+      ],
+      "created_at": 1771459713.933592,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports",
+      "then_action": "Enumerate HTTP endpoints and tech stack",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "whatweb": "{url}",
+        "gobuster": "dir -u {url} -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step4",
+        "ep001_step5"
+      ],
+      "created_at": 1771459713.9336162,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is open and authentication method is unknown",
+      "then_action": "Enumerate SSH configuration and check for weak auth paths",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh-*",
+        "port": 22
+      },
+      "confidence": 0.54,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771459713.933633,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational discovery step likely applicable across scenarios"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common next action after service discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency with decision checkpoints",
+      "description": "Introduce predefined decision gates after recon and enumeration to choose exploitation paths without mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Improve objective completion focus",
+      "description": "Add a final-phase checklist (privilege escalation, flag retrieval, validation) to convert intermediate rewards into success.",
+      "priority": "high"
+    },
+    {
+      "title": "Tune scanning strategy for speed-to-signal",
+      "description": "Benchmark fast scans vs. targeted scans to identify optimal discovery approach for the environment.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

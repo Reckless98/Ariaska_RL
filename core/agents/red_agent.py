@@ -186,6 +186,9 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.epsilon = 1.0
         self.epsilon_min = 0.02
         self.epsilon_decay = 0.994
+        # Phase 38 B1: Epsilon lease attrs (set by Orion intervention, auto-expire)
+        self._epsilon_lease_expires: Optional[int] = None
+        self._original_epsilon: Optional[float] = None
         self.entropy_beta = 0.012
         self.redundancy_penalty = 0.75
         self.total_steps = 0
@@ -360,9 +363,15 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
 
         try:
             # Simple, focused prompt for faster response
+            # Phase 38: Use discovery_board ports (ground truth) instead of
+            # stale state['open_ports'] which may be empty.
+            _db = state.get('discovery_board', {}) if isinstance(state, dict) else {}
+            _ports = list(_db.get('ports', state.get('open_ports', [])))[:5]
+            _services = list(_db.get('services', []))[:3]
+            _target = _db.get('target', state.get('target_ip', '10.10.10.10'))
             task_desc = (
-                f"Phase: {phase}, Target: {state.get('target_ip', '10.10.10.10')}, "
-                f"Ports: {state.get('open_ports', [22, 80, 443])[:3]}. "
+                f"Phase: {phase}, Target: {_target}, "
+                f"Ports: {_ports}. Services: {_services}. "
                 f"Provide ONE {phase} command only."
             )
             
@@ -467,7 +476,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                     alternative_command = self.gpt_manager.gpt_request(
                         diversity_prompt, 
                         task_type="diversify",
-                        model="gpt-5.1-codex-mini",  # Use mini for speed in diversification
+                        model="gpt-5.2-codex",  # Phase 38: upgraded from codex-mini
                     )
                     
                     if alternative_command and isinstance(alternative_command, str) and len(alternative_command.split()) > 2:
@@ -515,9 +524,9 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             if cache_key:
                 self.gpt_response_cache[cache_key] = command
                 
-            # Reasoning/explanation
+            # Reasoning/explanation — Phase 38 C1: downgrade to nano (non-decision explanatory call)
             reason_prompt = f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
-            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-5.1-codex-mini")
+            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-5-nano")
             
             if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
                 gpt_reason = f"Fallback reason for {command} in {phase}."
@@ -806,6 +815,13 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_decay
                 self.epsilon = max(self.epsilon, self.epsilon_min)
+            # Phase 38 B1: Check epsilon lease expiration from Orion intervention
+            if self._epsilon_lease_expires is not None and self._original_epsilon is not None:
+                if step >= self._epsilon_lease_expires:
+                    self.epsilon = self._original_epsilon
+                    self._epsilon_lease_expires = None
+                    self._original_epsilon = None
+                    logger.info(f"[RED-B1] Epsilon lease expired at step {step}, restored to {self.epsilon:.3f}")
             # Log to RedAgentBrain episodic memory
             self.redagent_brain.log_step(
                 state=state,
@@ -1468,7 +1484,26 @@ You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and
 - Suggest one new strategy for the next episode.
 Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": "..."}}
 """
-        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-5.1-codex-mini")
+        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-5.2-codex")
+        
+        # Phase 38 B4: Parse reflection JSON and store for next episode's context
+        if gpt_feedback and isinstance(gpt_feedback, str):
+            try:
+                import json as _json
+                # Try to extract JSON from the response
+                _fb = gpt_feedback.strip()
+                _start = _fb.find('{')
+                _end = _fb.rfind('}')
+                if _start >= 0 and _end > _start:
+                    _parsed = _json.loads(_fb[_start:_end + 1])
+                    self._last_reflection = {
+                        "new_strategy": _parsed.get("new_strategy", ""),
+                        "improvements": _parsed.get("improvements", [])[:3],
+                        "reinforce": _parsed.get("reinforce", [])[:3],
+                    }
+                    logger.info(f"[RED-B4] Reflection stored: strategy='{self._last_reflection['new_strategy'][:80]}'")
+            except (ValueError, KeyError, TypeError):
+                logger.debug("[RED-B4] Failed to parse reflection JSON, skipping")
         
         # Log GPT feedback using redagent_brain
         if gpt_feedback and hasattr(self, "redagent_brain") and self.redagent_brain:
@@ -1534,11 +1569,19 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                 reward_context += "Try a different approach. "
         
         # Build final concise prompt
+        # Phase 38 B4: Inject last episode's reflection strategy
+        _reflection_ctx = ""
+        if hasattr(self, '_last_reflection') and self._last_reflection:
+            _strat = self._last_reflection.get("new_strategy", "")
+            if _strat:
+                _reflection_ctx = f"Previous episode insight: {_strat[:120]}. "
+        
         prompt = (
             f"{base_prompt}\n"
             f"- {', '.join(state_summary)}\n"
             f"- {phase_guidance.get(phase, 'Proceed with caution.')}\n"
             f"{reward_context}\n{history_context}\n"
+            f"{_reflection_ctx}"
             f"Respond with ONLY a single command appropriate for {phase} phase. No explanations."
         )
         
@@ -1876,7 +1919,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                                 self.gpt_manager.gpt_request,
                                 recommendation_prompt, 
                                 task_type="recommendations",
-                                model="gpt-5.1-codex-mini"
+                                model="gpt-5.2-codex"
                             )
                             try:
                                 # Wait up to 5 seconds for GPT response
@@ -1965,7 +2008,7 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                         self.gpt_manager.gpt_request,
                         f"Explain in one sentence what the command '{command}' does and what its output shows.", 
                         task_type="reasoning",
-                        model="gpt-5.1-codex-mini"
+                        model="gpt-5.2-codex"
                     )
                     try:
                         # Wait up to 3 seconds for GPT response

@@ -1,0 +1,147 @@
+{
+  "run_id": "run_20260219_120043_c78642",
+  "timestamp": 1771498860.883537,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high per-episode reward (90.00) indicating some effective actions despite overall failure"
+    ],
+    "fails": [
+      "Success rate was 0.00% across 1 episode, indicating end-to-end objectives not met",
+      "High mentor calls (10) suggests over-reliance on guidance and insufficient autonomous progression"
+    ],
+    "summary": "The run shows strong localized performance signals (reward) but failed to convert into mission success, likely due to gaps in chaining actions toward final objectives."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete end-to-end objective despite high local rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependence during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_02",
+        "ep001_mentor_call_03",
+        "ep001_mentor_call_04",
+        "ep001_mentor_call_05",
+        "ep001_mentor_call_06",
+        "ep001_mentor_call_07",
+        "ep001_mentor_call_08",
+        "ep001_mentor_call_09",
+        "ep001_mentor_call_10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery is required",
+      "then_action": "Run a fast TCP port scan to identify open services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -Pn -T4 --top-ports 1000 <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771498876.4390094,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an open HTTP service is found",
+      "then_action": "Enumerate web directories and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target>:<port> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771498876.439022,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (port 22) is open",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-auth-methods,ssh2-enum-algos <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771498876.4390311,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline discovery is essential and likely contributed to high local reward"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common pivot that can convert discovery into actionable paths"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-driven attack path mapping",
+      "description": "After discovery, explicitly map findings to a goal tree (service -> vuln -> access -> privilege) before executing next actions to improve end-to-end success.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction drill",
+      "description": "Limit mentor calls to 3 by pre-planning reconnaissance and exploitation steps; log decision points to identify knowledge gaps.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific exploitation playbooks",
+      "description": "For each discovered service, run a focused enumeration/exploit checklist (e.g., HTTP -> gobuster + nikto; SSH -> auth methods + key hunting).",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

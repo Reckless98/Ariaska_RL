@@ -1,0 +1,137 @@
+{
+  "run_id": "run_20260219_104148_673654",
+  "timestamp": 1771494133.553345,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward indicating some effective actions during the episode",
+      "Maintained consistent reward trend across the single episode"
+    ],
+    "fails": [
+      "Success rate was 0.00%, indicating no episode-level objective completion",
+      "Only one episode executed, limiting validation of strategies",
+      "High mentor call count (15) suggests heavy reliance on guidance"
+    ],
+    "summary": "Despite a positive reward, the run failed to achieve episode success, with heavy mentor reliance and insufficient evidence of repeatable winning tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert intermediate progress into a completed episode objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_104148_673654_ep001"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor calls during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_104148_673654_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required on a target subnet",
+      "then_action": "Run fast nmap host discovery without port scan",
+      "parameters_template": {
+        "args": "-sn",
+        "target": "<subnet>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260219_104148_673654_ep001"
+      ],
+      "created_at": 1771494146.247578,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is identified and service enumeration is needed",
+      "then_action": "Run targeted TCP service scan with version detection",
+      "parameters_template": {
+        "args": "-sV -p- --min-rate 1000",
+        "target": "<ip>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260219_104148_673654_ep001"
+      ],
+      "created_at": 1771494146.2475917,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web service is detected on 80/443",
+      "then_action": "Run web fingerprinting and content discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "gobuster_args": "dir -u <url> -w <wordlist>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260219_104148_673654_ep001"
+      ],
+      "created_at": 1771494146.2476015,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is essential and likely contributed to positive reward despite no final success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-Driven Enumeration",
+      "description": "Introduce explicit stop conditions and success checks after each enumeration phase to convert intermediate progress into episode completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Drill",
+      "description": "Run a low-mentor episode limiting calls to 3, using a predefined reconnaissance-to-exploitation checklist.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Playbooks",
+      "description": "Create quick-action playbooks for top detected services (SSH/HTTP/SMB) to reduce decision latency.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

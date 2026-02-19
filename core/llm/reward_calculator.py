@@ -70,11 +70,14 @@ class RewardBreakdown:
             self.redundancy_penalty -
             self.failure_penalty
         )
-        # Phase 9.4: Symmetric capping
+        # Phase 38: Raised ceiling 50→100 for proper reward gradient.
+        # root_shell(80) and phase_advance(90) were clipped to same value
+        # as credential(20+bonuses), destroying the PPO gradient between
+        # "got shell" and "got root". Now monotonic ordering preserved.
         # Floor: -15.0 (agent feels real pain from bad decisions)
-        # Ceiling: +50.0 (enough to signal major achievements clearly)
-        # Ratio: 3.3:1 — much more balanced than previous 15:1
-        self.total = max(min(raw_total, 50.0), -15.0)
+        # Ceiling: +100.0 (enough to distinguish shell vs root_shell vs phase)
+        # Ratio: 6.7:1 — positive discoveries are rarer, need higher magnitude
+        self.total = max(min(raw_total, 100.0), -15.0)
         return self.total
     
     def to_dict(self) -> Dict[str, float]:
@@ -240,6 +243,10 @@ class SmartRewardCalculator:
         self.reward_history: List[float] = []
         self.last_useful_command_idx: int = 0
         self.session_start: datetime = datetime.now()
+
+        # Phase 38.1: Discovery trust engine (lazy loaded)
+        self._trust_engine: Optional[Any] = None
+        self._trust_enabled: bool = True
     
     def reset(self) -> None:
         """Reset calculator state for new session."""
@@ -251,11 +258,24 @@ class SmartRewardCalculator:
         self.reward_history = []
         self.last_useful_command_idx = 0
         self.session_start = datetime.now()
+        # Phase 38.1: Reset trust engine
+        if self._trust_engine is not None:
+            self._trust_engine.reset()
         # R78: Reset per-tool-category tracking
         self._tool_category_stats = {}
         # R70: Reset discovery diversity tracking
         self._recent_discovery_types = []
-    
+
+    def _get_trust_engine(self) -> Optional[Any]:
+        """Lazy-load the DiscoveryTrustEngine."""
+        if self._trust_engine is None and self._trust_enabled:
+            try:
+                from core.ops.discovery_trust import DiscoveryTrustEngine
+                self._trust_engine = DiscoveryTrustEngine()
+            except ImportError:
+                self._trust_enabled = False
+        return self._trust_engine
+
     def calculate_reward(
         self,
         template_name: str,
@@ -344,10 +364,24 @@ class SmartRewardCalculator:
         
         # 2. Novelty bonus - reward trying NEW commands (calibrated for PPO)
         # Phase 4: Reduced from 8→5 to prevent novelty-seeking over objective progress
+        # Phase 38 B3: Phase-conditioned novelty — full bonus for matching phase,
+        # 50% for adjacent phases, 0% for distant phases. Prevents template-cycling.
         if template_name not in self.template_usage:
-            # First time using this command
-            breakdown.novelty_bonus = 5.0 * self.novelty_weight
-            explanations.append(f"🆕 Novelty (first use): +{breakdown.novelty_bonus:.1f}")
+            # First time using this command — condition on phase relevance
+            _novelty_scale = 1.0  # Default: full bonus
+            if template is not None and hasattr(template, 'phase'):
+                _tmpl_order = self._phase_order(template.phase)
+                _cur_order = self._phase_order(current_phase)
+                _phase_gap = abs(_tmpl_order - _cur_order)
+                if _phase_gap == 0:
+                    _novelty_scale = 1.0   # Exact phase match
+                elif _phase_gap == 1:
+                    _novelty_scale = 0.5   # Adjacent phase
+                else:
+                    _novelty_scale = 0.0   # Distant phase — no novelty bonus
+            breakdown.novelty_bonus = 5.0 * self.novelty_weight * _novelty_scale
+            if breakdown.novelty_bonus > 0:
+                explanations.append(f"🆕 Novelty (first use, phase_scale={_novelty_scale:.1f}): +{breakdown.novelty_bonus:.1f}")
         elif self.template_usage[template_name] < 3:
             # Second or third use - smaller bonus
             bonus = (3 - self.template_usage[template_name]) * 1.5 * self.novelty_weight
@@ -387,6 +421,20 @@ class SmartRewardCalculator:
                             total_discovery_bonus += self.DISCOVERY_BONUSES[discovery_type]
             
             breakdown.discovery_bonus = total_discovery_bonus
+
+            # Phase 38.1: Trust-weighted discovery bonus + spike guard
+            _trust_eng = self._get_trust_engine()
+            if _trust_eng is not None and total_discovery_bonus > 0:
+                _trust_result = _trust_eng.evaluate(
+                    new_discoveries,
+                    source_stage="regex",
+                    command=command,
+                    bonus_table=self.DISCOVERY_BONUSES,
+                )
+                if _trust_result.spike_capped or _trust_result.discoveries_downgraded > 0:
+                    breakdown.discovery_bonus = _trust_result.trusted_bonus
+                    total_discovery_bonus = _trust_result.trusted_bonus
+
             if total_discovery_bonus > 0:
                 explanations.append(f"Discoveries: +{total_discovery_bonus:.1f}")
         

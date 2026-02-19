@@ -1,0 +1,150 @@
+{
+  "run_id": "run_20260219_120623_2ec522",
+  "timestamp": 1771499200.9529908,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode with positive total reward, indicating some effective actions",
+      "Achieved stable performance with no negative reward trend"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High mentor dependency with 10 calls in a single episode"
+    ],
+    "summary": "The run shows some productive actions (positive reward) but failed to achieve mission success, suggesting gaps in closing the kill chain despite adequate reconnaissance or intermediate steps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance to proceed",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05",
+        "ep001_step08",
+        "ep001_step11",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step18",
+        "ep001_step21",
+        "ep001_step23",
+        "ep001_step25"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ping or TCP SYN scan",
+      "then_action": "Run full TCP port scan with service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -sV -sC -T4"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771499218.0473309,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS services are detected",
+      "then_action": "Enumerate web content and common paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step12"
+      ],
+      "created_at": 1771499218.0473392,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB (ports 139/445) is open",
+      "then_action": "Enumerate SMB shares and permissions",
+      "parameters_template": {
+        "tool": "smbclient",
+        "args": "-L //{target} -N"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step15"
+      ],
+      "created_at": 1771499218.0473447,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early-stage utility to establish an accurate service map"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a reliable pivot point for follow-on exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Attempt a full reconnaissance-to-exploitation chain without mentor calls by following a predefined checklist and logging each decision point.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit validation loop",
+      "description": "For each discovered service, test one likely exploit or misconfiguration and document outcome to improve close-out success.",
+      "priority": "high"
+    },
+    {
+      "title": "Privilege escalation checkpointing",
+      "description": "After initial access, run standardized local enumeration (linpeas/winpeas) and record actionable leads before proceeding.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

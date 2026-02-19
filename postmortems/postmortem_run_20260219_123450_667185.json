@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260219_123450_667185",
+  "timestamp": 1771500904.43552,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward (60.0) indicates some beneficial actions taken",
+      "Mentor guidance utilized (10 calls), suggesting active learning"
+    ],
+    "fails": [
+      "Success rate 0.00%: no episode objective achieved",
+      "Only 1 episode executed, limiting evidence of consistent performance"
+    ],
+    "summary": "The run shows some positive reward signals but failed to achieve task success; more targeted experimentation is needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode did not reach success criteria despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode in an unknown network",
+      "then_action": "Perform fast host discovery and top-port scan",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn 10.0.0.0/24 && nmap -sS -T4 --top-ports 100 10.0.0.0/24"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771500917.127111,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service port is detected open",
+      "then_action": "Run version detection and default script scan on that host",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target_ip>"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771500917.1271234,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Basic recon is prerequisite for any progress and likely contributed to positive reward."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten recon-to-exploit pipeline",
+      "description": "After discovery, immediately perform service enumeration (nmap -sV -sC) and map findings to a single exploit attempt per host.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Limit mentor calls to key decision points (post-enum, pre-exploit) to increase autonomous decision-making.",
+      "priority": "medium"
+    },
+    {
+      "title": "Add verification step for objectives",
+      "description": "Explicitly check success conditions (e.g., flag file or service response) after each action to avoid missing completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

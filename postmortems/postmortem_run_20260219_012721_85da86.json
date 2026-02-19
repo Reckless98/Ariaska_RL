@@ -1,0 +1,138 @@
+{
+  "run_id": "run_20260219_012721_85da86",
+  "timestamp": 1771460847.5836444,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward (60.0) despite failure outcome",
+      "High mentor engagement (10 calls) indicating iterative guidance usage"
+    ],
+    "fails": [
+      "Success rate 0% (no completed objectives)",
+      "Only a single episode collected, limiting statistical confidence"
+    ],
+    "summary": "The run shows positive reward signal but failed task completion; more episodes and tighter success criteria validation are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion not achieved despite positive reward signal",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When success rate is 0% and total reward is positive",
+      "then_action": "Audit reward-function alignment vs. success criteria using run logs",
+      "parameters_template": {
+        "tools": [
+          "jq",
+          "grep"
+        ],
+        "log_files": [
+          "rewards.jsonl",
+          "events.jsonl"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771460861.0920684,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When total episodes < 3",
+      "then_action": "Increase episode count to reduce variance and validate trends",
+      "parameters_template": {
+        "target_episodes": 5,
+        "seed_strategy": "fixed_then_random"
+      },
+      "confidence": 0.75,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771460861.0920856,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When mentor calls exceed 5 per episode",
+      "then_action": "Extract mentor guidance deltas and convert to explicit policy notes",
+      "parameters_template": {
+        "artifact": "mentor_transcripts.jsonl",
+        "output": "policy_notes.md"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771460861.0920966,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Critical to reconcile reward signal with failure outcomes"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Low episode count prevents reliable assessment"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reward alignment audit",
+      "description": "Compare reward events to success criteria using jq on rewards.jsonl and events.jsonl; flag mismatches",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-episode validation",
+      "description": "Run 5 episodes with fixed seed then random seed to confirm whether success remains at 0%",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor guidance distillation",
+      "description": "Summarize mentor calls into actionable policy rules and re-run a single episode to test impact",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

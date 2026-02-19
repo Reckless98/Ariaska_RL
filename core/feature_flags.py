@@ -201,6 +201,30 @@ class FeatureFlags:
     llm_policy_bridge: bool = field(
         default_factory=lambda: _env_bool("FF_LLM_POLICY_BRIDGE", True))
 
+    # ── Phase 38.0: OPS Authority & Full Autonomy ───────────────────
+    ops_preflight: bool = field(
+        default_factory=lambda: _env_bool("FF_OPS_PREFLIGHT", True))
+    sudo_handler: bool = field(
+        default_factory=lambda: _env_bool("FF_SUDO_HANDLER", True))
+    execution_classifier: bool = field(
+        default_factory=lambda: _env_bool("FF_EXECUTION_CLASSIFIER", True))
+
+    # ── Phase 38.1: Discovery Trust & Clean Parser ──────────────────
+    discovery_trust: bool = field(
+        default_factory=lambda: _env_bool("FF_DISCOVERY_TRUST", True))
+    service_normalization: bool = field(
+        default_factory=lambda: _env_bool("FF_SERVICE_NORMALIZATION", True))
+    spike_guard: bool = field(
+        default_factory=lambda: _env_bool("FF_SPIKE_GUARD", True))
+
+    # ── Phase 38.2: Phase Hardening + Shell Validation ──────────────
+    phase_invariants: bool = field(
+        default_factory=lambda: _env_bool("FF_PHASE_INVARIANTS", True))
+    shell_validator: bool = field(
+        default_factory=lambda: _env_bool("FF_SHELL_VALIDATOR", True))
+    domain_manager: bool = field(
+        default_factory=lambda: _env_bool("FF_DOMAIN_MANAGER", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

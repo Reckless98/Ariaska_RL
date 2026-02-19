@@ -1,0 +1,88 @@
+{
+  "run_id": "smart_dc12c032_ep0000",
+  "timestamp": 1771474148.7418888,
+  "key_outcomes": {
+    "wins": [
+      "High total reward (6201.50) in a single-episode run indicates strong exploration signal"
+    ],
+    "fails": [
+      "Success rate was 0.00%, no episode completion success",
+      "No mentor calls utilized, limiting guided recovery",
+      "No recent reward trend available to assess learning stability"
+    ],
+    "summary": "Single-episode run produced high reward but zero task success; insufficient data to confirm stable behaviors."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When only one episode is completed and success rate is 0%",
+      "then_action": "Trigger a retry with expanded exploration budget and fallback guidance",
+      "parameters_template": {
+        "max_steps": 200,
+        "mentor_call": true,
+        "exploration_bonus": 0.2
+      },
+      "confidence": 0.45,
+      "evidence_refs": [
+        "ep000_step_end"
+      ],
+      "created_at": 1771474160.2971559,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When total reward is high but success is 0%",
+      "then_action": "Log and replay top-reward action sequence for targeted success validation",
+      "parameters_template": {
+        "replay_window": "top_20_actions",
+        "validation_trials": 3
+      },
+      "confidence": 0.4,
+      "evidence_refs": [
+        "ep000_step_end"
+      ],
+      "created_at": 1771474160.2971652,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [],
+  "next_experiments": [
+    {
+      "title": "Guided recovery run",
+      "description": "Enable mentor calls on failure states and extend max steps to validate if high-reward paths can convert to success.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-success mapping",
+      "description": "Replay top-reward action sequences and measure success conversion rate across 3 trials.",
+      "priority": "high"
+    },
+    {
+      "title": "Stability check",
+      "description": "Run 5 episodes to capture reward trend and identify consistent failure points.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

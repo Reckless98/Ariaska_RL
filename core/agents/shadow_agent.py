@@ -659,6 +659,136 @@ class ShadowAgent(AgentInterface, MemorySyncInterface):
         """Provide reasoning for a given context - only available in OrionAgent."""
         return f"ShadowAgent does not provide strategic reasoning. Use OrionAgent for strategic insights."
 
+    # ── OPS Authority: Guardrails & Classification ────────────────────
+
+    def classify_execution(
+        self,
+        command: str,
+        target_ip: str = "",
+        domain: Optional[str] = None,
+    ) -> str:
+        """
+        Classify a command's execution context (LOCAL_OPS vs REMOTE).
+
+        Args:
+            command: Shell command to classify.
+            target_ip: Expected target IP.
+            domain: Expected target domain.
+
+        Returns:
+            ExecutionClass value string.
+        """
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+        if not ff.execution_classifier:
+            return "ambiguous"
+        from core.ops.execution_classifier import ExecutionClassifier
+        result = ExecutionClassifier.classify(command, target_ip, domain)
+        return result.value
+
+    def validate_command_safety(
+        self,
+        command: str,
+        phase: str,
+        target_ip: str = "",
+        domain: Optional[str] = None,
+    ) -> Tuple[bool, str]:
+        """
+        Combined safety check: noise + execution classification + phase.
+
+        Args:
+            command: Command to validate.
+            phase: Current attack phase.
+            target_ip: Target IP.
+            domain: Target domain.
+
+        Returns:
+            Tuple of (is_safe, reason).
+        """
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+
+        # 1. Execution classification check
+        if ff.execution_classifier:
+            from core.ops.execution_classifier import ExecutionClassifier, ExecutionClass
+            classification = ExecutionClassifier.classify(command, target_ip, domain)
+            valid, reason = ExecutionClassifier.validate_execution_context(
+                command, classification, phase,
+            )
+            if not valid:
+                logger.warning(
+                    "ShadowAgent BLOCKED: %s (reason: %s)", command[:60], reason,
+                )
+                return False, reason
+
+        # 2. Noise check
+        noise = self._calculate_command_noise(command)
+        if noise > 80 and self.stealth_mode:
+            return False, f"Command too noisy ({noise}/100) in stealth mode"
+
+        return True, "ok"
+
+    def audit_state_flags(self, state: Dict[str, Any]) -> List[str]:
+        """
+        Audit state flags for inconsistencies.
+
+        Args:
+            state: Current environment state dict.
+
+        Returns:
+            List of inconsistency warnings.
+        """
+        warnings: List[str] = []
+
+        # Shell claimed but no shell evidence
+        if state.get("shell_obtained") and not state.get("shells"):
+            warnings.append("shell_obtained=True but no shells in discovery board")
+
+        # Privesc phase without shell
+        phase = state.get("current_phase", state.get("phase", "")).lower()
+        if phase in ("privesc", "privilege_escalation") and not state.get("shell_obtained"):
+            warnings.append("In PRIVESC phase but shell_obtained=False")
+
+        # Credentials claimed but empty set
+        if state.get("credentials_found") and not state.get("credentials"):
+            warnings.append("credentials_found=True but credentials set empty")
+
+        if warnings:
+            for w in warnings:
+                logger.warning("ShadowAgent AUDIT: %s", w)
+
+        return warnings
+
+    def enforce_tool_availability(self, command: str) -> bool:
+        """
+        Check if the primary tool in a command is available.
+
+        Args:
+            command: Shell command to check.
+
+        Returns:
+            True if tool is available or in dry-run mode.
+        """
+        import os as _os
+        if _os.environ.get("ARIASKA_DRY_RUN", "") == "1":
+            return True
+
+        # Extract tool name (first word)
+        parts = command.strip().split()
+        if not parts:
+            return False
+        tool = parts[0]
+        # Skip builtins/prefixes
+        if tool in ("sudo", "echo", "export", "cd", "which", "command"):
+            tool = parts[1] if len(parts) > 1 else ""
+        if not tool:
+            return True
+
+        from core.ops.tool_installer import ToolInstaller
+        from core.ops.sudo_handler import SudoHandler
+        installer = ToolInstaller(SudoHandler())
+        return installer.verify_tool(tool)
+
 # Main execution for testing
 if __name__ == "__main__":
     agent = ShadowAgent(verbosity="verbose")

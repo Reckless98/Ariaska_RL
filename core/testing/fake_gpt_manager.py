@@ -97,9 +97,9 @@ class FakeGPTManager:
         "reasoning": "gpt-5.2-codex",
         "analysis": "gpt-5.2-codex",
         "postmortem": "gpt-5.2-codex",
-        "classification": "gpt-5.1-codex-mini",
-        "general": "gpt-5.1-codex-mini",
-        "default": "gpt-5.1-codex-mini",
+        "classification": "gpt-5.2-codex",
+        "general": "gpt-5.2-codex",
+        "default": "gpt-5.2-codex",
     }
     
     def __init__(self, seed: int = 42):
@@ -116,7 +116,7 @@ class FakeGPTManager:
         # Mimic real GPTManager interface
         self.primary_model = "gpt-5.2-codex"
         self.fallback_model = "gpt-5.2-mini"
-        self.nano_model = "gpt-5.1-codex-mini"
+        self.nano_model = "gpt-5-nano"
         self.postmortem_model = "gpt-5.1-codex"
         self.tokens_used = 0
         self.token_limit = 3000
@@ -201,10 +201,14 @@ class FakeGPTManager:
         agent_id: str = "unknown",
         max_tokens: int = 150,
         model: Optional[str] = None,
-        allow_fallback: bool = True
+        allow_fallback: bool = True,
+        **kwargs: Any,
     ) -> str:
         """
         Compatibility method matching real GPTManager.gpt_request().
+        
+        Accepts and ignores extra kwargs (timeout, system_prompt,
+        response_format) for test compatibility.
         
         Returns just the response string.
         """

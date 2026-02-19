@@ -1,0 +1,9 @@
+# Dirsearch started Thu Feb 19 04:36:25 2026 as: /usr/lib/python3/dist-packages/dirsearch/dirsearch.py -u http://soulmate.htb/ -e php -q --format plain
+
+301   178B   http://soulmate.htb/assets    -> REDIRECTS TO: http://soulmate.htb/assets/
+403   564B   http://soulmate.htb/assets/
+302     0B   http://soulmate.htb/dashboard.php    -> REDIRECTS TO: /login
+200     8KB  http://soulmate.htb/login.php
+302     0B   http://soulmate.htb/logout.php    -> REDIRECTS TO: login.php
+302     0B   http://soulmate.htb/profile.php    -> REDIRECTS TO: /login
+200    11KB  http://soulmate.htb/register.php

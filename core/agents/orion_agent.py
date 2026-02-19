@@ -771,7 +771,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 f"[yellow]⚠ Error in strategic review: {e}. Using GPT fallback.[/yellow]"
             )
             response = self.gpt_manager.gpt_request(
-                prompt, "gpt-5.1-codex-mini", agent_id=self.agent_id
+                prompt, "gpt-5.2-codex", agent_id=self.agent_id
             )
             # Ensure response is a string
             if not isinstance(response, str):
@@ -953,7 +953,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
             response = self.gpt_manager.gpt_request(
                 review_prompt,
-                model="gpt-5.1-codex-mini",
+                model="gpt-5.2-codex",
                 task_type="tactical",
                 agent_id=self.agent_id,
             )
@@ -963,7 +963,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             )
             response = self.gpt_manager.gpt_request(
                 prompt,
-                model="gpt-5.1-codex-mini",
+                model="gpt-5.2-codex",
                 task_type="tactical",
                 agent_id=self.agent_id,
             )
@@ -1066,7 +1066,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
 
         try:
             response = self.gpt_manager.gpt_request(
-                prompt, model="gpt-5.1-codex-mini", task_type="chains", agent_id=self.agent_id
+                prompt, model="gpt-5.2-codex", task_type="chains", agent_id=self.agent_id
             )
 
             # Parse JSON response
@@ -1520,11 +1520,21 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             # Initialize novel_command at method level to ensure it's defined
             novel_command = "nmap -sT -sV target"  # Default fallback command
             
-            # Intervention for stuck agent: Force exploration
+            # Intervention for stuck agent: Force exploration with step-limited lease
             if "RedAgent" in self.subordinate_agents:
                 red_agent = self.subordinate_agents["RedAgent"]
                 if hasattr(red_agent, "epsilon"):
+                    # Phase 38 B1: Step-limited epsilon lease (5 steps) instead of permanent override
+                    _original_eps = red_agent._original_epsilon if getattr(red_agent, '_original_epsilon', None) is not None else red_agent.epsilon
+                    if getattr(red_agent, '_original_epsilon', None) is None:
+                        red_agent._original_epsilon = red_agent.epsilon
                     red_agent.epsilon = 0.9  # Force exploration
+                    _current_step = context.get("step", 0)
+                    red_agent._epsilon_lease_expires = _current_step + 5
+                    logger.info(
+                        f"[ORION-B1] Epsilon lease: 0.9 for 5 steps "
+                        f"(original={_original_eps:.2f}, expires step {red_agent._epsilon_lease_expires})"
+                    )
                 # Clear redundancy counter
                 if hasattr(red_agent, "redundancy_counter"):
                     red_agent.redundancy_counter = 0
@@ -1553,7 +1563,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
                 try:
                     gpt_response = self.gpt_manager.gpt_request(
                         prompt,
-                        model="gpt-5.1-codex-mini",
+                        model="gpt-5.2-codex",
                         task_type="intervention",
                         agent_id=self.agent_id,
                     )
@@ -1822,7 +1832,7 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             try:
                 insight = self.gpt_manager.gpt_request(
                     prompt,
-                    model="gpt-5.1-codex-mini",
+                    model="gpt-5.2-codex",
                     task_type="analysis",
                     agent_id=self.agent_id,
                 )

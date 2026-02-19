@@ -73,6 +73,9 @@ class DiscoveryEvent:
     raw_evidence: str = ""
     kg_candidate_id: Optional[str] = None
     deduplicated: bool = False
+    # Phase 38.1: Discovery Trust
+    verification_level: str = "single_source"  # unverified | single_source | corroborated | confirmed
+    trust_score: float = 0.6                    # 0.0–1.0 trust multiplier
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serialisable dict."""

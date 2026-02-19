@@ -1,0 +1,110 @@
+{
+  "run_id": "run_20260219_095254_c7a9b3",
+  "timestamp": 1771491188.2280936,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate, indicating partial task progress"
+    ],
+    "fails": [
+      "Zero successful episodes (0.00% success rate)",
+      "High mentor call count (10) for a single episode suggests uncertainty or ineffective decision-making"
+    ],
+    "summary": "The run shows partial progress (reward 40) but no completed objectives; guidance dependence is high and core task completion failed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert partial progress into a completed objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_095254_c7a9b3_ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Excessive reliance on mentor calls during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "run_20260219_095254_c7a9b3_ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon yields partial progress but no clear objective path",
+      "then_action": "Perform targeted enumeration to identify a viable attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sC -sV -oN recon.txt",
+        "ports": "top-1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260219_095254_c7a9b3_ep001_summary"
+      ],
+      "created_at": 1771491205.832028,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When stalled after reconnaissance with no exploitable findings",
+      "then_action": "Pivot to service-specific enumeration based on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "--script",
+        "script": "safe,default"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260219_095254_c7a9b3_ep001_summary"
+      ],
+      "created_at": 1771491205.8320417,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "General recon-to-enum transition is foundational for improving completion likelihood"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance through decision checkpoints",
+      "description": "Introduce a pre-commit checklist (objective, evidence, next step) before each mentor call to encourage autonomous reasoning.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten recon-to-exploit pipeline",
+      "description": "Enforce a structured flow: recon -> service enum -> exploit attempt, with explicit stop conditions at each phase.",
+      "priority": "high"
+    },
+    {
+      "title": "Track failure points with timestamps",
+      "description": "Log decision points where progress stalls to identify systemic bottlenecks.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

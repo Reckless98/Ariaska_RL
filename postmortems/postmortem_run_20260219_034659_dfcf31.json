@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260219_034659_dfcf31",
+  "timestamp": 1771469240.65175,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (80.00) indicating some effective actions",
+      "Maintained stable reward trend across the single episode"
+    ],
+    "fails": [
+      "Zero success rate despite positive reward",
+      "High mentor call count (10) suggests heavy guidance dependency",
+      "Only one episode completed, limiting behavioral generalization"
+    ],
+    "summary": "The run produced a positive reward but no successful completion, indicating partial progress without task closure and significant reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress without achieving objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High reliance on mentor intervention during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required and no target IPs are confirmed",
+      "then_action": "Run a fast ping sweep to identify live hosts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn -T4 10.0.0.0/24"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771469254.0607557,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is identified and services are unknown",
+      "then_action": "Perform a targeted TCP service scan with version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -T4 -p- <target_ip>"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771469254.0607698,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP(S) is detected on any port",
+      "then_action": "Enumerate web content and directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://<target_ip>:<port>/ -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771469254.0607796,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is required to convert partial progress into successful completion"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Service discovery is essential to drive exploitation paths after host identification"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency via scripted recon",
+      "description": "Execute a full recon chain (ping sweep -> full port scan -> service detection) without mentor intervention to validate autonomous workflow.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused terminal milestones",
+      "description": "Introduce explicit stop conditions after each phase (host discovery, service enumeration, initial exploit attempt) to ensure task completion signals are reached.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first enumeration path",
+      "description": "If HTTP is found, prioritize directory brute force and tech fingerprinting to uncover low-hanging web vectors.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

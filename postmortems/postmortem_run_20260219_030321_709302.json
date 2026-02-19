@@ -1,0 +1,95 @@
+{
+  "run_id": "run_20260219_030321_709302",
+  "timestamp": 1771466608.299308,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (60.0) despite lack of terminal success",
+      "High mentor utilization (10 calls) suggests active guidance usage"
+    ],
+    "fails": [
+      "Success rate at 0% indicates no episode-level completion",
+      "Only one episode limits confidence in learned behaviors",
+      "No observable win pattern to validate repeatable tactics"
+    ],
+    "summary": "Single-episode run produced reward but no success; focus should shift to building repeatable reconnaissance-to-exploitation flow and reducing mentor dependence."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When only one episode is completed and success rate is 0% but reward is positive",
+      "then_action": "Run full-scope baseline discovery to validate objective alignment before deeper exploitation",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -O -p- {target}"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260219_030321_709302_ep001_summary"
+      ],
+      "created_at": 1771466636.752449,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls are high and success remains 0%",
+      "then_action": "Standardize service enumeration with scripted checks on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "--script vuln -sV -p {open_ports} {target}"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260219_030321_709302_ep001_summary"
+      ],
+      "created_at": 1771466636.752463,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline discovery is a high-leverage prerequisite for all subsequent phases when success is 0%."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Baseline Discovery First",
+      "description": "Start the next run with a full-port scan and service/version detection to establish a concrete attack surface before requesting mentor input.",
+      "priority": "high"
+    },
+    {
+      "title": "Scripted Enumeration Pass",
+      "description": "After identifying open ports, run focused Nmap NSE scripts (e.g., vuln, auth, default) to extract actionable findings.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Cap mentor calls to 3 and document decision points to encourage independent reconnaissance-exploitation flow.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

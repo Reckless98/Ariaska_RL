@@ -1,0 +1,115 @@
+{
+  "run_id": "run_20260219_122350_bcce90",
+  "timestamp": 1771500249.5694149,
+  "key_outcomes": {
+    "wins": [
+      "Collected positive reward signal (60.0) indicating at least partial progress in the episode",
+      "Completed 1 full episode without termination errors"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%, indicating no end-to-end objective completion",
+      "High mentor call count (10) suggests heavy reliance on guidance"
+    ],
+    "summary": "Single-episode run achieved partial progress but did not reach the success condition; performance relied heavily on mentorship."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert intermediate progress into terminal success condition",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_final"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial discovery is complete but no success flag is achieved",
+      "then_action": "Validate objectives and enumerate missing prerequisites before proceeding",
+      "parameters_template": {
+        "checklist": [
+          "target reachability",
+          "credential status",
+          "service list completeness"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ],
+      "created_at": 1771500261.2360904,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Pause and execute a structured decision review before next action",
+      "parameters_template": {
+        "review_steps": [
+          "current objective",
+          "known data",
+          "next best action",
+          "risk assessment"
+        ]
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step_meta"
+      ],
+      "created_at": 1771500261.2360995,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Partial progress indicates the need to systematically validate prerequisites to reach terminal success."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor usage suggests benefit from a structured decision checkpoint."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Completion Checklist",
+      "description": "Introduce a mandatory checklist gate after discovery to confirm all success prerequisites are satisfied before moving forward.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Protocol",
+      "description": "Implement a decision review step after every 3 mentor calls to reduce dependency and improve autonomous action selection.",
+      "priority": "high"
+    },
+    {
+      "title": "Outcome Verification Step",
+      "description": "Add a final validation action that checks for success conditions prior to terminating the episode.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

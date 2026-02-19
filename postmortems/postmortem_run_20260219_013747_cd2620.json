@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260219_013747_cd2620",
+  "timestamp": 1771461476.2173085,
+  "key_outcomes": {
+    "wins": [
+      "Completed one full episode with total reward 60.0",
+      "Mentor guidance utilized (10 calls) indicating active feedback loop"
+    ],
+    "fails": [
+      "Success rate remained 0.00% despite positive reward",
+      "Insufficient conversion of mentor guidance into successful outcomes"
+    ],
+    "summary": "Single-episode run showed some reward accumulation but no successful task completion; process needs tighter linkage between guidance and goal achievement."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to translate mentor hints into actionable steps leading to success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is complete but success criteria not met",
+      "then_action": "Re-run targeted service discovery with narrowed scope",
+      "parameters_template": {
+        "scan": "nmap",
+        "args": "-sV -sC -p 1-1000"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771461485.9987135,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor guidance count increases during an episode",
+      "then_action": "Pause and summarize last two actions, then align next action with mentor hint",
+      "parameters_template": {
+        "summary_window": 2
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771461485.9987326,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Targeted service discovery is a common recovery step when success criteria are not met."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Mentor-Guided Action Alignment",
+      "description": "After each mentor call, explicitly map the hint to a concrete tool command and execute within 2 steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Focused Service Scan Iteration",
+      "description": "Perform a two-pass scan: quick top-ports, then service-version scan on discovered ports only.",
+      "priority": "high"
+    },
+    {
+      "title": "Success Criteria Checkpoints",
+      "description": "Insert checkpoints every 5 steps to validate progress against the episode success condition.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

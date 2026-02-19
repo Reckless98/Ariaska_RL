@@ -1,0 +1,138 @@
+{
+  "run_id": "run_20260219_010806_87fbca",
+  "timestamp": 1771459707.2807276,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite single-episode run",
+      "Consistent mentor engagement (15 calls) indicates iterative guidance use"
+    ],
+    "fails": [
+      "Zero success rate suggests objectives not achieved",
+      "Single episode limits statistical confidence and pattern validation"
+    ],
+    "summary": "The run shows moderate reward but no task success; the agent likely progressed in sub-steps yet failed to complete objective. More episodes and clearer exploitation/privilege transitions are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress stalls before objective completion, indicating failure to transition from enumeration to exploitation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP port 80/443 is open and HTTP banner detected",
+      "then_action": "Run targeted web enumeration to identify tech stack and directories",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "gobuster_args": "-u http://<target> -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step_enum"
+      ],
+      "created_at": 1771459719.9735644,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Perform SSH enumeration and credential policy checks",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p22 --script ssh2-enum-algos,ssh-hostkey,ssh-auth-methods <target>"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step_enum"
+      ],
+      "created_at": 1771459719.9735878,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB ports 139/445 are open",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tools": [
+          "smbclient",
+          "enum4linux"
+        ],
+        "enum4linux_args": "-a <target>"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step_enum"
+      ],
+      "created_at": 1771459719.973603,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Web enumeration is a consistent first-step success pattern in reconnaissance"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "SSH enumeration provides actionable authentication insights early in the chain"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve enumeration-to-exploitation transition",
+      "description": "After service enumeration, branch into service-specific exploit checks (e.g., searchsploit on detected versions) and document decision points.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase episode count for pattern validation",
+      "description": "Run 5\u201310 episodes with identical objectives to validate which recon actions correlate with successful exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor reliance with checklist gating",
+      "description": "Use a fixed recon checklist before mentor calls to assess independent decision-making quality.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

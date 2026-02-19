@@ -569,7 +569,9 @@ class TestMentorController:
     def test_tier_models_mapping(self):
         """TIER_MODELS maps tiers to correct model names."""
         from core.training.mentor_controller import TIER_MODELS, MentorTier
-        assert "codex-mini" in TIER_MODELS[MentorTier.REACTIVE]
+        # Phase 38: all tiers upgraded to gpt-5.2-codex
+        assert "5.2" in TIER_MODELS[MentorTier.REACTIVE]
+        assert "codex" in TIER_MODELS[MentorTier.REACTIVE]
         # Phase 8.2: deliberative upgraded to gpt-5.2-codex for deeper strategic analysis
         assert "5.2" in TIER_MODELS[MentorTier.DELIBERATIVE]
         assert "codex" in TIER_MODELS[MentorTier.DELIBERATIVE]

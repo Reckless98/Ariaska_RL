@@ -1,0 +1,129 @@
+{
+  "run_id": "run_20260219_111520_eda5d8",
+  "timestamp": 1771496153.6183891,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode without interruption",
+      "Achieved a positive total reward (37.50) indicating some effective actions"
+    ],
+    "fails": [
+      "Success rate remained at 0.00%",
+      "High mentor call count (15) suggests low autonomy",
+      "Only one episode limits statistical confidence"
+    ],
+    "summary": "The run produced positive reward but no successful outcomes, indicating partial task progress without achieving terminal objectives."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert intermediate progress into a successful terminal outcome",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an initial objective is identified but success is not achieved within the first half of the episode",
+      "then_action": "Switch to a more direct path: prioritize actions that satisfy terminal conditions over exploratory steps",
+      "parameters_template": {
+        "decision_point": "mid-episode",
+        "strategy": "direct"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ],
+      "created_at": 1771496167.6426039,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 10 in a single episode",
+      "then_action": "Pause and execute a structured self-checklist before requesting further guidance",
+      "parameters_template": {
+        "checklist": [
+          "Confirm current objective",
+          "Validate last 3 actions",
+          "Identify next 2 highest-value actions"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771496167.6426132,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success rate is 0%",
+      "then_action": "Review terminal success criteria and align remaining steps explicitly to those criteria",
+      "parameters_template": {
+        "review_frequency": "end-of-episode"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771496167.6426187,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor call volume indicates a repeatable opportunity to improve autonomy"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Terminal-criteria alignment",
+      "description": "Add an explicit terminal-success checklist at mid-episode to ensure actions remain goal-directed.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call throttling",
+      "description": "Impose a soft cap of 8 mentor calls per episode and require a self-checklist before exceeding it.",
+      "priority": "high"
+    },
+    {
+      "title": "Two-episode validation",
+      "description": "Run two additional episodes to validate whether positive reward can be converted into successful outcomes.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

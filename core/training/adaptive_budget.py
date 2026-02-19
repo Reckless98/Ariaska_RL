@@ -135,6 +135,19 @@ class AdaptiveBudgetController:
         # Emergency: no calls
         return False
 
+    def can_call_guardian(self) -> bool:
+        """Phase 38: Check if a cheap safety/validation call is allowed.
+        
+        Guardian calls are small-token safety checks (evidence gates,
+        phase validators, credential verification). These are NEVER
+        throttled even at 100% budget pressure — they prevent the system
+        from making costly mistakes that waste more budget than the
+        check itself.
+        
+        Only denied if absolute mentor budget is fully exhausted.
+        """
+        return self._mentor_calls < self.config.mentor_budget_total
+
     def can_call_venice(self) -> bool:
         """Check if a Venice parsing call is allowed."""
         return self._venice_calls < self.config.venice_budget_total
@@ -179,15 +192,19 @@ class AdaptiveBudgetController:
         # If we've used 80% of budget in 50% of time → pressure is high
         resource_pressure = max(call_frac, token_frac)
 
-        # Compare resource spending against time progress
-        # If resource_pressure > step_frac → we're spending too fast
-        if step_frac > 0:
+        # Phase 38: Fixed pressure formula — early steps had pace_ratio
+        # explosion (e.g., 6 calls at step 3 → pace_ratio=7.17 → 100% pressure).
+        # Guard against tiny step_frac by requiring at least 5% time progress
+        # before pace-based pressure kicks in.
+        if step_frac >= 0.05:
             pace_ratio = resource_pressure / step_frac
         else:
-            pace_ratio = resource_pressure * 2
+            # In first 5% of episode, pace is meaningless — use resource only
+            pace_ratio = 1.0
 
-        # Normalize to 0-1 range
-        pressure = min(1.0, max(0.0, resource_pressure * 0.6 + (pace_ratio - 1.0) * 0.4))
+        # Normalize to 0-1 range (pace contribution capped at 0.3 max)
+        pace_contrib = min(0.3, max(0.0, (pace_ratio - 1.0) * 0.2))
+        pressure = min(1.0, max(0.0, resource_pressure * 0.7 + pace_contrib))
 
         # Absolute-reserve floor: if ≥90% of ANY resource is consumed,
         # ensure pressure is at least 0.8 regardless of pacing.

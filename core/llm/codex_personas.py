@@ -74,7 +74,7 @@ class PersonaConfig:
 PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
     CodexPersona.TACTICAL: PersonaConfig(
         persona=CodexPersona.TACTICAL,
-        model="gpt-5.1-codex-mini",
+        model="gpt-5.2-codex",
         task_type="tactical",
         max_tokens=200,
         temperature=0.2,
@@ -119,7 +119,7 @@ PERSONA_CONFIGS: Dict[CodexPersona, PersonaConfig] = {
     ),
     CodexPersona.RESEARCHER: PersonaConfig(
         persona=CodexPersona.RESEARCHER,
-        model="gpt-5.1-codex-mini",
+        model="gpt-5.2-codex",
         task_type="tactical",
         max_tokens=300,
         temperature=0.4,

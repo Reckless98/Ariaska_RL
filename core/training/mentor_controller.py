@@ -5,9 +5,9 @@ core/training/mentor_controller.py — ARIASKA Mentor Controller v1.0
 Smart 3-tier mentor engagement system with budget, fade, and trigger-based routing.
 
 TIERS:
-  reactive      → gpt-5.1-codex-mini  (cheap, fast — uncertainty / quick hints)
-  deliberative  → gpt-5.1-codex       (mid-cost — stagnation / strategic replanning)
-  postmortem    → gpt-5.2-codex       (expensive — end-of-run deep analysis only)
+  reactive      → gpt-5.2-codex    (Phase 38: upgraded from codex-mini)
+  deliberative  → gpt-5.2-codex    (strategic replanning)
+  postmortem    → gpt-5.2-codex    (deep analysis)
 
 TRIGGERS:
   1. uncertainty    — PPO entropy high / confidence low      → reactive
@@ -42,7 +42,7 @@ logger = logging.getLogger("ariaska.mentor_controller")
 
 class MentorTier(str, Enum):
     """3-tier mentor model routing."""
-    REACTIVE = "reactive"           # gpt-5.1-codex-mini — cheap, fast
+    REACTIVE = "reactive"           # gpt-5.2-codex — Phase 38: upgraded
     DELIBERATIVE = "deliberative"   # gpt-5.1-codex — strategic
     POSTMORTEM = "postmortem"       # gpt-5.2-codex — deep analysis
 
@@ -64,7 +64,7 @@ class MentorTrigger(str, Enum):
 # Phase 8.2: DELIBERATIVE upgraded to gpt-5.2-codex for deeper strategic reasoning
 # REACTIVE stays cheap (codex-mini), DELIBERATIVE+POSTMORTEM use 5.2 for quality
 TIER_MODELS: Dict[MentorTier, str] = {
-    MentorTier.REACTIVE: "gpt-5.1-codex-mini",
+    MentorTier.REACTIVE: "gpt-5.2-codex",
     MentorTier.DELIBERATIVE: "gpt-5.2-codex",
     MentorTier.POSTMORTEM: "gpt-5.2-codex",
 }
@@ -123,7 +123,7 @@ class MentorControllerConfig:
     # Phase 7.1: DELIBERATIVE also uses codex-mini for cost savings
     # Only POSTMORTEM uses expensive gpt-5.2-codex
     tier_models: Dict[str, str] = field(default_factory=lambda: {
-        "reactive": "gpt-5.1-codex-mini",
+        "reactive": "gpt-5.2-codex",     # Phase 38: upgraded from codex-mini
         "deliberative": "gpt-5.2-codex",  # Phase 8.2: Upgraded for deeper strategic reasoning
         "postmortem": "gpt-5.2-codex",
     })
@@ -139,7 +139,7 @@ class MentorEngagement:
     engage: bool = False
     tier: MentorTier = MentorTier.REACTIVE
     trigger: MentorTrigger = MentorTrigger.NONE
-    model: str = "gpt-5.1-codex-mini"
+    model: str = "gpt-5.2-codex"
     reason: str = ""
     exfil_guidance: bool = False      # True if exfil-specific prompt should be injected
     max_tokens: int = 300             # Token limit for this call
@@ -489,7 +489,7 @@ class MentorController:
         max_tokens: int = 300,
     ) -> MentorEngagement:
         """Build engagement result and update tracking."""
-        model = self.config.tier_models.get(tier.value, TIER_MODELS.get(tier, "gpt-5.1-codex-mini"))
+        model = self.config.tier_models.get(tier.value, TIER_MODELS.get(tier, "gpt-5.2-codex"))
 
         # Record
         self.calls_this_episode += 1

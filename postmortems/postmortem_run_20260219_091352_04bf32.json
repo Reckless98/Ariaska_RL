@@ -1,0 +1,104 @@
+{
+  "run_id": "run_20260219_091352_04bf32",
+  "timestamp": 1771488848.572447,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 training episode with total reward 40.00",
+      "Maintained stable reward trend (40.0)"
+    ],
+    "fails": [
+      "Success rate remained at 0.00% across the run",
+      "No confirmed exploitation or objective completion events recorded"
+    ],
+    "summary": "Single-episode run achieved a modest reward but failed to convert actions into successful objectives, indicating execution gaps rather than reward instability."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Actions did not progress to objective completion after initial enumeration",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host is discovered during initial scan",
+      "then_action": "Run targeted service/version enumeration with nmap",
+      "parameters_template": {
+        "ports": "top-1000",
+        "flags": "-sV -sC",
+        "timing": "-T3"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771488861.3646953,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Perform web content discovery",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771488861.3647091,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational enumeration step needed to improve downstream decision quality."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten enumeration-to-exploitation flow",
+      "description": "After nmap -sV -sC results, immediately map detected services to candidate exploits using searchsploit and prioritize by version match.",
+      "priority": "high"
+    },
+    {
+      "title": "Web-first pivot on HTTP targets",
+      "description": "If HTTP is present, run gobuster/ffuf before switching to other services; feed discovered paths into manual validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Introduce evidence logging checkpoints",
+      "description": "Add explicit checkpoints after each recon stage to decide next action based on detected versions and open ports.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,144 @@
+{
+  "run_id": "run_20260219_001800_2c12da",
+  "timestamp": 1771456702.3060758,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero successful episodes",
+      "Consistent reward trend suggests stable but incomplete strategy execution"
+    ],
+    "fails": [
+      "0.00% success rate indicates no full objective completion",
+      "High mentor call count suggests overreliance on guidance",
+      "Single-episode run limits generalization of learned behavior"
+    ],
+    "summary": "The run shows stable reward accumulation but no successful episode completion; focus should shift to converting partial progress into full objective achievement while reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete end-to-end objective despite positive intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor reliance during decision points",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07",
+        "ep001_step12"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance identifies open TCP ports",
+      "then_action": "Run targeted service detection with nmap",
+      "parameters_template": {
+        "scan_type": "-sV",
+        "timing": "-T3",
+        "ports": "top-100"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771456713.87227,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on standard ports (80/443)",
+      "then_action": "Enumerate web endpoints and technologies",
+      "parameters_template": {
+        "tool": "whatweb",
+        "options": "-a 3",
+        "target": "http(s)://<host>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771456713.872283,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected and banner is returned",
+      "then_action": "Perform SSH enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771456713.872292,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step that precedes most successful workflows"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent branching point for next actions"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "End-to-end completion focus",
+      "description": "Add explicit terminal objective checks after each phase to ensure progression from recon to exploitation and validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction",
+      "description": "Introduce a decision threshold: attempt two autonomous actions before requesting mentor guidance.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific playbooks",
+      "description": "Create branching playbooks for SSH/HTTP/SMB to reduce indecision and improve completion rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

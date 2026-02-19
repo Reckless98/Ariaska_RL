@@ -1,0 +1,1 @@
+{"episode_id": "run_20260219_013035_bedfaa_ep0000", "run_id": "run_20260219_013035_bedfaa", "episode_number": 0, "start_time": 1771461035.422648, "end_time": 1771461046.4474883, "total_reward": 60.0, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"gpt-5.2-codex": 10}, "avg_confidence": 0.5, "duration": 11.024840354919434}

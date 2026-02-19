@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260219_035011_dec978",
+  "timestamp": 1771469430.6220644,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward indicates some productive actions despite zero success rate",
+      "Single-episode run completed without termination anomalies"
+    ],
+    "fails": [
+      "Success rate at 0.00% indicates objective not achieved",
+      "High mentor call count (15) suggests over-reliance on guidance or unclear decisioning"
+    ],
+    "summary": "The run produced modest reward but failed to achieve the primary success condition; focus should shift to clearer objective-driven decisioning and reducing mentor dependency."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not reached within episode despite accruing reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_final"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor calls in a single episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_meta"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a single-episode run ends with nonzero reward but 0% success",
+      "then_action": "Review terminal decision path and identify the last pivot before objective failure",
+      "parameters_template": {
+        "analysis_window": "last_20_steps",
+        "focus": "decision_pivot"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_final"
+      ],
+      "created_at": 1771469441.8701704,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 10 in an episode",
+      "then_action": "Insert a checkpoint to formalize goal-state and next 3 actions before further calls",
+      "parameters_template": {
+        "mentor_call_threshold": 10,
+        "checkpoint_actions": 3
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_meta"
+      ],
+      "created_at": 1771469441.8701854,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success is zero",
+      "then_action": "Validate whether the reward-earning behavior aligns with the success objective and prune misaligned actions",
+      "parameters_template": {
+        "alignment_check": true,
+        "prune_threshold": 2
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_final"
+      ],
+      "created_at": 1771469441.8701952,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor-call volume suggests this checkpoint could improve autonomy quickly."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Aligning reward behaviors with success objectives is critical given 0% success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Add a mandatory self-checkpoint after 8 mentor calls to define objective, hypothesis, and next 3 steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-alignment audit",
+      "description": "Instrument logging to tag each action as success-aligned or reward-only and eliminate actions with low alignment.",
+      "priority": "high"
+    },
+    {
+      "title": "Endgame focus drill",
+      "description": "Allocate final 20% of steps to explicitly pursue success condition rather than exploration.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

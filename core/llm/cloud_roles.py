@@ -40,7 +40,7 @@ class LLMRole(Enum):
 class RoleConfig:
     """Configuration for an LLM role."""
     model: str = "gpt-5-mini"
-    fallback_model: str = "gpt-4o-mini"
+    fallback_model: str = "gpt-5.2-mini"
     max_calls_per_episode: int = 5
     temperature: float = 0.3
     max_tokens: int = 500

@@ -1,0 +1,96 @@
+{
+  "run_id": "run_20260219_082904_26f82f",
+  "timestamp": 1771486152.5166454,
+  "key_outcomes": {
+    "wins": [
+      "Positive cumulative reward indicates some useful actions were taken despite no episode success"
+    ],
+    "fails": [
+      "Success rate remained at 0% for the single episode",
+      "High mentor call count (10) suggests low autonomous performance"
+    ],
+    "summary": "The run achieved positive reward but failed to complete the objective; performance appears heavily reliant on mentor guidance."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When the agent is early in the episode and lacks confirmed access",
+      "then_action": "Prioritize high-signal reconnaissance to raise reward and reduce mentor calls",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -T4 -Pn"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771486165.7475324,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 within an episode",
+      "then_action": "Switch to a structured decision loop: recon \u2192 validate \u2192 exploit attempt",
+      "parameters_template": {
+        "loop_steps": [
+          "recon",
+          "validate",
+          "exploit"
+        ]
+      },
+      "confidence": 0.57,
+      "evidence_refs": [
+        "ep001"
+      ],
+      "created_at": 1771486165.7475486,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Positive reward suggests reconnaissance actions contributed value"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance",
+      "description": "Enforce a cap of 3 mentor calls and require a recon-validate-exploit cycle before any additional guidance is requested.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-first baseline",
+      "description": "Start each episode with a full service scan and banner collection to improve decision quality before exploit attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Tight feedback loop",
+      "description": "After each action, log outcome and adjust next step to reduce random exploration; measure impact on success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,146 @@
+{
+  "run_id": "run_20260219_115959_d804d8",
+  "timestamp": 1771498825.9588723,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite zero success, suggesting partial task progress",
+      "Completed a full episode with consistent reward signal"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High mentor call count indicates low autonomy"
+    ],
+    "summary": "The run shows partial progress but no end-to-end success; autonomy and task completion are the primary gaps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Overreliance on mentor guidance during key decision points",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Insufficient exploitation follow-through after reconnaissance",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step18",
+        "ep001_step24"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance identifies open TCP ports",
+      "then_action": "Run targeted service enumeration with nmap scripts",
+      "parameters_template": {
+        "ports": "open",
+        "script": "default,safe,version"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step07"
+      ],
+      "created_at": 1771498841.82677,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on a target port",
+      "then_action": "Perform web fingerprinting and directory discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step11"
+      ],
+      "created_at": 1771498841.826778,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh-auth-methods,ssh2-enum-algos"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step13"
+      ],
+      "created_at": 1771498841.8267825,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance progression indicates a reusable enumeration pattern"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web service detection was followed by effective fingerprinting attempts"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Run a full episode with a hard cap of 5 mentor calls; document decision points where calls were avoided",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path completion drill",
+      "description": "From a found service, enforce a full chain: enum \u2192 vuln check \u2192 exploit attempt \u2192 post-check",
+      "priority": "high"
+    },
+    {
+      "title": "Recon depth vs. speed test",
+      "description": "Compare default nmap scripts vs. targeted scripts to measure time-to-action and reward impact",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

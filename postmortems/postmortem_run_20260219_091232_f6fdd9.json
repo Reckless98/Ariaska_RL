@@ -1,0 +1,128 @@
+{
+  "run_id": "run_20260219_091232_f6fdd9",
+  "timestamp": 1771488789.7920141,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward despite single-episode run",
+      "Mentor utilization indicates active guidance during execution"
+    ],
+    "fails": [
+      "0% success rate indicates primary objective not achieved",
+      "Single episode insufficient to validate stability of policy",
+      "High mentor call count suggests reliance over autonomy"
+    ],
+    "summary": "The run achieved a modest reward but failed the primary objective; reliance on mentor guidance and single-episode data limit confidence."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective failure despite incremental rewards, suggesting suboptimal endgame execution",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance phase yields partial progress but no objective completion",
+      "then_action": "Re-evaluate attack path and pivot to alternative objective route",
+      "parameters_template": {
+        "pivot_method": "service_priority",
+        "timebox_minutes": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_mid"
+      ],
+      "created_at": 1771488800.5394564,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 10 within a single episode",
+      "then_action": "Enforce autonomous decision loop before requesting mentor",
+      "parameters_template": {
+        "autonomy_steps": 3
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_log"
+      ],
+      "created_at": 1771488800.5394785,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success is false",
+      "then_action": "Perform endgame checklist to verify objective criteria",
+      "parameters_template": {
+        "checklist": [
+          "goal validation",
+          "final action confirmation"
+        ]
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_end"
+      ],
+      "created_at": 1771488800.5394914,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Endgame validation is critical to convert positive progress into success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Mentor-call throttle",
+      "description": "Limit mentor calls to 5 per episode and require a 3-step autonomous attempt before each call.",
+      "priority": "high"
+    },
+    {
+      "title": "Endgame validation routine",
+      "description": "Introduce a fixed end-of-episode checklist to confirm objective criteria are satisfied.",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-episode stability run",
+      "description": "Run 10 episodes with identical seed class to assess consistency of success rate and reward.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

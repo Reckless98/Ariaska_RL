@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260219_010701_015ba1",
+  "timestamp": 1771459643.4888284,
+  "key_outcomes": {
+    "wins": [
+      "Single-episode run completed with positive total reward (67.50)"
+    ],
+    "fails": [
+      "Zero success rate indicates objective not achieved",
+      "High mentor call count (15) suggests heavy guidance reliance"
+    ],
+    "summary": "Positive reward but no successful episode outcome; limited data prevents identifying concrete action patterns."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within the only episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with no host intel",
+      "then_action": "Run fast top-ports discovery scan to build initial map",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sS -T4 --top-ports 1000 -Pn",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771459653.3140283,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service port is found open",
+      "then_action": "Perform targeted service enumeration with version detection and default scripts",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC -p <port>",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771459653.314049,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step needed to improve early-stage visibility"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Attempt full recon and initial enumeration without mentor calls; compare time-to-discovery and reward.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific playbooks",
+      "description": "Add conditional follow-ups (e.g., HTTP: run dir enumeration; SSH: check auth methods) after initial enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective tracking checkpoints",
+      "description": "Add explicit mid-episode checkpoints to verify progress toward success criteria.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

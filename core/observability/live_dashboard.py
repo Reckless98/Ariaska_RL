@@ -1314,9 +1314,9 @@ class LiveDashboard:
         # ── Budget row ──
         if budget_snapshot:
             pressure = budget_snapshot.get("budget_pressure", 0)
-            mentor_rem = budget_snapshot.get("mentor_remaining", 0)
-            mentor_tot = budget_snapshot.get("mentor_total", 0)
-            venice_rem = budget_snapshot.get("venice_remaining", 0)
+            mentor_rem = budget_snapshot.get("mentor_budget_remaining", budget_snapshot.get("mentor_remaining", 0))
+            mentor_tot = budget_snapshot.get("mentor_budget_total", budget_snapshot.get("mentor_total", 0))
+            venice_rem = budget_snapshot.get("venice_budget_remaining", budget_snapshot.get("venice_remaining", 0))
             if pressure > 0.8:
                 p_style = "bold red"
                 p_icon = "🔴"

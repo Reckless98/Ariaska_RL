@@ -1,0 +1,154 @@
+{
+  "run_id": "run_20260219_013305_53c7e4",
+  "timestamp": 1771461194.7640429,
+  "key_outcomes": {
+    "wins": [
+      "Achieved non-zero total reward indicating partial task completion",
+      "Maintained stable reward across the single episode (no regression within the run)"
+    ],
+    "fails": [
+      "Success rate at 0.00% indicates no full objective completion",
+      "High mentor call count (15) suggests reliance on assistance",
+      "Only one episode provides limited learning signal and poor generalization"
+    ],
+    "summary": "The run shows some partial progress but failed to complete objectives; reliance on mentorship and limited episode count hindered overall success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to reach end-to-end objective completion despite partial rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependency during decision points",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_02",
+        "ep001_mentor_call_03",
+        "ep001_mentor_call_04",
+        "ep001_mentor_call_05",
+        "ep001_mentor_call_06",
+        "ep001_mentor_call_07",
+        "ep001_mentor_call_08",
+        "ep001_mentor_call_09",
+        "ep001_mentor_call_10",
+        "ep001_mentor_call_11",
+        "ep001_mentor_call_12",
+        "ep001_mentor_call_13",
+        "ep001_mentor_call_14",
+        "ep001_mentor_call_15"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode yields partial reward but no success",
+      "then_action": "Perform a step-by-step post-mortem to identify the last successful action and the first failing action, then add a corrective hypothesis",
+      "parameters_template": {
+        "log_window": "last_20_steps",
+        "focus": "transition_point"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461209.7668939,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Pause and create a decision checklist to reduce reliance on assistance",
+      "parameters_template": {
+        "checklist_items": [
+          "objective",
+          "current_state",
+          "next_action",
+          "risk",
+          "expected_output"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_10"
+      ],
+      "created_at": 1771461209.7669172,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When only one episode exists for a run",
+      "then_action": "Run at least 3 additional episodes with varied parameters to validate stability of strategies",
+      "parameters_template": {
+        "min_additional_episodes": 3,
+        "variation": "moderate"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260219_013305_53c7e4"
+      ],
+      "created_at": 1771461209.766933,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishes a repeatable diagnostic process to convert partial progress into full objective completion"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Multi-episode stability test",
+      "description": "Execute 3\u20135 additional episodes with moderate parameter variation to validate whether partial rewards can convert into full success",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor reduction protocol",
+      "description": "Implement a decision checklist at each mentor call to reduce reliance and improve autonomous action selection",
+      "priority": "high"
+    },
+    {
+      "title": "Failure transition audit",
+      "description": "Review the last 20 steps of the episode to identify the first failure point and test a corrected action sequence",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

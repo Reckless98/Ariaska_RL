@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260219_111839_b098a9",
+  "timestamp": 1771496339.7767134,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (70.0) despite single-episode run",
+      "High mentor engagement (10 calls) suggests active guidance utilization"
+    ],
+    "fails": [
+      "Zero task success rate (0.00%)",
+      "Only one episode limits generalization and learning signal"
+    ],
+    "summary": "The run shows constructive reward accumulation with strong mentor usage, but no objective success and insufficient episode coverage to validate reliable behavior."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objectives not completed despite positive reward accumulation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When guidance is available and progress stalls",
+      "then_action": "Request targeted mentor clarification on next actionable step",
+      "parameters_template": {
+        "question_focus": "next_action",
+        "context": "current_state_summary"
+      },
+      "confidence": 0.67,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ],
+      "created_at": 1771496350.9565825,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When only a single episode has completed",
+      "then_action": "Run additional episodes to validate success behaviors",
+      "parameters_template": {
+        "min_additional_episodes": 5
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260219_111839_b098a9"
+      ],
+      "created_at": 1771496350.9565923,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Mentor engagement was consistently used during the run"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode coverage",
+      "description": "Run 5-10 additional episodes with consistent goal tracking to validate if positive reward converts into objective success.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-guided checkpoints",
+      "description": "Add structured checkpoints every N steps to ask the mentor for the highest-value next action and compare success rates.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-success alignment",
+      "description": "Instrument per-step reward vs. objective progress to identify where reward is being earned without completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

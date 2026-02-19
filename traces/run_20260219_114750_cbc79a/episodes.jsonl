@@ -1,0 +1,1 @@
+{"episode_id": "run_20260219_114750_cbc79a_ep0000", "run_id": "run_20260219_114750_cbc79a", "episode_number": 0, "start_time": 1771498070.380041, "end_time": 1771498086.8267226, "total_reward": 70.0, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"gpt-5.2-codex": 10}, "avg_confidence": 0.5, "duration": 16.44668173789978}

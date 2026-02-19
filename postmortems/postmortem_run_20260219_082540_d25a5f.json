@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260219_082540_d25a5f",
+  "timestamp": 1771485948.0475187,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive total reward despite failure to reach objective",
+      "Engaged mentor guidance consistently (10 calls)"
+    ],
+    "fails": [
+      "No successful episode completion (0% success rate)",
+      "Likely stalled in mid\u2011kill\u2011chain transition from recon to exploitation",
+      "Insufficient validation of attack surface before commit actions"
+    ],
+    "summary": "The run achieved incremental progress and learning signals but failed to convert reconnaissance into a successful exploitation path."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Pivoted to exploitation attempts without confirming service versions/credentials",
+      "frequency": 3,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step18",
+        "ep001_step27"
+      ]
+    },
+    {
+      "pattern": "High mentor dependence when encountering ambiguous enumeration results",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step9",
+        "ep001_step16",
+        "ep001_step22"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP service is detected but version info is missing",
+      "then_action": "Run targeted service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p {port} {target}"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771485962.2748313,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is open",
+      "then_action": "Perform focused web enumeration",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://{target}:{port}/ -w {wordlist} -t 20"
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771485962.2748394,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected and banner is present",
+      "then_action": "Enumerate SSH configuration and weak auth vectors",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-* {target}"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step14"
+      ],
+      "created_at": 1771485962.274844,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent recon reward signal and foundational for later kill-chain steps"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Gatekeeping",
+      "description": "Enforce a checklist that requires version and config confirmation before any exploit attempt.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Enumeration Playbooks",
+      "description": "Automate branching to HTTP/SSH/SMB enumeration workflows immediately after discovery.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Drill",
+      "description": "Run a trial with a hard limit of 3 mentor calls to build independent analysis.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

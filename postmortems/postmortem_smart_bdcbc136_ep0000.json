@@ -1,0 +1,105 @@
+{
+  "run_id": "smart_bdcbc136_ep0000",
+  "timestamp": 1771463291.0417938,
+  "key_outcomes": {
+    "wins": [
+      "High total reward in the only episode (917.58) indicates some effective behavior patterns despite failure"
+    ],
+    "fails": [
+      "Success rate is 0% across the single episode",
+      "No mentor calls or corrective guidance leveraged",
+      "Insufficient episode data to confirm repeatable successes"
+    ],
+    "summary": "Single-episode run with high reward but zero task success; limited data prevents reliable pattern extraction."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Task completion failure despite positive reward signals",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_smart_bdcbc136_ep0000"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new episode with unknown objective completion criteria",
+      "then_action": "Validate success conditions early by checking environment signals or task endpoints before deep exploration",
+      "parameters_template": {
+        "checkpoints": [
+          "status_endpoint",
+          "flag_location",
+          "objective_state"
+        ]
+      },
+      "confidence": 0.4,
+      "evidence_refs": [
+        "run_smart_bdcbc136_ep0000"
+      ],
+      "created_at": 1771463302.807029,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward is accumulating but success is not achieved",
+      "then_action": "Insert periodic success validation steps and adjust strategy if no progress toward success markers",
+      "parameters_template": {
+        "validation_interval_steps": 20,
+        "adjustment_threshold": 2
+      },
+      "confidence": 0.35,
+      "evidence_refs": [
+        "run_smart_bdcbc136_ep0000"
+      ],
+      "created_at": 1771463302.8070433,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Early success-condition validation is critical given zero success despite high reward."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Add success-condition probes",
+      "description": "Introduce explicit checks for success conditions at fixed intervals to detect divergence early.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-success alignment audit",
+      "description": "Instrument the run to log actions leading to reward spikes and verify if they align with success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-guided run",
+      "description": "Enable mentor calls to provide corrective guidance when success markers are not advancing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

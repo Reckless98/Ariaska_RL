@@ -1,0 +1,1 @@
+{"episode_id": "run_20260219_013502_dfce22_ep0000", "run_id": "run_20260219_013502_dfce22", "episode_number": 0, "start_time": 1771461302.6161711, "end_time": 1771461311.712556, "total_reward": 50.0, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"gpt-5.2-codex": 10}, "avg_confidence": 0.5, "duration": 9.096384763717651}

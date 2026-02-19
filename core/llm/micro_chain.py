@@ -198,12 +198,20 @@ def _build_cache_key(
     """Build a stable, low-entropy cache key."""
     ports = sorted(str(p) for p in discovery_board.get("ports", []))
     services = sorted(str(s) for s in discovery_board.get("services", []))
-    stag_bucket = stagnation_steps // 3
+    # Phase 38 B2: Semantic stagnation tiers instead of integer division
+    if stagnation_steps == 0:
+        stag_tier = "fresh"
+    elif stagnation_steps <= 3:
+        stag_tier = "warming"
+    elif stagnation_steps <= 8:
+        stag_tier = "stale"
+    else:
+        stag_tier = "stuck"
     # Hash templates list for stability
     tmpl_hash = hashlib.md5(
         ",".join(sorted(available_templates[:20])).encode()
     ).hexdigest()[:8]
-    return f"mc:{phase}:{','.join(ports[:10])}:{','.join(services[:10])}:{agent_role}:{stag_bucket}:{tmpl_hash}"
+    return f"mc:{phase}:{','.join(ports[:10])}:{','.join(services[:10])}:{agent_role}:{stag_tier}:{tmpl_hash}"
 
 
 # ── MicroChain Class ───────────────────────────────────────────────────────
@@ -273,14 +281,14 @@ class MicroChain:
             stages_used.append("nano_classify")
             total_tokens += 80  # estimate
 
-        # ── Stage 2: Generate candidates (mini) ─────────────────────
+        # ── Stage 2: Generate candidates (codex) ─────────────────────
         candidates = self._generate_candidates(
             phase, discovery_board, situation, available_templates, agent_role
         )
         if candidates is None:
             logger.debug("[MICRO-CHAIN] Stage 2 failed (malformed JSON), returning None")
             return None
-        stages_used.append("mini_generate")
+        stages_used.append("codex_generate")
         total_tokens += 200  # estimate
 
         if not candidates:
@@ -299,7 +307,7 @@ class MicroChain:
                 logger.debug("[MICRO-CHAIN] All candidates filtered (no template match)")
                 return None
 
-        # ── Stage 3: Score candidates (nano or heuristic) ─────────────
+        # ── Stage 3: Score candidates (codex or heuristic) ─────────────
         if NANO_ABLATION:
             scored = self._heuristic_select(candidates, recent_commands)
             stages_used.append("heuristic_score")
@@ -307,7 +315,7 @@ class MicroChain:
             scored = self._score_candidates(
                 candidates, phase, discovery_board, recent_commands
             )
-            stages_used.append("nano_score")
+            stages_used.append("codex_score")
             total_tokens += 100  # estimate
 
             if scored is None:
@@ -462,18 +470,18 @@ class MicroChain:
             f"No markdown, no explanation outside JSON."
         )
 
-        # P36.1: Route via 70/30 nano/mini mix for generation calls
-        # Stage 2 always uses mini (it's the generation stage)
-        _gen_model = "gpt-5.2-mini"
-        self._mini_calls += 1
+        # MODEL POLICY: codex for all schema-bound JSON generation.
+        _gen_model = "gpt-5.2-codex"
+        self._codex_calls = getattr(self, '_codex_calls', 0) + 1
 
         try:
             response = self._gpt.gpt_request(
                 prompt=prompt,
-                task_type="tactical",
+                task_type="analysis",
                 agent_id="micro_chain",
                 max_tokens=400,
                 model=_gen_model,
+                timeout=20,
             )
             parsed = _safe_json_load_list(response)
             if parsed is None:
@@ -540,20 +548,19 @@ class MicroChain:
             f"No markdown."
         )
 
-        # Try nano first (70% of learning-support calls should be nano)
-        for _attempt, model in enumerate(["gpt-5-nano", "gpt-5.2-mini"]):
+        # MODEL POLICY: codex for schema-bound JSON fill/enrich.
+        for _attempt in range(2):
+            _fill_model = "gpt-5.2-codex"
             try:
-                if model == "gpt-5-nano":
-                    self._nano_calls += 1
-                else:
-                    self._mini_calls += 1
+                self._codex_calls = getattr(self, '_codex_calls', 0) + 1
 
                 resp = self._gpt.gpt_request(
                     prompt=fill_prompt,
-                    task_type="classification",
+                    task_type="analysis",
                     agent_id="micro_chain",
                     max_tokens=250,
-                    model=model,
+                    model=_fill_model,
+                    timeout=20,
                 )
                 parsed = _safe_json_load_list(resp)
                 if not parsed:
@@ -586,7 +593,7 @@ class MicroChain:
                     logger.debug("[MICRO-CHAIN] P36.1: nano fill incomplete, escalating to mini")
                     continue
             except Exception as e:
-                logger.debug(f"[MICRO-CHAIN] P36.1: fill_quality_fields failed ({model}): {e}")
+                logger.debug(f"[MICRO-CHAIN] P36.1: fill_quality_fields failed ({_fill_model}): {e}")
                 continue
 
         # Final fallback: set defaults for any remaining incomplete fields
@@ -628,12 +635,14 @@ class MicroChain:
         # P34-EXT: Retry loop (max 2 attempts) with schema validation
         for _attempt in range(2):
             try:
+                # MODEL POLICY: codex for schema-bound JSON scoring.
                 response = self._gpt.gpt_request(
                     prompt=prompt,
-                    task_type="classification",
+                    task_type="analysis",
                     agent_id="micro_chain",
                     max_tokens=200,
-                    model="gpt-5-nano",
+                    model="gpt-5.2-codex",
+                    timeout=20,
                 )
                 parsed = _safe_json_load_list(response)
                 if parsed is None:
@@ -726,10 +735,11 @@ class MicroChain:
         try:
             response = self._gpt.gpt_request(
                 prompt=prompt,
-                task_type="tactical",
+                task_type="analysis",
                 agent_id="micro_chain",
                 max_tokens=200,
                 model="gpt-5.2-codex",
+                timeout=30,
             )
             obj = _safe_json_load(response)
             if obj and obj.get("command"):

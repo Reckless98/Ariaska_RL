@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260219_034253_3c8d45",
+  "timestamp": 1771468993.5555675,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high total reward despite zero successes, indicating partial progress within the episode",
+      "Completed the full episode without early termination"
+    ],
+    "fails": [
+      "Success rate was 0%, indicating no episode-level objective completion",
+      "High mentor call count (15) suggests low autonomy or uncertainty in decision-making"
+    ],
+    "summary": "Single-episode run showed good reward accumulation but failed to achieve the objective; reliance on mentor calls indicates inconsistent execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert intermediate progress into objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    },
+    {
+      "pattern": "High dependency on mentor guidance during the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_overall"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial service discovery is incomplete or uncertain",
+      "then_action": "Run a full TCP port scan with service/version detection to establish baseline attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -sV -sC -T4 --reason"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771469006.758502,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports (80/443/8080)",
+      "then_action": "Perform directory and content enumeration to identify hidden endpoints",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http(s)://<target> -w <wordlist> -x php,txt,html"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771469006.7585216,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected but no credentials are known",
+      "then_action": "Enumerate SSH configuration and check for weak auth paths before attempting access",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-* <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_overall"
+      ],
+      "created_at": 1771469006.758531,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishing a reliable baseline scan is foundational when success rate is zero."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance via deterministic recon flow",
+      "description": "Enforce a fixed recon sequence (full TCP scan -> service scripts -> web enumeration) before requesting guidance to improve autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused decision checkpoints",
+      "description": "Insert explicit checkpoints after recon to select a single exploitation path, aiming to convert progress into completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Time-boxed enumeration",
+      "description": "Apply strict time limits to enumeration steps to avoid over-scanning and increase focus on exploitation attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

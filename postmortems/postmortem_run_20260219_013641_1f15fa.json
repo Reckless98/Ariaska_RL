@@ -1,0 +1,152 @@
+{
+  "run_id": "run_20260219_013641_1f15fa",
+  "timestamp": 1771461423.5518825,
+  "key_outcomes": {
+    "wins": [
+      "Maintained steady reward signal across the single episode",
+      "Used mentor calls to recover from uncertainty and continue progression",
+      "Completed at least one reconnaissance phase without crashing the episode"
+    ],
+    "fails": [
+      "No episode-level success (0% success rate)",
+      "Over-reliance on mentor calls (15 calls in 1 episode)",
+      "Insufficient conversion from recon to exploitation/post-exploitation",
+      "Lack of decisive kill-chain advancement beyond initial discovery"
+    ],
+    "summary": "Single-episode run with stable reward but no mission success; the agent relied heavily on mentor guidance and failed to translate reconnaissance into tangible compromise."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Excessive mentor usage during decision points instead of executing a concrete next action",
+      "frequency": 15,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05",
+        "ep001_step08",
+        "ep001_step11",
+        "ep001_step14"
+      ]
+    },
+    {
+      "pattern": "Reconnaissance did not lead to exploitation attempts or credential access",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step16"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery identifies at least one live target",
+      "then_action": "Run targeted TCP port scan on top 1000 ports to establish service surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T3 -Pn --top-ports 1000 -oN scan_top1000.txt",
+        "target": "<ip>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771461441.7600327,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service (80/443) is detected during scanning",
+      "then_action": "Perform lightweight web fingerprinting and directory discovery",
+      "parameters_template": {
+        "tool": "whatweb",
+        "args": "-v <url>",
+        "followup_tool": "gobuster",
+        "followup_args": "dir -u <url> -w /usr/share/wordlists/dirb/common.txt -t 20"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07",
+        "ep001_step09"
+      ],
+      "created_at": 1771461441.7600453,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (22) is open and banner indicates OpenSSH",
+      "then_action": "Enumerate SSH version and attempt authentication audit without brute-force",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh2-enum-algos,ssh-hostkey -oN ssh_enum.txt <ip>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step12"
+      ],
+      "created_at": 1771461441.7600539,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early reconnaissance behavior despite overall failure"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web recon pattern appears to be the most concrete action path"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Bridge",
+      "description": "After port/service enumeration, enforce a decision rule to select one high-value service and attempt a specific exploitation or credential access pathway within 3 steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Budget",
+      "description": "Cap mentor calls to <=5 per episode and require execution of a concrete action (scan/exploit/enum) before any new mentor request.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-Specific Playbooks",
+      "description": "Add playbooks for SSH, HTTP, and SMB to force enumeration depth (version, config, and weak creds checks) before moving on.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

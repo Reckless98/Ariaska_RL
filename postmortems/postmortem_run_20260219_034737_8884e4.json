@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260219_034737_8884e4",
+  "timestamp": 1771469279.9748063,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high total reward (90.00) despite single episode"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates objective not completed",
+      "Only one episode limits generalization and pattern confidence"
+    ],
+    "summary": "Single-episode run yielded high reward but no successful completion; more episodes needed to validate behaviors and improve success rate."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert high intermediate reward into episode success",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_034737_8884e4_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When reconnaissance yields partial progress but objective not yet achieved",
+      "then_action": "Pause and re-validate target scope and goals, then re-run focused recon on highest-value services",
+      "parameters_template": {
+        "recon_tool": "nmap",
+        "scan_type": "-sV -sC",
+        "target": "<target_ip>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260219_034737_8884e4_ep001"
+      ],
+      "created_at": 1771469290.0043025,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a single episode ends without success",
+      "then_action": "Increase episode count and vary exploration strategy to validate robustness",
+      "parameters_template": {
+        "episodes": 5,
+        "exploration_strategy": "epsilon-greedy"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260219_034737_8884e4_ep001"
+      ],
+      "created_at": 1771469290.0043118,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward suggests strong intermediate recon behavior worth reinforcing"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Multi-episode validation",
+      "description": "Run 5\u201310 episodes to confirm whether high reward behaviors consistently lead to success.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon refinement sweep",
+      "description": "Repeat reconnaissance with -sV -sC on discovered services to find missed exploitation paths.",
+      "priority": "high"
+    },
+    {
+      "title": "Strategy diversification",
+      "description": "Adjust exploration parameters (e.g., epsilon 0.2\u21920.4) to avoid local optima.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

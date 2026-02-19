@@ -25,7 +25,7 @@ Usage:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,12 @@ class OutputParser:
             result.command = command
             result.tool = tool
             result.raw_output_length = len(output)
-            
+
+            # Phase 38.1: Post-parse normalization + validation
+            self._normalize_services(result)
+            self._guard_credentials(result)
+            self._sanitize_web_paths(result)
+
             # Update global discovery tracking
             self._update_global_discoveries(result)
             
@@ -939,3 +944,138 @@ class OutputParser:
             result.success = True
 
         return result
+
+    # ── Phase 38.1: Post-parse normalization ──────────────────────────────
+
+    # Canonical service name mapping — collapse aliases into canonical forms
+    # so "http" and "HTTP" and "www" and "httpd" all become "http".
+    _SERVICE_ALIASES: Dict[str, str] = {
+        "www": "http", "httpd": "http", "apache": "http", "nginx": "http",
+        "www-http": "http", "http-proxy": "http",
+        "ssl/http": "https", "ssl/https": "https", "http-ssl": "https",
+        "sshd": "ssh", "openssh": "ssh",
+        "smbd": "smb", "microsoft-ds": "smb", "netbios-ssn": "smb",
+        "ftpd": "ftp", "vsftpd": "ftp", "proftpd": "ftp",
+        "mysqld": "mysql", "mariadb": "mysql",
+        "postgres": "postgresql",
+        "domain": "dns", "named": "dns",
+        "imapd": "imap", "imap4": "imap",
+        "pop3d": "pop3", "pop-3": "pop3",
+        "smtp": "smtp", "smtpd": "smtp", "postfix": "smtp",
+        "ms-sql-s": "mssql", "ms-sql": "mssql",
+        "rpcbind": "rpc",
+    }
+
+    # Well-known ports → expected service (for validation)
+    _PORT_SERVICE_MAP: Dict[int, str] = {
+        21: "ftp", 22: "ssh", 25: "smtp", 53: "dns",
+        80: "http", 110: "pop3", 111: "rpc", 139: "smb",
+        143: "imap", 443: "https", 445: "smb", 993: "imaps",
+        995: "pop3s", 1433: "mssql", 1521: "oracle",
+        3306: "mysql", 3389: "rdp", 5432: "postgresql",
+        5900: "vnc", 6379: "redis", 8080: "http", 8443: "https",
+        27017: "mongodb",
+    }
+
+    # Junk web paths to filter out
+    _JUNK_WEB_PATHS: FrozenSet[str] = frozenset({
+        "/", "/index.html", "/index.php", "/favicon.ico",
+        "/.htaccess", "/.htpasswd", "/server-status",
+        "/cgi-bin/", "/icons/", "/manual/",
+    })
+
+    # Credential false positive patterns — match whole credential values only
+    _CRED_FALSE_POSITIVES = re.compile(
+        r"^(?:"
+        r"example\.com|test@test|admin:admin|root:root|"
+        r"user:pass|username:password|changeme|"
+        r"\*\*\*|xxx|placeholder"
+        r")$",
+        re.IGNORECASE,
+    )
+
+    def _normalize_services(self, result: ParsedOutput) -> None:
+        """
+        Normalize discovered services to canonical names.
+
+        Collapses aliases (httpd → http, vsftpd → ftp, etc.) and
+        validates port↔service consistency.
+        """
+        if not result.services:
+            return
+
+        normalized: Dict[int, str] = {}
+        for port, svc in result.services.items():
+            svc_lower = svc.strip().lower()
+            canonical = self._SERVICE_ALIASES.get(svc_lower, svc_lower)
+            normalized[port] = canonical
+
+        result.services = normalized
+
+    def _guard_credentials(self, result: ParsedOutput) -> None:
+        """
+        Filter out credential false positives.
+
+        Rejects placeholder/example credentials and empty values.
+        """
+        if not result.credentials:
+            return
+
+        clean: List[Dict[str, str]] = []
+        for cred in result.credentials:
+            username = cred.get("username", "").strip()
+            password = cred.get("password", "").strip()
+
+            # Skip empty
+            if not username and not password:
+                continue
+
+            # Skip false positives
+            combined = f"{username}:{password}"
+            if self._CRED_FALSE_POSITIVES.search(combined):
+                logger.debug("Credential false positive filtered: %s", username[:20])
+                continue
+
+            # Skip very short passwords (< 2 chars → likely parsing noise)
+            if password and len(password) < 2:
+                continue
+
+            clean.append(cred)
+
+        result.credentials = clean
+
+    def _sanitize_web_paths(self, result: ParsedOutput) -> None:
+        """
+        Sanitize discovered web paths.
+
+        Removes junk paths (/, /index.html, etc.), deduplicates,
+        and normalizes trailing slashes.
+        """
+        if not result.web_paths:
+            return
+
+        clean: List[str] = []
+        seen: Set[str] = set()
+        for path in result.web_paths:
+            path = path.strip()
+            if not path:
+                continue
+
+            # Normalize: remove trailing slash for comparison (except root /)
+            norm = path.rstrip("/") if len(path) > 1 else path
+
+            # Skip junk
+            if norm in self._JUNK_WEB_PATHS or path in self._JUNK_WEB_PATHS:
+                continue
+
+            # Skip local filesystem paths
+            if norm.startswith("/usr/") or norm.startswith("/etc/") or norm.startswith("/var/"):
+                continue
+
+            # Dedup
+            if norm in seen:
+                continue
+            seen.add(norm)
+            clean.append(path)
+
+        result.web_paths = clean

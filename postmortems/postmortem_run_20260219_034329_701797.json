@@ -1,0 +1,147 @@
+{
+  "run_id": "run_20260219_034329_701797",
+  "timestamp": 1771469014.7549756,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate, indicating partial task progress"
+    ],
+    "fails": [
+      "Success rate 0% across the only episode",
+      "High mentor call count (10) suggests over-reliance or uncertainty in decision-making"
+    ],
+    "summary": "Single-episode run shows partial progress but no successful completion; guidance dependence is high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert partial progress into episode success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_final"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor dependence during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step2",
+        "ep001_step4",
+        "ep001_step6",
+        "ep001_step8",
+        "ep001_step10",
+        "ep001_step12",
+        "ep001_step14",
+        "ep001_step16",
+        "ep001_step18",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance is required at the start of an episode",
+      "then_action": "Run fast port scan to establish attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 -Pn --top-ports 100"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step1"
+      ],
+      "created_at": 1771469028.0585139,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a service is detected on a common port",
+      "then_action": "Perform service/version detection on that port",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p <port>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1771469028.0585268,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When progress stalls after recon results",
+      "then_action": "Prioritize highest-value service for targeted enumeration",
+      "parameters_template": {
+        "priority": "web > ssh > smb",
+        "note": "select based on service banner"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1771469028.0585353,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishes consistent baseline recon to reduce mentor dependency."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Service/version detection is a foundational step for subsequent enumeration."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls with fixed recon playbook",
+      "description": "Run a full episode using only the recon + targeted enumeration sequence without mentor input unless completely blocked.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-first exploitation decision rule",
+      "description": "After detection, enforce a decision rule to target the most promising service (e.g., web first) to drive toward completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Time-boxed enumeration",
+      "description": "Set a strict limit of two tools per service to avoid stalling and push toward actionable findings.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

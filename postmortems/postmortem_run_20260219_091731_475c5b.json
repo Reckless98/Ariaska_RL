@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260219_091731_475c5b",
+  "timestamp": 1771489073.2374141,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward indicates some progress toward objectives despite overall failure"
+    ],
+    "fails": [
+      "Success rate was 0.00% across 1 episode",
+      "Insufficient episode/step evidence to identify concrete successful tactics"
+    ],
+    "summary": "Single-episode run with positive reward but no successful completion; insufficient telemetry to confirm reliable tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode did not achieve success criteria before termination",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_091731_475c5b_ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance starts and no host inventory exists",
+      "then_action": "Perform fast TCP top-ports scan with service detection to build baseline",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 --top-ports 1000 -sV -oN recon_baseline.txt"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [
+        "run_20260219_091731_475c5b_ep001_start"
+      ],
+      "created_at": 1771489086.3413765,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a single host is identified and reward stagnates",
+      "then_action": "Enumerate web surface quickly to uncover low-hanging paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<host> -w /usr/share/wordlists/dirb/common.txt -t 50 -o web_enum.txt"
+      },
+      "confidence": 0.3,
+      "evidence_refs": [
+        "run_20260219_091731_475c5b_ep001_mid"
+      ],
+      "created_at": 1771489086.3413928,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is prerequisite for subsequent steps in a single-episode run"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Improve telemetry capture",
+      "description": "Log episode steps with timestamps, tool output, and decision points to enable evidence-backed pattern extraction",
+      "priority": "high"
+    },
+    {
+      "title": "Add success criteria checkpoints",
+      "description": "Define intermediate success markers (e.g., host discovery, service identification, credential acquisition) to correlate reward with actions",
+      "priority": "high"
+    },
+    {
+      "title": "Branching recon strategies",
+      "description": "Compare fast top-ports scan vs full-range scan to determine which yields better downstream progress in single-episode trials",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

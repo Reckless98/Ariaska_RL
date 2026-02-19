@@ -1,0 +1,124 @@
+{
+  "run_id": "run_20260219_033700_f6bb51",
+  "timestamp": 1771468627.06286,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "Success rate 0% despite positive total reward, indicating objectives not met",
+      "High mentor call count (10) suggests heavy guidance and low autonomy",
+      "Only one episode limits generalization of learned behaviors"
+    ],
+    "summary": "Single-episode run yielded reward but no task success; learning appears guided and insufficiently effective."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance outputs into successful exploitation or objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to ping and top TCP ports are unknown",
+      "then_action": "Run fast TCP port discovery",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -T4 --top-ports 1000 -sS"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step2"
+      ],
+      "created_at": 1771468637.0862694,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open web ports (80/443) are found",
+      "then_action": "Perform web service fingerprinting",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 80,443 --script http-title,http-headers"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step4"
+      ],
+      "created_at": 1771468637.0862865,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (22) is detected",
+      "then_action": "Enumerate SSH server details",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh2-enum-algos,ssh-hostkey"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1771468637.0862978,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline port discovery is necessary to bootstrap later phases"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run at least 10 episodes with the same target profile to identify consistent success/failure patterns.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Introduce a mentor-call cap (e.g., max 2 per episode) to force autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Stage-gated success criteria",
+      "description": "Define explicit sub-goals (discovery, enumeration, exploitation) and require completion before progressing.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

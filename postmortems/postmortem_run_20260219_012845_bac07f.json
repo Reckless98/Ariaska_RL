@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260219_012845_bac07f",
+  "timestamp": 1771460949.1605785,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward achieved despite zero mission success",
+      "Consistent reward across the single episode suggests stable behavior"
+    ],
+    "fails": [
+      "Success rate at 0% indicates objectives not reached",
+      "High mentor call count (15) suggests heavy reliance on guidance",
+      "Only one episode limits trend validation"
+    ],
+    "summary": "The run accrued reward but failed to achieve mission success, indicating partial task completion without end-to-end objective fulfillment and reliance on mentor interventions."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Execution stalls before objective completion, resulting in zero success despite intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Overuse of mentor calls when transitioning from reconnaissance to exploitation",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When TCP ports are discovered in initial scan and service banners are available",
+      "then_action": "Run targeted version detection to prioritize exploitable services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771460964.0041208,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on common ports",
+      "then_action": "Enumerate web paths and technologies to identify attack surface",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target>:<port> -w <wordlist> -x php,asp,aspx,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771460964.0041373,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is exposed and password auth is enabled",
+      "then_action": "Validate credential strength with a constrained password audit before escalation",
+      "parameters_template": {
+        "tool": "hydra",
+        "args": "-l <user> -P <wordlist> ssh://<target> -t 4 -W 3"
+      },
+      "confidence": 0.51,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771460964.0041485,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable early-phase action that improves service prioritization"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Common web enumeration step that expands attack surface discovery"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency with structured decision gates",
+      "description": "Implement a fixed decision checklist after recon (service ranking \u2192 top 2 vectors \u2192 exploit attempt) to minimize mentor calls and improve end-to-end completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Objective-focused exploitation sprint",
+      "description": "Allocate a strict timebox for exploitation attempts after recon to force convergence on a single primary vector before switching.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive wordlist selection for web enumeration",
+      "description": "Test smaller, tech-specific wordlists based on detected stack to reduce noise and improve hit rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,129 @@
+{
+  "run_id": "run_20260219_120819_06ba49",
+  "timestamp": 1771499317.4881122,
+  "key_outcomes": {
+    "wins": [
+      "Maintained consistent reward signal across the single episode (reward=90.0)"
+    ],
+    "fails": [
+      "No successful episode completions (success rate 0.00%)",
+      "High mentor call count (10) indicates frequent guidance required"
+    ],
+    "summary": "Single-episode run shows stable reward but no task completion; guidance dependency remains high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert positive reward into a successful task completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_120819_06ba49_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery identifies live targets",
+      "then_action": "Run fast port scan with service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -sV -Pn -T4 --top-ports 1000"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260219_120819_06ba49"
+      ],
+      "created_at": 1771499331.405976,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS services are detected",
+      "then_action": "Perform web fingerprinting and content discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "gobuster_args": "dir -u http://<host> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "run_20260219_120819_06ba49"
+      ],
+      "created_at": 1771499331.4059896,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on a target",
+      "then_action": "Enumerate SSH configuration and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh2-enum-algos",
+        "port": 22
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260219_120819_06ba49"
+      ],
+      "created_at": 1771499331.4060006,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Fundamental recon step needed to reduce mentor calls and improve task completion likelihood"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency in recon",
+      "description": "Run a full recon chain without mentor calls: host discovery -> port scan -> service enum; measure time-to-first-service and completion rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-driven branching",
+      "description": "Trigger conditional workflows based on discovered services (web/ssh/smb) and log completion outcomes per branch.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-success alignment check",
+      "description": "Inspect reward shaping signals to confirm they correlate with objective completion; adjust thresholds or add terminal success reward.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

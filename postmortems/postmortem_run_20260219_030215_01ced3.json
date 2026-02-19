@@ -1,0 +1,109 @@
+{
+  "run_id": "run_20260219_030215_01ced3",
+  "timestamp": 1771466556.0652065,
+  "key_outcomes": {
+    "wins": [
+      "Consistent reconnaissance steps executed (service discovery and banner collection)"
+    ],
+    "fails": [
+      "No successful exploitation or post-exploitation actions completed",
+      "No episode-level success achieved despite positive reward"
+    ],
+    "summary": "Reconnaissance actions were completed but the run failed to convert findings into a successful compromise."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance performed without follow-up enumeration or exploitation path selection",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step08"
+      ]
+    },
+    {
+      "pattern": "Lack of privilege escalation or lateral movement after initial access attempts",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step14"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host responds to ICMP or TCP SYN during discovery",
+      "then_action": "Run targeted service/version scan on top ports",
+      "parameters_template": {
+        "ports": "22,80,443,445,3389",
+        "flags": "-sV -sC"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771466566.2992423,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on port 80 or 443",
+      "then_action": "Enumerate web paths and technologies",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771466566.2992604,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Effective baseline recon pattern that should be reused as a default next step"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit-path selection after service discovery",
+      "description": "After identifying services, map each to a concrete exploitation or credential attack path rather than stopping at enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Web enumeration depth increase",
+      "description": "Increase wordlist size and add vhost fuzzing when HTTP is found to improve discovery of hidden endpoints.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential reuse checks",
+      "description": "If any credentials or hashes are found, test against all discovered services to enable lateral movement.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

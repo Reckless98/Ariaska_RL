@@ -1,0 +1,100 @@
+{
+  "run_id": "run_20260219_013428_97f840",
+  "timestamp": 1771461288.9366436,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward despite single-episode run",
+      "Mentor guidance utilized (15 calls) indicating active learning attempts"
+    ],
+    "fails": [
+      "Success rate 0% indicates no objective completion",
+      "Single episode limits reliability and pattern confidence"
+    ],
+    "summary": "The run shows some reward accumulation but failed to achieve a successful episode; more targeted actions and additional episodes are needed to validate improvements."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within the episode despite mentor guidance",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields limited results",
+      "then_action": "Expand service discovery with full TCP scan and version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -sV -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [],
+      "created_at": 1771461300.3897297,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on common ports (80/443)",
+      "then_action": "Run directory and technology enumeration to map attack surface",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "whatweb"
+        ],
+        "gobuster_args": "dir -u http(s)://<target> -w <wordlist>",
+        "whatweb_args": "<target_url>"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [],
+      "created_at": 1771461300.3897443,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Generalizable reconnaissance step to improve coverage in early phase"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern validation",
+      "description": "Run at least 5 episodes with consistent recon-to-exploit workflow to identify stable success patterns and reduce variance.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call efficiency",
+      "description": "Cap mentor calls per episode and measure reward impact to encourage independent decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon depth A/B test",
+      "description": "Compare standard top-ports scan versus full TCP scan with version detection to see which leads to higher objective completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

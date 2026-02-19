@@ -1,0 +1,120 @@
+{
+  "run_id": "run_20260219_100521_015d03",
+  "timestamp": 1771491932.5694172,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward (40.00) indicating some progress/actions produced value",
+      "Used mentor calls (10) suggesting active guidance usage"
+    ],
+    "fails": [
+      "Success rate was 0.00% across the run",
+      "Only one episode completed, limiting learning diversity and generalization"
+    ],
+    "summary": "The run produced a positive reward but failed to achieve any successful episode outcomes; more effective, targeted actions are needed to convert partial progress into wins."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to convert partial progress into a completed objective within the episode",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial recon yields limited signal or no clear service targets",
+      "then_action": "Run a comprehensive TCP port scan to expand the attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "options": "-p- -sS -sV -T4 --reason",
+        "target": "<ip>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [],
+      "created_at": 1771491950.1836698,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected on standard ports (80/443)",
+      "then_action": "Enumerate web directories and technologies to identify attack paths",
+      "parameters_template": {
+        "tool": "gobuster",
+        "options": "dir -u http(s)://<ip> -w /usr/share/wordlists/dirb/common.txt -t 50",
+        "follow_up": "whatweb http(s)://<ip>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [],
+      "created_at": 1771491950.1836839,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (port 22) is open and banner is detected",
+      "then_action": "Perform SSH-focused enumeration to assess version and weak configs",
+      "parameters_template": {
+        "tool": "nmap",
+        "options": "-p 22 --script ssh-* <ip>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [],
+      "created_at": 1771491950.1836932,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Broad recon increases the chance of discovering viable attack paths in low-signal runs"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Full-scope reconnaissance baseline",
+      "description": "Run full TCP scan and version detection, then prioritize services with known exploit paths; track which services produce actionable leads.",
+      "priority": "high"
+    },
+    {
+      "title": "Web enumeration deep dive",
+      "description": "If HTTP/HTTPS is present, perform directory brute-force and technology fingerprinting before moving to other services.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific enumeration checklists",
+      "description": "For any discovered service (SSH/SMB/FTP/HTTP), execute a minimal checklist of enumeration commands before exploitation attempts.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

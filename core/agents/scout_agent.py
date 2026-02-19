@@ -128,6 +128,10 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         }
         
         logger.debug(f"{self.agent_id} initialized")
+
+        # OPS pre-flight state tracking
+        self._ops_preflight_done = False
+        self._discovered_domain: Optional[str] = None
         
     def _init_multiagent_links(self):
         """Initialize links to other agents in the system"""
@@ -578,6 +582,125 @@ class ScoutAgent(AgentInterface, MemorySyncInterface):
         """Reset agent state for a new episode."""
         self.scan_history = []
         self.command_history = []
+        self._ops_preflight_done = False
+        self._discovered_domain = None
+
+    # ── OPS Authority: Environment Preparation ────────────────────────
+
+    def ops_pre_flight(
+        self,
+        target_ip: str,
+        domain: Optional[str] = None,
+        tools: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Run OPS pre-flight checks before attack loop (step 0).
+
+        Responsibilities:
+          - Ensure /etc/hosts contains target domain mappings.
+          - Verify required tools are available.
+          - Install missing tools if FF_ALLOW_LIVE_INSTALL is enabled.
+
+        Args:
+            target_ip: Target IP address.
+            domain: Known domain (from --domain CLI arg).
+            tools: List of tool names to verify.
+
+        Returns:
+            Dict with pre-flight results.
+        """
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+
+        results: Dict[str, Any] = {
+            "hosts_configured": False,
+            "tools_verified": {},
+            "tools_installed": [],
+            "domain": domain,
+            "preflight_complete": False,
+        }
+
+        if not ff.ops_preflight:
+            logger.info("OPS pre-flight disabled (FF_OPS_PREFLIGHT=0)")
+            results["preflight_complete"] = True
+            self._ops_preflight_done = True
+            return results
+
+        # ── 1. Hosts preparation ────────────────────────────────────
+        if domain:
+            try:
+                from core.ops.sudo_handler import SudoHandler
+                from core.ops.hosts_manager import HostsManager
+                sudo = SudoHandler()
+                hosts = HostsManager(sudo)
+                results["hosts_configured"] = hosts.ensure_entry(target_ip, domain)
+                self._discovered_domain = domain
+                logger.info("OPS hosts configured: %s → %s", target_ip, domain)
+            except Exception as exc:
+                logger.warning("OPS hosts setup failed: %s", exc)
+
+        # ── 2. Tool verification ────────────────────────────────────
+        if tools:
+            try:
+                from core.ops.sudo_handler import SudoHandler
+                from core.ops.tool_installer import ToolInstaller
+                sudo = SudoHandler()
+                installer = ToolInstaller(sudo)
+                results["tools_verified"] = installer.pre_flight_check(tools)
+
+                # Install missing if allowed
+                if ff.allow_live_install:
+                    for tool_name, available in results["tools_verified"].items():
+                        if not available:
+                            attempt = installer.install_missing(
+                                tool_name, gpt_manager=self.gpt_manager,
+                            )
+                            if attempt.success:
+                                results["tools_installed"].append(tool_name)
+                                results["tools_verified"][tool_name] = True
+                                logger.info("OPS installed: %s", tool_name)
+            except Exception as exc:
+                logger.warning("OPS tool verification failed: %s", exc)
+
+        results["preflight_complete"] = True
+        self._ops_preflight_done = True
+        logger.info("OPS pre-flight complete: %s", results)
+        return results
+
+    def discover_domain(self, output: str) -> Optional[str]:
+        """
+        Extract domain from command output (nmap banners, HTTP redirects, SSL certs).
+
+        Args:
+            output: Raw command output text.
+
+        Returns:
+            Discovered domain string or None.
+        """
+        import re as _re
+
+        patterns = [
+            # HTTP redirect Location header  
+            _re.compile(r"Location:\s*https?://([a-zA-Z0-9\-]+\.htb)[\s/]", _re.IGNORECASE),
+            # SSL certificate CN
+            _re.compile(r"commonName\s*=\s*([a-zA-Z0-9\-]+\.htb)", _re.IGNORECASE),
+            # SSL SAN
+            _re.compile(r"DNS:([a-zA-Z0-9\-]+\.htb)", _re.IGNORECASE),
+            # nmap service banner with domain
+            _re.compile(r"([a-zA-Z0-9\-]+\.htb)", _re.IGNORECASE),
+        ]
+
+        for pattern in patterns:
+            match = pattern.search(output)
+            if match:
+                domain = match.group(1).lower()
+                # Validate it looks like a real domain
+                if len(domain) >= 4 and "." in domain:
+                    if self._discovered_domain is None:
+                        self._discovered_domain = domain
+                        logger.info("Domain discovered: %s", domain)
+                    return domain
+        return None
     
     def provide_reasoning(self, context_type: str, context_data: dict) -> str:
         """Provide reasoning for a given context - only available in OrionAgent."""

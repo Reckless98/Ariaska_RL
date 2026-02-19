@@ -1,0 +1,99 @@
+{
+  "run_id": "run_20260219_025934_f6ee1c",
+  "timestamp": 1771466394.2652235,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (90.0)",
+      "Generated a usable reward signal for diagnostics"
+    ],
+    "fails": [
+      "Success rate was 0.00% despite positive reward",
+      "High mentor reliance (10 calls) indicates insufficient autonomous decision-making",
+      "Only one episode limits statistical confidence and trend analysis"
+    ],
+    "summary": "The run produced a positive reward but no successful outcomes. Mentor dependency is high and the single-episode sample size limits actionable pattern discovery."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access fails but partial reward is achieved",
+      "then_action": "Re-evaluate reconnaissance coverage and expand service enumeration breadth",
+      "parameters_template": {
+        "scan_type": "nmap",
+        "flags": "-sV -sC -p- --min-rate 1000"
+      },
+      "confidence": 0.45,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1771466411.2605488,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 within an episode",
+      "then_action": "Pause exploitation attempts and pivot to structured recon checklist",
+      "parameters_template": {
+        "checklist": [
+          "host discovery",
+          "port scan",
+          "service/version ID",
+          "web enumeration"
+        ]
+      },
+      "confidence": 0.4,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1771466411.2605581,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Partial reward with 0% success suggests recon depth is a critical lever to improve outcomes"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for trend validity",
+      "description": "Run at least 10 episodes with identical settings to establish statistically meaningful success/failure patterns and reward trends.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call reduction trial",
+      "description": "Impose a cap of 3 mentor calls per episode and log decision points to identify gaps in autonomous recon/exploitation flow.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon depth ablation",
+      "description": "Compare baseline recon (top 1000 ports) vs full port scan and scripted enumeration to measure impact on success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

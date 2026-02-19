@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260219_014719_f09b96",
+  "timestamp": 1771462047.605997,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward indicates some effective actions were taken during the episode"
+    ],
+    "fails": [
+      "Success rate 0% indicates the primary objective was not achieved",
+      "High mentor call count (10) suggests reliance on guidance and possible uncertainty"
+    ],
+    "summary": "Single-episode run with moderate reward but no objective success; improvement needed in converting reconnaissance into mission completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failed to progress from reconnaissance to objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery identifies at least one live target",
+      "then_action": "Perform full TCP port scan with service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p- --min-rate 1000"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771462062.5274289,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web service (HTTP/HTTPS) is detected",
+      "then_action": "Run web enumeration for directories and common files",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt -x php,html,txt"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771462062.5274417,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH (port 22) is detected",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey <target>"
+      },
+      "confidence": 0.45,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771462062.527449,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step likely contributed to positive reward"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Bridge",
+      "description": "After service enumeration, immediately map detected versions to known vulnerabilities (e.g., searchsploit) and attempt one exploit path per high-value service.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce Mentor Dependency",
+      "description": "Run a full episode with a strict cap of 3 mentor calls, forcing a clearer decision sequence and documenting each autonomous pivot.",
+      "priority": "medium"
+    },
+    {
+      "title": "Web-First Workflow",
+      "description": "If HTTP/HTTPS is detected, prioritize web enumeration and vulnerability scanning before moving to other services to improve objective conversion rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

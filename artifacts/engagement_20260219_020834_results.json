@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-02-19T02:08:34.765233",
+  "max_steps": 15,
+  "seed": null,
+  "target_ip": "10.129.1.54",
+  "mode": "continuous",
+  "duration_s": 381.8726725578308,
+  "total_reward": 0.0,
+  "highest_phase": "RECON",
+  "total_steps": 0,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 0,
+    "playbook": 0,
+    "registry": 0,
+    "anti_repeat": 0,
+    "codex_meta": 0
+  },
+  "episode_metrics": {}
+}

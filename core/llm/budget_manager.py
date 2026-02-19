@@ -37,22 +37,22 @@ logger = logging.getLogger("ariaska.llm.budget_manager")
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
-# Phase 36: Hard caps — +23% GPT uplift for live HTB engagements.
-_TOTAL_BUDGET = 999_000   # Phase 36: +23% from 811K — ~$3.33/ep ceiling for codex-primary routing
-_MIN_BUDGET = 499_500     # Phase 36: 50% floor
+# Phase 38: Hard caps — +15% from Phase 36 for extended live HTB engagements.
+_TOTAL_BUDGET = 1_148_850  # Phase 38: +15% from 999K — ~$3.83/ep ceiling
+_MIN_BUDGET = 574_425      # Phase 38: 50% floor
 _MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # 0.50
 
-# Phase 36: Tier budgets — codex-primary routing gets larger share.
-#   codex *= 1.50  → 199_800  (all reasoning: tactical, strategic, postmortem, analysis)
-#   full  *= 1.20  → 199_800  (parsing, interpretation, verification)
-#   mini  *= 1.10  → 299_700  (playbook selection, structured extraction)
-#   nano  *= 1.10  → 299_700  (classification, micro-chain Stages 1+3, reserve)
-#   Sum = 999,000 ✓
+# Phase 38: Tier budgets — +15% across all tiers from Phase 36.
+#   codex *= 1.15  → 229_770  (all reasoning: tactical, strategic, postmortem, analysis)
+#   full  *= 1.15  → 229_770  (parsing, interpretation, verification)
+#   mini  *= 1.15  → 344_655  (playbook selection, structured extraction)
+#   nano  *= 1.15  → 344_655  (classification, micro-chain Stages 1+3, reserve)
+#   Sum = 1,148,850 ✓
 _TIER_BUDGETS: Dict[str, int] = {
-    "codex":  199_800,  # 20.0% — all reasoning (tactical+strategic+postmortem)
-    "full":   199_800,  # 20.0% — parsing, interpretation, verification
-    "mini":   299_700,  # 30.0% — playbook selection, structured extraction
-    "nano":   299_700,  # 30.0% — classification, micro-chain, reserve
+    "codex":  229_770,  # 20.0% — all reasoning (tactical+strategic+postmortem)
+    "full":   229_770,  # 20.0% — parsing, interpretation, verification
+    "mini":   344_655,  # 30.0% — playbook selection, structured extraction
+    "nano":   344_655,  # 30.0% — classification, micro-chain, reserve
 }
 
 # Phase 33.2: Dynamic Burst Pool

@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260219_035118_557060",
+  "timestamp": 1771469485.502896,
+  "key_outcomes": {
+    "wins": [
+      "Consistent reward achieved across the single episode (40.00)"
+    ],
+    "fails": [
+      "Overall success rate was 0.00% despite positive reward"
+    ],
+    "summary": "The run produced a non-trivial reward but failed to achieve a successful episode outcome; signals indicate partial progress without task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Partial progress without task completion leading to zero success rate",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial enumeration yields limited targets and time is constrained",
+      "then_action": "Prioritize high-signal services and validate reachability",
+      "parameters_template": {
+        "top_ports": [
+          22,
+          80,
+          443,
+          445,
+          3389
+        ],
+        "ping_sweep": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771469495.9359238,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a single service dominates the attack surface",
+      "then_action": "Deep-enumerate the service before pivoting",
+      "parameters_template": {
+        "service": "http",
+        "tool": "nmap",
+        "scripts": "http-*"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step5"
+      ],
+      "created_at": 1771469495.935939,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When progress stalls after initial recon",
+      "then_action": "Switch to credential and configuration discovery checklist",
+      "parameters_template": {
+        "checklist": [
+          "default_creds",
+          "config_files",
+          "version_check"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771469495.93595,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Supports rapid prioritization when reconnaissance scope is small."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten recon-to-exploit pipeline",
+      "description": "After identifying top services, immediately run focused enumeration (e.g., nmap service scripts) and map findings to exploit candidates.",
+      "priority": "high"
+    },
+    {
+      "title": "Completion bias reduction",
+      "description": "Introduce a checkpoint: if no exploit path is identified within a time budget, pivot to alternate services or credentials discovery.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-success alignment",
+      "description": "Adjust training objective to emphasize successful task completion over intermediate reward accumulation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

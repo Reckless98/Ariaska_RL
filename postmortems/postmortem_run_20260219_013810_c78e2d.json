@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260219_013810_c78e2d",
+  "timestamp": 1771461510.182908,
+  "key_outcomes": {
+    "wins": [
+      "Positive average reward indicates some effective actions within the episode",
+      "Mentor calls were utilized consistently for guidance"
+    ],
+    "fails": [
+      "Zero success rate despite positive reward suggests objectives were not completed",
+      "Only one episode limits learning signal and pattern confidence"
+    ],
+    "summary": "The run shows some productive behavior (rewarded actions) but no task completion; more episodes and clearer objective-driven actions are needed to convert partial progress into success."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion not achieved despite accruing reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial episode reward is positive but success is zero",
+      "then_action": "Insert a mid-episode objective checkpoint and validate progress toward goal",
+      "parameters_template": {
+        "checkpoint_step": "midpoint",
+        "validation": "objective_status"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461522.765892,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Convert mentor guidance into a concise action plan before proceeding",
+      "parameters_template": {
+        "plan_steps": 3,
+        "timebox_minutes": 2
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461522.7659051,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When only one episode is available for evaluation",
+      "then_action": "Schedule at least 3 additional episodes with varied seeds to validate patterns",
+      "parameters_template": {
+        "episodes": 3,
+        "variation": "seed"
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771461522.7659144,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses the gap between positive reward and zero success directly"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Checkpointing",
+      "description": "Add a midpoint objective check to ensure actions align with the goal and adjust if deviation is detected.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-to-Plan Conversion",
+      "description": "After each mentor call cluster, distill guidance into a 3-step plan and follow it before new exploration.",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-Episode Validation",
+      "description": "Run three more episodes with different seeds to confirm whether reward patterns can translate to success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

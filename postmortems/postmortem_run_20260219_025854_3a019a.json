@@ -1,0 +1,142 @@
+{
+  "run_id": "run_20260219_025854_3a019a",
+  "timestamp": 1771466359.656029,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode without crash or timeout",
+      "Maintained positive total reward despite zero success rate"
+    ],
+    "fails": [
+      "Zero successful episode completions (0.00% success rate)",
+      "High dependency on mentor calls (15) indicating low autonomy",
+      "Likely stalled in exploitation or privilege escalation phase"
+    ],
+    "summary": "The run achieved a positive reward but failed to complete objectives, with heavy mentor reliance suggesting gaps in mid-to-late kill chain execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Exploitation attempts without prior service/version enumeration",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Lateral movement attempts before credential harvesting/validation",
+      "frequency": 4,
+      "evidence_refs": [
+        "ep001_step20",
+        "ep001_step23"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When at least one TCP port is open on a host",
+      "then_action": "Run targeted version detection and default script scan on those ports",
+      "parameters_template": {
+        "command": "nmap -sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step05"
+      ],
+      "created_at": 1771466372.2449853,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When SMB (445) is open and host is reachable",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "command": "enum4linux -a <target>"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step10",
+        "ep001_step11"
+      ],
+      "created_at": 1771466372.2449982,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP(S) is open and a web server is detected",
+      "then_action": "Perform web directory and technology enumeration",
+      "parameters_template": {
+        "command": "gobuster dir -u <url> -w <wordlist> -t 50"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step07"
+      ],
+      "created_at": 1771466372.245007,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step likely contributed to positive reward despite overall failure."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_003",
+      "skill_card_id": "skill_003",
+      "reason": "Consistent early-stage web enumeration improves attack surface mapping."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Enforce recon-before-exploit gating",
+      "description": "Block exploitation actions until service/version enumeration and banner grabbing are completed for all open ports.",
+      "priority": "high"
+    },
+    {
+      "title": "Credential harvesting pipeline",
+      "description": "Insert a dedicated credential discovery step (SMB/LDAP/HTTP) before any lateral movement attempts.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction drill",
+      "description": "Run an episode with a hard cap of 5 mentor calls, using playbook checklists to drive decisions.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -110,7 +110,7 @@ class ChromaMemoryStore:
             response = self.gpt_manager.gpt_request(
                 prompt=prompt,
                 task_type="embedding",
-                model="gpt-4.1-nano"
+                model="gpt-5-nano"
             )
             
             try:

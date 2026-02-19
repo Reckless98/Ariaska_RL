@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260219_035051_7885ba",
+  "timestamp": 1771469470.0506122,
+  "key_outcomes": {
+    "wins": [
+      "High total reward achieved in the single episode (70.00)"
+    ],
+    "fails": [
+      "Success rate remained at 0.00% despite positive reward",
+      "Only one episode executed, limiting pattern validation",
+      "Mentor calls (10) indicate heavy guidance reliance"
+    ],
+    "summary": "Single-episode run achieved positive reward but no successful completion; more data is required to validate repeatable success patterns."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert positive reward into successful episode completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High dependence on mentor guidance",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open TCP ports with unknown services",
+      "then_action": "Run targeted service/version detection with Nmap",
+      "parameters_template": {
+        "nmap_args": "-sV -sC --version-all -p <open_ports> <target>"
+      },
+      "confidence": 0.42,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771469481.0878491,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service (HTTP/HTTPS) is detected",
+      "then_action": "Perform content and directory discovery",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u <url> -w <wordlist> -x php,html,txt"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771469481.0878613,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step needed to improve conversion from reward to success."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase Episode Count",
+      "description": "Run 5\u201310 additional episodes to validate whether reward correlates with success and to surface consistent action sequences.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce Mentor Dependence",
+      "description": "Limit mentor calls to <=3 per episode to assess autonomous decision quality and identify gaps.",
+      "priority": "high"
+    },
+    {
+      "title": "Structured Recon-to-Exploit Flow",
+      "description": "Enforce a fixed pipeline (scan \u2192 enumerate \u2192 exploit attempt) and log step outcomes to identify where success rate drops.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

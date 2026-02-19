@@ -137,7 +137,15 @@ class SmartOutputParser:
             discoveries["open_port"] = list(parsed.open_ports)
         
         if hasattr(parsed, "services") and parsed.services:
-            discoveries["service"] = list(set(parsed.services.values()))
+            # Phase 38: Normalize service names — extract base name only
+            # e.g. "ssh OpenSSH 8.9p1 Ubuntu..." → "ssh"
+            _raw_services = list(set(parsed.services.values()))
+            _normalized = []
+            for _svc_full in _raw_services:
+                _base = _svc_full.split()[0].lower() if _svc_full else ""
+                if _base:
+                    _normalized.append(_base)
+            discoveries["service"] = list(set(_normalized)) if _normalized else _raw_services
         
         if hasattr(parsed, "credentials") and parsed.credentials:
             discoveries["credential"] = True

@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260219_034056_81b402",
+  "timestamp": 1771468862.2864892,
+  "key_outcomes": {
+    "wins": [
+      "Maintained a non-zero reward (50.0) indicating some task progress or partial objective completion",
+      "High mentor call utilization suggests active guidance and learning engagement"
+    ],
+    "fails": [
+      "0.00% success rate indicates no episode-level objective completion",
+      "Single-episode run provides insufficient evidence to validate tactics",
+      "Mentor calls (10) may indicate over-reliance on guidance versus autonomous execution"
+    ],
+    "summary": "The run achieved partial progress but failed to complete objectives; more episodes and stronger autonomous execution are needed."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260219_034056_81b402_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new lab target with no prior intel",
+      "then_action": "Run a fast TCP port scan to map exposed services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -T4 -p- --min-rate 1000 <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260219_034056_81b402_ep001"
+      ],
+      "created_at": 1771468877.3220904,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open ports are identified",
+      "then_action": "Run targeted service enumeration on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260219_034056_81b402_ep001"
+      ],
+      "created_at": 1771468877.322103,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a web service is detected (HTTP/HTTPS)",
+      "then_action": "Enumerate web content and directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w <wordlist> -x php,html,txt -t 50"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260219_034056_81b402_ep001"
+      ],
+      "created_at": 1771468877.322112,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is foundational and likely contributed to partial progress"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Targeted enumeration is a necessary follow-up once ports are discovered"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for statistical signal",
+      "description": "Run 5\u201310 episodes to validate whether recon-to-enum sequence improves success rate and reduces mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Measure autonomy vs mentor reliance",
+      "description": "Cap mentor calls per episode and compare completion rate to determine if over-reliance is impeding progress.",
+      "priority": "high"
+    },
+    {
+      "title": "Time-boxed recon then exploit planning",
+      "description": "Allocate fixed time for scanning/enumeration, then force a hypothesis and exploitation attempt to improve objective completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

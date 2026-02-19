@@ -1,0 +1,123 @@
+{
+  "run_id": "run_20260219_085351_058bfd",
+  "timestamp": 1771487671.4784143,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward (57.50) in the single episode",
+      "Reward trend is stable (single data point)"
+    ],
+    "fails": [
+      "Success rate is 0.00% across the run",
+      "Only one episode recorded, limiting learning signal and pattern discovery"
+    ],
+    "summary": "The run produced a modest positive reward but no successful episode completion; more episodes are needed to establish reliable patterns and improve success rate."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting a new target with no prior intel",
+      "then_action": "Perform a fast TCP port sweep to establish the attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-p- -T4 --min-rate 1000",
+        "target": "<IP>"
+      },
+      "confidence": 0.32,
+      "evidence_refs": [],
+      "created_at": 1771487687.434233,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open ports are identified",
+      "then_action": "Run service/version detection to prioritize services for enumeration",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC -O",
+        "target": "<IP>",
+        "ports": "<open_ports>"
+      },
+      "confidence": 0.34,
+      "evidence_refs": [],
+      "created_at": 1771487687.4342418,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When web services (80/443/8080) are detected",
+      "then_action": "Enumerate web content and directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "mode": "dir",
+        "url": "http://<IP>:<PORT>/",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.28,
+      "evidence_refs": [],
+      "created_at": 1771487687.4342475,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is consistently necessary to drive subsequent actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Service/version detection is critical to selecting the next enumeration step"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for pattern discovery",
+      "description": "Run at least 10 episodes to capture step-level evidence and enable identification of repeated failure patterns.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten reconnaissance-to-exploitation transition",
+      "description": "Add explicit decision gates after enumeration to choose one exploit path based on detected service versions.",
+      "priority": "high"
+    },
+    {
+      "title": "Instrument step-level logging",
+      "description": "Capture step references (e.g., ep001_stepXX) to support evidence-backed skill cards and failure pattern analysis.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

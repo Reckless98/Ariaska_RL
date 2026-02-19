@@ -1,0 +1,140 @@
+{
+  "run_id": "run_20260219_095220_640275",
+  "timestamp": 1771491158.4256885,
+  "key_outcomes": {
+    "wins": [
+      "Completed one full episode with positive total reward (40.0)",
+      "Maintained stable reward trend across the single episode"
+    ],
+    "fails": [
+      "Zero success rate despite positive reward",
+      "High mentor intervention count (10) suggesting low autonomy",
+      "Insufficient evidence of exploitation or objective completion"
+    ],
+    "summary": "The run shows basic task progression with positive reward signals, but no successful objective completion and heavy reliance on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progression stalls before objective completion, requiring mentor guidance",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02",
+        "ep001_step03",
+        "ep001_step04",
+        "ep001_step05",
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target scope is defined and IPs are known",
+      "then_action": "Run TCP service discovery with Nmap",
+      "parameters_template": {
+        "targets": "<ip_list>",
+        "options": "-sV -sC -p- --min-rate 1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771491171.6301045,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS ports are detected",
+      "then_action": "Perform web enumeration with directory brute force",
+      "parameters_template": {
+        "tool": "gobuster",
+        "url": "http://<target>",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "options": "-x php,txt,html -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771491171.6301131,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB (445) is open",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tools": [
+          "smbclient -L //<target> -N",
+          "enum4linux -a <target>"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771491171.630119,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step likely contributed to positive reward signal"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomy reduction test",
+      "description": "Run the next episode with a hard cap of 2 mentor calls and enforce a fixed recon-to-enum-to-exploit sequence to improve self-directed progression.",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit-path focus",
+      "description": "After service discovery, select the top 1-2 high-signal services and perform targeted version-based exploit research before branching into broad enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward alignment probe",
+      "description": "Instrument step-level logging to identify which actions produce reward without success, then prioritize actions correlated with objective completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
