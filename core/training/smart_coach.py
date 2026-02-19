@@ -771,7 +771,32 @@ class SmartCoach:
             logger.debug(f"[P16] Init skipped for {agent_name}: {e}")
 
         self._init_cloud_roles()
-    
+
+        # =====================================================================
+        # PHASE 41: Submodule delegation — companion classes for modularity.
+        # SmartCoach delegates specific operations to these extracted classes.
+        # =====================================================================
+        from core.training.coach.anti_repeat import AntiRepeatGuard
+        from core.training.coach.evidence_gate import EvidenceGate, EvidenceGateConfig
+        from core.training.coach.metrics_tracker import MetricsTracker
+        from core.training.coach.episode_lifecycle import EpisodeLifecycle
+        from core.training.coach.pipeline_stages import PipelineResult
+
+        self._anti_repeat_guard = AntiRepeatGuard()
+        _eg_mode = "enforce"
+        try:
+            from core.feature_flags import get_feature_flags
+            _eg_mode = get_feature_flags().strict_exploit_gate or "enforce"
+        except Exception:
+            pass
+        self._evidence_gate = EvidenceGate(EvidenceGateConfig(mode=_eg_mode))
+        self._metrics_tracker = MetricsTracker()
+        self._episode_lifecycle = EpisodeLifecycle()
+        logger.debug(
+            f"[P41] {agent_name}: submodule delegation initialized "
+            f"(anti_repeat, evidence_gate[{_eg_mode}], metrics, lifecycle)"
+        )
+
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
         

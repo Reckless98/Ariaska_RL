@@ -60,6 +60,15 @@ class NarrowerConfig:
     success_weighting_enabled: bool = True
     phase_bonus: float = 1.5  # Weight multiplier for phase-matched commands
     recency_bonus_steps: int = 50  # Commands not used in N steps get slight boost
+    thread_safe: bool = True  # Phase 41: When False, skip locking (single-agent perf)
+
+
+class _NoOpLock:
+    """No-op context manager for single-threaded mode."""
+    def __enter__(self) -> "_NoOpLock":
+        return self
+    def __exit__(self, *args: Any) -> None:
+        pass
 
 
 class CommandPoolNarrower:
@@ -69,18 +78,23 @@ class CommandPoolNarrower:
         self._config = config or NarrowerConfig()
         self._template_stats: Dict[str, TemplateStats] = {}
         self._detected_os: Optional[str] = None  # "linux", "windows", None
-        self._lock = threading.Lock()
+        self._lock: Any = threading.Lock() if self._config.thread_safe else _NoOpLock()
         self._total_narrowed = 0
         self._total_input = 0
         logger.info("[POOL-NARROWER] Initialized")
 
+    def _acquire(self) -> threading.Lock:
+        """Return lock context manager (noop when thread_safe=False)."""
+        return self._lock
+
     def set_target_os(self, os_type: str) -> None:
         """Set detected target OS ("linux", "windows", "unknown")."""
         normalized = os_type.lower().strip()
-        if normalized in ("linux", "windows", "freebsd", "macos"):
-            self._detected_os = normalized
-        else:
-            self._detected_os = None
+        with self._lock:
+            if normalized in ("linux", "windows", "freebsd", "macos"):
+                self._detected_os = normalized
+            else:
+                self._detected_os = None
         logger.info(f"[POOL-NARROWER] Target OS set: {self._detected_os}")
 
     def detect_os_from_output(self, output: str) -> Optional[str]:
@@ -100,10 +114,10 @@ class CommandPoolNarrower:
         windows_score = sum(1 for s in windows_signals if s in output_lower)
 
         if linux_score > windows_score and linux_score >= 2:
-            self.set_target_os("linux")
+            self.set_target_os("linux")  # set_target_os acquires lock
             return "linux"
         elif windows_score > linux_score and windows_score >= 2:
-            self.set_target_os("windows")
+            self.set_target_os("windows")  # set_target_os acquires lock
             return "windows"
         return None
 
@@ -169,7 +183,9 @@ class CommandPoolNarrower:
         if not self._config.os_filter_enabled:
             return candidates
 
-        os_type = target_os or self._detected_os
+        with self._lock:
+            _detected = self._detected_os
+        os_type = target_os or _detected
         if not os_type:
             return candidates
 
@@ -226,7 +242,8 @@ class CommandPoolNarrower:
         step: int = 0,
     ) -> List[Tuple[float, Any]]:
         """Return candidates with computed weights, sorted by weight descending."""
-        self._total_input += len(candidates)
+        with self._lock:
+            self._total_input += len(candidates)
 
         # Stage 1: OS filter
         filtered = self.narrow_for_os(candidates)
@@ -252,7 +269,8 @@ class CommandPoolNarrower:
             weighted.append((weight, c))
 
         weighted.sort(key=lambda x: x[0], reverse=True)
-        self._total_narrowed += len(weighted)
+        with self._lock:
+            self._total_narrowed += len(weighted)
         return weighted
 
     def get_stats(self) -> Dict[str, Any]:
@@ -264,14 +282,17 @@ class CommandPoolNarrower:
                 avg_sr = sum(
                     s.success_rate for s in self._template_stats.values()
                 ) / total_templates
+            detected_os = self._detected_os
+            total_input = self._total_input
+            total_narrowed = self._total_narrowed
         return {
-            "detected_os": self._detected_os,
+            "detected_os": detected_os,
             "tracked_templates": total_templates,
             "avg_success_rate": round(avg_sr, 3),
-            "total_input": self._total_input,
-            "total_output": self._total_narrowed,
+            "total_input": total_input,
+            "total_output": total_narrowed,
             "narrowing_ratio": round(
-                self._total_narrowed / max(1, self._total_input), 3
+                total_narrowed / max(1, total_input), 3
             ),
         }
 
@@ -279,6 +300,6 @@ class CommandPoolNarrower:
         """Reset all stats."""
         with self._lock:
             self._template_stats.clear()
-        self._detected_os = None
-        self._total_narrowed = 0
-        self._total_input = 0
+            self._detected_os = None
+            self._total_narrowed = 0
+            self._total_input = 0

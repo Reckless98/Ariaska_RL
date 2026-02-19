@@ -1,8 +1,14 @@
 """
-core/execution/ssh_pool.py - Phase 40.1: Persistent SSH Session Pool
+core/execution/ssh_pool.py - Phase 40.1+41: Persistent SSH Session Pool
 
 Maintains persistent SSH connections to target hosts, eliminating
 per-command SSH handshake overhead (saves ~1-2s per remote command).
+
+Phase 41 additions:
+  - Exponential backoff retry with configurable max_retries
+  - Key-based auth support (RSA / Ed25519 / ECDSA)
+  - is_alive() health check per session
+  - Custom exception hierarchy (SSHPoolError, SSHConnectionError, etc.)
 """
 
 from __future__ import annotations
@@ -12,7 +18,8 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("ariaska.ssh_pool")
 
@@ -28,23 +35,40 @@ except ImportError:
 @dataclass
 class SSHCredential:
     username: str
-    password: str
+    password: Optional[str] = None
     port: int = 22
+    key_path: Optional[str] = None
+    key_type: Optional[str] = None  # "rsa", "ed25519", "ecdsa"
 
 
 @dataclass
 class SSHSession:
     credential: SSHCredential
     host: str
-    client: Optional[object] = None
+    client: object = None  # type: ignore[assignment]  # paramiko.SSHClient
     last_used: float = 0.0
     lock: threading.Lock = field(default_factory=threading.Lock)
     connected: bool = False
     connect_attempts: int = 0
     max_retries: int = 3
+    _backoff_until: float = 0.0
 
     def __post_init__(self) -> None:
         self.last_used = time.time()
+
+    @property
+    def in_backoff(self) -> bool:
+        """Return True if still in exponential backoff window."""
+        return time.time() < self._backoff_until
+
+    def set_backoff(self) -> None:
+        """Set exponential backoff: 2^attempts seconds, capped at 60s."""
+        delay = min(2 ** self.connect_attempts, 60)
+        self._backoff_until = time.time() + delay
+        logger.debug(
+            f"[SSH-POOL] Backoff {delay}s for {self.host} "
+            f"(attempt {self.connect_attempts})"
+        )
 
 
 class SSHSessionPool:
@@ -75,14 +99,30 @@ class SSHSessionPool:
         )
 
     def add_credentials(
-        self, username: str, password: str, host: str, port: int = 22
+        self,
+        username: str,
+        password: Optional[str] = None,
+        host: str = "",
+        port: int = 22,
+        key_path: Optional[str] = None,
+        key_type: Optional[str] = None,
     ) -> None:
+        """Register credentials (password and/or key-based) for a host."""
+        if not password and not key_path:
+            logger.warning("[SSH-POOL] No password or key_path supplied")
         key = f"{username}@{host}:{port}"
         with self._lock:
             self._credentials[host] = SSHCredential(
-                username=username, password=password, port=port
+                username=username,
+                password=password,
+                port=port,
+                key_path=key_path,
+                key_type=key_type,
             )
-        logger.info(f"[SSH-POOL] Credentials registered: {key}")
+        logger.info(
+            f"[SSH-POOL] Credentials registered: {key} "
+            f"(key={'yes' if key_path else 'no'})"
+        )
 
     def has_credentials(self, host: str) -> bool:
         with self._lock:
@@ -102,10 +142,14 @@ class SSHSessionPool:
     def _connect(self, session: SSHSession) -> bool:
         if not _HAS_PARAMIKO or paramiko is None:
             return False
+        # Respect exponential backoff
+        if session.in_backoff:
+            logger.debug(f"[SSH-POOL] {session.host} in backoff, skipping")
+            return False
         with session.lock:
             if session.connected and session.client is not None:
                 try:
-                    transport = session.client.get_transport()
+                    transport = session.client.get_transport()  # type: ignore[union-attr]
                     if transport and transport.is_active():
                         session.last_used = time.time()
                         self._stats["connections_reused"] += 1
@@ -117,17 +161,36 @@ class SSHSessionPool:
             if session.connect_attempts >= session.max_retries:
                 return False
             try:
+                from core.execution.ssh_exceptions import (
+                    SSHAuthError,
+                    SSHConnectionError,
+                )
                 client = paramiko.SSHClient()
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                client.connect(
-                    hostname=session.host,
-                    port=session.credential.port,
-                    username=session.credential.username,
-                    password=session.credential.password,
-                    timeout=self._connect_timeout,
-                    allow_agent=False,
-                    look_for_keys=False,
-                )
+
+                connect_kwargs = {
+                    "hostname": session.host,
+                    "port": session.credential.port,
+                    "username": session.credential.username,
+                    "timeout": self._connect_timeout,
+                    "allow_agent": False,
+                    "look_for_keys": False,
+                }
+
+                # Key-based auth takes priority
+                pkey = self._load_key(session.credential)
+                if pkey is not None:
+                    connect_kwargs["pkey"] = pkey
+                elif session.credential.password:
+                    connect_kwargs["password"] = session.credential.password
+                else:
+                    session.connect_attempts += 1
+                    session.set_backoff()
+                    raise SSHAuthError(
+                        f"No password or valid key for {session.host}"
+                    )
+
+                client.connect(**connect_kwargs)
                 transport = client.get_transport()
                 if transport:
                     transport.set_keepalive(self._keepalive_interval)
@@ -141,10 +204,48 @@ class SSHSessionPool:
                     f"{session.host}:{session.credential.port}"
                 )
                 return True
+            except paramiko.AuthenticationException as e:
+                session.connect_attempts += 1
+                session.set_backoff()
+                logger.warning(f"[SSH-POOL] Auth failed: {e}")
+                return False
             except Exception as e:
                 session.connect_attempts += 1
+                session.set_backoff()
                 logger.warning(f"[SSH-POOL] Connection failed: {e}")
                 return False
+
+    @staticmethod
+    def _load_key(cred: SSHCredential) -> object:
+        """Load private key from path. Returns paramiko key or None."""
+        if not cred.key_path or not _HAS_PARAMIKO or paramiko is None:
+            return None
+        key_file = Path(cred.key_path).expanduser()
+        if not key_file.exists():
+            logger.warning(f"[SSH-POOL] Key not found: {key_file}")
+            return None
+        key_type = (cred.key_type or "").lower()
+        loaders: List[type] = []
+        if key_type == "ed25519":
+            loaders = [paramiko.Ed25519Key]
+        elif key_type == "ecdsa":
+            loaders = [paramiko.ECDSAKey]
+        elif key_type == "rsa":
+            loaders = [paramiko.RSAKey]
+        else:
+            # Auto-detect: try all in order
+            loaders = [
+                paramiko.Ed25519Key,
+                paramiko.RSAKey,
+                paramiko.ECDSAKey,
+            ]
+        for loader in loaders:
+            try:
+                return loader.from_private_key_file(str(key_file))
+            except Exception:
+                continue
+        logger.warning(f"[SSH-POOL] Failed to load key: {key_file}")
+        return None
 
     def execute(
         self,
@@ -164,7 +265,7 @@ class SSHSessionPool:
                 with session.lock:
                     if session.client is None:
                         raise RuntimeError("Client is None")
-                    _, stdout_ch, stderr_ch = session.client.exec_command(
+                    _, stdout_ch, stderr_ch = session.client.exec_command(  # type: ignore[union-attr]
                         command, timeout=cmd_timeout
                     )
                     stdout = stdout_ch.read().decode("utf-8", errors="replace")
@@ -222,7 +323,7 @@ class SSHSessionPool:
                 with session.lock:
                     if session.client is not None and session.connected:
                         try:
-                            session.client.close()
+                            session.client.close()  # type: ignore[union-attr]
                         except Exception:
                             pass
                     session.connected = False
@@ -235,3 +336,19 @@ class SSHSessionPool:
             session = self._sessions.get(host)
             if session:
                 session.connect_attempts = 0
+
+    def is_alive(self, host: str) -> bool:
+        """Check if the session for *host* is connected and transport active."""
+        with self._lock:
+            session = self._sessions.get(host)
+        if session is None:
+            return False
+        if not session.connected or session.client is None:
+            return False
+        if not _HAS_PARAMIKO:
+            return False
+        try:
+            transport = session.client.get_transport()  # type: ignore[union-attr]
+            return bool(transport and transport.is_active())
+        except Exception:
+            return False

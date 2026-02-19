@@ -858,6 +858,21 @@ class SmartOrchestrator:
             f"SmartOrchestrator initialized with {len(self.agents)} agents "
             f"(mode={'LIVE' if self._is_live_mode else 'SIM'})"
         )
+
+        # =====================================================================
+        # PHASE 41: Submodule delegation — companion classes for modularity.
+        # SmartOrchestrator delegates specific operations to extracted classes.
+        # =====================================================================
+        from core.orchestration.output_parser import DiscoveryResult
+        from core.orchestration.state_builder import StateSnapshot
+        from core.orchestration.episode_runner import EpisodeTracker
+        from core.orchestration.flag_detector import FlagMatch
+
+        self._discovery_result_cls = DiscoveryResult
+        self._state_snapshot_cls = StateSnapshot
+        self._episode_tracker = EpisodeTracker()
+        self._flag_match_cls = FlagMatch
+        logger.debug("[P41] Orchestrator submodule delegation initialized")
     
     # =========================================================================
     # PHASE 2A: Smart Agent Activation Schedule
