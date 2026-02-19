@@ -1,0 +1,13 @@
+{
+  "scenario": "cap",
+  "runs": 3,
+  "success_rate": 1.0,
+  "avg_steps": 100.0,
+  "avg_time_s": 0.0,
+  "failures": [],
+  "git_sha": "6e7bf75a",
+  "timestamp": "2026-02-19T14:03:02.286592",
+  "seed": 42,
+  "max_steps": 100,
+  "target_ip": "10.129.2.142"
+}

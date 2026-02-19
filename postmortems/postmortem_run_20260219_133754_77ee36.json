@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260219_133754_77ee36",
+  "timestamp": 1771504689.8066964,
+  "key_outcomes": {
+    "wins": [
+      "Achieved nonzero total reward indicating partial task progression",
+      "Maintained stable reward trend across the single episode"
+    ],
+    "fails": [
+      "Success rate at 0%, indicating no completed objectives",
+      "High mentor call count suggests dependence on guidance"
+    ],
+    "summary": "The run shows partial progress but no successful completions; guidance reliance is high and task closure is missing."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to complete terminal objectives after partial progress",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields open ports on a target host",
+      "then_action": "Run targeted service/version detection with nmap",
+      "parameters_template": {
+        "ports": "discovered",
+        "flags": "-sV -sC"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771504706.288908,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Enumerate web content with dirsearch",
+      "parameters_template": {
+        "url": "http(s)://<target>:<port>",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771504706.288925,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected with a banner",
+      "then_action": "Enumerate SSH configuration and auth methods with nmap scripts",
+      "parameters_template": {
+        "port": 22,
+        "script": "ssh-*"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771504706.2889352,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early reconnaissance step that enables downstream actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common pivot when HTTP services are present"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective Closure Drill",
+      "description": "Add explicit end-condition checks after each recon/enumeration phase to confirm objective completion criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Enforce a two-step independent attempt rule before any mentor call to build autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-to-Exploit Mapping",
+      "description": "For each detected service/version, immediately map to a potential exploit path and validate prerequisites.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

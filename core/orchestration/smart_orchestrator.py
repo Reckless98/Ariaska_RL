@@ -740,6 +740,64 @@ class SmartOrchestrator:
         # ─── R66: JSONL RunLogger ────────────────────────────────────
         self.run_logger = None  # Initialized per-run with tag
         
+        # ─── Phase 39.0: OpsHub — unified OPS subsystem gateway ─────
+        self.ops_hub = None
+        try:
+            from core.feature_flags import get_feature_flags as _gff
+            if _gff().ops_hub:
+                from core.ops.ops_hub import OpsHub, OpsHubConfig
+                _ops_cfg = OpsHubConfig(
+                    target_ip=getattr(env, 'live_target_ip', None) or self.config.default_target,
+                )
+                self.ops_hub = OpsHub(_ops_cfg)
+                self.ops_hub.setup()
+                _init_modules.append(("OpsHub", "ok", "unified OPS gateway"))
+        except Exception as e:
+            _init_modules.append(("OpsHub", "warn", str(e)[:40]))
+
+        # ─── Phase 39.1: Orion Rethink Engine ────────────────────────
+        self.orion_rethink = None
+        try:
+            from core.feature_flags import get_feature_flags as _gff
+            if _gff().orion_rethink:
+                from core.ops.orion_rethink import OrionRethinkEngine
+                self.orion_rethink = OrionRethinkEngine()
+                _init_modules.append(("OrionRethink", "ok", "stall detector"))
+        except Exception as e:
+            _init_modules.append(("OrionRethink", "warn", str(e)[:40]))
+
+        # ─── Phase 39.2: Trust Weight Engine ─────────────────────────
+        self.trust_engine = None
+        try:
+            from core.feature_flags import get_feature_flags as _gff
+            if _gff().trust_weights:
+                from core.ops.trust_weights import TrustWeightEngine
+                self.trust_engine = TrustWeightEngine()
+                self.trust_engine.register_source("mentor")
+                self.trust_engine.register_source("micro_chain")
+                self.trust_engine.register_source("phase_guided")
+                self.trust_engine.register_source("ppo")
+                self.trust_engine.register_source("registry")
+                _init_modules.append(("TrustWeights", "ok", "5 sources"))
+        except Exception as e:
+            _init_modules.append(("TrustWeights", "warn", str(e)[:40]))
+
+        # ─── Phase 39.4: Debug Tracer ────────────────────────────────
+        self.debug_tracer = None
+        try:
+            from core.feature_flags import get_feature_flags as _gff
+            if _gff().debug_trace:
+                from core.ops.debug_trace import DebugTracer
+                import uuid as _uuid
+                _run_id = str(_uuid.uuid4())[:8]
+                self.debug_tracer = DebugTracer(
+                    run_id=_run_id,
+                    log_dir="logs/debug_traces",
+                )
+                _init_modules.append(("DebugTracer", "ok", f"run={_run_id}"))
+        except Exception as e:
+            _init_modules.append(("DebugTracer", "warn", str(e)[:40]))
+
         # ─── PHASE 6.1: Live Command Executor ────────────────────────
         # In LIVE mode, all agent commands are executed via subprocess
         # against the real target. In SIM mode, this stays None and
@@ -1447,6 +1505,28 @@ class SmartOrchestrator:
         if not state:
             state = self._default_state()
         
+        # ─── Phase 39: Reset OPS subsystems for new episode ──────────
+        if self.ops_hub is not None:
+            try:
+                self.ops_hub.reset()
+            except Exception as _e:
+                logger.debug(f"[P39] OpsHub reset error: {_e}")
+        if self.orion_rethink is not None:
+            try:
+                self.orion_rethink.reset()
+            except Exception as _e:
+                logger.debug(f"[P39.1] OrionRethink reset error: {_e}")
+        if self.trust_engine is not None:
+            try:
+                self.trust_engine.reset()
+                self.trust_engine.register_source("mentor")
+                self.trust_engine.register_source("micro_chain")
+                self.trust_engine.register_source("phase_guided")
+                self.trust_engine.register_source("ppo")
+                self.trust_engine.register_source("registry")
+            except Exception as _e:
+                logger.debug(f"[P39.2] TrustWeights reset error: {_e}")
+
         # Initialize attack context
         target = target or state.get("target_ip", self.config.default_target)
         difficulty = difficulty or self.config.default_difficulty
@@ -2759,6 +2839,30 @@ class SmartOrchestrator:
                 metrics["tactical_cortex"] = tac_stats
             except Exception as e:
                 logger.debug(f"Phase 10: TacticalCortex get_stats failed: {e}")
+
+        # ─── Phase 39: Episode-end hooks for OPS subsystems ──────────
+        if self.ops_hub is not None:
+            try:
+                self.ops_hub.on_episode_end(episode_number)
+                metrics["ops_hub"] = self.ops_hub.get_dashboard_data()
+            except Exception as _e:
+                logger.debug(f"[P39] OpsHub on_episode_end error: {_e}")
+        if self.trust_engine is not None:
+            try:
+                metrics["trust_weights"] = self.trust_engine.get_diagnostics()
+            except Exception as _e:
+                logger.debug(f"[P39.2] TrustWeights diagnostics error: {_e}")
+        if self.debug_tracer is not None:
+            try:
+                self.debug_tracer.log_phase_transition(
+                    step=len(step_results),
+                    from_phase="START",
+                    to_phase=metrics.get("highest_phase", "RECON"),
+                    episode=episode_number,
+                    reason="episode_end",
+                )
+            except Exception as _e:
+                logger.debug(f"[P39.4] DebugTracer episode end error: {_e}")
         
         # ─── R66: Episode-level JSONL + HUD summary ─────────────────
         try:
@@ -3496,6 +3600,13 @@ class SmartOrchestrator:
         for coach in self.coaches.values():
             if hasattr(coach, 'clear_step_commands'):
                 coach.clear_step_commands()
+
+        # ─── Phase 39: OpsHub on_step_start ──────────────────────────
+        if self.ops_hub is not None:
+            try:
+                self.ops_hub.on_step_start(step)
+            except Exception as _e:
+                logger.debug(f"[P39] OpsHub on_step_start error: {_e}")
 
         # Phase 23: Clear per-step GPT call buffer so we track only this step's calls
         if hasattr(self.gpt_manager, 'clear_step_calls'):
@@ -4771,6 +4882,135 @@ class SmartOrchestrator:
                         )
         except Exception:
             pass
+
+        # ─── Phase 39: OpsHub on_step_end + subsystem hooks ─────────
+        _current_phase_p39 = (
+            self.attack_context.current_phase.name
+            if self.attack_context else "RECON"
+        )
+        if self.ops_hub is not None:
+            try:
+                _step_data: Dict[str, Any] = {
+                    "phase": _current_phase_p39,
+                    "reward": final_reward,
+                    "done": done,
+                    "agent_count": len(agent_results),
+                }
+                self.ops_hub.on_step_end(step, _step_data)
+            except Exception as _e:
+                logger.debug(f"[P39] OpsHub on_step_end error: {_e}")
+
+        # ─── Phase 39.1: Orion Rethink — record step + stall check ──
+        if self.orion_rethink is not None:
+            try:
+                _disc_count = sum(
+                    len(v) if isinstance(v, (set, list)) else (1 if v else 0)
+                    for v in self.discovery_board.values()
+                    if not isinstance(v, str)
+                )
+                _red_cmd = ""
+                _red_success = False
+                for r in agent_results:
+                    if r.agent_name == "RedAgent":
+                        _red_cmd = r.decision.command or ""
+                        _red_success = bool(
+                            r.reward_breakdown and r.reward_breakdown.total > 0
+                        )
+                        break
+                self.orion_rethink.record_step(
+                    step=step,
+                    phase=_current_phase_p39,
+                    command=_red_cmd,
+                    success=_red_success,
+                    discoveries=_disc_count,
+                    reward=final_reward,
+                )
+                # Check rethink trigger
+                _should, _stall = self.orion_rethink.should_rethink(step)
+                if _should:
+                    _plan = self.orion_rethink.generate_rethink_plan(
+                        evidence_summary=str(dict(self.discovery_board))[:500],
+                        hypotheses=[],
+                        constraints=[],
+                        current_phase=_current_phase_p39,
+                        current_step=step,
+                        gpt_manager=None,  # heuristic mode
+                    )
+                    if _plan is not None:
+                        _plan_desc = str(_plan.plan)[:100] if _plan.plan else _plan.why_now[:100]
+                        logger.info(
+                            f"[P39.1] Orion rethink triggered at step {step}: "
+                            f"stall_score={_stall.score:.2f}, "
+                            f"plan={_plan_desc}"
+                        )
+                        # Log to debug tracer
+                        if self.debug_tracer is not None:
+                            self.debug_tracer.log_rethink(
+                                step=step,
+                                stall_score=_stall.score,
+                                plan_summary={
+                                    "why_now": _plan.why_now[:200],
+                                    "hypotheses": _plan.new_hypotheses[:3],
+                                    "signals": {
+                                        "tool_failures": _stall.repeated_tool_failures,
+                                        "evidence_plateau": _stall.evidence_plateau,
+                                        "phase_oscillation": _stall.phase_oscillation,
+                                        "reward_stagnation": _stall.reward_stagnation,
+                                    },
+                                },
+                                episode=self.current_episode,
+                                phase=_current_phase_p39,
+                            )
+            except Exception as _e:
+                logger.debug(f"[P39.1] Orion rethink error: {_e}")
+
+        # ─── Phase 39.2: Trust engine — record decision outcomes ─────
+        if self.trust_engine is not None:
+            try:
+                self.trust_engine.set_global_step(step)
+                for r in agent_results:
+                    _src = r.decision.source or "registry"
+                    _reward = (
+                        r.reward_breakdown.total
+                        if r.reward_breakdown else 0.0
+                    )
+                    if _reward > 2.0:
+                        self.trust_engine.record_validated(_src, step=step)
+                    elif _reward < -2.0:
+                        self.trust_engine.record_failed(_src, step=step)
+                    # Log trust update
+                    if self.debug_tracer is not None:
+                        self.debug_tracer.log_trust_update(
+                            step=step,
+                            source=_src,
+                            trust=self.trust_engine.get_trust(_src),
+                            delta=_reward,
+                            episode=self.current_episode,
+                        )
+            except Exception as _e:
+                logger.debug(f"[P39.2] Trust engine error: {_e}")
+
+        # ─── Phase 39.4: Debug tracer — log step decision ────────────
+        if self.debug_tracer is not None:
+            try:
+                for r in agent_results:
+                    self.debug_tracer.log_decision(
+                        step=step,
+                        agent=r.agent_name,
+                        command=(r.decision.command or "")[:80],
+                        source=r.decision.source or "unknown",
+                        confidence=r.decision.confidence,
+                        episode=self.current_episode,
+                        phase=_current_phase_p39,
+                        extra={
+                            "reward": (
+                                r.reward_breakdown.total
+                                if r.reward_breakdown else 0.0
+                            ),
+                        },
+                    )
+            except Exception as _e:
+                logger.debug(f"[P39.4] Debug tracer error: {_e}")
         
         return agent_results, final_reward, new_state, done
     

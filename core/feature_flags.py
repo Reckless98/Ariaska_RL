@@ -225,6 +225,46 @@ class FeatureFlags:
     domain_manager: bool = field(
         default_factory=lambda: _env_bool("FF_DOMAIN_MANAGER", True))
 
+    # ── Phase 38.3: Hypothesis + Anti-Repeat + Cooldown ────────────
+    command_lockout: bool = field(
+        default_factory=lambda: _env_bool("FF_COMMAND_LOCKOUT", True))
+    exploit_confidence: bool = field(
+        default_factory=lambda: _env_bool("FF_EXPLOIT_CONFIDENCE", True))
+    exploit_cooldown: bool = field(
+        default_factory=lambda: _env_bool("FF_EXPLOIT_COOLDOWN", True))
+
+    # ── Phase 38.4: Token Flex + Engagement Metrics ────────────────
+    engagement_metrics: bool = field(
+        default_factory=lambda: _env_bool("FF_ENGAGEMENT_METRICS", True))
+    token_flex: bool = field(
+        default_factory=lambda: _env_bool("FF_TOKEN_FLEX", True))
+
+    # ── Phase 38.5: StateEncoder + Dashboard ───────────────────────
+    ops_state_encoder: bool = field(
+        default_factory=lambda: _env_bool("FF_OPS_STATE_ENCODER", True))
+    ops_dashboard: bool = field(
+        default_factory=lambda: _env_bool("FF_OPS_DASHBOARD", True))
+
+    # ── Phase 38.6: OpsHub Integration ─────────────────────────────
+    ops_hub: bool = field(
+        default_factory=lambda: _env_bool("FF_OPS_HUB", True))
+
+    # ── Phase 39.1: Orion Deep-Rethink Escalation ──────────────────
+    orion_rethink: bool = field(
+        default_factory=lambda: _env_bool("FF_ORION_RETHINK", True))
+
+    # ── Phase 39.2: Trust Weights + Annealing ──────────────────────
+    trust_weights: bool = field(
+        default_factory=lambda: _env_bool("FF_TRUST_WEIGHTS", True))
+
+    # ── Phase 39.3: CAP Regression Gate ────────────────────────────
+    cap_gate: bool = field(
+        default_factory=lambda: _env_bool("FF_CAP_GATE", True))
+
+    # ── Phase 39.4: Debug Trace Instrumentation ────────────────────
+    debug_trace: bool = field(
+        default_factory=lambda: _env_bool("FF_DEBUG_TRACE", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

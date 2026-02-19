@@ -1,0 +1,147 @@
+{
+  "run_id": "run_20260219_141725_a6d7c1",
+  "timestamp": 1771507060.2138462,
+  "key_outcomes": {
+    "wins": [
+      "Completed a single episode with positive total reward",
+      "Maintained stable reward trend across the run"
+    ],
+    "fails": [
+      "Zero successful episodes (0% success rate)",
+      "High mentor reliance (10 mentor calls in 1 episode)",
+      "Insufficient generalization beyond a single episode"
+    ],
+    "summary": "The run achieved positive reward but failed to convert into a successful episode, indicating progress in low-level actions but gaps in end-to-end task completion and autonomy."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to close tasks without mentor intervention",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step03",
+        "ep001_step07",
+        "ep001_step12"
+      ]
+    },
+    {
+      "pattern": "Stalling before goal validation or finalization",
+      "frequency": 6,
+      "evidence_refs": [
+        "ep001_step09",
+        "ep001_step14",
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields at least one open TCP port",
+      "then_action": "Run targeted service/version enumeration",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step04",
+        "ep001_step06"
+      ],
+      "created_at": 1771507074.5428576,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP(S) service is detected",
+      "then_action": "Enumerate web content and endpoints",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u <url> -w <wordlist> -x php,txt,html"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step10"
+      ],
+      "created_at": 1771507074.5428712,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected on port 22",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-auth-methods,ssh2-enum-algos <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771507074.542881,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundation for precise follow-on enumeration to reduce mentor reliance"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a frequent pivot point in successful paths"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Mentor Call Reduction Drill",
+      "description": "Run a no-mentor episode enforcing a strict recon\u2192enumeration\u2192exploit\u2192validate checklist, logging all decision points.",
+      "priority": "high"
+    },
+    {
+      "title": "End-to-End Completion Focus",
+      "description": "Practice goal validation steps immediately after each exploit attempt to prevent stalling before task closure.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-First Branching",
+      "description": "After initial scan, branch actions by service type (SSH/HTTP/SMB) with predefined playbooks to improve autonomy.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260219_131611_0d1bd9",
+  "timestamp": 1771503383.58908,
+  "key_outcomes": {
+    "wins": [
+      "Completed full episode without termination",
+      "Achieved positive total reward (40.00)"
+    ],
+    "fails": [
+      "Success rate remained at 0% across the run",
+      "High mentor call count (10) indicates reliance on guidance"
+    ],
+    "summary": "Single-episode run earned positive reward but failed to achieve any success; needs focused improvements to convert progress into wins."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress without converting to a terminal success condition",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode completes with positive reward but no success",
+      "then_action": "Review last 5 actions and identify the nearest missed terminal condition; prioritize a single corrective action",
+      "parameters_template": {
+        "window_steps": 5,
+        "focus": "missed_terminal_condition"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771503397.4043632,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Insert a short self-review loop before each mentor call to attempt an independent next step",
+      "parameters_template": {
+        "max_mentor_calls": 5,
+        "self_review_steps": 2
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step_mid"
+      ],
+      "created_at": 1771503397.404372,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Run a targeted post-mortem to map actions to objectives and flag gaps",
+      "parameters_template": {
+        "post_mortem_template": "action_objective_gap",
+        "priority": "terminal_objective_alignment"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step_end"
+      ],
+      "created_at": 1771503397.4043775,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Only episode completed with positive reward but no success; post-episode corrective review is high value."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Mentor calls were high; reducing dependency can improve success conversion."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Terminal Objective Alignment Drill",
+      "description": "Run a short episode focused on mapping each action to a terminal success criterion; stop and correct on any mismatch.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Trial",
+      "description": "Cap mentor calls at 3 and enforce a 2-step independent attempt before requesting help.",
+      "priority": "high"
+    },
+    {
+      "title": "End-of-Episode Post-Mortem",
+      "description": "Perform a structured review of the last 5 actions to identify the nearest missed terminal condition and adjust next run.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
