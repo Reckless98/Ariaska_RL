@@ -873,7 +873,101 @@ class SmartOrchestrator:
         self._episode_tracker = EpisodeTracker()
         self._flag_match_cls = FlagMatch
         logger.debug("[P41] Orchestrator submodule delegation initialized")
-    
+
+        # =====================================================================
+        # PHASE 42: Deep wiring — lazy-init placeholders
+        # =====================================================================
+        self._her: Optional[object] = None  # HindsightReplay, lazy init
+        self._meta_learner: Optional[object] = None  # ReflectiveMetaLearner
+        self._reflection_context: str = ""
+        self._evidence_graph: Optional[object] = None  # EvidenceGraph
+        self._ttf_tracker: Optional[object] = None  # TTFTracker
+
+    # =========================================================================
+    # PHASE 42: Deep Wiring Methods
+    # =========================================================================
+
+    def _wire_her(self) -> None:
+        """Lazy-init and invoke HindsightReplay on episode transitions."""
+        if self._her is None:
+            try:
+                from core.feature_flags import get_feature_flags
+                if not get_feature_flags().her_wiring:
+                    return
+                from core.algorithms.hindsight_replay import HindsightReplay
+                self._her = HindsightReplay()
+                logger.info("HindsightReplay wired successfully")
+            except Exception as e:
+                logger.warning("HindsightReplay init failed: %s", e)
+                return
+
+        if not hasattr(self, '_ppo_trajectory') or not self._ppo_trajectory:
+            return
+
+        try:
+            transitions = list(self._ppo_trajectory)
+            if not transitions:
+                return
+            phases = [t.get("phase", 0) if isinstance(t, dict) else 0 for t in transitions]
+            target_phase = max(phases) if phases else 0
+            achieved_phase = phases[-1] if phases else 0
+            self._her.process_episode(
+                transitions=transitions,
+                target_phase=target_phase,
+                achieved_phase=achieved_phase,
+            )
+            logger.debug("HER processed %d transitions", len(transitions))
+        except Exception as e:
+            logger.warning("HER process_episode failed: %s", e)
+
+    def _ensure_meta_learner(self) -> Optional[object]:
+        """Lazy-init ReflectiveMetaLearner if feature flag is on."""
+        if self._meta_learner is not None:
+            return self._meta_learner
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().reflective_meta_learner:
+                return None
+            from core.llm.reflective_meta_learner import ReflectiveMetaLearner
+            self._meta_learner = ReflectiveMetaLearner()
+            logger.info("ReflectiveMetaLearner wired into SmartOrchestrator")
+            return self._meta_learner
+        except Exception as e:
+            logger.warning("ReflectiveMetaLearner init failed: %s", e)
+            return None
+
+    def _ensure_evidence_graph(self) -> Optional[object]:
+        """Lazy-init EvidenceGraph if feature flag is on."""
+        if self._evidence_graph is not None:
+            return self._evidence_graph
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().evidence_graph_v2:
+                return None
+            from core.memory.evidence_graph import EvidenceGraph
+            self._evidence_graph = EvidenceGraph()
+            logger.info("EvidenceGraph wired into SmartOrchestrator")
+            return self._evidence_graph
+        except Exception as e:
+            logger.warning("EvidenceGraph init failed: %s", e)
+            return None
+
+    def _ensure_ttf_tracker(self) -> Optional[object]:
+        """Lazy-init TTFTracker if feature flag is on."""
+        if self._ttf_tracker is not None:
+            return self._ttf_tracker
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().ttf_tracker:
+                return None
+            from core.metrics.ttf_metrics import TTFTracker
+            self._ttf_tracker = TTFTracker()
+            logger.info("TTFTracker wired into SmartOrchestrator")
+            return self._ttf_tracker
+        except Exception as e:
+            logger.warning("TTFTracker init failed: %s", e)
+            return None
+
     # =========================================================================
     # PHASE 2A: Smart Agent Activation Schedule
     # =========================================================================
@@ -1429,6 +1523,29 @@ class SmartOrchestrator:
         # Prevents 5 agents from each getting reward for the same port/service/credential
         self._episode_shared_discoveries: set = set()
         
+        # ─── PHASE 42: Reflective meta-learner — context injection ───
+        meta = self._ensure_meta_learner()
+        if meta is not None:
+            try:
+                self._reflection_context = meta.get_context_injection()
+            except Exception as e:
+                logger.warning("ReflectiveMetaLearner context injection failed: %s", e)
+                self._reflection_context = ""
+
+        # ─── PHASE 42: Reset TTFTracker for new episode ──────────────
+        if self._ttf_tracker is not None:
+            try:
+                self._ttf_tracker.reset()
+            except Exception as e:
+                logger.warning("TTFTracker reset failed: %s", e)
+
+        # ─── PHASE 42: Reset EvidenceGraph for new episode ───────────
+        if self._evidence_graph is not None:
+            try:
+                self._evidence_graph.reset()
+            except Exception as e:
+                logger.warning("EvidenceGraph reset failed: %s", e)
+
         # P35: Reset coherence chain for new episode
         if self.coherence_chain is not None:
             self.coherence_chain.reset()
@@ -3087,6 +3204,38 @@ class SmartOrchestrator:
         metrics["decisions_registry"] = source_counts["registry"]
         metrics["decisions_anti_repeat"] = source_counts["anti_repeat"]
         metrics["decisions_codex_meta"] = source_counts["codex_meta"]
+
+        # ─── PHASE 42: HER wiring — process episode transitions ─────
+        self._wire_her()
+
+        # ─── PHASE 42: Reflective meta-learner — episode reflection ──
+        meta = self._ensure_meta_learner()
+        if meta is not None:
+            try:
+                episode_data = {
+                    "episode": episode_number,
+                    "total_reward": episode_reward,
+                    "max_phase": highest_phase_for_summary,
+                    "steps": len(step_results),
+                    "discoveries": len(getattr(self, '_episode_shared_discoveries', set())),
+                }
+                meta.reflect_on_episode(episode_data, gpt_manager=self.gpt_manager)
+                logger.debug("ReflectiveMetaLearner reflected on episode %d", episode_number)
+            except Exception as e:
+                logger.warning("ReflectiveMetaLearner reflection failed: %s", e)
+
+        # ─── PHASE 42: TTFTracker — log episode metrics ──────────────
+        ttf = self._ensure_ttf_tracker()
+        if ttf is not None:
+            try:
+                ttf_metrics = ttf.get_metrics()
+                logger.debug(
+                    "TTF episode summary: port=%s service=%s shell=%s",
+                    ttf_metrics.ttf_port, ttf_metrics.ttf_service, ttf_metrics.ttf_shell,
+                )
+                ttf.reset()
+            except Exception as e:
+                logger.warning("TTFTracker episode summary failed: %s", e)
 
         # ─── PHASE 10.2: Deferred Episode Summary with Algorithm Panels ──
         # Now that PPO updates, DDQN stats, and decision sources are computed,

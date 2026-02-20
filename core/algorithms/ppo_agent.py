@@ -126,6 +126,10 @@ class PPOConfig:
     use_value_reg_loss: bool = False      # MSE(value, llm_value_estimate)
     value_reg_coef: float = 0.10         # Value reg weight (decays with anneal)
 
+    # ── Phase 42: Contrastive state representation ───────────────
+    use_contrastive_loss: bool = False    # NT-Xent on phase-grouped states (model config, not FF)
+    contrastive_coef: float = 0.05       # Contrastive loss weight
+
 
 class PPOActorCritic(nn.Module):
     """Combined actor-critic network for PPO with advanced architecture.
@@ -340,6 +344,20 @@ class PPOActorCritic(nn.Module):
         """Return raw action logits for BC loss computation (Phase 14.0)."""
         logits, _ = self.forward(state)
         return logits
+
+    def get_backbone_features(self, state: torch.Tensor) -> torch.Tensor:
+        """Return backbone features before actor/critic heads (Phase 42).
+
+        Runs forward pass if needed and returns cached features.
+
+        Args:
+            state: (B, state_dim) tensor.
+
+        Returns:
+            (B, hidden_dims[-1]) backbone feature tensor.
+        """
+        self.forward(state)
+        return self._cached_features
 
     def get_action_and_value(
         self, state: torch.Tensor, action: Optional[torch.Tensor] = None,
@@ -784,6 +802,39 @@ class PPOAgent:
 
         # ── R70: Self-Imitation Learning buffer ──────────────────────
         self.sil_buffer = SILBuffer(capacity=self.config.sil_buffer_size)
+
+        # ── Phase 42: Contrastive state representation ───────────────
+        self._contrastive_loss: Optional[object] = None
+        if self.config.use_contrastive_loss:
+            self._ensure_contrastive_loss()
+
+    # ── Phase 42: Contrastive loss init ──────────────────────────────
+
+    def _ensure_contrastive_loss(self) -> None:
+        """Lazy-init ContrastiveLoss module."""
+        if self._contrastive_loss is not None:
+            return
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().contrastive_ppo:
+                return
+            from core.algorithms.contrastive_state import (
+                ContrastiveLoss, ContrastiveConfig,
+            )
+            cfg = ContrastiveConfig(
+                enabled=True,
+                coef=self.config.contrastive_coef,
+                feature_dim=self.config.hidden_dims[-1],
+            )
+            self._contrastive_loss = ContrastiveLoss(cfg).to(self.device)
+            # Add to optimizer
+            self.optimizer.add_param_group(
+                {"params": self._contrastive_loss.parameters(), "lr": self.config.learning_rate}
+            )
+            logger.info("Phase 42: ContrastiveLoss wired into PPO")
+        except Exception as exc:
+            logger.warning("Phase 42: ContrastiveLoss init failed: %s", exc)
+            self._contrastive_loss = None
 
     # ── Action Selection ─────────────────────────────────────────────
 
@@ -1317,6 +1368,28 @@ class PPOAgent:
                             loss = loss + self.config.value_reg_coef * vreg_loss
                             _value_reg_val = vreg_loss.item()
 
+                # ── Phase 42: Contrastive state loss ─────────────────
+                _contrastive_val = 0.0
+                if (
+                    self.config.use_contrastive_loss
+                    and self._contrastive_loss is not None
+                ):
+                    try:
+                        backbone_feats = self.network.get_backbone_features(
+                            batch["states"]
+                        )
+                        phase_labels = PPOActorCritic._extract_phase_group(
+                            batch["states"]
+                        )
+                        c_loss = self._contrastive_loss.compute_loss(
+                            backbone_feats, phase_labels
+                        )
+                        if c_loss.item() > 0:
+                            loss = loss + self.config.contrastive_coef * c_loss
+                            _contrastive_val = c_loss.item()
+                    except Exception:
+                        pass  # Contrastive loss is non-critical
+
                 # ── Backward (R73: gradient accumulation) ────────────
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
@@ -1354,6 +1427,7 @@ class PPOAgent:
                 metrics["kl_teacher_loss"] += _kl_teacher_val
                 metrics["ranking_loss"] += _ranking_val
                 metrics["value_reg_loss"] += _value_reg_val
+                metrics["contrastive_loss"] = metrics.get("contrastive_loss", 0.0) + _contrastive_val
                 num_batches += 1
 
             # R73: Step on any remaining accumulated gradients

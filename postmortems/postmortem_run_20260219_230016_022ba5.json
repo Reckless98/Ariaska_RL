@@ -1,0 +1,146 @@
+{
+  "run_id": "run_20260219_230016_022ba5",
+  "timestamp": 1771538436.6914923,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate, indicating partial task progress"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High mentor call usage (10) suggests reliance on guidance",
+      "Single-episode run limits pattern validation"
+    ],
+    "summary": "The run shows partial progress but no task completion; reliability is low and guidance dependency is high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episodes terminate without achieving objective",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Frequent mentor intervention during execution",
+      "frequency": 10,
+      "evidence_refs": [
+        "mentor_call_001",
+        "mentor_call_010"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is identified but service inventory is incomplete",
+      "then_action": "Run fast TCP port scan to map open services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -T4 -p- <target>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771538449.3802614,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web service (HTTP/HTTPS) is detected",
+      "then_action": "Enumerate web endpoints and technologies",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "args": [
+          "<target_url>",
+          "dir -u <target_url> -w <wordlist> -t 50"
+        ]
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771538449.3802767,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Enumerate SSH configuration and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-* <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771538449.380287,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline service enumeration is a prerequisite for task completion"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration provides high-value discovery opportunities"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Attempt a full reconnaissance-to-exploitation chain without mentor calls, capturing decision points and outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Improve completion rate",
+      "description": "Run at least 5 episodes with consistent recon workflow to validate whether completion can be achieved.",
+      "priority": "high"
+    },
+    {
+      "title": "Optimize scanning scope",
+      "description": "Compare full port scans vs. top-1000 ports to balance speed and coverage; measure impact on discovery.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

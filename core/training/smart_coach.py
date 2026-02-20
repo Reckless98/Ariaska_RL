@@ -792,10 +792,113 @@ class SmartCoach:
         self._evidence_gate = EvidenceGate(EvidenceGateConfig(mode=_eg_mode))
         self._metrics_tracker = MetricsTracker()
         self._episode_lifecycle = EpisodeLifecycle()
+
+        # ── PHASE 42: Deep wiring — lazy-init placeholders ───────────
+        self._dagger_buffer: Optional[object] = None
+        self._phase_timeout: Optional[object] = None
+        self._ctf_tracker: Optional[object] = None
+        self._cred_sprayer: Optional[object] = None
+        self._action_grammar: Optional[object] = None
+        self._hallucination_guard: Optional[object] = None
+
         logger.debug(
             f"[P41] {agent_name}: submodule delegation initialized "
             f"(anti_repeat, evidence_gate[{_eg_mode}], metrics, lifecycle)"
         )
+
+    # =========================================================================
+    # PHASE 42: Deep Wiring — Lazy Initializers
+    # =========================================================================
+
+    def _ensure_dagger_buffer(self) -> Optional[object]:
+        """Lazy-init DAggerBuffer if feature flag is on."""
+        if self._dagger_buffer is not None:
+            return self._dagger_buffer
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().dagger_wiring:
+                return None
+            from core.training.dagger import DAggerBuffer
+            self._dagger_buffer = DAggerBuffer()
+            logger.info("DAggerBuffer wired into SmartCoach")
+            return self._dagger_buffer
+        except Exception as e:
+            logger.warning("DAggerBuffer init failed: %s", e)
+            return None
+
+    def _ensure_phase_timeout(self) -> Optional[object]:
+        """Lazy-init PhaseTimeoutManager if feature flag is on."""
+        if self._phase_timeout is not None:
+            return self._phase_timeout
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().phase_timeout:
+                return None
+            from core.training.phase_timeout import PhaseTimeoutManager
+            self._phase_timeout = PhaseTimeoutManager()
+            logger.info("PhaseTimeoutManager wired into SmartCoach")
+            return self._phase_timeout
+        except Exception as e:
+            logger.warning("PhaseTimeoutManager init failed: %s", e)
+            return None
+
+    def _ensure_ctf_tracker(self) -> Optional[object]:
+        """Lazy-init CTFModeTracker if feature flag is on."""
+        if self._ctf_tracker is not None:
+            return self._ctf_tracker
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().ctf_tracker:
+                return None
+            from core.execution.ctf_mode import CTFModeTracker
+            self._ctf_tracker = CTFModeTracker()
+            logger.info("CTFModeTracker wired into SmartCoach")
+            return self._ctf_tracker
+        except Exception as e:
+            logger.warning("CTFModeTracker init failed: %s", e)
+            return None
+
+    def _ensure_cred_sprayer(self) -> Optional[object]:
+        """Lazy-init CredentialSprayer if feature flag is on."""
+        if self._cred_sprayer is not None:
+            return self._cred_sprayer
+        try:
+            from core.feature_flags import get_feature_flags
+            if not get_feature_flags().credential_sprayer:
+                return None
+            from core.ops.credential_sprayer import CredentialSprayer
+            self._cred_sprayer = CredentialSprayer()
+            logger.info("CredentialSprayer wired into SmartCoach")
+            return self._cred_sprayer
+        except Exception as e:
+            logger.warning("CredentialSprayer init failed: %s", e)
+            return None
+
+    def _check_phase_timeout(self, phase: int, step: int) -> bool:
+        """Check if current phase has timed out. Returns True if force-advance needed."""
+        timeout_mgr = self._ensure_phase_timeout()
+        if timeout_mgr is None:
+            return False
+        try:
+            timeout_mgr.record_step(phase, step)
+            if timeout_mgr.check_timeout(phase, step):
+                logger.warning(
+                    "Phase %d timed out at step %d — force-advancing", phase, step,
+                )
+                return True
+        except Exception as e:
+            logger.warning("PhaseTimeout check failed: %s", e)
+        return False
+
+    def get_spray_commands(self) -> list:
+        """Get credential spray command candidates for decision pipeline."""
+        if self._cred_sprayer is None:
+            return []
+        try:
+            return self._cred_sprayer.get_spray_commands()
+        except Exception as e:
+            logger.warning("CredentialSprayer get_spray_commands failed: %s", e)
+            return []
 
     def _init_smart_mentor(self):
         """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
@@ -6941,6 +7044,13 @@ class SmartCoach:
         Returns:
             PPO training metrics dict, or None if no update was needed.
         """
+        # Phase 42: DAgger weight decay
+        if self._dagger_buffer is not None:
+            try:
+                self._dagger_buffer.decay_weights()
+            except Exception as e:
+                logger.warning("DAgger decay_weights failed: %s", e)
+
         if not self.ppo_agent or not self._ppo_trajectory:
             self._ppo_trajectory.clear()
             self._ppo_pending = None
@@ -7692,6 +7802,74 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"DAgger correction failed: {e}")
 
+        # ─── PHASE 42: DAgger buffer store ──────────────────────────
+        dagger_buf = self._ensure_dagger_buffer()
+        if dagger_buf is not None:
+            try:
+                _mentor_suggestion = getattr(decision, '_mentor_suggestion', None)
+                if _mentor_suggestion and decision.source == "mentor":
+                    dagger_buf.store(
+                        state_hash=getattr(self, '_current_state_hash', ''),
+                        state_vector=[0.0] * 10,
+                        mentor_action_idx=0,
+                        mentor_command=decision.command[:200] if decision.command else "",
+                        policy_action_idx=0,
+                        policy_command="",
+                        mentor_confidence=0.8,
+                        phase=str(decision.phase),
+                        episode=getattr(self, 'current_episode', 0),
+                        step=getattr(self, '_ppo_step_count', 0),
+                    )
+            except Exception as e:
+                logger.warning("DAgger store failed: %s", e)
+
+        # ─── PHASE 42: CTF mode — scan for captured flags ───────────
+        ctf = self._ensure_ctf_tracker()
+        if ctf is not None and raw_output:
+            try:
+                flags = ctf.scan_output(raw_output, decision.command or "", self.agent_name)
+                if flags:
+                    from rich.console import Console as _RichConsole
+                    _ctf_console = _RichConsole()
+                    for flag in flags:
+                        _ctf_console.print(f"[bold green]FLAG CAPTURED:[/] {flag}")
+                        logger.info("CTF flag captured: %s (agent=%s)", flag, self.agent_name)
+            except Exception as e:
+                logger.warning("CTFModeTracker scan failed: %s", e)
+
+        # ─── PHASE 42: Credential sprayer — register discovered creds/services ──
+        sprayer = self._ensure_cred_sprayer()
+        if sprayer is not None and new_discoveries:
+            try:
+                if isinstance(new_discoveries, dict):
+                    if "credentials" in new_discoveries:
+                        creds = new_discoveries["credentials"]
+                        cred_list = creds if isinstance(creds, list) else [creds]
+                        for cred in cred_list:
+                            if isinstance(cred, dict):
+                                sprayer.register_credential(
+                                    username=cred.get("username", ""),
+                                    password=cred.get("password", ""),
+                                    source=cred.get("source", ""),
+                                )
+                            elif isinstance(cred, str) and ":" in cred:
+                                parts = cred.split(":", 1)
+                                sprayer.register_credential(
+                                    username=parts[0], password=parts[1],
+                                )
+                    if "services" in new_discoveries:
+                        svcs = new_discoveries["services"]
+                        svc_list = svcs if isinstance(svcs, list) else [svcs]
+                        for svc in svc_list:
+                            if isinstance(svc, dict):
+                                sprayer.register_service(
+                                    host=svc.get("host", ""),
+                                    port=svc.get("port", 0),
+                                    service=svc.get("service", ""),
+                                )
+            except Exception as e:
+                logger.warning("CredentialSprayer registration failed: %s", e)
+
         # ─── Phase 8.0: Record to cross-episode chain memory ────────
         if decision.command:
             self._record_chain_step(decision.command, breakdown.total)
@@ -8139,6 +8317,14 @@ class SmartCoach:
 
         # Keep learned store (persists across episodes)
         # Reset attack context for new episode
+
+        # ─── PHASE 42: Reset phase timeout ──────────────────────────
+        if self._phase_timeout is not None:
+            try:
+                self._phase_timeout.reset()
+            except Exception as e:
+                logger.warning("PhaseTimeout reset failed: %s", e)
+
         if self.attack_context:
             self.attack_context = AttackContext(
                 target=self.attack_context.target,

@@ -289,6 +289,36 @@ class FeatureFlags:
     auto_web_probe: bool = field(
         default_factory=lambda: _env_bool("FF_AUTO_WEB_PROBE", True))
 
+    # ── Phase 42: Deep Wiring + HTB Evolution ──────────────────────
+    her_wiring: bool = field(
+        default_factory=lambda: _env_bool("FF_HER_WIRING", True))
+    dagger_wiring: bool = field(
+        default_factory=lambda: _env_bool("FF_DAGGER_WIRING", True))
+    reflective_meta_learner: bool = field(
+        default_factory=lambda: _env_bool("FF_REFLECTIVE_META_LEARNER", True))
+    phase_timeout: bool = field(
+        default_factory=lambda: _env_bool("FF_PHASE_TIMEOUT", True))
+    ctf_tracker: bool = field(
+        default_factory=lambda: _env_bool("FF_CTF_TRACKER", True))
+    credential_sprayer: bool = field(
+        default_factory=lambda: _env_bool("FF_CREDENTIAL_SPRAYER", True))
+    episodic_memory_vote: bool = field(
+        default_factory=lambda: _env_bool("FF_EPISODIC_MEMORY_VOTE", True))
+    contrastive_ppo: bool = field(
+        default_factory=lambda: _env_bool("FF_CONTRASTIVE_PPO", True))
+    evidence_graph_v2: bool = field(
+        default_factory=lambda: _env_bool("FF_EVIDENCE_GRAPH_V2", True))
+    action_grammar: bool = field(
+        default_factory=lambda: _env_bool("FF_ACTION_GRAMMAR", True))
+    service_fingerprints: bool = field(
+        default_factory=lambda: _env_bool("FF_SERVICE_FINGERPRINTS", True))
+    ttf_tracker: bool = field(
+        default_factory=lambda: _env_bool("FF_TTF_TRACKER", True))
+    chain_scorer: bool = field(
+        default_factory=lambda: _env_bool("FF_CHAIN_SCORER", True))
+    hallucination_guard: bool = field(
+        default_factory=lambda: _env_bool("FF_HALLUCINATION_GUARD", True))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

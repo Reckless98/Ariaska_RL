@@ -227,6 +227,7 @@ class CognitionNode:
         ddqn: Optional["DDQNMacro"] = None,
         rnd: Optional["RNDCuriosity"] = None,
         device: str = "cpu",
+        episodic_memory: Optional[object] = None,  # Phase 42
     ):
         self.config = config or CognitionConfig()
         self.ppo = ppo
@@ -234,6 +235,7 @@ class CognitionNode:
         self.ddqn = ddqn
         self.rnd = rnd
         self.device = torch.device(device)
+        self._episodic_memory = episodic_memory  # Phase 42
 
         # ── Confidence gate ──
         self.gate = ConfidenceGate(input_dim=16, hidden_dim=32, num_brains=4).to(self.device)
@@ -251,6 +253,7 @@ class CognitionNode:
         self._step_count = 0
         self._brain_win_counts: Dict[str, int] = {
             "ppo": 0, "sac": 0, "ddqn": 0, "rnd": 0, "sil": 0, "gate": 0,
+            "episodic_memory": 0,  # Phase 42
         }
         self._total_rnd_bonus = 0.0
         self._total_sil_replays = 0
@@ -261,6 +264,7 @@ class CognitionNode:
             f"SAC={'✓' if sac else '✗'} "
             f"DDQN={'✓' if ddqn else '✗'} "
             f"RND={'✓' if rnd else '✗'} "
+            f"EpisodicMem={'✓' if episodic_memory else '✗'} "
             f"gate_params={sum(p.numel() for p in self.gate.parameters()):,}"
         )
 
@@ -338,6 +342,35 @@ class CognitionNode:
                     novelty=rnd_bonus,
                 )
                 votes.append(rnd_vote)
+
+        # ── 4b. Episodic Memory vote (Phase 42) ──
+        if self._episodic_memory is not None:
+            from core.feature_flags import get_feature_flags
+            if get_feature_flags().episodic_memory_vote:
+                try:
+                    episodes = self._episodic_memory.retrieve(state, k=5)
+                    if episodes:
+                        avg_reward = sum(
+                            ep.get("reward", 0.0) for ep in episodes
+                        ) / max(len(episodes), 1)
+                        em_confidence = min(0.8, avg_reward / 10.0)
+                        # Use best available vote for action, else random legal
+                        if votes:
+                            ref_action = votes[0].action_idx
+                        else:
+                            legal = action_mask.nonzero(as_tuple=True)[0]
+                            ref_action = legal[0].item() if len(legal) > 0 else 0
+                        em_vote = BrainVote(
+                            brain_name="episodic_memory",
+                            action_idx=ref_action,
+                            confidence=max(0.1, em_confidence),
+                            q_value=avg_reward,
+                            novelty=0.0,
+                            metadata={"retrieved": len(episodes)},
+                        )
+                        votes.append(em_vote)
+                except Exception:
+                    pass  # graceful degradation
 
         # ── 5. EMA Baselines ──
         # Updated later via observe(); here we just read current values
