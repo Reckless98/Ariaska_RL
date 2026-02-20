@@ -46,6 +46,10 @@ db.sqlite
 *.pth
 #models/
 
+# Exception: allow distilled checkpoints to be tracked
+!models/distilled/*.pt
+!models/distilled/**
+
 # Phase 43: Large LLM model files (never commit)
 *.gguf
 *.awq
