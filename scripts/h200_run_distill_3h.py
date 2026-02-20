@@ -26,6 +26,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+# ── Load .env before anything reads env vars ────────────────────────────
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).resolve().parent.parent / ".env"
+    if _env_path.exists():
+        load_dotenv(_env_path, override=False)
+except ImportError:
+    pass  # dotenv optional — env vars can be set externally
+
 logger = logging.getLogger("ariaska.h200_distill")
 
 # ── Rich output (project invariant: never bare print) ───────────────────
