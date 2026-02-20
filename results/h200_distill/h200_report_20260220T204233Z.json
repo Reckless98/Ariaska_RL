@@ -1,0 +1,154 @@
+{
+  "run_id": "20260220T204233Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 0.1,
+  "wall_hours": 0.07272406213813358,
+  "episodes_completed": 10,
+  "total_steps": 300,
+  "avg_reward_all": -12.05,
+  "avg_reward_first_10": -12.05,
+  "avg_reward_last_10": -12.05,
+  "phase_reached_distribution": {
+    "RECON": 10
+  },
+  "command_families_used": {
+    "nmap": 150,
+    "whatweb": 76,
+    "curl": 36,
+    "gobuster": 18,
+    "searchsploit": 9,
+    "nikto": 3,
+    "ping": 2,
+    "enum4linux": 2,
+    "smbclient": 2,
+    "masscan": 1,
+    "ffuf": 1
+  },
+  "mentor_calls_total": 114,
+  "mentor_calls_by_phase": {
+    "recon": 10,
+    "enumeration": 99,
+    "exploit": 5
+  },
+  "openai_fallback_calls": 7,
+  "teacher_override_count": 114,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 0,
+  "ppo_updates": 10,
+  "discoveries_total": 0,
+  "checkpoints": [
+    "models/distilled/h200_20260220T204233Z_ep0001.pt",
+    "models/distilled/h200_20260220T204233Z_ep0007.pt",
+    "models/distilled/h200_20260220T204233Z_ep0010.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.2206,
+      "phase": "heavy",
+      "bc_coef": 0.11912,
+      "kl_coef": 0.11802,
+      "prior_alpha": 0.3897,
+      "episode": 0,
+      "mentor_calls": 30
+    },
+    {
+      "progress": 0.3426,
+      "phase": "medium",
+      "bc_coef": 0.10203,
+      "kl_coef": 0.10032,
+      "prior_alpha": 0.3287,
+      "episode": 1,
+      "mentor_calls": 18
+    },
+    {
+      "progress": 0.4016,
+      "phase": "medium",
+      "bc_coef": 0.09377,
+      "kl_coef": 0.09177,
+      "prior_alpha": 0.2992,
+      "episode": 2,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.4574,
+      "phase": "medium",
+      "bc_coef": 0.08596,
+      "kl_coef": 0.08367,
+      "prior_alpha": 0.2713,
+      "episode": 3,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.52,
+      "phase": "medium",
+      "bc_coef": 0.0772,
+      "kl_coef": 0.0746,
+      "prior_alpha": 0.24,
+      "episode": 4,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.5857,
+      "phase": "medium",
+      "bc_coef": 0.068,
+      "kl_coef": 0.06507,
+      "prior_alpha": 0.2071,
+      "episode": 5,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.6472,
+      "phase": "medium",
+      "bc_coef": 0.0594,
+      "kl_coef": 0.05616,
+      "prior_alpha": 0.1764,
+      "episode": 6,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.698,
+      "phase": "medium",
+      "bc_coef": 0.05229,
+      "kl_coef": 0.0488,
+      "prior_alpha": 0.151,
+      "episode": 7,
+      "mentor_calls": 10
+    },
+    {
+      "progress": 0.7121,
+      "phase": "light",
+      "bc_coef": 0.0503,
+      "kl_coef": 0.04674,
+      "prior_alpha": 0.1439,
+      "episode": 8,
+      "mentor_calls": 3
+    },
+    {
+      "progress": 0.7272,
+      "phase": "light",
+      "bc_coef": 0.0482,
+      "kl_coef": 0.04456,
+      "prior_alpha": 0.1364,
+      "episode": 9,
+      "mentor_calls": 3
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 300,
+      "mentor": 114,
+      "rate": 0.38
+    }
+  ],
+  "codex_calls": 7,
+  "codex_tokens": 3804,
+  "codex_cost_usd": 0.068664,
+  "codex_escalation_reasons": {
+    "diversity_early": 3,
+    "hard_case_mid": 3,
+    "critical_stall": 1
+  }
+}
