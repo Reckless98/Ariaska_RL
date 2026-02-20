@@ -272,6 +272,24 @@ lint-deprecated:
 		| grep -v "# deprecated-ok" | grep -v "test" && echo "✓ No un-gated MS3 imports" || true
 	@echo "✓ Deprecation lint passed"
 
+# ── Distillation Prep ─────────────────────────────────────────────────
+distill-prep-generate:
+	@echo "▶ Generating synthetic traces + teacher trajectories..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.generate_synthetic_traces --runs 500 --seed 42
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.generate_teacher_trajectories --trajectories 300 --seed 42
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.summarize_artifacts --manifest --seed 42
+	@echo "✓ Distill prep generation complete"
+
+distill-prep-validate:
+	@echo "▶ Validating distill prep artifacts..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.validate_artifacts
+	@echo "✓ Validation complete"
+
+distill-prep-summary:
+	@echo "▶ Summarizing distill prep artifacts..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.summarize_artifacts
+	@echo "✓ Summary complete"
+
 # ── Traces ───────────────────────────────────────────────────────────
 traces:
 	@echo "Recent training runs:"

@@ -1,0 +1,40 @@
+{
+  "scenario_id": "scenario_hard_00",
+  "name": "Hard Target 0",
+  "difficulty": "hard",
+  "target_ip": "10.10.10.56",
+  "os_type": "windows",
+  "services": [
+    "http",
+    "https",
+    "ssh",
+    "smb",
+    "ldap",
+    "dns",
+    "mysql",
+    "winrm"
+  ],
+  "open_ports": [
+    22,
+    80,
+    443,
+    445,
+    389,
+    53,
+    3306,
+    5985,
+    8080,
+    135
+  ],
+  "vulnerabilities": [],
+  "intended_path": [
+    "nmap_service_version",
+    "gobuster_dir",
+    "hydra_ssh",
+    "linpeas_ms2"
+  ],
+  "has_credentials": true,
+  "has_flags": false,
+  "max_steps": 92,
+  "distill_prep_version": "v1"
+}

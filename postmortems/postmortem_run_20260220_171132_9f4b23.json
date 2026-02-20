@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260220_171132_9f4b23",
+  "timestamp": 1771603907.775529,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive reward signal despite no episode success, indicating some effective subtask completion"
+    ],
+    "fails": [
+      "Zero successful episodes (0.00% success rate)",
+      "High mentor reliance (10 calls) suggesting insufficient autonomous decision-making"
+    ],
+    "summary": "Single-episode run achieved positive reward but failed to complete objectives; focus should shift to converting partial progress into end-to-end success with reduced mentor dependence."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress stalls after initial reconnaissance, failing to transition into exploitation or objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ping and top-1000 port scan completes",
+      "then_action": "Prioritize service-specific enumeration on the top 2 open ports",
+      "parameters_template": {
+        "scan_tool": "nmap",
+        "flags": "-sV -sC",
+        "ports": "top2"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771603924.8678796,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Run targeted web discovery to identify attack surface quickly",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step08"
+      ],
+      "created_at": 1771603924.867894,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected with banner",
+      "then_action": "Enumerate SSH configuration and supported algorithms for weaknesses",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh2-enum-algos,ssh-hostkey",
+        "port": 22
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771603924.867904,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent reconnaissance-to-enumeration transition yielded positive reward signals"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web surface mapping is a high-yield step to convert recon into actionable findings"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Conversion Drill",
+      "description": "Enforce a rule: after service enumeration, immediately pick one exploit path and execute it before calling mentor.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Budget",
+      "description": "Limit mentor calls to 3 per episode and log decision points to improve autonomous planning.",
+      "priority": "high"
+    },
+    {
+      "title": "Service Enumeration Depth Test",
+      "description": "Compare outcomes between shallow enumeration (nmap -sV -sC) and deep enumeration (service-specific tools) to identify the optimal depth.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

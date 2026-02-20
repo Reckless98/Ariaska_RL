@@ -1,0 +1,191 @@
+{
+  "generated_at": "2026-02-20T16:10:35.323719+00:00",
+  "distill_prep_version": "v1",
+  "total_traces": 500,
+  "total_trajectories": 300,
+  "total_steps": 37651,
+  "phase_histogram": {
+    "RECON": 1441,
+    "ENUMERATION": 2187,
+    "EXPLOITATION": 28322,
+    "PRIVILEGE_ESCALATION": 1403,
+    "LATERAL_MOVEMENT": 1142,
+    "EXFILTRATION": 958,
+    "POST_EXPLOITATION": 1632,
+    "CLOSEOUT": 566
+  },
+  "repeated_command_patterns": [
+    {
+      "command": "mimikatz.exe 'sekurlsa::logonpasswords'",
+      "count": 705
+    },
+    {
+      "command": "ssh -i id_rsa user@10.10.10.2",
+      "count": 431
+    },
+    {
+      "command": "cat /root/root.txt",
+      "count": 303
+    },
+    {
+      "command": "cat /home/user/user.txt",
+      "count": 286
+    },
+    {
+      "command": "echo 'Engagement complete'",
+      "count": 262
+    },
+    {
+      "command": "rm -f /tmp/linpeas.sh /tmp/chisel",
+      "count": 256
+    },
+    {
+      "command": "python3 exploit.py 10.10.10.56 21",
+      "count": 59
+    },
+    {
+      "command": "msfconsole -q -x 'use exploit/multi/http/apache_mod_cgi_bash_env_exec; set RHOSTS 10.10.10.56; run'",
+      "count": 54
+    },
+    {
+      "command": "sqlmap -u 'http://10.10.10.11/page?id=1' --batch --dbs",
+      "count": 52
+    },
+    {
+      "command": "impacket-psexec admin:password123@10.10.10.10",
+      "count": 52
+    }
+  ],
+  "tool_family_coverage": {
+    "bloodhound": 29,
+    "certipy": 189,
+    "chisel": 565,
+    "crackmapexec": 3484,
+    "curl": 326,
+    "dig": 128,
+    "dnsrecon": 131,
+    "docker": 135,
+    "enum4linux": 115,
+    "evil_winrm": 116,
+    "exploit": 3954,
+    "feroxbuster": 134,
+    "ffuf": 133,
+    "find_suid": 109,
+    "ftp": 135,
+    "gobuster": 235,
+    "hydra": 3504,
+    "impacket": 4187,
+    "ldapsearch": 29,
+    "linpeas": 185,
+    "lxd": 144,
+    "manual": 1251,
+    "masscan": 265,
+    "mimikatz": 821,
+    "msfconsole": 6769,
+    "nc": 471,
+    "nikto": 135,
+    "nmap": 734,
+    "python": 91,
+    "rpcclient": 176,
+    "rubeus": 125,
+    "showmount": 137,
+    "smbclient": 164,
+    "smbmap": 162,
+    "snmpwalk": 137,
+    "sqlmap": 3459,
+    "ssh": 4023,
+    "ssh_audit": 103,
+    "sudo": 162,
+    "wfuzz": 130,
+    "whatweb": 247,
+    "winpeas": 122
+  },
+  "avg_reward_by_phase": {
+    "RECON": 7.367,
+    "ENUMERATION": 8.345,
+    "EXPLOITATION": 1.014,
+    "PRIVILEGE_ESCALATION": 26.154,
+    "LATERAL_MOVEMENT": 5.01,
+    "EXFILTRATION": 16.638,
+    "POST_EXPLOITATION": 1.226,
+    "CLOSEOUT": 0.785
+  },
+  "avg_reward_by_tool": {
+    "bloodhound": 0.0,
+    "certipy": 17.48,
+    "chisel": 4.886,
+    "crackmapexec": 0.563,
+    "curl": 6.794,
+    "dig": 8.495,
+    "dnsrecon": 8.934,
+    "docker": 16.334,
+    "enum4linux": 8.278,
+    "evil_winrm": 0.0,
+    "exploit": 0.144,
+    "feroxbuster": 9.516,
+    "ffuf": 8.839,
+    "find_suid": 19.182,
+    "ftp": 8.416,
+    "gobuster": 9.058,
+    "hydra": 0.411,
+    "impacket": 0.386,
+    "ldapsearch": 0.0,
+    "linpeas": 19.099,
+    "lxd": 24.479,
+    "manual": 5.206,
+    "masscan": 6.469,
+    "mimikatz": 1.33,
+    "msfconsole": 0.362,
+    "nc": 12.554,
+    "nikto": 8.381,
+    "nmap": 6.083,
+    "python": 29.214,
+    "rpcclient": 8.011,
+    "rubeus": 19.188,
+    "showmount": 9.227,
+    "smbclient": 9.047,
+    "smbmap": 8.239,
+    "snmpwalk": 8.793,
+    "sqlmap": 0.252,
+    "ssh": 1.141,
+    "ssh_audit": 8.976,
+    "sudo": 19.415,
+    "wfuzz": 9.123,
+    "whatweb": 6.58,
+    "winpeas": 21.136
+  },
+  "decision_source_pct": {
+    "ppo": 34.95,
+    "mentor": 8.18,
+    "registry": 15.07,
+    "playbook": 19.86,
+    "phase_guided": 5.05,
+    "micro_chain": 10.03,
+    "fallback": 4.9,
+    "anti_repeat": 1.96
+  },
+  "weakness_areas": [],
+  "coverage_gaps": [],
+  "wrong_move_ratio": 0.2472,
+  "total_discoveries": 7914,
+  "discovery_distribution": {
+    "PORT": 2789,
+    "SERVICE": 1489,
+    "CREDENTIAL": 410,
+    "SHELL": 452,
+    "ROOT_SHELL": 385,
+    "FLAG": 381,
+    "WEB_PATH": 649,
+    "USER": 336,
+    "VULNERABILITY": 402,
+    "DOMAIN_USER": 122,
+    "SMB_SHARE": 159,
+    "GPP_PASSWORD": 27,
+    "HASH": 95,
+    "HOSTNAME": 121,
+    "TOKEN": 33,
+    "VERSION": 20,
+    "OS_INFO": 22,
+    "KEY": 22
+  }
+}

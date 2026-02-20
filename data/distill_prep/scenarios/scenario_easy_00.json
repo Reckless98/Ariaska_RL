@@ -1,0 +1,28 @@
+{
+  "scenario_id": "scenario_easy_00",
+  "name": "Easy Target 0",
+  "difficulty": "easy",
+  "target_ip": "10.10.10.164",
+  "os_type": "linux",
+  "services": [
+    "http",
+    "ssh",
+    "ftp"
+  ],
+  "open_ports": [
+    22,
+    80,
+    21
+  ],
+  "vulnerabilities": [],
+  "intended_path": [
+    "nmap_service_version",
+    "gobuster_dir",
+    "hydra_ssh",
+    "linpeas_ms2"
+  ],
+  "has_credentials": true,
+  "has_flags": true,
+  "max_steps": 37,
+  "distill_prep_version": "v1"
+}
