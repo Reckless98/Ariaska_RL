@@ -289,6 +289,14 @@ class FeatureFlags:
     auto_web_probe: bool = field(
         default_factory=lambda: _env_bool("FF_AUTO_WEB_PROBE", True))
 
+    # ── Phase 43: GPU Acceleration + Local LLM ─────────────────
+    local_llm: bool = field(
+        default_factory=lambda: _env_bool("FF_LOCAL_LLM", False))  # Auto-detected at startup
+    local_llm_offload_nano: bool = field(
+        default_factory=lambda: _env_bool("FF_LOCAL_LLM_OFFLOAD_NANO", True))
+    local_llm_offload_mini: bool = field(
+        default_factory=lambda: _env_bool("FF_LOCAL_LLM_OFFLOAD_MINI", True))
+
     # ── Phase 42: Deep Wiring + HTB Evolution ──────────────────────
     her_wiring: bool = field(
         default_factory=lambda: _env_bool("FF_HER_WIRING", True))

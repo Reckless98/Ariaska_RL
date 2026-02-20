@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260220_154031_b6ac12",
+  "timestamp": 1771598448.2162857,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive reward signal (60.00) indicating partial task progression despite no episode-level success"
+    ],
+    "fails": [
+      "No episodes completed successfully (0.00% success rate)",
+      "Insufficient evidence of end-to-end compromise or objective completion"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to reach terminal success conditions; focus should shift to tighter reconnaissance-to-exploitation linkage and confirmation of objective completion."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access is unknown and target is reachable",
+      "then_action": "Run a full TCP port scan to establish service surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- -sV -sC --min-rate 1000",
+        "target": "<TARGET_IP>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771598466.331638,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is discovered",
+      "then_action": "Enumerate web content and directories for attack surface",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<TARGET_IP> -w <WORDLIST> -x php,txt,html",
+        "target": "<TARGET_IP>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771598466.3316557,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is open and banner information is visible",
+      "then_action": "Collect SSH configuration clues and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey,ssh-auth-methods",
+        "target": "<TARGET_IP>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771598466.3316672,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline discovery is prerequisite for all subsequent phases and appears to contribute to positive reward."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web surface enumeration is a common pivot to credential or exploit paths."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Traceability",
+      "description": "After service discovery, explicitly map each open service to a candidate exploit or credential path, and stop only when a specific exploit attempt has been made.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Enumeration Depth Tuning",
+      "description": "Increase directory enumeration depth and file extension coverage; compare results with and without recursive scanning to measure new findings.",
+      "priority": "medium"
+    },
+    {
+      "title": "Credential Harvesting Checks",
+      "description": "Add a step to search for default credentials or leaked keys in discovered web paths or banners before moving to exploitation.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

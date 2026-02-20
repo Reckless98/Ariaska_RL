@@ -19,6 +19,7 @@ Phase: 6.1 — Environment Separation
 
 import time
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Set
@@ -344,6 +345,7 @@ class LiveCommandExecutor:
         
         # Safety: Block commands that would run interactively on the local machine
         # Commands like 'sudo -l' without SSH wrapper will prompt for local password
+        # Phase 42: If SUDO_PASSWORD is in env, allow sudo by piping password non-interactively
         _cmd_stripped = command.strip()
         _LOCAL_DANGER_PREFIXES = (
             "sudo ",       # Would prompt for local password
@@ -355,13 +357,23 @@ class LiveCommandExecutor:
             # Only block if not wrapped in SSH/sshpass (which targets remote)
             _is_remote = any(w in command for w in ("ssh ", "sshpass ", "ssh -"))
             if not _is_remote:
-                return LiveCommandResult(
-                    command=command,
-                    agent_name=agent_name,
-                    executed=False,
-                    stderr=f"[BLOCKED] Cannot run '{_cmd_stripped[:30]}...' locally — needs remote shell",
-                    target_ip=self.target_ip,
-                )
+                # Phase 42: Allow sudo if SUDO_PASSWORD is set — pipe it non-interactively
+                _sudo_pw = os.environ.get("SUDO_PASSWORD")
+                if _cmd_stripped.startswith("sudo ") and _sudo_pw:
+                    # Rewrite: sudo <cmd> → echo "$pw" | sudo -S <cmd>
+                    _inner_cmd = _cmd_stripped[5:]  # Strip "sudo " prefix
+                    command = f'echo "{_sudo_pw}" | sudo -S {_inner_cmd}'
+                    logger.debug(
+                        f"[LIVE-SUDO] Injected SUDO_PASSWORD for: sudo {_inner_cmd[:50]}..."
+                    )
+                else:
+                    return LiveCommandResult(
+                        command=command,
+                        agent_name=agent_name,
+                        executed=False,
+                        stderr=f"[BLOCKED] Cannot run '{_cmd_stripped[:30]}...' locally — needs remote shell or SUDO_PASSWORD env var",
+                        target_ip=self.target_ip,
+                    )
         
         # Determine timeout
         timeout = timeout_override or self._get_timeout(command)

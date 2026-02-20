@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-01-31T08:28:48.648440",
+  "max_steps": 500,
+  "seed": 31286,
+  "target_ip": "10.129.2.35",
+  "target_name": "Bashed",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "linux",
+  "duration_s": 220.84,
+  "total_reward": 311.49,
+  "highest_phase": "EXPLOITATION",
+  "total_steps": 50,
+  "total_discoveries": 3,
+  "total_cost_usd": 0.5405,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 28,
+    "playbook": 11,
+    "registry": 10,
+    "anti_repeat": 8,
+    "codex_meta": 3
+  },
+  "discovery_summary": {
+    "ports": 1,
+    "services": 1,
+    "credentials": 0,
+    "shells": 1
+  },
+  "episode_metrics": {
+    "total_steps": 50,
+    "highest_phase": "EXPLOITATION",
+    "total_discoveries": 3,
+    "unique_commands": 33,
+    "diversity_ratio": 0.589
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.2373,
+    "value_loss": 2.1003,
+    "entropy": 3.6864,
+    "kl_divergence": 0.02371,
+    "clip_fraction": 0.0519,
+    "ppo_updates": 3
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 311.49,
+      "highest_phase": "EXPLOITATION",
+      "steps": 50,
+      "ppo_updates": 3,
+      "policy_loss": 0.1918,
+      "value_loss": 2.5262,
+      "entropy": 2.2636,
+      "sources": {
+        "ppo": 28,
+        "playbook": 11,
+        "registry": 10,
+        "anti_repeat": 8,
+        "codex_meta": 3
+      },
+      "unique_commands": 31,
+      "unique_templates": 34,
+      "command_diversity": 0.7196,
+      "total_discoveries": 4,
+      "step_at_first_exploit": 19
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 12,
+      "discoveries": 1
+    },
+    "RedAgent": {
+      "steps": 17,
+      "discoveries": 1
+    },
+    "BlueAgent": {
+      "steps": 5,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 7,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 7,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "phpbash webshell \u2192 sudo -l \u2192 scriptmanager privesc \u2192 root cron",
+    "services_discovered": [
+      "http:80"
+    ],
+    "maturity_signal": 0.408,
+    "success": false,
+    "partial_success": false,
+    "learning_phase": "mid"
+  }
+}

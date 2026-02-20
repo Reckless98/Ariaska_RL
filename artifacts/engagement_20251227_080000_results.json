@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-01-01T14:26:52.401107",
+  "max_steps": 500,
+  "seed": 68495,
+  "target_ip": "10.129.8.29",
+  "target_name": "Popcorn",
+  "mode": "continuous",
+  "difficulty": "medium",
+  "os_type": "linux",
+  "duration_s": 734.05,
+  "total_reward": 2600.35,
+  "highest_phase": "EXFILTRATION",
+  "total_steps": 64,
+  "total_discoveries": 7,
+  "total_cost_usd": 0.7308,
+  "user_flag_captured": true,
+  "root_flag_captured": true,
+  "user_flag_value": "c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
+  "root_flag_value": "d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5",
+  "decision_sources": {
+    "ppo": 40,
+    "playbook": 8,
+    "registry": 9,
+    "anti_repeat": 7,
+    "codex_meta": 5
+  },
+  "discovery_summary": {
+    "ports": 2,
+    "services": 2,
+    "credentials": 1,
+    "shells": 2
+  },
+  "episode_metrics": {
+    "total_steps": 64,
+    "highest_phase": "EXFILTRATION",
+    "total_discoveries": 7,
+    "unique_commands": 44,
+    "diversity_ratio": 0.823
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.0284,
+    "value_loss": 2.5598,
+    "entropy": 2.8861,
+    "kl_divergence": 0.01637,
+    "clip_fraction": 0.062,
+    "ppo_updates": 4
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 2600.35,
+      "highest_phase": "EXFILTRATION",
+      "steps": 64,
+      "ppo_updates": 4,
+      "policy_loss": -0.059,
+      "value_loss": 3.339,
+      "entropy": 3.7186,
+      "sources": {
+        "ppo": 40,
+        "playbook": 8,
+        "registry": 9,
+        "anti_repeat": 7,
+        "codex_meta": 5
+      },
+      "unique_commands": 39,
+      "unique_templates": 36,
+      "command_diversity": 0.7174,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 47
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 16,
+      "discoveries": 2
+    },
+    "RedAgent": {
+      "steps": 22,
+      "discoveries": 3
+    },
+    "BlueAgent": {
+      "steps": 6,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 9,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 9,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "Torrent Hoster upload bypass \u2192 PHP webshell \u2192 PAM MOTD CVE-2010-0832 \u2192 root",
+    "services_discovered": [
+      "ssh:22",
+      "http:80"
+    ],
+    "maturity_signal": 0.86,
+    "success": true,
+    "partial_success": false,
+    "learning_phase": "late"
+  }
+}

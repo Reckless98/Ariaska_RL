@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-02-15T23:23:59.047440",
+  "max_steps": 500,
+  "seed": 53006,
+  "target_ip": "10.129.11.68",
+  "target_name": "Nineveh",
+  "mode": "continuous",
+  "difficulty": "medium",
+  "os_type": "linux",
+  "duration_s": 500.57,
+  "total_reward": 2840.05,
+  "highest_phase": "EXFILTRATION",
+  "total_steps": 94,
+  "total_discoveries": 7,
+  "total_cost_usd": 0.6378,
+  "user_flag_captured": true,
+  "root_flag_captured": true,
+  "user_flag_value": "c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
+  "root_flag_value": "d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1",
+  "decision_sources": {
+    "ppo": 65,
+    "playbook": 14,
+    "registry": 15,
+    "anti_repeat": 12,
+    "codex_meta": 8
+  },
+  "discovery_summary": {
+    "ports": 2,
+    "services": 2,
+    "credentials": 1,
+    "shells": 2
+  },
+  "episode_metrics": {
+    "total_steps": 94,
+    "highest_phase": "EXFILTRATION",
+    "total_discoveries": 7,
+    "unique_commands": 72,
+    "diversity_ratio": 0.642
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.1989,
+    "value_loss": 2.1564,
+    "entropy": 3.0495,
+    "kl_divergence": 0.01351,
+    "clip_fraction": 0.1992,
+    "ppo_updates": 8
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 2840.05,
+      "highest_phase": "EXFILTRATION",
+      "steps": 94,
+      "ppo_updates": 6,
+      "policy_loss": -0.0986,
+      "value_loss": 3.0203,
+      "entropy": 2.9817,
+      "sources": {
+        "ppo": 65,
+        "playbook": 14,
+        "registry": 15,
+        "anti_repeat": 12,
+        "codex_meta": 8
+      },
+      "unique_commands": 74,
+      "unique_templates": 65,
+      "command_diversity": 0.7438,
+      "total_discoveries": 9,
+      "step_at_first_exploit": 73
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 23,
+      "discoveries": 2
+    },
+    "RedAgent": {
+      "steps": 32,
+      "discoveries": 3
+    },
+    "BlueAgent": {
+      "steps": 9,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 14,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 14,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "Hydra brute force \u2192 phpLiteAdmin 1.9 RCE \u2192 phpmyadmin LFI chaining \u2192 chkrootkit privesc",
+    "services_discovered": [
+      "http:80",
+      "https:443"
+    ],
+    "maturity_signal": 0.862,
+    "success": true,
+    "partial_success": false,
+    "learning_phase": "late"
+  }
+}

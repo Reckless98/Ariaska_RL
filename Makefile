@@ -1,74 +1,75 @@
-# ARIASKA_RL Makefile — Phase 12.1
+# ═══════════════════════════════════════════════════════════════════════
+#  ARIASKA_RL — Phase 43 Makefile
+#  Multi-Agent Autonomous RL Pentesting System
+# ═══════════════════════════════════════════════════════════════════════
 #
-# Unified entry point: ariaska_cli.py smart-train
-#
-# Usage:
-#   make venv            - Create/upgrade .venv, install dependencies
-#   make test            - Run pytest (full suite)
-#   make test-cap        - Run Cap regression harness only
-#   make test-fast       - Run fast subset (no integration)
-#   make train           - Default training (MS3 medium, 100 eps)
-#   make train-quick     - Quick training (MS3 medium, 10 eps)
-#   make train-ms3       - MS3 medium 10 episodes
-#   make train-ms3-medium- MS3 medium 100 episodes
-#   make train-ms3-hard  - MS3 hard 10 episodes
-#   make train-ms2       - MS2 10 episodes (live)
-#   make train-ms2-hard  - MS2 hard 100 episodes (live)
-#   make train-htb       - HTB target training (requires --target)
-#   make smoke           - Quick smoke test (3 eps)
-#   make overnight       - Overnight progressive training (300 eps)
-#   make last            - View last training run
-#   make status          - System diagnostics
-#   make clean           - Clean temporary files
+# Quick reference:
+#   make ariaska          - Interactive command center (Rich TUI)
+#   make ctf target=IP    - Live CTF engagement
+#   make test             - Full test suite
+#   make help             - Show all targets
 
 .PHONY: venv test test-cap test-fast train train-quick train-ms3 train-ms3-medium \
         train-ms3-hard train-ms2 train-ms2-hard train-htb train-msf smoke \
         ms2-setup ms2-status ms2-health ms2-stop overnight overnight-quick \
-        last status clean help traces ctf
+        last status clean help traces ctf \
+        ariaska gpu gpu-setup gpu-quick gpu-ctf gpu-htb gpu-sync gpu-status \
+        gpu-shell gpu-model gpu-restart-llm
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
 PYTEST := .venv/bin/pytest
 
-# Default target
+# ── Default target ───────────────────────────────────────────────────
 help:
-	@echo "ARIASKA_RL v12.1 — Multi-Agent Cybersec RL"
 	@echo ""
-	@echo "  Training (MS3 LIVE — default):"
-	@echo "    make train           - MS3 LIVE medium, 100 eps (default)"
-	@echo "    make train-quick     - MS3 LIVE medium, 10 eps (quick test)"
-	@echo "    make train-ms3       - MS3 LIVE medium, 10 eps"
-	@echo "    make train-ms3-medium- MS3 LIVE medium, 100 eps"
-	@echo "    make train-ms3-hard  - MS3 LIVE hard, 10 eps"
+	@echo "  ┌──────────────────────────────────────────────────────────┐"
+	@echo "  │          ARIASKA_RL — Phase 43 Command Reference        │"
+	@echo "  │    Multi-Agent Autonomous RL Pentesting System          │"
+	@echo "  └──────────────────────────────────────────────────────────┘"
 	@echo ""
-	@echo "  Training (MS2):"
-	@echo "    make train-ms2       - MS2 live, 10 eps"
-	@echo "    make train-ms2-hard  - MS2 live, 100 eps"
-	@echo "    make train-msf       - MS2 live, 20 eps"
+	@echo "  ENGAGE"
+	@echo "    make ariaska                        Interactive command center (Rich TUI)"
+	@echo "    make ctf target=IP                  Live CTF engagement (500 steps)"
+	@echo "    make ctf target=IP steps=N seed=N   Custom CTF engagement"
 	@echo ""
-	@echo "  Training (HTB):"
-	@echo "    make train-htb TARGET=10.129.x.x  - HTB target, 50 eps"
+	@echo "  TRAIN"
+	@echo "    make train                          MS3 live, 100 episodes (default)"
+	@echo "    make train-quick                    MS3 live, 10 episodes"
+	@echo "    make train-ms3                      MS3 live, 10 episodes"
+	@echo "    make train-ms3-medium               MS3 medium difficulty, 100 episodes"
+	@echo "    make train-ms3-hard                 MS3 hard difficulty, 10 episodes"
+	@echo "    make train-ms2                      MS2 live, 10 episodes"
+	@echo "    make train-ms2-hard                 MS2 live, 100 episodes"
+	@echo "    make train-htb TARGET=IP            HTB target, 50 episodes"
+	@echo "    make smoke                          Quick validation (3 episodes)"
+	@echo "    make overnight                      Progressive 300 episodes"
 	@echo ""
-	@echo "  CTF Engagement (LIVE):"
-	@echo "    make ctf target=10.129.x.x        - Launch live CTF engagement"
-	@echo "    make ctf target=IP steps=600       - Custom step limit"
-	@echo "    make ctf target=IP seed=42         - Reproducible run"
+	@echo "  GPU / LLM"
+	@echo "    make gpu                            GPU-accelerated training"
+	@echo "    make gpu-setup                      Setup GPU instance (vast.ai/runpod)"
+	@echo "    make gpu-quick                      Quick GPU training (50 steps)"
+	@echo "    make gpu-ctf T=IP                   GPU CTF engagement"
+	@echo "    make gpu-htb T=IP                   GPU HTB engagement"
+	@echo "    make gpu-sync                       Sync artifacts from GPU"
+	@echo "    make gpu-status                     GPU instance status"
+	@echo "    make gpu-shell                      SSH into GPU instance"
+	@echo "    make gpu-model                      Download / manage models"
 	@echo ""
-	@echo "  Testing:"
-	@echo "    make test            - Full pytest suite"
-	@echo "    make test-cap        - Cap regression harness only"
-	@echo "    make test-fast       - Fast subset (skip integration)"
+	@echo "  TEST"
+	@echo "    make test                           Full pytest suite"
+	@echo "    make test-cap                       Cap regression harness only"
+	@echo "    make test-fast                      Fast subset (skip integration)"
 	@echo ""
-	@echo "  Utilities:"
-	@echo "    make smoke           - 3 eps, fast validation"
-	@echo "    make overnight       - Progressive 300 eps"
-	@echo "    make overnight-quick - Quick overnight 30 eps"
-	@echo "    make venv            - Setup virtual environment"
-	@echo "    make status          - System diagnostics"
-	@echo "    make last            - View last training run"
-	@echo "    make clean           - Clean temp files"
+	@echo "  UTIL"
+	@echo "    make venv                           Create / upgrade virtual environment"
+	@echo "    make status                         System diagnostics"
+	@echo "    make last                           View last training run"
+	@echo "    make traces                         List recent trace files"
+	@echo "    make clean                          Remove temp files + caches"
+	@echo ""
 
-# Create/upgrade virtual environment and install dependencies
+# ── Virtual Environment ──────────────────────────────────────────────
 venv:
 	python3 -m venv .venv
 	$(PIP) install --upgrade pip
@@ -77,7 +78,7 @@ venv:
 	$(PIP) install rich pytest
 	@echo "✓ Virtual environment ready. Activate with: source .venv/bin/activate"
 
-# Run tests
+# ── Test Suite ───────────────────────────────────────────────────────
 test:
 	$(PYTEST) -q
 
@@ -89,8 +90,8 @@ test-cap:
 test-fast:
 	$(PYTEST) -q -x --ignore=tests/test_smart_integration.py --ignore=tests/test_training_smoke.py
 
-# ── MS3 LIVE Training (default) ─────────────────────────────────────────────
-# Default: MS3 LIVE, 100 episodes (ms3_live difficulty)
+# ── Training: MS3 (default) ──────────────────────────────────────────
+# Default: MS3 LIVE, 100 episodes
 train:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 100 --steps 40 --seed 42 --env ms3 --difficulty ms3_live --verbosity verbose
 
@@ -114,7 +115,7 @@ train-ms3-hard:
 train-ms3-iter:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed $(SEED) --env ms3 --difficulty ms3_live --verbosity verbose
 
-# ── MS2 Training ─────────────────────────────────────────────────────────────
+# ── Training: MS2 ────────────────────────────────────────────────────
 # MS2 live, 10 episodes
 train-ms2:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 10 --steps 40 --seed 42 --env ms2 --verbosity verbose
@@ -132,7 +133,7 @@ TARGET ?= 10.129.5.41
 train-htb:
 	$(PYTHON) ariaska_cli.py smart-train --episodes 50 --steps 60 --seed 42 --env htb --target $(TARGET) --verbosity verbose
 
-# ── CTF Live Engagement ──────────────────────────────────────────────────────
+# ── CTF Engagement (live) ────────────────────────────────────────────
 # Usage:
 #   make ctf target=10.129.1.54                   # default: 500 steps, no seed
 #   make ctf target=10.129.1.54 steps=600         # custom step limit
@@ -200,11 +201,59 @@ last:
 	echo "=== Mentor Calls (last 10) ==="; \
 	tail -10 traces/$$LAST_RUN/mentor.jsonl 2>/dev/null || echo "(no mentor.jsonl)"
 
+# ── GPU / LLM Acceleration ───────────────────────────────────────────
+
+# Interactive command center (Rich TUI menu)
+ariaska:
+	$(PYTHON) scripts/ariaska_menu.py
+
+# GPU-accelerated training (local LLM for nano/mini, OpenAI for codex/full)
+gpu:
+	FF_LOCAL_LLM=1 $(PYTHON) ariaska_cli.py smart-train --target $(or $(T),10.10.10.10) --steps $(or $(S),200) --verbosity verbose
+
+# Setup GPU instance from scratch
+gpu-setup:
+	bash scripts/gpu_setup.sh
+
+# Quick GPU training (50 steps, fast validation)
+gpu-quick:
+	FF_LOCAL_LLM=1 $(PYTHON) ariaska_cli.py smart-train --target $(or $(T),10.10.10.10) --steps 50 --seed 42 --verbosity verbose
+
+# GPU CTF engagement
+gpu-ctf:
+	FF_LOCAL_LLM=1 $(PYTHON) ariaska_cli.py smart-train --target $(T) --steps $(or $(S),150) --ctf --verbosity verbose
+
+# GPU HTB engagement
+gpu-htb:
+	FF_LOCAL_LLM=1 $(PYTHON) ariaska_cli.py smart-train --target $(T) --steps $(or $(S),300) --ctf --verbosity verbose
+
+# Sync artifacts from GPU instance
+gpu-sync:
+	bash scripts/gpu_sync.sh pull
+
+# GPU instance status
+gpu-status:
+	bash scripts/gpu_sync.sh status
+
+# SSH into GPU instance
+gpu-shell:
+	bash scripts/gpu_sync.sh shell
+
+# Download/manage models
+gpu-model:
+	$(PYTHON) -c "from scripts.ariaska_menu import download_model; download_model()"
+
+# Restart local LLM server
+gpu-restart-llm:
+	bash scripts/gpu_sync.sh restart-llm
+
+# ── Utilities ────────────────────────────────────────────────────────
+
 # System diagnostics
 status:
 	$(PYTHON) ariaska_cli.py status
 
-# Clean temporary files
+# ── Cleanup ──────────────────────────────────────────────────────────
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
@@ -212,8 +261,7 @@ clean:
 	rm -rf .pytest_cache 2>/dev/null || true
 	@echo "✓ Cleaned temporary files"
 
-# Phase 14.0: Check for deprecated direct imports of MS2/MS3 exploit graphs
-# outside of their feature-flag gated entry points
+# ── Lint (deprecated imports check) ──────────────────────────────────
 lint-deprecated:
 	@echo "Checking for un-gated MS2/MS3 exploit graph imports..."
 	@! grep -rn "from core.knowledge.ms2_exploit_graph import" core/ --include="*.py" \
@@ -224,7 +272,7 @@ lint-deprecated:
 		| grep -v "# deprecated-ok" | grep -v "test" && echo "✓ No un-gated MS3 imports" || true
 	@echo "✓ Deprecation lint passed"
 
-# Show trace files
+# ── Traces ───────────────────────────────────────────────────────────
 traces:
 	@echo "Recent training runs:"
 	@ls -lt traces/ | head -10

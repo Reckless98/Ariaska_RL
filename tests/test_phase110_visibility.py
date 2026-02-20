@@ -175,8 +175,8 @@ class TestAdaptiveBudgetController:
     def test_init_defaults(self):
         from core.training.adaptive_budget import AdaptiveBudgetController
         budget = AdaptiveBudgetController()
-        assert budget.config.mentor_budget_total == 30
-        assert budget.config.token_budget_total == 50_000
+        assert budget.config.mentor_budget_total == 140
+        assert budget.config.token_budget_total == 500_000
 
     def test_reset_episode(self):
         from core.training.adaptive_budget import AdaptiveBudgetController
@@ -184,8 +184,8 @@ class TestAdaptiveBudgetController:
         budget.record_mentor_call(tokens_used=500)
         budget.reset_episode(max_steps=40)
         snapshot = budget.get_snapshot()
-        assert snapshot["mentor_budget_remaining"] == 30
-        assert snapshot["token_budget_remaining"] == 50_000
+        assert snapshot["mentor_budget_remaining"] == 140
+        assert snapshot["token_budget_remaining"] == 500_000
 
     def test_pressure_increases(self):
         from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig

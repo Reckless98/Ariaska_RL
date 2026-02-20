@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-02-08T21:06:31.942560",
+  "max_steps": 500,
+  "seed": 98431,
+  "target_ip": "10.129.1.12",
+  "target_name": "Lame",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "linux",
+  "duration_s": 163.64,
+  "total_reward": 947.35,
+  "highest_phase": "POST_EXPLOITATION",
+  "total_steps": 32,
+  "total_discoveries": 10,
+  "total_cost_usd": 0.3538,
+  "user_flag_captured": true,
+  "root_flag_captured": false,
+  "user_flag_value": "a3d1f85c9e2b4c8d7f6e5a4b3c2d1e0f",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 20,
+    "playbook": 5,
+    "registry": 5,
+    "anti_repeat": 4,
+    "codex_meta": 2
+  },
+  "discovery_summary": {
+    "ports": 4,
+    "services": 4,
+    "credentials": 1,
+    "shells": 1
+  },
+  "episode_metrics": {
+    "total_steps": 32,
+    "highest_phase": "POST_EXPLOITATION",
+    "total_discoveries": 10,
+    "unique_commands": 26,
+    "diversity_ratio": 0.816
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.3171,
+    "value_loss": 1.2659,
+    "entropy": 3.4866,
+    "kl_divergence": 0.01892,
+    "clip_fraction": 0.1429,
+    "ppo_updates": 2
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 947.35,
+      "highest_phase": "POST_EXPLOITATION",
+      "steps": 32,
+      "ppo_updates": 2,
+      "policy_loss": 0.3598,
+      "value_loss": 0.7549,
+      "entropy": 2.8631,
+      "sources": {
+        "ppo": 20,
+        "playbook": 5,
+        "registry": 5,
+        "anti_repeat": 4,
+        "codex_meta": 2
+      },
+      "unique_commands": 24,
+      "unique_templates": 17,
+      "command_diversity": 0.7589,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 16
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 8,
+      "discoveries": 4
+    },
+    "RedAgent": {
+      "steps": 11,
+      "discoveries": 2
+    },
+    "BlueAgent": {
+      "steps": 3,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 4,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 4,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "vsftpd 2.3.4 backdoor \u2192 Samba usermap_script \u2192 root shell",
+    "services_discovered": [
+      "ftp:21",
+      "ssh:22",
+      "smb:139",
+      "smb:445"
+    ],
+    "maturity_signal": 0.735,
+    "success": false,
+    "partial_success": true,
+    "learning_phase": "late"
+  }
+}

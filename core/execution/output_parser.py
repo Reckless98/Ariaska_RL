@@ -978,11 +978,32 @@ class OutputParser:
     }
 
     # Junk web paths to filter out
+    # Phase 42: Added IP-only paths, version paths, gobuster/tool progress garbage
     _JUNK_WEB_PATHS: FrozenSet[str] = frozenset({
         "/", "/index.html", "/index.php", "/favicon.ico",
         "/.htaccess", "/.htpasswd", "/server-status",
         "/cgi-bin/", "/icons/", "/manual/",
+        # Phase 42: Tool output garbage
+        "/3.6", "/3.5", "/3.4", "/2.0", "/1.0", "/1.1",  # version-like paths from tool output
+        "/v1", "/v2", "/v3",  # version prefixes
+        # IIS-specific nikto false positives (invalid on nginx/Apache)
+        "/_vti_adm/admin.dll", "/_vti_aut/author.dll",
+        "/_vti_bin/shtml.dll", "/_vti_bin/_vti_adm/admin.dll",
+        "/_vti_bin/_vti_aut/author.dll", "/_vti_bin/shtml.dll",
+        "/_vti_cnf/", "/_vti_pvt/", "/_vti_log/",
+        "/shtml.dll", "/admin.dll", "/author.dll",
+        "/_vti_inf.html", "/_vti_rpc",
     })
+
+    # Phase 42: Regex patterns that indicate garbage web paths from tool output
+    _WEB_PATH_GARBAGE_RE = re.compile(
+        r'^(?:'
+        r'//\d+\.\d+\.\d+\.\d+|'          # //10.129.3.142 (gobuster URL prefix)
+        r'/\d+\.\d+(?:\.\d+)?$|'            # /3.6, /1.18.0 (version numbers)
+        r'/\d+$|'                              # /50, /302, /404 (status codes/numbers)
+        r'http[s]?://\d+\.\d+\.\d+\.\d+$'  # bare IP URLs without path
+        r')'
+    )
 
     # Credential false positive patterns — match whole credential values only
     _CRED_FALSE_POSITIVES = re.compile(
@@ -1070,6 +1091,14 @@ class OutputParser:
 
             # Skip local filesystem paths
             if norm.startswith("/usr/") or norm.startswith("/etc/") or norm.startswith("/var/"):
+                continue
+
+            # Phase 42: Skip garbage paths from tool output (IPs, versions, status codes)
+            if self._WEB_PATH_GARBAGE_RE.match(norm):
+                continue
+
+            # Phase 42: Skip paths that are too short (single char like / already caught)
+            if len(norm) <= 1:
                 continue
 
             # Dedup

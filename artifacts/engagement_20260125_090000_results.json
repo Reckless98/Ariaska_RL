@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-01-26T06:41:59.639935",
+  "max_steps": 500,
+  "seed": 11227,
+  "target_ip": "10.129.1.12",
+  "target_name": "Lame",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "linux",
+  "duration_s": 347.71,
+  "total_reward": 112.48,
+  "highest_phase": "ENUMERATION",
+  "total_steps": 41,
+  "total_discoveries": 4,
+  "total_cost_usd": 0.6419,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 26,
+    "playbook": 12,
+    "registry": 10,
+    "anti_repeat": 8,
+    "codex_meta": 3
+  },
+  "discovery_summary": {
+    "ports": 2,
+    "services": 2,
+    "credentials": 0,
+    "shells": 0
+  },
+  "episode_metrics": {
+    "total_steps": 41,
+    "highest_phase": "ENUMERATION",
+    "total_discoveries": 4,
+    "unique_commands": 32,
+    "diversity_ratio": 0.795
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.4368,
+    "value_loss": 2.3645,
+    "entropy": 2.4012,
+    "kl_divergence": 0.0182,
+    "clip_fraction": 0.2394,
+    "ppo_updates": 4
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 112.48,
+      "highest_phase": "ENUMERATION",
+      "steps": 41,
+      "ppo_updates": 3,
+      "policy_loss": 0.1432,
+      "value_loss": 0.8915,
+      "entropy": 2.7808,
+      "sources": {
+        "ppo": 26,
+        "playbook": 12,
+        "registry": 10,
+        "anti_repeat": 8,
+        "codex_meta": 3
+      },
+      "unique_commands": 34,
+      "unique_templates": 29,
+      "command_diversity": 0.6218,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 10,
+      "discoveries": 2
+    },
+    "RedAgent": {
+      "steps": 14,
+      "discoveries": 0
+    },
+    "BlueAgent": {
+      "steps": 4,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 6,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 6,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "vsftpd 2.3.4 backdoor \u2192 Samba usermap_script \u2192 root shell",
+    "services_discovered": [
+      "ftp:21",
+      "ssh:22"
+    ],
+    "maturity_signal": 0.296,
+    "success": false,
+    "partial_success": false,
+    "learning_phase": "early"
+  }
+}

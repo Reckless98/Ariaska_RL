@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260220_143441_699fdf",
+  "timestamp": 1771594497.7477047,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive episode reward indicating some effective reconnaissance or enumeration steps",
+      "Completed the episode without critical errors or crashes"
+    ],
+    "fails": [
+      "No successful episode completion (0.00% success rate)",
+      "High reliance on mentor calls (10) suggests decision uncertainty"
+    ],
+    "summary": "The run shows partial progress with positive reward but no successful completion, indicating gaps in exploitation or post-exploitation follow-through."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Enumeration did not transition into a successful exploitation path",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When open TCP ports are discovered during initial scan",
+      "then_action": "Run targeted service enumeration with Nmap version and default scripts",
+      "parameters_template": {
+        "ports": "open",
+        "script": "default,vuln",
+        "args": "-sV"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771594512.8832862,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS services are detected",
+      "then_action": "Perform web content and directory enumeration",
+      "parameters_template": {
+        "tool": "gobuster",
+        "wordlist": "/usr/share/wordlists/dirb/common.txt",
+        "extensions": "php,html,txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step9",
+        "ep001_step11"
+      ],
+      "created_at": 1771594512.8833017,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected",
+      "then_action": "Enumerate SSH configuration and supported authentication methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "script": "ssh2-enum-algos,ssh-auth-methods",
+        "port": 22
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_step13"
+      ],
+      "created_at": 1771594512.8833125,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reconnaissance contributed to positive reward and is foundational for subsequent exploitation"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Exploit Path Selection After Enumeration",
+      "description": "After service enumeration, map findings to known vulnerabilities and attempt one high-confidence exploit path per service to improve success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce Mentor Dependence",
+      "description": "Introduce a decision checklist for post-enumeration steps to reduce mentor calls while maintaining accuracy.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Enumeration Depth",
+      "description": "Expand HTTP enumeration with additional wordlists and tech fingerprinting to uncover hidden endpoints or vulnerable components.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

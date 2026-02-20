@@ -1,0 +1,106 @@
+{
+  "timestamp": "2026-01-27T19:14:03.524422",
+  "max_steps": 500,
+  "seed": 28865,
+  "target_ip": "10.129.6.83",
+  "target_name": "Beep",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "linux",
+  "duration_s": 490.19,
+  "total_reward": 148.69,
+  "highest_phase": "ENUMERATION",
+  "total_steps": 72,
+  "total_discoveries": 6,
+  "total_cost_usd": 0.8705,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 34,
+    "playbook": 17,
+    "registry": 14,
+    "anti_repeat": 11,
+    "codex_meta": 4
+  },
+  "discovery_summary": {
+    "ports": 3,
+    "services": 3,
+    "credentials": 0,
+    "shells": 0
+  },
+  "episode_metrics": {
+    "total_steps": 72,
+    "highest_phase": "ENUMERATION",
+    "total_discoveries": 6,
+    "unique_commands": 43,
+    "diversity_ratio": 0.762
+  },
+  "ppo_metrics": {
+    "policy_loss": -0.1147,
+    "value_loss": 0.7359,
+    "entropy": 2.2503,
+    "kl_divergence": 0.01161,
+    "clip_fraction": 0.1528,
+    "ppo_updates": 7
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 148.69,
+      "highest_phase": "ENUMERATION",
+      "steps": 72,
+      "ppo_updates": 6,
+      "policy_loss": 0.253,
+      "value_loss": 1.807,
+      "entropy": 3.6394,
+      "sources": {
+        "ppo": 34,
+        "playbook": 17,
+        "registry": 14,
+        "anti_repeat": 11,
+        "codex_meta": 4
+      },
+      "unique_commands": 51,
+      "unique_templates": 40,
+      "command_diversity": 0.5692,
+      "total_discoveries": 3,
+      "step_at_first_exploit": 0
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 18,
+      "discoveries": 3
+    },
+    "RedAgent": {
+      "steps": 25,
+      "discoveries": 0
+    },
+    "BlueAgent": {
+      "steps": 7,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 10,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 10,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "Elastix LFI \u2192 /etc/amportal.conf creds \u2192 SSH as root",
+    "services_discovered": [
+      "ssh:22",
+      "http:80",
+      "https:443"
+    ],
+    "maturity_signal": 0.261,
+    "success": false,
+    "partial_success": false,
+    "learning_phase": "early"
+  }
+}

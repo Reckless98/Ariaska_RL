@@ -1,0 +1,89 @@
+{
+  "run_id": "smart_8a9fdc4d_ep0000",
+  "timestamp": 1771573389.0114741,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "0% success rate across 1 episode",
+      "No mentor calls to guide recovery"
+    ],
+    "summary": "Single-episode run with high reward but no task completion; insufficient evidence of successful tactics."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access is unclear after scanning",
+      "then_action": "Expand service enumeration to include version detection and default scripts",
+      "parameters_template": {
+        "nmap_args": "-sV -sC"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [],
+      "created_at": 1771573401.3671641,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When web ports are detected",
+      "then_action": "Run targeted HTTP enumeration to discover hidden content and endpoints",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "whatweb"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [],
+      "created_at": 1771573401.3671777,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline enumeration is a prerequisite for success; prioritize standard discovery steps."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Baseline Recon Pass",
+      "description": "Run comprehensive discovery (-sV -sC) and record services before attempting exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Surface Mapping",
+      "description": "If HTTP/HTTPS found, brute-force directories and identify tech stack before next actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Failure Review Loop",
+      "description": "After each failed attempt, log the blocking point and add a remediation step to the next run.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

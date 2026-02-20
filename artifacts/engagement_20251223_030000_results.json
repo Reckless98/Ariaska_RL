@@ -1,0 +1,104 @@
+{
+  "timestamp": "2025-12-24T15:32:37.543005",
+  "max_steps": 500,
+  "seed": 6827,
+  "target_ip": "10.129.4.51",
+  "target_name": "Optimum",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "windows",
+  "duration_s": 242.11,
+  "total_reward": 1666.85,
+  "highest_phase": "EXFILTRATION",
+  "total_steps": 27,
+  "total_discoveries": 4,
+  "total_cost_usd": 0.2691,
+  "user_flag_captured": true,
+  "root_flag_captured": false,
+  "user_flag_value": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 20,
+    "playbook": 4,
+    "registry": 4,
+    "anti_repeat": 3,
+    "codex_meta": 2
+  },
+  "discovery_summary": {
+    "ports": 1,
+    "services": 1,
+    "credentials": 1,
+    "shells": 1
+  },
+  "episode_metrics": {
+    "total_steps": 27,
+    "highest_phase": "EXFILTRATION",
+    "total_discoveries": 4,
+    "unique_commands": 22,
+    "diversity_ratio": 0.655
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.2401,
+    "value_loss": 3.2343,
+    "entropy": 3.2428,
+    "kl_divergence": 0.02008,
+    "clip_fraction": 0.2399,
+    "ppo_updates": 2
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 1666.85,
+      "highest_phase": "EXFILTRATION",
+      "steps": 27,
+      "ppo_updates": 2,
+      "policy_loss": -0.023,
+      "value_loss": 1.644,
+      "entropy": 3.418,
+      "sources": {
+        "ppo": 20,
+        "playbook": 4,
+        "registry": 4,
+        "anti_repeat": 3,
+        "codex_meta": 2
+      },
+      "unique_commands": 18,
+      "unique_templates": 19,
+      "command_diversity": 0.7996,
+      "total_discoveries": 2,
+      "step_at_first_exploit": 15
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 6,
+      "discoveries": 1
+    },
+    "RedAgent": {
+      "steps": 9,
+      "discoveries": 2
+    },
+    "BlueAgent": {
+      "steps": 2,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 4,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 4,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "HFS 2.3 RCE \u2192 CVE-2014-6287 \u2192 MS16-032 kernel privesc \u2192 SYSTEM",
+    "services_discovered": [
+      "http:80"
+    ],
+    "maturity_signal": 0.843,
+    "success": false,
+    "partial_success": true,
+    "learning_phase": "late"
+  }
+}

@@ -216,7 +216,8 @@ class SmartMentor:
         learned_store: Optional[LearnedCommandStore] = None,
         model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model for all mentor calls
         temperature: float = 0.7,
-        max_retries: int = 2
+        max_retries: int = 2,
+        target_profile: str = "generic",
     ):
         """
         Initialize the smart mentor.
@@ -227,12 +228,14 @@ class SmartMentor:
             model: Model to use
             temperature: Sampling temperature
             max_retries: Max retries for failed parses
+            target_profile: Target environment profile (generic, metasploitable2, metasploitable3, htb)
         """
         self.llm_client = llm_client
         self.learned_store = learned_store or get_learned_store()
         self.model = model
         self.temperature = temperature
         self.max_retries = max_retries
+        self.target_profile = target_profile
         
         # Phase 9.2: ReflectiveCortex insight injection point
         self._reflective_insights: List[str] = []
@@ -240,13 +243,17 @@ class SmartMentor:
     def _build_system_prompt(self) -> str:
         """Build the system prompt with dynamic knowledge injection from knowledge_packs."""
         # Dynamic knowledge injection from knowledge_packs module
+        # Phase 42: Gate MS2/MS3 knowledge behind target_profile to prevent
+        # credential hallucination on non-Metasploitable targets (e.g., HTB)
+        _is_ms2 = self.target_profile in ("metasploitable2", "ms2")
+        _is_ms3 = self.target_profile in ("metasploitable3", "ms3")
         try:
             from core.knowledge.knowledge_packs import (
                 get_mentor_knowledge_text, PHASE_REASONING,
                 HTB_DECISION_RULES, HTB_CVES,
             )
-            ms2_knowledge = get_mentor_knowledge_text("metasploitable2")
-            ms3_knowledge = get_mentor_knowledge_text("metasploitable3")
+            ms2_knowledge = get_mentor_knowledge_text("metasploitable2") if _is_ms2 else ""
+            ms3_knowledge = get_mentor_knowledge_text("metasploitable3") if _is_ms3 else ""
             htb_knowledge = get_mentor_knowledge_text("htb")
             # Build phase reasoning text
             phase_reasoning_text = "\n=== PHASE REASONING (WHY and WHEN) ===\n"
@@ -338,48 +345,18 @@ You are not just selecting commands — you are TEACHING the AI agent to:
 Your reasoning in the "reasoning" field is CRITICAL — the agent memorizes it. Be specific, tactical, educational.
 Explain WHY this command, not just what command. The agent should eventually make this choice independently.
 
-=== METASPLOITABLE 2 TARGET KNOWLEDGE ===
-The primary target is Metasploitable 2 (Ubuntu 8.04). Known vulnerable services:
-
-HIGH-VALUE INSTANT SHELLS (try these FIRST in exploitation phase):
-  • Port 1524 (ingreslock backdoor): `telnet <target> 1524` → instant root shell, NO exploit needed
-  • Port 21 (vsftpd 2.3.4 backdoor): `exploit/unix/ftp/vsftpd_234_backdoor` → root shell
-  • Port 6667 (UnrealIRCd 3.2.8.1 backdoor): `exploit/unix/irc/unreal_ircd_3281_backdoor` → root
-  • Port 139/445 (Samba 3.0.20): `exploit/multi/samba/usermap_script` → root via CVE-2007-2447
-
-CREDENTIAL-BASED ACCESS (easy wins):
-  • Port 22 SSH: `msfadmin:msfadmin` default credentials
-  • Port 23 Telnet: `msfadmin:msfadmin` default credentials
-  • Port 3306 MySQL: `mysql -h <target> -u root` (NO password!)
-  • Port 5432 PostgreSQL: `postgres:postgres` → `COPY ... FROM PROGRAM` for RCE
-  • Port 8180 Tomcat: `tomcat:tomcat` → manager → WAR file upload → shell
-  • Port 5900 VNC: password is literally `password`
-
-SERVICE ENUMERATION TARGETS:
-  • Port 25 Postfix SMTP: `smtp-user-enum -M VRFY` for user enumeration
-  • Port 512-514 rexec/rlogin/rsh: No authentication → direct remote commands
-  • Port 1099 Java RMI: `exploit/multi/misc/java_rmi_server` → RCE
-  • Port 2049 NFS: `showmount -e <target>` → mount root filesystem, plant SSH keys
-  • Port 80 Apache 2.2.8: DVWA, phpMyAdmin, TWiki → SQL injection, file inclusion
-
-OPTIMAL ATTACK CHAIN:
-  1. RECON: nmap -sV -sC <target> (discover all services)
-  2. ENUMERATION: Probe specific services (MySQL no-password, NFS exports, SMTP users)
-  3. EXPLOITATION: telnet <target> 1524 OR vsftpd backdoor OR Samba usermap_script
-  4. PRIVILEGE_ESCALATION: Already root from most exploits, OR sudo -l, kernel exploits
-  5. POST_EXPLOITATION: Dump /etc/shadow, harvest credentials, establish persistence
-  6. EXFILTRATION: Extract data, plant backdoors for re-entry
+{ms2_knowledge}
 
 === REASONING QUALITY REQUIREMENTS ===
 Your "reasoning" field TEACHES the agent. Write it like an expert explaining to an apprentice:
   BAD:  "Use nmap to scan"
   GOOD: "We haven't enumerated services yet. nmap -sV reveals version info which maps to known CVEs.
-         Ports 21,22,139,445,1524,6667 are high-priority MS2 targets. Service versions → exploit selection."
+         Version strings → searchsploit/exploit-db → targeted exploitation. Service versions → exploit selection."
   
   BAD:  "Try the exploit"
-  GOOD: "Port 1524 is the ingreslock backdoor — it's a listener from the Ingres database era that was
-         left open. No authentication needed, just connect via telnet. This gives instant root because
-         the listener runs as root. This is the fastest path to shell on MS2."
+  GOOD: "Port 80 shows Apache with a login form. Version 2.4.49 is vulnerable to path traversal
+         (CVE-2021-41773). We can try /cgi-bin/.%2e/.%2e/etc/passwd to confirm and then
+         escalate to RCE via mod_cgi. This is faster than bruteforcing credentials."
 
 === ADAPTIVE STRATEGY GUIDANCE ===
 When the agent is STUCK (repeating commands, low discovery rate):
@@ -400,7 +377,7 @@ CRITICAL RULES:
 5. Progress through phases: Recon → Enumeration → Exploitation → PrivEsc → Lateral → Post-Ex
 6. Be creative but realistic - use the right tool for the situation
 7. Variety is key - try different approaches if current ones aren't working
-8. For MS2: prefer backdoors (ingreslock, vsftpd, UnrealIRCd) and default creds over brute force
+8. NEVER assume default credentials unless discovered via actual enumeration — do NOT hallucinate creds
 
 OUTPUT FORMAT (JSON only):
 {{
@@ -1003,12 +980,16 @@ class DualMentorResponse:
 
 class DualMentor:
     """
-    Dual-mentor system that leverages both GPT and Venice AI for command generation.
+    Dual-mentor system that leverages both GPT and a secondary LLM for command generation.
+    
+    Phase 43: Secondary provider is local GPU LLM (replaces Venice AI).
+    Falls back to Venice if local LLM is not available.
     
     Strategies:
-    - gpt_first: Use GPT, fallback to Venice on error
-    - venice_first: Use Venice, fallback to GPT on error
-    - round_robin: Alternate between GPT and Venice
+    - gpt_first: Use GPT, fallback to secondary on error
+    - local_first: Use local LLM, fallback to GPT on error (Phase 43)
+    - venice_first: Alias for local_first (backward compat)
+    - round_robin: Alternate between GPT and secondary
     - parallel: Query both, choose best by confidence
     - consensus: Query both, require agreement or escalate
     
@@ -1016,7 +997,7 @@ class DualMentor:
     - Higher mentor call frequency (double the budget)
     - Fallback resilience
     - Different perspectives on attack strategies
-    - Uncensored Venice for aggressive tactics
+    - Local LLM: zero-cost secondary calls on GPU
     """
     
     def __init__(
@@ -1028,24 +1009,36 @@ class DualMentor:
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
         temperature: float = 0.7,
-        max_retries: int = 2
+        max_retries: int = 2,
+        *,
+        secondary_client: Optional[Any] = None,
+        secondary_model: Optional[str] = None,
     ):
         """
         Initialize the dual-mentor system.
         
         Args:
             gpt_client: OpenAI client for GPT
-            venice_client: OpenAI-compatible client for Venice
+            venice_client: OpenAI-compatible client for secondary provider (legacy name)
             gpt_model: GPT model to use (Phase 12.1: default gpt-5.2-codex)
-            venice_model: Venice model to use (default: qwen3-coder-480b-a35b-instruct)
+            venice_model: Secondary model to use (legacy name, default: qwen3-coder)
             learned_store: Store for learned commands
             strategy: Mentor selection strategy
             temperature: Sampling temperature
             max_retries: Max retries for failed parses
+            secondary_client: Phase 43: Explicit secondary client (overrides venice_client)
+            secondary_model: Phase 43: Explicit secondary model name (overrides venice_model)
         """
         self.learned_store = learned_store or get_learned_store()
+        # Phase 43: Normalize strategy — venice_first → local_first
+        if strategy == "venice_first":
+            strategy = "local_first"
         self.strategy = strategy
         self._call_count = 0
+        
+        # Phase 43: secondary_client takes priority over venice_client
+        _sec_client = secondary_client if secondary_client is not None else venice_client
+        _sec_model = secondary_model if secondary_model is not None else venice_model
         
         # Initialize GPT mentor
         self.gpt_mentor = SmartMentor(
@@ -1056,23 +1049,26 @@ class DualMentor:
             max_retries=max_retries
         ) if gpt_client else None
         
-        # Initialize Venice mentor
-        self.venice_mentor = SmartMentor(
-            llm_client=venice_client,
+        # Initialize secondary mentor (local LLM or Venice)
+        self.secondary_mentor = SmartMentor(
+            llm_client=_sec_client,
             learned_store=self.learned_store,
-            model=venice_model,
-            temperature=temperature + 0.1,  # Venice slightly more creative
+            model=_sec_model,
+            temperature=temperature + 0.1,  # Secondary slightly more creative
             max_retries=max_retries
-        ) if venice_client else None
+        ) if _sec_client else None
         
-        self._has_both = self.gpt_mentor is not None and self.venice_mentor is not None
+        # Backward compat: expose as venice_mentor
+        self.venice_mentor = self.secondary_mentor
+        
+        self._has_both = self.gpt_mentor is not None and self.secondary_mentor is not None
         
         import logging
         self.logger = logging.getLogger("ariaska.dual_mentor")
         self.logger.info(
             f"DualMentor initialized | Strategy: {strategy} | "
             f"GPT: {'✓' if self.gpt_mentor else '✗'} | "
-            f"Venice: {'✓' if self.venice_mentor else '✗'}"
+            f"Secondary: {'✓' if self.secondary_mentor else '✗'}"
         )
     
     def has_dual_capability(self) -> bool:
@@ -1082,13 +1078,13 @@ class DualMentor:
     def _get_provider_for_call(self) -> str:
         """Determine which provider to use for this call."""
         if not self._has_both:
-            return "gpt" if self.gpt_mentor else "venice"
+            return "gpt" if self.gpt_mentor else "secondary"
         
-        if self.strategy == "venice_first":
-            return "venice"
+        if self.strategy in ("local_first", "venice_first"):
+            return "secondary"
         elif self.strategy == "round_robin":
             self._call_count += 1
-            return "venice" if self._call_count % 2 == 0 else "gpt"
+            return "secondary" if self._call_count % 2 == 0 else "gpt"
         elif self.strategy in ("parallel", "consensus"):
             return "both"
         else:  # gpt_first (default)
@@ -1123,17 +1119,17 @@ class DualMentor:
                 gpt_task = asyncio.create_task(
                     self.gpt_mentor.get_command_async(context, filtered_commands)  # type: ignore
                 )
-                venice_task = asyncio.create_task(
-                    self.venice_mentor.get_command_async(context, filtered_commands)  # type: ignore
+                secondary_task = asyncio.create_task(
+                    self.secondary_mentor.get_command_async(context, filtered_commands)  # type: ignore
                 )
                 
                 results = await asyncio.gather(
-                    gpt_task, venice_task, return_exceptions=True
+                    gpt_task, secondary_task, return_exceptions=True
                 )
                 
                 # Handle exceptions - safely cast to MentorResponse or None
                 gpt_resp: Optional[MentorResponse] = None
-                venice_resp: Optional[MentorResponse] = None
+                secondary_resp: Optional[MentorResponse] = None
                 
                 if isinstance(results[0], MentorResponse):
                     gpt_resp = results[0]
@@ -1141,25 +1137,25 @@ class DualMentor:
                     self.logger.warning(f"GPT mentor error: {results[0]}")
                 
                 if isinstance(results[1], MentorResponse):
-                    venice_resp = results[1]
+                    secondary_resp = results[1]
                 elif isinstance(results[1], Exception):
-                    self.logger.warning(f"Venice mentor error: {results[1]}")
+                    self.logger.warning(f"Secondary mentor error: {results[1]}")
                 
                 result.primary = gpt_resp
-                result.secondary = venice_resp
+                result.secondary = secondary_resp
                 result.tokens_total = (
                     (gpt_resp.tokens_used if gpt_resp else 0) +
-                    (venice_resp.tokens_used if venice_resp else 0)
+                    (secondary_resp.tokens_used if secondary_resp else 0)
                 )
                 
                 # Choose best response
                 if self.strategy == "consensus":
                     result.chosen, result.provider_used = self._consensus_choice(
-                        gpt_resp, venice_resp, context
+                        gpt_resp, secondary_resp, context
                     )
                 else:  # parallel - choose by confidence
                     result.chosen, result.provider_used = self._confidence_choice(
-                        gpt_resp, venice_resp
+                        gpt_resp, secondary_resp
                     )
                 
                 return result
@@ -1170,8 +1166,8 @@ class DualMentor:
                 provider = "gpt"
         
         # === SEQUENTIAL: Primary then fallback ===
-        primary_mentor = self.gpt_mentor if provider == "gpt" else self.venice_mentor
-        fallback_mentor = self.venice_mentor if provider == "gpt" else self.gpt_mentor
+        primary_mentor = self.gpt_mentor if provider == "gpt" else self.secondary_mentor
+        fallback_mentor = self.secondary_mentor if provider == "gpt" else self.gpt_mentor
         
         # Try primary
         if primary_mentor:
@@ -1190,7 +1186,7 @@ class DualMentor:
         
         # Try fallback
         if fallback_mentor:
-            fallback_provider = "venice" if provider == "gpt" else "gpt"
+            fallback_provider = "secondary" if provider == "gpt" else "gpt"
             try:
                 fallback_resp = await fallback_mentor.get_command_async(context, filtered_commands)
                 result.secondary = fallback_resp
@@ -1248,53 +1244,53 @@ class DualMentor:
     def _confidence_choice(
         self,
         gpt_resp: Optional[MentorResponse],
-        venice_resp: Optional[MentorResponse]
+        secondary_resp: Optional[MentorResponse]
     ) -> Tuple[Optional[MentorResponse], str]:
         """Choose response with higher confidence."""
-        if not gpt_resp and not venice_resp:
+        if not gpt_resp and not secondary_resp:
             return None, "none"
         if not gpt_resp:
-            return venice_resp, "venice"
-        if not venice_resp:
+            return secondary_resp, "secondary"
+        if not secondary_resp:
             return gpt_resp, "gpt"
         
         # Both available - choose by confidence
-        if venice_resp.confidence > gpt_resp.confidence + 0.1:  # Venice needs 0.1 edge
-            return venice_resp, "venice"
+        if secondary_resp.confidence > gpt_resp.confidence + 0.1:  # Secondary needs 0.1 edge
+            return secondary_resp, "secondary"
         else:
             return gpt_resp, "gpt"
     
     def _consensus_choice(
         self,
         gpt_resp: Optional[MentorResponse],
-        venice_resp: Optional[MentorResponse],
+        secondary_resp: Optional[MentorResponse],
         context: AttackContext
     ) -> Tuple[Optional[MentorResponse], str]:
         """Choose based on consensus between mentors."""
-        if not gpt_resp and not venice_resp:
+        if not gpt_resp and not secondary_resp:
             return None, "none"
         if not gpt_resp:
-            return venice_resp, "venice"
-        if not venice_resp:
+            return secondary_resp, "secondary"
+        if not secondary_resp:
             return gpt_resp, "gpt"
         
         # Check if both chose same template
-        if gpt_resp.template_name == venice_resp.template_name:
+        if gpt_resp.template_name == secondary_resp.template_name:
             # Consensus! Use higher confidence
-            if venice_resp.confidence > gpt_resp.confidence:
-                return venice_resp, "venice_consensus"
+            if secondary_resp.confidence > gpt_resp.confidence:
+                return secondary_resp, "secondary_consensus"
             return gpt_resp, "gpt_consensus"
         
         # No consensus - check if commands target same phase
-        if gpt_resp.phase == venice_resp.phase:
+        if gpt_resp.phase == secondary_resp.phase:
             # Same phase, use GPT (more conservative)
             return gpt_resp, "gpt_phase_match"
         
         # Different phases - use the one matching context
         if gpt_resp.phase == context.current_phase:
             return gpt_resp, "gpt_phase_aligned"
-        if venice_resp.phase == context.current_phase:
-            return venice_resp, "venice_phase_aligned"
+        if secondary_resp.phase == context.current_phase:
+            return secondary_resp, "secondary_phase_aligned"
         
         # Default to GPT (primary)
         return gpt_resp, "gpt_default"
@@ -1340,18 +1336,26 @@ def create_dual_mentor(
     gpt_model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
     venice_model: str = "qwen3-coder-480b-a35b-instruct",
     strategy: str = "gpt_first",
-    temperature: float = 0.7
+    temperature: float = 0.7,
+    *,
+    secondary_client: Optional[Any] = None,
+    secondary_model: Optional[str] = None,
 ) -> DualMentor:
     """
     Factory function to create a DualMentor.
     
+    Phase 43: Supports secondary_client (local LLM) as explicit override.
+    venice_client/venice_model still accepted for backward compat.
+    
     Args:
         gpt_client: OpenAI client for GPT
-        venice_client: OpenAI-compatible client for Venice (optional)
+        venice_client: OpenAI-compatible client for secondary provider (legacy name)
         gpt_model: GPT model to use
-        venice_model: Venice model to use
-        strategy: Mentor selection strategy (gpt_first, venice_first, round_robin, parallel, consensus)
+        venice_model: Secondary model (legacy name)
+        strategy: Mentor selection strategy (gpt_first, local_first, round_robin, parallel, consensus)
         temperature: Sampling temperature
+        secondary_client: Phase 43: Explicit secondary client (overrides venice_client)
+        secondary_model: Phase 43: Explicit secondary model name (overrides venice_model)
         
     Returns:
         Configured DualMentor instance
@@ -1362,5 +1366,7 @@ def create_dual_mentor(
         gpt_model=gpt_model,
         venice_model=venice_model,
         strategy=strategy,
-        temperature=temperature
+        temperature=temperature,
+        secondary_client=secondary_client,
+        secondary_model=secondary_model,
     )

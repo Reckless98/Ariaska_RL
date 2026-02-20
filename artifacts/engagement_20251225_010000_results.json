@@ -1,0 +1,108 @@
+{
+  "timestamp": "2025-12-28T17:25:19.771929",
+  "max_steps": 500,
+  "seed": 77657,
+  "target_ip": "10.129.12.81",
+  "target_name": "Brainfuck",
+  "mode": "continuous",
+  "difficulty": "hard",
+  "os_type": "linux",
+  "duration_s": 928.88,
+  "total_reward": 2452.77,
+  "highest_phase": "EXFILTRATION",
+  "total_steps": 153,
+  "total_discoveries": 13,
+  "total_cost_usd": 1.5731,
+  "user_flag_captured": true,
+  "root_flag_captured": true,
+  "user_flag_value": "e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+  "root_flag_value": "f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3",
+  "decision_sources": {
+    "ppo": 95,
+    "playbook": 20,
+    "registry": 22,
+    "anti_repeat": 18,
+    "codex_meta": 12
+  },
+  "discovery_summary": {
+    "ports": 5,
+    "services": 5,
+    "credentials": 1,
+    "shells": 2
+  },
+  "episode_metrics": {
+    "total_steps": 153,
+    "highest_phase": "EXFILTRATION",
+    "total_discoveries": 13,
+    "unique_commands": 102,
+    "diversity_ratio": 0.806
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.3484,
+    "value_loss": 0.8033,
+    "entropy": 3.6106,
+    "kl_divergence": 0.00988,
+    "clip_fraction": 0.1429,
+    "ppo_updates": 11
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 2452.77,
+      "highest_phase": "EXFILTRATION",
+      "steps": 153,
+      "ppo_updates": 10,
+      "policy_loss": 0.2744,
+      "value_loss": 2.0242,
+      "entropy": 3.3741,
+      "sources": {
+        "ppo": 95,
+        "playbook": 20,
+        "registry": 22,
+        "anti_repeat": 18,
+        "codex_meta": 12
+      },
+      "unique_commands": 128,
+      "unique_templates": 88,
+      "command_diversity": 0.7925,
+      "total_discoveries": 15,
+      "step_at_first_exploit": 70
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 38,
+      "discoveries": 5
+    },
+    "RedAgent": {
+      "steps": 53,
+      "discoveries": 3
+    },
+    "BlueAgent": {
+      "steps": 15,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 22,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 22,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "WordPress plugin vuln \u2192 SMTP cred leak \u2192 encrypted forum \u2192 RSA key recovery \u2192 lxd privesc",
+    "services_discovered": [
+      "ssh:22",
+      "smtp:25",
+      "pop3:110",
+      "imap:143",
+      "https:443"
+    ],
+    "maturity_signal": 0.854,
+    "success": true,
+    "partial_success": false,
+    "learning_phase": "late"
+  }
+}

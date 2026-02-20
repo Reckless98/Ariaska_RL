@@ -239,16 +239,21 @@ class GPTManager:
         self._client = None  # Lazy-initialized OpenAI sync client
         self._async_client = None  # Lazy-initialized OpenAI async client
         
-        # Venice AI integration
-        self.venice_api_key = os.getenv("VENICE_API_KEY")
-        self.venice_base_url = "https://api.venice.ai/api/v1"
-        self._venice_client = None  # Lazy-initialized Venice sync client
-        self._venice_async_client = None  # Lazy-initialized Venice async client
+        # ── Phase 43: Local LLM integration (replaces Venice) ────────
+        self._local_llm_provider = None  # Lazy-initialized
+        self._local_client = None        # OpenAI-compatible client for local model
+        self._model_router = None        # Lazy-initialized ModelRouter
+        
+        # Legacy Venice compat (now maps to local LLM)
+        self.venice_api_key = os.getenv("VENICE_API_KEY")  # Legacy — ignored if local LLM active
+        self.venice_base_url = "https://api.venice.ai/api/v1"  # Legacy
+        self._venice_client = None
+        self._venice_async_client = None
         self.venice_model = os.getenv("VENICE_MODEL", "qwen3-coder-480b-a35b-instruct")
         
         # Dual-mentor strategy settings
         self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
-        self.mentor_strategy = os.getenv("MENTOR_STRATEGY", "gpt_first")  # gpt_first, venice_first, round_robin, parallel
+        self.mentor_strategy = os.getenv("MENTOR_STRATEGY", "gpt_first")  # gpt_first, local_first, round_robin, parallel
         self._mentor_call_count = 0  # For round-robin
         
         # Strict mode validation
@@ -268,9 +273,19 @@ class GPTManager:
         # Feature flags
         self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
         
-        # Venice integration stats
+        # Venice (secondary provider)
         self.venice_enabled = bool(self.venice_api_key) and self.enable_dual_mentor
         self.stats_venice = {
+            "total_requests": 0,
+            "successes": 0,
+            "failures": 0,
+            "tokens_used": 0
+        }
+        
+        # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + GPU model present)
+        self._local_llm_enabled = False
+        self._detect_local_llm()  # Sets _local_llm_enabled=True only when FF_LOCAL_LLM=1 + server live
+        self.stats_local_llm = {
             "total_requests": 0,
             "successes": 0,
             "failures": 0,
@@ -348,13 +363,66 @@ class GPTManager:
         logger.debug(f"Fallback model: {self.fallback_model}")
         logger.debug(f"Platform detected: {platform.system()}")
         if self.is_configured():
-            logger.debug(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
+            if self._local_llm_enabled:
+                logger.info(f"Local LLM enabled | nano+mini → local GPU")
+            elif self.venice_enabled:
+                logger.debug(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
         else:
             logger.warning("GPTManager: OPENAI_API_KEY not set. LLM calls disabled until configured.")
     
     def is_configured(self) -> bool:
         """Check if API key is available for LLM calls."""
         return bool(self.api_key) and self._enable_llm and not self._offline
+    
+    def _detect_local_llm(self) -> bool:
+        """Check if local LLM should be activated (Phase 43).
+        
+        Returns True if local LLM is available and feature flag is on.
+        """
+        try:
+            from core.feature_flags import get_feature_flags
+            ff = get_feature_flags()
+            if not getattr(ff, 'local_llm', False):
+                return False
+        except Exception:
+            if os.getenv("FF_LOCAL_LLM", "0").lower() not in ("1", "true", "yes", "on"):
+                return False
+        
+        try:
+            from core.llm.local_llm_provider import get_local_llm_provider
+            provider = get_local_llm_provider()
+            if provider.is_available():
+                self._local_llm_provider = provider
+                self._local_llm_enabled = True
+                return True
+        except Exception as e:
+            logger.debug(f"Local LLM detection failed: {e}")
+        
+        return False
+    
+    def _get_model_router(self):
+        """Get or create the model router (lazy init)."""
+        if self._model_router is None:
+            from core.llm.model_router import ModelRouter
+            self._model_router = ModelRouter(
+                local_available=self._local_llm_enabled,
+                local_model_name=(
+                    self._local_llm_provider.get_model_name()
+                    if self._local_llm_provider else ""
+                ),
+            )
+        return self._model_router
+    
+    @property
+    def local_client(self):
+        """Get the local LLM client (OpenAI-compatible)."""
+        if self._local_client is None and self._local_llm_provider:
+            self._local_client = self._local_llm_provider.get_client()
+        return self._local_client
+    
+    def has_local_llm(self) -> bool:
+        """Check if local LLM is available."""
+        return self._local_llm_enabled and self._local_llm_provider is not None
     
     def is_offline(self) -> bool:
         """Check if running in offline mode."""
@@ -594,30 +662,40 @@ class GPTManager:
         return self._venice_async_client
 
     def has_venice(self) -> bool:
-        """Check if Venice AI is available."""
+        """Check if Venice AI is available as secondary provider."""
         return bool(self.venice_api_key) and self.venice_enabled
+
+    def has_secondary_provider(self) -> bool:
+        """Check if any secondary LLM provider is available (local or Venice)."""
+        return self.has_local_llm() or self.has_venice()
 
     def get_next_mentor_provider(self) -> str:
         """
         Get the next mentor provider based on strategy.
         
+        Phase 43: local LLM replaces Venice as secondary provider.
+        
         Strategies:
-        - gpt_first: Always GPT, Venice as fallback
-        - venice_first: Always Venice, GPT as fallback
-        - round_robin: Alternate between GPT and Venice
+        - gpt_first: Always GPT, local/Venice as fallback
+        - local_first: Local LLM first, GPT as fallback
+        - round_robin: Alternate between GPT and local
         - parallel: Use both (caller handles)
         
         Returns:
-            str: "gpt" or "venice"
+            str: "gpt", "local", or "both"
         """
-        if not self.has_venice():
+        has_secondary = self.has_secondary_provider()
+        if not has_secondary:
             return "gpt"
         
-        if self.mentor_strategy == "venice_first":
-            return "venice"
+        # Phase 43: "local_first" and legacy "venice_first" both map to local
+        if self.mentor_strategy in ("local_first", "venice_first"):
+            return "local" if self.has_local_llm() else "venice"
         elif self.mentor_strategy == "round_robin":
             self._mentor_call_count += 1
-            return "venice" if self._mentor_call_count % 2 == 0 else "gpt"
+            if self._mentor_call_count % 2 == 0:
+                return "local" if self.has_local_llm() else "venice"
+            return "gpt"
         elif self.mentor_strategy == "parallel":
             return "both"
         else:  # gpt_first (default)
@@ -626,6 +704,8 @@ class GPTManager:
     def get_mentor_clients(self) -> Dict[str, Any]:
         """
         Get mentor clients based on availability.
+        
+        Phase 43: Local LLM preferred as secondary over Venice.
         
         Returns:
             Dict with 'primary', 'secondary', and their async variants
@@ -649,8 +729,16 @@ class GPTManager:
             except RuntimeError:
                 pass
         
-        # Secondary is Venice (if available)
-        if self.has_venice():
+        # Secondary: prefer local LLM, fall back to Venice
+        if self.has_local_llm():
+            try:
+                local_cl = self.local_client
+                result["secondary"] = local_cl
+                result["secondary_async"] = local_cl  # llama-cpp sync is fine
+                result["secondary_model"] = self._local_llm_provider.get_model_name()
+            except Exception:
+                pass
+        elif self.has_venice() and not self.has_local_llm():
             try:
                 result["secondary"] = self.venice_client
                 result["secondary_async"] = self.venice_async_client
@@ -925,6 +1013,15 @@ class GPTManager:
         if model is None:
             model = self.get_model_for_role(agent_id=agent_id, task_type=task_type)
         
+        # ── Phase 43: Route to local LLM if applicable ──────────────
+        _use_local = False
+        _routing_decision = None
+        if self._local_llm_enabled:
+            router = self._get_model_router()
+            _routing_decision = router.route(model, task_type)
+            if _routing_decision.provider == "local":
+                _use_local = True
+        
         # ── Phase 32: Per-tier soft token ceilings ───────────────────
         # Clamp max_tokens to tier-appropriate limits to prevent waste.
         _TIER_OUTPUT_CAPS: Dict[str, int] = {
@@ -953,8 +1050,9 @@ class GPTManager:
         
         # ── Phase 15.0: BudgetManagerV2 pre-check ───────────────────
         # Estimate tokens and check per-tier budget before proceeding.
+        # Phase 43: Skip budget check for local LLM calls (zero cost).
         _bm2_roi_tag = task_type or "general"
-        if self._budget_manager_v2 is not None:
+        if self._budget_manager_v2 is not None and not _use_local:
             _bm2_estimated = max_tokens * 2  # estimate input + output
             _bm2_decision = self._budget_manager_v2.check_budget(
                 model=model, estimated_tokens=_bm2_estimated, roi_tag=_bm2_roi_tag,
@@ -1033,11 +1131,30 @@ class GPTManager:
             import signal
             
             # Determine API endpoint: codex models use Responses API, others use Chat Completions
-            uses_responses_api = "codex" in model  # gpt-5.1-codex-mini, gpt-5.1-codex
-            uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"])
+            uses_responses_api = ("codex" in model) and not _use_local  # Local never uses Responses API
+            uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"]) and not _use_local
             token_param = "max_completion_tokens" if uses_new_api else "max_tokens"
             
             def make_gpt_request():
+                # ── Phase 43: Local LLM path ────────────────────────────
+                if _use_local and self._local_llm_provider:
+                    _local_cl = self.local_client
+                    if _local_cl is None:
+                        raise RuntimeError("Local LLM provider active but client unavailable")
+                    local_model = self._local_llm_provider.get_model_name()
+                    request_params = {
+                        "model": local_model,
+                        "messages": [
+                            {"role": "system", "content": _system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "max_tokens": max_tokens,
+                        "temperature": 0.7 if task_type == "diversify" else 0.3,
+                    }
+                    if response_format == "json_object":
+                        request_params["response_format"] = {"type": "json_object"}
+                    return _local_cl.chat.completions.create(**request_params)
+                
                 if uses_responses_api:
                     # OpenAI Responses API (v1/responses) for codex models
                     # Codex models use internal reasoning tokens (~1000+) that count against
@@ -1160,15 +1277,23 @@ class GPTManager:
                     tokens_used = response.usage.total_tokens
                     self.tokens_used += tokens_used
                     self.stats["tokens_used_total"] += tokens_used
+                    # Phase 43: Track local LLM separately
+                    _track_model = model
+                    if _use_local:
+                        _track_model = f"local:{self._local_llm_provider.get_model_name()}" if self._local_llm_provider else "local:unknown"
+                        self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
+                        self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
+                        self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
                     # Phase 6.3: per-model tracking + cost
-                    self.tokens_by_model[model] = self.tokens_by_model.get(model, 0) + tokens_used
-                    self.requests_by_model[model] = self.requests_by_model.get(model, 0) + 1
-                    cost_rate = self.COST_PER_1K_TOKENS.get(model, 0.001)
+                    self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
+                    self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
+                    cost_rate = 0.0 if _use_local else self.COST_PER_1K_TOKENS.get(model, 0.001)
                     step_cost = (tokens_used / 1000.0) * cost_rate
                     self._cumulative_cost_usd += step_cost
                     self._episode_cost_usd += step_cost
                     # Phase 15.0: Record spend in BudgetManagerV2
-                    if self._budget_manager_v2 is not None:
+                    # Phase 43: Skip for local LLM (zero cost, avoid depleting OpenAI tiers)
+                    if self._budget_manager_v2 is not None and not _use_local:
                         self._budget_manager_v2.record_spend(
                             model=model, tokens_used=tokens_used,
                             roi_tag=_bm2_roi_tag,

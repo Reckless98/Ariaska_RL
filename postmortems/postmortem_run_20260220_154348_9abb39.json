@@ -1,0 +1,100 @@
+{
+  "run_id": "run_20260220_154348_9abb39",
+  "timestamp": 1771598644.49545,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "No successful episodes despite positive reward signal",
+      "Mentor dependency high (10 calls) with zero success rate"
+    ],
+    "summary": "Single-episode run achieved reward but no task success, indicating reward misalignment or incomplete objective execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite reward accumulation",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access attempt yields reward but objective remains incomplete",
+      "then_action": "Validate objective criteria and re-run verification steps before proceeding",
+      "parameters_template": {
+        "verify_commands": [
+          "whoami",
+          "id",
+          "hostname"
+        ]
+      },
+      "confidence": 0.55,
+      "evidence_refs": [],
+      "created_at": 1771598656.1787145,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Perform post-episode failure analysis to identify missing kill-chain steps",
+      "parameters_template": {
+        "checklist": [
+          "Recon complete",
+          "Access gained",
+          "Privilege escalation validated",
+          "Objective confirmed"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [],
+      "created_at": 1771598656.1787283,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Critical for diagnosing zero-success outcomes"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reward-to-Objective Alignment Check",
+      "description": "Instrument the run to log objective completion criteria at each step to determine why rewards are accruing without success.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Trial",
+      "description": "Run with a strict cap of 3 mentor calls to force autonomous decision-making and reveal gaps.",
+      "priority": "medium"
+    },
+    {
+      "title": "Single-Objective Focused Episode",
+      "description": "Constrain the episode to a single kill-chain objective and validate end-to-end completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

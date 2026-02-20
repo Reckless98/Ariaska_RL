@@ -1,0 +1,39 @@
+{
+  "total_samples": 400,
+  "total_input_tokens": 237375,
+  "total_output_tokens": 126687,
+  "total_cost_usd": 0.1116,
+  "budget_remaining": 4.8884,
+  "phase_distribution": {
+    "RECON": 60,
+    "ENUMERATION": 51,
+    "EXPLOITATION": 54,
+    "PRIVILEGE_ESCALATION": 48,
+    "LATERAL_MOVEMENT": 46,
+    "POST_EXPLOITATION": 57,
+    "EXFILTRATION": 37,
+    "CLOSEOUT": 43
+  },
+  "prompt_type_distribution": {
+    "build_user_prompt": 156,
+    "build_stagnation_recovery_prompt": 68,
+    "build_phase_transition_prompt": 75,
+    "build_multi_agent_prompt": 49,
+    "build_evidence_eval_prompt": 48
+  },
+  "model": "gpt-4o-mini",
+  "total_generated": 500,
+  "total_valid": 500,
+  "cost_usd": 0.17416574999999998,
+  "by_type": {
+    "micro_chain_stage2": 108,
+    "smart_mentor": 272,
+    "classification": 34,
+    "phase_guided": 29,
+    "micro_chain_stage3": 57
+  },
+  "by_backend": {
+    "openai:gpt-4o-mini": 500
+  },
+  "total_invalid": 3
+}

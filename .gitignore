@@ -46,6 +46,12 @@ db.sqlite
 *.pth
 #models/
 
+# Phase 43: Large LLM model files (never commit)
+*.gguf
+*.awq
+*.gptq
+*.safetensors
+
 # Project specific
 core/memories/
 chroma_data/

@@ -1,0 +1,105 @@
+{
+  "timestamp": "2025-12-11T00:31:58.731882",
+  "max_steps": 500,
+  "seed": 72846,
+  "target_ip": "10.129.3.48",
+  "target_name": "Nibbles",
+  "mode": "continuous",
+  "difficulty": "easy",
+  "os_type": "linux",
+  "duration_s": 399.12,
+  "total_reward": 255.96,
+  "highest_phase": "EXPLOITATION",
+  "total_steps": 45,
+  "total_discoveries": 5,
+  "total_cost_usd": 0.4164,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 26,
+    "playbook": 10,
+    "registry": 9,
+    "anti_repeat": 7,
+    "codex_meta": 3
+  },
+  "discovery_summary": {
+    "ports": 2,
+    "services": 2,
+    "credentials": 0,
+    "shells": 1
+  },
+  "episode_metrics": {
+    "total_steps": 45,
+    "highest_phase": "EXPLOITATION",
+    "total_discoveries": 5,
+    "unique_commands": 34,
+    "diversity_ratio": 0.696
+  },
+  "ppo_metrics": {
+    "policy_loss": -0.0361,
+    "value_loss": 1.262,
+    "entropy": 2.2936,
+    "kl_divergence": 0.01971,
+    "clip_fraction": 0.0622,
+    "ppo_updates": 4
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 255.96,
+      "highest_phase": "EXPLOITATION",
+      "steps": 45,
+      "ppo_updates": 3,
+      "policy_loss": -0.0218,
+      "value_loss": 1.9036,
+      "entropy": 2.2938,
+      "sources": {
+        "ppo": 26,
+        "playbook": 10,
+        "registry": 9,
+        "anti_repeat": 7,
+        "codex_meta": 3
+      },
+      "unique_commands": 31,
+      "unique_templates": 34,
+      "command_diversity": 0.6296,
+      "total_discoveries": 5,
+      "step_at_first_exploit": 31
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 11,
+      "discoveries": 2
+    },
+    "RedAgent": {
+      "steps": 15,
+      "discoveries": 1
+    },
+    "BlueAgent": {
+      "steps": 4,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 6,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 6,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "Nibbleblog 4.0.3 RCE \u2192 file upload \u2192 sudo monitor.sh \u2192 root",
+    "services_discovered": [
+      "ssh:22",
+      "http:80"
+    ],
+    "maturity_signal": 0.472,
+    "success": false,
+    "partial_success": false,
+    "learning_phase": "mid"
+  }
+}

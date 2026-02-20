@@ -1,0 +1,139 @@
+{
+  "run_id": "run_20260220_053932_8f6237",
+  "timestamp": 1771562389.085591,
+  "key_outcomes": {
+    "wins": [
+      "Collected partial reward signals indicating some progress during the episode"
+    ],
+    "fails": [
+      "Zero successful episodes (0.00% success rate)",
+      "High mentor call reliance (10) suggests low autonomous decision quality"
+    ],
+    "summary": "Single-episode run with moderate reward but no successful completion; progress signals exist but execution failed to reach objective."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Did not convert reconnaissance progress into a successful exploit/goal completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step05"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is identified but no service map exists",
+      "then_action": "Run a fast TCP scan to enumerate open ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-Pn -sS --top-ports 200 -T4"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771562403.9196372,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS ports are open on the target",
+      "then_action": "Enumerate web stack and directories",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --script http-title,http-server-header",
+        "dir_enum": "gobuster dir -u http://<host> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step07"
+      ],
+      "created_at": 1771562403.9196513,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is open and banner is detected",
+      "then_action": "Enumerate SSH configuration and supported auth methods",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -p 22 --script ssh2-enum-algos,ssh-auth-methods"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step09"
+      ],
+      "created_at": 1771562403.91966,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step needed to reduce mentor calls and improve autonomy."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a common pivot once HTTP is exposed."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor reliance in recon",
+      "description": "Complete port and service enumeration without mentor guidance using a predefined recon checklist (nmap fast scan -> service scan -> targeted scripts).",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit path completion drill",
+      "description": "After recon, select one service and attempt a full exploit path (identify vuln -> validate -> execute) within a fixed 10-step budget.",
+      "priority": "high"
+    },
+    {
+      "title": "Evidence-based decision logging",
+      "description": "At each decision point, record observed evidence (port/service/banner) before choosing the next action to improve reasoning quality.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

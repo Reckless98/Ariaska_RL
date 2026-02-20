@@ -1,0 +1,108 @@
+{
+  "run_id": "run_20260220_080926_1f9ea7",
+  "timestamp": 1771571382.6943302,
+  "key_outcomes": {
+    "wins": [
+      "Positive total reward indicates some correct intermediate actions despite no episode success"
+    ],
+    "fails": [
+      "Success rate 0% across 1 episode",
+      "High mentor calls (10) indicate heavy guidance dependence"
+    ],
+    "summary": "The run achieved positive reward but failed to complete the objective; progress was assisted heavily by mentor calls."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance progress into a successful end-state within the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance during key decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_help"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery yields a live target",
+      "then_action": "Run fast port scan with service detection",
+      "parameters_template": {
+        "target": "<ip>",
+        "nmap_args": "-sV -T4 --top-ports 1000"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771571399.485085,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected on common ports",
+      "then_action": "Enumerate web endpoints and headers",
+      "parameters_template": {
+        "tool": "whatweb",
+        "target": "http://<ip>:<port>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771571399.485093,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance action for progressing the kill chain"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency in recon",
+      "description": "Complete host discovery and top-ports scan without mentor calls; log decisions and timing.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific branching practice",
+      "description": "For each detected service, execute one targeted enumeration action (e.g., HTTP headers, SSH banner) before moving on.",
+      "priority": "high"
+    },
+    {
+      "title": "End-state conversion drill",
+      "description": "Allocate final 30% of episode time to exploitation/goal completion rather than extended scanning.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

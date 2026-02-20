@@ -537,27 +537,21 @@ class LiveDashboard:
 
         console.print(algo_table)
 
-        # ── GPT MODEL ROUTING ────────────────────────────────────────
-        gpt_lines = []
+        # ── GPT MODEL ROUTING (compact inline — key info already in Config) ──
         _gpt_primary = config.get('gpt_primary', '?')
         _gpt_nano = config.get('gpt_nano', '?')
         _gpt_post = config.get('gpt_postmortem', '?')
         _tok_lim = config.get('gpt_token_limit', 0)
-        gpt_lines.append(f"[bright_green]🧠 Primary:[/bright_green]    {_gpt_primary}")
+        gpt_parts = [f"[bright_green]🧠 {_gpt_primary}[/bright_green]"]
         if _gpt_nano != _gpt_primary:
-            gpt_lines.append(f"[dim]⚡ Nano:[/dim]       {_gpt_nano}")
+            gpt_parts.append(f"[dim]⚡ {_gpt_nano}[/dim]")
         if _gpt_post != _gpt_primary:
-            gpt_lines.append(f"[dim]📊 Postmortem:[/dim] {_gpt_post}")
+            gpt_parts.append(f"[dim]📊 {_gpt_post}[/dim]")
         if _tok_lim:
-            gpt_lines.append(f"[cyan]📏 Budget:[/cyan]     {_tok_lim:,} tokens/episode")
-        gpt_lines.append(f"[cyan]💳 Tracking:[/cyan]   Per-call prompt/response visibility")
-        if gpt_lines:
-            console.print(Panel(
-                "\n".join(gpt_lines),
-                title="[bold]🤖  GPT Intelligence Layer[/bold]",
-                border_style="bright_green",
-                padding=(0, 2),
-            ))
+            gpt_parts.append(f"[cyan]📏 {_tok_lim:,} tok/ep[/cyan]")
+        gpt_parts.append("[cyan]💳 per-call tracking[/cyan]")
+        console.print(f"  [bold]GPT Layer:[/bold]  {'  │  '.join(gpt_parts)}")
+        console.print()
 
         # ── DECISION PIPELINE ────────────────────────────────────────
         pipeline = (
@@ -581,21 +575,17 @@ class LiveDashboard:
             pipeline,
             title="[bold]🔄  4-Stage Decision Pipeline[/bold]",
             border_style="bright_white",
+            box=box.ROUNDED,
             padding=(0, 2),
         ))
 
-        # ── KILL CHAIN PHASES ────────────────────────────────────────
+        # ── KILL CHAIN (compact inline) ──────────────────────────────
         phase_parts = []
         for phase_name, icon in PHASE_ICONS.items():
             phase_parts.append(f"[dim]{icon} {phase_name[:5]}[/dim]")
         chain = " [bright_white]━▶[/bright_white] ".join(phase_parts)
-        console.print(Panel(
-            f"  {chain}",
-            title="[bold bright_white]🔗  Kill Chain Progression[/bold bright_white]",
-            border_style="dim",
-            box=box.ROUNDED,
-            padding=(0, 2),
-        ))
+        console.print(f"  [bold]Kill Chain:[/bold]  {chain}")
+
         console.print()
         console.rule("[bold bright_green]▶ Training Started[/bold bright_green]", style="bright_green")
         console.print()
@@ -1486,10 +1476,12 @@ class LiveDashboard:
         )
 
         # ── Phase 40: PHASE PROGRESS BAR ──────────────────────────────
+        _use_v6 = False  # init early — used later in v6 decision-chain/discovery panels
         try:
             from core.feature_flags import get_feature_flags as _get_ff
             _ff = _get_ff()
             if getattr(_ff, 'dashboard_v6', False):
+                _use_v6 = True
                 console.print(self._build_phase_progress_bar(phase_upper))
         except Exception:
             pass
@@ -1555,10 +1547,42 @@ class LiveDashboard:
             # ── Build verbose output + discoveries panel per agent ──
             panel_parts = []
 
-            # Full command output — multi-line, no truncation
+            # Command output — truncated + HTML-stripped for readability
             if a.command_output and a.command_output.strip():
-                _out_lines = a.command_output.strip().split("\n")
-                # Show ALL lines (investor demo = full verbosity)
+                _raw = a.command_output.strip()
+                # ── Strip raw HTML: remove tags, collapse whitespace ──
+                import re as _re_html
+                if "<html" in _raw.lower() or "<div" in _raw.lower() or "<script" in _raw.lower():
+                    # Remove script/style blocks entirely
+                    _raw = _re_html.sub(r'<(script|style)[^>]*>.*?</\1>', '', _raw, flags=_re_html.DOTALL | _re_html.IGNORECASE)
+                    # Remove HTML tags
+                    _raw = _re_html.sub(r'<[^>]+>', ' ', _raw)
+                    # Collapse whitespace
+                    _raw = _re_html.sub(r'[ \t]+', ' ', _raw)
+                    _raw = _re_html.sub(r'\n{3,}', '\n\n', _raw)
+                    _raw = _raw.strip()
+                _out_lines = _raw.split("\n")
+                # ── Deduplicate consecutive identical lines ──
+                _deduped: list[str] = []
+                _dup_count = 0
+                for _ln in _out_lines:
+                    if _deduped and _ln.strip() == _deduped[-1].strip():
+                        _dup_count += 1
+                        continue
+                    if _dup_count > 0:
+                        _deduped.append(f"  ... ({_dup_count} identical lines suppressed)")
+                        _dup_count = 0
+                    _deduped.append(_ln)
+                if _dup_count > 0:
+                    _deduped.append(f"  ... ({_dup_count} identical lines suppressed)")
+                _out_lines = _deduped
+                # ── Truncate to max 25 lines ──
+                _MAX_OUTPUT_LINES = 25
+                if len(_out_lines) > _MAX_OUTPUT_LINES:
+                    _head = _out_lines[:10]
+                    _tail = _out_lines[-10:]
+                    _skipped = len(_out_lines) - 20
+                    _out_lines = _head + [f"  ... ({_skipped} lines truncated) ..."] + _tail
                 _out_text = "\n".join(_out_lines)
                 panel_parts.append(f"[bold white]📋 Output:[/bold white]")
                 panel_parts.append(f"[dim]{_out_text}[/dim]")
@@ -2390,6 +2414,32 @@ class LiveDashboard:
         phase_icon = PHASE_ICONS.get(highest_phase, "")
         table.add_row("Highest Phase", f"{phase_icon} {highest_phase}", "")
 
+        total_disc = sum(len(v) for v in self.episode_discoveries.values())
+        table.add_row("Discoveries", str(total_disc), "")
+        table.add_section()  # ── Learning Quality ──
+
+        # Command diversity with quality signal
+        unique_count = len(self.episode_unique_commands)
+        diversity = unique_count / max(total_steps, 1)
+        diversity_color = "green" if diversity > 0.6 else "yellow" if diversity > 0.3 else "red"
+        table.add_row("Unique Cmds", str(unique_count),
+                       f"[{diversity_color}]diversity: {diversity:.0%}[/{diversity_color}]  repeats: {self.episode_repeat_count}")
+
+        # Decision source breakdown for this episode
+        all_sources: Dict[str, int] = {}
+        for stats in self.agent_stats.values():
+            for src, cnt in stats.get("decision_sources", {}).items():
+                all_sources[src] = all_sources.get(src, 0) + cnt
+        total_decisions = sum(all_sources.values()) or 1
+        src_parts = []
+        for src, cnt in sorted(all_sources.items(), key=lambda x: -x[1]):
+            pct = cnt / total_decisions * 100
+            src_icon = SOURCE_STYLES.get(src[:8], ("", "dim"))[0]
+            src_parts.append(f"{src_icon}{src}:{cnt}({pct:.0f}%)")
+        if src_parts:
+            table.add_row("Decision Mix", " ".join(src_parts[:3]),
+                          " ".join(src_parts[3:]) if len(src_parts) > 3 else "")
+
         # Mentor rate with trend
         if self.episode_active_steps > 0:
             mentor_rate = mentor_calls / self.episode_active_steps
@@ -2409,33 +2459,6 @@ class LiveDashboard:
         table.add_row("Mentor Calls", str(mentor_calls),
                        f"rate: {mentor_rate:.0%}  avg: {avg_mentor:.0%}  {mentor_delta}")
 
-        total_disc = sum(len(v) for v in self.episode_discoveries.values())
-        table.add_row("Discoveries", str(total_disc), "")
-
-        # Command diversity with quality signal
-        unique_count = len(self.episode_unique_commands)
-        diversity = unique_count / max(total_steps, 1)
-        diversity_color = "green" if diversity > 0.6 else "yellow" if diversity > 0.3 else "red"
-        table.add_row("Unique Cmds", str(unique_count),
-                       f"[{diversity_color}]diversity: {diversity:.0%}[/{diversity_color}]  repeats: {self.episode_repeat_count}")
-        table.add_row("Tokens", str(self.tokens_total), "")
-
-        # Decision source breakdown for this episode
-        all_sources: Dict[str, int] = {}
-        for stats in self.agent_stats.values():
-            for src, cnt in stats.get("decision_sources", {}).items():
-                all_sources[src] = all_sources.get(src, 0) + cnt
-        total_decisions = sum(all_sources.values()) or 1
-        src_parts = []
-        for src, cnt in sorted(all_sources.items(), key=lambda x: -x[1]):
-            pct = cnt / total_decisions * 100
-            src_icon = SOURCE_STYLES.get(src[:8], ("", "dim"))[0]
-            src_parts.append(f"{src_icon}{src}:{cnt}({pct:.0f}%)")
-        if src_parts:
-            # Show top sources in Value column, rest in Trend column
-            table.add_row("Decision Mix", " ".join(src_parts[:3]),
-                          " ".join(src_parts[3:]) if len(src_parts) > 3 else "")
-
         if ppo_metrics:
             if ppo_metrics.get("updates"):
                 table.add_row("PPO Updates", str(ppo_metrics["updates"]), "")
@@ -2445,8 +2468,9 @@ class LiveDashboard:
                 table.add_row("PPO V Loss", f"{ppo_metrics['value_loss']:.4f}", "")
             if ppo_metrics.get("entropy"):
                 table.add_row("PPO Entropy", f"{ppo_metrics['entropy']:.4f}", "")
+        table.add_section()  # ── System / Cost ──
 
-        # Phase 10.0: KG + LLM usage rows
+        table.add_row("Tokens", str(self.tokens_total), "")
         if self.kg_queries_episode > 0:
             kg_hit_pct = (self.kg_hits_episode / max(self.kg_queries_episode, 1)) * 100
             table.add_row(

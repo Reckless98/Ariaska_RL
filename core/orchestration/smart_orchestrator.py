@@ -3977,6 +3977,22 @@ class SmartOrchestrator:
                 logger.warning(f"[SKIP][{agent_name}] All decision pipelines returned None — skipping agent this step")
                 continue
             
+            # Phase 42: Cross-agent command dedup — prevent Orion+Red firing same nmap/gobuster
+            _cmd_base = decision.command.split()[0] if decision.command else ""
+            _cmd_prefix = decision.command[:50]
+            if _cmd_prefix in step_used_commands or (
+                _cmd_base in step_used_commands and agent_name != "RedAgent"
+            ):
+                logger.info(
+                    f"[CROSS-DEDUP][{agent_name}] Skipping duplicate command: "
+                    f"{decision.command[:60]}... (base={_cmd_base} already used this step)"
+                )
+                _p36_skip_reasons[agent_name] = f"cross_dedup: {_cmd_base}"
+                continue
+            # Also track the base command tool name for future agents this step
+            if _cmd_base:
+                step_used_commands.add(_cmd_base)
+            
             # Track this command as used for deduplication
             step_used_commands.add(decision.template_name)
             step_used_commands.add(decision.command[:50])  # Also track command prefix

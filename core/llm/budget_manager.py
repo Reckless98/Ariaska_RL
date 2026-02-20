@@ -70,6 +70,8 @@ _MODEL_TIER: Dict[str, str] = {
     "gpt-5-nano": "nano",
     "gpt-5.2-nano": "nano",
     # Phase 23: no gpt-4 models — all routing is gpt-5.x
+    # Phase 43: Local LLM tier — zero cost, unlimited budget
+    "local": "local",
 }
 
 # Valid ROI tags

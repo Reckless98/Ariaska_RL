@@ -1,0 +1,95 @@
+{
+  "run_id": "run_20260220_150939_5ddf90",
+  "timestamp": 1771596598.1430545,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (90.00) despite zero success rate"
+    ],
+    "fails": [
+      "No successful episodes recorded (0.00% success rate)",
+      "High mentor reliance (10 calls) suggests limited autonomous progression"
+    ],
+    "summary": "Run shows positive reward signals but no successful episode completion; performance appears inconsistent and mentor-dependent."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert positive reward into episode success",
+      "frequency": 1,
+      "evidence_refs": []
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields no definitive exploit path",
+      "then_action": "Pivot to service enumeration with targeted Nmap scripts",
+      "parameters_template": {
+        "ports": "top-1000",
+        "scripts": "default,safe,version"
+      },
+      "confidence": 0.45,
+      "evidence_refs": [],
+      "created_at": 1771596611.1221225,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When stuck after initial scans and mentor intervention increases",
+      "then_action": "Run credentialed checks or brute-force-safe discovery based on exposed services",
+      "parameters_template": {
+        "mode": "safe",
+        "rate_limit": "low"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771596611.1221383,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Likely to improve clarity in early recon and reduce mentor dependence"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor calls via structured recon checklist",
+      "description": "Enforce a fixed recon sequence (host discovery -> port scan -> version detection -> script scan) before any mentor call.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten success criteria alignment",
+      "description": "Add explicit success checkpoints per phase to ensure reward translates into episode success.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific deep dive",
+      "description": "For any detected service, execute at least one service-specific enumeration step (e.g., HTTP dir search, SMB enum) before moving on.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -1,0 +1,114 @@
+{
+  "run_id": "run_20260220_132830_09bc27",
+  "timestamp": 1771590529.3314214,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable episode reward at 80.0 across the run"
+    ],
+    "fails": [
+      "Zero successful episode completions (0.00% success rate)",
+      "High reliance on mentor calls (10) indicating low autonomy"
+    ],
+    "summary": "Single-episode run achieved moderate reward but failed to complete objectives; mentor dependence suggests gaps in decision-making or execution."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Task completion failure despite positive intermediate rewards",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor intervention indicating stalled progress",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial episode reward is positive but success criteria not met",
+      "then_action": "Trigger a mid-episode goal check and re-plan using updated state",
+      "parameters_template": {
+        "checkpoint_interval": "midpoint",
+        "replan_strategy": "goal_gap_analysis"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771590540.9808984,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 3 within an episode",
+      "then_action": "Switch to a predefined fallback playbook for autonomous progression",
+      "parameters_template": {
+        "mentor_call_threshold": 3,
+        "playbook": "autonomy_fallback_v1"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ],
+      "created_at": 1771590540.9809084,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses the observed gap between positive reward and failed completion by enforcing mid-episode re-planning."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Reduces mentor dependence by enforcing a fallback plan after repeated calls."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Autonomy Fallback Playbook Trial",
+      "description": "Test autonomy_fallback_v1 when mentor calls exceed 3 to measure reduction in calls and impact on success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Mid-episode Goal Gap Check",
+      "description": "Insert a midpoint goal-gap analysis step to re-align actions with success criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Success Criteria Clarification Prompt",
+      "description": "Add an early-step confirmation of success conditions to reduce late-stage failure.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

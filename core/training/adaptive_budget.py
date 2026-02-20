@@ -43,18 +43,22 @@ PHASE_BUDGET_WEIGHTS = {
 class BudgetConfig:
     """Configuration for adaptive budget controller."""
     # LLM mentor call budget
-    mentor_budget_total: int = 30  # max mentor calls per episode
+    # Phase 42: Raised from 30→140 for live HTB 500-step engagements.
+    # 30 calls exhausted by step 30, leaving 470 steps blind (100% pressure).
+    mentor_budget_total: int = 140  # max mentor calls per episode
     mentor_reserve_pct: float = 0.20  # Hold 20% for late phases
 
     # Venice parsing budget
-    venice_budget_total: int = 15
+    venice_budget_total: int = 50  # Phase 42: raised 15→50
 
     # Token budget
-    token_budget_total: int = 50_000  # per episode
+    # Phase 42: Raised from 50K→500K to match BudgetManagerV2's 1.1M ceiling.
+    # 50K was exhausted in early steps, killing all LLM reasoning.
+    token_budget_total: int = 500_000  # per episode
     token_reserve_pct: float = 0.15
 
     # Parse LLM budget
-    parse_llm_budget_total: int = 20
+    parse_llm_budget_total: int = 80  # Phase 42: raised 20→80
 
     # Spend rate tracking
     spend_rate_window: int = 10  # Rolling window for rate calculation
@@ -64,6 +68,9 @@ class BudgetConfig:
     soft_throttle_pressure: float = 0.70   # Phase 13.0: 0.60→0.70 — delayed soft throttle
     hard_throttle_pressure: float = 0.90   # Phase 13.0: 0.85→0.90 — delayed hard throttle
     emergency_cutoff_pressure: float = 0.97  # Phase 13.0: 0.95→0.97 — near-exhaustion only
+
+    # Phase 42: Stagnation override — bypass budget gate when agent is stuck
+    stagnation_override_steps: int = 10  # Override after N stagnation steps
 
 
 class AdaptiveBudgetController:
@@ -112,10 +119,26 @@ class AdaptiveBudgetController:
         """Called at the start of each step to update tracking."""
         self._current_step = step
 
-    def can_call_mentor(self, phase: str = "RECON") -> bool:
-        """Check if a mentor call is allowed given current budget state."""
+    def can_call_mentor(self, phase: str = "RECON", stagnation_steps: int = 0) -> bool:
+        """Check if a mentor call is allowed given current budget state.
+        
+        Args:
+            phase: Current kill chain phase.
+            stagnation_steps: Number of consecutive steps without new discoveries.
+                When > config.stagnation_override_steps, budget gate is bypassed
+                to break out of loops (Phase 42).
+        """
         if self._mentor_calls >= self.config.mentor_budget_total:
             return False
+
+        # Phase 42: Stagnation override — when agent is stuck, LLM guidance
+        # is the only way to break out. Allow the call regardless of pressure.
+        if stagnation_steps >= self.config.stagnation_override_steps:
+            logger.debug(
+                f"[BUDGET] Stagnation override: {stagnation_steps} steps stuck, "
+                f"bypassing pressure gate for phase {phase}"
+            )
+            return True
 
         pressure = self.get_pressure()
         phase_weight = PHASE_BUDGET_WEIGHTS.get(phase.upper(), 0.5)

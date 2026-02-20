@@ -1,0 +1,90 @@
+{
+  "run_id": "smart_4ac1ebfd_ep0000",
+  "timestamp": 1771596849.4536495,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "0% success rate across 1 episode",
+      "No mentor calls; limited guidance during run",
+      "No episode/step telemetry provided to validate actions"
+    ],
+    "summary": "Single-episode run with high reward but no successes recorded; insufficient telemetry to attribute outcomes."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial scan identifies open TCP ports",
+      "then_action": "Prioritize service/version enumeration on all open ports",
+      "parameters_template": {
+        "scan": "nmap -sV -sC -p <ports> <target>"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771596859.2476485,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected",
+      "then_action": "Run web enumeration and content discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "wordlist": "<common.txt>"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1771596859.2476635,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step applicable to most engagements; promote with low confidence pending telemetry."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase telemetry granularity",
+      "description": "Log per-step actions and outcomes (ep/step IDs) to enable failure pattern extraction and skill validation.",
+      "priority": "high"
+    },
+    {
+      "title": "Introduce mentor checkpoints",
+      "description": "Insert mentor calls at recon completion and pre-exploit phases to validate decision quality.",
+      "priority": "high"
+    },
+    {
+      "title": "Run 5-10 episodes with varied targets",
+      "description": "Collect sufficient data to confirm success patterns and compute reliable success rate trends.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

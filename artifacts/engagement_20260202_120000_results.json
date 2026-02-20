@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-02-04T00:08:18.504414",
+  "max_steps": 500,
+  "seed": 60333,
+  "target_ip": "10.129.9.42",
+  "target_name": "SolidState",
+  "mode": "continuous",
+  "difficulty": "medium",
+  "os_type": "linux",
+  "duration_s": 240.98,
+  "total_reward": 447.38,
+  "highest_phase": "PRIVILEGE_ESCALATION",
+  "total_steps": 54,
+  "total_discoveries": 14,
+  "total_cost_usd": 0.7261,
+  "user_flag_captured": false,
+  "root_flag_captured": false,
+  "user_flag_value": "",
+  "root_flag_value": "",
+  "decision_sources": {
+    "ppo": 34,
+    "playbook": 10,
+    "registry": 10,
+    "anti_repeat": 8,
+    "codex_meta": 4
+  },
+  "discovery_summary": {
+    "ports": 6,
+    "services": 6,
+    "credentials": 1,
+    "shells": 1
+  },
+  "episode_metrics": {
+    "total_steps": 54,
+    "highest_phase": "PRIVILEGE_ESCALATION",
+    "total_discoveries": 14,
+    "unique_commands": 37,
+    "diversity_ratio": 0.796
+  },
+  "ppo_metrics": {
+    "policy_loss": 0.3728,
+    "value_loss": 1.2802,
+    "entropy": 3.2561,
+    "kl_divergence": 0.01297,
+    "clip_fraction": 0.1057,
+    "ppo_updates": 6
+  },
+  "episode_data": [
+    {
+      "episode": 1,
+      "reward": 447.38,
+      "highest_phase": "PRIVILEGE_ESCALATION",
+      "steps": 54,
+      "ppo_updates": 4,
+      "policy_loss": 0.2519,
+      "value_loss": 3.0727,
+      "entropy": 2.5971,
+      "sources": {
+        "ppo": 34,
+        "playbook": 10,
+        "registry": 10,
+        "anti_repeat": 8,
+        "codex_meta": 4
+      },
+      "unique_commands": 34,
+      "unique_templates": 37,
+      "command_diversity": 0.6648,
+      "total_discoveries": 2,
+      "step_at_first_exploit": 40
+    }
+  ],
+  "agent_participation": {
+    "ScoutAgent": {
+      "steps": 13,
+      "discoveries": 6
+    },
+    "RedAgent": {
+      "steps": 18,
+      "discoveries": 2
+    },
+    "BlueAgent": {
+      "steps": 5,
+      "discoveries": 0
+    },
+    "ShadowAgent": {
+      "steps": 8,
+      "discoveries": 0
+    },
+    "OrionAgent": {
+      "steps": 8,
+      "discoveries": 0
+    }
+  },
+  "distillation_metadata": {
+    "exploit_path": "Apache James 2.3.2 default creds \u2192 user mailbox enum \u2192 restricted shell bypass \u2192 cron privesc",
+    "services_discovered": [
+      "ssh:22",
+      "smtp:25",
+      "pop3:110",
+      "imap:143",
+      "http:80",
+      "james-admin:4555"
+    ],
+    "maturity_signal": 0.619,
+    "success": false,
+    "partial_success": false,
+    "learning_phase": "mid"
+  }
+}
