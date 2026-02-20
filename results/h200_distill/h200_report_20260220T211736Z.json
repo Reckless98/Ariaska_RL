@@ -1,0 +1,327 @@
+{
+  "run_id": "20260220T211736Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 2.0,
+  "wall_hours": 2.0014598415295284,
+  "episodes_completed": 101,
+  "total_steps": 15150,
+  "avg_reward_all": -84.67326732673267,
+  "avg_reward_first_10": -189.55,
+  "avg_reward_last_10": -50.55,
+  "phase_reached_distribution": {
+    "RECON": 101
+  },
+  "command_families_used": {
+    "whatweb": 6219,
+    "nmap": 4025,
+    "curl": 2970,
+    "searchsploit": 1048,
+    "gobuster": 572,
+    "nikto": 121,
+    "enum4linux": 28,
+    "masscan": 27,
+    "smbclient": 17,
+    "hydra": 16,
+    "msfconsole": 16,
+    "sqlmap": 13,
+    "rpcclient": 12,
+    "whoami": 10,
+    "ping": 8,
+    "reg": 7,
+    "smbmap": 7,
+    "schtasks": 6,
+    "powershell": 6,
+    "net": 5
+  },
+  "mentor_calls_total": 3085,
+  "mentor_calls_by_phase": {
+    "recon": 102,
+    "enumeration": 1491,
+    "exploit": 1441,
+    "privesc": 37,
+    "exfiltrate": 14
+  },
+  "openai_fallback_calls": 188,
+  "teacher_override_count": 3085,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 3,
+  "ppo_updates": 101,
+  "discoveries_total": 0,
+  "checkpoints": [
+    "models/distilled/h200_20260220T211736Z_ep0001.pt",
+    "models/distilled/h200_20260220T211736Z_ep0003.pt",
+    "models/distilled/h200_20260220T211736Z_ep0006.pt",
+    "models/distilled/h200_20260220T211736Z_ep0011.pt",
+    "models/distilled/h200_20260220T211736Z_ep0016.pt",
+    "models/distilled/h200_20260220T211736Z_ep0022.pt",
+    "models/distilled/h200_20260220T211736Z_ep0028.pt",
+    "models/distilled/h200_20260220T211736Z_ep0046.pt",
+    "models/distilled/h200_20260220T211736Z_ep0066.pt",
+    "models/distilled/h200_20260220T211736Z_ep0086.pt",
+    "models/distilled/h200_20260220T211736Z_ep0101.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.0588,
+      "phase": "heavy",
+      "bc_coef": 0.14177,
+      "kl_coef": 0.14148,
+      "prior_alpha": 0.4706,
+      "episode": 0,
+      "mentor_calls": 149
+    },
+    {
+      "progress": 0.3964,
+      "phase": "medium",
+      "bc_coef": 0.09451,
+      "kl_coef": 0.09253,
+      "prior_alpha": 0.3018,
+      "episode": 10,
+      "mentor_calls": 50
+    },
+    {
+      "progress": 0.56,
+      "phase": "medium",
+      "bc_coef": 0.0716,
+      "kl_coef": 0.06879,
+      "prior_alpha": 0.22,
+      "episode": 20,
+      "mentor_calls": 49
+    },
+    {
+      "progress": 0.7051,
+      "phase": "light",
+      "bc_coef": 0.05129,
+      "kl_coef": 0.04776,
+      "prior_alpha": 0.1475,
+      "episode": 30,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.7463,
+      "phase": "light",
+      "bc_coef": 0.04552,
+      "kl_coef": 0.04179,
+      "prior_alpha": 0.1269,
+      "episode": 40,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.7892,
+      "phase": "light",
+      "bc_coef": 0.03951,
+      "kl_coef": 0.03557,
+      "prior_alpha": 0.1054,
+      "episode": 50,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.8315,
+      "phase": "light",
+      "bc_coef": 0.03358,
+      "kl_coef": 0.02943,
+      "prior_alpha": 0.0842,
+      "episode": 60,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.8716,
+      "phase": "light",
+      "bc_coef": 0.02798,
+      "kl_coef": 0.02362,
+      "prior_alpha": 0.0642,
+      "episode": 70,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.9144,
+      "phase": "light",
+      "bc_coef": 0.02198,
+      "kl_coef": 0.01741,
+      "prior_alpha": 0.0428,
+      "episode": 80,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.9581,
+      "phase": "light",
+      "bc_coef": 0.01587,
+      "kl_coef": 0.01108,
+      "prior_alpha": 0.0209,
+      "episode": 90,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 1.0,
+      "phase": "light",
+      "bc_coef": 0.01,
+      "kl_coef": 0.005,
+      "prior_alpha": 0.02,
+      "episode": 100,
+      "mentor_calls": 15
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 108,
+      "mentor": 108,
+      "rate": 1.0
+    },
+    {
+      "window": 1,
+      "total": 107,
+      "mentor": 106,
+      "rate": 0.991
+    },
+    {
+      "window": 2,
+      "total": 111,
+      "mentor": 111,
+      "rate": 1.0
+    },
+    {
+      "window": 3,
+      "total": 111,
+      "mentor": 111,
+      "rate": 1.0
+    },
+    {
+      "window": 4,
+      "total": 105,
+      "mentor": 105,
+      "rate": 1.0
+    },
+    {
+      "window": 5,
+      "total": 115,
+      "mentor": 115,
+      "rate": 1.0
+    },
+    {
+      "window": 6,
+      "total": 109,
+      "mentor": 109,
+      "rate": 1.0
+    },
+    {
+      "window": 7,
+      "total": 335,
+      "mentor": 129,
+      "rate": 0.385
+    },
+    {
+      "window": 8,
+      "total": 369,
+      "mentor": 123,
+      "rate": 0.333
+    },
+    {
+      "window": 9,
+      "total": 369,
+      "mentor": 123,
+      "rate": 0.333
+    },
+    {
+      "window": 10,
+      "total": 369,
+      "mentor": 123,
+      "rate": 0.333
+    },
+    {
+      "window": 11,
+      "total": 384,
+      "mentor": 128,
+      "rate": 0.333
+    },
+    {
+      "window": 12,
+      "total": 387,
+      "mentor": 129,
+      "rate": 0.333
+    },
+    {
+      "window": 13,
+      "total": 393,
+      "mentor": 130,
+      "rate": 0.331
+    },
+    {
+      "window": 14,
+      "total": 387,
+      "mentor": 129,
+      "rate": 0.333
+    },
+    {
+      "window": 15,
+      "total": 387,
+      "mentor": 129,
+      "rate": 0.333
+    },
+    {
+      "window": 16,
+      "total": 614,
+      "mentor": 138,
+      "rate": 0.225
+    },
+    {
+      "window": 17,
+      "total": 1510,
+      "mentor": 151,
+      "rate": 0.1
+    },
+    {
+      "window": 18,
+      "total": 1470,
+      "mentor": 147,
+      "rate": 0.1
+    },
+    {
+      "window": 19,
+      "total": 1480,
+      "mentor": 148,
+      "rate": 0.1
+    },
+    {
+      "window": 20,
+      "total": 1550,
+      "mentor": 155,
+      "rate": 0.1
+    },
+    {
+      "window": 21,
+      "total": 1458,
+      "mentor": 146,
+      "rate": 0.1
+    },
+    {
+      "window": 22,
+      "total": 1432,
+      "mentor": 143,
+      "rate": 0.1
+    },
+    {
+      "window": 23,
+      "total": 1460,
+      "mentor": 146,
+      "rate": 0.1
+    },
+    {
+      "window": 24,
+      "total": 30,
+      "mentor": 3,
+      "rate": 0.1
+    }
+  ],
+  "codex_calls": 188,
+  "codex_tokens": 107665,
+  "codex_cost_usd": 1.9761,
+  "codex_escalation_reasons": {
+    "diversity_early": 58,
+    "local_failed_early": 1,
+    "hard_case_mid": 84,
+    "critical_stall": 45
+  }
+}
