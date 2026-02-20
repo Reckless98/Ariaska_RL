@@ -1,0 +1,41 @@
+{
+  "run_id": "20260220T171311Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 3.0,
+  "wall_hours": 0.0018994313478469848,
+  "episodes_completed": 1,
+  "total_steps": 3,
+  "avg_reward_all": 8.0,
+  "avg_reward_first_10": 8.0,
+  "avg_reward_last_10": 8.0,
+  "phase_reached_distribution": {
+    "RECON": 1
+  },
+  "command_families_used": {
+    "echo": 2,
+    "nmap": 1
+  },
+  "mentor_calls_total": 3,
+  "mentor_calls_by_phase": {
+    "recon": 3
+  },
+  "openai_fallback_calls": 0,
+  "ppo_updates": 1,
+  "discoveries_total": 0,
+  "checkpoints": [
+    "models/distilled/h200_20260220T171311Z_ep0001.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.0006,
+      "phase": "heavy",
+      "bc_coef": 0.14991,
+      "kl_coef": 0.14991,
+      "prior_alpha": 0.4997,
+      "episode": 0,
+      "mentor_calls": 3
+    }
+  ]
+}
