@@ -1,0 +1,77 @@
+{
+  "run_id": "20260221T142317Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 0.05,
+  "wall_hours": 0.03576084382004208,
+  "episodes_completed": 2,
+  "total_steps": 30,
+  "avg_reward_all": 46.38125,
+  "avg_reward_first_10": 46.38125,
+  "avg_reward_last_10": 46.38125,
+  "phase_reached_distribution": {
+    "RECON": 2
+  },
+  "command_families_used": {
+    "nmap": 19,
+    "curl": 4,
+    "whatweb": 2,
+    "msfconsole": 2,
+    "masscan": 1,
+    "hydra": 1,
+    "searchsploit": 1
+  },
+  "mentor_calls_total": 24,
+  "mentor_calls_by_phase": {
+    "recon": 2,
+    "enumeration": 2,
+    "exploit": 20
+  },
+  "openai_fallback_calls": 17,
+  "teacher_override_count": 24,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 0,
+  "ppo_updates": 2,
+  "discoveries_total": 9,
+  "checkpoints": [
+    "models/distilled/h200_20260221T142317Z_ep0002.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.4753,
+      "phase": "heavy",
+      "bc_coef": 0.08346,
+      "kl_coef": 0.08109,
+      "prior_alpha": 0.2624,
+      "episode": 0,
+      "mentor_calls": 15
+    },
+    {
+      "progress": 0.7151,
+      "phase": "medium",
+      "bc_coef": 0.04988,
+      "kl_coef": 0.04631,
+      "prior_alpha": 0.1424,
+      "episode": 1,
+      "mentor_calls": 9
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 30,
+      "mentor": 24,
+      "rate": 0.8
+    }
+  ],
+  "codex_calls": 17,
+  "codex_tokens": 9871,
+  "codex_cost_usd": 0.037453999999999994,
+  "codex_escalation_reasons": {
+    "dual_teacher_always": 8,
+    "low_conf_early": 1,
+    "high_freq_boost": 6,
+    "sustained_guidance": 2
+  }
+}
