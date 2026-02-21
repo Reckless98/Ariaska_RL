@@ -1,0 +1,59 @@
+{
+  "run_id": "20260221T021935Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 0.1,
+  "wall_hours": 0.023058580226368374,
+  "episodes_completed": 1,
+  "total_steps": 30,
+  "avg_reward_all": -28.05,
+  "avg_reward_first_10": -28.05,
+  "avg_reward_last_10": -28.05,
+  "phase_reached_distribution": {
+    "RECON": 1
+  },
+  "command_families_used": {
+    "nmap": 27,
+    "masscan": 3
+  },
+  "mentor_calls_total": 30,
+  "mentor_calls_by_phase": {
+    "recon": 1,
+    "enumeration": 29
+  },
+  "openai_fallback_calls": 4,
+  "teacher_override_count": 30,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 0,
+  "ppo_updates": 1,
+  "discoveries_total": 0,
+  "checkpoints": [
+    "models/distilled/h200_20260221T021935Z_ep0001.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.2305,
+      "phase": "heavy",
+      "bc_coef": 0.11773,
+      "kl_coef": 0.11657,
+      "prior_alpha": 0.3847,
+      "episode": 0,
+      "mentor_calls": 30
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 30,
+      "mentor": 30,
+      "rate": 1.0
+    }
+  ],
+  "codex_calls": 4,
+  "codex_tokens": 2417,
+  "codex_cost_usd": 0.045516,
+  "codex_escalation_reasons": {
+    "diversity_early": 4
+  }
+}
