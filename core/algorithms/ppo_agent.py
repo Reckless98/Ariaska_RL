@@ -1719,6 +1719,60 @@ class PPOAgent:
         if "entropy_below_count" in ckpt:
             self._entropy_below_count = ckpt["entropy_below_count"]
 
+    def load_from_state_dict(self, ckpt: Dict[str, Any]) -> None:
+        """Load from an in-memory state dict (same format as ``save()``).
+
+        Identical to ``load()`` but skips the ``torch.load()`` step —
+        used by ``UnifiedCheckpoint.apply_ppo()`` to avoid temp files.
+        """
+        try:
+            self.network.load_state_dict(ckpt["network_state_dict"])
+        except RuntimeError:
+            logger.warning("Architecture mismatch — loading with strict=False")
+            self.network.load_state_dict(ckpt["network_state_dict"], strict=False)
+        try:
+            self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        except (RuntimeError, ValueError):
+            logger.warning("Optimizer state mismatch — reinitializing optimizer")
+            self.optimizer = torch.optim.Adam(
+                self.network.parameters(), lr=self.config.learning_rate
+            )
+        if "scheduler_state_dict" in ckpt:
+            self.lr_scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+        self.total_steps = ckpt.get("total_steps", 0)
+        self.updates_done = ckpt.get("updates_done", 0)
+        self.entropy_coef = ckpt.get("entropy_coef", self.config.entropy_coef)
+        if "reward_norm" in ckpt:
+            rn = ckpt["reward_norm"]
+            self._reward_mean = rn.get("mean", 0.0)
+            self._reward_var = rn.get("var", 1.0)
+            self._reward_count = rn.get("count", 0)
+            self._return_mean = rn.get("return_mean", 0.0)
+            self._return_var = rn.get("return_var", 1.0)
+            self._return_count = rn.get("return_count", 0)
+        if "adaptive_entropy" in ckpt:
+            ae = ckpt["adaptive_entropy"]
+            self._entropy_adaptive_multiplier = ae.get("multiplier", 1.0)
+            self._consecutive_closeouts = ae.get("consecutive_closeouts", 0)
+            self._consecutive_failures = ae.get("consecutive_failures", 0)
+        if "sil_baseline" in ckpt:
+            self.sil_buffer._return_baseline = ckpt["sil_baseline"]
+            self.sil_buffer._return_count = ckpt.get("sil_count", 0)
+        if "ema_network_state" in ckpt and self.ema_network is not None:
+            try:
+                self.ema_network.load_state_dict(ckpt["ema_network_state"])
+            except RuntimeError:
+                import copy
+                self.ema_network = copy.deepcopy(self.network)
+                for p in self.ema_network.parameters():
+                    p.requires_grad = False
+        if "clip_epsilon_current" in ckpt:
+            self.config.clip_epsilon = ckpt["clip_epsilon_current"]
+        if "clip_fraction_history" in ckpt:
+            self._clip_fraction_history = ckpt["clip_fraction_history"]
+        if "entropy_below_count" in ckpt:
+            self._entropy_below_count = ckpt["entropy_below_count"]
+
     # ── Diagnostics ──────────────────────────────────────────────────
 
     def get_diagnostics(self) -> Dict[str, Any]:

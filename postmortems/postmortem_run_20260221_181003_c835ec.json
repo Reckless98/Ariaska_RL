@@ -1,0 +1,105 @@
+{
+  "run_id": "run_20260221_181003_c835ec",
+  "timestamp": 1771693825.0151708,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (40.00)"
+    ],
+    "fails": [
+      "Success rate 0.00% indicates no episode-level objective completion",
+      "High mentor calls (10) suggests heavy guidance dependency"
+    ],
+    "summary": "Limited evidence from a single episode; despite positive reward, no successful outcomes were recorded and mentor dependence is high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert positive reward into successful objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260221_181003_c835ec_ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a new episode begins with no immediate success signals",
+      "then_action": "Prioritize fast initial recon to identify reachable services before exploitation",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -T4 -p-"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260221_181003_c835ec_ep001_summary"
+      ],
+      "created_at": 1771693837.9085836,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 within an episode",
+      "then_action": "Pause and formalize a checklist (recon \u2192 enumerate \u2192 exploit \u2192 validate) before next action",
+      "parameters_template": {
+        "checklist_steps": [
+          "recon",
+          "enumerate",
+          "exploit",
+          "validate"
+        ]
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "run_20260221_181003_c835ec_ep001_summary"
+      ],
+      "created_at": 1771693837.9086041,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Even with low success, structured recon is a foundational step to improve subsequent outcomes"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for statistical signal",
+      "description": "Run 5\u201310 episodes to collect objective-level success data and identify stable patterns in mentor usage and outcomes.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call reduction protocol",
+      "description": "Introduce a hard limit of 3 mentor calls per episode and require a written action plan before each call to drive autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Early recon benchmark",
+      "description": "Measure time-to-first-service-detected using nmap -sV -sC -T4 -p- and correlate with success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

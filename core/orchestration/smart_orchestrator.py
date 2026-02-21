@@ -15,6 +15,7 @@ import time
 import logging
 import hashlib
 import torch
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 
@@ -3839,26 +3840,24 @@ class SmartOrchestrator:
             return False
 
     # ------------------------------------------------------------------
-    # Phase 41: Auto-load ALL .pt checkpoints (distilled + enhanced)
+    # Phase 41 → Phase 45c: Unified checkpoint loading
     # ------------------------------------------------------------------
 
     def _auto_load_all_checkpoints(self) -> int:
-        """Auto-load the best available .pt checkpoints into every coach.
+        """Auto-load best checkpoint into every coach via UnifiedCheckpoint.
 
-        Scans ``models/enhanced/`` for per-agent PPO + DDQN checkpoints and
-        ``models/distilled/`` for GPU-trained distilled checkpoints.  The
-        distilled checkpoints typically have 10-100× more training steps,
-        so they take priority when available.
+        Search order:
+          1. ``models/unified/`` — new unified format (highest priority)
+          2. ``models/distilled/`` — GPU distilled legacy PPO
+          3. ``models/enhanced/`` — local per-agent PPO + DDQN
 
-        Load priority per coach:
-          1. Best **distilled** checkpoint (GPU H200 training, most experience)
-          2. Best **enhanced** per-agent checkpoint (live > sim > other)
+        All legacy formats are transparently handled by
+        ``UnifiedCheckpoint.load()``.
 
         Returns:
-            Total number of individual checkpoint files loaded.
+            Total number of algorithm instances loaded.
         """
-        import os
-        import re
+        from core.checkpoints.unified_checkpoint import UnifiedCheckpoint
 
         loaded_total = 0
         console = None
@@ -3868,152 +3867,109 @@ class SmartOrchestrator:
         except Exception:
             pass
 
-        # ── 1. Find best distilled checkpoint ────────────────────────
-        distilled_ckpt_path: Optional[str] = None
-        distilled_steps = 0
-        distilled_updates = 0
-        distilled_dir = "models/distilled"
-        if os.path.isdir(distilled_dir):
-            pattern = re.compile(r"h200_(.+?)_ep(\d+)\.pt$")
-            candidates: list[tuple[str, str, int]] = []
-            for fname in os.listdir(distilled_dir):
-                m = pattern.match(fname)
-                if m:
-                    candidates.append((
-                        os.path.join(distilled_dir, fname),
-                        m.group(1),
-                        int(m.group(2)),
-                    ))
-            if candidates:
-                latest_run = max(set(c[1] for c in candidates))
-                run_cands = [c for c in candidates if c[1] == latest_run]
-                best = max(run_cands, key=lambda c: c[2])
-                distilled_ckpt_path = best[0]
-                # Peek at metadata
-                try:
-                    import torch
-                    _peek = torch.load(distilled_ckpt_path, map_location="cpu", weights_only=False)
-                    distilled_steps = _peek.get("total_steps", 0)
-                    distilled_updates = _peek.get("updates_done", 0)
-                    del _peek
-                except Exception:
-                    pass
+        # ── 1. Find best checkpoint (unified first, then legacy) ─────
+        best_path = UnifiedCheckpoint.find_best()
 
-        # ── 2. Find best enhanced checkpoint directory ───────────────
-        # Priority: ppo_live_checkpoint.pt > ppo_ep*_ms3_live.pt >
-        #           ppo_sim_checkpoint.pt > ppo_ep*_ms3_hard.pt > others
-        enhanced_dir = "models/enhanced"
-        best_enhanced_dirs: list[tuple[str, int]] = []  # (dir_path, priority)
-        if os.path.isdir(enhanced_dir):
-            _priority_map = {
-                "ppo_live_checkpoint.pt": 100,
-                "ppo_sim_checkpoint.pt": 50,
-            }
-            for entry in os.listdir(enhanced_dir):
-                full = os.path.join(enhanced_dir, entry)
-                if not os.path.isdir(full):
-                    continue
-                # Check it actually has per-agent .pt files inside
-                has_agents = any(
-                    f.startswith("ppo_") and f.endswith(".pt")
-                    for f in os.listdir(full)
+        if best_path is None:
+            logger.info("[AUTOLOAD] No checkpoints found in any directory")
+            return 0
+
+        try:
+            ckpt = UnifiedCheckpoint.load(best_path)
+        except Exception as e:
+            logger.warning("[AUTOLOAD] Failed to load %s: %s", best_path, e)
+            return 0
+
+        logger.info("[AUTOLOAD] Best checkpoint: %s", ckpt.summary())
+
+        # ── 2. Apply PPO to main ppo_agent ───────────────────────────
+        if ckpt.ppo_state and self.ppo_agent is not None:
+            if ckpt.apply_ppo(self.ppo_agent):
+                loaded_total += 1
+                logger.info(
+                    "[AUTOLOAD] main PPO loaded: steps=%s, updates=%s",
+                    ckpt.ppo_state.get("total_steps", 0),
+                    ckpt.ppo_state.get("updates_done", 0),
                 )
-                if not has_agents:
-                    continue
-                # Determine priority
-                pri = _priority_map.get(entry, 0)
-                if pri == 0:
-                    if "live" in entry:
-                        pri = 80
-                    elif "hard" in entry:
-                        pri = 30
-                    elif "medium" in entry:
-                        pri = 20
-                    elif "episode_" in entry:
-                        # Prefer higher episode numbers
-                        ep_match = re.search(r"episode_(\d+)", entry)
-                        pri = int(ep_match.group(1)) if ep_match else 10
-                    else:
-                        pri = 10
-                best_enhanced_dirs.append((full, pri))
-            best_enhanced_dirs.sort(key=lambda x: x[1], reverse=True)
 
-        # ── 3. Load into each coach ──────────────────────────────────
+        # ── 3. Apply to each coach ───────────────────────────────────
         for coach_name, coach in self.coaches.items():
-            agent_loaded = False
-
-            # 3a. Try distilled checkpoint first (always best if available)
-            if distilled_ckpt_path and hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
-                try:
-                    coach.ppo_agent.load(distilled_ckpt_path)
+            # PPO — share the same checkpoint to all coaches
+            if ckpt.ppo_state and hasattr(coach, "ppo_agent") and coach.ppo_agent is not None:
+                if ckpt.apply_ppo(coach.ppo_agent):
                     loaded_total += 1
-                    agent_loaded = True
-                    logger.info(
-                        f"[AUTOLOAD] {coach_name}: distilled PPO loaded "
-                        f"(steps={distilled_steps}, updates={distilled_updates})"
-                    )
-                except Exception as e:
-                    logger.debug(
-                        f"[AUTOLOAD] {coach_name}: distilled PPO failed: {e}"
-                    )
 
-            # 3b. Try enhanced per-agent checkpoint (fallback, or DDQN)
-            for enh_dir, _pri in best_enhanced_dirs:
-                # PPO: only if distilled didn't load
-                if not agent_loaded and hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
-                    ppo_path = os.path.join(enh_dir, f"ppo_{coach_name}.pt")
-                    if os.path.isfile(ppo_path):
+            # DDQN — per-agent if available
+            if ckpt.ddqn_states and hasattr(coach, "ddqn_macro") and coach.ddqn_macro is not None:
+                if ckpt.apply_ddqn(coach.ddqn_macro, coach_name):
+                    loaded_total += 1
+
+            # SAC — shared
+            if ckpt.sac_state and hasattr(coach, "sac_agent") and coach.sac_agent is not None:
+                if ckpt.apply_sac(coach.sac_agent):
+                    loaded_total += 1
+
+        # ── 4. Also scan for additional per-agent DDQN in enhanced ───
+        #    (covers case where unified has PPO but enhanced has DDQN)
+        enhanced_dir = Path("models/enhanced")
+        if enhanced_dir.is_dir() and not ckpt.ddqn_states:
+            for sub in sorted(enhanced_dir.iterdir(), reverse=True):
+                if not sub.is_dir():
+                    continue
+                for coach_name, coach in self.coaches.items():
+                    if not (hasattr(coach, "ddqn_macro") and coach.ddqn_macro is not None):
+                        continue
+                    ddqn_path = sub / f"ddqn_{coach_name}.pt"
+                    if ddqn_path.is_file():
                         try:
-                            coach.ppo_agent.load(ppo_path)
-                            loaded_total += 1
-                            agent_loaded = True
-                            logger.info(
-                                f"[AUTOLOAD] {coach_name}: enhanced PPO loaded from {enh_dir}"
-                            )
-                        except Exception as e:
-                            logger.debug(
-                                f"[AUTOLOAD] {coach_name}: enhanced PPO failed from {enh_dir}: {e}"
-                            )
-                            continue  # Try next directory
+                            ddqn_ckpt = UnifiedCheckpoint.load(ddqn_path)
+                            if ddqn_ckpt.apply_ddqn(coach.ddqn_macro, coach_name):
+                                loaded_total += 1
+                                logger.info("[AUTOLOAD] %s: DDQN from %s", coach_name, sub.name)
+                        except Exception:
+                            pass
 
-                # DDQN: always try (independent of PPO)
-                if hasattr(coach, 'ddqn_macro') and coach.ddqn_macro is not None:
-                    ddqn_path = os.path.join(enh_dir, f"ddqn_{coach_name}.pt")
-                    if os.path.isfile(ddqn_path):
-                        try:
-                            import torch
-                            state = torch.load(ddqn_path, map_location="cpu", weights_only=False)
-                            coach.ddqn_macro.load_state_dict(state)
-                            loaded_total += 1
-                            logger.info(
-                                f"[AUTOLOAD] {coach_name}: DDQN loaded from {enh_dir}"
-                            )
-                            break  # Only load DDQN from best available dir
-                        except Exception as e:
-                            logger.debug(
-                                f"[AUTOLOAD] {coach_name}: DDQN failed from {enh_dir}: {e}"
-                            )
-
-                if agent_loaded:
-                    break  # PPO loaded, stop trying enhanced dirs
-
-        # ── 4. Summary ───────────────────────────────────────────────
+        # ── 5. Summary ───────────────────────────────────────────────
         if console and loaded_total > 0:
-            src = "distilled (GPU)" if distilled_ckpt_path else "enhanced"
             console.print(
-                f"[green]✔ Auto-loaded {loaded_total} checkpoint(s)[/green] "
-                f"— primary source: {src}"
+                f"[green]✔ Unified checkpoint loaded — {loaded_total} algorithms[/green]"
             )
-            if distilled_ckpt_path:
-                console.print(
-                    f"  [dim]distilled:[/dim] {distilled_steps:,} steps, "
-                    f"{distilled_updates} updates"
-                )
-            for enh_dir, _pri in best_enhanced_dirs[:3]:
-                console.print(f"  [dim]enhanced:[/dim] {os.path.basename(enh_dir)}")
+            console.print(f"  [dim]{ckpt.summary()}[/dim]")
 
-        logger.info(f"[AUTOLOAD] Total loaded: {loaded_total} checkpoint(s)")
+        logger.info("[AUTOLOAD] Total loaded: %d algorithm(s)", loaded_total)
         return loaded_total
+
+    def save_unified_checkpoint(
+        self,
+        episode: int = 0,
+        run_id: str = "",
+        source: str = "local_train",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """Save ALL algorithm states (PPO + DDQN + SAC) as a single unified checkpoint.
+
+        This produces the same format that GPU distillation uses, so
+        local and GPU training are perfectly interchangeable.
+
+        Returns:
+            Path to saved checkpoint, or None on failure.
+        """
+        from core.checkpoints.unified_checkpoint import UnifiedCheckpoint, UNIFIED_DIR
+
+        try:
+            ckpt = UnifiedCheckpoint.from_coaches(
+                coaches=self.coaches,
+                run_id=run_id or getattr(self, '_current_run_id', 'local'),
+                episode=episode,
+                source=source,
+                metadata=metadata or {},
+            )
+            tag = f"ariaska_{ckpt.run_id}_ep{episode:04d}"
+            path = UNIFIED_DIR / f"{tag}.pt"
+            return ckpt.save(path)
+        except Exception as e:
+            logger.warning("Failed to save unified checkpoint: %s", e)
+            return None
 
     def _build_episode_transcript(
         self,

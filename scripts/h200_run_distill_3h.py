@@ -2464,14 +2464,43 @@ class H200DistillationRunner:
     # ── Checkpoint ───────────────────────────────────────────────
 
     def _maybe_checkpoint(self, episode: int, force: bool = False) -> Optional[str]:
-        """Save checkpoint if interval elapsed or force=True."""
+        """Save checkpoint if interval elapsed or force=True.
+
+        Saves in BOTH legacy PPO format (backward compat) AND unified
+        format so that local Ariaska loads everything identically.
+        """
         now = time.monotonic()
         if not force and (now - self._last_checkpoint_time) < self.checkpoint_interval:
             return None
 
+        # 1. Legacy PPO-only save (backward compat)
         tag = f"h200_{self._run_id}_ep{episode:04d}"
         ckpt_path = CHECKPOINT_DIR / f"{tag}.pt"
         self._ppo.save(str(ckpt_path))
+
+        # 2. Unified format save (includes all algo metadata)
+        try:
+            from core.checkpoints.unified_checkpoint import UnifiedCheckpoint, UNIFIED_DIR
+            ckpt = UnifiedCheckpoint.from_ppo_agent(
+                ppo_agent=self._ppo,
+                run_id=self._run_id,
+                episode=episode,
+                source="gpu_distill",
+                metadata={
+                    "scenario": getattr(self, '_current_scenario', None),
+                    "total_episodes": self.metrics.episodes_completed,
+                    "avg_reward": self.metrics.avg_reward_10,
+                    "codex_budget_remaining": self.metrics.codex_budget_remaining,
+                    "discoveries_total": self.metrics.discoveries_total,
+                    "gpu_run": True,
+                },
+            )
+            unified_path = UNIFIED_DIR / f"ariaska_{self._run_id}_ep{episode:04d}.pt"
+            ckpt.save(unified_path)
+            logger.info("Unified checkpoint saved: %s", unified_path)
+        except Exception as e:
+            logger.warning("Unified checkpoint save failed (legacy OK): %s", e)
+
         self._last_checkpoint_time = now
         self.metrics.checkpoints_saved.append(str(ckpt_path))
         logger.info("Checkpoint saved: %s", ckpt_path)
