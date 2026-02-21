@@ -773,21 +773,34 @@ class CyberEnvironment:
             
         command = command.lower()
         
-        if re.search(r'nmap|masscan|ping|port\s+scan|scan\s+target|find\s+ports|detect\s+services', command):
+        # Phase 44: Expanded command recognition for mentor-generated commands
+        if re.search(r'nmap|masscan|ping|port\s+scan|scan\s+target|find\s+ports|detect\s+services|traceroute|arp-scan|netdiscover|hping', command):
             return "scan"
             
-        if re.search(r'gobuster|enum4linux|dirb|wpscan|nikto|whatweb|dirbuster|dir\s+scan|directory|enumerate|find\s+files', command):
+        if re.search(r'gobuster|enum4linux|dirb|wpscan|nikto|whatweb|dirbuster|dir\s+scan|directory|enumerate|find\s+files|ffuf|wfuzz|ldapsearch|snmpwalk|snmpget|showmount|rpcclient|nbtscan|smbclient|smbmap|onesixtyone|smtp-user-enum|finger|ident-user-enum', command):
             return "enum"
             
-        if re.search(r'exploit|msf|metasploit|sqlmap|hydra|brute\s*force|crack|msfvenom|attack|vuln|cve', command):
+        if re.search(r'exploit|msf|metasploit|sqlmap|hydra|brute\s*force|crack|msfvenom|attack|vuln|cve|searchsploit|sshpass|psql.*-c|mysql.*-e|nc\s+-[a-z]*v|netcat|john|hashcat|medusa|patator|crackmapexec|evil-winrm|impacket|mimikatz|powershell.*invoke|responder|msfconsole', command):
             return "exploit"
             
-        if re.search(r'sudo|su\s+root|linpeas|winpeas|privilege|escalat|priv\s+esc|root|admin|kernel\s+exploit', command):
+        if re.search(r'sudo|su\s+root|linpeas|winpeas|privilege|escalat|priv\s+esc|root|admin|kernel\s+exploit|getcap|setuid|suid|pspy|crontab|writable|find\s+/\s+-perm', command):
             return "privesc"
             
-        if re.search(r'zip|tar|scp|exfil|copy|download|data\s+extract|transfer|steal', command):
+        if re.search(r'zip|tar|scp|exfil|copy|download|data\s+extract|transfer|steal|curl.*-o|wget\s|base64|xxd|nc\s.*<|socat', command):
             return "exfil"
             
+        # Phase 44: SSH/connection attempts → exploit (credential testing)
+        if re.search(r'\bssh\b|\bftp\b|\btelnet\b|\brdesktop\b|\bxfreerdp\b', command):
+            return "exploit"
+        
+        # Phase 44: curl/wget for web recon → enum
+        if re.search(r'\bcurl\b|\bwget\b|\bhttp', command):
+            return "enum"
+        
+        # Phase 44: psql/mysql interactive → enum (not exploit without -e/-c)
+        if re.search(r'\bpsql\b|\bmysql\b|\bmongo\b|\bredis-cli\b', command):
+            return "enum"
+        
         return "scan"
 
     def _process_scan_command(self, command: str) -> Tuple[float, Dict[str, Any]]:
@@ -1077,17 +1090,34 @@ class CyberEnvironment:
         reward = 0.0
         
         if not self.service_banners:
-            info["message"] = "No services discovered to enumerate. Run port scans first."
-            reward = -1.0
+            # Phase 45: Reduced penalty — enum commands shouldn't be severely
+            # penalised just because no scan has run yet. Many enum tools
+            # (ldapsearch, snmpwalk, curl) ARE the discovery mechanism.
+            info["message"] = "No services yet — attempting blind enumeration."
+            reward = 0.0
+            # Give blind enum a chance to discover something
+            import random as _rng
+            if _rng.random() < 0.4:  # 40% chance of finding something
+                svc = _rng.choice(self.default_services)
+                port = _rng.choice([21, 22, 80, 443, 3306, 8080])
+                if port not in self.service_banners:
+                    self.service_banners[port] = f"{svc} service on port {port}"
+                    if port not in self.open_ports:
+                        self.open_ports.append(port)
+                    self.discovered_info.add(f"port_{port}")
+                    info["new_discoveries"] = [f"Port {port}: {svc}"]
+                    info["success"] = True
+                    reward = 2.0
+                    self.phase_progress["enumeration"] += 1
             return reward, info
         
         recent_enums = [a for a in self.previous_actions[-5:] if "enum" in self._detect_command_type(a)]
-        redundant = len(recent_enums) >= 3
+        redundant = len(recent_enums) >= 5  # Phase 45: raised from 3 → 5
         
         if redundant:
             info["message"] = "Redundant enumeration detected. Try a different approach."
             self._increase_detection(0.2)
-            reward = -1.0
+            reward = -0.5  # Phase 45: reduced from -1.0 → -0.5
             return reward, info
         
         if "gobuster" in command or "dirb" in command or "dirbuster" in command:
@@ -1226,9 +1256,20 @@ class CyberEnvironment:
         reward = 0.0
         
         if not self.discovered_vulnerabilities:
-            info["message"] = "No vulnerabilities discovered to exploit. Run enumeration first."
-            reward = -2.0
-            self._increase_detection(0.5)
+            # Phase 45: Reduced penalty — don't punish the agent harshly
+            # for trying exploits before formal vuln enumeration.
+            # Many real-world attacks skip enum entirely (known CVEs, etc.).
+            info["message"] = "No vulnerabilities discovered yet — attempting blind exploit."
+            reward = -0.3
+            self._increase_detection(0.3)
+            # Give a small chance of success even without prior enum
+            import random as _rng
+            if _rng.random() < 0.15:  # 15% lucky hit
+                self.discovered_vulnerabilities.append(f"vuln_blind_{_rng.randint(1000,9999)}")
+                info["new_discoveries"] = ["vulnerability_blind_find"]
+                reward = 3.0
+                info["success"] = True
+                self.phase_progress["exploit"] += 1
             return reward, info
             
         # PHASE 3: Allow exploits if services enumerated, even from enumeration phase
