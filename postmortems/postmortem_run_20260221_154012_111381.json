@@ -1,0 +1,94 @@
+{
+  "run_id": "run_20260221_154012_111381",
+  "timestamp": 1771684823.9983683,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (60.00) in a single episode",
+      "Maintained stable reward trend across the run"
+    ],
+    "fails": [
+      "Success rate remained at 0.00% (no completed objectives)",
+      "High reliance on mentor calls (10) suggests low autonomy"
+    ],
+    "summary": "The run shows some productive actions yielding reward, but no episode-level success and heavy mentor dependence indicate gaps in completing objectives."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When starting an episode with unknown host visibility",
+      "then_action": "Run initial host discovery to enumerate live targets",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn 10.0.0.0/24"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771684844.1635365,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When at least one live host is identified",
+      "then_action": "Perform targeted service and default script scan",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p- <target_ip>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771684844.1635447,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational reconnaissance step likely contributed to positive reward despite no objective completion"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-First Playbook",
+      "description": "Before scanning, parse the scenario goal and define 2-3 concrete milestones; map each milestone to a specific tool action to reduce aimless actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Trial",
+      "description": "Limit mentor calls to a maximum of 3 per episode and log the exact blocker to build an internal decision tree.",
+      "priority": "high"
+    },
+    {
+      "title": "Fast-Path Exploitation Check",
+      "description": "After service scan, immediately run a vulnerability lookup (e.g., searchsploit or NVD query) for top 2 services to attempt a quick win.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
