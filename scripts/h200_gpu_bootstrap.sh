@@ -184,9 +184,9 @@ cat > /root/ariaska_autopush.sh << 'SYNCEOF'
 #!/usr/bin/env bash
 set -euo pipefail
 cd /root/Ariaska_RL
-git add -A models/distilled/ results/h200_distill/ traces/h200_distill/ data/distill_prep/ data/expert_trajectories/ scripts/h200_run_distill_3h.py 2>/dev/null || true
+git add -A models/distilled/ results/h200_distill/ results/grpo_train/ traces/h200_distill/ traces/grpo_train/ data/distill_prep/ data/expert_trajectories/ logs/gpu_session_* scripts/h200_run_distill_3h.py 2>/dev/null || true
 git diff --cached --quiet && exit 0  # Nothing to commit
-git commit -m "gpu-sync: $(date -u +%Y%m%dT%H%M%SZ) — distill checkpoints" --allow-empty >/dev/null 2>&1 || true
+git commit -m "gpu-sync: $(date -u +%Y%m%dT%H%M%SZ) — distill+grpo checkpoints" --allow-empty >/dev/null 2>&1 || true
 git push origin master >/dev/null 2>&1 || echo "[SYNC] push failed (will retry)"
 SYNCEOF
 chmod +x /root/ariaska_autopush.sh

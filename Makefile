@@ -15,7 +15,7 @@
         last status clean help traces ctf \
         ariaska gpu gpu-setup gpu-quick gpu-ctf gpu-htb gpu-sync gpu-status \
         gpu-shell gpu-model gpu-restart-llm \
-        gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large \
+        gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large gpu-session \
         eval-baseline eval-after eval-compare
 
 PYTHON := .venv/bin/python
@@ -63,6 +63,7 @@ help:
 	@echo "    make gpu-distill-finetune           H200 fine-tune (lower LR, 6h)"
 	@echo "    make gpu-grpo                       GRPO group training (3h)"
 	@echo "    make gpu-grpo-large                 GRPO large groups (group_size=8, 6h)"
+	@echo "    make gpu-session                    Full session: test→2h distill→2h more/GRPO"
 	@echo ""
 	@echo "  EVALUATION"
 	@echo "    make eval-baseline                  Eval baseline (before training)"
@@ -284,6 +285,10 @@ gpu-grpo-large:
 	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.train_grpo \
 		--seed 42 --max-hours 6 --group-size 8 --learning-rate 5e-5 \
 		--reward-weights "format=2.5,code=1.5,math=1.0,reasoning=0.3"
+
+# Full session: test → 2h distill → auto-decide → 2h more (runs on GPU box)
+gpu-session:
+	bash scripts/gpu_run_session.sh
 
 # ── Evaluation / Inference ────────────────────────────────────────────
 

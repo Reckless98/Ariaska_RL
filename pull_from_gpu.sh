@@ -37,6 +37,20 @@ do_pull() {
         -e "ssh -p $GPU_PORT" \
         "$GPU_HOST:$GPU_REPO/traces/h200_distill/" "$LOCAL_REPO/traces/h200_distill/" 2>/dev/null || true
 
+    # GRPO artifacts
+    rsync -avz --progress \
+        -e "ssh -p $GPU_PORT" \
+        "$GPU_HOST:$GPU_REPO/results/grpo_train/" "$LOCAL_REPO/results/grpo_train/" 2>/dev/null || true
+
+    rsync -avz --progress \
+        -e "ssh -p $GPU_PORT" \
+        "$GPU_HOST:$GPU_REPO/traces/grpo_train/" "$LOCAL_REPO/traces/grpo_train/" 2>/dev/null || true
+
+    # GPU session logs
+    rsync -avz --progress \
+        -e "ssh -p $GPU_PORT" \
+        "$GPU_HOST:$GPU_REPO/logs/" "$LOCAL_REPO/logs/" 2>/dev/null || true
+
     echo "[PULL OK] $(date)"
 
     # Show latest checkpoints
@@ -58,11 +72,11 @@ do_git_sync() {
     cd "$LOCAL_REPO"
     # Only commit if there are new files
     local changes
-    changes=$(git status --porcelain models/distilled/ results/h200_distill/ traces/h200_distill/ 2>/dev/null | wc -l)
+    changes=$(git status --porcelain models/distilled/ results/h200_distill/ results/grpo_train/ traces/h200_distill/ traces/grpo_train/ 2>/dev/null | wc -l)
     if [ "$changes" -gt 0 ]; then
         echo ""
         echo ">>> Git: $changes new/changed files — committing..."
-        git add models/distilled/ results/h200_distill/ traces/h200_distill/ 2>/dev/null || true
+        git add models/distilled/ results/h200_distill/ results/grpo_train/ traces/h200_distill/ traces/grpo_train/ 2>/dev/null || true
         git commit -m "distill: auto-sync $(date '+%Y%m%d_%H%M%S') ($changes files)" --no-verify 2>/dev/null || true
         git push origin master 2>/dev/null && echo "[GIT PUSH OK]" || echo "[GIT PUSH FAILED — will retry]"
     else

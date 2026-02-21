@@ -1,0 +1,125 @@
+{
+  "run_id": "run_20260221_025821_0f1f0d",
+  "timestamp": 1771639119.5884142,
+  "key_outcomes": {
+    "wins": [
+      "Maintained stable reward across the single episode (40.0), indicating some progress in early-stage actions"
+    ],
+    "fails": [
+      "No episode success achieved (0.00% success rate)",
+      "High mentor dependence (10 calls) suggests insufficient autonomous decision-making"
+    ],
+    "summary": "The run shows minimal positive signal but no task completion; progress appears limited to early-stage actions without successful outcomes."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert initial reconnaissance into a successful objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host responds to ping and top ports are unknown",
+      "then_action": "Run a fast TCP port scan to identify open services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-T4 -F -sV"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771639130.9462833,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an HTTP service is detected on standard ports",
+      "then_action": "Enumerate web service with targeted scripts and directory discovery",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 80,443 --script http-enum,http-title"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771639130.9462981,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is detected on port 22",
+      "then_action": "Collect SSH banner and supported auth methods for pivot decisions",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh-hostkey,ssh-auth-methods"
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "ep001_step05"
+      ],
+      "created_at": 1771639130.9463062,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Early reconnaissance steps appear to be the only consistent progress indicator in this run."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Handoff",
+      "description": "After initial port scan, immediately run service-specific scripts on the top 2 open ports to reduce time-to-action and enable exploitation paths.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Attempt one full episode without mentor calls, using a fixed decision tree (scan \u2192 enumerate \u2192 attempt exploit) to evaluate autonomous behavior.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Enumeration Depth",
+      "description": "If HTTP is present, add directory discovery (e.g., gobuster/ffuf) immediately after nmap http-enum to increase discovery of attack surface.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

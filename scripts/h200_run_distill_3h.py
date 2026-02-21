@@ -386,9 +386,9 @@ TRACES_DIR = Path("traces/h200_distill")
 DATA_DIR = Path("data/distill_prep")
 
 # Mentor anneal schedule (pct of runtime → behaviour)
-ANNEAL_HEAVY_END = 0.30    # 0–30%: query mentor every step
-ANNEAL_MEDIUM_END = 0.70   # 30–70%: every 3 steps
-ANNEAL_LIGHT_STEPS = 10    # 70–100%: every N steps
+ANNEAL_HEAVY_END = 0.35    # 0–35%: query mentor every step (+30% more heavy phase)
+ANNEAL_MEDIUM_END = 0.75   # 35–75%: every 2 steps (was 3, +30% more queries)
+ANNEAL_LIGHT_STEPS = 7     # 75–100%: every N steps (was 10, +30% more queries)
 
 # Distillation coefficients (decay with anneal)
 BC_COEF_MAX = 0.15
@@ -441,7 +441,7 @@ class MentorConfig:
     base_url: str = "http://127.0.0.1:8192/v1"
     model: str = "openai/gpt-oss-120b"
     timeout: float = 45.0
-    max_tokens: int = 1024  # reasoning models use internal tokens; need headroom
+    max_tokens: int = 1330  # +30% headroom for accelerated learning
     temperature: float = 0.2
     enabled: bool = True
 
@@ -479,7 +479,7 @@ class RunMetrics:
     codex_calls: int = 0
     codex_tokens: int = 0
     codex_cost_usd: float = 0.0
-    codex_budget_usd: float = 5.60
+    codex_budget_usd: float = 7.28
     codex_successes: int = 0
     codex_escalation_reasons: Dict[str, int] = field(default_factory=dict)
 
@@ -740,14 +740,14 @@ class LocalMentorClient:
 
 
 # ---------------------------------------------------------------------------
-# OpenAI Codex Mentor — $5.60 budget, front-loaded then anneals
+# OpenAI Codex Mentor — $7.28 budget (+30%), front-loaded then anneals
 # ---------------------------------------------------------------------------
 
 # Codex pricing estimates (per 1K tokens)
 _CODEX_INPUT_COST_PER_1K = 0.012   # gpt-5.2-codex input
 _CODEX_OUTPUT_COST_PER_1K = 0.036  # gpt-5.2-codex output
-_CODEX_BUDGET_USD = 5.60
-_CODEX_MAX_CALLS = 800  # hard cap regardless of budget
+_CODEX_BUDGET_USD = 7.28           # +30% from $5.60 to accelerate GPU learning
+_CODEX_MAX_CALLS = 1040            # +30% from 800 — more teacher signal
 
 
 class CodexEscalationPolicy:
@@ -788,32 +788,32 @@ class CodexEscalationPolicy:
         if progress >= 0.80:
             return False, "late_phase_disabled"
 
-        # Phase 50–80%: every 10th step, only critical stalls
+        # Phase 50–80%: every 7th step, critical stalls (+30% from every 10)
         if progress >= 0.50:
             if not reward_stagnant:
                 return False, "no_stall_late"
-            if self._step_counter % 10 != 0:
+            if self._step_counter % 7 != 0:
                 return False, "step_skip_light"
             return True, "critical_stall"
 
-        # Phase 20–50%: every 5th step, hard cases
+        # Phase 20–50%: every 4th step, hard cases (+30% from every 5)
         if progress >= 0.20:
-            is_hard = local_failed or local_confidence < 0.3
+            is_hard = local_failed or local_confidence < 0.35
             if not is_hard and not reward_stagnant:
                 return False, "not_hard_mid"
-            if self._step_counter % 5 != 0:
+            if self._step_counter % 4 != 0:
                 return False, "step_skip_medium"
             return True, "hard_case_mid"
 
-        # Phase 0–20%: every 3rd step when local mentor is weak
-        if self._step_counter % 3 != 0:
+        # Phase 0–20%: every 2nd step when local mentor is weak (+30% from every 3)
+        if self._step_counter % 2 != 0:
             return False, "step_skip_heavy"
         if local_failed:
             return True, "local_failed_early"
-        if local_confidence < 0.5:
+        if local_confidence < 0.55:
             return True, "low_conf_early"
         # Even if local succeeded, use codex occasionally for diversity
-        if self._step_counter % 9 == 0:
+        if self._step_counter % 6 == 0:
             return True, "diversity_early"
         return False, "local_sufficient"
 
@@ -830,7 +830,7 @@ class CodexMentorClient:
     """Calls OpenAI gpt-5.2-codex via HTTP for hard-case teacher signals.
 
     Uses ``requests`` — no ``import openai`` per project invariant.
-    Budget-capped at $5.60.
+    Budget-capped at $7.28 (+30% accelerated learning).
     """
 
     def __init__(self) -> None:
@@ -1003,7 +1003,7 @@ class AnnealController:
         if p < ANNEAL_HEAVY_END:
             return True  # Every step
         elif p < ANNEAL_MEDIUM_END:
-            return step_in_episode % 3 == 0
+            return step_in_episode % 2 == 0  # every 2 steps (was 3, +30% budget)
         else:
             return step_in_episode % ANNEAL_LIGHT_STEPS == 0
 

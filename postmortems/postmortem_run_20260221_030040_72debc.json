@@ -1,0 +1,142 @@
+{
+  "run_id": "run_20260221_030040_72debc",
+  "timestamp": 1771639252.39941,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full episode with consistent reward accumulation",
+      "Maintained stable reward trend without degradation"
+    ],
+    "fails": [
+      "No successful episode completion (0% success rate)",
+      "High mentor intervention (10 calls) suggests low autonomy"
+    ],
+    "summary": "Despite steady rewards, the run failed to achieve a successful outcome and relied heavily on mentor guidance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress without converting reconnaissance into a successful exploitation or objective completion",
+      "frequency": 5,
+      "evidence_refs": [
+        "ep001_step08",
+        "ep001_step14",
+        "ep001_step19",
+        "ep001_step23",
+        "ep001_step28"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required on a /24 range",
+      "then_action": "Run a fast ping sweep with nmap to identify live hosts",
+      "parameters_template": {
+        "target_cidr": "X.X.X.0/24",
+        "flags": "-sn"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step05"
+      ],
+      "created_at": 1771639264.9863873,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is identified and open ports are unknown",
+      "then_action": "Run a TCP SYN scan with service detection on top ports",
+      "parameters_template": {
+        "target_ip": "X.X.X.X",
+        "flags": "-sS -sV --top-ports 200"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step09"
+      ],
+      "created_at": 1771639264.9863958,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP service is detected on ports 80/443",
+      "then_action": "Enumerate web content and technologies",
+      "parameters_template": {
+        "target_url": "http(s)://X.X.X.X",
+        "tools": [
+          "whatweb",
+          "gobuster dir -x php,txt,html"
+        ]
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step11",
+        "ep001_step13"
+      ],
+      "created_at": 1771639264.986402,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Reliable first-step reconnaissance that supports subsequent enumeration"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Consistent approach to quickly identify services for deeper analysis"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Bridge",
+      "description": "After service discovery, add targeted vulnerability checks (e.g., nmap NSE scripts) and attempt at least one exploit path per critical service.",
+      "priority": "high"
+    },
+    {
+      "title": "Web Enumeration Depth",
+      "description": "Increase wordlist size and add virtual host enumeration to improve web attack surface discovery.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction",
+      "description": "Implement a decision checklist to reduce mentor reliance and increase autonomous execution per step.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -38,21 +38,21 @@ logger = logging.getLogger("ariaska.llm.budget_manager")
 # ── Constants ───────────────────────────────────────────────────────────────
 
 # Phase 38: Hard caps — +15% from Phase 36 for extended live HTB engagements.
-_TOTAL_BUDGET = 1_148_850  # Phase 38: +15% from 999K — ~$3.83/ep ceiling
-_MIN_BUDGET = 574_425      # Phase 38: 50% floor
+_TOTAL_BUDGET = 1_493_504  # Phase 41: +30% from 1,148,850 — accelerated GPU learning
+_MIN_BUDGET = 746_752      # Phase 41: 50% floor (+30%)
 _MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # 0.50
 
-# Phase 38: Tier budgets — +15% across all tiers from Phase 36.
-#   codex *= 1.15  → 229_770  (all reasoning: tactical, strategic, postmortem, analysis)
-#   full  *= 1.15  → 229_770  (parsing, interpretation, verification)
-#   mini  *= 1.15  → 344_655  (playbook selection, structured extraction)
-#   nano  *= 1.15  → 344_655  (classification, micro-chain Stages 1+3, reserve)
-#   Sum = 1,148,850 ✓
+# Phase 41: Tier budgets — +30% across all tiers for accelerated GPU learning.
+#   codex *= 1.30  → 298_701  (all reasoning: tactical, strategic, postmortem, analysis)
+#   full  *= 1.30  → 298_701  (parsing, interpretation, verification)
+#   mini  *= 1.30  → 448_051  (playbook selection, structured extraction)
+#   nano  *= 1.30  → 448_051  (classification, micro-chain Stages 1+3, reserve)
+#   Sum = 1,493,504 ✓
 _TIER_BUDGETS: Dict[str, int] = {
-    "codex":  229_770,  # 20.0% — all reasoning (tactical+strategic+postmortem)
-    "full":   229_770,  # 20.0% — parsing, interpretation, verification
-    "mini":   344_655,  # 30.0% — playbook selection, structured extraction
-    "nano":   344_655,  # 30.0% — classification, micro-chain, reserve
+    "codex":  298_701,  # 20.0% — all reasoning (tactical+strategic+postmortem)
+    "full":   298_701,  # 20.0% — parsing, interpretation, verification
+    "mini":   448_051,  # 30.0% — playbook selection, structured extraction
+    "nano":   448_051,  # 30.0% — classification, micro-chain, reserve
 }
 
 # Phase 33.2: Dynamic Burst Pool
