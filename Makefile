@@ -17,7 +17,13 @@
         gpu-shell gpu-model gpu-restart-llm \
         gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large gpu-session \
         eval-baseline eval-after eval-compare \
-        unify-all unify-validate unify-stats sync-local
+        unify-all unify-validate unify-stats sync-local \
+        watch-gpu gpu-dashboard gpu-logs gpu-train-status
+
+# ── GPU SSH Configuration ────────────────────────────────────────────
+GPU_HOST ?= root@212.247.220.172
+GPU_PORT ?= 25107
+GPU_SSH  = ssh -o ConnectTimeout=20 -o ServerAliveInterval=10 -p $(GPU_PORT) $(GPU_HOST)
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -375,6 +381,63 @@ unify-stats:
 sync-local:
 	@echo "▶ Starting local sync loop (foreground, Ctrl-C to stop)..."
 	bash scripts/local_sync_loop.sh
+
+# ── GPU Live Monitoring ──────────────────────────────────────────────
+
+# Watch live GPU training output (streams tmux pane, refreshes every 2s)
+watch-gpu:
+	@echo "\033[1;36m▶ Watching GPU training (Ctrl-C to stop)\033[0m"
+	@while true; do \
+		clear; \
+		echo "\033[1;36m═══ ARIASKA GPU TRAINING MONITOR ═══  $$(date '+%H:%M:%S')\033[0m"; \
+		echo ""; \
+		$(GPU_SSH) '\
+			echo "\033[1;33m── Process ──\033[0m"; \
+			ps aux | grep h200_run | grep -v grep | awk "{printf \"PID: %s | CPU: %s%% | MEM: %s%% | Elapsed: %s\\n\", \$$2, \$$3, \$$4, \$$10}" || echo "NOT RUNNING"; \
+			echo ""; \
+			echo "\033[1;33m── GPU ──\033[0m"; \
+			nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader 2>/dev/null | \
+				awk -F", " "{printf \"GPU: %s | VRAM: %s / %s | Temp: %s\\n\", \$$1, \$$2, \$$3, \$$4}"; \
+			echo ""; \
+			echo "\033[1;33m── Training Output (last 20 lines) ──\033[0m"; \
+			tmux capture-pane -t train -p 2>/dev/null | grep -v "^$$" | tail -20; \
+			echo ""; \
+			echo "\033[1;33m── Sync Status ──\033[0m"; \
+			tmux capture-pane -t sync -p 2>/dev/null | grep -E "SYNC|sleep|push" | tail -3 \
+		' 2>/dev/null || echo "\033[31mSSH connection failed\033[0m"; \
+		sleep 2; \
+	done
+
+# Full Rich dashboard (one-shot or looping)
+gpu-dashboard:
+	@PYTHONPATH="$$(pwd)" $(PYTHON) scripts/live_dashboard.py --analysis
+
+# Loop dashboard every 5 min
+gpu-dashboard-loop:
+	@PYTHONPATH="$$(pwd)" $(PYTHON) scripts/live_dashboard.py --loop 300 --analysis
+
+# Stream raw GPU training logs
+gpu-logs:
+	@echo "\033[1;36m▶ Streaming GPU training logs (Ctrl-C to stop)\033[0m"
+	@$(GPU_SSH) 'tmux capture-pane -t train -p 2>/dev/null | tail -50'
+
+# Quick training status check (no loop)
+gpu-train-status:
+	@$(GPU_SSH) '\
+		echo "=== Process ==="; \
+		ps aux | grep h200_run | grep -v grep | awk "{print \"PID:\", \$$2, \"CPU:\", \$$3\"%\", \"MEM:\", \$$4\"%\", \"Time:\", \$$10}" || echo "NOT RUNNING"; \
+		echo "=== Latest Trace ==="; \
+		ls -lt /root/Ariaska_RL/traces/h200_distill/*.jsonl 2>/dev/null | head -1; \
+		LATEST=$$(ls -t /root/Ariaska_RL/traces/h200_distill/*.jsonl 2>/dev/null | head -1); \
+		if [ -n "$$LATEST" ]; then \
+			echo "Lines: $$(wc -l < $$LATEST)"; \
+			echo "Episodes: $$(grep -c episode_end $$LATEST 2>/dev/null)"; \
+		fi; \
+		echo "=== Budget ==="; \
+		tmux capture-pane -t train -p 2>/dev/null | grep -oP "\$$[0-9.]+" | tail -1; \
+		echo "=== Sync ==="; \
+		tmux capture-pane -t sync -p 2>/dev/null | grep -E "SYNC|push" | tail -2 \
+	' 2>/dev/null
 
 # ── Traces ───────────────────────────────────────────────────────────
 traces:
