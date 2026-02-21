@@ -432,6 +432,299 @@ PHASE_REWARDS = {
 
 
 # ---------------------------------------------------------------------------
+# CTF / HTB / THM Scenario Profiles — Phase 45c
+# ---------------------------------------------------------------------------
+# Each profile simulates a different target environment so the agent learns
+# diverse attack patterns: generic Linux/Windows, HTB-style boxes, CTF
+# challenges, and TryHackMe rooms.  Selected randomly per episode.
+
+SCENARIO_PROFILES: Dict[str, Dict[str, Any]] = {
+    "generic_linux": {
+        "description": "Generic Linux server (LAMP/LEMP stack)",
+        "os": "linux",
+        "ports": [21, 22, 80, 139, 443, 445, 3306, 5432, 8080, 8443],
+        "services": ["ftp", "ssh", "http", "smb", "mysql", "postgresql", "https"],
+        "vulns": [
+            "vuln_http_directory_listing", "vuln_ftp_anonymous",
+            "vuln_smb_guest_access", "vuln_ssh_weak_password",
+        ],
+        "banners": {
+            21: "220 ProFTPD 1.3.5 Server ready",
+            22: "SSH-2.0-OpenSSH_7.9p1 Debian-10+deb10u2",
+            80: "Apache/2.4.41 (Ubuntu)",
+            139: "Samba smbd 4.9.5-Debian",
+            443: "Apache/2.4.41 (Ubuntu) OpenSSL/1.1.1d",
+            445: "Samba smbd 4.9.5-Debian",
+            3306: "MySQL 5.7.31-0ubuntu0.18.04.1",
+            5432: "PostgreSQL 12.4",
+            8080: "Apache Tomcat/9.0.37",
+            8443: "Apache Tomcat/9.0.37 SSL",
+        },
+        "flags": [],
+        "context": "standard",
+    },
+    "htb_web_easy": {
+        "description": "HTB Easy Web Box — CMS with known vuln + Linux privesc",
+        "os": "linux",
+        "ports": [22, 80],
+        "services": ["ssh", "http"],
+        "vulns": [
+            "vuln_http_cms_rce", "vuln_http_file_upload",
+            "vuln_suid_binary_abuse", "vuln_weak_credentials",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.5",
+            80: "nginx/1.18.0 (Ubuntu)",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "Check for CMS installations (WordPress, Joomla, Drupal)",
+            "Look for /robots.txt and /sitemap.xml",
+            "Try default credentials admin:admin, admin:password",
+            "After user shell: check SUID binaries, sudo -l, cron jobs",
+            "Flag locations: /home/*/user.txt and /root/root.txt",
+        ],
+    },
+    "htb_web_medium": {
+        "description": "HTB Medium Web Box — SSRF/SQLi chain + kernel privesc",
+        "os": "linux",
+        "ports": [22, 80, 3000, 8080],
+        "services": ["ssh", "http", "node", "http-proxy"],
+        "vulns": [
+            "vuln_ssrf_internal_access", "vuln_sqli_auth_bypass",
+            "vuln_api_command_injection", "vuln_kernel_overlayfs",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.1",
+            80: "Apache/2.4.52 (Ubuntu)",
+            3000: "Node.js Express",
+            8080: "Request Baskets 1.2.1",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "Multiple web ports often mean SSRF opportunities",
+            "Check internal-only services via SSRF through port 8080",
+            "API endpoints may have command injection in parameters",
+            "Kernel version check → OverlayFS CVE-2023-2640/CVE-2023-32629",
+        ],
+    },
+    "htb_ad_windows": {
+        "description": "HTB Windows Active Directory Box — Kerberoast/DCSync",
+        "os": "windows",
+        "ports": [53, 88, 135, 139, 389, 445, 464, 593, 636, 3268, 3269, 5985, 9389],
+        "services": [
+            "dns", "kerberos", "msrpc", "netbios-ssn", "ldap", "smb",
+            "kpasswd", "http-rpc-epmap", "ldapssl", "globalcatLDAP",
+            "globalcatLDAPssl", "winrm", "adws",
+        ],
+        "vulns": [
+            "vuln_as_rep_roasting", "vuln_kerberoasting",
+            "vuln_smb_null_session", "vuln_adcs_esc1",
+            "vuln_dcsync_rights",
+        ],
+        "banners": {
+            53: "Microsoft DNS 6.1",
+            88: "Microsoft Windows Kerberos",
+            135: "Microsoft Windows RPC",
+            139: "Microsoft Windows netbios-ssn",
+            389: "Microsoft Windows Active Directory LDAP",
+            445: "Windows Server 2019 Standard 17763 microsoft-ds",
+            5985: "Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "domain": "megacorp.htb",
+        "htb_hints": [
+            "Port 88 = Kerberos = Active Directory domain controller",
+            "Enumerate users: enum4linux, crackmapexec, ldapsearch",
+            "AS-REP Roast: GetNPUsers.py for users without pre-auth",
+            "Kerberoast: GetUserSPNs.py for service account TGS tickets",
+            "Crack hashes: hashcat -m 18200 (AS-REP) or -m 13100 (TGS)",
+            "Pass-the-Hash: impacket-psexec, wmiexec, evil-winrm",
+            "BloodHound: map attack paths to Domain Admin",
+            "Flags at C:\\Users\\*\\Desktop\\user.txt and C:\\Users\\Administrator\\Desktop\\root.txt",
+        ],
+    },
+    "htb_windows_easy": {
+        "description": "HTB Easy Windows Box — SMB/FTP + basic Windows privesc",
+        "os": "windows",
+        "ports": [21, 80, 135, 139, 445],
+        "services": ["ftp", "http", "msrpc", "netbios-ssn", "smb"],
+        "vulns": [
+            "vuln_ftp_anonymous_write", "vuln_iis_webshell_upload",
+            "vuln_smb_ms17_010", "vuln_juicy_potato",
+        ],
+        "banners": {
+            21: "Microsoft ftpd",
+            80: "Microsoft IIS httpd 7.5",
+            135: "Microsoft Windows RPC",
+            139: "Microsoft Windows netbios-ssn",
+            445: "Windows Server 2008 R2 microsoft-ds",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "FTP anonymous may allow writing to IIS webroot",
+            "Upload .aspx webshell via FTP, trigger via HTTP",
+            "EternalBlue (MS17-010) for older Windows boxes",
+            "Privesc: JuicyPotato, PrintSpoofer, SEImpersonate abuse",
+            "Check whoami /priv for SeImpersonatePrivilege",
+        ],
+    },
+    "ctf_web": {
+        "description": "CTF Web Challenge — flag hidden behind web exploitation",
+        "os": "linux",
+        "ports": [80, 443, 8080],
+        "services": ["http", "https", "http-alt"],
+        "vulns": [
+            "vuln_sqli_flag_extraction", "vuln_ssti_rce",
+            "vuln_lfi_source_code_leak", "vuln_xxe_file_read",
+            "vuln_jwt_weak_secret", "vuln_prototype_pollution",
+        ],
+        "banners": {
+            80: "nginx/1.21.0",
+            443: "nginx/1.21.0 with TLS",
+            8080: "Python/3.9 aiohttp/3.8.1",
+        },
+        "flags": ["flag.txt", "flag{.*}"],
+        "context": "ctf",
+        "ctf_hints": [
+            "CTF flags are typically in format: flag{...} or HTB{...}",
+            "Check HTML source comments for hints and hidden data",
+            "Test all input fields for SQLi, SSTI, XSS, command injection",
+            "JWT tokens: decode at jwt.io, check for weak/none algorithm",
+            "Look for /robots.txt, /.git/, /backup/, /debug/",
+            "Try parameter fuzzing: ?debug=true, ?admin=1, ?source=1",
+            "Check cookies for serialized data → deserialization attacks",
+        ],
+    },
+    "ctf_crypto_forensics": {
+        "description": "CTF Crypto/Forensics Challenge — file analysis + crypto",
+        "os": "linux",
+        "ports": [22, 80],
+        "services": ["ssh", "http"],
+        "vulns": [
+            "vuln_stego_hidden_data", "vuln_weak_rsa_key",
+            "vuln_ecb_mode_oracle", "vuln_padding_oracle",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.4p1",
+            80: "Apache/2.4.48",
+        },
+        "flags": ["flag.txt", "flag{.*}"],
+        "context": "ctf",
+        "ctf_hints": [
+            "Download all images/files and analyze with: exiftool, binwalk, strings",
+            "Steganography: steghide extract -sf image.jpg (try empty passphrase)",
+            "PNG analysis: zsteg image.png for LSB steganography",
+            "Hex analysis: xxd file | head, look for appended data after EOF",
+            "Crypto: check for weak RSA (small e, common n), ECB mode patterns",
+            "Base64/rot13/hex encoding: CyberChef for multi-layer decoding",
+            "PCAP files: tshark/wireshark for credential extraction",
+            "Forensics: volatility for memory dumps, foremost for file carving",
+        ],
+    },
+    "thm_beginner": {
+        "description": "TryHackMe Beginner Room — guided learning path",
+        "os": "linux",
+        "ports": [22, 80, 139, 445],
+        "services": ["ssh", "http", "smb", "netbios-ssn"],
+        "vulns": [
+            "vuln_http_directory_listing", "vuln_smb_guest_access",
+            "vuln_ssh_weak_password", "vuln_suid_abuse",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_7.6p1 Ubuntu-4ubuntu0.3",
+            80: "Apache/2.4.29 (Ubuntu)",
+            139: "Samba smbd 4.7.6-Ubuntu",
+            445: "Samba smbd 4.7.6-Ubuntu",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "thm",
+        "thm_hints": [
+            "TryHackMe rooms follow a structured methodology",
+            "Always enumerate ALL ports first with nmap -sV -sC -p-",
+            "SMB: smbclient -L //target -N, then check each share",
+            "Web: gobuster + nikto + manual browsing",
+            "Look for credentials in web config files, databases, shares",
+            "Privesc: sudo -l, SUID, cron, capabilities, kernel version",
+        ],
+    },
+    "thm_advanced": {
+        "description": "TryHackMe Advanced Room — multi-vector attack",
+        "os": "linux",
+        "ports": [22, 80, 111, 2049, 3306, 6379],
+        "services": ["ssh", "http", "rpcbind", "nfs", "mysql", "redis"],
+        "vulns": [
+            "vuln_nfs_no_root_squash", "vuln_redis_unauthenticated",
+            "vuln_mysql_weak_password", "vuln_http_lfi",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.3",
+            80: "Apache/2.4.41 (Ubuntu)",
+            111: "rpcbind 2-4",
+            2049: "NFS v3-v4",
+            3306: "MySQL 8.0.27",
+            6379: "Redis key-value store 6.0.16",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "thm",
+        "thm_hints": [
+            "NFS shares with no_root_squash allow SUID binary planting",
+            "Redis unauthenticated: write SSH key or webshell",
+            "MySQL: check for FILE privilege → read /etc/shadow",
+            "LFI: php://filter for source code, log poisoning for RCE",
+            "Chain multiple vectors: redis creds → mysql → web → root",
+        ],
+    },
+    "windows_server": {
+        "description": "Windows Server — IIS/MSSQL/SMB with Windows privesc",
+        "os": "windows",
+        "ports": [80, 135, 139, 445, 1433, 3389],
+        "services": ["http", "msrpc", "netbios-ssn", "smb", "mssql", "rdp"],
+        "vulns": [
+            "vuln_mssql_xp_cmdshell", "vuln_iis_shortname_scan",
+            "vuln_smb_relay", "vuln_always_install_elevated",
+        ],
+        "banners": {
+            80: "Microsoft-IIS/10.0",
+            135: "Microsoft Windows RPC",
+            139: "Microsoft Windows netbios-ssn",
+            445: "Windows Server 2019 Standard",
+            1433: "Microsoft SQL Server 2019",
+            3389: "Microsoft Terminal Services",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "MSSQL: try default sa:sa, enable xp_cmdshell for RCE",
+            "IIS short name scan: reveals hidden 8.3 filenames",
+            "SMB relay: responder + ntlmrelayx for hash capture",
+            "Privesc: AlwaysInstallElevated, unquoted service paths",
+            "Check: whoami /priv, systeminfo, net user, net localgroup",
+            "Tools: PowerUp.ps1, winPEAS, Seatbelt, SharpHound",
+        ],
+    },
+}
+
+# Scenario weights — each entry can appear multiple times for higher probability
+SCENARIO_ROTATION: List[str] = [
+    "generic_linux",
+    "htb_web_easy", "htb_web_easy",      # 2x weight — most common HTB pattern
+    "htb_web_medium",
+    "htb_ad_windows",
+    "htb_windows_easy",
+    "ctf_web", "ctf_web",                # 2x weight — most common CTF type
+    "ctf_crypto_forensics",
+    "thm_beginner",
+    "thm_advanced",
+    "windows_server",
+]
+
+
+# ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
 
@@ -673,15 +966,48 @@ class LocalMentorClient:
             "- CRITICAL: Do NOT suggest the same command or tool that appears in "
             "'Recent commands'. Diversity is paramount — the agent MUST explore "
             "different tools and techniques each step.\n"
-            "- Phase-appropriate tool suggestions:\n"
+            "- Never repeat a command family more than twice in a row.\n\n"
+            "LINUX TOOLS BY PHASE:\n"
             "  RECON: nmap, masscan, ping, traceroute, arp-scan, netdiscover\n"
             "  ENUMERATION: gobuster, nikto, whatweb, dirb, enum4linux, snmpwalk, "
             "ldapsearch, smbclient, nbtscan, wpscan, curl, ffuf, feroxbuster\n"
             "  EXPLOITATION: searchsploit, msfconsole, hydra, medusa, sshpass, "
             "sqlmap, exploit scripts, metasploit, john, hashcat\n"
-            "  PRIVESC: sudo -l, find SUID, LinPEAS, linenum, getcap, crontab\n"
-            "  POST: cat /etc/shadow, ls /root, download files, hashdump\n"
-            "- Never repeat a command family more than twice in a row."
+            "  PRIVESC: sudo -l, find SUID, LinPEAS, linenum, getcap, crontab, "
+            "pspy64, uname -a, cat /etc/os-release\n"
+            "  POST: cat /etc/shadow, ls /root, download files, hashdump\n\n"
+            "WINDOWS TOOLS (for Windows/AD targets):\n"
+            "  RECON: nmap -sV -p 88,135,389,445,5985 {target}\n"
+            "  ENUMERATION: enum4linux -a, crackmapexec smb, ldapsearch, "
+            "smbclient -L, rpcclient, nbtscan\n"
+            "  AD ATTACKS: GetNPUsers.py (AS-REP), GetUserSPNs.py (Kerberoast), "
+            "secretsdump.py, bloodhound-python, certipy\n"
+            "  EXPLOITATION: impacket-psexec, wmiexec.py, evil-winrm, "
+            "smbexec.py, crackmapexec winrm/smb with -H hash\n"
+            "  PRIVESC: whoami /priv, systeminfo, PowerUp.ps1, winPEAS, "
+            "Seatbelt, SharpHound, JuicyPotato, PrintSpoofer\n"
+            "  POST: reg save HKLM\\SAM, mimikatz, net user, net localgroup, "
+            "type C:\\Users\\*\\Desktop\\user.txt\n\n"
+            "CTF/HTB FLAG HUNTING:\n"
+            "  - CTF flags: flag{...}, HTB{...}, THM{...}, or in flag.txt\n"
+            "  - HTB flags: /home/*/user.txt (user), /root/root.txt (root)\n"
+            "  - Windows: C:\\Users\\*\\Desktop\\user.txt, C:\\Users\\Administrator\\Desktop\\root.txt\n"
+            "  - After getting shell: ALWAYS try 'cat user.txt' or 'find / -name flag*'\n"
+            "  - Check HTML comments, robots.txt, .git/, backup files\n\n"
+            "WEB EXPLOITATION (CTF/HTB common):\n"
+            "  - SQLi: sqlmap --forms --batch, manual UNION SELECT\n"
+            "  - SSTI: {{7*7}}, {{config.__class__}}\n"
+            "  - LFI: php://filter/convert.base64-encode/resource=\n"
+            "  - File Upload: shell.php.jpg, Content-Type bypass\n"
+            "  - Command Injection: ; id, | id, $(id)\n"
+            "  - SSRF: access internal services via proxied requests\n"
+            "  - JWT: decode, check for none/weak algorithm\n"
+            "  - Deserialization: pickle, PHP unserialize, Java gadgets\n\n"
+            "FORENSICS/STEGO (CTF challenges):\n"
+            "  - exiftool, binwalk, strings, steghide, zsteg, foremost\n"
+            "  - xxd (hex dump), file (magic bytes), unzip hidden archives\n"
+            "  - PCAP: tshark, wireshark for credential extraction\n"
+            "  - Crypto: CyberChef, hashcat, john, base64/rot13 decode"
         )
 
     def _build_prompt(
@@ -691,11 +1017,27 @@ class LocalMentorClient:
     ) -> str:
         disc_str = ", ".join(discoveries[-10:]) if discoveries else "none"
         cmds_str = "\n".join(f"  - {c}" for c in recent_commands[-5:]) if recent_commands else "  none"
+
+        # Phase 45c: Scenario context is now injected into state_summary
+        # by _get_teacher_signal (os, scenario, mode, domain, flags).
+        # Extract scenario name from state_summary for hint lookup.
+        scenario_ctx = ""
+        import re as _re
+        m = _re.search(r"scenario=(\w+)", state_summary)
+        if m:
+            scenario_name = m.group(1)
+            profile = SCENARIO_PROFILES.get(scenario_name, {})
+            ctx_type = profile.get("context", "standard")
+            hints = profile.get(f"{ctx_type}_hints", profile.get("htb_hints", profile.get("ctf_hints", profile.get("thm_hints", []))))
+            if hints:
+                scenario_ctx = f"\nHints: {'; '.join(hints[:3])}"
+
         return (
             f"Phase: {phase}\nStep: {step}\n"
             f"State: {state_summary}\n"
             f"Recent discoveries: {disc_str}\n"
-            f"Recent commands:\n{cmds_str}\n\n"
+            f"Recent commands:\n{cmds_str}"
+            f"{scenario_ctx}\n\n"
             "What command should the agent execute next?"
         )
 
@@ -914,7 +1256,8 @@ class CodexMentorClient:
         )
 
         instructions = (
-            "You are gpt-5.2-codex acting as a senior pentesting mentor for an RL agent.\n"
+            "You are gpt-5.2-codex acting as a senior pentesting mentor for an RL agent "
+            "training on CTF challenges (HTB, TryHackMe) and real pentesting scenarios.\n"
             "Return JSON only. No markdown. No prose.\n\n"
             "OUTPUT CONTRACT (every key required):\n"
             '{\n'
@@ -932,17 +1275,43 @@ class CodexMentorClient:
             "3=privesc_action, 4=post_exfil.\n"
             "- {target} = target IP placeholder.\n"
             "- CRITICAL: Examine 'Recent commands' and suggest a DIFFERENT tool/technique.\n"
-            "  The agent needs DIVERSITY — do not repeat command families.\n"
-            "- Preferred tools by phase:\n"
-            "  RECON: nmap, masscan, ping, arp-scan, netdiscover\n"
+            "  The agent needs DIVERSITY — do not repeat command families.\n\n"
+            "LINUX TOOLS:\n"
+            "  RECON: nmap, masscan, ping, arp-scan, netdiscover, rustscan\n"
             "  ENUMERATION: gobuster, nikto, whatweb, dirb, enum4linux, snmpwalk, "
             "ldapsearch, smbclient, wpscan, curl, ffuf, feroxbuster, nbtscan\n"
             "  EXPLOITATION: searchsploit, hydra, medusa, sshpass, sqlmap, "
-            "msfconsole, john, hashcat, exploit scripts\n"
-            "  PRIVESC: sudo -l, find SUID, LinPEAS, getcap, crontab\n"
-            "  POST: cat /etc/shadow, ls /root, hashdump\n"
+            "msfconsole, john, hashcat, python3 exploit.py\n"
+            "  PRIVESC: sudo -l, find SUID, LinPEAS, getcap, crontab, pspy64\n"
+            "  POST: cat /etc/shadow, ls /root, hashdump, find / -name flag*\n\n"
+            "WINDOWS / ACTIVE DIRECTORY TOOLS:\n"
+            "  ENUM: crackmapexec smb/ldap, enum4linux, ldapsearch, rpcclient\n"
+            "  AD ATTACKS: GetNPUsers.py (AS-REP Roast), GetUserSPNs.py (Kerberoast), "
+            "bloodhound-python, certipy, secretsdump.py\n"
+            "  EXPLOITATION: impacket-psexec, wmiexec.py, evil-winrm, smbexec.py\n"
+            "  PRIVESC: whoami /priv, winPEAS, PowerUp, JuicyPotato, PrintSpoofer\n"
+            "  POST: mimikatz, net user, reg save HKLM\\SAM, type Desktop\\user.txt\n\n"
+            "CTF / HTB FLAG METHODOLOGY:\n"
+            "  - HTB flags: /home/*/user.txt, /root/root.txt (Linux)\n"
+            "  - Windows: C:\\Users\\*\\Desktop\\user.txt, C:\\Users\\Administrator\\Desktop\\root.txt\n"
+            "  - CTF format: flag{...}, HTB{...}, THM{...}\n"
+            "  - After shell: ALWAYS attempt flag retrieval immediately\n"
+            "  - Check: HTML comments, robots.txt, .git/, backup dirs, source code\n\n"
+            "WEB EXPLOITATION (CTF/HTB common):\n"
+            "  - SQLi: sqlmap --forms, UNION SELECT, --os-shell\n"
+            "  - SSTI: {{7*7}}, {{config.__class__}}\n"
+            "  - LFI/RFI: php://filter, /proc/self/environ, log poisoning\n"
+            "  - File Upload: extension bypass (.php.jpg), Content-Type spoof\n"
+            "  - JWT: none algorithm, weak secret, kid injection\n"
+            "  - SSRF: access internal services, cloud metadata\n"
+            "  - Deserialization: pickle, PHP serialize, Java gadgets\n\n"
+            "FORENSICS/STEGO (CTF):\n"
+            "  - exiftool, binwalk -e, steghide, zsteg, strings, foremost\n"
+            "  - PCAP: tshark -r capture.pcap for credential extraction\n\n"
             "- If local mentor suggested an nmap variant and recent commands "
-            "already contain nmap, suggest a COMPLETELY DIFFERENT tool."
+            "already contain nmap, suggest a COMPLETELY DIFFERENT tool.\n"
+            "- ADAPT to the target OS shown in State — use Windows tools for "
+            "Windows targets, Linux tools for Linux targets."
         )
 
         try:
@@ -1196,6 +1565,10 @@ class H200DistillationRunner:
         # TensorBoard writer (lazy-init in _init_dirs)
         self._tb: Optional[Any] = None
 
+        # Phase 45c: CTF/HTB/THM scenario rotation
+        self._current_scenario: str = "generic_linux"
+        self._scenario_history: List[str] = []
+
     # ── Initialization ───────────────────────────────────────────
 
     def _seed_all(self, seed: int) -> None:
@@ -1255,84 +1628,95 @@ class H200DistillationRunner:
         self._patch_env_for_distill()
         logger.info("CyberEnvironment initialized (distill-patched)")
 
-    def _patch_env_for_distill(self) -> None:
-        """Patch env settings that cripple distillation training.
+    def _patch_env_for_distill(self, scenario_name: Optional[str] = None) -> None:
+        """Patch env settings for distillation training.
 
-        Phase 45: The env's redundant_scan_threshold=3 penalises ALL scan
-        commands after just 3 nmap calls → every episode drowns in -1.0
-        to -3.0 per-step penalties.  For GPU distillation we need the agent
-        to explore freely during the heavy-mentor phase.
+        Phase 45c: Selects a scenario profile (HTB/CTF/THM/Windows/Linux)
+        per episode to train the agent on diverse target environments.
 
         Also seeds service_banners + vulnerabilities so enum/exploit
         commands don't immediately hit -1.0/-2.0 gates.
         """
         import random as _rng
 
-        # 1. Raise redundant scan threshold so the mentor can explore freely
-        self._env.redundant_scan_threshold = 50  # was 3 — way too harsh
+        # 1. Select scenario profile
+        if scenario_name is None:
+            scenario_name = _rng.choice(SCENARIO_ROTATION)
+        profile = SCENARIO_PROFILES.get(scenario_name, SCENARIO_PROFILES["generic_linux"])
+        self._current_scenario = scenario_name
+        self._scenario_history.append(scenario_name)
 
-        # 2. Ensure enough open ports exist for discoveries
-        _standard_ports = [21, 22, 80, 139, 443, 445, 3306, 5432, 8080, 8443]
-        for p in _standard_ports:
+        # 2. Raise redundant scan threshold so the mentor can explore freely
+        self._env.redundant_scan_threshold = 50
+
+        # 3. Set ports from scenario profile
+        for p in profile["ports"]:
             if p not in self._env.open_ports:
                 self._env.open_ports.append(p)
         self._env.open_ports.sort()
 
-        # 3. Seed services list
-        _standard_svcs = ["ftp", "ssh", "http", "smb", "mysql", "postgresql",
-                          "https", "ldap", "snmp", "telnet"]
-        for svc in _standard_svcs:
+        # 4. Set services from scenario profile
+        for svc in profile["services"]:
             if svc not in self._env.services:
                 self._env.services.append(svc)
 
-        # 4. *** CRITICAL FIX *** Populate service_banners so _process_enum_command
-        #    doesn't return -1.0 ("No services discovered to enumerate")
-        _port_svc_map = {
-            21: "ftp", 22: "ssh", 80: "http", 139: "smb", 443: "https",
-            445: "smb", 3306: "mysql", 5432: "postgresql", 8080: "http",
-            8443: "https",
-        }
+        # 5. Populate service_banners from scenario profile
+        custom_banners = profile.get("banners", {})
         for port in self._env.open_ports:
             if port not in self._env.service_banners:
-                svc = _port_svc_map.get(port, _rng.choice(self._env.services))
-                self._env.service_banners[port] = (
-                    self._env._generate_service_banner(svc, port)
-                    if hasattr(self._env, '_generate_service_banner')
-                    else f"{svc} service on port {port}"
-                )
+                if port in custom_banners:
+                    self._env.service_banners[port] = custom_banners[port]
+                else:
+                    svc = _rng.choice(self._env.services) if self._env.services else "unknown"
+                    self._env.service_banners[port] = (
+                        self._env._generate_service_banner(svc, port)
+                        if hasattr(self._env, '_generate_service_banner')
+                        else f"{svc} service on port {port}"
+                    )
                 self._env.discovered_info.add(f"port_{port}")
 
-        # 5. Seed phase_progress so recon→enum transition is easy
+        # 6. Seed phase_progress so recon→enum transition is easy
         self._env.phase_progress["recon"] = max(
             self._env.phase_progress.get("recon", 0),
             len(self._env.open_ports),
         )
 
-        # 6. Seed some vulnerabilities so exploit commands don't hit -2.0 gate
+        # 7. Seed vulnerabilities from scenario profile
         if not self._env.discovered_vulnerabilities:
-            _seed_vulns = [
-                "vuln_http_directory_listing",
-                "vuln_ftp_anonymous",
-                "vuln_smb_guest_access",
-                "vuln_ssh_weak_password",
-            ]
-            for v in _seed_vulns:
+            for v in profile["vulns"]:
                 self._env.discovered_vulnerabilities.append(v)
             self._env.phase_progress["enumeration"] = max(
-                self._env.phase_progress.get("enumeration", 0), 4,
+                self._env.phase_progress.get("enumeration", 0),
+                len(profile["vulns"]),
             )
 
-        # 7. Lower detection penalty growth rate
+        # 8. Lower detection penalty growth rate
         if hasattr(self._env, 'detection_sensitivity'):
             self._env.detection_sensitivity = max(0.3, self._env.detection_sensitivity * 0.5)
 
-        # 8. Use simulation profile with lower thresholds
+        # 9. Use simulation profile with lower thresholds
         if hasattr(self._env, 'set_target_profile'):
             self._env.set_target_profile("simulation")
 
+        # 10. Store context on env for mentor prompt access
+        if not hasattr(self._env, '_scenario_meta'):
+            self._env._scenario_meta = {}
+        self._env._scenario_meta = {
+            "name": scenario_name,
+            "os": profile.get("os", "linux"),
+            "context": profile.get("context", "standard"),
+            "description": profile.get("description", ""),
+            "flags": profile.get("flags", []),
+            "domain": profile.get("domain", ""),
+        }
+
         logger.info(
-            "ENV PATCH: redundant_threshold=%d, open_ports=%d, services=%d, "
-            "banners=%d, vulns=%d, recon_progress=%d, enum_progress=%d",
+            "ENV PATCH [%s]: os=%s, ctx=%s, redundant_threshold=%d, "
+            "open_ports=%d, services=%d, banners=%d, vulns=%d, "
+            "recon_progress=%d, enum_progress=%d",
+            scenario_name,
+            profile.get("os", "linux"),
+            profile.get("context", "standard"),
             self._env.redundant_scan_threshold,
             len(self._env.open_ports),
             len(self._env.services),
@@ -1470,112 +1854,243 @@ class H200DistillationRunner:
     # ── Echo-ban fallback: real phase-appropriate command ────────
 
     def _phase_safe_fallback(self, state: Dict[str, Any]) -> str:
-        """Return a real command for the current phase.  Never echo."""
+        """Return a real command for the current phase.  Never echo.
+
+        Phase 45c: Scenario-aware — uses Windows/AD commands for Windows
+        scenarios, CTF flag-hunting for CTF/HTB scenarios.
+        """
         phase = state.get("phase", "RECON")
         target = state.get("target_ip", "172.28.128.3")
-        _fallbacks: Dict[str, List[str]] = {
-            "RECON": [
-                f"nmap -sV -sC -T4 {target}",
-                f"ping -c 2 {target}",
-                f"nmap -sn {target}/24",
-            ],
-            "ENUMERATION": [
-                f"nmap -sV --script=vuln -p- {target}",
-                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
-                f"nikto -h http://{target}",
-                f"whatweb http://{target}",
-            ],
-            "EXPLOITATION": [
-                f"searchsploit -w --nmap /tmp/nmap_scan.xml",
-                f"msfconsole -q -x 'search type:exploit {target}; exit'",
-                f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh",
-            ],
-            "PRIVILEGE_ESCALATION": [
-                "sudo -l",
-                "find / -perm -4000 -type f 2>/dev/null | head -20",
-                "cat /etc/crontab",
-                "uname -a",
-            ],
-            "POST_EXPLOITATION": [
-                "cat /etc/shadow",
-                "cat /etc/passwd",
-                "ls -la /root/",
-                "whoami && id && hostname",
-            ],
-            "EXFILTRATION": [
-                "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
-                "find / -name '*.txt' -o -name '*.conf' 2>/dev/null | head -20",
-            ],
-        }
+        profile = SCENARIO_PROFILES.get(self._current_scenario, {})
+        is_windows = profile.get("os") == "windows"
+        is_ctf = profile.get("context") in ("ctf", "htb", "thm")
+
+        if is_windows:
+            _fallbacks: Dict[str, List[str]] = {
+                "RECON": [
+                    f"nmap -sV -sC -p 88,135,389,445,5985 {target}",
+                    f"nmap -sV --top-ports 1000 {target}",
+                    f"crackmapexec smb {target}",
+                ],
+                "ENUMERATION": [
+                    f"enum4linux -a {target}",
+                    f"crackmapexec smb {target} -u '' -p '' --shares",
+                    f"ldapsearch -x -H ldap://{target} -s base",
+                    f"smbclient -L //{target} -N",
+                    f"rpcclient -U '' -N {target} -c 'enumdomusers'",
+                ],
+                "EXPLOITATION": [
+                    f"GetNPUsers.py -usersfile /tmp/users.txt -no-pass -dc-ip {target} megacorp.htb/",
+                    f"GetUserSPNs.py megacorp.htb/user:password -dc-ip {target} -request",
+                    f"impacket-psexec megacorp.htb/admin@{target}",
+                    f"evil-winrm -i {target} -u admin -p password",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "whoami /priv",
+                    "systeminfo",
+                    "net user",
+                    "cmdkey /list",
+                    "reg query HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated",
+                ],
+                "POST_EXPLOITATION": [
+                    "type C:\\Users\\Administrator\\Desktop\\root.txt",
+                    "net localgroup administrators",
+                    "reg save HKLM\\SAM C:\\temp\\sam",
+                    f"secretsdump.py megacorp.htb/admin@{target}",
+                ],
+                "EXFILTRATION": [
+                    "type C:\\Users\\*\\Desktop\\user.txt",
+                    "dir /s /b C:\\Users\\*\\Desktop\\*.txt",
+                    "net user /domain",
+                ],
+            }
+        else:
+            _fallbacks = {
+                "RECON": [
+                    f"nmap -sV -sC -T4 {target}",
+                    f"ping -c 2 {target}",
+                    f"nmap -sn {target}/24",
+                    f"rustscan -a {target} --ulimit 5000",
+                ],
+                "ENUMERATION": [
+                    f"nmap -sV --script=vuln -p- {target}",
+                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
+                    f"nikto -h http://{target}",
+                    f"whatweb http://{target}",
+                    f"curl -s http://{target}/robots.txt",
+                ],
+                "EXPLOITATION": [
+                    f"searchsploit -w --nmap /tmp/nmap_scan.xml",
+                    f"msfconsole -q -x 'search type:exploit {target}; exit'",
+                    f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh",
+                    f"sqlmap -u http://{target}/ --forms --batch --os-shell",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "sudo -l",
+                    "find / -perm -4000 -type f 2>/dev/null | head -20",
+                    "cat /etc/crontab",
+                    "uname -a",
+                    "getcap -r / 2>/dev/null",
+                ],
+                "POST_EXPLOITATION": [
+                    "cat /etc/shadow",
+                    "cat /etc/passwd",
+                    "ls -la /root/",
+                    "whoami && id && hostname",
+                ],
+                "EXFILTRATION": [
+                    "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
+                    "find / -name '*.txt' -o -name '*.conf' 2>/dev/null | head -20",
+                ],
+            }
+
+        # CTF/HTB: inject flag-hunting commands into post-exploit/exfil phases
+        if is_ctf:
+            _fallbacks.setdefault("POST_EXPLOITATION", []).extend([
+                "find / -name 'flag*' -o -name 'user.txt' -o -name 'root.txt' 2>/dev/null",
+                "cat /home/*/user.txt 2>/dev/null",
+                "cat /root/root.txt 2>/dev/null",
+                "grep -r 'flag{' /var/www/ /opt/ /home/ 2>/dev/null | head -10",
+            ])
+            _fallbacks.setdefault("EXFILTRATION", []).extend([
+                "find / -name '*.txt' -name '*flag*' 2>/dev/null",
+                "cat /root/root.txt",
+            ])
+
         choices = _fallbacks.get(phase, _fallbacks["RECON"])
-        # Rotate based on step count to add variety
         idx = self.metrics.echo_fallback_count % len(choices)
         return choices[idx]
 
     def _diverse_fallback(self, state: Dict[str, Any], exclude_family: str) -> str:
         """Return a phase-appropriate command from a DIFFERENT family.
 
-        Used by the diversity guard to break out of single-tool loops
-        (e.g. when both mentors keep suggesting nmap variants).
+        Phase 45c: Scenario-aware — includes Windows/AD tools for Windows
+        scenarios, CTF-specific tools for CTF scenarios.
         """
         phase = state.get("phase", "RECON")
         target = state.get("target_ip", "172.28.128.3")
-        _diverse: Dict[str, List[str]] = {
-            "RECON": [
-                f"masscan -p1-65535 {target} --rate=1000",
-                f"ping -c 3 {target}",
-                f"arp-scan --localnet",
-                f"netdiscover -r {target}/24 -P",
-                f"traceroute {target}",
-                f"nmap -sU -T4 --top-ports 100 {target}",
-            ],
-            "ENUMERATION": [
-                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
-                f"nikto -h http://{target}",
-                f"whatweb http://{target}",
-                f"enum4linux -a {target}",
-                f"snmpwalk -v2c -c public {target}",
-                f"smbclient -L //{target} -N",
-                f"nbtscan {target}",
-                f"curl -s http://{target}/ | head -50",
-                f"dirb http://{target}",
-                f"ldapsearch -x -h {target} -s base",
-                f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt",
-                f"wpscan --url http://{target} --enumerate u",
-            ],
-            "EXPLOITATION": [
-                f"searchsploit -w --nmap /tmp/nmap_scan.xml",
-                f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh",
-                f"medusa -h {target} -U /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -M ssh",
-                f"sqlmap -u http://{target}/ --forms --batch",
-                f"sshpass -p password ssh root@{target}",
-                f"msfconsole -q -x 'search type:exploit {target}; exit'",
-            ],
-            "PRIVILEGE_ESCALATION": [
-                "sudo -l",
-                "find / -perm -4000 -type f 2>/dev/null | head -20",
-                "cat /etc/crontab",
-                "getcap -r / 2>/dev/null",
-                "ls -la /etc/sudoers.d/",
-                "find / -writable -type f 2>/dev/null | head -20",
-            ],
-            "POST_EXPLOITATION": [
-                "cat /etc/shadow",
-                "cat /etc/passwd",
-                "ls -la /root/",
-                "find /home -name '*.txt' 2>/dev/null",
-                "history",
-            ],
-            "EXFILTRATION": [
-                "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
-                "find / -name 'flag*' -o -name '*.key' 2>/dev/null | head -20",
-            ],
-        }
+        profile = SCENARIO_PROFILES.get(self._current_scenario, {})
+        is_windows = profile.get("os") == "windows"
+
+        if is_windows:
+            _diverse: Dict[str, List[str]] = {
+                "RECON": [
+                    f"nmap -sV -p 88,135,389,445,5985,3389 {target}",
+                    f"nmap -sU --top-ports 50 {target}",
+                    f"crackmapexec smb {target}",
+                    f"ping -c 3 {target}",
+                    f"nmap --script smb-os-discovery {target}",
+                ],
+                "ENUMERATION": [
+                    f"enum4linux -a {target}",
+                    f"crackmapexec smb {target} -u '' -p '' --shares",
+                    f"ldapsearch -x -H ldap://{target} -s base",
+                    f"smbclient -L //{target} -N",
+                    f"rpcclient -U '' -N {target} -c 'enumdomusers'",
+                    f"nbtscan {target}",
+                    f"crackmapexec ldap {target} -u '' -p '' --users",
+                    f"nmap --script ldap-rootdse {target}",
+                    f"bloodhound-python -c all -u user -p pass -d megacorp.htb -ns {target}",
+                ],
+                "EXPLOITATION": [
+                    f"GetNPUsers.py -usersfile /tmp/users.txt -no-pass -dc-ip {target} megacorp.htb/",
+                    f"GetUserSPNs.py megacorp.htb/user:password -dc-ip {target} -request",
+                    f"impacket-psexec megacorp.htb/admin@{target}",
+                    f"evil-winrm -i {target} -u admin -p password",
+                    f"wmiexec.py megacorp.htb/admin@{target}",
+                    f"smbexec.py megacorp.htb/admin@{target}",
+                    f"certipy find -u user -p pass -dc-ip {target} -vulnerable",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "whoami /priv",
+                    "systeminfo",
+                    "net user",
+                    "cmdkey /list",
+                    "powershell -c 'Get-Service | Where-Object {{$_.Status -eq \"Running\"}}'",
+                    "reg query HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Installer /v AlwaysInstallElevated",
+                ],
+                "POST_EXPLOITATION": [
+                    "type C:\\Users\\Administrator\\Desktop\\root.txt",
+                    f"secretsdump.py megacorp.htb/admin@{target}",
+                    "net localgroup administrators",
+                    "reg save HKLM\\SAM C:\\temp\\sam",
+                    "net user /domain",
+                ],
+                "EXFILTRATION": [
+                    "dir /s /b C:\\Users\\*\\Desktop\\*.txt",
+                    "type C:\\Users\\*\\Desktop\\user.txt",
+                    "net user /domain",
+                ],
+            }
+        else:
+            _diverse = {
+                "RECON": [
+                    f"masscan -p1-65535 {target} --rate=1000",
+                    f"ping -c 3 {target}",
+                    f"arp-scan --localnet",
+                    f"netdiscover -r {target}/24 -P",
+                    f"traceroute {target}",
+                    f"nmap -sU -T4 --top-ports 100 {target}",
+                    f"rustscan -a {target} --ulimit 5000",
+                ],
+                "ENUMERATION": [
+                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
+                    f"nikto -h http://{target}",
+                    f"whatweb http://{target}",
+                    f"enum4linux -a {target}",
+                    f"snmpwalk -v2c -c public {target}",
+                    f"smbclient -L //{target} -N",
+                    f"nbtscan {target}",
+                    f"curl -s http://{target}/ | head -50",
+                    f"dirb http://{target}",
+                    f"ldapsearch -x -h {target} -s base",
+                    f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt",
+                    f"wpscan --url http://{target} --enumerate u",
+                    f"curl -s http://{target}/robots.txt",
+                    f"curl -s http://{target}/ | grep -i '<!--'",
+                    f"curl -s http://{target}/.git/HEAD",
+                ],
+                "EXPLOITATION": [
+                    f"searchsploit -w --nmap /tmp/nmap_scan.xml",
+                    f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh",
+                    f"medusa -h {target} -U /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -M ssh",
+                    f"sqlmap -u http://{target}/ --forms --batch --os-shell",
+                    f"sshpass -p password ssh root@{target}",
+                    f"msfconsole -q -x 'search type:exploit {target}; exit'",
+                    f"curl -X POST http://{target}/login -d 'username=admin&password=admin'",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "sudo -l",
+                    "find / -perm -4000 -type f 2>/dev/null | head -20",
+                    "cat /etc/crontab",
+                    "getcap -r / 2>/dev/null",
+                    "ls -la /etc/sudoers.d/",
+                    "find / -writable -type f 2>/dev/null | head -20",
+                    "uname -r",
+                    "cat /etc/os-release",
+                ],
+                "POST_EXPLOITATION": [
+                    "cat /etc/shadow",
+                    "cat /etc/passwd",
+                    "ls -la /root/",
+                    "find /home -name '*.txt' 2>/dev/null",
+                    "history",
+                    "find / -name 'flag*' -o -name 'user.txt' -o -name 'root.txt' 2>/dev/null",
+                    "cat /home/*/user.txt 2>/dev/null",
+                    "cat /root/root.txt 2>/dev/null",
+                ],
+                "EXFILTRATION": [
+                    "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
+                    "find / -name 'flag*' -o -name '*.key' 2>/dev/null | head -20",
+                    "cat /root/root.txt",
+                ],
+            }
+
         choices = _diverse.get(phase, _diverse["RECON"])
         # Filter out commands from the excluded family
         filtered = [c for c in choices if not c.split()[0].startswith(exclude_family)]
         if not filtered:
-            filtered = choices  # shouldn't happen but safety
+            filtered = choices
         idx = hash(f"{phase}_{exclude_family}_{len(self._reward_history)}") % len(filtered)
         return filtered[idx]
 
@@ -1832,6 +2347,20 @@ class H200DistillationRunner:
             f"shells={len(state.get('shells', []))}"
         )
 
+        # Phase 45c: Inject scenario context into state summary
+        profile = SCENARIO_PROFILES.get(self._current_scenario, {})
+        if profile:
+            target_os = profile.get("os", "linux")
+            ctx_type = profile.get("context", "standard")
+            state_summary += f", os={target_os}, scenario={self._current_scenario}"
+            if ctx_type in ("htb", "ctf", "thm"):
+                state_summary += f", mode={ctx_type}"
+            if profile.get("domain"):
+                state_summary += f", domain={profile['domain']}"
+            flags = profile.get("flags", [])
+            if flags:
+                state_summary += f", flags={','.join(flags)}"
+
         # ── Stage 1: Local mentor ────────────────────────────────
         local_response: Optional[Dict[str, Any]] = None
         local_failed = True
@@ -1963,12 +2492,21 @@ class H200DistillationRunner:
     # ── Single episode ───────────────────────────────────────────
 
     def _run_episode(self, episode_id: int) -> EpisodeResult:
-        """Run one training episode with optional mentor distillation."""
+        """Run one training episode with optional mentor distillation.
+
+        Phase 45c: Each episode randomly selects a scenario profile
+        (HTB/CTF/THM/Windows/Linux) for diverse training data.
+        """
         import torch
+        import random as _rng
 
         state = self._env.reset()
-        # Re-apply distill patches after reset (env.reset() re-initialises state)
-        self._patch_env_for_distill()
+        # Phase 45c: Select a new random scenario for this episode
+        scenario = _rng.choice(SCENARIO_ROTATION)
+        self._patch_env_for_distill(scenario_name=scenario)
+        logger.info("Episode %d: scenario=%s (%s)",
+                     episode_id, scenario,
+                     SCENARIO_PROFILES.get(scenario, {}).get("description", ""))
 
         if isinstance(state, tuple):
             state = state[0] if isinstance(state[0], dict) else {"phase": "RECON"}
@@ -1986,6 +2524,9 @@ class H200DistillationRunner:
         self._log_trace({
             "kind": "episode_start",
             "episode": episode_id,
+            "scenario": scenario,
+            "scenario_os": SCENARIO_PROFILES.get(scenario, {}).get("os", "linux"),
+            "scenario_context": SCENARIO_PROFILES.get(scenario, {}).get("context", "standard"),
             "timestamp": time.time(),
             "anneal": self._anneal.snapshot() if self._anneal else {},
         })
