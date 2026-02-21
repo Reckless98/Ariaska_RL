@@ -18,7 +18,7 @@
         gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large gpu-session \
         eval-baseline eval-after eval-compare \
         unify-all unify-validate unify-stats sync-local \
-        watch-gpu gpu-dashboard gpu-logs gpu-train-status
+        watch-gpu gpu-watch gpu-dashboard gpu-logs gpu-train-status
 
 # ── GPU SSH Configuration ────────────────────────────────────────────
 GPU_HOST ?= root@212.247.220.172
@@ -440,6 +440,10 @@ gpu-train-status:
 	' 2>/dev/null
 
 # ── Traces ───────────────────────────────────────────────────────────
+
+# Alias: gpu-watch → watch-gpu
+gpu-watch: watch-gpu
+
 traces:
 	@echo "Recent training runs:"
 	@ls -lt traces/ | head -10
