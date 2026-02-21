@@ -22,8 +22,8 @@ set -euo pipefail
 
 REPO_DIR="/root/Ariaska_RL"
 MENTOR_PORT=8192
-MENTOR_MODEL="jasonyux/Qwen3-235B-A22B-Instruct-2507-AWQ"
-FALLBACK_MODEL="Qwen/Qwen2.5-72B-Instruct"
+MENTOR_MODEL="openai/gpt-oss-120b"
+FALLBACK_MODEL="openai/gpt-oss-120b"
 GPU_UTIL=0.55
 MAX_MODEL_LEN=8192
 MENTOR_LOG="/var/log/ariaska_mentor.log"
@@ -91,7 +91,7 @@ tmux kill-session -t mentor 2>/dev/null || true
 tmux new-session -d -s mentor
 
 # Try primary model first
-echo "  Attempting primary model: $MENTOR_MODEL"
+echo "  Attempting primary model: $MENTOR_MODEL (MXFP4 quantization)"
 tmux send-keys -t mentor "cd $REPO_DIR && source .venv/bin/activate" C-m
 sleep 1
 tmux send-keys -t mentor "python -m vllm.entrypoints.openai.api_server \

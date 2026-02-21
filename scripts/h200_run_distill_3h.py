@@ -397,6 +397,17 @@ KL_COEF_MAX = 0.15
 KL_COEF_MIN = 0.005
 RANKING_COEF = 0.05
 
+# ── Reward Weighting (configurable via --reward-weights) ─────────────
+# Weights control how much each reward signal contributes to total reward.
+# format=phase progression, code=discovery/tool, math=exploitation logic,
+# reasoning=mentor agreement/consistency
+DEFAULT_REWARD_WEIGHTS = {
+    "format": 2.0,      # Phase progression rewards (strongest signal)
+    "code": 1.5,        # Command execution discovery bonus
+    "math": 1.5,        # Exploitation / vuln verification
+    "reasoning": 0.5,   # Consistency reward (weakest — gameable heuristic)
+}
+
 # Default episode config
 DEFAULT_MAX_STEPS_PER_EPISODE = 150
 DEFAULT_EPISODES = 500
@@ -1110,6 +1121,8 @@ class H200DistillationRunner:
         no_mentor: bool = False,
         resume_from: Optional[str] = None,
         device: str = "auto",
+        learning_rate: float = 3e-4,
+        reward_weights: Optional[Dict[str, float]] = None,
     ):
         self.seed = seed
         self.max_hours = max_hours
@@ -1120,6 +1133,11 @@ class H200DistillationRunner:
         self.no_mentor = no_mentor
         self.resume_from = resume_from
         self.metrics = RunMetrics()
+        self._learning_rate = learning_rate
+        self._reward_weights = dict(DEFAULT_REWARD_WEIGHTS)
+        if reward_weights:
+            self._reward_weights.update(reward_weights)
+        self._consistency_recent_cmds: List[str] = []  # for consistency reward
 
         # Device selection
         import torch
@@ -1164,7 +1182,11 @@ class H200DistillationRunner:
             torch.cuda.manual_seed_all(seed)
 
     def _init_ppo(self) -> None:
-        """Initialize PPO agent with distillation channels enabled."""
+        """Initialize PPO agent with distillation channels enabled.
+
+        Automatically loads the best available GPU checkpoint as persistent
+        memory — never start from scratch if .pt files exist.
+        """
         from core.algorithms.ppo_agent import PPOAgent, PPOConfig
 
         config = PPOConfig(
@@ -1177,11 +1199,21 @@ class H200DistillationRunner:
             use_ranking_loss=True,
             ranking_loss_coef=RANKING_COEF,
         )
+        # Allow overriding learning rate (lower for RL fine-tuning stability)
+        if hasattr(config, 'learning_rate'):
+            config.learning_rate = self._learning_rate
         self._ppo = PPOAgent(config=config, device=str(self.device))
 
         if self.resume_from:
             logger.info("Resuming from checkpoint: %s", self.resume_from)
             self._ppo.load(self.resume_from)
+        else:
+            # Auto-load best available GPU checkpoint (persistent memory)
+            loaded = self._auto_load_best_checkpoint()
+            if loaded:
+                logger.info("Auto-loaded GPU checkpoint as base: %s", loaded)
+            else:
+                logger.info("No prior checkpoints found — training from scratch")
 
         logger.info(
             "PPO initialized on %s (state_dim=%d, action_dim=%d, "
@@ -1377,6 +1409,185 @@ class H200DistillationRunner:
             prev = self._reward_history[-(2 * window):-window]
             return float(np.mean(recent)) <= float(np.mean(prev))
         return float(np.mean(recent)) < -1.0  # absolute stagnation threshold
+
+    # ── Weighted Reward Shaping ──────────────────────────────────
+
+    def _apply_reward_weights(
+        self,
+        base_reward: float,
+        state: Dict[str, Any],
+        next_state: Dict[str, Any],
+        command: str,
+        info: Dict[str, Any],
+        step: int,
+    ) -> float:
+        """Apply configurable reward weights to decompose total reward.
+
+        Decomposes the base reward into 4 channels with configurable weights:
+          - format:    Phase progression (strongest, least gameable)
+          - code:      Discovery bonuses from command execution
+          - math:      Exploitation logic — vuln/cred/shell verification
+          - reasoning: Consistency reward — weaker, gameable by keywords
+
+        Returns:
+            Weighted combined reward, clipped to [REWARD_MIN, REWARD_MAX].
+        """
+        w = self._reward_weights
+
+        # 1. Format reward: phase progression delta
+        current_phase = state.get("phase", "RECON")
+        next_phase = next_state.get("phase", current_phase)
+        phase_delta = PHASE_REWARDS.get(next_phase, 0) - PHASE_REWARDS.get(current_phase, 0)
+        format_r = max(0.0, phase_delta) * w["format"]
+
+        # 2. Code reward: discovery bonuses from env step
+        discoveries = info.get("discoveries", [])
+        code_r = 0.0
+        for d in (discoveries if isinstance(discoveries, list) else []):
+            d_str = str(d).lower() if not isinstance(d, str) else d.lower()
+            if "shell" in d_str or "root" in d_str:
+                code_r += 10.0
+            elif "credential" in d_str or "password" in d_str:
+                code_r += 5.0
+            elif "service" in d_str or "version" in d_str:
+                code_r += 2.0
+            elif "port" in d_str:
+                code_r += 1.0
+            else:
+                code_r += 0.5
+        code_r *= w["code"]
+
+        # 3. Math reward: exploitation/vuln verification — did we hit something?
+        math_r = 0.0
+        if base_reward > 10.0:  # significant positive reward = successful exploit
+            math_r = min(base_reward * 0.3, 15.0) * w["math"]
+        elif base_reward > 2.0:  # moderate reward = useful enum/discovery
+            math_r = min(base_reward * 0.2, 5.0) * w["math"]
+
+        # 4. Reasoning reward (consistency): down-weighted — heuristic
+        reasoning_r = self._compute_consistency_reward(
+            command, state, step,
+        ) * w["reasoning"]
+
+        total = format_r + code_r + math_r + reasoning_r
+        # Blend with base reward (50% base + 50% weighted) to avoid
+        # completely overriding the core reward calculator.
+        blended = 0.5 * base_reward + 0.5 * total
+        return float(np.clip(blended, REWARD_MIN, REWARD_MAX))
+
+    def _compute_consistency_reward(
+        self,
+        command: str,
+        state: Dict[str, Any],
+        step: int,
+    ) -> float:
+        """Consistency reward: penalize repeats, reward phase-appropriate cmds.
+
+        This replaces the naive "count reasoning keywords" heuristic from the
+        analysis with a genuine signal: does this command make strategic sense
+        given the current phase and prior actions?
+
+        Returns:
+            Float in [-2.0, +3.0].
+        """
+        phase = state.get("phase", "RECON")
+        cmd_family = command.strip().split()[0].rsplit("/", 1)[-1] if command.strip() else "noop"
+
+        # Phase-command alignment bonus
+        phase_alignment = {
+            "RECON": {"nmap", "masscan", "ping", "traceroute", "whatweb", "dig", "host"},
+            "ENUMERATION": {"gobuster", "nikto", "dirb", "wfuzz", "enum4linux",
+                            "smbclient", "showmount", "snmpwalk", "searchsploit"},
+            "EXPLOITATION": {"msfconsole", "hydra", "sqlmap", "curl", "wget",
+                             "python", "python3", "exploit", "searchsploit"},
+            "PRIVILEGE_ESCALATION": {"sudo", "su", "find", "linpeas", "linenum",
+                                     "getcap", "cat", "ls", "id", "whoami"},
+        }
+
+        # Check alignment
+        aligned_tools = phase_alignment.get(phase, set())
+        alignment_bonus = 1.5 if cmd_family in aligned_tools else 0.0
+
+        # Repetition penalty: check last 5 commands
+        recent = getattr(self, "_consistency_recent_cmds", [])
+        repeat_penalty = 0.0
+        if command in recent:
+            repeat_penalty = -2.0
+        elif cmd_family in [c.strip().split()[0].rsplit("/", 1)[-1] for c in recent if c.strip()]:
+            repeat_penalty = -0.5
+
+        # Update recent window
+        recent.append(command)
+        if len(recent) > 5:
+            recent.pop(0)
+        self._consistency_recent_cmds = recent  # type: ignore[attr-defined]
+
+        return alignment_bonus + repeat_penalty
+
+    # ── Auto-load best GPU checkpoints ───────────────────────────
+
+    def _auto_load_best_checkpoint(self) -> Optional[str]:
+        """Auto-load the best available .pt checkpoint before training.
+
+        Priority: latest distilled > enhanced live > enhanced sim > any.
+        Always treats all .pt files as persistent memory — never start
+        training from scratch if GPU-trained weights exist.
+
+        Returns:
+            Path of loaded checkpoint, or None.
+        """
+        import re
+
+        best_path: Optional[str] = None
+        best_priority = -1
+
+        # 1. Scan distilled (highest priority — GPU H200 training)
+        distilled_dir = Path("models/distilled")
+        if distilled_dir.is_dir():
+            pattern = re.compile(r"h200_(.+?)_ep(\d+)\.pt$")
+            candidates: list[tuple[Path, str, int]] = []
+            for f in distilled_dir.iterdir():
+                m = pattern.match(f.name)
+                if m:
+                    candidates.append((f, m.group(1), int(m.group(2))))
+            if candidates:
+                latest_run = max(set(c[1] for c in candidates))
+                run_cands = [c for c in candidates if c[1] == latest_run]
+                best = max(run_cands, key=lambda c: c[2])
+                best_path = str(best[0])
+                best_priority = 1000 + best[2]
+
+        # 2. Scan enhanced (per-agent directories, look for global PPO)
+        enhanced_dir = Path("models/enhanced")
+        if enhanced_dir.is_dir():
+            for entry in sorted(enhanced_dir.iterdir(), reverse=True):
+                if not entry.is_dir():
+                    continue
+                for pt in entry.iterdir():
+                    if pt.suffix == ".pt" and pt.name.startswith("ppo_"):
+                        pri = 10
+                        if "live" in entry.name:
+                            pri = 80
+                        elif "hard" in entry.name:
+                            pri = 30
+                        elif "sim" in entry.name:
+                            pri = 50
+                        if pri > best_priority and best_path is None:
+                            best_path = str(pt)
+                            best_priority = pri
+
+        if best_path is not None:
+            try:
+                self._ppo.load(best_path)
+                console.print(
+                    f"[green]✔ Auto-loaded checkpoint:[/green] {best_path}"
+                )
+                logger.info("[AUTOLOAD] Loaded checkpoint: %s", best_path)
+                return best_path
+            except Exception as e:
+                logger.warning("[AUTOLOAD] Failed to load %s: %s", best_path, e)
+
+        return None
 
     def _get_teacher_signal(
         self,
@@ -1630,6 +1841,10 @@ class H200DistillationRunner:
                 next_state = self._env.get_global_state()
 
             reward = float(np.clip(reward, REWARD_MIN, REWARD_MAX))
+            # Apply configurable reward weighting (format, code, math, reasoning)
+            reward = self._apply_reward_weights(
+                reward, state, next_state, command, info, step_i,
+            )
             episode_reward += reward
             self._reward_history.append(reward)  # for stagnation detection
 
@@ -2245,6 +2460,10 @@ def main() -> None:
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint path")
     parser.add_argument("--device", type=str, default="auto", help="torch device (auto/cuda/cpu)")
     parser.add_argument("--episodes", type=int, default=None, help="Alias for --max-episodes (eval mode)")
+    parser.add_argument("--learning-rate", type=float, default=3e-4,
+                        help="PPO learning rate (default: 3e-4, use 5e-6 for fine-tuning)")
+    parser.add_argument("--reward-weights", type=str, default=None,
+                        help="Reward weights as k=v pairs: 'format=2.0,code=1.5,math=1.5,reasoning=0.5'")
 
     args = parser.parse_args()
 
@@ -2260,6 +2479,14 @@ def main() -> None:
 
     checkpoint_sec = _parse_time_interval(args.checkpoint_every)
 
+    # Parse reward weights if provided
+    rw: Optional[Dict[str, float]] = None
+    if args.reward_weights:
+        rw = {}
+        for pair in args.reward_weights.split(","):
+            k, v = pair.strip().split("=")
+            rw[k.strip()] = float(v.strip())
+
     runner = H200DistillationRunner(
         seed=args.seed,
         max_hours=args.max_hours,
@@ -2270,6 +2497,8 @@ def main() -> None:
         no_mentor=args.no_mentor,
         resume_from=args.resume,
         device=args.device,
+        learning_rate=args.learning_rate,
+        reward_weights=rw,
     )
 
     metrics = runner.run()

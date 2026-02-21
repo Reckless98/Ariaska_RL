@@ -14,7 +14,9 @@
         ms2-setup ms2-status ms2-health ms2-stop overnight overnight-quick \
         last status clean help traces ctf \
         ariaska gpu gpu-setup gpu-quick gpu-ctf gpu-htb gpu-sync gpu-status \
-        gpu-shell gpu-model gpu-restart-llm
+        gpu-shell gpu-model gpu-restart-llm \
+        gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large \
+        eval-baseline eval-after eval-compare
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -55,6 +57,17 @@ help:
 	@echo "    make gpu-status                     GPU instance status"
 	@echo "    make gpu-shell                      SSH into GPU instance"
 	@echo "    make gpu-model                      Download / manage models"
+	@echo ""
+	@echo "  GPU TRAINING (H200)"
+	@echo "    make gpu-distill                    H200 distillation (3h, gpt-oss-120)"
+	@echo "    make gpu-distill-finetune           H200 fine-tune (lower LR, 6h)"
+	@echo "    make gpu-grpo                       GRPO group training (3h)"
+	@echo "    make gpu-grpo-large                 GRPO large groups (group_size=8, 6h)"
+	@echo ""
+	@echo "  EVALUATION"
+	@echo "    make eval-baseline                  Eval baseline (before training)"
+	@echo "    make eval-after                     Eval latest checkpoint"
+	@echo "    make eval-compare                   Compare baseline vs latest"
 	@echo ""
 	@echo "  TEST"
 	@echo "    make test                           Full pytest suite"
@@ -246,6 +259,48 @@ gpu-model:
 # Restart local LLM server
 gpu-restart-llm:
 	bash scripts/gpu_sync.sh restart-llm
+
+# ── GPU H200 Distillation Training ───────────────────────────────────
+
+# Standard distillation: 3h, gpt-oss-120b mentor, default reward weights
+gpu-distill:
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.h200_run_distill_3h \
+		--seed 42 --max-hours 3 --checkpoint-every 10m \
+		--reward-weights "format=2.0,code=1.5,math=1.5,reasoning=0.5"
+
+# Fine-tuning: lower LR (5e-6), 6h, resumes best checkpoint
+gpu-distill-finetune:
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.h200_run_distill_3h \
+		--seed 42 --max-hours 6 --learning-rate 5e-6 --checkpoint-every 10m \
+		--reward-weights "format=2.0,code=1.5,math=1.5,reasoning=0.5"
+
+# GRPO group training: 3h, group_size=4
+gpu-grpo:
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.train_grpo \
+		--seed 42 --max-hours 3 --group-size 4 --learning-rate 1e-4
+
+# GRPO large groups: 6h, group_size=8 (more stable advantages)
+gpu-grpo-large:
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.train_grpo \
+		--seed 42 --max-hours 6 --group-size 8 --learning-rate 5e-5 \
+		--reward-weights "format=2.5,code=1.5,math=1.0,reasoning=0.3"
+
+# ── Evaluation / Inference ────────────────────────────────────────────
+
+# Evaluate baseline (random-init or current base model)
+eval-baseline:
+	PYTHONPATH="$$(pwd)" ARIASKA_DRY_RUN=1 $(PYTHON) -m scripts.inference \
+		--model-path base --episodes 50 --output results/eval/baseline.json
+
+# Evaluate latest GPU checkpoint
+eval-after:
+	PYTHONPATH="$$(pwd)" ARIASKA_DRY_RUN=1 $(PYTHON) -m scripts.inference \
+		--episodes 50 --output results/eval/after_training.json
+
+# Compare baseline vs latest
+eval-compare:
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.inference \
+		--compare results/eval/baseline.json results/eval/after_training.json
 
 # ── Utilities ────────────────────────────────────────────────────────
 
