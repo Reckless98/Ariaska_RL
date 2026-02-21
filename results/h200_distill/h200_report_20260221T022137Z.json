@@ -1,0 +1,325 @@
+{
+  "run_id": "20260221T022137Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 2.0,
+  "wall_hours": 2.0069030892186697,
+  "episodes_completed": 64,
+  "total_steps": 9328,
+  "avg_reward_all": -21.679296875,
+  "avg_reward_first_10": 17.52749999999992,
+  "avg_reward_last_10": -53.892499999999984,
+  "phase_reached_distribution": {
+    "RECON": 64
+  },
+  "command_families_used": {
+    "whatweb": 2943,
+    "nmap": 2632,
+    "curl": 1693,
+    "searchsploit": 909,
+    "gobuster": 409,
+    "nikto": 167,
+    "tar": 163,
+    "powershell": 49,
+    "msfconsole": 39,
+    "hydra": 36,
+    "enum4linux": 33,
+    "masscan": 29,
+    "sqlmap": 22,
+    "whoami": 21,
+    "schtasks": 21,
+    "smbclient": 17,
+    "reg": 13,
+    "bash": 12,
+    "smbmap": 11,
+    "ping": 10
+  },
+  "mentor_calls_total": 2953,
+  "mentor_calls_by_phase": {
+    "recon": 65,
+    "enumeration": 1187,
+    "exploit": 1224,
+    "privesc": 123,
+    "exfiltrate": 354
+  },
+  "openai_fallback_calls": 250,
+  "teacher_override_count": 2953,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 3,
+  "ppo_updates": 64,
+  "discoveries_total": 0,
+  "checkpoints": [
+    "models/distilled/h200_20260221T022137Z_ep0002.pt",
+    "models/distilled/h200_20260221T022137Z_ep0004.pt",
+    "models/distilled/h200_20260221T022137Z_ep0006.pt",
+    "models/distilled/h200_20260221T022137Z_ep0010.pt",
+    "models/distilled/h200_20260221T022137Z_ep0014.pt",
+    "models/distilled/h200_20260221T022137Z_ep0018.pt",
+    "models/distilled/h200_20260221T022137Z_ep0023.pt",
+    "models/distilled/h200_20260221T022137Z_ep0036.pt",
+    "models/distilled/h200_20260221T022137Z_ep0050.pt",
+    "models/distilled/h200_20260221T022137Z_ep0064.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.0222,
+      "phase": "heavy",
+      "bc_coef": 0.14689,
+      "kl_coef": 0.14678,
+      "prior_alpha": 0.4889,
+      "episode": 0,
+      "mentor_calls": 54
+    },
+    {
+      "progress": 0.3615,
+      "phase": "medium",
+      "bc_coef": 0.09939,
+      "kl_coef": 0.09758,
+      "prior_alpha": 0.3192,
+      "episode": 6,
+      "mentor_calls": 116
+    },
+    {
+      "progress": 0.5038,
+      "phase": "medium",
+      "bc_coef": 0.07946,
+      "kl_coef": 0.07694,
+      "prior_alpha": 0.2481,
+      "episode": 12,
+      "mentor_calls": 75
+    },
+    {
+      "progress": 0.658,
+      "phase": "medium",
+      "bc_coef": 0.05788,
+      "kl_coef": 0.05459,
+      "prior_alpha": 0.171,
+      "episode": 18,
+      "mentor_calls": 75
+    },
+    {
+      "progress": 0.7618,
+      "phase": "light",
+      "bc_coef": 0.04334,
+      "kl_coef": 0.03953,
+      "prior_alpha": 0.1191,
+      "episode": 24,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.802,
+      "phase": "light",
+      "bc_coef": 0.03772,
+      "kl_coef": 0.03371,
+      "prior_alpha": 0.099,
+      "episode": 30,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.8387,
+      "phase": "light",
+      "bc_coef": 0.03258,
+      "kl_coef": 0.02839,
+      "prior_alpha": 0.0806,
+      "episode": 36,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.8749,
+      "phase": "light",
+      "bc_coef": 0.02751,
+      "kl_coef": 0.02314,
+      "prior_alpha": 0.0625,
+      "episode": 42,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.9123,
+      "phase": "light",
+      "bc_coef": 0.02228,
+      "kl_coef": 0.01772,
+      "prior_alpha": 0.0439,
+      "episode": 48,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.9484,
+      "phase": "light",
+      "bc_coef": 0.01722,
+      "kl_coef": 0.01248,
+      "prior_alpha": 0.0258,
+      "episode": 54,
+      "mentor_calls": 22
+    },
+    {
+      "progress": 0.9851,
+      "phase": "light",
+      "bc_coef": 0.01209,
+      "kl_coef": 0.00717,
+      "prior_alpha": 0.02,
+      "episode": 60,
+      "mentor_calls": 22
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 107,
+      "mentor": 107,
+      "rate": 1.0
+    },
+    {
+      "window": 1,
+      "total": 108,
+      "mentor": 108,
+      "rate": 1.0
+    },
+    {
+      "window": 2,
+      "total": 109,
+      "mentor": 109,
+      "rate": 1.0
+    },
+    {
+      "window": 3,
+      "total": 110,
+      "mentor": 110,
+      "rate": 1.0
+    },
+    {
+      "window": 4,
+      "total": 112,
+      "mentor": 112,
+      "rate": 1.0
+    },
+    {
+      "window": 5,
+      "total": 94,
+      "mentor": 92,
+      "rate": 0.979
+    },
+    {
+      "window": 6,
+      "total": 99,
+      "mentor": 99,
+      "rate": 1.0
+    },
+    {
+      "window": 7,
+      "total": 109,
+      "mentor": 109,
+      "rate": 1.0
+    },
+    {
+      "window": 8,
+      "total": 186,
+      "mentor": 112,
+      "rate": 0.602
+    },
+    {
+      "window": 9,
+      "total": 248,
+      "mentor": 124,
+      "rate": 0.5
+    },
+    {
+      "window": 10,
+      "total": 237,
+      "mentor": 119,
+      "rate": 0.502
+    },
+    {
+      "window": 11,
+      "total": 236,
+      "mentor": 118,
+      "rate": 0.5
+    },
+    {
+      "window": 12,
+      "total": 252,
+      "mentor": 126,
+      "rate": 0.5
+    },
+    {
+      "window": 13,
+      "total": 240,
+      "mentor": 120,
+      "rate": 0.5
+    },
+    {
+      "window": 14,
+      "total": 246,
+      "mentor": 123,
+      "rate": 0.5
+    },
+    {
+      "window": 15,
+      "total": 244,
+      "mentor": 122,
+      "rate": 0.5
+    },
+    {
+      "window": 16,
+      "total": 232,
+      "mentor": 116,
+      "rate": 0.5
+    },
+    {
+      "window": 17,
+      "total": 263,
+      "mentor": 132,
+      "rate": 0.502
+    },
+    {
+      "window": 18,
+      "total": 902,
+      "mentor": 133,
+      "rate": 0.147
+    },
+    {
+      "window": 19,
+      "total": 1015,
+      "mentor": 149,
+      "rate": 0.147
+    },
+    {
+      "window": 20,
+      "total": 1029,
+      "mentor": 151,
+      "rate": 0.147
+    },
+    {
+      "window": 21,
+      "total": 1019,
+      "mentor": 149,
+      "rate": 0.146
+    },
+    {
+      "window": 22,
+      "total": 1029,
+      "mentor": 151,
+      "rate": 0.147
+    },
+    {
+      "window": 23,
+      "total": 1022,
+      "mentor": 150,
+      "rate": 0.147
+    },
+    {
+      "window": 24,
+      "total": 80,
+      "mentor": 12,
+      "rate": 0.15
+    }
+  ],
+  "codex_calls": 250,
+  "codex_tokens": 150257,
+  "codex_cost_usd": 2.764764000000001,
+  "codex_escalation_reasons": {
+    "diversity_early": 86,
+    "hard_case_mid": 104,
+    "critical_stall": 60
+  }
+}
