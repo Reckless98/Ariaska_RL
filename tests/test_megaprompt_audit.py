@@ -255,11 +255,11 @@ class TestBudgetManagerConstraints:
 
     def test_total_budget(self):
         from core.llm.budget_manager import _TOTAL_BUDGET
-        assert _TOTAL_BUDGET == 1_493_504  # Phase 41: +30%
+        assert _TOTAL_BUDGET == 2_987_008  # Phase 42: 2x
 
     def test_min_budget(self):
         from core.llm.budget_manager import _MIN_BUDGET
-        assert _MIN_BUDGET == 746_752  # Phase 41: +30%
+        assert _MIN_BUDGET == 1_493_504  # Phase 42: 2x
 
     def test_min_budget_is_50pct(self):
         from core.llm.budget_manager import _TOTAL_BUDGET, _MIN_BUDGET
@@ -268,8 +268,8 @@ class TestBudgetManagerConstraints:
     def test_instance_default_budget(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        assert bm._total_budget == 1_493_504  # Phase 41: +30%
-        assert bm._max_budget == 1_493_504  # Phase 41: +30%
+        assert bm._total_budget == 2_987_008  # Phase 42: 2x
+        assert bm._max_budget == 2_987_008  # Phase 42: 2x
 
 
 # ═══════════════════════════════════════════════════════════════════════════

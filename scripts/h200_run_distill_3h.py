@@ -386,9 +386,9 @@ TRACES_DIR = Path("traces/h200_distill")
 DATA_DIR = Path("data/distill_prep")
 
 # Mentor anneal schedule (pct of runtime → behaviour)
-ANNEAL_HEAVY_END = 0.35    # 0–35%: query mentor every step (+30% more heavy phase)
-ANNEAL_MEDIUM_END = 0.75   # 35–75%: every 2 steps (was 3, +30% more queries)
-ANNEAL_LIGHT_STEPS = 7     # 75–100%: every N steps (was 10, +30% more queries)
+ANNEAL_HEAVY_END = 0.50    # Phase 42: 0–50%: query mentor every step (was 35%, +43% more heavy)
+ANNEAL_MEDIUM_END = 0.85   # Phase 42: 50–85%: every 2 steps (was 75%)
+ANNEAL_LIGHT_STEPS = 5     # Phase 42: 85–100%: every N steps (was 7, more light queries)
 
 # Distillation coefficients (decay with anneal)
 BC_COEF_MAX = 0.15
@@ -479,7 +479,7 @@ class RunMetrics:
     codex_calls: int = 0
     codex_tokens: int = 0
     codex_cost_usd: float = 0.0
-    codex_budget_usd: float = 7.28
+    codex_budget_usd: float = 14.56  # Phase 42: 2x
     codex_successes: int = 0
     codex_escalation_reasons: Dict[str, int] = field(default_factory=dict)
 
@@ -746,8 +746,8 @@ class LocalMentorClient:
 # Codex pricing estimates (per 1K tokens)
 _CODEX_INPUT_COST_PER_1K = 0.012   # gpt-5.2-codex input
 _CODEX_OUTPUT_COST_PER_1K = 0.036  # gpt-5.2-codex output
-_CODEX_BUDGET_USD = 7.28           # +30% from $5.60 to accelerate GPU learning
-_CODEX_MAX_CALLS = 1040            # +30% from 800 — more teacher signal
+_CODEX_BUDGET_USD = 14.56          # Phase 42: 2x from $7.28 — doubled teacher signal
+_CODEX_MAX_CALLS = 2080            # Phase 42: 2x from 1040 — doubled mentor calls
 
 
 class CodexEscalationPolicy:

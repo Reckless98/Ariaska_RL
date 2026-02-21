@@ -480,9 +480,8 @@ class GRPOTrainer:
                     action_idx, log_prob, _ = self._ppo.select_action(state_tensor)
 
                 command = self._action_to_command(action_idx, state)
-                next_state, base_reward, done, info = self._env.step(
-                    {"command": command, "agent_id": "grpo_trainer"}
-                )
+                # Phase 42 fix: pass string directly — dict has no handler in step()
+                next_state, base_reward, done, info = self._env.step(command)
 
                 reward = self._compute_reward(
                     base_reward, state, next_state, command, info, step,

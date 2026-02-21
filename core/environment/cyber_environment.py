@@ -727,6 +727,13 @@ class CyberEnvironment:
             
             state = self.get_global_state()
             
+            # Phase 42: Normalize discovery key — env uses "new_discoveries" internally,
+            # but all training scripts expect "discoveries". Translate here once.
+            if "new_discoveries" in info:
+                info["discoveries"] = info["new_discoveries"]
+            elif "discoveries" not in info:
+                info["discoveries"] = []
+            
             return state, reward, self.done, info
             
         except Exception as e:
@@ -1215,7 +1222,7 @@ class CyberEnvironment:
         Process exploit commands like metasploit, sqlmap, etc.
         Updates exploited vulnerabilities and returns reward.
         """
-        info = {"command_type": "exploit", "success": False}
+        info = {"command_type": "exploit", "success": False, "new_discoveries": []}
         reward = 0.0
         
         if not self.discovered_vulnerabilities:
@@ -1322,6 +1329,7 @@ class CyberEnvironment:
                 reward = 14.0
                 info["success"] = True
                 info["message"] = "Exploit successful! User access gained."
+                info["new_discoveries"].extend(["credential", "shell"])
                 
                 self.phase_progress["exploit"] += 1
                 
@@ -1344,7 +1352,7 @@ class CyberEnvironment:
         Process privilege escalation commands.
         Updates privilege level and returns reward.
         """
-        info = {"command_type": "privesc", "success": False}
+        info = {"command_type": "privesc", "success": False, "new_discoveries": []}
         reward = 0.0
         
         if self.privilege_level == "none":
@@ -1366,6 +1374,7 @@ class CyberEnvironment:
                     self.privilege_level = "root"
                     info["success"] = True
                     info["message"] = "Privilege escalation successful! Root access gained."
+                    info["new_discoveries"].append("root_shell")
                     reward = 28.0
                     
                     self.phase_progress["privesc"] += 1
@@ -1415,6 +1424,7 @@ class CyberEnvironment:
                     self.privilege_level = "root"
                     info["success"] = True
                     info["message"] = "Privilege escalation successful! Root access gained."
+                    info["new_discoveries"].append("root_shell")
                     reward = 28.0
                     
                     self.phase_progress["privesc"] += 1
@@ -1432,6 +1442,7 @@ class CyberEnvironment:
                     self.privilege_level = "root"
                     info["success"] = True
                     info["message"] = "Privilege escalation successful through blind attempt! Root access gained."
+                    info["new_discoveries"].append("root_shell")
                     reward = 35.0
                     
                     self.phase_progress["privesc"] += 1
@@ -1450,7 +1461,7 @@ class CyberEnvironment:
         Process data exfiltration commands.
         Updates data_exfiltrated status and returns reward.
         """
-        info = {"command_type": "exfil", "success": False}
+        info = {"command_type": "exfil", "success": False, "new_discoveries": []}
         reward = 0.0
         
         if self.privilege_level == "none":
