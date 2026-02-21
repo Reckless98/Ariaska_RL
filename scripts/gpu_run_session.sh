@@ -186,9 +186,12 @@ try:
     print(f"# First half avg: {first_half:.2f}, Second half avg: {second_half:.2f}", file=sys.stderr)
     print(f"# Improvement: {improvement:+.2f}", file=sys.stderr)
 
-    if improvement < 1.0:
-        # Plateaued → switch to GRPO for fresh gradient signal
-        print("grpo")
+    if improvement < 0.5:
+        # Hard plateau → full 2h GRPO for fresh gradient signal
+        print("grpo_full")
+    elif improvement < 2.0:
+        # Mild plateau → split 1h distill + 1h GRPO
+        print("split")
     else:
         # Still improving → more distill
         print("distill")
@@ -202,11 +205,11 @@ echo "  Decision: $DECISION"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# STAGE 3: 2h more (distill or GRPO based on decision)
+# STAGE 3: 2h more (distill / split / GRPO based on decision)
 # ═══════════════════════════════════════════════════════════════
-if [ "$DECISION" = "grpo" ]; then
+if [ "$DECISION" = "grpo_full" ]; then
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  STAGE 3: GRPO Training (2h) — reward plateaued"
+    echo "  STAGE 3: GRPO Training (2h) — reward hard-plateaued"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  Group size: 4, KL coef: 0.04, LR: 1e-4"
     echo "  Auto-loading best checkpoint from Stage 2"
@@ -220,6 +223,37 @@ if [ "$DECISION" = "grpo" ]; then
         --reward-weights "format=2.0,code=1.5,math=1.5,reasoning=0.5" \
         --checkpoint-every 600 \
         2>&1 | tee "$LOG_DIR/stage3_grpo_2h.log"
+
+elif [ "$DECISION" = "split" ]; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  STAGE 3a: Distill (1h) — mild plateau, squeezing more"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    python -m scripts.h200_run_distill_3h \
+        --seed 1337 \
+        --max-hours 1 \
+        --max-episodes 250 \
+        --checkpoint-every 10m \
+        --reward-weights "format=2.0,code=1.5,math=1.5,reasoning=0.5" \
+        $MENTOR_FLAG \
+        2>&1 | tee "$LOG_DIR/stage3a_distill_1h.log"
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  STAGE 3b: GRPO (1h) — switching after distill squeeze"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    python -m scripts.train_grpo \
+        --seed 42 \
+        --max-hours 1 \
+        --group-size 4 \
+        --learning-rate 1e-4 \
+        --reward-weights "format=2.0,code=1.5,math=1.5,reasoning=0.5" \
+        --checkpoint-every 600 \
+        2>&1 | tee "$LOG_DIR/stage3b_grpo_1h.log"
+
 else
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  STAGE 3: More Distillation (2h) — still improving"
