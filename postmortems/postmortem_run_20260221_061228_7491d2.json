@@ -1,0 +1,133 @@
+{
+  "run_id": "run_20260221_061228_7491d2",
+  "timestamp": 1771650768.04356,
+  "key_outcomes": {
+    "wins": [
+      "Achieved moderate total reward (70) indicating some effective actions despite failure to complete objective",
+      "Maintained consistent reward trend across the single episode"
+    ],
+    "fails": [
+      "Zero success rate across the run indicates failure to reach terminal objective",
+      "High mentor calls (10) suggest reliance on guidance and possible uncertainty in decision points"
+    ],
+    "summary": "The run shows partial progress but failed to achieve mission success; guidance dependence and missed terminal objectives are the primary gaps."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance findings into a successful objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step18"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery identifies at least one live target",
+      "then_action": "Run targeted full TCP scan with service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sC -sV -p- --min-rate 1000"
+      },
+      "confidence": 0.77,
+      "evidence_refs": [
+        "ep001_step5",
+        "ep001_step7"
+      ],
+      "created_at": 1771650779.3005927,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service (HTTP/HTTPS) is detected",
+      "then_action": "Perform web content discovery and tech fingerprinting",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://TARGET -w /usr/share/wordlists/dirb/common.txt -t 50"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1771650779.3006046,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB port 445 is open",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tool": "enum4linux-ng",
+        "args": "-A TARGET"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step11"
+      ],
+      "created_at": 1771650779.3006132,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early recon step that supports downstream actions"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a high-yield pathway frequently applicable to objectives"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-exploit decision checkpoints",
+      "description": "Introduce explicit checkpoints after enumeration to choose exploit paths based on highest-confidence findings (e.g., known CVEs vs. misconfigurations).",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Run with a strict mentor-call budget (<=3) and log decision rationale to strengthen autonomous progression.",
+      "priority": "high"
+    },
+    {
+      "title": "Service-specific playbooks",
+      "description": "Create mini playbooks per detected service (SSH, HTTP, SMB) to ensure enumeration depth before pivoting.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
