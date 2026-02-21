@@ -1,0 +1,27 @@
+{
+  "schema_version": "3.0.0",
+  "generated_at": "2026-02-21T19:17:10.798610+00:00",
+  "record_counts": {
+    "knowledge": 107936,
+    "teacher_step": 2878,
+    "step": 37383,
+    "learned_command": 931,
+    "scenario": 9
+  },
+  "source_counts": {
+    "knowledge_v2": 107936,
+    "teacher_gen": 2878,
+    "gpu_distill": 37383,
+    "learned_runtime": 931,
+    "scenario_gen": 9
+  },
+  "phase_counts": {
+    "RECON": 24329,
+    "ENUMERATION": 1,
+    "EXPLOITATION": 81250,
+    "PRIVILEGE_ESCALATION": 1685,
+    "LATERAL_MOVEMENT": 127,
+    "POST_EXPLOITATION": 118,
+    "EXFILTRATION": 426
+  }
+}

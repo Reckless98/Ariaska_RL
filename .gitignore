@@ -50,6 +50,19 @@ db.sqlite
 !models/distilled/*.pt
 !models/distilled/**
 
+# Exception: allow unified checkpoints + unified data to be tracked
+!models/unified/*.pt
+!models/unified/**
+# Unified data: track manifest, indices, small files; exclude large JSONL
+!data/unified/manifest.json
+!data/unified/indices/**
+!data/unified/scenarios/**
+!data/unified/learned_commands/**
+# Knowledge and GPU traces are too large for git (sync via rsync)
+data/unified/knowledge/
+data/unified/gpu_runs/
+data/unified/trajectories/
+
 # Phase 43: Large LLM model files (never commit)
 *.gguf
 *.awq

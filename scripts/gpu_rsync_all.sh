@@ -40,6 +40,7 @@ mkdir -p "${LOCAL_ROOT}/data/vector_memory"
 mkdir -p "${LOCAL_ROOT}/data/chains"
 mkdir -p "${LOCAL_ROOT}/data/distill_prep"
 mkdir -p "${LOCAL_ROOT}/data/expert_trajectories"
+mkdir -p "${LOCAL_ROOT}/data/unified"
 mkdir -p "${LOCAL_ROOT}/chroma_storage"
 mkdir -p "${LOCAL_ROOT}/core/memory"
 mkdir -p "${LOCAL_ROOT}/core/memories"
@@ -218,6 +219,11 @@ while true; do
         "${GPU_ROOT}/data/expert_trajectories/" \
         "${LOCAL_ROOT}/data/expert_trajectories/"
 
+    # 5d) Unified data (converted training data in canonical format)
+    sync_dir "unified_data" \
+        "${GPU_ROOT}/data/unified/" \
+        "${LOCAL_ROOT}/data/unified/"
+
     # ──────────────────────────────────────────────────────────
     # SECTION 6: TRAINING LOGS
     # ──────────────────────────────────────────────────────────
@@ -255,7 +261,8 @@ while true; do
              "${LOCAL_ROOT}/chroma_storage" \
              "${LOCAL_ROOT}/data/chains" \
              "${LOCAL_ROOT}/data/distill_prep" \
-             "${LOCAL_ROOT}/data/expert_trajectories"; do
+             "${LOCAL_ROOT}/data/expert_trajectories" \
+             "${LOCAL_ROOT}/data/unified"; do
         [[ -d "$d" ]] && [[ "$(ls -A "$d" 2>/dev/null)" ]] && LOCAL_INTEL_DIRS=$((LOCAL_INTEL_DIRS + 1))
     done
 
@@ -267,7 +274,7 @@ while true; do
     log "  ║ Results:     ${LOCAL_RESULTS} JSON reports"
     log "  ║ Postmortems: ${LOCAL_POSTMORTEMS} files"
     log "  ║ Intel files: ${LOCAL_INTEL}/8 synced"
-    log "  ║ Intel dirs:  ${LOCAL_INTEL_DIRS}/7 populated"
+    log "  ║ Intel dirs:  ${LOCAL_INTEL_DIRS}/8 populated"
     log "  ╚══════════════════════════════════════════╝"
 
     log "=== Cycle ${CYCLE} complete. Sleeping ${INTERVAL}s ==="

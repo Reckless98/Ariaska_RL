@@ -2512,14 +2512,47 @@ class H200DistillationRunner:
     # ── Trace logging ────────────────────────────────────────────
 
     def _log_trace(self, record: Dict[str, Any]) -> None:
-        """Append a JSONL trace record."""
+        """Append a JSONL trace record wrapped in unified envelope.
+
+        Each record is wrapped via ``unified_data_schema.wrap_record`` so
+        that raw trace files are already in unified format — no post-hoc
+        conversion needed for new runs.
+        """
         if self._trace_path is None:
             return
         try:
+            from scripts.unified_data_schema import wrap_record as _wrap
+
+            kind = record.get("kind", "step")
+            phase = record.get("phase", record.get("max_phase", ""))
+            ts = record.get("timestamp")
+            if isinstance(ts, (int, float)):
+                from datetime import datetime, timezone
+                ts = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            elif ts is None:
+                from datetime import datetime, timezone
+                ts = datetime.now(tz=timezone.utc).isoformat()
+            else:
+                ts = str(ts)
+
+            envelope = _wrap(
+                kind=kind,
+                source="gpu_distill",
+                data=record,
+                run_id=self._run_id,
+                phase=phase,
+                timestamp=ts,
+            ).to_dict()
+
             with open(self._trace_path, "a") as f:
-                f.write(json.dumps(record, default=str) + "\n")
+                f.write(json.dumps(envelope, default=str, separators=(",", ":")) + "\n")
         except Exception:
-            pass
+            # Fall back to raw write if envelope fails
+            try:
+                with open(self._trace_path, "a") as f:
+                    f.write(json.dumps(record, default=str) + "\n")
+            except Exception:
+                pass
 
     # ── Single episode ───────────────────────────────────────────
 
@@ -3031,7 +3064,24 @@ class H200DistillationRunner:
         self._save_report()
         self._print_report()
 
+        # Post-training: convert this run's traces to unified format
+        self._post_convert_traces()
+
         return self.metrics
+
+    def _post_convert_traces(self) -> None:
+        """Convert this run's raw trace to unified format after training."""
+        if self._trace_path is None or not Path(self._trace_path).exists():
+            return
+        try:
+            from scripts.unify_training_data import convert_single_gpu_run
+            out = convert_single_gpu_run(
+                Path(self._trace_path), run_id=self._run_id,
+            )
+            if out:
+                console.print(f"[green]✓ Unified trace:[/green] {out}")
+        except Exception as exc:
+            logger.warning("Post-convert failed: %s", exc)
 
     # ── Reporting ────────────────────────────────────────────────
 

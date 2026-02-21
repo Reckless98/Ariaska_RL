@@ -246,8 +246,11 @@ class PPOActorCritic(nn.Module):
             ])
             # Small init so gates start near-zero (don't disrupt base actor)
             for gate in self.phase_gates:
-                nn.init.zeros_(gate[-1].weight)
-                nn.init.zeros_(gate[-1].bias)
+                assert isinstance(gate, nn.Sequential)
+                last_layer = gate[-1]
+                assert isinstance(last_layer, nn.Linear)
+                nn.init.zeros_(last_layer.weight)
+                nn.init.zeros_(last_layer.bias)
 
         # Initialize with orthogonal initialization (PPO standard)
         self._init_weights()
@@ -266,9 +269,13 @@ class PPOActorCritic(nn.Module):
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
         # Actor output layer: smaller gain for initial exploration
-        nn.init.orthogonal_(self.actor[-1].weight, gain=0.01)
+        actor_last = self.actor[-1]
+        assert isinstance(actor_last, nn.Linear)
+        nn.init.orthogonal_(actor_last.weight, gain=0.01)
         # Critic output layer: unit gain
-        nn.init.orthogonal_(self.critic[-1].weight, gain=1.0)
+        critic_last = self.critic[-1]
+        assert isinstance(critic_last, nn.Linear)
+        nn.init.orthogonal_(critic_last.weight, gain=1.0)
 
     @staticmethod
     def _extract_phase_group(state: torch.Tensor) -> torch.Tensor:
@@ -910,9 +917,9 @@ class PPOAgent:
 
         self.network.train()
         return (
-            action.item(),
-            log_prob.item(),
-            value.item(),
+            int(action.item()),
+            float(log_prob.item()),
+            float(value.item()),
         )
 
     def propose_action(

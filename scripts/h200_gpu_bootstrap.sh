@@ -174,27 +174,33 @@ fi
 
 # ── Phase 7: Auto-sync to GitHub ────────────────────────────────
 echo ""
-echo "[Phase 7] Setting up auto-sync..."
+echo "[Phase 7] Setting up auto-sync (full intelligence push)..."
 
 cd "$REPO_DIR"
 git config user.email "ariaska-gpu@runner"
 git config user.name "Ariaska GPU Runner"
 
-cat > /root/ariaska_autopush.sh << 'SYNCEOF'
+# Use the comprehensive autopush script from the repo
+AUTOPUSH_SCRIPT="${REPO_DIR}/scripts/gpu_autopush_full.sh"
+if [[ ! -f "$AUTOPUSH_SCRIPT" ]]; then
+    echo "  ⚠ gpu_autopush_full.sh not found, creating fallback..."
+    AUTOPUSH_SCRIPT="/root/ariaska_autopush.sh"
+    cat > "$AUTOPUSH_SCRIPT" << 'SYNCEOF'
 #!/usr/bin/env bash
 set -euo pipefail
 cd /root/Ariaska_RL
-git add -A models/distilled/ results/h200_distill/ results/grpo_train/ traces/h200_distill/ traces/grpo_train/ data/distill_prep/ data/expert_trajectories/ logs/gpu_session_* scripts/h200_run_distill_3h.py 2>/dev/null || true
-git diff --cached --quiet && exit 0  # Nothing to commit
-git commit -m "gpu-sync: $(date -u +%Y%m%dT%H%M%SZ) — distill+grpo checkpoints" --allow-empty >/dev/null 2>&1 || true
+git add -A models/distilled/ models/unified/ results/h200_distill/ results/grpo_train/ traces/h200_distill/ traces/grpo_train/ data/distill_prep/ data/expert_trajectories/ data/unified/ data/learned_commands.json logs/gpu_session_* postmortems/ reports/ config/ scripts/h200_run_distill_3h.py scripts/unified_data_schema.py scripts/unify_training_data.py 2>/dev/null || true
+git diff --cached --quiet && exit 0
+git commit -m "gpu-sync: $(date -u +%Y%m%dT%H%M%SZ) — full intelligence push" --allow-empty >/dev/null 2>&1 || true
 git push origin master >/dev/null 2>&1 || echo "[SYNC] push failed (will retry)"
 SYNCEOF
-chmod +x /root/ariaska_autopush.sh
+    chmod +x "$AUTOPUSH_SCRIPT"
+fi
 
 tmux kill-session -t sync 2>/dev/null || true
 tmux new-session -d -s sync
-tmux send-keys -t sync "while true; do /root/ariaska_autopush.sh; sleep 600; done" C-m
-echo "  ✓ Auto-sync loop started (tmux: sync, every 10 min)"
+tmux send-keys -t sync "while true; do bash ${AUTOPUSH_SCRIPT}; sleep 600; done" C-m
+echo "  ✓ Auto-sync loop started (tmux: sync, every 10 min, full intelligence)"
 
 # ── Summary ─────────────────────────────────────────────────────
 echo ""

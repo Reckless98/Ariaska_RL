@@ -16,7 +16,8 @@
         ariaska gpu gpu-setup gpu-quick gpu-ctf gpu-htb gpu-sync gpu-status \
         gpu-shell gpu-model gpu-restart-llm \
         gpu-distill gpu-distill-finetune gpu-grpo gpu-grpo-large gpu-session \
-        eval-baseline eval-after eval-compare
+        eval-baseline eval-after eval-compare \
+        unify-all unify-validate unify-stats sync-local
 
 PYTHON := .venv/bin/python
 PIP := .venv/bin/pip
@@ -81,6 +82,12 @@ help:
 	@echo "    make last                           View last training run"
 	@echo "    make traces                         List recent trace files"
 	@echo "    make clean                          Remove temp files + caches"
+	@echo ""
+	@echo "  DATA PIPELINE"
+	@echo "    make unify-all                      Convert all data to unified format"
+	@echo "    make unify-validate                 Validate unified data"
+	@echo "    make unify-stats                    Show unified data statistics"
+	@echo "    make sync-local                     Start local↔GPU sync loop"
 	@echo ""
 
 # ── Virtual Environment ──────────────────────────────────────────────
@@ -349,6 +356,25 @@ distill-prep-summary:
 	@echo "▶ Summarizing distill prep artifacts..."
 	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.distill_prep.summarize_artifacts
 	@echo "✓ Summary complete"
+
+# ── Unified Data Pipeline ────────────────────────────────────────────
+unify-all:
+	@echo "▶ Converting ALL training data to unified format..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.unify_training_data convert-all
+	@echo "✓ Unified data conversion complete"
+
+unify-validate:
+	@echo "▶ Validating unified data..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.unify_training_data validate
+	@echo "✓ Validation complete"
+
+unify-stats:
+	@echo "▶ Unified data statistics..."
+	PYTHONPATH="$$(pwd)" $(PYTHON) -m scripts.unify_training_data stats
+
+sync-local:
+	@echo "▶ Starting local sync loop (foreground, Ctrl-C to stop)..."
+	bash scripts/local_sync_loop.sh
 
 # ── Traces ───────────────────────────────────────────────────────────
 traces:
