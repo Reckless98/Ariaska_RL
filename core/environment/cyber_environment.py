@@ -667,7 +667,7 @@ class CyberEnvironment:
                 
             # --- Process Action ---
             reward = 0
-            info = {}
+            info: Dict[str, Any] = {}
             
             if isinstance(action, str):
                 # Process string command

@@ -3929,7 +3929,14 @@ class SmartOrchestrator:
                         except Exception:
                             pass
 
-        # ── 5. Summary ───────────────────────────────────────────────
+        # ── 5. Restore agent brain weights ────────────────────────────
+        if ckpt.agent_states:
+            brains_loaded = ckpt.apply_agent_brains(self.coaches)
+            loaded_total += brains_loaded
+            if brains_loaded:
+                logger.info("[AUTOLOAD] Restored %d agent brain(s)", brains_loaded)
+
+        # ── 6. Summary ───────────────────────────────────────────────
         if console and loaded_total > 0:
             console.print(
                 f"[green]✔ Unified checkpoint loaded — {loaded_total} algorithms[/green]"

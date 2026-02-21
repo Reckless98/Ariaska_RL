@@ -213,6 +213,9 @@ class UnifiedCheckpoint:
     def apply_ppo(self, ppo_agent: Any) -> bool:
         """Load PPO state into a live ``PPOAgent`` instance.
 
+        Uses ``PPOAgent.load_from_state_dict()`` for direct in-memory
+        loading without temp files.
+
         Returns True on success, False if no PPO state is available or
         loading failed.
         """
@@ -221,26 +224,9 @@ class UnifiedCheckpoint:
         try:
             ppo_agent.load_from_state_dict(self.ppo_state)
             return True
-        except AttributeError:
-            # Fallback: write to temp file, use existing .load()
-            pass
-
-        # Fallback: use the PPOAgent's native load via temp file
-        import tempfile
-        import torch
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-                torch.save(self.ppo_state, f.name)
-                ppo_agent.load(f.name)
-            return True
         except Exception as e:
             logger.warning("Failed to apply PPO state: %s", e)
             return False
-        finally:
-            try:
-                os.unlink(f.name)
-            except Exception:
-                pass
 
     def apply_ddqn(self, ddqn_macro: Any, agent_name: str) -> bool:
         """Load DDQN state for *agent_name* into a live ``DDQNMacro``."""
@@ -255,24 +241,65 @@ class UnifiedCheckpoint:
             return False
 
     def apply_sac(self, sac_agent: Any) -> bool:
-        """Load SAC state into a live ``SACAgent``."""
+        """Load SAC state into a live ``SACAgent``.
+
+        SAC doesn't have ``load_from_state_dict`` yet, so we use a temp
+        file round-trip via its native ``load()``.
+        """
         if self.sac_state is None:
             return False
         import tempfile
         import torch
+        tmp = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-                torch.save(self.sac_state, f.name)
-                sac_agent.load(f.name)
+                tmp = f.name
+                torch.save(self.sac_state, tmp)
+            sac_agent.load(tmp)
             return True
         except Exception as e:
             logger.warning("Failed to apply SAC state: %s", e)
             return False
         finally:
-            try:
-                os.unlink(f.name)
-            except Exception:
-                pass
+            if tmp:
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass
+
+    def apply_agent_brains(self, coaches: Dict[str, Any]) -> int:
+        """Restore per-agent brain network weights from ``agent_states``.
+
+        Returns:
+            Number of agents whose brain weights were restored.
+        """
+        if not self.agent_states:
+            return 0
+
+        restored = 0
+        for name, brain_state in self.agent_states.items():
+            coach = coaches.get(name)
+            if coach is None:
+                continue
+            agent = getattr(coach, "agent", None)
+            if agent is None:
+                continue
+
+            brain = getattr(agent, "brain", None)
+            if brain is not None:
+                if "policy_network_state" in brain_state and hasattr(brain, "policy_network"):
+                    try:
+                        brain.policy_network.load_state_dict(brain_state["policy_network_state"])
+                        restored += 1
+                    except Exception as e:
+                        logger.warning("Failed to restore %s brain policy: %s", name, e)
+                if "value_network_state" in brain_state and hasattr(brain, "value_network"):
+                    try:
+                        brain.value_network.load_state_dict(brain_state["value_network_state"])
+                    except Exception as e:
+                        logger.warning("Failed to restore %s brain value: %s", name, e)
+
+        return restored
 
     # ── Convenience builders ──────────────────────────────────────────
 
@@ -285,18 +312,12 @@ class UnifiedCheckpoint:
         source: str = "local_train",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> "UnifiedCheckpoint":
-        """Capture current PPO state without saving to disk yet."""
-        import tempfile
-        import torch
+        """Capture current PPO state without saving to disk.
 
-        # PPOAgent.save() writes to file — capture via temp
-        with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-            tmp = f.name
-        try:
-            ppo_agent.save(tmp)
-            state = torch.load(tmp, map_location="cpu", weights_only=False)
-        finally:
-            os.unlink(tmp)
+        Builds the state dict directly from PPO internals instead of
+        round-tripping through ``save()`` + ``torch.load()``.
+        """
+        state = _capture_ppo_state(ppo_agent)
 
         return cls(
             run_id=run_id,
@@ -318,12 +339,9 @@ class UnifiedCheckpoint:
         """Capture ALL algorithm states from all SmartCoach instances.
 
         This is the canonical way to save a complete snapshot of the
-        local orchestrator.  It grabs PPO, DDQN, and SAC from every
-        coach so that reloading reproduces the exact same state.
+        local orchestrator.  It grabs PPO, DDQN, SAC, and agent brain
+        states so that reloading reproduces the exact same state.
         """
-        import tempfile
-        import torch
-
         ppo_state: Optional[Dict[str, Any]] = None
         ddqn_states: Dict[str, Dict[str, Any]] = {}
         sac_state: Optional[Dict[str, Any]] = None
@@ -332,13 +350,7 @@ class UnifiedCheckpoint:
         for name, coach in coaches.items():
             # PPO — all coaches share the same PPO, capture once
             if ppo_state is None and hasattr(coach, "ppo_agent") and coach.ppo_agent is not None:
-                with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-                    tmp = f.name
-                try:
-                    coach.ppo_agent.save(tmp)
-                    ppo_state = torch.load(tmp, map_location="cpu", weights_only=False)
-                finally:
-                    os.unlink(tmp)
+                ppo_state = _capture_ppo_state(coach.ppo_agent)
 
             # DDQN — per-agent
             if hasattr(coach, "ddqn_macro") and coach.ddqn_macro is not None:
@@ -349,13 +361,14 @@ class UnifiedCheckpoint:
 
             # SAC — capture once
             if sac_state is None and hasattr(coach, "sac_agent") and coach.sac_agent is not None:
-                with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-                    tmp = f.name
-                try:
-                    coach.sac_agent.save(tmp)
-                    sac_state = torch.load(tmp, map_location="cpu", weights_only=False)
-                finally:
-                    os.unlink(tmp)
+                sac_state = _capture_sac_state(coach.sac_agent)
+
+            # Agent brain state — capture per-agent network weights
+            agent = getattr(coach, "agent", None)
+            if agent is not None:
+                brain_state = _capture_agent_brain(agent)
+                if brain_state:
+                    agent_states[name] = brain_state
 
         return cls(
             run_id=run_id,
@@ -537,6 +550,123 @@ def migrate_directory(
 
 
 # ── Private helpers ───────────────────────────────────────────────────────
+
+
+def _capture_ppo_state(ppo_agent: Any) -> Dict[str, Any]:
+    """Build PPO state dict directly from agent internals.
+
+    Mirrors ``PPOAgent.save()`` but returns the dict instead of
+    writing to disk — avoids temp-file round-trips entirely.
+    """
+    import torch
+
+    state: Dict[str, Any] = {
+        "network_state_dict": ppo_agent.network.state_dict(),
+        "optimizer_state_dict": ppo_agent.optimizer.state_dict(),
+        "scheduler_state_dict": ppo_agent.lr_scheduler.state_dict(),
+        "total_steps": ppo_agent.total_steps,
+        "updates_done": ppo_agent.updates_done,
+        "entropy_coef": ppo_agent.entropy_coef,
+        "config": ppo_agent.config,
+        "training_metrics": ppo_agent.training_metrics,
+    }
+
+    # Phase 6: reward normalisation
+    state["reward_norm"] = {
+        "mean": ppo_agent._reward_mean,
+        "var": ppo_agent._reward_var,
+        "count": ppo_agent._reward_count,
+        "return_mean": ppo_agent._return_mean,
+        "return_var": ppo_agent._return_var,
+        "return_count": ppo_agent._return_count,
+    }
+
+    # R58 Layer 2c: adaptive entropy
+    state["adaptive_entropy"] = {
+        "multiplier": ppo_agent._entropy_adaptive_multiplier,
+        "consecutive_closeouts": ppo_agent._consecutive_closeouts,
+        "consecutive_failures": ppo_agent._consecutive_failures,
+    }
+
+    # R68: phase gates
+    state["has_phase_gates"] = getattr(ppo_agent.network, "has_phase_gates", False)
+
+    # R70: SIL buffer
+    state["sil_baseline"] = ppo_agent.sil_buffer._return_baseline
+    state["sil_count"] = ppo_agent.sil_buffer._return_count
+
+    # R71: symlog + cosine entropy
+    state["use_symlog"] = ppo_agent.config.use_symlog
+    state["use_cosine_entropy"] = ppo_agent.config.use_cosine_entropy
+
+    # R75: EMA network
+    state["ema_network_state"] = (
+        ppo_agent.ema_network.state_dict() if ppo_agent.ema_network else None
+    )
+
+    # R80: adaptive clip + entropy rebound
+    state["clip_epsilon_current"] = ppo_agent.config.clip_epsilon
+    state["clip_fraction_history"] = ppo_agent._clip_fraction_history
+    state["entropy_below_count"] = ppo_agent._entropy_below_count
+
+    return state
+
+
+def _capture_sac_state(sac_agent: Any) -> Optional[Dict[str, Any]]:
+    """Capture SAC state via temp file (SAC has no direct state_dict API)."""
+    import tempfile
+    import torch
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
+            tmp = f.name
+        sac_agent.save(tmp)
+        state = torch.load(tmp, map_location="cpu", weights_only=False)
+        return state
+    except Exception as e:
+        logger.warning("Failed to capture SAC state: %s", e)
+        return None
+    finally:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+
+
+def _capture_agent_brain(agent: Any) -> Optional[Dict[str, Any]]:
+    """Capture agent brain network weights if available.
+
+    Agents like RedAgent store ``policy_network_state`` and
+    ``value_network_state`` for their brain networks.
+    """
+    brain_state: Dict[str, Any] = {}
+
+    # RedAgent brain pattern
+    brain = getattr(agent, "brain", None)
+    if brain is not None:
+        if hasattr(brain, "policy_network") and brain.policy_network is not None:
+            try:
+                brain_state["policy_network_state"] = brain.policy_network.state_dict()
+            except Exception:
+                pass
+        if hasattr(brain, "value_network") and brain.value_network is not None:
+            try:
+                brain_state["value_network_state"] = brain.value_network.state_dict()
+            except Exception:
+                pass
+
+    # Direct agent pattern (policy_net / value_net on agent itself)
+    if not brain_state:
+        for attr in ("policy_net", "policy_network", "value_net", "value_network"):
+            net = getattr(agent, attr, None)
+            if net is not None and hasattr(net, "state_dict"):
+                try:
+                    brain_state[f"{attr}_state"] = net.state_dict()
+                except Exception:
+                    pass
+
+    return brain_state if brain_state else None
+
 
 def _extract_run_ep(path: Path) -> tuple[str, int]:
     """Extract run_id and episode from filename patterns."""
