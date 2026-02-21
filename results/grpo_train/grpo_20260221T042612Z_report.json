@@ -1,0 +1,18 @@
+{
+  "episodes_completed": 2,
+  "total_steps": 80,
+  "total_updates": 2,
+  "wall_hours": 0.0006577183140648736,
+  "avg_group_reward": -5.859375,
+  "avg_advantage_std": 0.30974902633943124,
+  "best_episode_reward": -5.125,
+  "avg_kl_divergence": 1.0917374074459074,
+  "checkpoints_saved": 0,
+  "reward_history": [
+    -5.96875,
+    -5.75
+  ],
+  "phase_distribution": {
+    "recon": 8
+  }
+}
