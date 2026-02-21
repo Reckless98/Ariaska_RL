@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260221_014530_2a4f18",
+  "timestamp": 1771634745.3614085,
+  "key_outcomes": {
+    "wins": [
+      "Achieved a positive total reward (60.00), indicating some effective actions despite no episode success",
+      "Completed a full episode without termination, enabling end-to-end data for analysis"
+    ],
+    "fails": [
+      "Success rate 0.00% across 1 episode",
+      "High mentor reliance (10 calls) suggesting low agent autonomy"
+    ],
+    "summary": "The run shows partial progress with positive reward but no successful episode completion and heavy mentor dependence."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful episode outcome",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is first discovered",
+      "then_action": "Run fast TCP port discovery scan to identify open services",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sS -T4 -Pn --min-rate 1000 -p- <TARGET>"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771634760.4529834,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When open TCP ports are identified",
+      "then_action": "Run service/version detection with default scripts on discovered ports",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -Pn -p <PORTS> <TARGET>"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771634760.4529963,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When HTTP/HTTPS services are detected",
+      "then_action": "Enumerate web surface using directory and technology discovery",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "args": [
+          "whatweb -v http://<TARGET>:<PORT>",
+          "gobuster dir -u http://<TARGET>:<PORT> -w /usr/share/wordlists/dirb/common.txt -t 30"
+        ]
+      },
+      "confidence": 0.54,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771634760.4530072,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Establishes a repeatable reconnaissance baseline to improve early-stage effectiveness"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Add an autonomous decision policy to select between scan/enumeration steps without mentor calls for the first 5 actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Success-path validation",
+      "description": "Instrument logging to track whether service identification leads to exploitation attempts within 5 steps of discovery.",
+      "priority": "high"
+    },
+    {
+      "title": "Adaptive enumeration depth",
+      "description": "Compare shallow vs. deep enumeration (e.g., nmap -sC/-sV only vs. plus targeted scripts) to see which yields faster success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

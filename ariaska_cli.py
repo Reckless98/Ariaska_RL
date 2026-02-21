@@ -690,6 +690,10 @@ def main():
     train_p.add_argument("--ethics-mode", type=str, default="training",
                          choices=["training", "assessment", "demo"],
                          help="Ethics mode: training=full capability, assessment=audit logging, demo=investor-safe display (default: training)")
+    train_p.add_argument("--distilled", action="store_true", default=True,
+        help="Auto-load best distilled checkpoint from models/distilled/ (default: ON)")
+    train_p.add_argument("--no-distilled", dest="distilled", action="store_false",
+        help="Disable auto-loading distilled checkpoints")
     train_p.add_argument("--seed-skills", action="store_true", default=True,
                          help="Pre-seed SkillLibrary with expert skill cards on startup (default: ON)")
     train_p.add_argument("--no-seed-skills", dest="seed_skills", action="store_false",
@@ -770,6 +774,9 @@ def main():
         os.environ["ARIASKA_MODE"] = "live"
         os.environ["ARIASKA_LIVE_MODE"] = "true"
         os.environ["ARIASKA_TARGET_IP"] = target_ip
+
+        # Phase 40: Distilled checkpoint auto-load control
+        os.environ["ARIASKA_LOAD_DISTILLED"] = "1" if args.distilled else "0"
 
         # Phase 11.0: Apply CLI flags to feature flags
         try:

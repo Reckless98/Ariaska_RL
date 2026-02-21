@@ -55,6 +55,7 @@ set_feature_flag("allow_live_install", True)
 
 **Limits:** 3 installs/episode, 10 installs/run.  
 **Bootstrap before engagement:**
+
 ```bash
 python scripts/tools/bootstrap_tools.py --profile htb --install
 ```
@@ -117,7 +118,8 @@ Before starting an HTB box:
 CommandRegistry template pipeline.
 
 All commands must flow through:
-```
+
+```text
 SmartCoach → CommandRegistry.get_valid_commands() → CommandTemplate.render()
 → Live/Sandboxed Executor → Parser Broker
 ```
@@ -129,15 +131,19 @@ The acceptance test `test_no_raw_shell_outside_registry` enforces this.
 ## Acceptance Gates
 
 ### Gate 1: Test Suite Green
+
 ```bash
 make test  # All 568+ tests pass
 ```
 
 ### Gate 2: Registry Integrity
+
 ```bash
 .venv/bin/pytest tests/test_phase101_acceptance.py -v
 ```
+
 Verifies:
+
 - No duplicate command names in registry
 - All commands have valid phases
 - All privilege-gated commands have `requires_privilege` set
@@ -145,14 +151,17 @@ Verifies:
 - All Phase 10.1 subsystems importable and feature-flag gated
 
 ### Gate 3: Smoke Test
+
 ```bash
 make smoke  # 3 episodes complete without error
 ```
 
 ### Gate 4: Telemetry Integrity
+
 ```bash
 .venv/bin/pytest tests/test_phase97_telemetry.py -v
 ```
+
 Verifies StepEvent and EpisodeEvent schemas are consistent.
 
 ---
@@ -160,12 +169,16 @@ Verifies StepEvent and EpisodeEvent schemas are consistent.
 ## Troubleshooting
 
 ### Import Errors
+
 All Phase 10.1 modules use lazy imports. If you get circular import errors:
+
 1. Check that you're importing inside a method, not at module top level
 2. Use `TYPE_CHECKING` guard for type hints
 
 ### Feature Flag Not Taking Effect
+
 Flags are cached per-process. If testing flag changes:
+
 ```python
 from core.feature_flags import reset_feature_flags
 reset_feature_flags()
@@ -173,6 +186,7 @@ set_feature_flag("flag_name", True)
 ```
 
 ### Tool Not Found
+
 ```python
 from core.tools.tool_registry import get_tool_registry
 registry = get_tool_registry()
@@ -184,7 +198,7 @@ if not registry.is_available("nmap"):
 
 ## Phase 10.1 Architecture Diagram
 
-```
+```text
 SmartOrchestrator
 ├── SmartCoach (per agent)
 │   ├── Playbook → Commands

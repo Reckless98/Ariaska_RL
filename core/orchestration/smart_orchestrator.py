@@ -681,8 +681,25 @@ class SmartOrchestrator:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             self.ppo_agent = PPOAgent(config=ppo_config, device=device)
             _init_modules.append(("PPO Actor-Critic", "ok", f"device={device}, dim=512→5"))
+
+            # Phase 40: Auto-load best distilled checkpoint if available
+            if os.environ.get("ARIASKA_LOAD_DISTILLED", "1") == "1":
+                self.load_distilled_checkpoint()
         except Exception as e:
             _init_modules.append(("PPO Actor-Critic", "warn", str(e)[:40]))
+
+        # ─── Phase 41: Auto-load ALL .pt checkpoints ────────────────
+        # Load best enhanced per-agent PPO + DDQN into each coach,
+        # plus distilled GPU checkpoints (which have 10-100× more
+        # training steps). Without this, the GPU training is wasted.
+        try:
+            loaded = self._auto_load_all_checkpoints()
+            if loaded > 0:
+                _init_modules.append(("AutoLoad .pt", "ok", f"{loaded} checkpoints loaded"))
+            else:
+                _init_modules.append(("AutoLoad .pt", "warn", "no checkpoints found"))
+        except Exception as e:
+            _init_modules.append(("AutoLoad .pt", "warn", str(e)[:60]))
         
         # ─── R66: RND Curiosity Module ───────────────────────────────
         self.rnd_curiosity = None
@@ -877,11 +894,11 @@ class SmartOrchestrator:
         # =====================================================================
         # PHASE 42: Deep wiring — lazy-init placeholders
         # =====================================================================
-        self._her: Optional[object] = None  # HindsightReplay, lazy init
-        self._meta_learner: Optional[object] = None  # ReflectiveMetaLearner
+        self._her: Optional[Any] = None  # HindsightReplay, lazy init
+        self._meta_learner: Optional[Any] = None  # ReflectiveMetaLearner
         self._reflection_context: str = ""
-        self._evidence_graph: Optional[object] = None  # EvidenceGraph
-        self._ttf_tracker: Optional[object] = None  # TTFTracker
+        self._evidence_graph: Optional[Any] = None  # EvidenceGraph
+        self._ttf_tracker: Optional[Any] = None  # TTFTracker
 
     # =========================================================================
     # PHASE 42: Deep Wiring Methods
@@ -912,9 +929,9 @@ class SmartOrchestrator:
             target_phase = max(phases) if phases else 0
             achieved_phase = phases[-1] if phases else 0
             self._her.process_episode(
-                transitions=transitions,
-                target_phase=target_phase,
-                achieved_phase=achieved_phase,
+                episode_transitions=transitions,
+                target_phase=str(target_phase),
+                achieved_phase=str(achieved_phase),
             )
             logger.debug("HER processed %d transitions", len(transitions))
         except Exception as e:
@@ -3737,7 +3754,267 @@ class SmartOrchestrator:
                         logger.debug(f"Failed to load DDQN for {coach_name}: {e}")
         if ddqn_loaded:
             logger.debug(f"Loaded {ddqn_loaded} DDQN macro checkpoints from {directory}")
-    
+
+    def load_distilled_checkpoint(
+        self,
+        directory: str = "models/distilled",
+        run_id: Optional[str] = None,
+    ) -> bool:
+        """Auto-load the best distilled checkpoint from GPU training runs.
+
+        Scans *directory* for ``h200_*_ep*.pt`` files, picks the one with the
+        highest episode number (from the latest run if *run_id* is None), and
+        loads it directly into ``self.ppo_agent``.
+
+        Args:
+            directory: Directory containing distilled checkpoints.
+            run_id: Optional run-id prefix filter (e.g. ``20260220T211736Z``).
+                    When *None* the latest run is auto-detected.
+
+        Returns:
+            True if a checkpoint was loaded, False otherwise.
+        """
+        import os
+        import re
+
+        if self.ppo_agent is None:
+            logger.debug("load_distilled_checkpoint: no PPO agent — skipping")
+            return False
+
+        if not os.path.isdir(directory):
+            logger.debug(f"load_distilled_checkpoint: directory not found: {directory}")
+            return False
+
+        # Pattern: h200_<run_id>_ep<NNNN>.pt
+        pattern = re.compile(r"h200_(.+?)_ep(\d+)\.pt$")
+        candidates: list[tuple[str, str, int]] = []  # (path, run_id, ep_num)
+        for fname in os.listdir(directory):
+            m = pattern.match(fname)
+            if m:
+                candidates.append((
+                    os.path.join(directory, fname),
+                    m.group(1),
+                    int(m.group(2)),
+                ))
+
+        if not candidates:
+            logger.debug(f"load_distilled_checkpoint: no h200_*_ep*.pt files in {directory}")
+            return False
+
+        # Filter by run_id if specified
+        if run_id:
+            candidates = [c for c in candidates if c[1] == run_id]
+            if not candidates:
+                logger.warning(f"load_distilled_checkpoint: no checkpoints for run_id={run_id}")
+                return False
+
+        # Pick latest run_id (lexicographic = chronological for ISO timestamps),
+        # then highest episode number within that run.
+        latest_run = max(set(c[1] for c in candidates))
+        run_candidates = [c for c in candidates if c[1] == latest_run]
+        best = max(run_candidates, key=lambda c: c[2])
+        best_path, best_run, best_ep = best
+
+        try:
+            self.ppo_agent.load(best_path)
+            logger.info(
+                f"[DISTILL] Loaded distilled checkpoint: {best_path} "
+                f"(run={best_run}, ep={best_ep}, "
+                f"updates={self.ppo_agent.updates_done}, "
+                f"steps={self.ppo_agent.total_steps})"
+            )
+            try:
+                from rich.console import Console as _C
+                _C(force_terminal=True).print(
+                    f"[green]\u2714 Distilled PPO loaded:[/green] "
+                    f"run={best_run} ep={best_ep} "
+                    f"({self.ppo_agent.updates_done} updates, "
+                    f"{self.ppo_agent.total_steps} steps)"
+                )
+            except Exception:
+                pass
+            return True
+        except Exception as e:
+            logger.warning(f"load_distilled_checkpoint: failed to load {best_path}: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Phase 41: Auto-load ALL .pt checkpoints (distilled + enhanced)
+    # ------------------------------------------------------------------
+
+    def _auto_load_all_checkpoints(self) -> int:
+        """Auto-load the best available .pt checkpoints into every coach.
+
+        Scans ``models/enhanced/`` for per-agent PPO + DDQN checkpoints and
+        ``models/distilled/`` for GPU-trained distilled checkpoints.  The
+        distilled checkpoints typically have 10-100× more training steps,
+        so they take priority when available.
+
+        Load priority per coach:
+          1. Best **distilled** checkpoint (GPU H200 training, most experience)
+          2. Best **enhanced** per-agent checkpoint (live > sim > other)
+
+        Returns:
+            Total number of individual checkpoint files loaded.
+        """
+        import os
+        import re
+
+        loaded_total = 0
+        console = None
+        try:
+            from rich.console import Console as _C
+            console = _C(force_terminal=True)
+        except Exception:
+            pass
+
+        # ── 1. Find best distilled checkpoint ────────────────────────
+        distilled_ckpt_path: Optional[str] = None
+        distilled_steps = 0
+        distilled_updates = 0
+        distilled_dir = "models/distilled"
+        if os.path.isdir(distilled_dir):
+            pattern = re.compile(r"h200_(.+?)_ep(\d+)\.pt$")
+            candidates: list[tuple[str, str, int]] = []
+            for fname in os.listdir(distilled_dir):
+                m = pattern.match(fname)
+                if m:
+                    candidates.append((
+                        os.path.join(distilled_dir, fname),
+                        m.group(1),
+                        int(m.group(2)),
+                    ))
+            if candidates:
+                latest_run = max(set(c[1] for c in candidates))
+                run_cands = [c for c in candidates if c[1] == latest_run]
+                best = max(run_cands, key=lambda c: c[2])
+                distilled_ckpt_path = best[0]
+                # Peek at metadata
+                try:
+                    import torch
+                    _peek = torch.load(distilled_ckpt_path, map_location="cpu", weights_only=False)
+                    distilled_steps = _peek.get("total_steps", 0)
+                    distilled_updates = _peek.get("updates_done", 0)
+                    del _peek
+                except Exception:
+                    pass
+
+        # ── 2. Find best enhanced checkpoint directory ───────────────
+        # Priority: ppo_live_checkpoint.pt > ppo_ep*_ms3_live.pt >
+        #           ppo_sim_checkpoint.pt > ppo_ep*_ms3_hard.pt > others
+        enhanced_dir = "models/enhanced"
+        best_enhanced_dirs: list[tuple[str, int]] = []  # (dir_path, priority)
+        if os.path.isdir(enhanced_dir):
+            _priority_map = {
+                "ppo_live_checkpoint.pt": 100,
+                "ppo_sim_checkpoint.pt": 50,
+            }
+            for entry in os.listdir(enhanced_dir):
+                full = os.path.join(enhanced_dir, entry)
+                if not os.path.isdir(full):
+                    continue
+                # Check it actually has per-agent .pt files inside
+                has_agents = any(
+                    f.startswith("ppo_") and f.endswith(".pt")
+                    for f in os.listdir(full)
+                )
+                if not has_agents:
+                    continue
+                # Determine priority
+                pri = _priority_map.get(entry, 0)
+                if pri == 0:
+                    if "live" in entry:
+                        pri = 80
+                    elif "hard" in entry:
+                        pri = 30
+                    elif "medium" in entry:
+                        pri = 20
+                    elif "episode_" in entry:
+                        # Prefer higher episode numbers
+                        ep_match = re.search(r"episode_(\d+)", entry)
+                        pri = int(ep_match.group(1)) if ep_match else 10
+                    else:
+                        pri = 10
+                best_enhanced_dirs.append((full, pri))
+            best_enhanced_dirs.sort(key=lambda x: x[1], reverse=True)
+
+        # ── 3. Load into each coach ──────────────────────────────────
+        for coach_name, coach in self.coaches.items():
+            agent_loaded = False
+
+            # 3a. Try distilled checkpoint first (always best if available)
+            if distilled_ckpt_path and hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
+                try:
+                    coach.ppo_agent.load(distilled_ckpt_path)
+                    loaded_total += 1
+                    agent_loaded = True
+                    logger.info(
+                        f"[AUTOLOAD] {coach_name}: distilled PPO loaded "
+                        f"(steps={distilled_steps}, updates={distilled_updates})"
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"[AUTOLOAD] {coach_name}: distilled PPO failed: {e}"
+                    )
+
+            # 3b. Try enhanced per-agent checkpoint (fallback, or DDQN)
+            for enh_dir, _pri in best_enhanced_dirs:
+                # PPO: only if distilled didn't load
+                if not agent_loaded and hasattr(coach, 'ppo_agent') and coach.ppo_agent is not None:
+                    ppo_path = os.path.join(enh_dir, f"ppo_{coach_name}.pt")
+                    if os.path.isfile(ppo_path):
+                        try:
+                            coach.ppo_agent.load(ppo_path)
+                            loaded_total += 1
+                            agent_loaded = True
+                            logger.info(
+                                f"[AUTOLOAD] {coach_name}: enhanced PPO loaded from {enh_dir}"
+                            )
+                        except Exception as e:
+                            logger.debug(
+                                f"[AUTOLOAD] {coach_name}: enhanced PPO failed from {enh_dir}: {e}"
+                            )
+                            continue  # Try next directory
+
+                # DDQN: always try (independent of PPO)
+                if hasattr(coach, 'ddqn_macro') and coach.ddqn_macro is not None:
+                    ddqn_path = os.path.join(enh_dir, f"ddqn_{coach_name}.pt")
+                    if os.path.isfile(ddqn_path):
+                        try:
+                            import torch
+                            state = torch.load(ddqn_path, map_location="cpu", weights_only=False)
+                            coach.ddqn_macro.load_state_dict(state)
+                            loaded_total += 1
+                            logger.info(
+                                f"[AUTOLOAD] {coach_name}: DDQN loaded from {enh_dir}"
+                            )
+                            break  # Only load DDQN from best available dir
+                        except Exception as e:
+                            logger.debug(
+                                f"[AUTOLOAD] {coach_name}: DDQN failed from {enh_dir}: {e}"
+                            )
+
+                if agent_loaded:
+                    break  # PPO loaded, stop trying enhanced dirs
+
+        # ── 4. Summary ───────────────────────────────────────────────
+        if console and loaded_total > 0:
+            src = "distilled (GPU)" if distilled_ckpt_path else "enhanced"
+            console.print(
+                f"[green]✔ Auto-loaded {loaded_total} checkpoint(s)[/green] "
+                f"— primary source: {src}"
+            )
+            if distilled_ckpt_path:
+                console.print(
+                    f"  [dim]distilled:[/dim] {distilled_steps:,} steps, "
+                    f"{distilled_updates} updates"
+                )
+            for enh_dir, _pri in best_enhanced_dirs[:3]:
+                console.print(f"  [dim]enhanced:[/dim] {os.path.basename(enh_dir)}")
+
+        logger.info(f"[AUTOLOAD] Total loaded: {loaded_total} checkpoint(s)")
+        return loaded_total
+
     def _build_episode_transcript(
         self,
         step_results: List[List["SmartStepResult"]],
@@ -5144,7 +5421,11 @@ class SmartOrchestrator:
                     "done": done,
                     "agent_count": len(agent_results),
                 }
-                self.ops_hub.on_step_end(step, _step_data)
+                self.ops_hub.on_step_end(
+                    step,
+                    phase=_step_data.get("phase", ""),
+                    discoveries=len(agent_results),
+                )
             except Exception as _e:
                 logger.debug(f"[P39] OpsHub on_step_end error: {_e}")
 
@@ -5177,7 +5458,7 @@ class SmartOrchestrator:
                 _should, _stall = self.orion_rethink.should_rethink(step)
                 if _should:
                     _plan = self.orion_rethink.generate_rethink_plan(
-                        evidence_summary=str(dict(self.discovery_board))[:500],
+                        evidence_summary=dict(self.discovery_board),
                         hypotheses=[],
                         constraints=[],
                         current_phase=_current_phase_p39,

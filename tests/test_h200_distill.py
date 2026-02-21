@@ -74,7 +74,7 @@ class TestMentorConfig:
         cfg = MentorConfig()
         assert cfg.base_url == "http://127.0.0.1:8192/v1"
         assert cfg.enabled is True
-        assert cfg.timeout == 30.0
+        assert cfg.timeout == 45.0
 
     def test_from_env(self) -> None:
         from scripts.h200_run_distill_3h import MentorConfig
@@ -98,6 +98,7 @@ class TestLocalMentorClient:
             "command": "nmap -sV target",
             "confidence": 0.85,
             "reasoning": "Port scan",
+            "teacher_action": 0,
             "action_probs": [0.4, 0.3, 0.2, 0.05, 0.05],
         }
         result = LocalMentorClient._validate_response(resp)
@@ -116,6 +117,7 @@ class TestLocalMentorClient:
         resp = {
             "command": "test",
             "confidence": 0.5,
+            "teacher_action": 0,
             "action_probs": [2, 2, 2, 2, 2],
         }
         result = LocalMentorClient._validate_response(resp)
@@ -127,6 +129,7 @@ class TestLocalMentorClient:
         resp = {
             "command": "test",
             "confidence": 0.5,
+            "teacher_action": 0,
             "action_probs": "bad",
         }
         result = LocalMentorClient._validate_response(resp)

@@ -1602,7 +1602,7 @@ def _show_budget_status() -> None:
     """Show BudgetManagerV2 status."""
     try:
         from core.llm.budget_manager import BudgetManagerV2
-        bm = BudgetManagerV2(episode_id="diagnostic")
+        bm = BudgetManagerV2()
         stats = bm.get_stats()
         console.print(Panel(
             json.dumps(stats, indent=2, default=str),
