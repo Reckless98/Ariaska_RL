@@ -479,7 +479,7 @@ class RunMetrics:
     codex_calls: int = 0
     codex_tokens: int = 0
     codex_cost_usd: float = 0.0
-    codex_budget_usd: float = 14.56  # Phase 42: 2x
+    codex_budget_usd: float = 100.0  # Phase 44: $10 real spend target
     codex_successes: int = 0
     codex_escalation_reasons: Dict[str, int] = field(default_factory=dict)
 
@@ -743,23 +743,23 @@ class LocalMentorClient:
 # OpenAI Codex Mentor — $7.28 budget (+30%), front-loaded then anneals
 # ---------------------------------------------------------------------------
 
-# Codex pricing estimates (per 1K tokens)
-_CODEX_INPUT_COST_PER_1K = 0.012   # gpt-5.2-codex input
-_CODEX_OUTPUT_COST_PER_1K = 0.036  # gpt-5.2-codex output
-_CODEX_BUDGET_USD = 14.56          # Phase 42: 2x from $7.28 — doubled teacher signal
-_CODEX_MAX_CALLS = 2080            # Phase 42: 2x from 1040 — doubled mentor calls
+# Codex pricing estimates (per 1K tokens) — Phase 44: corrected to real API rates
+_CODEX_INPUT_COST_PER_1K = 0.002   # gpt-5.2-codex input (actual rate)
+_CODEX_OUTPUT_COST_PER_1K = 0.008  # gpt-5.2-codex output (actual rate)
+_CODEX_BUDGET_USD = 100.0          # Phase 44: $10 real spend target → $100 tracking headroom
+_CODEX_MAX_CALLS = 50000           # Phase 44: uncapped — let budget be the limiter
 
 
 class CodexEscalationPolicy:
     """Decides when to escalate to OpenAI codex based on anneal + budget.
 
-    Phase 43: Aggressive dual-routing — OpenAI API as quality booster.
+    Phase 44: MAXIMUM dual-routing — spend $10 real API budget.
     Schedule (by training progress):
-        0–20%:  every 2nd step when local weak, diversity every 4th
-        20–50%: every 3rd step, hard cases + stalls
-        50–80%: every 5th step, stalls + exploits + hard phases
-        80–95%: every 7th step, quality assurance on key decisions
-        95–100%: disabled (final convergence)
+        0–30%:  EVERY step — dual teacher for maximum knowledge transfer
+        30–60%: every 2nd step — high-frequency quality boost
+        60–85%: every 3rd step — sustained guidance
+        85–95%: every 5th step — quality assurance
+        95–100%: every 10th step — light touch (never fully off)
     """
 
     def __init__(self, budget_usd: float = _CODEX_BUDGET_USD) -> None:
@@ -776,7 +776,10 @@ class CodexEscalationPolicy:
         local_confidence: float,
         reward_stagnant: bool,
     ) -> Tuple[bool, str]:
-        """Return (should_call, reason)."""
+        """Return (should_call, reason).
+
+        Phase 44: MAXIMUM frequency — burn through $10 API budget for quality.
+        """
         self._step_counter += 1
 
         # Hard caps
@@ -785,46 +788,37 @@ class CodexEscalationPolicy:
         if self.calls >= _CODEX_MAX_CALLS:
             return False, "max_calls_reached"
 
-        # Phase 95–100%: disabled (final convergence, PPO-only)
+        # Phase 95–100%: every 10th step — light touch, never fully off
         if progress >= 0.95:
-            return False, "final_convergence"
+            if self._step_counter % 10 != 0:
+                return False, "step_skip_final"
+            return True, "final_touch"
 
-        # Phase 80–95%: every 7th step, quality assurance
-        if progress >= 0.80:
-            if not (local_failed or reward_stagnant or local_confidence < 0.40):
-                return False, "qa_not_needed"
-            if self._step_counter % 7 != 0:
+        # Phase 85–95%: every 5th step, quality assurance
+        if progress >= 0.85:
+            if self._step_counter % 5 != 0:
                 return False, "step_skip_qa"
             return True, "quality_assurance"
 
-        # Phase 50–80%: every 5th step, stalls + hard cases
-        if progress >= 0.50:
-            if not (reward_stagnant or local_failed or local_confidence < 0.40):
-                return False, "no_stall_late"
-            if self._step_counter % 5 != 0:
-                return False, "step_skip_light"
-            return True, "critical_stall"
-
-        # Phase 20–50%: every 3rd step, hard cases
-        if progress >= 0.20:
-            is_hard = local_failed or local_confidence < 0.45
-            if not is_hard and not reward_stagnant:
-                return False, "not_hard_mid"
+        # Phase 60–85%: every 3rd step, sustained guidance
+        if progress >= 0.60:
             if self._step_counter % 3 != 0:
                 return False, "step_skip_medium"
-            return True, "hard_case_mid"
+            return True, "sustained_guidance"
 
-        # Phase 0–20%: every 2nd step when local mentor is weak
-        if self._step_counter % 2 != 0:
-            return False, "step_skip_heavy"
+        # Phase 30–60%: every 2nd step, high-frequency boost
+        if progress >= 0.30:
+            if self._step_counter % 2 != 0:
+                return False, "step_skip_boost"
+            return True, "high_freq_boost"
+
+        # Phase 0–30%: EVERY step — maximum knowledge transfer
+        # Always escalate: dual-teacher on every single step
         if local_failed:
             return True, "local_failed_early"
-        if local_confidence < 0.65:
+        if local_confidence < 0.70:
             return True, "low_conf_early"
-        # Even if local succeeded, use codex for diversity injection
-        if self._step_counter % 4 == 0:
-            return True, "diversity_early"
-        return False, "local_sufficient"
+        return True, "dual_teacher_always"
 
     def record_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Record a codex call cost. Returns cost in USD."""
@@ -1232,10 +1226,98 @@ class H200DistillationRunner:
         )
 
     def _init_env(self) -> None:
-        """Initialize CyberEnvironment."""
+        """Initialize CyberEnvironment with distillation-friendly patches."""
         from core.environment.cyber_environment import CyberEnvironment
         self._env = CyberEnvironment()
-        logger.info("CyberEnvironment initialized")
+        self._patch_env_for_distill()
+        logger.info("CyberEnvironment initialized (distill-patched)")
+
+    def _patch_env_for_distill(self) -> None:
+        """Patch env settings that cripple distillation training.
+
+        Phase 45: The env's redundant_scan_threshold=3 penalises ALL scan
+        commands after just 3 nmap calls → every episode drowns in -1.0
+        to -3.0 per-step penalties.  For GPU distillation we need the agent
+        to explore freely during the heavy-mentor phase.
+
+        Also seeds service_banners + vulnerabilities so enum/exploit
+        commands don't immediately hit -1.0/-2.0 gates.
+        """
+        import random as _rng
+
+        # 1. Raise redundant scan threshold so the mentor can explore freely
+        self._env.redundant_scan_threshold = 50  # was 3 — way too harsh
+
+        # 2. Ensure enough open ports exist for discoveries
+        _standard_ports = [21, 22, 80, 139, 443, 445, 3306, 5432, 8080, 8443]
+        for p in _standard_ports:
+            if p not in self._env.open_ports:
+                self._env.open_ports.append(p)
+        self._env.open_ports.sort()
+
+        # 3. Seed services list
+        _standard_svcs = ["ftp", "ssh", "http", "smb", "mysql", "postgresql",
+                          "https", "ldap", "snmp", "telnet"]
+        for svc in _standard_svcs:
+            if svc not in self._env.services:
+                self._env.services.append(svc)
+
+        # 4. *** CRITICAL FIX *** Populate service_banners so _process_enum_command
+        #    doesn't return -1.0 ("No services discovered to enumerate")
+        _port_svc_map = {
+            21: "ftp", 22: "ssh", 80: "http", 139: "smb", 443: "https",
+            445: "smb", 3306: "mysql", 5432: "postgresql", 8080: "http",
+            8443: "https",
+        }
+        for port in self._env.open_ports:
+            if port not in self._env.service_banners:
+                svc = _port_svc_map.get(port, _rng.choice(self._env.services))
+                self._env.service_banners[port] = (
+                    self._env._generate_service_banner(svc, port)
+                    if hasattr(self._env, '_generate_service_banner')
+                    else f"{svc} service on port {port}"
+                )
+                self._env.discovered_info.add(f"port_{port}")
+
+        # 5. Seed phase_progress so recon→enum transition is easy
+        self._env.phase_progress["recon"] = max(
+            self._env.phase_progress.get("recon", 0),
+            len(self._env.open_ports),
+        )
+
+        # 6. Seed some vulnerabilities so exploit commands don't hit -2.0 gate
+        if not self._env.discovered_vulnerabilities:
+            _seed_vulns = [
+                "vuln_http_directory_listing",
+                "vuln_ftp_anonymous",
+                "vuln_smb_guest_access",
+                "vuln_ssh_weak_password",
+            ]
+            for v in _seed_vulns:
+                self._env.discovered_vulnerabilities.append(v)
+            self._env.phase_progress["enumeration"] = max(
+                self._env.phase_progress.get("enumeration", 0), 4,
+            )
+
+        # 7. Lower detection penalty growth rate
+        if hasattr(self._env, 'detection_sensitivity'):
+            self._env.detection_sensitivity = max(0.3, self._env.detection_sensitivity * 0.5)
+
+        # 8. Use simulation profile with lower thresholds
+        if hasattr(self._env, 'set_target_profile'):
+            self._env.set_target_profile("simulation")
+
+        logger.info(
+            "ENV PATCH: redundant_threshold=%d, open_ports=%d, services=%d, "
+            "banners=%d, vulns=%d, recon_progress=%d, enum_progress=%d",
+            self._env.redundant_scan_threshold,
+            len(self._env.open_ports),
+            len(self._env.services),
+            len(self._env.service_banners),
+            len(self._env.discovered_vulnerabilities),
+            self._env.phase_progress.get("recon", 0),
+            self._env.phase_progress.get("enumeration", 0),
+        )
 
     def _init_mentor(self) -> None:
         """Initialize local mentor client."""
@@ -1263,8 +1345,9 @@ class H200DistillationRunner:
             console.print(Panel(
                 f"[green]Codex online[/green]: gpt-5.2-codex\n"
                 f"Budget: ${_CODEX_BUDGET_USD:.2f} | Max calls: {_CODEX_MAX_CALLS}\n"
-                f"Strategy: front-loaded \u2192 anneal to zero by 80%",
-                title="OpenAI Codex Escalation",
+                f"Strategy: Phase 44 MAXIMUM — every step 0-30%, anneal to light by 95%\n"
+                f"Target real spend: $10.00",
+                title="OpenAI Codex Escalation — Phase 44",
             ))
         else:
             console.print("[yellow]Codex unavailable (no OPENAI_API_KEY) \u2014 local mentor only[/yellow]")
@@ -1479,10 +1562,17 @@ class H200DistillationRunner:
         ) * w["reasoning"]
 
         total = format_r + code_r + math_r + reasoning_r
-        # Blend with base reward (50% base + 50% weighted) to avoid
-        # completely overriding the core reward calculator.
-        blended = 0.5 * base_reward + 0.5 * total
-        return float(np.clip(blended, REWARD_MIN, REWARD_MAX))
+        # Phase 45: Drastically reduced base weight (15% base + 85% weighted)
+        # because the env returns harsh negatives (-0.5 to -3.0) for valid
+        # mentor commands like ldapsearch, sshpass, snmpwalk etc.
+        # The weighted channels (phase progression, discovery bonuses,
+        # consistency) are far more informative learning signals.
+        # Also: floor the base component so env penalties don't dominate.
+        clamped_base = max(-1.0, base_reward)  # floor env penalty at -1.0
+        blended = 0.15 * clamped_base + 0.85 * total
+        # Ensure we never go below -2.0 during distillation — harsh negatives
+        # teach PPO to avoid ALL actions, which kills learning.
+        return float(np.clip(blended, max(REWARD_MIN, -2.0), REWARD_MAX))
 
     def _compute_consistency_reward(
         self,
@@ -1492,42 +1582,63 @@ class H200DistillationRunner:
     ) -> float:
         """Consistency reward: penalize repeats, reward phase-appropriate cmds.
 
-        This replaces the naive "count reasoning keywords" heuristic from the
-        analysis with a genuine signal: does this command make strategic sense
-        given the current phase and prior actions?
+        Phase 45: Expanded tool mapping to cover all mentor-generated commands.
+        Reduced repeat penalty for family-level matches (mentor legitimately
+        runs multiple nmap variants).
 
         Returns:
-            Float in [-2.0, +3.0].
+            Float in [-1.0, +2.0].
         """
         phase = state.get("phase", "RECON")
         cmd_family = command.strip().split()[0].rsplit("/", 1)[-1] if command.strip() else "noop"
 
-        # Phase-command alignment bonus
+        # Phase-command alignment bonus — expanded for mentor-generated cmds
         phase_alignment = {
-            "RECON": {"nmap", "masscan", "ping", "traceroute", "whatweb", "dig", "host"},
-            "ENUMERATION": {"gobuster", "nikto", "dirb", "wfuzz", "enum4linux",
-                            "smbclient", "showmount", "snmpwalk", "searchsploit"},
-            "EXPLOITATION": {"msfconsole", "hydra", "sqlmap", "curl", "wget",
-                             "python", "python3", "exploit", "searchsploit"},
+            "RECON": {"nmap", "masscan", "ping", "traceroute", "whatweb", "dig",
+                      "host", "arp-scan", "netdiscover", "hping3", "unicornscan",
+                      "curl", "wget"},
+            "ENUMERATION": {"gobuster", "nikto", "dirb", "wfuzz", "ffuf",
+                            "enum4linux", "smbclient", "smbmap", "showmount",
+                            "snmpwalk", "snmpget", "ldapsearch", "rpcclient",
+                            "nbtscan", "onesixtyone", "smtp-user-enum",
+                            "searchsploit", "whatweb", "nmap", "finger",
+                            "psql", "mysql", "redis-cli", "mongo", "curl", "wget"},
+            "EXPLOITATION": {"msfconsole", "hydra", "sqlmap", "sshpass", "ssh",
+                             "ftp", "telnet", "nc", "netcat", "python",
+                             "python3", "exploit", "searchsploit", "john",
+                             "hashcat", "medusa", "patator", "crackmapexec",
+                             "evil-winrm", "impacket-psexec", "impacket-smbexec",
+                             "msfvenom", "metasploit", "curl", "wget", "psql",
+                             "mysql"},
             "PRIVILEGE_ESCALATION": {"sudo", "su", "find", "linpeas", "linenum",
-                                     "getcap", "cat", "ls", "id", "whoami"},
+                                     "getcap", "cat", "ls", "id", "whoami",
+                                     "uname", "pspy", "crontab"},
+            "POST_EXPLOITATION": {"cat", "ls", "find", "tar", "scp", "wget",
+                                  "curl", "base64", "xxd", "socat"},
+            "EXFILTRATION": {"tar", "zip", "scp", "nc", "socat", "base64",
+                             "curl", "wget", "find"},
         }
 
-        # Check alignment
+        # Check alignment — any real tool gets a small bonus even if not phase-aligned
         aligned_tools = phase_alignment.get(phase, set())
-        alignment_bonus = 1.5 if cmd_family in aligned_tools else 0.0
+        all_tools = set().union(*phase_alignment.values())
+        if cmd_family in aligned_tools:
+            alignment_bonus = 2.0
+        elif cmd_family in all_tools:
+            alignment_bonus = 0.5  # valid tool, just wrong phase
+        else:
+            alignment_bonus = 0.0
 
-        # Repetition penalty: check last 5 commands
+        # Repetition penalty: exact command repeats only (not family-level)
         recent = getattr(self, "_consistency_recent_cmds", [])
         repeat_penalty = 0.0
         if command in recent:
-            repeat_penalty = -2.0
-        elif cmd_family in [c.strip().split()[0].rsplit("/", 1)[-1] for c in recent if c.strip()]:
-            repeat_penalty = -0.5
+            repeat_penalty = -1.0  # reduced from -2.0
+        # Removed family-level penalty — mentor legitimately runs nmap variants
 
         # Update recent window
         recent.append(command)
-        if len(recent) > 5:
+        if len(recent) > 8:  # wider window
             recent.pop(0)
         self._consistency_recent_cmds = recent  # type: ignore[attr-defined]
 
@@ -1687,14 +1798,14 @@ class H200DistillationRunner:
                     )
                     codex_used = True
 
-                    # Codex overrides local if:
-                    # a) local failed entirely, OR
-                    # b) codex has higher confidence
+                    # Phase 44: Codex ALWAYS overrides local when available
+                    # Codex has superior reasoning — always prefer its output
+                    # unless codex confidence is extremely low (< 0.15)
                     codex_conf = float(codex_resp.get("confidence", 0.0))
-                    if local_failed or codex_conf > local_confidence:
+                    if codex_conf >= 0.15:
                         response = codex_resp
                         logger.info(
-                            "CODEX ESCALATION at step %d: reason=%s, "
+                            "CODEX OVERRIDE at step %d: reason=%s, "
                             "codex_conf=%.2f vs local_conf=%.2f, cost=$%.4f "
                             "(remaining=$%.2f)",
                             step, codex_reason, codex_conf, local_confidence,
@@ -1766,6 +1877,9 @@ class H200DistillationRunner:
         import torch
 
         state = self._env.reset()
+        # Re-apply distill patches after reset (env.reset() re-initialises state)
+        self._patch_env_for_distill()
+
         if isinstance(state, tuple):
             state = state[0] if isinstance(state[0], dict) else {"phase": "RECON"}
         if not isinstance(state, dict):
@@ -1850,6 +1964,16 @@ class H200DistillationRunner:
                 next_state = self._env.get_global_state()
 
             reward = float(np.clip(reward, REWARD_MIN, REWARD_MAX))
+
+            # Phase 45: Mentor reward floor — if the teacher chose this
+            # command, the env penalty (redundant scan, no vulns yet, etc.)
+            # must not crush the learning signal.  Floor teacher actions
+            # at +0.5 so PPO learns "teacher commands are always decent".
+            # This is critical for distillation: the student must trust
+            # the teacher, not learn to avoid teacher-suggested actions.
+            if teacher_overrode and reward < 0.5:
+                reward = max(0.5, reward)
+
             # Apply configurable reward weighting (format, code, math, reasoning)
             reward = self._apply_reward_weights(
                 reward, state, next_state, command, info, step_i,
