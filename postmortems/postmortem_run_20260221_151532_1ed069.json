@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260221_151532_1ed069",
+  "timestamp": 1771683345.3017616,
+  "key_outcomes": {
+    "wins": [
+      "Achieved non-zero reward (80.0) despite overall failure"
+    ],
+    "fails": [
+      "Success rate was 0% across all episodes",
+      "High reliance on mentor calls (10) without translating into success"
+    ],
+    "summary": "Single-episode run showed some progress (reward earned) but failed to complete objectives; guidance was used heavily without successful conversion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Mentor guidance did not yield successful episode completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When an episode stalls without objective completion after multiple actions",
+      "then_action": "Invoke mentor guidance to validate next-step strategy before proceeding",
+      "parameters_template": {
+        "max_stall_steps": 5,
+        "mentor_call": true
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771683360.3500893,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward is achieved but episode fails",
+      "then_action": "Perform post-episode gap analysis to map missing objectives and adjust next-step plan",
+      "parameters_template": {
+        "analyze_reward": true,
+        "map_missing_objectives": true
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771683360.3501031,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Mentor usage occurred; formalizing the trigger may reduce unproductive actions."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-to-action mapping checkpoint",
+      "description": "Introduce a mid-episode checkpoint to map remaining objectives to concrete actions and reduce drift.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call effectiveness audit",
+      "description": "Log mentor suggestions and measure whether they lead to objective completion within 3 steps.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-goal alignment",
+      "description": "Analyze which actions produced the 80 reward and extend them toward the final success criteria.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

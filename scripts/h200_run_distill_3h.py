@@ -669,8 +669,19 @@ class LocalMentorClient:
             "- command MUST be a real executable shell command, never 'echo'.\n"
             "- teacher_action: 0=recon_scan, 1=enum_probe, 2=exploit_attempt, "
             "3=privesc_action, 4=post_exfil.\n"
-            "- No extra keys. No markdown fences. No text before/after the JSON.\n"
-            "- {target} = target IP placeholder."
+            "- {target} = target IP placeholder.\n"
+            "- CRITICAL: Do NOT suggest the same command or tool that appears in "
+            "'Recent commands'. Diversity is paramount — the agent MUST explore "
+            "different tools and techniques each step.\n"
+            "- Phase-appropriate tool suggestions:\n"
+            "  RECON: nmap, masscan, ping, traceroute, arp-scan, netdiscover\n"
+            "  ENUMERATION: gobuster, nikto, whatweb, dirb, enum4linux, snmpwalk, "
+            "ldapsearch, smbclient, nbtscan, wpscan, curl, ffuf, feroxbuster\n"
+            "  EXPLOITATION: searchsploit, msfconsole, hydra, medusa, sshpass, "
+            "sqlmap, exploit scripts, metasploit, john, hashcat\n"
+            "  PRIVESC: sudo -l, find SUID, LinPEAS, linenum, getcap, crontab\n"
+            "  POST: cat /etc/shadow, ls /root, download files, hashdump\n"
+            "- Never repeat a command family more than twice in a row."
         )
 
     def _build_prompt(
@@ -919,7 +930,19 @@ class CodexMentorClient:
             "- command MUST be a real executable shell command, never 'echo'.\n"
             "- teacher_action: 0=recon_scan, 1=enum_probe, 2=exploit_attempt, "
             "3=privesc_action, 4=post_exfil.\n"
-            "- {target} = target IP placeholder."
+            "- {target} = target IP placeholder.\n"
+            "- CRITICAL: Examine 'Recent commands' and suggest a DIFFERENT tool/technique.\n"
+            "  The agent needs DIVERSITY — do not repeat command families.\n"
+            "- Preferred tools by phase:\n"
+            "  RECON: nmap, masscan, ping, arp-scan, netdiscover\n"
+            "  ENUMERATION: gobuster, nikto, whatweb, dirb, enum4linux, snmpwalk, "
+            "ldapsearch, smbclient, wpscan, curl, ffuf, feroxbuster, nbtscan\n"
+            "  EXPLOITATION: searchsploit, hydra, medusa, sshpass, sqlmap, "
+            "msfconsole, john, hashcat, exploit scripts\n"
+            "  PRIVESC: sudo -l, find SUID, LinPEAS, getcap, crontab\n"
+            "  POST: cat /etc/shadow, ls /root, hashdump\n"
+            "- If local mentor suggested an nmap variant and recent commands "
+            "already contain nmap, suggest a COMPLETELY DIFFERENT tool."
         )
 
         try:
@@ -1489,6 +1512,73 @@ class H200DistillationRunner:
         idx = self.metrics.echo_fallback_count % len(choices)
         return choices[idx]
 
+    def _diverse_fallback(self, state: Dict[str, Any], exclude_family: str) -> str:
+        """Return a phase-appropriate command from a DIFFERENT family.
+
+        Used by the diversity guard to break out of single-tool loops
+        (e.g. when both mentors keep suggesting nmap variants).
+        """
+        phase = state.get("phase", "RECON")
+        target = state.get("target_ip", "172.28.128.3")
+        _diverse: Dict[str, List[str]] = {
+            "RECON": [
+                f"masscan -p1-65535 {target} --rate=1000",
+                f"ping -c 3 {target}",
+                f"arp-scan --localnet",
+                f"netdiscover -r {target}/24 -P",
+                f"traceroute {target}",
+                f"nmap -sU -T4 --top-ports 100 {target}",
+            ],
+            "ENUMERATION": [
+                f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
+                f"nikto -h http://{target}",
+                f"whatweb http://{target}",
+                f"enum4linux -a {target}",
+                f"snmpwalk -v2c -c public {target}",
+                f"smbclient -L //{target} -N",
+                f"nbtscan {target}",
+                f"curl -s http://{target}/ | head -50",
+                f"dirb http://{target}",
+                f"ldapsearch -x -h {target} -s base",
+                f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt",
+                f"wpscan --url http://{target} --enumerate u",
+            ],
+            "EXPLOITATION": [
+                f"searchsploit -w --nmap /tmp/nmap_scan.xml",
+                f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh",
+                f"medusa -h {target} -U /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -M ssh",
+                f"sqlmap -u http://{target}/ --forms --batch",
+                f"sshpass -p password ssh root@{target}",
+                f"msfconsole -q -x 'search type:exploit {target}; exit'",
+            ],
+            "PRIVILEGE_ESCALATION": [
+                "sudo -l",
+                "find / -perm -4000 -type f 2>/dev/null | head -20",
+                "cat /etc/crontab",
+                "getcap -r / 2>/dev/null",
+                "ls -la /etc/sudoers.d/",
+                "find / -writable -type f 2>/dev/null | head -20",
+            ],
+            "POST_EXPLOITATION": [
+                "cat /etc/shadow",
+                "cat /etc/passwd",
+                "ls -la /root/",
+                "find /home -name '*.txt' 2>/dev/null",
+                "history",
+            ],
+            "EXFILTRATION": [
+                "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
+                "find / -name 'flag*' -o -name '*.key' 2>/dev/null | head -20",
+            ],
+        }
+        choices = _diverse.get(phase, _diverse["RECON"])
+        # Filter out commands from the excluded family
+        filtered = [c for c in choices if not c.split()[0].startswith(exclude_family)]
+        if not filtered:
+            filtered = choices  # shouldn't happen but safety
+        idx = hash(f"{phase}_{exclude_family}_{len(self._reward_history)}") % len(filtered)
+        return filtered[idx]
+
     # ── Teacher signal extraction ────────────────────────────────
 
     def _is_reward_stagnant(self, window: int = 30) -> bool:
@@ -1946,6 +2036,23 @@ class H200DistillationRunner:
                     teacher_overrode = True
                     self.metrics.teacher_override_count += 1
 
+            # ── STEERING: Command family diversity guard ──────────
+            # If the last 3 commands were from the same family (e.g. all
+            # nmap), force a different tool to ensure PPO sees diverse
+            # state-action pairs.  This prevents the "nmap loop" where
+            # both mentors keep suggesting nmap variants.
+            if len(recent_commands) >= 3:
+                cmd_family = command.split()[0] if command.strip() else ""
+                recent_families = [c.split()[0] for c in recent_commands[-3:] if c.strip()]
+                if cmd_family and all(f == cmd_family for f in recent_families):
+                    old_cmd = command
+                    command = self._diverse_fallback(state, cmd_family)
+                    logger.info(
+                        "DIVERSITY GUARD: step %d, family '%s' repeated 3x, "
+                        "replaced '%s' → '%s'",
+                        step_i, cmd_family, old_cmd[:60], command[:60],
+                    )
+
             # ── STEERING: Ban echo execution ─────────────────────
             # If after all mapping the command still starts with "echo",
             # replace it with a real phase-appropriate command + penalty.
@@ -1965,14 +2072,17 @@ class H200DistillationRunner:
 
             reward = float(np.clip(reward, REWARD_MIN, REWARD_MAX))
 
-            # Phase 45: Mentor reward floor — if the teacher chose this
-            # command, the env penalty (redundant scan, no vulns yet, etc.)
-            # must not crush the learning signal.  Floor teacher actions
-            # at +0.5 so PPO learns "teacher commands are always decent".
-            # This is critical for distillation: the student must trust
-            # the teacher, not learn to avoid teacher-suggested actions.
-            if teacher_overrode and reward < 0.5:
-                reward = max(0.5, reward)
+            # Phase 45b: Teacher reward floor — prevent the harshest env
+            # penalties from crushing teacher-suggested commands, but still
+            # allow VARIANCE in the reward signal.  A floor of -0.3 means:
+            #   * Truly bad teacher commands still get slight negatives
+            #   * Neutral commands get ~0.0
+            #   * Good commands (discoveries) get full positive reward
+            # This gives PPO the signal it needs to differentiate good
+            # teacher actions from bad ones. The old +0.5 floor made ALL
+            # teacher steps look equally good → zero learning variance.
+            if teacher_overrode and reward < -0.3:
+                reward = max(-0.3, reward)
 
             # Apply configurable reward weighting (format, code, math, reasoning)
             reward = self._apply_reward_weights(

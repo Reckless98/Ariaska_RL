@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260221_151304_af3ab9",
+  "timestamp": 1771683202.2799258,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with a positive total reward (60.00)"
+    ],
+    "fails": [
+      "Success rate is 0.00%, indicating no successful episode outcomes"
+    ],
+    "summary": "The run produced positive reward but did not achieve any successful episode outcomes; additional diagnostic detail is needed to explain the mismatch."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "No successful episode completion despite positive reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260221_151304_af3ab9"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When success rate is 0% but total reward is positive",
+      "then_action": "Audit reward shaping and terminal success conditions for misalignment",
+      "parameters_template": {
+        "run_id": "run_20260221_151304_af3ab9",
+        "checks": [
+          "reward_shaping_rules",
+          "success_criteria"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260221_151304_af3ab9"
+      ],
+      "created_at": 1771683213.0988832,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When only 1 episode is recorded in a run",
+      "then_action": "Increase episode count to validate trend stability and reduce variance",
+      "parameters_template": {
+        "min_episodes": 5
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "run_20260221_151304_af3ab9"
+      ],
+      "created_at": 1771683213.0988953,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Critical to reconcile success criteria with observed rewards"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reward vs Success Criteria Audit",
+      "description": "Instrument the environment to log reward events alongside success/failure flags per step to identify mismatches.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase Episode Count",
+      "description": "Run at least 5\u201310 episodes with identical settings to validate whether the 0% success rate persists.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Impact Review",
+      "description": "Correlate the 10 mentor calls with step outcomes to see if guidance improves success metrics.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
