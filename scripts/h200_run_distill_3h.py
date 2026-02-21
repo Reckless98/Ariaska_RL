@@ -2489,8 +2489,11 @@ class H200DistillationRunner:
                 metadata={
                     "scenario": getattr(self, '_current_scenario', None),
                     "total_episodes": self.metrics.episodes_completed,
-                    "avg_reward": self.metrics.avg_reward_10,
-                    "codex_budget_remaining": self.metrics.codex_budget_remaining,
+                    "avg_reward": self.metrics.avg_reward(window=10),
+                    "codex_budget_remaining": (
+                        round(self._codex.policy.budget_remaining, 2)
+                        if self._codex else 0.0
+                    ),
                     "discoveries_total": self.metrics.discoveries_total,
                     "gpu_run": True,
                 },
