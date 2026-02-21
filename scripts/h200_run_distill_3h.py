@@ -2995,8 +2995,9 @@ class H200DistillationRunner:
             # ── TensorBoard: per-episode logging ─────────────────
             self._tb_log_episode(ep, result, avg_recent, ep_elapsed)
 
-            # Periodic checkpoint
-            ckpt = self._maybe_checkpoint(ep)
+            # Checkpoint at every episode boundary (each episode's
+            # weights are valuable for distillation syncing)
+            ckpt = self._maybe_checkpoint(ep, force=True)
             if ckpt:
                 console.print(f"  [yellow]\U0001f4be Checkpoint:[/yellow] {ckpt}")
 
