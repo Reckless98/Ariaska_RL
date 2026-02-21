@@ -1,0 +1,193 @@
+{
+  "run_id": "20260221T125500Z",
+  "seed": 42,
+  "device": "cuda",
+  "eval_only": false,
+  "max_hours": 0.5,
+  "wall_hours": 0.5003939371638828,
+  "episodes_completed": 9,
+  "total_steps": 1350,
+  "avg_reward_all": 367.34999999999985,
+  "avg_reward_first_10": 367.34999999999985,
+  "avg_reward_last_10": 367.34999999999985,
+  "phase_reached_distribution": {
+    "RECON": 9
+  },
+  "command_families_used": {
+    "curl": 384,
+    "nmap": 306,
+    "tar": 161,
+    "whatweb": 160,
+    "powershell": 110,
+    "searchsploit": 63,
+    "hydra": 39,
+    "ldapsearch": 17,
+    "smbclient": 12,
+    "python3": 12,
+    "crackmapexec": 7,
+    "zip": 7,
+    "nc": 6,
+    "enum4linux": 6,
+    "mysqldump": 6,
+    "scp": 6,
+    "msfconsole": 5,
+    "mysql": 5,
+    "sudo": 4,
+    "snmpwalk": 4
+  },
+  "mentor_calls_total": 661,
+  "mentor_calls_by_phase": {
+    "recon": 10,
+    "enumeration": 257,
+    "exploit": 28,
+    "privesc": 31,
+    "exfiltrate": 335
+  },
+  "openai_fallback_calls": 97,
+  "teacher_override_count": 661,
+  "echo_fallback_count": 0,
+  "mentor_json_failures": 1,
+  "ppo_updates": 9,
+  "discoveries_total": 528,
+  "checkpoints": [
+    "models/distilled/h200_20260221T125500Z_ep0001.pt",
+    "models/distilled/h200_20260221T125500Z_ep0005.pt",
+    "models/distilled/h200_20260221T125500Z_ep0009.pt"
+  ],
+  "anneal_history_sample": [
+    {
+      "progress": 0.2655,
+      "phase": "heavy",
+      "bc_coef": 0.11283,
+      "kl_coef": 0.11151,
+      "prior_alpha": 0.3673,
+      "episode": 0,
+      "mentor_calls": 150
+    },
+    {
+      "progress": 0.4954,
+      "phase": "heavy",
+      "bc_coef": 0.08065,
+      "kl_coef": 0.07817,
+      "prior_alpha": 0.2523,
+      "episode": 1,
+      "mentor_calls": 150
+    },
+    {
+      "progress": 0.5937,
+      "phase": "medium",
+      "bc_coef": 0.06688,
+      "kl_coef": 0.06391,
+      "prior_alpha": 0.2031,
+      "episode": 2,
+      "mentor_calls": 77
+    },
+    {
+      "progress": 0.7181,
+      "phase": "medium",
+      "bc_coef": 0.04947,
+      "kl_coef": 0.04588,
+      "prior_alpha": 0.141,
+      "episode": 3,
+      "mentor_calls": 74
+    },
+    {
+      "progress": 0.8153,
+      "phase": "medium",
+      "bc_coef": 0.03586,
+      "kl_coef": 0.03178,
+      "prior_alpha": 0.0923,
+      "episode": 4,
+      "mentor_calls": 75
+    },
+    {
+      "progress": 0.8783,
+      "phase": "light",
+      "bc_coef": 0.02704,
+      "kl_coef": 0.02265,
+      "prior_alpha": 0.0609,
+      "episode": 5,
+      "mentor_calls": 45
+    },
+    {
+      "progress": 0.9212,
+      "phase": "light",
+      "bc_coef": 0.02104,
+      "kl_coef": 0.01643,
+      "prior_alpha": 0.0394,
+      "episode": 6,
+      "mentor_calls": 30
+    },
+    {
+      "progress": 0.9622,
+      "phase": "light",
+      "bc_coef": 0.0153,
+      "kl_coef": 0.01049,
+      "prior_alpha": 0.02,
+      "episode": 7,
+      "mentor_calls": 30
+    },
+    {
+      "progress": 1.0,
+      "phase": "light",
+      "bc_coef": 0.01,
+      "kl_coef": 0.005,
+      "prior_alpha": 0.02,
+      "episode": 8,
+      "mentor_calls": 30
+    }
+  ],
+  "anneal_enforcement": [
+    {
+      "window": 0,
+      "total": 91,
+      "mentor": 91,
+      "rate": 1.0
+    },
+    {
+      "window": 1,
+      "total": 100,
+      "mentor": 100,
+      "rate": 1.0
+    },
+    {
+      "window": 2,
+      "total": 113,
+      "mentor": 113,
+      "rate": 1.0
+    },
+    {
+      "window": 3,
+      "total": 224,
+      "mentor": 111,
+      "rate": 0.496
+    },
+    {
+      "window": 4,
+      "total": 250,
+      "mentor": 125,
+      "rate": 0.5
+    },
+    {
+      "window": 5,
+      "total": 567,
+      "mentor": 120,
+      "rate": 0.212
+    },
+    {
+      "window": 6,
+      "total": 5,
+      "mentor": 1,
+      "rate": 0.2
+    }
+  ],
+  "codex_calls": 97,
+  "codex_tokens": 65593,
+  "codex_cost_usd": 1.1526599999999994,
+  "codex_escalation_reasons": {
+    "diversity_early": 27,
+    "hard_case_mid": 40,
+    "critical_stall": 21,
+    "quality_assurance": 9
+  }
+}
