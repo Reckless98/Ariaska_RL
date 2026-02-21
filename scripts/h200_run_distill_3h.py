@@ -753,12 +753,13 @@ _CODEX_MAX_CALLS = 2080            # Phase 42: 2x from 1040 — doubled mentor c
 class CodexEscalationPolicy:
     """Decides when to escalate to OpenAI codex based on anneal + budget.
 
-    Front-loaded: use more codex early, taper to near-zero.
+    Phase 43: Aggressive dual-routing — OpenAI API as quality booster.
     Schedule (by training progress):
-        0–20%:  every 3 steps when local mentor fails/low-conf
-        20–50%: every 5 steps, only on hard cases
-        50–80%: every 10 steps, critical stalls only
-        80–100%: disabled
+        0–20%:  every 2nd step when local weak, diversity every 4th
+        20–50%: every 3rd step, hard cases + stalls
+        50–80%: every 5th step, stalls + exploits + hard phases
+        80–95%: every 7th step, quality assurance on key decisions
+        95–100%: disabled (final convergence)
     """
 
     def __init__(self, budget_usd: float = _CODEX_BUDGET_USD) -> None:
@@ -784,36 +785,44 @@ class CodexEscalationPolicy:
         if self.calls >= _CODEX_MAX_CALLS:
             return False, "max_calls_reached"
 
-        # Phase 80–100%: disabled
-        if progress >= 0.80:
-            return False, "late_phase_disabled"
+        # Phase 95–100%: disabled (final convergence, PPO-only)
+        if progress >= 0.95:
+            return False, "final_convergence"
 
-        # Phase 50–80%: every 7th step, critical stalls (+30% from every 10)
-        if progress >= 0.50:
-            if not reward_stagnant:
-                return False, "no_stall_late"
+        # Phase 80–95%: every 7th step, quality assurance
+        if progress >= 0.80:
+            if not (local_failed or reward_stagnant or local_confidence < 0.40):
+                return False, "qa_not_needed"
             if self._step_counter % 7 != 0:
+                return False, "step_skip_qa"
+            return True, "quality_assurance"
+
+        # Phase 50–80%: every 5th step, stalls + hard cases
+        if progress >= 0.50:
+            if not (reward_stagnant or local_failed or local_confidence < 0.40):
+                return False, "no_stall_late"
+            if self._step_counter % 5 != 0:
                 return False, "step_skip_light"
             return True, "critical_stall"
 
-        # Phase 20–50%: every 4th step, hard cases (+30% from every 5)
+        # Phase 20–50%: every 3rd step, hard cases
         if progress >= 0.20:
-            is_hard = local_failed or local_confidence < 0.35
+            is_hard = local_failed or local_confidence < 0.45
             if not is_hard and not reward_stagnant:
                 return False, "not_hard_mid"
-            if self._step_counter % 4 != 0:
+            if self._step_counter % 3 != 0:
                 return False, "step_skip_medium"
             return True, "hard_case_mid"
 
-        # Phase 0–20%: every 2nd step when local mentor is weak (+30% from every 3)
+        # Phase 0–20%: every 2nd step when local mentor is weak
         if self._step_counter % 2 != 0:
             return False, "step_skip_heavy"
         if local_failed:
             return True, "local_failed_early"
-        if local_confidence < 0.55:
+        if local_confidence < 0.65:
             return True, "low_conf_early"
-        # Even if local succeeded, use codex occasionally for diversity
-        if self._step_counter % 6 == 0:
+        # Even if local succeeded, use codex for diversity injection
+        if self._step_counter % 4 == 0:
             return True, "diversity_early"
         return False, "local_sufficient"
 
