@@ -1,0 +1,132 @@
+{
+  "run_id": "run_20260222_205818_44d00a",
+  "timestamp": 1771790316.5674264,
+  "key_outcomes": {
+    "wins": [
+      "Achieved high episode reward (90.0) indicating effective partial progression",
+      "Maintained stable performance trend across the run"
+    ],
+    "fails": [
+      "No successful episode completions (0% success rate)",
+      "High mentor dependency (10 mentor calls) indicating low autonomy"
+    ],
+    "summary": "Strong partial progress but no terminal success; prioritize converting partial gains into completed objectives while reducing mentor reliance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Progress stalls before final objective completion despite high intermediate reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_final"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery is required at start of episode",
+      "then_action": "Run fast TCP port discovery to map attack surface",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p- --min-rate 1000 -T4 -oN portscan.txt"
+      },
+      "confidence": 0.78,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771790331.1006024,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When common web ports (80/443/8080) are open",
+      "then_action": "Enumerate web stack and directories",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt -x php,txt,html -o web_enum.txt"
+      },
+      "confidence": 0.74,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771790331.1006165,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected on port 22",
+      "then_action": "Collect SSH host key algorithms and banner for versioning",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey -oN ssh_enum.txt"
+      },
+      "confidence": 0.7,
+      "evidence_refs": [
+        "ep001_step06"
+      ],
+      "created_at": 1771790331.1006258,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "High reward suggests effective initial discovery; standardize fast port scan in future episodes."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a consistent value driver after discovery."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Convert high reward to success",
+      "description": "Identify the last unsatisfied objective in ep001_final and script the exact action sequence to complete it without mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Replay episode with a hard limit of 2 mentor calls and log decision points where assistance was requested.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-enum exploitation checklist",
+      "description": "Add a step-by-step checklist after service enumeration to ensure credential testing and exploit validation are executed before termination.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

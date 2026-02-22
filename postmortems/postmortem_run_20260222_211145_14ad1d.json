@@ -1,0 +1,155 @@
+{
+  "run_id": "run_20260222_211145_14ad1d",
+  "timestamp": 1771791123.3030796,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite single-episode run",
+      "Maintained stable reward trend across the run"
+    ],
+    "fails": [
+      "Success rate remained at 0.00%, indicating no episode-level objectives were completed",
+      "High mentor call count (10) suggests insufficient autonomy"
+    ],
+    "summary": "The run shows stable reward but no completed objectives, indicating partial progress without end-to-end success and heavy mentor reliance."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert intermediate progress into episode completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    },
+    {
+      "pattern": "High dependency on mentor guidance during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_02",
+        "ep001_mentor_call_03",
+        "ep001_mentor_call_04",
+        "ep001_mentor_call_05",
+        "ep001_mentor_call_06",
+        "ep001_mentor_call_07",
+        "ep001_mentor_call_08",
+        "ep001_mentor_call_09",
+        "ep001_mentor_call_10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When early reconnaissance yields stable incremental reward but no completion signal",
+      "then_action": "Prioritize objective validation by confirming success criteria and checking for missing end-state conditions",
+      "parameters_template": {
+        "validation_checks": [
+          "objective_flag",
+          "state_transition",
+          "completion_signal"
+        ]
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771791138.5473897,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 within an episode",
+      "then_action": "Pause and execute a structured decision checkpoint: assess current position, enumerate next-best actions, and select the highest-value action",
+      "parameters_template": {
+        "checkpoint_steps": [
+          "position_assessment",
+          "action_ranking",
+          "commit_action"
+        ]
+      },
+      "confidence": 0.66,
+      "evidence_refs": [
+        "ep001_mentor_call_01",
+        "ep001_mentor_call_10"
+      ],
+      "created_at": 1771791138.5474038,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When reward is positive but success rate is 0%",
+      "then_action": "Shift focus to goal completion tasks and reduce exploration breadth",
+      "parameters_template": {
+        "focus_mode": "goal_completion",
+        "exploration_limit": 0.3
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771791138.5474138,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Addresses the primary gap of converting progress into completion"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Mitigates excessive mentor dependency with a repeatable decision framework"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Objective-First Finish",
+      "description": "Introduce a mandatory end-state validation step every 3 actions to ensure progress aligns with completion criteria.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Budget",
+      "description": "Cap mentor calls at 3 per episode and enforce a decision checkpoint when the cap is reached.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-Completion Mapping",
+      "description": "Instrument reward checkpoints with explicit mappings to success conditions to identify missing completion triggers.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

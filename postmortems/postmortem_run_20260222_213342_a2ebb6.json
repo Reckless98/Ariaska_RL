@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260222_213342_a2ebb6",
+  "timestamp": 1771792435.3743541,
+  "key_outcomes": {
+    "wins": [
+      "Consistent positive reward achieved in the single episode (60.0)"
+    ],
+    "fails": [
+      "No successful episodes recorded (0.00% success rate)",
+      "High mentor dependency (10 mentor calls in 1 episode)"
+    ],
+    "summary": "Despite positive reward, the run did not achieve a successful episode and relied heavily on mentor calls, indicating incomplete execution or terminal failures."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode concluded without success despite non-zero reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial access attempt fails after reconnaissance",
+      "then_action": "Perform targeted service enumeration with version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-sV -sC",
+        "target": "<host>"
+      },
+      "confidence": 0.42,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771792445.9241893,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When multiple mentor calls are required in one episode",
+      "then_action": "Insert a structured decision checkpoint before action selection",
+      "parameters_template": {
+        "checkpoint": "assess-attack-surface",
+        "criteria": [
+          "service exposure",
+          "credential availability",
+          "exploit feasibility"
+        ]
+      },
+      "confidence": 0.38,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771792445.9242063,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline enumeration is a prerequisite for successful follow-on actions."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Introduce pre-action checklists to decide next steps without mentor calls and track the reduction in mentor prompts per episode.",
+      "priority": "high"
+    },
+    {
+      "title": "Outcome-aligned reward shaping",
+      "description": "Adjust reward metrics to correlate more directly with episode success to avoid positive reward without completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-to-exploit pipeline",
+      "description": "Run a deterministic workflow: discovery \u2192 enumeration \u2192 exploit selection to isolate where success fails.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
