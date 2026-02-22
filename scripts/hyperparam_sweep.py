@@ -394,17 +394,106 @@ def main() -> None:
 
     sweep = HyperparamSweep(config)
 
-    # Dummy training function for validation
-    def _dummy_train(trial_config: TrialConfig, steps: int) -> Dict[str, Any]:
-        """Placeholder — replace with actual PPO training loop."""
-        import random
-        random.seed(trial_config.learning_rate * 1e6)  # deterministic seed from config
+    # ─── C10: Real training function — replaces _dummy_train ────
+    def _real_train(trial_config: TrialConfig, steps: int) -> Dict[str, Any]:
+        """Run a real PPO training trial in CyberEnvironment.
+
+        Creates a PPO agent with the trial's hyperparameters, runs `steps`
+        steps in a simulated CyberEnvironment, and returns reward-invariant
+        metrics suitable for Optuna optimization.
+        """
+        import torch
+        from core.algorithms.ppo_agent import PPOAgent, PPOConfig
+        from core.environment.cyber_environment import CyberEnvironment
+        from core.models.state_encoder import encode_state
+
+        # Build PPOConfig from trial
+        ppo_config = PPOConfig(
+            state_dim=512,
+            action_dim=5,
+            hidden_dims=trial_config.hidden_dims,
+            clip_epsilon=trial_config.clip_epsilon,
+            learning_rate=trial_config.learning_rate,
+            gae_lambda=trial_config.gae_lambda,
+            gamma=trial_config.gamma,
+            entropy_coef=trial_config.entropy_coef,
+            minibatch_size=trial_config.minibatch_size,
+            epochs_per_update=trial_config.epochs_per_update,
+            max_grad_norm=trial_config.max_grad_norm,
+            rollout_size=min(steps, 64),
+        )
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        agent = PPOAgent(config=ppo_config, device=device)
+        env = CyberEnvironment(defer_reset=True)
+
+        # Phase rank map for metric computation
+        phase_ranks = {
+            "RECON": 0, "ENUMERATION": 1, "EXPLOITATION": 2,
+            "PRIVILEGE_ESCALATION": 3, "LATERAL_MOVEMENT": 4,
+            "POST_EXPLOITATION": 5, "EXFILTRATION": 6, "CLOSEOUT": 7,
+        }
+
+        # Run training loop
+        state = env.reset()
+        used_commands: set = set()
+        total_discoveries = 0
+        max_phase = 0
+        total_reward = 0.0
+        step_count = 0
+
+        for step in range(steps):
+            try:
+                state_tensor = encode_state(state, torch.device(device))
+                action_idx, log_prob, value = agent.select_action(state_tensor)
+
+                next_state, reward, done, info = env.step(action_idx)
+                total_reward += reward
+                step_count += 1
+
+                # Track metrics
+                cmd = info.get("command", f"action_{action_idx}")
+                used_commands.add(cmd)
+                discoveries = info.get("discoveries", [])
+                total_discoveries += len(discoveries)
+                phase = info.get("phase", "RECON")
+                max_phase = max(max_phase, phase_ranks.get(phase, 0))
+
+                # Store transition
+                agent.store_transition(
+                    state=state_tensor,
+                    action=action_idx,
+                    log_prob=log_prob,
+                    reward=reward,
+                    value=value,
+                    done=done,
+                )
+
+                if done:
+                    agent.update(last_value=0.0)
+                    state = env.reset()
+                else:
+                    state = next_state
+
+            except Exception as e:
+                logger.debug(f"Trial step {step} error: {e}")
+                break
+
+        # Final update if buffer has data
+        try:
+            agent.update(last_value=0.0)
+        except Exception:
+            pass
+
+        unique = len(used_commands)
+        diversity = unique / max(step_count, 1)
+
         return {
-            "unique_commands": random.randint(5, 50),
-            "diversity_ratio": random.random(),
-            "total_discoveries": random.randint(0, 20),
-            "max_phase_reached": random.randint(0, 7),
-            "mean_reward": random.uniform(-5, 50),
+            "unique_commands": unique,
+            "diversity_ratio": diversity,
+            "total_discoveries": total_discoveries,
+            "max_phase_reached": max_phase,
+            "mean_reward": total_reward / max(step_count, 1),
+            "total_steps": step_count,
         }
 
     from rich.console import Console
@@ -414,7 +503,7 @@ def main() -> None:
     console.print(f"  Steps/trial: {config.steps_per_trial}")
     console.print(f"  Study: {config.study_name}")
 
-    result = sweep.run(train_fn=_dummy_train)
+    result = sweep.run(train_fn=_real_train)
 
     console.print(f"\n[bold green]Sweep complete![/bold green]")
     console.print(f"  Best trial: {result['best_trial']}")
