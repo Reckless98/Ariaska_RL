@@ -579,14 +579,29 @@ class SmartCoach:
         self._r68_forced_phase_group: Optional[int] = None  # Codex can force phase head
 
         # =====================================================================
-        # PHASE 8: COGNITION NODE — REMOVED (Phase 12.1)
-        # CognitionNode had 3 critical bugs:
-        #   B1: Action-space mismatch (DDQN macro 0-8 fused with PPO 0-4+)
-        #   B2: SIL injection corrupted PPO GAE (value=0.0)
-        #   B3: _vote_ppo() bypassed R67-R80 features
-        # SmartCoach already handles DDQN→PPO constraint in _ppo_select_command()
+        # PHASE 8 / C04: COGNITION NODE — RE-ENABLED with 3 bug fixes
+        # B1: DDQN macro action_idx=-1 (no longer fused with PPO indices)
+        # B2: SIL uses proper value estimate (critic forward) not value=0.0
+        # B3: _vote_ppo() delegates to PPO.select_action() (R67-R80 preserved)
         # =====================================================================
-        self.cognition_node = None  # Kept as None for backward compat
+        self.cognition_node = None
+        try:
+            from core.algorithms.cognition_node import CognitionNode, CognitionConfig
+            _cn_ppo = self.ppo_agent if hasattr(self, 'ppo_agent') else None
+            _cn_sac = self.sac_agent if hasattr(self, 'sac_agent') else None
+            _cn_ddqn = self.ddqn_macro if hasattr(self, 'ddqn_macro') else None
+            # RND lives in SmartOrchestrator, not SmartCoach — pass None here
+            self.cognition_node = CognitionNode(
+                config=CognitionConfig(),
+                ppo=_cn_ppo,
+                sac=_cn_sac,
+                ddqn=_cn_ddqn,
+                rnd=None,  # RND is orchestrator-level, injected via DecisionPacket
+            )
+            logger.debug(f"[CognitionNode] {agent_name}: enabled with B1+B2+B3 fixes")
+        except Exception as e:
+            logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
+        self._cognition_result = None  # C04: per-step result, set in decide()
 
         # =====================================================================
         # PHASE 8: CODEX PERSONA ROUTER — 4-persona Codex/Claude routing
@@ -3263,9 +3278,63 @@ class SmartCoach:
                 step_ctx, current_phase, filtered_commands
             )
         
-        # PHASE 8: CognitionNode — REMOVED (Phase 12.1, see init comment)
+        # =====================================================================
+        # LAYER 3.5: COGNITION NODE — Multi-brain fusion (C04 re-enabled)
+        # Fuses PPO, SAC, DDQN votes via learned confidence gate.
+        # Produces cognition_decision only if confidence > 0.5.
+        # =====================================================================
         self._cognition_result = None  # Reset per-step
         cognition_decision = None
+        if self.cognition_node is not None:
+            try:
+                import torch as _cog_torch
+                from core.models.state_encoder import encode_state as _cog_encode
+                _cog_state = _cog_encode(
+                    step_ctx.state, _cog_torch.device("cpu"),
+                    current_step=step_ctx.step, max_steps=500,
+                )
+                _cog_mask = _cog_torch.ones(
+                    self.action_mapper.action_dim if self.action_mapper else 79,
+                    dtype=_cog_torch.bool,
+                )
+                _cog_result = self.cognition_node.think(
+                    _cog_state, _cog_mask, phase=current_phase.name,
+                    step_id=step_ctx.step,
+                )
+                self._cognition_result = _cog_result
+
+                # Populate DecisionPacket cognition vote
+                _dp = self._current_decision_packet
+                if _dp is not None:
+                    _dp.cognition.winning_brain = _cog_result.winning_brain
+                    _dp.cognition.fused_confidence = _cog_result.confidence
+                    _dp.cognition.action_idx = _cog_result.action_idx
+                    _dp.cognition.brain_votes = len(_cog_result.votes)
+
+                # Only produce decision if confidence >= 0.5 AND we have a valid action
+                if (_cog_result.confidence >= 0.5
+                        and _cog_result.action_idx >= 0
+                        and self.action_mapper is not None):
+                    _cog_template = self.action_mapper.action_to_command(_cog_result.action_idx)
+                    if _cog_template is not None:
+                        cognition_decision = SmartDecisionResult(
+                            command=_cog_template.template,
+                            template_name=_cog_template.name,
+                            confidence=_cog_result.confidence,
+                            source="cognition_node",
+                            reasoning=(
+                                f"CognitionNode fused ({_cog_result.winning_brain}): "
+                                f"conf={_cog_result.confidence:.2f}, "
+                                f"rnd={_cog_result.rnd_bonus:.2f}"
+                            ),
+                        )
+                        logger.debug(
+                            f"[COGNITION][{self.agent_name}] decision: "
+                            f"{_cog_template.name} via {_cog_result.winning_brain} "
+                            f"conf={_cog_result.confidence:.2f}"
+                        )
+            except Exception as e:
+                logger.debug(f"[COGNITION][{self.agent_name}] Error: {e}")
         
         # Cascade debug — verify web_paths reach the decision point
         _db_wp = discovery_board.get("web_paths", [])
@@ -7473,7 +7542,14 @@ class SmartCoach:
                 self._ddqn_prev_macro = None  # R57 Layer 1
                 self._last_step_had_discovery = False  # R57 Layer 1
             
-            # Phase 8: CognitionNode — REMOVED (Phase 12.1)
+            # C04: CognitionNode episode end — collect metrics
+            if self.cognition_node is not None:
+                try:
+                    _cn_metrics = self.cognition_node.end_episode()
+                    logger.debug(f"[COGNITION][{self.agent_name}] episode end: {_cn_metrics}")
+                    self.cognition_node.reset_episode()
+                except Exception as e:
+                    logger.debug(f"[COGNITION][{self.agent_name}] Episode end failed: {e}")
 
             # Phase 10.0: Cloud role — PostmortemSkillExtractor at episode end
             if self._postmortem_extractor and self._postmortem_extractor.can_call():
@@ -8317,7 +8393,24 @@ class SmartCoach:
                 logger.debug(f"[DDQN][{self.agent_name}] Transition store failed: {e}")
             self._ddqn_pending = None
         
-        # PHASE 8: CognitionNode observe — REMOVED (Phase 12.1)
+        # ─── C04: CognitionNode observe — re-enabled with bug fixes ───
+        if self.cognition_node is not None and self._cognition_result is not None:
+            try:
+                import torch as _cog_t
+                from core.models.state_encoder import encode_state as _cog_enc
+                _cog_next = _cog_enc(
+                    {"state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
+                     "phase": self.attack_context.current_phase.name if self.attack_context else "RECON"},
+                    _cog_t.device("cpu"),
+                    current_step=len(self._ppo_trajectory) if self._ppo_trajectory else 1,
+                    max_steps=500,
+                )
+                _cog_reward = breakdown.total
+                self.cognition_node.observe(
+                    self._cognition_result, _cog_reward, _cog_next, done,
+                )
+            except Exception as e:
+                logger.debug(f"[COGNITION][{self.agent_name}] Observe failed: {e}")
         self._cognition_result = None
         
         # ─── PHASE 8: Tick persona cooldowns ───
@@ -8523,8 +8616,13 @@ class SmartCoach:
         self._explored_web_path_html: set = set()
         self._explored_web_path_downloads: set = set()
         
-        # Phase 8: Reset CognitionNode (REMOVED Phase 12.1) + PersonaRouter per episode
+        # C04: Reset CognitionNode + PersonaRouter per episode
         self._cognition_result = None
+        if self.cognition_node is not None:
+            try:
+                self.cognition_node.reset_episode()
+            except Exception:
+                pass
         if self.persona_router is not None:
             try:
                 self.persona_router.reset_episode()

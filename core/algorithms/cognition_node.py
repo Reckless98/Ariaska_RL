@@ -562,10 +562,13 @@ class CognitionNode:
         step_id: Optional[int] = None,
     ) -> Optional[BrainVote]:
         """Get DDQN macro-level vote.
-        
+
+        C04 B1 fix: DDQN macro index (0-8) is NOT a command action index.
+        We store macro_name in metadata and set action_idx = -1 to signal
+        that this is a strategic directive, not a command selection.
+        The fusion logic uses macro_allowed_indices to constrain PPO/SAC.
+
         Phase 9.5: step_id forwarded to select_macro() for per-step dedup.
-        If SmartCoach already called select_macro() this step, the cached
-        result is returned without epsilon decay.
         """
         if self.ddqn is None:
             return None
@@ -576,10 +579,11 @@ class CognitionNode:
             )
             return BrainVote(
                 brain_name="ddqn",
-                action_idx=macro.value,  # Macro index, not command index
+                action_idx=-1,  # C04 B1: macro index is NOT a command index
                 confidence=confidence,
                 q_value=float(q_values.max()) if q_values is not None else 0.0,
-                metadata={"macro_name": macro.name, "q_values": q_values},
+                metadata={"macro_name": macro.name, "macro_value": macro.value,
+                          "q_values": q_values},
             )
         except Exception as e:
             logger.debug(f"DDQN vote failed: {e}")
@@ -591,7 +595,12 @@ class CognitionNode:
         mask: torch.Tensor,
         macro_indices: Optional[Set[int]] = None,
     ) -> Optional[BrainVote]:
-        """Get PPO micro-level vote with optional macro constraint."""
+        """Get PPO micro-level vote with optional macro constraint.
+
+        C04 B3 fix: Delegates to PPO's select_action() instead of manually
+        accessing network.actor(). This preserves all R67-R80 features:
+        phase-gated heads, logit bias, LLM prior, dual-horizon GAE, etc.
+        """
         if self.ppo is None:
             return None
         try:
@@ -606,30 +615,32 @@ class CognitionNode:
                 if combined.sum() >= 2:
                     effective_mask = combined
 
-            # PPO select_action with mask
+            # C04 B3: Use PPO's select_action() to preserve all R67-R80 features
+            s = state.squeeze(0) if state.dim() > 1 else state
+            action_idx, log_prob, value = self.ppo.select_action(
+                s, training=True, action_mask=effective_mask,
+            )
+
+            # Compute entropy for confidence estimate
             with torch.no_grad():
-                logits = self.ppo.network.actor(state.unsqueeze(0) if state.dim() == 1 else state)
-                # Apply mask
+                _s = s.unsqueeze(0).to(self.ppo.device)
+                logits, _ = self.ppo.network(_s)
                 logits = logits.squeeze(0)
-                logits[~effective_mask] = float("-inf")
-                probs = F.softmax(logits, dim=-1)
-                dist = torch.distributions.Categorical(probs)
-                action = dist.sample()
-                log_prob = dist.log_prob(action)
-                entropy = dist.entropy()
-                value = self.ppo.network.critic(state.unsqueeze(0) if state.dim() == 1 else state)
+                logits[~effective_mask.to(logits.device)] = float("-inf")
+                dist = torch.distributions.Categorical(logits=logits)
+                entropy = dist.entropy().item()
 
             # Confidence = 1 - normalised entropy
             max_entropy = math.log(max(effective_mask.sum().item(), 2))
-            conf = max(0.0, 1.0 - entropy.item() / max(max_entropy, 1e-6))
+            conf = max(0.0, 1.0 - entropy / max(max_entropy, 1e-6))
 
             return BrainVote(
                 brain_name="ppo",
-                action_idx=action.item(),
+                action_idx=action_idx,
                 confidence=conf,
-                q_value=value.item(),
-                entropy=entropy.item(),
-                log_prob=log_prob.item(),
+                q_value=value,
+                entropy=entropy,
+                log_prob=log_prob,
             )
         except Exception as e:
             logger.debug(f"PPO vote failed: {e}")
@@ -758,6 +769,10 @@ class CognitionNode:
         for vote in votes:
             if vote.brain_name not in brain_weight_map:
                 continue
+            # C04 B1: Skip DDQN votes — their action_idx is -1 (macro, not command)
+            # DDQN influences via macro_allowed_indices constraint on PPO/SAC
+            if vote.action_idx < 0:
+                continue
             w_idx = brain_weight_map[vote.brain_name]
             w = weights[w_idx].item()
             score = w * vote.confidence
@@ -782,7 +797,7 @@ class CognitionNode:
         if best_action < 0:
             # Fallback: pick highest-confidence vote with legal action
             for vote in sorted(votes, key=lambda v: -v.confidence):
-                if vote.action_idx < len(mask) and mask[vote.action_idx]:
+                if vote.action_idx >= 0 and vote.action_idx < len(mask) and mask[vote.action_idx]:
                     best_action = vote.action_idx
                     best_brain = vote.brain_name
                     best_score = vote.confidence
@@ -824,12 +839,23 @@ class CognitionNode:
         best = max(self._sil_buffer, key=lambda x: x["reward"])
         if best["state"] is not None:
             try:
+                # C04 B2 fix: Use proper value estimate from critic instead
+                # of value=0.0 which corrupted PPO's GAE computation.
+                _sil_value = 0.0
+                if best["state"] is not None:
+                    with torch.no_grad():
+                        _s = best["state"]
+                        if _s.dim() == 1:
+                            _s = _s.unsqueeze(0)
+                        _s = _s.to(self.ppo.device)
+                        _, _v = self.ppo.network(_s)
+                        _sil_value = _v.squeeze(-1).item()
                 self.ppo.store_transition(
                     state=best["state"],
                     action=best["action"],
                     log_prob=best["log_prob"],
                     reward=best["reward"] * 0.5,  # Discount replayed reward
-                    value=0.0,
+                    value=_sil_value,  # C04 B2: proper value estimate
                     done=False,
                 )
                 return best
