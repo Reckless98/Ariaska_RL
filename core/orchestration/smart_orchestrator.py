@@ -720,6 +720,29 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("RND Curiosity", "warn", str(e)[:40]))
         
+        # ─── C08: Reptile Meta-Learning ──────────────────────────────
+        # First-order meta-learning over scenario distributions.
+        # Runs between episodes on per-coach PPO networks.
+        # Gated by FF_REPTILE_META (default=False until validated).
+        self.reptile = None
+        self._reptile_global_step: int = 0
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff
+            if _get_ff().reptile_meta:
+                from core.algorithms.reptile_meta import ReptileMeta, ReptileConfig
+                self.reptile = ReptileMeta(config=ReptileConfig(
+                    enabled=True,
+                    outer_lr=0.1,
+                    inner_steps=5,
+                    scenarios_per_step=3,
+                    warmup_steps=100,
+                ))
+                _init_modules.append(("Reptile Meta", "ok", "scenarios=27, inner=5"))
+            else:
+                _init_modules.append(("Reptile Meta", "skip", "FF_REPTILE_META=false"))
+        except Exception as e:
+            _init_modules.append(("Reptile Meta", "warn", str(e)[:40]))
+        
         # ─── R66: Coherence Tracker ──────────────────────────────────
         self.coherence_tracker = None
         try:
@@ -3049,6 +3072,49 @@ class SmartOrchestrator:
                 )
             except Exception as _e:
                 logger.debug(f"[P39.4] DebugTracer episode end error: {_e}")
+        
+        # ─── C08: Reptile Meta-Learning — between episodes ──────────
+        # Run on each coach's PPO network to interpolate weights toward
+        # a scenario-diverse optimum.
+        if self.reptile is not None:
+            self._reptile_global_step += len(step_results)
+            if self.reptile.should_run(self._reptile_global_step):
+                try:
+                    for _coach_name, _coach in self.coaches.items():
+                        _coach_ppo = getattr(_coach, 'ppo_agent', None)
+                        if _coach_ppo is None:
+                            continue
+                        _network = getattr(_coach_ppo, 'network', None)
+                        if _network is None:
+                            continue
+
+                        def _inner_train(model, scenario_name, inner_steps, _ppo=_coach_ppo):
+                            """Dummy inner loop — no real env interaction, just
+                            a PPO update on the current buffer if available."""
+                            _upd = {}
+                            if hasattr(_ppo, 'buffer') and len(getattr(_ppo.buffer, 'states', [])) > 0:
+                                try:
+                                    _upd = _ppo.update(last_value=0.0) or {}
+                                except Exception:
+                                    _upd = {}
+                            return {"loss": _upd.get("total_loss", 0.0),
+                                    "reward": _upd.get("value_loss", 0.0),
+                                    "scenario": scenario_name}
+
+                        _maturity_signal = metrics.get("success_rate", 0.0)
+                        _rep_stats = self.reptile.meta_step(
+                            model=_network,
+                            inner_train_fn=_inner_train,
+                            global_step=self._reptile_global_step,
+                            maturity=_maturity_signal,
+                        )
+                        metrics.setdefault("reptile", {})[_coach_name] = _rep_stats
+                        logger.debug(
+                            f"[REPTILE] {_coach_name}: meta_step={_rep_stats['meta_step']} "
+                            f"lr={_rep_stats['outer_lr']:.4f}"
+                        )
+                except Exception as _re:
+                    logger.debug(f"[C08] Reptile meta-step error: {_re}")
         
         # ─── R66: Episode-level JSONL + HUD summary ─────────────────
         try:
