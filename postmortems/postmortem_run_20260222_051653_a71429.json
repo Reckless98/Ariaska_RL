@@ -1,0 +1,117 @@
+{
+  "run_id": "run_20260222_051653_a71429",
+  "timestamp": 1771733825.5367532,
+  "key_outcomes": {
+    "wins": [
+      "Total reward achieved despite single-episode run"
+    ],
+    "fails": [
+      "Success rate 0% across the run",
+      "Only one episode captured, limiting pattern confidence",
+      "High mentor call count suggests low autonomy"
+    ],
+    "summary": "Single-episode run with modest reward but no successful episode completion; insufficient data for strong generalizations."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Overreliance on mentor calls to progress decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02",
+        "ep001_step03",
+        "ep001_step04",
+        "ep001_step05",
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is needed in a small subnet",
+      "then_action": "Run fast host discovery with nmap ping sweep",
+      "parameters_template": {
+        "targets": "192.168.1.0/24",
+        "args": "-sn -PE -PP -PS80,443"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step02"
+      ],
+      "created_at": 1771733837.2040687,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is found and services are unknown",
+      "then_action": "Perform top-ports TCP scan with service/version detection",
+      "parameters_template": {
+        "target": "192.168.1.10",
+        "args": "-sS -sV --top-ports 1000 -T4"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step04"
+      ],
+      "created_at": 1771733837.2040858,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Useful baseline recon step to reduce mentor dependency."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Core enumeration step to enable subsequent exploitation choices."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency via scripted recon",
+      "description": "Execute a full recon pipeline (ping sweep -> top-ports scan -> targeted service scripts) without mentor calls to improve autonomy.",
+      "priority": "high"
+    },
+    {
+      "title": "Success-focused episode",
+      "description": "Run a short episode with a known vulnerable service to validate end-to-end kill chain completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Parameter tuning for scan efficiency",
+      "description": "Compare -T3 vs -T4 and top-ports 100 vs 1000 to find the fastest stable scan settings.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
