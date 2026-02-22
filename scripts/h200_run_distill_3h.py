@@ -952,7 +952,7 @@ class MentorConfig:
     base_url: str = "http://127.0.0.1:8192/v1"
     model: str = "openai/gpt-oss-120b"
     timeout: float = 45.0
-    max_tokens: int = 1330  # +30% headroom for accelerated learning
+    max_tokens: int = 400   # Phase 51b: -70% cut (1330→400) for cost discipline
     temperature: float = 0.2
     enabled: bool = True
 
@@ -1317,23 +1317,23 @@ class LocalMentorClient:
 # Codex pricing estimates (per 1K tokens) — Phase 44: corrected to real API rates
 _CODEX_INPUT_COST_PER_1K = 0.002   # gpt-5.2-codex input (actual rate)
 _CODEX_OUTPUT_COST_PER_1K = 0.008  # gpt-5.2-codex output (actual rate)
-_CODEX_BUDGET_USD = 90.0           # Phase 50: -10% ($100→$90) for cost discipline
-_CODEX_MAX_CALLS = 45000           # Phase 50: -10% (50000→45000)
+_CODEX_BUDGET_USD = 27.0            # Phase 51b: -70% ($90→$27) aggressive cost cut
+_CODEX_MAX_CALLS = 13500            # Phase 51b: -70% (45000→13500)
 
 
 class CodexEscalationPolicy:
     """Decides when to escalate to OpenAI codex based on anneal + budget.
 
-    Phase 46: 20% API reduction — wider step intervals while keeping
-    quality high via smarter escalation triggers.
+    Phase 51b: 70% API reduction — aggressive ramp-down.
     Schedule (by training progress):
-        0–25%:  every 2nd step — dual teacher (was EVERY step)
-        25–50%: every 3rd step — high-frequency (was every 2nd)
-        50–75%: every 4th step — sustained guidance (was every 3rd)
-        75–90%: every 6th step — quality assurance (was every 5th)
-        90–100%: every 12th step — light touch (was every 10th)
+        0–20%:  every 8th step — early guidance (was every 3rd)
+        20–40%: every 12th step (was every 4th)
+        40–60%: every 20th step (was every 6th)
+        60–80%: every 30th step (was every 10th)
+        80–100%: every 50th step — near-autonomous (was every 20th)
 
-    Always-escalate exceptions: local_failed, stagnation, very low confidence.
+    Always-escalate exceptions: local_failed, very low confidence.
+    NOTE: reward_stagnant no longer auto-escalates — too frequent.
     """
 
     def __init__(self, budget_usd: float = _CODEX_BUDGET_USD) -> None:
@@ -1352,8 +1352,8 @@ class CodexEscalationPolicy:
     ) -> Tuple[bool, str]:
         """Return (should_call, reason).
 
-        Phase 46: ~20% fewer calls — smarter triggers replace brute-force.
-        Always escalate on: local failure, stagnation, or very low confidence.
+        Phase 51b: ~70% fewer calls — PPO must learn autonomously.
+        Always escalate on: local failure or very low confidence only.
         """
         self._step_counter += 1
 
@@ -1366,38 +1366,37 @@ class CodexEscalationPolicy:
         # Always-escalate exceptions (regardless of schedule)
         if local_failed:
             return True, "local_failed"
-        if reward_stagnant:
-            return True, "reward_stagnant"
-        if local_confidence < 0.30:
+        # Phase 51b: reward_stagnant removed — fires too often, burns budget
+        if local_confidence < 0.20:
             return True, "very_low_confidence"
 
-        # Phase 51: Aggressive codex ramp-down — PPO needs room to learn.
-        # Phase 80–100%: every 20th step — near-autonomous
+        # Phase 51b: 70% fewer codex calls — PPO must learn autonomously.
+        # Phase 80–100%: every 50th step — near-autonomous
         if progress >= 0.80:
-            if self._step_counter % 20 != 0:
+            if self._step_counter % 50 != 0:
                 return False, "step_skip_final"
             return True, "final_touch"
 
-        # Phase 60–80%: every 10th step, quality assurance
+        # Phase 60–80%: every 30th step
         if progress >= 0.60:
-            if self._step_counter % 10 != 0:
+            if self._step_counter % 30 != 0:
                 return False, "step_skip_qa"
             return True, "quality_assurance"
 
-        # Phase 40–60%: every 6th step, sustained guidance
+        # Phase 40–60%: every 20th step
         if progress >= 0.40:
-            if self._step_counter % 6 != 0:
+            if self._step_counter % 20 != 0:
                 return False, "step_skip_medium"
             return True, "sustained_guidance"
 
-        # Phase 20–40%: every 4th step, high-frequency boost
+        # Phase 20–40%: every 12th step
         if progress >= 0.20:
-            if self._step_counter % 4 != 0:
+            if self._step_counter % 12 != 0:
                 return False, "step_skip_boost"
             return True, "high_freq_boost"
 
-        # Phase 0–20%: every 3rd step — dual teacher (was every 2nd)
-        if self._step_counter % 3 != 0:
+        # Phase 0–20%: every 8th step (was every 3rd)
+        if self._step_counter % 8 != 0:
             return False, "step_skip_early"
         return True, "dual_teacher_early"
 
@@ -1550,7 +1549,7 @@ class CodexMentorClient:
                 "model": self._model,
                 "instructions": instructions,
                 "input": user_input,
-                "max_output_tokens": 2700,  # Phase 50: -10% (3000→2700)
+                "max_output_tokens": 810,   # Phase 51b: -70% (2700→810)
             }
             resp = sess.post(
                 f"{self._base_url}/responses",
@@ -2887,7 +2886,7 @@ class H200DistillationRunner:
                     # Late training: PPO should drive — codex needs higher
                     # confidence (up to 0.60) to override.
                     codex_conf = float(codex_resp.get("confidence", 0.0))
-                    override_threshold = 0.15 + 0.45 * progress  # 0.15 → 0.60
+                    override_threshold = 0.40 + 0.40 * progress  # 0.40 → 0.80
                     if codex_conf >= override_threshold:
                         response = codex_resp
                         logger.info(
