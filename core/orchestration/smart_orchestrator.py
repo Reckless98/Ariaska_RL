@@ -761,6 +761,17 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("HeldOutEval", "warn", str(e)[:40]))
         
+        # ─── C11: Schedule Coupler ───────────────────────────────────
+        # Coordinates annealing across MentorPolicy, LLMPolicyBridge, PPO.
+        # Ensures mentor freq, KL/BC coefs, and entropy decay together.
+        self.schedule_coupler = None
+        try:
+            from core.training.schedule_coupler import ScheduleCoupler
+            self.schedule_coupler = ScheduleCoupler()
+            _init_modules.append(("ScheduleCoupler", "ok", "strength=0.8"))
+        except Exception as e:
+            _init_modules.append(("ScheduleCoupler", "warn", str(e)[:40]))
+        
         # ─── R66: Coherence Tracker ──────────────────────────────────
         self.coherence_tracker = None
         try:
@@ -1542,6 +1553,20 @@ class SmartOrchestrator:
             _mp = getattr(_coach, 'mentor_policy', None)
             if _mp is not None and hasattr(_mp, 'set_maturity'):
                 _mp.set_maturity(_maturity)
+        
+        # C11: Coupled schedule annealing — coordinates mentor, LLM bridge, PPO
+        if self.schedule_coupler is not None:
+            for _cname, _coach in self.coaches.items():
+                try:
+                    self.schedule_coupler.update(
+                        maturity=_maturity,
+                        episode=episode_number,
+                        mentor_policy=getattr(_coach, 'mentor_policy', None),
+                        llm_bridge=getattr(_coach, 'llm_bridge', None),
+                        ppo_agent=getattr(_coach, 'ppo_agent', None),
+                    )
+                except Exception as e:
+                    logger.debug(f"C11: ScheduleCoupler error for {_cname}: {e}")
         
         # PHASE 2A: Reset per-agent GPT call counters
         for agent in self.agents.values():
