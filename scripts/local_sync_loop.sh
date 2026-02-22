@@ -51,15 +51,41 @@ while true; do
 
     # ── Step 1: Git pull (get GPU autopush commits) ──────────
     log "[1/3] Git pull from origin..."
-    if git pull --rebase origin master >/dev/null 2>&1; then
-        AHEAD=$(git rev-list --count origin/master..HEAD 2>/dev/null || echo "?")
-        BEHIND=$(git rev-list --count HEAD..origin/master 2>/dev/null || echo "?")
-        log "  ✓ Pull complete (ahead: ${AHEAD}, behind: ${BEHIND})"
+
+    # NEVER use --rebase (rewrites history, conflicts with autopush)
+    # NEVER use git stash (leaves orphan stashes on failed merges)
+    # Strategy: fetch + merge with --no-rebase, auto-resolve trace conflicts
+    git fetch origin master >/dev/null 2>&1 || true
+
+    LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null)
+    REMOTE_HEAD=$(git rev-parse origin/master 2>/dev/null)
+
+    if [[ "$LOCAL_HEAD" == "$REMOTE_HEAD" ]]; then
+        log "  · Already up to date"
     else
-        log "  ✗ Pull failed — attempting merge"
-        git stash >/dev/null 2>&1 || true
-        git pull origin master --no-rebase >/dev/null 2>&1 || log "  ✗ Merge also failed"
-        git stash pop >/dev/null 2>&1 || true
+        # Auto-commit any uncommitted rsync'd files first (prevents merge conflicts)
+        if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+            TIMESTAMP_PRE=$(date -u +%Y%m%d_%H%M%S)
+            git add -A traces/ models/unified/ data/unified/ postmortems/ reports/ results/ 2>/dev/null || true
+            git commit -m "local-sync: pre-pull auto-commit ${TIMESTAMP_PRE}" \
+                --allow-empty >/dev/null 2>&1 || true
+        fi
+
+        if git merge origin/master --no-edit -m "local-sync: merge GPU autopush" >/dev/null 2>&1; then
+            AHEAD=$(git rev-list --count origin/master..HEAD 2>/dev/null || echo "?")
+            log "  ✓ Merged (local ahead by: ${AHEAD})"
+        else
+            # Conflict — auto-resolve: keep GPU version for data files, keep local for code
+            log "  ✗ Merge conflict — auto-resolving..."
+            git checkout --theirs traces/ models/ data/ postmortems/ reports/ results/ 2>/dev/null || true
+            git checkout --ours scripts/ core/ tests/ Makefile 2>/dev/null || true
+            git add -A 2>/dev/null || true
+            git commit --no-edit -m "local-sync: auto-resolved merge conflict" >/dev/null 2>&1 || {
+                # Last resort: abort and retry next cycle
+                git merge --abort 2>/dev/null || true
+                log "  ✗ Could not resolve — will retry next cycle"
+            }
+        fi
     fi
 
     # ── Step 2: Rsync from GPU ───────────────────────────────
