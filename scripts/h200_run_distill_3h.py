@@ -386,15 +386,17 @@ TRACES_DIR = Path("traces/h200_distill")
 DATA_DIR = Path("data/distill_prep")
 
 # Mentor anneal schedule (pct of runtime → behaviour)
-ANNEAL_HEAVY_END = 0.35    # Phase 46: 0–35%: query mentor every step (was 50%, faster anneal)
-ANNEAL_MEDIUM_END = 0.65   # Phase 46: 35–65%: every 2 steps (was 85%, reach autonomy sooner)
-ANNEAL_LIGHT_STEPS = 3     # Phase 46: 65–100%: every N steps (was 5, lighter touch)
+# Phase 51: Accelerated — PPO was only 20% of decisions at ep 40.
+# Shrink heavy+medium phases so PPO autonomy kicks in faster.
+ANNEAL_HEAVY_END = 0.15    # Phase 51: 0–15%: query mentor every step (was 35%)
+ANNEAL_MEDIUM_END = 0.35   # Phase 51: 15–35%: every 2 steps (was 65%)
+ANNEAL_LIGHT_STEPS = 5     # Phase 51: 35–100%: every 5 steps (was 3, much lighter)
 
 # Distillation coefficients (decay with anneal)
-BC_COEF_MAX = 0.15
-BC_COEF_MIN = 0.01
-KL_COEF_MAX = 0.15
-KL_COEF_MIN = 0.005
+BC_COEF_MAX = 0.12         # Phase 51: was 0.15 — less teacher forcing
+BC_COEF_MIN = 0.005        # Phase 51: was 0.01 — near-zero residual
+KL_COEF_MAX = 0.10         # Phase 51: was 0.15 — less KL constraint
+KL_COEF_MIN = 0.003        # Phase 51: was 0.005
 RANKING_COEF = 0.05
 
 # ── Reward Weighting (configurable via --reward-weights) ─────────────
@@ -1369,32 +1371,33 @@ class CodexEscalationPolicy:
         if local_confidence < 0.30:
             return True, "very_low_confidence"
 
-        # Phase 90–100%: every 12th step — light touch
-        if progress >= 0.90:
-            if self._step_counter % 12 != 0:
+        # Phase 51: Aggressive codex ramp-down — PPO needs room to learn.
+        # Phase 80–100%: every 20th step — near-autonomous
+        if progress >= 0.80:
+            if self._step_counter % 20 != 0:
                 return False, "step_skip_final"
             return True, "final_touch"
 
-        # Phase 75–90%: every 6th step, quality assurance
-        if progress >= 0.75:
-            if self._step_counter % 6 != 0:
+        # Phase 60–80%: every 10th step, quality assurance
+        if progress >= 0.60:
+            if self._step_counter % 10 != 0:
                 return False, "step_skip_qa"
             return True, "quality_assurance"
 
-        # Phase 50–75%: every 4th step, sustained guidance
-        if progress >= 0.50:
-            if self._step_counter % 4 != 0:
+        # Phase 40–60%: every 6th step, sustained guidance
+        if progress >= 0.40:
+            if self._step_counter % 6 != 0:
                 return False, "step_skip_medium"
             return True, "sustained_guidance"
 
-        # Phase 25–50%: every 3rd step, high-frequency boost
-        if progress >= 0.25:
-            if self._step_counter % 3 != 0:
+        # Phase 20–40%: every 4th step, high-frequency boost
+        if progress >= 0.20:
+            if self._step_counter % 4 != 0:
                 return False, "step_skip_boost"
             return True, "high_freq_boost"
 
-        # Phase 0–25%: every 2nd step — dual teacher (was EVERY step)
-        if self._step_counter % 2 != 0:
+        # Phase 0–20%: every 3rd step — dual teacher (was every 2nd)
+        if self._step_counter % 3 != 0:
             return False, "step_skip_early"
         return True, "dual_teacher_early"
 
@@ -1636,8 +1639,17 @@ class AnnealController:
         return KL_COEF_MAX - (KL_COEF_MAX - KL_COEF_MIN) * self.progress
 
     def prior_alpha(self) -> float:
-        """LLM prior injection weight."""
-        return max(0.02, 0.50 * (1.0 - self.progress))
+        """LLM prior injection weight.
+
+        Phase 51: Faster decay — cosine schedule instead of linear.
+        Reaches near-zero (0.02) by 60% progress instead of 96%.
+        """
+        import math
+        # Cosine decay: 0.40 → 0.02 over [0, 0.7] then flat 0.02
+        if self.progress >= 0.70:
+            return 0.02
+        t = self.progress / 0.70  # normalize to [0, 1]
+        return max(0.02, 0.40 * 0.5 * (1.0 + math.cos(math.pi * t)))
 
     def snapshot(self) -> Dict[str, Any]:
         return {
@@ -2083,48 +2095,152 @@ class H200DistillationRunner:
         except Exception:
             pass
 
-        # Phase-aware fallback commands — REAL executable commands only
-        fallback_map: Dict[int, Dict[str, str]] = {
+        # Phase 51: Massively expanded fallback map — 60+ unique commands
+        # across all action indices × phases. Lists per phase for rotation.
+        fallback_map: Dict[int, Dict[str, List[str]]] = {
             0: {  # recon_scan
-                "RECON": f"nmap -sV -sC -p- -T4 {target}",
-                "ENUMERATION": f"nmap -sV --script=vuln {target}",
-                "EXPLOITATION": f"nmap -sV -p 80,443,8080 {target}",
-                "PRIVILEGE_ESCALATION": f"nmap -sU --top-ports 20 {target}",
+                "RECON": [
+                    f"nmap -sV -sC -p- -T4 {target}",
+                    f"masscan -p1-65535 {target} --rate=1000",
+                    f"nmap -sU --top-ports 100 {target}",
+                    f"rustscan -a {target} --ulimit 5000",
+                    f"nmap -sn {target}/24",
+                ],
+                "ENUMERATION": [
+                    f"nmap -sV --script=vuln {target}",
+                    f"nmap --script=http-enum {target}",
+                    f"nmap -sV --script=smb-enum-shares {target}",
+                ],
+                "EXPLOITATION": [
+                    f"nmap -sV -p 80,443,8080 {target}",
+                    f"nmap --script=http-shellshock {target}",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    f"nmap -sU --top-ports 20 {target}",
+                ],
             },
             1: {  # enum_probe
-                "RECON": f"whatweb http://{target}",
-                "ENUMERATION": f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
-                "EXPLOITATION": f"nikto -h http://{target}",
-                "PRIVILEGE_ESCALATION": f"enum4linux -a {target}",
+                "RECON": [
+                    f"whatweb http://{target}",
+                    f"curl -sI http://{target}",
+                    f"curl -s http://{target}/robots.txt",
+                ],
+                "ENUMERATION": [
+                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt",
+                    f"ffuf -u http://{target}/FUZZ -w /usr/share/wordlists/dirb/common.txt",
+                    f"dirb http://{target}",
+                    f"wpscan --url http://{target} --enumerate u",
+                    f"enum4linux -a {target}",
+                    f"smbclient -L //{target} -N",
+                    f"snmpwalk -v2c -c public {target}",
+                    f"ldapsearch -x -h {target} -s base",
+                    f"curl -s http://{target}/.git/HEAD",
+                    f"curl -s http://{target}/ | grep -iE 'version|powered'",
+                ],
+                "EXPLOITATION": [
+                    f"nikto -h http://{target}",
+                    f"nuclei -u http://{target} -t cves/",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    f"enum4linux -a {target}",
+                ],
             },
             2: {  # exploit_attempt
-                "RECON": "searchsploit --nmap /tmp/nmap_scan.xml",
-                "ENUMERATION": "searchsploit -w apache 2.4",
-                "EXPLOITATION": f"msfconsole -q -x 'search type:exploit {target}; exit'",
-                "PRIVILEGE_ESCALATION": "sudo -l",
+                "RECON": [
+                    "searchsploit --nmap /tmp/nmap_scan.xml",
+                ],
+                "ENUMERATION": [
+                    "searchsploit -w apache 2.4",
+                    "searchsploit -w proftpd",
+                    "searchsploit -w openssh",
+                ],
+                "EXPLOITATION": [
+                    f"hydra -L /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt {target} ssh -t 4",
+                    f"medusa -h {target} -U /usr/share/wordlists/metasploit/unix_users.txt -P /usr/share/wordlists/rockyou.txt -M ssh",
+                    f"sqlmap -u 'http://{target}/' --forms --batch --os-shell",
+                    f"msfconsole -q -x 'search type:exploit {target}; exit'",
+                    f"curl -X POST http://{target}/login -d 'username=admin&password=admin'",
+                    f"sshpass -p password ssh root@{target}",
+                    f"wfuzz -c -z file,/usr/share/wordlists/rockyou.txt -d 'user=admin&pass=FUZZ' http://{target}/login",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "sudo -l",
+                    "find / -perm -4000 -type f 2>/dev/null | head -20",
+                ],
             },
             3: {  # privesc_action
-                "RECON": f"curl -s http://{target}/robots.txt",
-                "ENUMERATION": f"dirb http://{target}",
-                "EXPLOITATION": "find / -perm -4000 -type f 2>/dev/null | head -20",
-                "PRIVILEGE_ESCALATION": "cat /etc/passwd",
-                "POST_EXPLOITATION": "cat /etc/shadow",
+                "RECON": [
+                    f"curl -s http://{target}/robots.txt",
+                    f"curl -s http://{target}/sitemap.xml",
+                ],
+                "ENUMERATION": [
+                    f"dirb http://{target}",
+                    f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+                ],
+                "EXPLOITATION": [
+                    "find / -perm -4000 -type f 2>/dev/null | head -20",
+                    "getcap -r / 2>/dev/null",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "cat /etc/passwd",
+                    "cat /etc/crontab",
+                    "ls -la /etc/sudoers.d/",
+                    "find / -writable -type f 2>/dev/null | head -20",
+                    "uname -r",
+                    "cat /etc/os-release",
+                    "ps aux --sort=-%mem | head -20",
+                    "netstat -tlnp",
+                    "ss -tlnp",
+                ],
+                "POST_EXPLOITATION": [
+                    "cat /etc/shadow",
+                    "find /home -name '*.txt' 2>/dev/null",
+                    "cat /root/root.txt 2>/dev/null",
+                    "find / -name 'flag*' -o -name 'user.txt' -o -name 'root.txt' 2>/dev/null",
+                ],
             },
             4: {  # post_exfil
-                "RECON": f"curl -s http://{target}/ | head -50",
-                "ENUMERATION": f"wget -q http://{target}/index.html -O /tmp/index.html",
-                "EXPLOITATION": "whoami && id && hostname",
-                "EXFILTRATION": "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
-                "CLOSEOUT": "history -c && exit",
+                "RECON": [
+                    f"curl -s http://{target}/ | head -50",
+                    f"wget -q http://{target}/index.html -O /tmp/index.html",
+                ],
+                "ENUMERATION": [
+                    f"curl -s http://{target}/index.html | head -50",
+                ],
+                "EXPLOITATION": [
+                    "whoami && id && hostname",
+                    "cat /etc/hostname",
+                ],
+                "PRIVILEGE_ESCALATION": [
+                    "cat /root/root.txt 2>/dev/null",
+                    "ls -la /root/",
+                ],
+                "POST_EXPLOITATION": [
+                    "cat /etc/shadow",
+                    "history",
+                    "find / -name '*.key' -o -name '*.pem' 2>/dev/null | head -20",
+                ],
+                "EXFILTRATION": [
+                    "tar czf /tmp/loot.tar.gz /home 2>/dev/null",
+                    "cat /root/root.txt",
+                    "find / -name 'flag*' 2>/dev/null | head -20",
+                ],
+                "CLOSEOUT": [
+                    "history -c && exit",
+                ],
             },
         }
         phase_map = fallback_map.get(action_idx, {})
-        # Try exact match, then any available command for this action
+        # Try exact match — rotate through list for diversity
         if phase in phase_map:
-            return phase_map[phase]
-        # Fallback: use the first available command for this action_idx
+            cmds = phase_map[phase]
+            idx = hash(f"{phase}_{action_idx}_{len(self._reward_history)}") % len(cmds)
+            return cmds[idx]
+        # Fallback: rotate through all commands for this action_idx
         if phase_map:
-            return next(iter(phase_map.values()))
+            all_cmds = [c for lst in phase_map.values() for c in lst]
+            idx = hash(f"fb_{action_idx}_{len(self._reward_history)}") % len(all_cmds)
+            return all_cmds[idx]
         # Last resort: real command instead of echo placeholder
         return f"nmap -sV -p 80 {target}"
 
@@ -2766,11 +2882,13 @@ class H200DistillationRunner:
                     )
                     codex_used = True
 
-                    # Phase 44: Codex ALWAYS overrides local when available
-                    # Codex has superior reasoning — always prefer its output
-                    # unless codex confidence is extremely low (< 0.15)
+                    # Phase 51: Progress-gated codex override.
+                    # Early training: codex overrides at low threshold (0.15).
+                    # Late training: PPO should drive — codex needs higher
+                    # confidence (up to 0.60) to override.
                     codex_conf = float(codex_resp.get("confidence", 0.0))
-                    if codex_conf >= 0.15:
+                    override_threshold = 0.15 + 0.45 * progress  # 0.15 → 0.60
+                    if codex_conf >= override_threshold:
                         response = codex_resp
                         logger.info(
                             "CODEX OVERRIDE at step %d: reason=%s, "
@@ -3219,6 +3337,10 @@ class H200DistillationRunner:
             except Exception as e:
                 logger.debug("Curriculum update failed: %s", e)
 
+        # Phase 51: Curriculum progression tracking — log every 5 episodes
+        if self._curriculum is not None and episode_id % 5 == 0:
+            self._log_curriculum_progression(episode_id)
+
         # Phase 50: World model training (every episode, lightweight)
         if self._world_model is not None and self._wm_optimizer is not None and not self.eval_only:
             try:
@@ -3391,6 +3513,21 @@ class H200DistillationRunner:
         tb.add_scalar("diversity/ratio", unique_cmds / max(result.steps, 1), ep)
         tb.add_scalar("diversity/families_total", len(self.metrics.command_families_used), ep)
 
+        # ── Phase 51: Anneal + decision source tracking ──────────
+        if self._anneal:
+            tb.add_scalar("anneal/progress", self._anneal.progress, ep)
+            tb.add_scalar("anneal/bc_coef", self._anneal.bc_coef(), ep)
+            tb.add_scalar("anneal/kl_coef", self._anneal.kl_coef(), ep)
+            tb.add_scalar("anneal/prior_alpha", self._anneal.prior_alpha(), ep)
+        # Decision source percentages
+        total_steps = max(result.steps, 1)
+        teacher_pct = self.metrics.teacher_override_count / total_steps
+        codex_pct = self.metrics.codex_calls / total_steps
+        tb.add_scalar("decisions/teacher_override_pct", teacher_pct, ep)
+        tb.add_scalar("decisions/codex_call_pct", codex_pct, ep)
+        ppo_pct = max(0.0, 1.0 - teacher_pct)
+        tb.add_scalar("decisions/ppo_autonomous_pct", ppo_pct, ep)
+
         # ── Throughput ───────────────────────────────────────────
         elapsed_h = (time.time() - self.metrics.wall_start) / 3600.0
         tb.add_scalar("throughput/steps_per_sec", self.metrics.total_steps / max(elapsed_h * 3600, 1), ep)
@@ -3450,6 +3587,124 @@ class H200DistillationRunner:
 
         console.print(dash)
         console.print()  # blank line for readability
+
+    # ── Phase 51: Curriculum progression tracking ────────────────
+
+    def _log_curriculum_progression(self, episode_id: int) -> None:
+        """Log per-scenario competence and progression metrics.
+
+        Called every 5 episodes to track whether the agent is actually
+        learning across different scenario types/difficulties.
+        """
+        if self._curriculum is None:
+            return
+
+        try:
+            from rich.table import Table as RichTable
+
+            # Gather per-scenario stats from curriculum
+            scenarios = getattr(self._curriculum, '_scenarios', {})
+            if not scenarios:
+                return
+
+            table = RichTable(
+                title=f"[bold cyan]Curriculum Progression — Episode {episode_id}[/bold cyan]",
+                show_lines=False,
+                border_style="dim",
+            )
+            table.add_column("Scenario", style="white", min_width=20)
+            table.add_column("Difficulty", justify="center", min_width=8)
+            table.add_column("Competence", justify="center", min_width=10)
+            table.add_column("Win Rate", justify="center", min_width=8)
+            table.add_column("Attempts", justify="center", min_width=8)
+            table.add_column("Trend", justify="center", min_width=8)
+
+            # Sort by difficulty for readable output
+            sorted_scenarios = sorted(
+                scenarios.items(),
+                key=lambda x: getattr(x[1], 'difficulty', 0.0),
+            )
+
+            total_competence = 0.0
+            total_attempts = 0
+            total_wins = 0
+            mastered = 0
+            mastery_threshold = getattr(
+                getattr(self._curriculum, 'config', None),
+                'mastery_threshold', 0.80,
+            )
+
+            for name, sc in sorted_scenarios:
+                diff = getattr(sc, 'difficulty', 0.0)
+                comp = getattr(sc, 'competence', 0.0)
+                attempts = getattr(sc, 'attempts', 0)
+                successes = getattr(sc, 'successes', 0)
+                win_rate = successes / max(attempts, 1)
+
+                total_competence += comp
+                total_attempts += attempts
+                total_wins += successes
+                if comp >= mastery_threshold:
+                    mastered += 1
+
+                # Trend: compare to last known competence (simple delta)
+                history = getattr(sc, 'reward_history', [])
+                if len(history) >= 2:
+                    recent_avg = sum(history[-3:]) / len(history[-3:])
+                    older_avg = sum(history[:-3]) / max(len(history[:-3]), 1) if len(history) > 3 else recent_avg
+                    if recent_avg > older_avg + 0.5:
+                        trend = "[green]↑[/green]"
+                    elif recent_avg < older_avg - 0.5:
+                        trend = "[red]↓[/red]"
+                    else:
+                        trend = "[dim]→[/dim]"
+                else:
+                    trend = "[dim]—[/dim]"
+
+                # Color competence by level
+                if comp >= mastery_threshold:
+                    comp_str = f"[bold green]{comp:.3f}[/bold green]"
+                elif comp >= 0.40:
+                    comp_str = f"[yellow]{comp:.3f}[/yellow]"
+                else:
+                    comp_str = f"[red]{comp:.3f}[/red]"
+
+                wr_str = f"{win_rate:.0%}" if attempts > 0 else "—"
+                table.add_row(name, f"{diff:.2f}", comp_str, wr_str, str(attempts), trend)
+
+            console.print(table)
+
+            # Summary line
+            n_scenarios = len(scenarios)
+            avg_comp = total_competence / max(n_scenarios, 1)
+            overall_wr = total_wins / max(total_attempts, 1)
+            console.print(
+                f"  [dim]Avg competence: {avg_comp:.3f} | Mastered: {mastered}/{n_scenarios} | "
+                f"Overall win rate: {overall_wr:.0%} | Total attempts: {total_attempts}[/dim]"
+            )
+
+            # TensorBoard logging
+            if hasattr(self, '_tb') and self._tb is not None:
+                tb = self._tb
+                tb.add_scalar("curriculum/avg_competence", avg_comp, episode_id)
+                tb.add_scalar("curriculum/mastered_count", mastered, episode_id)
+                tb.add_scalar("curriculum/overall_win_rate", overall_wr, episode_id)
+                tb.add_scalar("curriculum/total_attempts", total_attempts, episode_id)
+
+                # Log per-scenario competence
+                for name, sc in sorted_scenarios:
+                    comp = getattr(sc, 'competence', 0.0)
+                    tb.add_scalar(f"curriculum/comp/{name}", comp, episode_id)
+
+            logger.info(
+                "Curriculum progression ep=%d: avg_comp=%.3f mastered=%d/%d "
+                "win_rate=%.0f%% attempts=%d",
+                episode_id, avg_comp, mastered, n_scenarios,
+                overall_wr * 100, total_attempts,
+            )
+
+        except Exception as e:
+            logger.debug("Curriculum progression logging failed: %s", e)
 
     # ── Main run loop ────────────────────────────────────────────
 
