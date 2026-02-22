@@ -386,9 +386,9 @@ TRACES_DIR = Path("traces/h200_distill")
 DATA_DIR = Path("data/distill_prep")
 
 # Mentor anneal schedule (pct of runtime → behaviour)
-ANNEAL_HEAVY_END = 0.50    # Phase 42: 0–50%: query mentor every step (was 35%, +43% more heavy)
-ANNEAL_MEDIUM_END = 0.85   # Phase 42: 50–85%: every 2 steps (was 75%)
-ANNEAL_LIGHT_STEPS = 5     # Phase 42: 85–100%: every N steps (was 7, more light queries)
+ANNEAL_HEAVY_END = 0.35    # Phase 46: 0–35%: query mentor every step (was 50%, faster anneal)
+ANNEAL_MEDIUM_END = 0.65   # Phase 46: 35–65%: every 2 steps (was 85%, reach autonomy sooner)
+ANNEAL_LIGHT_STEPS = 3     # Phase 46: 65–100%: every N steps (was 5, lighter touch)
 
 # Distillation coefficients (decay with anneal)
 BC_COEF_MAX = 0.15
@@ -709,18 +709,234 @@ SCENARIO_PROFILES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# Phase 46: Additional Scenario Profiles — Richer target simulation
+# ---------------------------------------------------------------------------
+
+SCENARIO_PROFILES.update({
+    "vulnhub_bof": {
+        "description": "VulnHub-style Box — Binary exploitation / Buffer overflow",
+        "os": "linux",
+        "ports": [22, 80, 9999],
+        "services": ["ssh", "http", "abyss"],
+        "vulns": [
+            "vuln_bof_stack_smash", "vuln_http_cgi_bin",
+            "vuln_ssh_key_reuse", "vuln_suid_custom_binary",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_6.7p1 Debian-5+deb8u4",
+            80: "Apache/2.4.10 (Debian)",
+            9999: "Brainpan custom service 1.0",
+        },
+        "flags": ["proof.txt"],
+        "context": "vulnhub",
+    },
+    "htb_linux_medium": {
+        "description": "HTB Medium Linux — API + Docker escape + pivoting",
+        "os": "linux",
+        "ports": [22, 80, 5000, 8000, 8443],
+        "services": ["ssh", "http", "flask", "django", "https-alt"],
+        "vulns": [
+            "vuln_api_idor", "vuln_docker_socket_exposed",
+            "vuln_ssrf_cloud_metadata", "vuln_path_traversal",
+            "vuln_jwt_algorithm_confusion",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4",
+            80: "nginx/1.22.1",
+            5000: "Werkzeug/2.3.7 Python/3.11.6",
+            8000: "gunicorn/21.2.0",
+            8443: "Node.js Express HTTPS",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "API endpoints: fuzz /api/v1/, /api/v2/ for IDOR bugs",
+            "Docker socket at /var/run/docker.sock → container escape",
+            "SSRF to http://169.254.169.254 for cloud metadata tokens",
+            "JWT: check for RS256/HS256 algorithm confusion attacks",
+            "Multiple web services = internal pivoting opportunities",
+        ],
+    },
+    "htb_linux_hard": {
+        "description": "HTB Hard Linux — Multi-chain exploit + binary reverse",
+        "os": "linux",
+        "ports": [22, 80, 443, 1337, 5000],
+        "services": ["ssh", "http", "https", "waste", "upnp"],
+        "vulns": [
+            "vuln_deserialization_rce", "vuln_race_condition",
+            "vuln_custom_crypto_weak", "vuln_kernel_cve",
+            "vuln_capability_abuse", "vuln_pivot_internal_net",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_9.0p1 Ubuntu-1ubuntu8.7",
+            80: "Apache/2.4.58 (Ubuntu)",
+            443: "Apache/2.4.58 (Ubuntu) mod_ssl",
+            1337: "Custom binary service",
+            5000: "Python/3.12 Flask/3.0.0",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "Hard boxes require chaining multiple vulns",
+            "Custom binary on unusual port → reverse engineer with ghidra/r2",
+            "Race conditions: exploit TOCTOU with rapid requests",
+            "Deserialization: Java (ysoserial), Python (pickle), PHP (phar)",
+            "Capabilities: getcap -r / → python3 cap_setuid",
+            "Internal network pivot: chisel, ligolo-ng, ssh tunneling",
+        ],
+    },
+    "htb_ad_hard": {
+        "description": "HTB Hard AD — Multi-domain, ADCS, delegation abuse",
+        "os": "windows",
+        "ports": [53, 80, 88, 135, 139, 389, 443, 445, 464, 593, 636, 3268, 3269, 5985, 8443, 9389],
+        "services": [
+            "dns", "http", "kerberos", "msrpc", "netbios-ssn", "ldap",
+            "https", "smb", "kpasswd", "http-rpc-epmap", "ldapssl",
+            "globalcatLDAP", "globalcatLDAPssl", "winrm", "https-alt", "adws",
+        ],
+        "vulns": [
+            "vuln_adcs_esc1", "vuln_adcs_esc4",
+            "vuln_constrained_delegation", "vuln_resource_based_constrained_delegation",
+            "vuln_shadow_credentials", "vuln_group_managed_service_account",
+            "vuln_dcsync_rights", "vuln_silver_ticket",
+        ],
+        "banners": {
+            53: "Microsoft DNS 10.0",
+            80: "Microsoft-IIS/10.0",
+            88: "Microsoft Windows Kerberos",
+            135: "Microsoft Windows RPC",
+            389: "Microsoft Windows Active Directory LDAP",
+            445: "Windows Server 2022 Standard",
+            443: "Microsoft-IIS/10.0 with TLS",
+            5985: "Microsoft HTTPAPI httpd 2.0",
+        },
+        "flags": ["user.txt", "root.txt"],
+        "context": "htb",
+        "domain": "corp.megacorp.htb",
+        "htb_hints": [
+            "ADCS: certipy find -u user -p pass -dc-ip TARGET -vulnerable",
+            "ESC1/ESC4: request cert as domain admin via vulnerable template",
+            "Constrained delegation: getST.py with -impersonate Administrator",
+            "RBCD: add msDS-AllowedToActOnBehalfOfOtherIdentity + S4U2Proxy",
+            "Shadow credentials: pywhisker + PKINITtools for TGT via cert",
+            "gMSA: read NT hash from msDS-ManagedPassword attribute",
+            "BloodHound: 'Shortest Paths to Domain Admins' query",
+            "Multiple domains: forest trust abuse, SID history injection",
+        ],
+    },
+    "iot_embedded": {
+        "description": "IoT/Embedded Device — firmware + weak protocols",
+        "os": "linux",
+        "ports": [23, 80, 161, 443, 554, 8080, 8443, 49152],
+        "services": ["telnet", "http", "snmp", "https", "rtsp", "http-proxy", "https-alt", "upnp"],
+        "vulns": [
+            "vuln_telnet_default_creds", "vuln_snmp_community_string",
+            "vuln_upnp_command_injection", "vuln_firmware_backdoor",
+            "vuln_hardcoded_credentials", "vuln_http_command_injection",
+        ],
+        "banners": {
+            23: "BusyBox v1.23.2 built-in shell",
+            80: "GoAhead-Webs/2.5.0",
+            161: "SNMPv2-MIB::sysDescr.0",
+            443: "mini_httpd/1.30",
+            554: "RTSP/1.0",
+            8080: "Boa/0.94.14rc21",
+            8443: "lighttpd/1.4.45",
+        },
+        "flags": ["flag.txt"],
+        "context": "ctf",
+        "ctf_hints": [
+            "Default credentials: admin:admin, root:root, admin:password",
+            "SNMP: snmpwalk -v2c -c public TARGET for config disclosure",
+            "UPnP: discover with nmap --script=upnp-info, test for command injection",
+            "Firmware: download .bin, extract with binwalk, find hardcoded keys/creds",
+            "BusyBox: limited shell → busybox wget/nc for file transfer",
+            "GoAhead/Boa: known CVEs for RCE in web management interface",
+        ],
+    },
+    "cloud_aws_ctf": {
+        "description": "Cloud/AWS CTF — SSRF to metadata + S3 + IAM escalation",
+        "os": "linux",
+        "ports": [22, 80, 443, 8080],
+        "services": ["ssh", "http", "https", "http-proxy"],
+        "vulns": [
+            "vuln_ssrf_aws_metadata", "vuln_s3_bucket_public",
+            "vuln_iam_role_escalation", "vuln_lambda_injection",
+            "vuln_exposed_env_variables",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.1",
+            80: "nginx/1.24.0",
+            443: "nginx/1.24.0 with TLS",
+            8080: "Python/3.10 uvicorn",
+        },
+        "flags": ["flag.txt", "flag{.*}"],
+        "context": "ctf",
+        "ctf_hints": [
+            "SSRF to http://169.254.169.254/latest/meta-data/ for IAM creds",
+            "AWS CLI: aws s3 ls, aws iam get-user, aws sts get-caller-identity",
+            "S3 buckets: check for public read/write, try aws s3 cp",
+            "Lambda: check for env vars with secrets, code injection via events",
+            "IAM: enumerate policies with iam:List*, look for iam:PassRole + ec2:RunInstances",
+            "Check .env files, /proc/self/environ for leaked AWS keys",
+        ],
+    },
+    "pivot_network": {
+        "description": "Multi-host pivot — internal network with jump box",
+        "os": "linux",
+        "ports": [22, 80, 111, 139, 445, 2049, 3306, 8080],
+        "services": ["ssh", "http", "rpcbind", "smb", "netbios-ssn", "nfs", "mysql", "tomcat"],
+        "vulns": [
+            "vuln_tomcat_default_manager", "vuln_nfs_no_root_squash",
+            "vuln_mysql_udf_injection", "vuln_ssh_agent_forwarding",
+            "vuln_internal_network_pivot", "vuln_smb_psexec",
+        ],
+        "banners": {
+            22: "SSH-2.0-OpenSSH_8.4p1 Ubuntu-6ubuntu2.1",
+            80: "Apache/2.4.52 (Ubuntu)",
+            111: "rpcbind 2-4",
+            139: "Samba smbd 4.13.17-Ubuntu",
+            445: "Samba smbd 4.13.17-Ubuntu",
+            2049: "NFS v3-v4",
+            3306: "MySQL 8.0.32-0ubuntu0.22.04.2",
+            8080: "Apache Tomcat/10.1.15",
+        },
+        "flags": ["user.txt", "root.txt", "pivot_flag.txt"],
+        "context": "htb",
+        "htb_hints": [
+            "Tomcat manager: try tomcat:tomcat, admin:admin, manager:manager",
+            "Deploy WAR shell via Tomcat manager → webshell",
+            "After initial foothold: scan internal network 172.x.x.x/24",
+            "Pivoting: chisel, ligolo-ng, ssh -D (SOCKS proxy), ssh -L (port forward)",
+            "NFS with no_root_squash: mount, create SUID binary, unmount, execute",
+            "MySQL UDF: compile raptor_udf2.so → sys_exec('command')",
+            "Multi-host: each box has a piece of the puzzle, chain them all",
+        ],
+    },
+})
+
 # Scenario weights — each entry can appear multiple times for higher probability
 SCENARIO_ROTATION: List[str] = [
-    "generic_linux",
-    "htb_web_easy", "htb_web_easy",      # 2x weight — most common HTB pattern
-    "htb_web_medium",
-    "htb_ad_windows",
-    "htb_windows_easy",
-    "ctf_web", "ctf_web",                # 2x weight — most common CTF type
-    "ctf_crypto_forensics",
-    "thm_beginner",
-    "thm_advanced",
-    "windows_server",
+    # Phase 46: Expanded rotation with 18 scenarios (7 new)
+    # Weighted by difficulty — easier scenarios get more exposure early
+    "generic_linux", "generic_linux",              # 2x — baseline warm-up
+    "htb_web_easy", "htb_web_easy", "htb_web_easy",  # 3x — most common HTB pattern
+    "htb_web_medium", "htb_web_medium",            # 2x — medium challenge
+    "htb_linux_medium",                            # 1x — API/Docker/pivot
+    "htb_linux_hard",                              # 1x — hard multi-chain
+    "htb_ad_windows", "htb_ad_windows",            # 2x — AD is critical
+    "htb_ad_hard",                                 # 1x — hard AD
+    "htb_windows_easy", "htb_windows_easy",        # 2x — Windows basics
+    "ctf_web", "ctf_web", "ctf_web",              # 3x — most common CTF type
+    "ctf_crypto_forensics",                        # 1x — niche
+    "thm_beginner", "thm_beginner",               # 2x — guided learning
+    "thm_advanced",                                # 1x — multi-vector
+    "windows_server",                              # 1x — Windows server
+    "vulnhub_bof",                                 # 1x — binary exploit
+    "iot_embedded",                                # 1x — IoT
+    "cloud_aws_ctf",                               # 1x — cloud
+    "pivot_network",                               # 1x — pivoting
 ]
 
 
@@ -1106,13 +1322,16 @@ _CODEX_MAX_CALLS = 50000           # Phase 44: uncapped — let budget be the li
 class CodexEscalationPolicy:
     """Decides when to escalate to OpenAI codex based on anneal + budget.
 
-    Phase 44: MAXIMUM dual-routing — spend $10 real API budget.
+    Phase 46: 20% API reduction — wider step intervals while keeping
+    quality high via smarter escalation triggers.
     Schedule (by training progress):
-        0–30%:  EVERY step — dual teacher for maximum knowledge transfer
-        30–60%: every 2nd step — high-frequency quality boost
-        60–85%: every 3rd step — sustained guidance
-        85–95%: every 5th step — quality assurance
-        95–100%: every 10th step — light touch (never fully off)
+        0–25%:  every 2nd step — dual teacher (was EVERY step)
+        25–50%: every 3rd step — high-frequency (was every 2nd)
+        50–75%: every 4th step — sustained guidance (was every 3rd)
+        75–90%: every 6th step — quality assurance (was every 5th)
+        90–100%: every 12th step — light touch (was every 10th)
+
+    Always-escalate exceptions: local_failed, stagnation, very low confidence.
     """
 
     def __init__(self, budget_usd: float = _CODEX_BUDGET_USD) -> None:
@@ -1131,7 +1350,8 @@ class CodexEscalationPolicy:
     ) -> Tuple[bool, str]:
         """Return (should_call, reason).
 
-        Phase 44: MAXIMUM frequency — burn through $10 API budget for quality.
+        Phase 46: ~20% fewer calls — smarter triggers replace brute-force.
+        Always escalate on: local failure, stagnation, or very low confidence.
         """
         self._step_counter += 1
 
@@ -1141,37 +1361,42 @@ class CodexEscalationPolicy:
         if self.calls >= _CODEX_MAX_CALLS:
             return False, "max_calls_reached"
 
-        # Phase 95–100%: every 10th step — light touch, never fully off
-        if progress >= 0.95:
-            if self._step_counter % 10 != 0:
+        # Always-escalate exceptions (regardless of schedule)
+        if local_failed:
+            return True, "local_failed"
+        if reward_stagnant:
+            return True, "reward_stagnant"
+        if local_confidence < 0.30:
+            return True, "very_low_confidence"
+
+        # Phase 90–100%: every 12th step — light touch
+        if progress >= 0.90:
+            if self._step_counter % 12 != 0:
                 return False, "step_skip_final"
             return True, "final_touch"
 
-        # Phase 85–95%: every 5th step, quality assurance
-        if progress >= 0.85:
-            if self._step_counter % 5 != 0:
+        # Phase 75–90%: every 6th step, quality assurance
+        if progress >= 0.75:
+            if self._step_counter % 6 != 0:
                 return False, "step_skip_qa"
             return True, "quality_assurance"
 
-        # Phase 60–85%: every 3rd step, sustained guidance
-        if progress >= 0.60:
-            if self._step_counter % 3 != 0:
+        # Phase 50–75%: every 4th step, sustained guidance
+        if progress >= 0.50:
+            if self._step_counter % 4 != 0:
                 return False, "step_skip_medium"
             return True, "sustained_guidance"
 
-        # Phase 30–60%: every 2nd step, high-frequency boost
-        if progress >= 0.30:
-            if self._step_counter % 2 != 0:
+        # Phase 25–50%: every 3rd step, high-frequency boost
+        if progress >= 0.25:
+            if self._step_counter % 3 != 0:
                 return False, "step_skip_boost"
             return True, "high_freq_boost"
 
-        # Phase 0–30%: EVERY step — maximum knowledge transfer
-        # Always escalate: dual-teacher on every single step
-        if local_failed:
-            return True, "local_failed_early"
-        if local_confidence < 0.70:
-            return True, "low_conf_early"
-        return True, "dual_teacher_always"
+        # Phase 0–25%: every 2nd step — dual teacher (was EVERY step)
+        if self._step_counter % 2 != 0:
+            return False, "step_skip_early"
+        return True, "dual_teacher_early"
 
     def record_cost(self, input_tokens: int, output_tokens: int) -> float:
         """Record a codex call cost. Returns cost in USD."""
@@ -1568,6 +1793,16 @@ class H200DistillationRunner:
         # Phase 45c: CTF/HTB/THM scenario rotation
         self._current_scenario: str = "generic_linux"
         self._scenario_history: List[str] = []
+
+        # Phase 46: Novelty tracking — bonus for new (phase, tool_family) pairs
+        self._seen_phase_tools: set = set()
+
+        # Phase 46: Warm-start — carry discoveries across episodes
+        self._persistent_discoveries: List[str] = []
+
+        # Phase 46: Phase stagnation tracking
+        self._phase_step_counter: Dict[str, int] = {}
+        self._current_phase_for_stagnation: str = "RECON"
 
     # ── Initialization ───────────────────────────────────────────
 
@@ -2120,6 +2355,13 @@ class H200DistillationRunner:
     ) -> float:
         """Apply configurable reward weights to decompose total reward.
 
+        Phase 46: Extended with 5 new reward components:
+          - Novelty bonus: +1.5 for first-time (phase, tool_family) pair
+          - Phase stagnation penalty: diminishing returns after 50+ steps in same phase
+          - Partial chain credit: intermediate rewards for partial kill chain progress
+          - Curriculum shaping: softer penalties in early episodes, harsher later
+          - Step-efficiency scaling: bonus for reaching phases faster
+
         Decomposes the base reward into 4 channels with configurable weights:
           - format:    Phase progression (strongest, least gameable)
           - code:      Discovery bonuses from command execution
@@ -2167,13 +2409,62 @@ class H200DistillationRunner:
         ) * w["reasoning"]
 
         total = format_r + code_r + math_r + reasoning_r
-        # Phase 45: Drastically reduced base weight (15% base + 85% weighted)
-        # because the env returns harsh negatives (-0.5 to -3.0) for valid
-        # mentor commands like ldapsearch, sshpass, snmpwalk etc.
-        # The weighted channels (phase progression, discovery bonuses,
-        # consistency) are far more informative learning signals.
-        # Also: floor the base component so env penalties don't dominate.
-        clamped_base = max(-1.0, base_reward)  # floor env penalty at -1.0
+
+        # ── Phase 46: Novelty bonus ──────────────────────────────
+        # First-time (phase, tool_family) combos get +1.5 bonus to
+        # encourage exploration of new tools in each phase.
+        cmd_family = command.strip().split()[0].rsplit("/", 1)[-1] if command.strip() else "noop"
+        phase_tool_key = (current_phase, cmd_family)
+        if phase_tool_key not in self._seen_phase_tools:
+            self._seen_phase_tools.add(phase_tool_key)
+            total += 1.5
+
+        # ── Phase 46: Phase stagnation penalty ───────────────────
+        # After 50+ steps in the same phase, diminishing returns kick in.
+        # -0.1 per step beyond 50, capped at -3.0 total.
+        if current_phase != self._current_phase_for_stagnation:
+            self._current_phase_for_stagnation = current_phase
+            self._phase_step_counter[current_phase] = self._phase_step_counter.get(current_phase, 0)
+        self._phase_step_counter[current_phase] = self._phase_step_counter.get(current_phase, 0) + 1
+        steps_in_phase = self._phase_step_counter[current_phase]
+        if steps_in_phase > 50:
+            stagnation_penalty = -0.1 * min(steps_in_phase - 50, 30)  # capped at -3.0
+            total += stagnation_penalty
+
+        # ── Phase 46: Partial attack chain credit ────────────────
+        # Give fractional credit for partial kill chain progress:
+        # reaching ENUMERATION from RECON gets partial credit even if
+        # the exploit doesn't land.  Each phase hop adds +2.0.
+        if current_phase in PHASES and next_phase in PHASES:
+            cur_idx = PHASES.index(current_phase)
+            nxt_idx = PHASES.index(next_phase)
+            if nxt_idx > cur_idx:
+                # +2.0 per phase hop (on top of the delta already in format_r)
+                total += 2.0 * (nxt_idx - cur_idx)
+
+        # ── Phase 46: Step-efficiency scaling ────────────────────
+        # Bonus for reaching high phases quickly.  If we hit EXPLOITATION
+        # before step 40, add +3.0; before step 60, add +1.5.
+        if next_phase != current_phase and next_phase in PHASES:
+            nxt_idx = PHASES.index(next_phase)
+            if nxt_idx >= 2:  # EXPLOITATION or beyond
+                if step < 40:
+                    total += 3.0
+                elif step < 60:
+                    total += 1.5
+
+        # ── Phase 46: Curriculum shaping ─────────────────────────
+        # Early episodes (first 20%): softer penalties — clamp base at -0.5
+        # Late episodes (last 30%): full penalty exposure
+        episodes_done = self.metrics.episodes_completed
+        episode_progress = episodes_done / max(self.max_episodes, 1)
+        if episode_progress < 0.20:
+            clamped_base = max(-0.5, base_reward)
+        elif episode_progress < 0.50:
+            clamped_base = max(-1.0, base_reward)
+        else:
+            clamped_base = max(-1.5, base_reward)
+
         blended = 0.15 * clamped_base + 0.85 * total
         # Ensure we never go below -2.0 during distillation — harsh negatives
         # teach PPO to avoid ALL actions, which kills learning.
@@ -2187,12 +2478,15 @@ class H200DistillationRunner:
     ) -> float:
         """Consistency reward: penalize repeats, reward phase-appropriate cmds.
 
-        Phase 45: Expanded tool mapping to cover all mentor-generated commands.
-        Reduced repeat penalty for family-level matches (mentor legitimately
-        runs multiple nmap variants).
+        Phase 46: Smarter retry suppression:
+          - Exact command repeat: -1.5 (was -1.0)
+          - Family-level repeat (same tool, different args) in window: -0.5
+          - Same tool 4+ times in 8-window: -1.0 (family saturation)
+          - Novel phase-appropriate tool: +2.0
+          - Valid tool, wrong phase: +0.5
 
         Returns:
-            Float in [-1.0, +2.0].
+            Float in [-2.0, +2.0].
         """
         phase = state.get("phase", "RECON")
         cmd_family = command.strip().split()[0].rsplit("/", 1)[-1] if command.strip() else "noop"
@@ -2201,25 +2495,27 @@ class H200DistillationRunner:
         phase_alignment = {
             "RECON": {"nmap", "masscan", "ping", "traceroute", "whatweb", "dig",
                       "host", "arp-scan", "netdiscover", "hping3", "unicornscan",
-                      "curl", "wget"},
+                      "curl", "wget", "rustscan"},
             "ENUMERATION": {"gobuster", "nikto", "dirb", "wfuzz", "ffuf",
                             "enum4linux", "smbclient", "smbmap", "showmount",
                             "snmpwalk", "snmpget", "ldapsearch", "rpcclient",
                             "nbtscan", "onesixtyone", "smtp-user-enum",
                             "searchsploit", "whatweb", "nmap", "finger",
-                            "psql", "mysql", "redis-cli", "mongo", "curl", "wget"},
+                            "psql", "mysql", "redis-cli", "mongo", "curl", "wget",
+                            "wpscan", "droopescan"},
             "EXPLOITATION": {"msfconsole", "hydra", "sqlmap", "sshpass", "ssh",
                              "ftp", "telnet", "nc", "netcat", "python",
                              "python3", "exploit", "searchsploit", "john",
                              "hashcat", "medusa", "patator", "crackmapexec",
                              "evil-winrm", "impacket-psexec", "impacket-smbexec",
                              "msfvenom", "metasploit", "curl", "wget", "psql",
-                             "mysql"},
+                             "mysql", "chisel", "ligolo-ng"},
             "PRIVILEGE_ESCALATION": {"sudo", "su", "find", "linpeas", "linenum",
                                      "getcap", "cat", "ls", "id", "whoami",
-                                     "uname", "pspy", "crontab"},
+                                     "uname", "pspy", "crontab", "winpeas"},
             "POST_EXPLOITATION": {"cat", "ls", "find", "tar", "scp", "wget",
-                                  "curl", "base64", "xxd", "socat"},
+                                  "curl", "base64", "xxd", "socat", "mimikatz",
+                                  "secretsdump.py"},
             "EXFILTRATION": {"tar", "zip", "scp", "nc", "socat", "base64",
                              "curl", "wget", "find"},
         }
@@ -2234,12 +2530,23 @@ class H200DistillationRunner:
         else:
             alignment_bonus = 0.0
 
-        # Repetition penalty: exact command repeats only (not family-level)
+        # ── Phase 46: Smarter retry suppression ──────────────────
         recent = getattr(self, "_consistency_recent_cmds", [])
         repeat_penalty = 0.0
+
+        # Exact command repeat: -1.5 (harsh — no reason to run identical cmd)
         if command in recent:
-            repeat_penalty = -1.0  # reduced from -2.0
-        # Removed family-level penalty — mentor legitimately runs nmap variants
+            repeat_penalty = -1.5
+
+        # Family-level saturation: if same family appears 4+ times in window,
+        # add -1.0 penalty to force tool diversity
+        elif recent:
+            family_hits = sum(1 for c in recent if c.strip().split()[0].rsplit("/", 1)[-1] == cmd_family)
+            if family_hits >= 4:
+                repeat_penalty = -1.0
+            elif family_hits >= 2:
+                # Mild penalty for 2-3 same-family commands (not exact repeats)
+                repeat_penalty = -0.3
 
         # Update recent window
         recent.append(command)
@@ -2556,11 +2863,14 @@ class H200DistillationRunner:
 
     # ── Single episode ───────────────────────────────────────────
 
-    def _run_episode(self, episode_id: int) -> EpisodeResult:
+    def _run_episode(self, episode_id: int, self_play: bool = False) -> EpisodeResult:
         """Run one training episode with optional mentor distillation.
 
         Phase 45c: Each episode randomly selects a scenario profile
         (HTB/CTF/THM/Windows/Linux) for diverse training data.
+
+        Phase 46: self_play=True disables teacher override — PPO acts
+        autonomously to measure real policy quality every Nth episode.
         """
         import torch
         import random as _rng
@@ -2579,12 +2889,16 @@ class H200DistillationRunner:
             state = self._env.get_global_state()
 
         episode_reward = 0.0
-        discoveries: List[str] = []
+        discoveries: List[str] = list(self._persistent_discoveries[-20:])  # Phase 46: warm-start from last episodes
         recent_commands: List[str] = []
         mentor_calls = 0
         commands_used: List[str] = []
         max_phase = "RECON"
         ppo_updates_ep = 0
+
+        # Phase 46: Reset phase stagnation counters per episode
+        self._phase_step_counter = {}
+        self._current_phase_for_stagnation = "RECON"
 
         self._log_trace({
             "kind": "episode_start",
@@ -2592,6 +2906,7 @@ class H200DistillationRunner:
             "scenario": scenario,
             "scenario_os": SCENARIO_PROFILES.get(scenario, {}).get("os", "linux"),
             "scenario_context": SCENARIO_PROFILES.get(scenario, {}).get("context", "standard"),
+            "self_play": self_play,
             "timestamp": time.time(),
             "anneal": self._anneal.snapshot() if self._anneal else {},
         })
@@ -2628,10 +2943,11 @@ class H200DistillationRunner:
             # executed command.  PPO still stores (student_action,
             # teacher_action, teacher_conf) so distill losses train
             # properly.  This nukes "echo-fu" at the source.
+            # Phase 46: Self-play episodes skip teacher override entirely.
             command = self._action_to_command(action_idx, state)
             teacher_overrode = False
 
-            if mentor_raw and not self.eval_only:
+            if mentor_raw and not self.eval_only and not self_play:
                 mentor_cmd = str(mentor_raw.get("command", "")).strip()
                 target = state.get("target_ip", "172.28.128.3")
                 # Fill {target} in mentor command
@@ -2642,21 +2958,25 @@ class H200DistillationRunner:
                     teacher_overrode = True
                     self.metrics.teacher_override_count += 1
 
-            # ── STEERING: Command family diversity guard ──────────
-            # If the last 3 commands were from the same family (e.g. all
-            # nmap), force a different tool to ensure PPO sees diverse
-            # state-action pairs.  This prevents the "nmap loop" where
-            # both mentors keep suggesting nmap variants.
+            # ── STEERING: Sliding window family dedup (3-of-last-8) ─
+            # If the same command family appears >= 3 times in the last 8
+            # commands, force a different tool.  This is MUCH stronger than
+            # the old "3 consecutive" check which only caught exact streaks.
             if len(recent_commands) >= 3:
                 cmd_family = command.split()[0] if command.strip() else ""
-                recent_families = [c.split()[0] for c in recent_commands[-3:] if c.strip()]
-                if cmd_family and all(f == cmd_family for f in recent_families):
+                window_size = min(len(recent_commands), 8)
+                recent_families = [
+                    c.split()[0] for c in recent_commands[-window_size:] if c.strip()
+                ]
+                family_count = sum(1 for f in recent_families if f == cmd_family)
+                if cmd_family and family_count >= 3:
                     old_cmd = command
                     command = self._diverse_fallback(state, cmd_family)
                     logger.info(
-                        "DIVERSITY GUARD: step %d, family '%s' repeated 3x, "
-                        "replaced '%s' → '%s'",
-                        step_i, cmd_family, old_cmd[:60], command[:60],
+                        "DIVERSITY GUARD: step %d, family '%s' appeared %d/%d "
+                        "in window, replaced '%s' → '%s'",
+                        step_i, cmd_family, family_count, window_size,
+                        old_cmd[:60], command[:60],
                     )
 
             # ── STEERING: Ban echo execution ─────────────────────
@@ -2786,7 +3106,17 @@ class H200DistillationRunner:
             state = next_state
 
             if done:
-                break
+                # Min episode floor: force at least 30 steps so PPO gets
+                # enough trajectory data.  Reset done flag and give the
+                # agent a phase-safe fallback to continue exploring.
+                if step_i < 30:
+                    done = False
+                    logger.info(
+                        "MIN FLOOR: step %d < 30, overriding done=True → False",
+                        step_i,
+                    )
+                else:
+                    break
 
         # PPO update at episode end
         update_metrics: Dict[str, float] = {}
@@ -2843,6 +3173,14 @@ class H200DistillationRunner:
             ppo_updates=ppo_updates_ep,
             commands_used=commands_used,
         )
+
+        # Phase 46: Save discoveries for warm-start in next episode
+        # Keep last 30 unique discoveries across episodes
+        for d in discoveries:
+            if d not in self._persistent_discoveries:
+                self._persistent_discoveries.append(d)
+        if len(self._persistent_discoveries) > 30:
+            self._persistent_discoveries = self._persistent_discoveries[-30:]
 
         # Dashboard: episode end summary
         self._dashboard.episode_end(
@@ -3017,8 +3355,14 @@ class H200DistillationRunner:
                 console.print("[yellow]\u23f0 Time limit reached[/yellow]")
                 break
 
+            # Phase 46: Every 5th episode is self-play (no teacher override)
+            # so we can measure real autonomous policy quality.
+            is_self_play = (ep % 5 == 4) and not self.eval_only
+            if is_self_play:
+                console.print(f"  [magenta]🎯 Self-play episode {ep} (no teacher override)[/magenta]")
+
             ep_start = time.monotonic()
-            result = self._run_episode(ep)
+            result = self._run_episode(ep, self_play=is_self_play)
             ep_elapsed = time.monotonic() - ep_start
             self.metrics.episodes_completed += 1
             self.metrics.total_steps += result.steps
