@@ -1315,8 +1315,8 @@ class LocalMentorClient:
 # Codex pricing estimates (per 1K tokens) — Phase 44: corrected to real API rates
 _CODEX_INPUT_COST_PER_1K = 0.002   # gpt-5.2-codex input (actual rate)
 _CODEX_OUTPUT_COST_PER_1K = 0.008  # gpt-5.2-codex output (actual rate)
-_CODEX_BUDGET_USD = 100.0          # Phase 44: $10 real spend target → $100 tracking headroom
-_CODEX_MAX_CALLS = 50000           # Phase 44: uncapped — let budget be the limiter
+_CODEX_BUDGET_USD = 90.0           # Phase 50: -10% ($100→$90) for cost discipline
+_CODEX_MAX_CALLS = 45000           # Phase 50: -10% (50000→45000)
 
 
 class CodexEscalationPolicy:
@@ -1547,7 +1547,7 @@ class CodexMentorClient:
                 "model": self._model,
                 "instructions": instructions,
                 "input": user_input,
-                "max_output_tokens": 3000,  # codex uses ~1K reasoning + ~200 visible
+                "max_output_tokens": 2700,  # Phase 50: -10% (3000→2700)
             }
             resp = sess.post(
                 f"{self._base_url}/responses",
@@ -2065,8 +2065,8 @@ class H200DistillationRunner:
                 "stealth": "ShadowAgent",
                 "strategic": "OrionAgent",
             }
-            raw_role = state.get("role", "attacker")
-            role = _ROLE_MAP.get(raw_role, raw_role)
+            raw_role: str = str(state.get("role", "attacker"))
+            role: str = _ROLE_MAP.get(raw_role, raw_role)
             # Use phase to pick a better role for tool diversity
             if phase in ("RECON", "ENUMERATION") and role == "RedAgent":
                 role = "ScoutAgent"  # scouts have recon tools
@@ -2074,7 +2074,7 @@ class H200DistillationRunner:
             if not hasattr(self, '_mapper_cache'):
                 self._mapper_cache: Dict[str, Any] = {}
             if role not in self._mapper_cache:
-                self._mapper_cache[role] = CommandActionMapper(role=role)
+                self._mapper_cache[role] = CommandActionMapper(role=role)  # type: ignore[arg-type]
             mapper = self._mapper_cache[role]
             tpl = mapper.action_to_command(action_idx)
             if tpl is not None:
@@ -3257,9 +3257,12 @@ class H200DistillationRunner:
                 if hasattr(self._ppo, 'buffer') and hasattr(self._ppo.buffer, 'states'):
                     buf = self._ppo.buffer
                     if hasattr(buf, 'states') and len(buf.states) >= 8:
-                        batch = _th.stack(buf.states[-min(64, len(buf.states)):])
+                        n_cl = min(64, len(buf.states))
+                        batch = _th.stack(buf.states[-n_cl:])
+                        # Generate phase labels from state encoding (dims 0-11 are phase one-hot)
+                        phase_labels = batch[:, :12].argmax(dim=1)  # (B,)
                         self._contrastive_optimizer.zero_grad()
-                        cl = self._contrastive.compute_loss(batch)
+                        cl = self._contrastive.compute_loss(batch, phase_labels)
                         if cl is not None and cl.requires_grad:
                             cl.backward()
                             self._contrastive_optimizer.step()
@@ -3508,7 +3511,8 @@ class H200DistillationRunner:
         try:
             from core.algorithms.contrastive_state import ContrastiveConfig, ContrastiveLoss
             ccfg = ContrastiveConfig(
-                state_dim=STATE_DIM,
+                enabled=True,
+                feature_dim=STATE_DIM,
                 projection_dim=128,
                 temperature=0.07,
                 augment_noise=0.05,
@@ -3530,14 +3534,12 @@ class H200DistillationRunner:
                 action_dim=ACTION_DIM,
                 hidden_dim=256,
                 stoch_dim=32,
-                deter_dim=256,
             )
             self._world_model = WorldModel(wmcfg).to(self.device)
-            self._wm_optimizer = torch.optim.Adam(
-                self._world_model.parameters(), lr=3e-4,
-            )
+            # WorldModel creates its own internal optimizer
+            self._wm_optimizer = None  # kept for compatibility
             logger.info("Phase 50: World model initialized (RSSM, h=%d, s=%d)",
-                        wmcfg.deter_dim, wmcfg.stoch_dim)
+                        wmcfg.hidden_dim, wmcfg.stoch_dim)
         except Exception as e:
             logger.warning("Phase 50: World model init failed: %s", e)
             self._world_model = None

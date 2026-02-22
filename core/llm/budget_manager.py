@@ -38,21 +38,21 @@ logger = logging.getLogger("ariaska.llm.budget_manager")
 # ── Constants ───────────────────────────────────────────────────────────────
 
 # Phase 38: Hard caps — +15% from Phase 36 for extended live HTB engagements.
-_TOTAL_BUDGET = 2_987_008  # Phase 42: 2x from 1,493,504 — doubled for GPU distillation
-_MIN_BUDGET = 1_493_504    # Phase 42: 50% floor (2x)
+_TOTAL_BUDGET = 2_688_308  # Phase 50: -10% from 2,987,008 for cost discipline
+_MIN_BUDGET = 1_344_154    # Phase 50: 50% floor (-10%)
 _MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # 0.50
 
-# Phase 42: Tier budgets — 2x from Phase 41 for GPU distillation with doubled mentor signal.
-#   codex *= 2  → 597_402  (all reasoning: tactical, strategic, postmortem, analysis)
-#   full  *= 2  → 597_402  (parsing, interpretation, verification)
-#   mini  *= 2  → 896_102  (playbook selection, structured extraction)
-#   nano  *= 2  → 896_102  (classification, micro-chain Stages 1+3, reserve)
-#   Sum = 2,987,008 ✓
+# Phase 50: Tier budgets — -10% across all tiers for cost discipline.
+#   codex: 537_662  (all reasoning: tactical, strategic, postmortem, analysis)
+#   full:  537_662  (parsing, interpretation, verification)
+#   mini:  806_492  (playbook selection, structured extraction)
+#   nano:  806_492  (classification, micro-chain Stages 1+3, reserve)
+#   Sum ≈ 2,688,308 ✓
 _TIER_BUDGETS: Dict[str, int] = {
-    "codex":  597_402,  # 20.0% — all reasoning (tactical+strategic+postmortem)
-    "full":   597_402,  # 20.0% — parsing, interpretation, verification
-    "mini":   896_102,  # 30.0% — playbook selection, structured extraction
-    "nano":   896_102,  # 30.0% — classification, micro-chain, reserve
+    "codex":  537_662,  # 20.0% — all reasoning (tactical+strategic+postmortem)
+    "full":   537_662,  # 20.0% — parsing, interpretation, verification
+    "mini":   806_492,  # 30.0% — playbook selection, structured extraction
+    "nano":   806_492,  # 30.0% — classification, micro-chain, reserve
 }
 
 # Phase 33.2: Dynamic Burst Pool

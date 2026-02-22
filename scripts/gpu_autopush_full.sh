@@ -13,7 +13,7 @@ set -euo pipefail
 
 REPO_DIR="${ARIASKA_DIR:-/root/Ariaska_RL}"
 BRANCH="${GIT_BRANCH:-master}"
-PUSH_INTERVAL_DESC="manual / loop"
+export PUSH_INTERVAL_DESC="manual / loop"
 
 cd "$REPO_DIR"
 
