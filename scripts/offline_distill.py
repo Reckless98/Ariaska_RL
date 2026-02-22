@@ -342,13 +342,16 @@ class OfflineDistillTrainer:
             config.traces_dir,
             min_reward_for_sil=config.min_reward_for_sil,
         )
-        self.dataloader = DataLoader(
-            self.dataset,
-            batch_size=config.batch_size,
-            shuffle=True,
-            drop_last=True,
-            num_workers=0,
-        )
+        if len(self.dataset) > 0:
+            self.dataloader = DataLoader(
+                self.dataset,
+                batch_size=config.batch_size,
+                shuffle=True,
+                drop_last=True,
+                num_workers=0,
+            )
+        else:
+            self.dataloader = None
 
         # Optimizer: separate from PPO's internal optimizer for clean offline training
         self.optimizer = torch.optim.AdamW(
@@ -621,7 +624,7 @@ class OfflineDistillTrainer:
             title="Phase 47",
         ))
 
-        if len(self.dataset) == 0:
+        if len(self.dataset) == 0 or self.dataloader is None:
             console.print("[red]No trace data found! Cannot train.[/red]")
             return {"error": "no_data"}
 
@@ -729,7 +732,7 @@ class OfflineDistillTrainer:
                     bc_values = values[bc_mask].detach().squeeze(-1)
                     advantages = (bc_rewards - bc_values).clamp(min=0.0)
                     # Normalize advantages
-                    if advantages.std() > 1e-8:
+                    if advantages.numel() > 1 and advantages.std() > 1e-8:
                         advantages = advantages / (advantages.std() + 1e-8)
                     bc_weights = advantages.clamp(min=0.1)  # Floor weight
                 else:
