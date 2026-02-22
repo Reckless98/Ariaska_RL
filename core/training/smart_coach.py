@@ -498,6 +498,7 @@ class SmartCoach:
                 logger.debug(f"[SAC] {agent_name}: action_dim={self.action_mapper.action_dim} α=0.2 (auto)")
         except Exception as e:
             logger.debug(f"SAC init skipped for {agent_name}: {e}")
+        self._sac_pending = None  # C03: SAC shadow select pending transition
 
         # =====================================================================
         # PHASE 9.0: DDQN Macro-Intent Selector (Hierarchical RL)
@@ -2574,7 +2575,10 @@ class SmartCoach:
         
         # Phase 50: Store DecisionPacket reference for algorithm proposal population
         self._current_decision_packet = decision_packet
-        
+
+        # C03: SAC shadow select — off-policy observation of every step
+        self._sac_shadow_select(step_ctx)
+
         # Phase 10.3: Collect reasoning events for dashboard visibility
         self._step_reasoning_log: List[Dict[str, Any]] = []
         # Phase 40: Decision chain trace for v6 dashboard
@@ -7100,6 +7104,80 @@ class SmartCoach:
             logger.debug(f"PPO select failed for {self.agent_name}: {e}")
             return None
 
+    # =====================================================================
+    # C03: SAC SHADOW SELECT — runs alongside PPO for off-policy learning
+    # =====================================================================
+
+    def _sac_shadow_select(self, step_ctx: "SmartStepContext") -> None:
+        """Run SAC shadow selection for off-policy learning.
+
+        SAC selects an action in parallel with PPO but does NOT override
+        the final decision. Instead, SAC's selection is stored on the
+        DecisionPacket and its transitions are stored in record_result()
+        for off-policy replay buffer learning.
+
+        This is called once per decide() to ensure SAC always observes
+        state→action transitions, regardless of which pipeline stage wins.
+        """
+        if self.sac_agent is None:
+            return
+
+        try:
+            import torch
+            from core.models.state_encoder import encode_state
+
+            state = step_ctx.state if step_ctx.state else {}
+            device = torch.device("cpu")
+            step = step_ctx.step if step_ctx.step else 0
+
+            state_tensor = encode_state(state, device, current_step=step, max_steps=500)
+            action_idx, log_prob = self.sac_agent.select_action(state_tensor)
+
+            # Map action to command template (for logging/packet population only)
+            command = ""
+            template_name = ""
+            q_value = 0.0
+            alpha = self.sac_agent.alpha
+
+            if self.action_mapper is not None:
+                template = self.action_mapper.action_to_command(action_idx)
+                if template is not None:
+                    template_name = template.name
+                    command = template.template[:80]
+
+            # Get Q-value for selected action
+            with torch.no_grad():
+                s = state_tensor.unsqueeze(0).to(self.sac_agent.device)
+                q1, q2 = self.sac_agent.critic(s)
+                q_value = float(torch.min(q1, q2)[0, action_idx].item())
+
+            # Store pending for transition pairing in record_result()
+            self._sac_pending = {
+                "state": state_tensor,
+                "action": action_idx,
+                "log_prob": float(log_prob),
+                "q_value": q_value,
+            }
+
+            # Populate DecisionPacket SAC proposal
+            _dp = getattr(self, '_current_decision_packet', None)
+            if _dp is not None:
+                _dp.sac.action_idx = action_idx
+                _dp.sac.log_prob = float(log_prob)
+                _dp.sac.q_value = q_value
+                _dp.sac.command = command
+                _dp.sac.template_name = template_name
+                _dp.sac.confidence = min(1.0, max(0.0, q_value / 10.0))
+                _dp.sac.alpha = alpha
+
+            logger.debug(
+                f"[SAC][{self.agent_name}] Shadow select: a={action_idx} "
+                f"Q={q_value:.2f} α={alpha:.3f} tmpl={template_name}"
+            )
+
+        except Exception as e:
+            logger.debug(f"[SAC][{self.agent_name}] Shadow select failed: {e}")
+
     # Phase 6: Terminal reward mapping — reduced to match tighter reward scale
     # Phase 6.9: CLOSEOUT-centric terminal rewards.
     # EXFIL is no longer the big dopamine hit — CLEAN EXIT is.
@@ -8134,6 +8212,56 @@ class SmartCoach:
                         'shell' in new_discoveries or 'credential' in new_discoveries
                     )),
                 )
+
+        # ─── C03: SAC off-policy transition storage + update ────────
+        # SAC is off-policy: store ALL transitions (regardless of who won)
+        # and update every step for maximum sample efficiency.
+        if self._sac_pending is not None and self.sac_agent is not None:
+            try:
+                import torch as _t_sac
+                from core.models.state_encoder import encode_state as _enc_sac
+                # Encode next state from current attack context
+                # Note: record_result() doesn't have step_ctx, so we use
+                # self.attack_context and trajectory length for step number.
+                _sac_next_state_dict = {
+                    "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
+                    "phase": (
+                        self.attack_context.current_phase.name
+                        if self.attack_context else "RECON"
+                    ),
+                }
+                _sac_step_num = len(self._ppo_trajectory) if self._ppo_trajectory else 1
+                _sac_next_st = _enc_sac(
+                    _sac_next_state_dict, _t_sac.device("cpu"),
+                    current_step=_sac_step_num + 1,
+                    max_steps=500,
+                )
+                # Use the same shaped reward as PPO (extrinsic + RND)
+                _sac_reward = breakdown.total
+                _dp = self._current_decision_packet
+                if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
+                    _sac_reward += _dp.rnd.intrinsic_reward
+
+                self.sac_agent.store_transition(
+                    state=self._sac_pending["state"],
+                    action=self._sac_pending["action"],
+                    reward=_sac_reward,
+                    next_state=_sac_next_st,
+                    done=done,
+                )
+                # Off-policy update every step
+                _sac_metrics = self.sac_agent.update()
+                if _sac_metrics and _sac_metrics.get("critic_loss", 0) > 0:
+                    logger.debug(
+                        f"[SAC][{self.agent_name}] Update #{self.sac_agent._update_count}: "
+                        f"π={_sac_metrics.get('actor_loss', 0):.4f} "
+                        f"Q={_sac_metrics.get('critic_loss', 0):.4f} "
+                        f"α={_sac_metrics.get('alpha', 0):.4f} "
+                        f"H={_sac_metrics.get('entropy', 0):.4f}"
+                    )
+            except Exception as e:
+                logger.debug(f"[SAC][{self.agent_name}] Transition failed: {e}")
+            self._sac_pending = None
         
         # ─── PHASE 9.0: Store DDQN macro transition ────────────────
         if self._ddqn_pending is not None and self.ddqn_macro is not None:
