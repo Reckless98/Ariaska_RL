@@ -39,6 +39,7 @@ from rich.console import Console as _RichConsole
 from rich.panel import Panel as _RichPanel
 from core.llm.reward_calculator import SmartRewardCalculator, RewardBreakdown
 from core.training.smart_coach import SmartCoach, SmartDecisionResult, SmartStepContext
+from core.training.decision_packet import DecisionPacket
 from core.observability import LiveDashboard, DashboardConfig
 from core.tracing.event_bus import EventBus, StepEvent, AgentStepRecord, GenericEvent, EventKind
 
@@ -120,9 +121,10 @@ class SmartStepResult:
     decision: SmartDecisionResult
     reward_breakdown: Optional[RewardBreakdown] = None
     live_result: Optional[Any] = None  # LiveCommandResult in LIVE mode, None in SIM
+    decision_packet: Optional[DecisionPacket] = None  # Phase 50: unified decision envelope
     
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "agent": self.agent_name,
             "command": self.decision.command,
             "template": self.decision.template_name,
@@ -134,6 +136,9 @@ class SmartStepResult:
             "confidence": self.decision.confidence,
             "reward": self.reward_breakdown.total if self.reward_breakdown else 0.0,
         }
+        if self.decision_packet is not None:
+            result["decision_packet"] = self.decision_packet.to_dict()
+        return result
 
 
 class SmartOrchestrator:
@@ -4114,6 +4119,20 @@ class SmartOrchestrator:
                 state=enriched_state,
             )
             
+            # Phase 50: Construct DecisionPacket alongside step_ctx
+            # Carries algorithm signals through the full pipeline
+            _p50_coherence = self.coherence_tracker.coherence if self.coherence_tracker else 0.5
+            _p50_macro_conf = 0.0
+            _red_coach_p50 = self.coaches.get(agent_name)
+            if _red_coach_p50 and hasattr(_red_coach_p50, '_ddqn_confidence'):
+                _p50_macro_conf = getattr(_red_coach_p50, '_ddqn_confidence', 0.0)
+            decision_packet = DecisionPacket.from_step_context(
+                step_ctx,
+                rnd_intrinsic=0.0,  # C02 will populate per-step RND here
+                coherence=_p50_coherence,
+                macro_confidence=_p50_macro_conf,
+            )
+            
             # =========================================================================
             # PHASE 0.1: STUCK-ESCAPE LOGIC
             # =========================================================================
@@ -4206,7 +4225,7 @@ class SmartOrchestrator:
                         confidence = 0.1
                     
                     # Get smart decision (role-aware)
-                    decision = coach.decide(step_ctx, proposed_action, confidence)
+                    decision = coach.decide(step_ctx, proposed_action, confidence, decision_packet=decision_packet)
                     # Only set source if coach didn't already set a specific one
                     # Coach may have set: "ppo", "playbook", "anti_repeat", etc.
                     if decision.source == "unknown":
@@ -4249,9 +4268,19 @@ class SmartOrchestrator:
                     ctx.command_history = ctx.command_history[-100:]
             
             # Create result
+            # Phase 50: Sync DecisionPacket with final decision
+            decision_packet.chosen_command = decision.command
+            decision_packet.chosen_template = decision.template_name
+            decision_packet.chosen_confidence = decision.confidence
+            decision_packet.attribution.source = decision.source
+            decision_packet.mentor_called = decision.mentor_call
+            decision_packet.forced_novel = decision.forced
+            if decision.evidence_gate_result:
+                decision_packet.evidence_gate_passed = decision.evidence_gate_result in ("", "pass")
             result = SmartStepResult(
                 agent_name=agent_name,
                 decision=decision,
+                decision_packet=decision_packet,
             )
             agent_results.append(result)
             

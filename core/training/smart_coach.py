@@ -2547,6 +2547,7 @@ class SmartCoach:
         proposed_action: Optional[str] = None,
         confidence: Optional[float] = None,
         force_mentor: bool = False,
+        decision_packet: Optional[Any] = None,
     ) -> SmartDecisionResult:
         """
         Make a smart decision using HYBRID mode: registry-first, GPT for strategy.
@@ -2570,6 +2571,9 @@ class SmartCoach:
         """
         confidence = confidence if confidence is not None else 0.5
         ctx = step_ctx.attack_context
+        
+        # Phase 50: Store DecisionPacket reference for algorithm proposal population
+        self._current_decision_packet = decision_packet
         
         # Phase 10.3: Collect reasoning events for dashboard visibility
         self._step_reasoning_log: List[Dict[str, Any]] = []
@@ -3105,6 +3109,13 @@ class SmartCoach:
                         f"[DDQN][{self.agent_name}] Macro={macro.name} "
                         f"conf={confidence:.2f} ε={self.ddqn_macro.epsilon:.3f}"
                     )
+                    # Phase 50: Populate DDQN macro on DecisionPacket
+                    _dp = getattr(self, '_current_decision_packet', None)
+                    if _dp is not None:
+                        _dp.ddqn.macro_idx = macro.value
+                        _dp.ddqn.q_value = float(q_values.max()) if q_values is not None else 0.0
+                        _dp.ddqn.macro_name = macro.name
+                        _dp.ddqn.confidence = float(confidence)
             except Exception as e:
                 logger.debug(f"[DDQN][{self.agent_name}] Macro select failed: {e}")
         
@@ -7060,6 +7071,20 @@ class SmartCoach:
             self.command_repeat_count[template.name] = (
                 self.command_repeat_count.get(template.name, 0) + 1
             )
+
+            # Phase 50: Populate PPO proposal on DecisionPacket
+            _dp = getattr(self, '_current_decision_packet', None)
+            if _dp is not None:
+                _dp.ppo.action_idx = action_idx
+                _dp.ppo.log_prob = float(log_prob)
+                _dp.ppo.value = float(value)
+                _dp.ppo.command = command
+                _dp.ppo.template_name = template.name
+                _dp.ppo.confidence = 0.7
+                _dp.ppo.head_group = {0: "recon", 1: "exploit", 2: "post_exploit"}.get(
+                    _r68_phase_group, "recon"
+                )
+                _dp.state_tensor = state_tensor
 
             return SmartDecisionResult(
                 command=command,
