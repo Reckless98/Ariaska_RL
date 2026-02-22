@@ -1,0 +1,123 @@
+{
+  "run_id": "run_20260222_024751_0c7853",
+  "timestamp": 1771724884.6751676,
+  "key_outcomes": {
+    "wins": [
+      "Completed at least one episode with positive total reward indicating some task completion"
+    ],
+    "fails": [
+      "0% success rate across the run",
+      "High mentor call count (10) suggests insufficient autonomy or unclear next actions"
+    ],
+    "summary": "The run achieved positive reward but failed to complete objectives; guidance reliance remained high."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance into a successful exploit path",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor guidance",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step01",
+        "ep001_step02",
+        "ep001_step03",
+        "ep001_step04",
+        "ep001_step05",
+        "ep001_step06",
+        "ep001_step07",
+        "ep001_step08",
+        "ep001_step09",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a host is discovered but no service map exists",
+      "then_action": "Run full TCP port scan with service and version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "flags": "-p- -sV -sC",
+        "timing": "-T4"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771724892.9560688,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When high mentor call count is observed",
+      "then_action": "Insert a decision checkpoint to select next action based on discovered services and known exploitability",
+      "parameters_template": {
+        "checkpoint": "post-recon",
+        "decision_inputs": [
+          "open_ports",
+          "service_versions",
+          "auth_requirements"
+        ]
+      },
+      "confidence": 0.5,
+      "evidence_refs": [
+        "ep001_step02",
+        "ep001_step03"
+      ],
+      "created_at": 1771724892.9560802,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Foundational recon step needed to reduce mentor reliance and improve success rate"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-first autopilot",
+      "description": "Automate a full port/service scan before any exploit attempt to ensure accurate service mapping and reduce mentor calls.",
+      "priority": "high"
+    },
+    {
+      "title": "Post-recon decision gate",
+      "description": "Add a structured decision step that selects the top 1-2 exploit paths based on service versions and common CVEs.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-call budget",
+      "description": "Set a hard cap on mentor calls per episode to force autonomous next-action selection and measure impact on success.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
