@@ -1,0 +1,148 @@
+{
+  "run_id": "run_20260222_201837_4c6341",
+  "timestamp": 1771787939.2262428,
+  "key_outcomes": {
+    "wins": [
+      "Maintained high per-episode reward despite no successful objective completion",
+      "Engaged mentor guidance frequently, indicating active feedback loop usage"
+    ],
+    "fails": [
+      "Zero success rate across the run",
+      "High mentor call count suggests repeated uncertainty in decision points"
+    ],
+    "summary": "Strong activity signals and reward accrual, but no objective completion; tactical adjustments needed to convert effort into successful end-state."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to transition from reconnaissance to exploit/impact phase",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Excessive reliance on mentor calls at key decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step1",
+        "ep001_step2",
+        "ep001_step3",
+        "ep001_step4",
+        "ep001_step5",
+        "ep001_step6",
+        "ep001_step7",
+        "ep001_step8",
+        "ep001_step9",
+        "ep001_step10"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When multiple TCP ports are open and service banners are available",
+      "then_action": "Run focused service version enumeration",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p <open_ports> <target>"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step2"
+      ],
+      "created_at": 1771787951.6068664,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS services are detected",
+      "then_action": "Perform directory and endpoint discovery",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u http://<target> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step4"
+      ],
+      "created_at": 1771787951.6068804,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH is open and authentication method is unknown",
+      "then_action": "Enumerate SSH configuration and supported algorithms",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-p 22 --script ssh2-enum-algos,ssh-hostkey <target>"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771787951.6068897,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core recon step that consistently enables later decision making"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "HTTP discovery is a high-yield next step when web services are present"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Gate Check",
+      "description": "Add a decision gate after service enumeration to select a single highest-likelihood exploit path before expanding scope",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Drill",
+      "description": "Run a constrained episode with a maximum of 2 mentor calls to force decisive action",
+      "priority": "high"
+    },
+    {
+      "title": "Web Service Deep Dive",
+      "description": "When HTTP is present, extend to tech fingerprinting (whatweb) before brute discovery",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

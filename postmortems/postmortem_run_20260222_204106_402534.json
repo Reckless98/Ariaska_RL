@@ -1,0 +1,134 @@
+{
+  "run_id": "run_20260222_204106_402534",
+  "timestamp": 1771789278.9296484,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate",
+      "Completed a full episode with 10 mentor calls indicating iterative guidance usage"
+    ],
+    "fails": [
+      "No successful episodes (0.00% success rate)",
+      "High mentor call count suggests difficulty progressing autonomously"
+    ],
+    "summary": "Single-episode run produced positive reward but failed to achieve a successful outcome, indicating partial progress without task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert partial progress into a successful episode completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial discovery yields limited host/service visibility",
+      "then_action": "Expand scan scope with full TCP scan and service/version detection",
+      "parameters_template": {
+        "nmap_flags": "-p- -sV -sC --open"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step4"
+      ],
+      "created_at": 1771789292.1415713,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a web service is detected",
+      "then_action": "Run directory and technology enumeration",
+      "parameters_template": {
+        "tools": [
+          "gobuster",
+          "whatweb"
+        ],
+        "gobuster_flags": "-x php,html,txt -t 50"
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step6"
+      ],
+      "created_at": 1771789292.141584,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When a single episode stalls without clear next action",
+      "then_action": "Request mentor guidance after enumerating all exposed services",
+      "parameters_template": {
+        "mentor_call_threshold": "post-enumeration"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1771789292.1415915,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Broad scan strategy is foundational when initial visibility is low"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration is a high-value follow-up after service detection"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Complete enumeration and initial exploitation attempt before requesting guidance to improve autonomy",
+      "priority": "high"
+    },
+    {
+      "title": "Tighter enumeration checklist",
+      "description": "Apply a fixed recon sequence (full TCP scan \u2192 service scripts \u2192 targeted enum) to avoid missed services",
+      "priority": "high"
+    },
+    {
+      "title": "Exploit validation routine",
+      "description": "For each detected service, test one vetted exploit path and log results to identify bottlenecks",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

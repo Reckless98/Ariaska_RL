@@ -1,0 +1,102 @@
+{
+  "run_id": "run_20260222_202714_99ebad",
+  "timestamp": 1771788448.7689366,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero task success",
+      "Collected enough signals to justify 10 mentor calls"
+    ],
+    "fails": [
+      "Success rate was 0.00% across the only episode",
+      "High mentor call count suggests weak autonomy"
+    ],
+    "summary": "The run produced positive reward but failed to complete objectives; autonomy is low and success criteria were not met."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective completion not achieved within the episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260222_ep001_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial target discovery is required",
+      "then_action": "Perform fast top-ports scan followed by service/version detection",
+      "parameters_template": {
+        "fast_scan": "nmap -F -Pn {target}",
+        "service_scan": "nmap -sV -Pn {target}"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "run_20260222_ep001_step01"
+      ],
+      "created_at": 1771788460.4963071,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When an open web port (80/443) is detected",
+      "then_action": "Run HTTP enumeration to identify titles, technologies, and directories",
+      "parameters_template": {
+        "http_title": "nmap --script http-title -p {port} {target}",
+        "dir_enum": "gobuster dir -u http://{target}:{port} -w {wordlist}"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_20260222_ep001_step02"
+      ],
+      "created_at": 1771788460.49632,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step needed to improve early-stage situational awareness"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependency",
+      "description": "Attempt a full recon-to-enum chain without mentor calls, using a fixed playbook (fast scan -> service scan -> targeted enum).",
+      "priority": "high"
+    },
+    {
+      "title": "Validate success criteria early",
+      "description": "Add a mid-episode checkpoint to verify objective alignment and adjust enumeration focus accordingly.",
+      "priority": "high"
+    },
+    {
+      "title": "Instrument reward attribution",
+      "description": "Log which actions correlate with reward gains to convert positive reward into task success signals.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

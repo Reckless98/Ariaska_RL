@@ -166,7 +166,12 @@ class SourceAttribution:
 
 @dataclass
 class GradNorms:
-    """Per-loss gradient norms from the most recent PPO update (populated post-update)."""
+    """Per-loss gradient norms from the most recent PPO update (populated post-update).
+
+    ``total_grad_norm`` is always captured (return value of clip_grad_norm_).
+    Individual per-loss norms are only populated when PPOConfig.log_grad_norms=True
+    (retain_graph overhead).  SIL grad norm is always separate (own backward).
+    """
     policy_grad_norm: float = 0.0
     value_grad_norm: float = 0.0
     entropy_grad_norm: float = 0.0
@@ -174,6 +179,8 @@ class GradNorms:
     sil_grad_norm: float = 0.0
     kl_teacher_grad_norm: float = 0.0
     ranking_grad_norm: float = 0.0
+    value_reg_grad_norm: float = 0.0
+    contrastive_grad_norm: float = 0.0
     total_grad_norm: float = 0.0
 
     def to_dict(self) -> Dict[str, float]:
@@ -185,6 +192,8 @@ class GradNorms:
             "sil": self.sil_grad_norm,
             "kl_teacher": self.kl_teacher_grad_norm,
             "ranking": self.ranking_grad_norm,
+            "value_reg": self.value_reg_grad_norm,
+            "contrastive": self.contrastive_grad_norm,
             "total": self.total_grad_norm,
         }
 

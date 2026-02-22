@@ -1,0 +1,126 @@
+{
+  "run_id": "run_20260222_200603_5fc6da",
+  "timestamp": 1771787182.5813518,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with positive reward",
+      "Maintained stable execution without episode termination errors"
+    ],
+    "fails": [
+      "No successful objective completion (0.00% success rate)",
+      "No evidence of exploitation or privilege gain"
+    ],
+    "summary": "Despite a positive reward, the run did not achieve any success criteria; focus should shift to converting reconnaissance into validated footholds."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Reconnaissance did not progress to validated access or objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step20"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a target host is discovered but no services are enumerated",
+      "then_action": "Run TCP port scan with service/version detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p- --min-rate 1000"
+      },
+      "confidence": 0.71,
+      "evidence_refs": [
+        "ep001_step3"
+      ],
+      "created_at": 1771787199.5844424,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on any port",
+      "then_action": "Perform web enumeration for common paths and tech stack",
+      "parameters_template": {
+        "tool": "gobuster",
+        "args": "dir -u <url> -w /usr/share/wordlists/dirb/common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step7"
+      ],
+      "created_at": 1771787199.5844507,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SMB is detected (ports 139/445 open)",
+      "then_action": "Enumerate SMB shares and users",
+      "parameters_template": {
+        "tool": "enum4linux",
+        "args": "-a <target>"
+      },
+      "confidence": 0.64,
+      "evidence_refs": [
+        "ep001_step9"
+      ],
+      "created_at": 1771787199.584456,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline port/service discovery is essential to advance the kill chain from discovery to enumeration."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Aggressive service discovery",
+      "description": "Increase scan coverage with full TCP sweep and version detection to reveal overlooked services.",
+      "priority": "high"
+    },
+    {
+      "title": "Web surface enumeration pipeline",
+      "description": "Automate HTTP/HTTPS detection followed by directory and technology enumeration to identify exploitable endpoints.",
+      "priority": "high"
+    },
+    {
+      "title": "SMB enumeration fallback",
+      "description": "When SMB ports are open, enumerate shares and users to discover weak credentials or accessible data.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

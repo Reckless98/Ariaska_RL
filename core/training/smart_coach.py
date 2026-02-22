@@ -602,6 +602,7 @@ class SmartCoach:
         except Exception as e:
             logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
         self._cognition_result = None  # C04: per-step result, set in decide()
+        self._last_grad_norms: Dict[str, float] = {}  # C05: latest PPO update grad norms
 
         # =====================================================================
         # PHASE 8: CODEX PERSONA ROUTER — 4-persona Codex/Claude routing
@@ -7428,8 +7429,37 @@ class SmartCoach:
                     f"[PPO][{self.agent_name}] Update #{self.ppo_agent.updates_done}: "
                     f"π={metrics.get('policy_loss', 0):.4f} "
                     f"v={metrics.get('value_loss', 0):.4f} "
-                    f"H={metrics.get('entropy', 0):.4f}"
+                    f"H={metrics.get('entropy', 0):.4f} "
+                    f"‖∇‖={metrics.get('total_grad_norm', 0):.4f}"
                 )
+
+                # ── C05: Populate DecisionPacket.grad_norms from PPO metrics ──
+                _dp = self._current_decision_packet
+                if _dp is not None and hasattr(_dp, "grad_norms"):
+                    gn = _dp.grad_norms
+                    gn.total_grad_norm = metrics.get("total_grad_norm", 0.0)
+                    gn.sil_grad_norm = metrics.get("sil_grad_norm", 0.0)
+                    # Per-loss norms only present when log_grad_norms=True
+                    gn.policy_grad_norm = metrics.get("policy_grad_norm", 0.0)
+                    gn.value_grad_norm = metrics.get("value_grad_norm", 0.0)
+                    gn.entropy_grad_norm = metrics.get("entropy_grad_norm", 0.0)
+                    gn.kl_teacher_grad_norm = metrics.get("kl_teacher_grad_norm", 0.0)
+                    gn.ranking_grad_norm = metrics.get("ranking_grad_norm", 0.0)
+                    gn.value_reg_grad_norm = metrics.get("value_reg_grad_norm", 0.0)
+                    gn.contrastive_grad_norm = metrics.get("contrastive_grad_norm", 0.0)
+
+                # Store latest grad norms on coach for orchestrator access
+                self._last_grad_norms = {
+                    "total": metrics.get("total_grad_norm", 0.0),
+                    "sil": metrics.get("sil_grad_norm", 0.0),
+                    "policy": metrics.get("policy_grad_norm", 0.0),
+                    "value": metrics.get("value_grad_norm", 0.0),
+                    "entropy": metrics.get("entropy_grad_norm", 0.0),
+                    "kl_teacher": metrics.get("kl_teacher_grad_norm", 0.0),
+                    "ranking": metrics.get("ranking_grad_norm", 0.0),
+                    "value_reg": metrics.get("value_reg_grad_norm", 0.0),
+                    "contrastive": metrics.get("contrastive_grad_norm", 0.0),
+                }
             
             # ── R58 Layer 2c: Signal episode outcome for adaptive entropy ──
             if hasattr(self.ppo_agent, 'signal_episode_outcome'):

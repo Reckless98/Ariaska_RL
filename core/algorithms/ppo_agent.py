@@ -130,6 +130,12 @@ class PPOConfig:
     use_contrastive_loss: bool = False    # NT-Xent on phase-grouped states (model config, not FF)
     contrastive_coef: float = 0.05       # Contrastive loss weight
 
+    # ── C05: Per-loss gradient norm logging ──────────────────────
+    log_grad_norms: bool = False          # Capture per-loss gradient norms (retain_graph overhead)
+    # When True, each loss component does a separate backward with
+    # retain_graph=True to measure its individual gradient contribution.
+    # Production default is False — total_grad_norm is always captured.
+
 
 class PPOActorCritic(nn.Module):
     """Combined actor-critic network for PPO with advanced architecture.
@@ -784,6 +790,9 @@ class PPOAgent:
             "approx_kl": [],
             "clip_fraction": [],
             "explained_variance": [],
+            # C05: Gradient norm tracking
+            "total_grad_norm": [],
+            "sil_grad_norm": [],
         }
 
         # ── Phase 6: Running reward normalization ────────────────────
@@ -1398,12 +1407,60 @@ class PPOAgent:
                         pass  # Contrastive loss is non-critical
 
                 # ── Backward (R73: gradient accumulation) ────────────
+
+                # ── C05: Per-loss gradient norm probe (optional) ─────
+                # When log_grad_norms=True, compute each loss component's
+                # gradient norm via torch.autograd.grad (retain_graph).
+                # This is ~2-3x slower per minibatch so it's off by default.
+                if self.config.log_grad_norms:
+                    _loss_components: Dict[str, torch.Tensor] = {
+                        "policy": _policy_ramp * policy_loss,
+                        "value": self.config.value_loss_coef * value_loss,
+                        "entropy": -self.entropy_coef * entropy_loss,
+                    }
+                    if _kl_teacher_val > 0:
+                        _loss_components["kl_teacher"] = self.config.kl_teacher_coef * kl_loss  # type: ignore[possibly-undefined]
+                    if _ranking_val > 0:
+                        _loss_components["ranking"] = self.config.ranking_loss_coef * rank_loss  # type: ignore[possibly-undefined]
+                    if _value_reg_val > 0:
+                        _loss_components["value_reg"] = self.config.value_reg_coef * vreg_loss  # type: ignore[possibly-undefined]
+                    if _contrastive_val > 0:
+                        _loss_components["contrastive"] = self.config.contrastive_coef * c_loss  # type: ignore[possibly-undefined]
+
+                    _params = list(self.network.parameters())
+                    for _lname, _lval in _loss_components.items():
+                        try:
+                            _grads = torch.autograd.grad(
+                                _lval / _grad_accum,
+                                _params,
+                                retain_graph=True,
+                                allow_unused=True,
+                            )
+                            _norm = torch.sqrt(
+                                sum(
+                                    g.detach().pow(2).sum()
+                                    for g in _grads
+                                    if g is not None
+                                )
+                            ).item()
+                            _gn_key = f"{_lname}_grad_norm"
+                            metrics[_gn_key] = metrics.get(_gn_key, 0.0) + _norm
+                        except Exception:
+                            pass  # Non-critical — skip if autograd fails
+
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
 
                 if _accum_idx % _grad_accum == 0:
-                    nn.utils.clip_grad_norm_(
+                    _total_norm = nn.utils.clip_grad_norm_(
                         self.network.parameters(), self.config.max_grad_norm
+                    )
+                    metrics["total_grad_norm"] = metrics.get(
+                        "total_grad_norm", 0.0
+                    ) + (
+                        _total_norm.item()
+                        if hasattr(_total_norm, "item")
+                        else float(_total_norm)
                     )
                     self.optimizer.step()
                     self.optimizer.zero_grad()
@@ -1439,8 +1496,15 @@ class PPOAgent:
 
             # R73: Step on any remaining accumulated gradients
             if _accum_idx % _grad_accum != 0:
-                nn.utils.clip_grad_norm_(
+                _total_norm = nn.utils.clip_grad_norm_(
                     self.network.parameters(), self.config.max_grad_norm
+                )
+                metrics["total_grad_norm"] = metrics.get(
+                    "total_grad_norm", 0.0
+                ) + (
+                    _total_norm.item()
+                    if hasattr(_total_norm, "item")
+                    else float(_total_norm)
                 )
                 self.optimizer.step()
 
@@ -1576,11 +1640,16 @@ class PPOAgent:
                     )
                     self.optimizer.zero_grad()
                     sil_loss.backward()
-                    nn.utils.clip_grad_norm_(
+                    _sil_norm = nn.utils.clip_grad_norm_(
                         self.network.parameters(), self.config.max_grad_norm
                     )
                     self.optimizer.step()
                     sil_loss_val = sil_loss.item()
+                    metrics["sil_grad_norm"] = (
+                        _sil_norm.item()
+                        if hasattr(_sil_norm, "item")
+                        else float(_sil_norm)
+                    )
         metrics["sil_loss"] = sil_loss_val
 
         # Store metrics
