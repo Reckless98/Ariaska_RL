@@ -743,6 +743,24 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("Reptile Meta", "warn", str(e)[:40]))
         
+        # ─── C09: Held-Out Evaluator ─────────────────────────────────
+        # Periodic evaluation on held-out scenarios without training.
+        # Gated by FF_HELDOUT_EVAL (default=False).
+        self.heldout_evaluator = None
+        try:
+            from core.feature_flags import get_feature_flags as _get_ff
+            if _get_ff().heldout_eval:
+                from core.evaluation.heldout_eval import HeldOutEvaluator, EvalConfig
+                self.heldout_evaluator = HeldOutEvaluator(config=EvalConfig(
+                    eval_interval=5,
+                    deterministic=True,
+                ))
+                _init_modules.append(("HeldOutEval", "ok", "interval=5, 3 scenarios"))
+            else:
+                _init_modules.append(("HeldOutEval", "skip", "FF_HELDOUT_EVAL=false"))
+        except Exception as e:
+            _init_modules.append(("HeldOutEval", "warn", str(e)[:40]))
+        
         # ─── R66: Coherence Tracker ──────────────────────────────────
         self.coherence_tracker = None
         try:
@@ -3115,6 +3133,47 @@ class SmartOrchestrator:
                         )
                 except Exception as _re:
                     logger.debug(f"[C08] Reptile meta-step error: {_re}")
+        
+        # ─── C09: Held-Out Evaluation ────────────────────────────────
+        if self.heldout_evaluator is not None and self.heldout_evaluator.should_eval(episode_number):
+            try:
+                # Find first coach with a working PPO agent
+                _eval_coach = None
+                _eval_ppo = None
+                for _cname, _cobj in self.coaches.items():
+                    _cppo = getattr(_cobj, 'ppo_agent', None)
+                    if _cppo is not None:
+                        _eval_coach = _cobj
+                        _eval_ppo = _cppo
+                        break
+
+                if _eval_ppo is not None:
+                    import torch as _eval_torch
+                    from core.models.state_encoder import encode_state as _eval_encode
+
+                    def _eval_policy_fn(state):
+                        _st = _eval_encode(state, _eval_torch.device("cpu"))
+                        with _eval_torch.no_grad():
+                            return _eval_ppo.select_action(_st)
+
+                    def _eval_env_step(action):
+                        return self.env.step(action)
+
+                    def _eval_env_reset():
+                        return self.env.reset()
+
+                    _eval_results = self.heldout_evaluator.evaluate(
+                        policy_fn=_eval_policy_fn,
+                        env_step_fn=_eval_env_step,
+                        env_reset_fn=_eval_env_reset,
+                        episode=episode_number,
+                    )
+                    metrics["heldout_eval"] = [r.to_dict() for r in _eval_results]
+                    _trend = self.heldout_evaluator.get_trend()
+                    if _trend.get("status") != "insufficient_data":
+                        metrics["heldout_trend"] = _trend
+            except Exception as _he:
+                logger.debug(f"[C09] Held-out eval error: {_he}")
         
         # ─── R66: Episode-level JSONL + HUD summary ─────────────────
         try:
