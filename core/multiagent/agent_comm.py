@@ -125,7 +125,9 @@ class MessageEncoder(nn.Module):
             (N, msg_dim) tensor of message embeddings.
         """
         if not messages:
-            return torch.zeros(1, self.net[-1].out_features)
+            last_layer = self.net[-1]
+            assert isinstance(last_layer, nn.Linear)
+            return torch.zeros(1, last_layer.out_features)
 
         features = []
         for msg in messages:

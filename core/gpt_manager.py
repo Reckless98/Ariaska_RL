@@ -735,7 +735,7 @@ class GPTManager:
                 local_cl = self.local_client
                 result["secondary"] = local_cl
                 result["secondary_async"] = local_cl  # llama-cpp sync is fine
-                result["secondary_model"] = self._local_llm_provider.get_model_name()
+                result["secondary_model"] = self._local_llm_provider.get_model_name()  # pyright: ignore[reportOptionalMemberAccess]
             except Exception:
                 pass
         elif self.has_venice() and not self.has_local_llm():

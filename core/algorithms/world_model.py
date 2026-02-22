@@ -325,7 +325,7 @@ class WorldModel(nn.Module):
             hiddens.append(h)
             latents.append(self._get_latent(h, z))
 
-        return {
+        return {  # pyright: ignore[reportReturnType]
             "hiddens": torch.stack(hiddens, dim=1),
             "latents": torch.stack(latents, dim=1),
             "priors": priors,

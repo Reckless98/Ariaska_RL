@@ -703,7 +703,7 @@ class OfflineDistillTrainer:
         epoch_losses = defaultdict(float)
         num_batches = 0
 
-        for batch in self.dataloader:
+        for batch in self.dataloader:  # pyright: ignore[reportOptionalIterable]
             # Move to device
             states = batch["state"].to(self.device)
             actions = batch["action"].to(self.device)
@@ -852,7 +852,7 @@ class OfflineDistillTrainer:
         total = 0
         total_value_error = 0.0
 
-        for batch in self.dataloader:
+        for batch in self.dataloader:  # pyright: ignore[reportOptionalIterable]
             states = batch["state"].to(self.device)
             teacher_actions = batch["teacher_action"].to(self.device)
             rewards = batch["reward"].to(self.device)
