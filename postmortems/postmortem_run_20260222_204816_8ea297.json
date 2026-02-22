@@ -1,0 +1,103 @@
+{
+  "run_id": "run_20260222_204816_8ea297",
+  "timestamp": 1771789715.2665377,
+  "key_outcomes": {
+    "wins": [
+      "Maintained positive reward signal despite zero success rate",
+      "High mentor utilization indicates frequent guidance seeking"
+    ],
+    "fails": [
+      "No episode success achieved (0.00% success rate)",
+      "Reliance on mentor calls (10) suggests low autonomy",
+      "Single-episode run limits generalization of learned behaviors"
+    ],
+    "summary": "The run achieved a positive reward but failed to complete objectives; guidance dependency is high and outcomes are not yet reliable."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed within episode constraints",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required",
+      "then_action": "Run fast nmap discovery scan to identify live hosts",
+      "parameters_template": {
+        "args": "-sn -T4",
+        "target": "TARGET_CIDR"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step01"
+      ],
+      "created_at": 1771789726.116507,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When live hosts are discovered",
+      "then_action": "Run TCP service enumeration on top ports",
+      "parameters_template": {
+        "args": "-sV -sC --top-ports 1000 -T4",
+        "target": "LIVE_HOST"
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "ep001_step03"
+      ],
+      "created_at": 1771789726.1165159,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Core reconnaissance step that should be consistently applied early"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Cap mentor calls to 3 and enforce autonomous decision-making for recon and enumeration.",
+      "priority": "high"
+    },
+    {
+      "title": "Success-focused objective checks",
+      "description": "Introduce explicit success criteria checkpoints after enumeration to drive task completion.",
+      "priority": "high"
+    },
+    {
+      "title": "Action sequence optimization",
+      "description": "Benchmark alternative scan sequences (fast discovery -> top ports -> targeted scripts) to maximize objective progress per step.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

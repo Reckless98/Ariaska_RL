@@ -387,6 +387,10 @@ class SmartCoach:
         
         # Decision history
         self.decisions: List[SmartDecisionResult] = []
+
+        # C06: Decision source win-rate EMA tracker
+        from core.training.source_win_rate import SourceWinRateTracker
+        self.source_win_rate = SourceWinRateTracker(alpha=0.1, reward_alpha=0.15)
         
         # Current episode tracking
         self.current_episode = 0
@@ -7880,6 +7884,22 @@ class SmartCoach:
                 template_name=decision.template_name,
                 params=decision.params,
             )
+
+        # C06: Track decision source win rate
+        self.source_win_rate.record(
+            source=decision.source,
+            success=success and breakdown.total > 0,
+            reward=breakdown.total,
+        )
+
+        # C06: Populate DecisionPacket attribution.source_win_rates
+        _dp = getattr(self, "_current_decision_packet", None)
+        if _dp is not None and hasattr(_dp, "attribution"):
+            _dp.attribution.source = decision.source
+            _dp.attribution.source_win_rates = {
+                name: stats["ema_win_rate"]
+                for name, stats in self.source_win_rate.get_summary().items()
+            }
         
         # Update discoveries in context
         if new_discoveries:
@@ -8573,6 +8593,16 @@ class SmartCoach:
         # Reset episode-level command tracking for variety
         self.episode_used_commands.clear()
         self.command_repeat_count.clear()
+
+        # C06: Log source win-rate summary before clearing decisions
+        if self.decisions:
+            _best = self.source_win_rate.get_best_source()
+            if _best:
+                logger.debug(
+                    f"[SRC-EMA][{self.agent_name}] Best source: {_best} "
+                    f"(ema={self.source_win_rate.get_win_rate(_best):.3f})"
+                )
+
         self.decisions.clear()  # Clear decision history for fresh episode
         
         # Phase 4: Reset PPO trajectory
