@@ -67,8 +67,10 @@ class ActorHead(nn.Module):
             nn.Linear(input_dim // 2, action_dim),
         )
         # Small init for diversity
-        nn.init.orthogonal_(self.net[-1].weight, gain=0.01)
-        nn.init.zeros_(self.net[-1].bias)
+        last_layer = self.net[-1]
+        assert isinstance(last_layer, nn.Linear)
+        nn.init.orthogonal_(last_layer.weight, gain=0.01)
+        nn.init.zeros_(last_layer.bias)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """Returns raw logits (B, action_dim)."""

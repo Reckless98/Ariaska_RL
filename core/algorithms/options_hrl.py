@@ -214,8 +214,10 @@ class HighLevelPolicy(nn.Module):
             nn.Linear(hidden_dim // 2, n_options),
         )
         # Small init
-        nn.init.orthogonal_(self.net[-1].weight, gain=0.01)
-        nn.init.zeros_(self.net[-1].bias)
+        last_layer = self.net[-1]
+        assert isinstance(last_layer, nn.Linear)
+        nn.init.orthogonal_(last_layer.weight, gain=0.01)
+        nn.init.zeros_(last_layer.bias)
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """Returns logits over options (B, n_options)."""
@@ -226,7 +228,7 @@ class HighLevelPolicy(nn.Module):
         state: torch.Tensor,
         available_mask: Optional[torch.Tensor] = None,
         deterministic: bool = False,
-    ) -> Tuple[int, torch.Tensor, float]:
+    ) -> Tuple[int, torch.Tensor, float]:  # pyright: ignore[reportReturnType]
         """Select an option given state and availability mask.
 
         Args:

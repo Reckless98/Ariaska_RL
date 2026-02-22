@@ -612,7 +612,7 @@ class RolloutBuffer:
                 "values": values_t[mb_idx].to(device),
             }
             # Phase 37: Include teacher data if available
-            if teacher_dists_t is not None:
+            if teacher_dists_t is not None and teacher_has_mask is not None:
                 batch["teacher_distributions"] = teacher_dists_t[mb_idx].to(device)
                 batch["teacher_has_mask"] = teacher_has_mask[mb_idx].to(device)
             if teacher_actions_t is not None:
@@ -811,7 +811,7 @@ class PPOAgent:
         self.sil_buffer = SILBuffer(capacity=self.config.sil_buffer_size)
 
         # ── Phase 42: Contrastive state representation ───────────────
-        self._contrastive_loss: Optional[object] = None
+        self._contrastive_loss: Any = None
         if self.config.use_contrastive_loss:
             self._ensure_contrastive_loss()
 
