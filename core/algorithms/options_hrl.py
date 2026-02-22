@@ -228,7 +228,7 @@ class HighLevelPolicy(nn.Module):
         state: torch.Tensor,
         available_mask: Optional[torch.Tensor] = None,
         deterministic: bool = False,
-    ) -> Tuple[int, torch.Tensor, float]:  # pyright: ignore[reportReturnType]
+    ) -> Tuple[int, torch.Tensor, float]:
         """Select an option given state and availability mask.
 
         Args:
@@ -252,12 +252,12 @@ class HighLevelPolicy(nn.Module):
         dist = torch.distributions.Categorical(probs=probs)
 
         if deterministic:
-            option_idx = probs.argmax().item()
+            option_idx = int(probs.argmax().item())
         else:
-            option_idx = dist.sample().item()
+            option_idx = int(dist.sample().item())
 
         log_prob = dist.log_prob(torch.tensor(option_idx))
-        entropy = dist.entropy().item()
+        entropy = float(dist.entropy().item())
 
         return option_idx, log_prob, entropy
 
