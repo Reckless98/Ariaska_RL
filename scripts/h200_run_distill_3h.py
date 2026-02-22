@@ -1804,6 +1804,23 @@ class H200DistillationRunner:
         self._phase_step_counter: Dict[str, int] = {}
         self._current_phase_for_stagnation: str = "RECON"
 
+        # Phase 50: Auto-curriculum scheduling
+        self._curriculum: Any = None
+
+        # Phase 50: Ensemble voting for action diversity
+        self._ensemble: Any = None
+
+        # Phase 50: Contrastive state learning
+        self._contrastive: Any = None
+        self._contrastive_optimizer: Any = None
+
+        # Phase 50: World model for imagination rollouts
+        self._world_model: Any = None
+        self._wm_optimizer: Any = None
+
+        # Phase 50: Cached action mapper
+        self._mapper_cache: Dict[str, Any] = {}
+
     # ── Initialization ───────────────────────────────────────────
 
     def _seed_all(self, seed: int) -> None:
@@ -2026,14 +2043,39 @@ class H200DistillationRunner:
     # ── Command action mapper ────────────────────────────────────
 
     def _action_to_command(self, action_idx: int, state: Dict[str, Any]) -> str:
-        """Map PPO action index to a command string."""
+        """Map PPO action index to a command string.
+
+        Phase 50: Fixed role mapping — ROLE_COMMAND_ASSIGNMENTS uses agent
+        names (RedAgent, ScoutAgent, etc.), not generic 'attacker'.
+        Phase 50: Cache mapper per role to avoid reconstructing every step.
+        """
         phase = state.get("phase", "RECON")
         target = state.get("target_ip", "172.28.128.3")
         # Use CommandActionMapper if available
         try:
             from core.algorithms.command_action_mapper import CommandActionMapper
-            role = state.get("role", "attacker")
-            mapper = CommandActionMapper(role=role)
+            # Phase 50 FIX: Map generic roles to agent names that exist
+            # in ROLE_COMMAND_ASSIGNMENTS. The old code used
+            # state.get("role", "attacker") which matched NOTHING → 0 actions.
+            _ROLE_MAP = {
+                "attacker": "RedAgent",
+                "offensive": "RedAgent",
+                "recon": "ScoutAgent",
+                "defensive": "BlueAgent",
+                "stealth": "ShadowAgent",
+                "strategic": "OrionAgent",
+            }
+            raw_role = state.get("role", "attacker")
+            role = _ROLE_MAP.get(raw_role, raw_role)
+            # Use phase to pick a better role for tool diversity
+            if phase in ("RECON", "ENUMERATION") and role == "RedAgent":
+                role = "ScoutAgent"  # scouts have recon tools
+            # Cache mapper per role
+            if not hasattr(self, '_mapper_cache'):
+                self._mapper_cache: Dict[str, Any] = {}
+            if role not in self._mapper_cache:
+                self._mapper_cache[role] = CommandActionMapper(role=role)
+            mapper = self._mapper_cache[role]
             tpl = mapper.action_to_command(action_idx)
             if tpl is not None:
                 cmd = tpl.template.replace("{target}", target)
@@ -2876,8 +2918,15 @@ class H200DistillationRunner:
         import random as _rng
 
         state = self._env.reset()
-        # Phase 45c: Select a new random scenario for this episode
-        scenario = _rng.choice(SCENARIO_ROTATION)
+        # Phase 50: Use auto-curriculum for smart scenario selection
+        if self._curriculum is not None:
+            try:
+                sc = self._curriculum.next_scenario()
+                scenario = sc.name
+            except Exception:
+                scenario = _rng.choice(SCENARIO_ROTATION)
+        else:
+            scenario = _rng.choice(SCENARIO_ROTATION)
         self._patch_env_for_distill(scenario_name=scenario)
         logger.info("Episode %d: scenario=%s (%s)",
                      episode_id, scenario,
@@ -2937,6 +2986,29 @@ class H200DistillationRunner:
                 llm_prior=llm_prior,
                 prior_alpha=prior_alpha if llm_prior is not None else 0.0,
             )
+
+            # Phase 50: Ensemble voting — blend with PPO action
+            # If ensemble disagrees strongly, override with ensemble pick
+            if self._ensemble is not None and not self.eval_only:
+                try:
+                    import torch as _th
+                    # Use last hidden layer features (state tensor as proxy)
+                    feat = state_tensor.unsqueeze(0) if state_tensor.dim() == 1 else state_tensor
+                    # Trim/pad to hidden_dim if needed
+                    hd = self._ensemble.config.hidden_dim
+                    if feat.shape[-1] > hd:
+                        feat = feat[..., :hd]
+                    elif feat.shape[-1] < hd:
+                        feat = _th.nn.functional.pad(feat, (0, hd - feat.shape[-1]))
+                    ens_action, ens_info = self._ensemble.vote(feat)
+                    agreement = ens_info.get("agreement", 1.0)
+                    # If ensemble strongly disagrees with PPO (<40% agreement),
+                    # use ensemble pick instead — encourages exploration
+                    if agreement < 0.4 and _rng.random() < 0.3:
+                        action_idx = int(ens_action.item())
+                        logger.debug("ENSEMBLE OVERRIDE: agreement=%.2f", agreement)
+                except Exception:
+                    pass  # Ensemble is best-effort
 
             # ── STEERING: Teacher action OVERRIDES env action ────────
             # When mentor is queried successfully, its command IS the
@@ -3134,6 +3206,67 @@ class H200DistillationRunner:
             # Log PPO update metrics to TensorBoard
             self._tb_log_ppo_update(episode_id, update_metrics)
 
+        # Phase 50: Auto-curriculum update — feed episode results back
+        if self._curriculum is not None and not self.eval_only:
+            try:
+                success = max_phase not in ("RECON", "ENUMERATION")
+                self._curriculum.update(
+                    scenario_name=scenario,
+                    success=success,
+                    reward=episode_reward,
+                    steps=step_i + 1,
+                )
+            except Exception as e:
+                logger.debug("Curriculum update failed: %s", e)
+
+        # Phase 50: World model training (every episode, lightweight)
+        if self._world_model is not None and self._wm_optimizer is not None and not self.eval_only:
+            try:
+                import torch as _th
+                # Collect episode transitions for world model training
+                # Use PPO buffer states if available
+                if hasattr(self._ppo, 'buffer') and hasattr(self._ppo.buffer, 'states'):
+                    buf = self._ppo.buffer
+                    if hasattr(buf, 'states') and len(buf.states) >= 4:
+                        states_t = _th.stack(buf.states[-min(32, len(buf.states)):])
+                        actions_t = _th.tensor(
+                            buf.actions[-min(32, len(buf.actions)):],
+                            device=self.device, dtype=_th.long,
+                        )
+                        # One-hot encode actions
+                        actions_oh = _th.nn.functional.one_hot(
+                            actions_t, ACTION_DIM,
+                        ).float()
+                        # World model training step
+                        wm_loss = self._world_model.train_step(
+                            states_t[:-1], actions_oh[:-1], states_t[1:],
+                            self._wm_optimizer,
+                        )
+                        if isinstance(wm_loss, dict):
+                            update_metrics["wm_loss"] = wm_loss.get("total_loss", 0.0)
+                        else:
+                            update_metrics["wm_loss"] = float(wm_loss) if wm_loss is not None else 0.0
+            except Exception as e:
+                logger.debug("World model train failed: %s", e)
+
+        # Phase 50: Contrastive state learning (every 3 episodes)
+        if (self._contrastive is not None and self._contrastive_optimizer is not None
+                and not self.eval_only and episode_id % 3 == 0):
+            try:
+                import torch as _th
+                if hasattr(self._ppo, 'buffer') and hasattr(self._ppo.buffer, 'states'):
+                    buf = self._ppo.buffer
+                    if hasattr(buf, 'states') and len(buf.states) >= 8:
+                        batch = _th.stack(buf.states[-min(64, len(buf.states)):])
+                        self._contrastive_optimizer.zero_grad()
+                        cl = self._contrastive.compute_loss(batch)
+                        if cl is not None and cl.requires_grad:
+                            cl.backward()
+                            self._contrastive_optimizer.step()
+                            update_metrics["contrastive_loss"] = float(cl.item())
+            except Exception as e:
+                logger.debug("Contrastive train failed: %s", e)
+
         # Track phase reached
         self.metrics.phase_reached[max_phase] = self.metrics.phase_reached.get(max_phase, 0) + 1
 
@@ -3317,6 +3450,98 @@ class H200DistillationRunner:
 
     # ── Main run loop ────────────────────────────────────────────
 
+    def _init_phase50_modules(self) -> None:
+        """Phase 50: Initialize auto-curriculum, ensemble, contrastive, world model."""
+        import torch
+
+        # ── Auto-Curriculum ──────────────────────────────────────
+        try:
+            from core.algorithms.auto_curriculum import (
+                CurriculumConfig, CurriculumScheduler,
+            )
+            cfg = CurriculumConfig(
+                mastery_threshold=0.80,
+                zpd_low=0.25,
+                zpd_high=0.70,
+                retest_prob=0.12,
+            )
+            self._curriculum = CurriculumScheduler(cfg)
+            # Register all scenarios from SCENARIO_PROFILES with difficulty
+            _DIFFICULTY_MAP = {
+                "generic_linux": 0.2, "thm_beginner": 0.25,
+                "htb_web_easy": 0.35, "htb_windows_easy": 0.4,
+                "ctf_web": 0.45, "ctf_crypto_forensics": 0.5,
+                "htb_web_medium": 0.55, "htb_linux_medium": 0.6,
+                "thm_advanced": 0.6, "windows_server": 0.65,
+                "htb_ad_windows": 0.7, "pivot_network": 0.7,
+                "iot_embedded": 0.75, "cloud_aws_ctf": 0.75,
+                "vulnhub_bof": 0.8, "htb_linux_hard": 0.85,
+                "htb_ad_hard": 0.9,
+            }
+            for name in SCENARIO_PROFILES:
+                diff = _DIFFICULTY_MAP.get(name, 0.5)
+                self._curriculum.register_scenario(name, difficulty=diff)
+            logger.info("Phase 50: Auto-curriculum initialized with %d scenarios",
+                        len(SCENARIO_PROFILES))
+        except Exception as e:
+            logger.warning("Phase 50: Auto-curriculum init failed: %s", e)
+            self._curriculum = None
+
+        # ── Ensemble Voting ──────────────────────────────────────
+        try:
+            from core.algorithms.ensemble_voting import EnsembleConfig, EnsembleVoter
+            ecfg = EnsembleConfig(
+                n_heads=3,  # 3 lightweight heads
+                action_dim=ACTION_DIM,
+                hidden_dim=256,  # matches PPO hidden layer output
+                voting="weighted",
+                dropout=0.1,
+                disagreement_bonus=0.5,
+            )
+            self._ensemble = EnsembleVoter(ecfg).to(self.device)
+            logger.info("Phase 50: Ensemble voter initialized (3 heads, weighted)")
+        except Exception as e:
+            logger.warning("Phase 50: Ensemble init failed: %s", e)
+            self._ensemble = None
+
+        # ── Contrastive State Learning ────────────────────────────
+        try:
+            from core.algorithms.contrastive_state import ContrastiveConfig, ContrastiveLoss
+            ccfg = ContrastiveConfig(
+                state_dim=STATE_DIM,
+                projection_dim=128,
+                temperature=0.07,
+                augment_noise=0.05,
+            )
+            self._contrastive = ContrastiveLoss(ccfg).to(self.device)
+            self._contrastive_optimizer = torch.optim.Adam(
+                self._contrastive.parameters(), lr=1e-4,
+            )
+            logger.info("Phase 50: Contrastive state learning initialized")
+        except Exception as e:
+            logger.warning("Phase 50: Contrastive init failed: %s", e)
+            self._contrastive = None
+
+        # ── World Model ──────────────────────────────────────────
+        try:
+            from core.algorithms.world_model import WorldModelConfig, WorldModel
+            wmcfg = WorldModelConfig(
+                state_dim=STATE_DIM,
+                action_dim=ACTION_DIM,
+                hidden_dim=256,
+                stoch_dim=32,
+                deter_dim=256,
+            )
+            self._world_model = WorldModel(wmcfg).to(self.device)
+            self._wm_optimizer = torch.optim.Adam(
+                self._world_model.parameters(), lr=3e-4,
+            )
+            logger.info("Phase 50: World model initialized (RSSM, h=%d, s=%d)",
+                        wmcfg.deter_dim, wmcfg.stoch_dim)
+        except Exception as e:
+            logger.warning("Phase 50: World model init failed: %s", e)
+            self._world_model = None
+
     def run(self) -> RunMetrics:
         """Execute the full distillation run."""
         self._init_dirs()
@@ -3324,6 +3549,7 @@ class H200DistillationRunner:
         self._init_env()
         self._init_mentor()
         self._init_codex()
+        self._init_phase50_modules()
 
         total_seconds = self.max_hours * 3600
         self._anneal = AnnealController(total_seconds)
