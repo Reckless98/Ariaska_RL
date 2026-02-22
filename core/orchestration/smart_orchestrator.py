@@ -709,6 +709,7 @@ class SmartOrchestrator:
         
         # ─── R66: RND Curiosity Module ───────────────────────────────
         self.rnd_curiosity = None
+        self._rnd_state_tensor = None  # C02: stash for post-step predictor update
         try:
             from core.algorithms.rnd_curiosity import RNDCuriosity
             self.rnd_curiosity = RNDCuriosity(
@@ -2378,15 +2379,18 @@ class SmartOrchestrator:
                     _r66_macro_name = _m.name if _m else ""
                     _r66_macro_conf = getattr(_red_coach, '_ddqn_confidence', 0.0)
             
-            # RND intrinsic reward
-            if self.rnd_curiosity and state:
+            # RND predictor update (post-step)
+            # C02: Intrinsic reward is now computed pre-step and injected into PPO
+            # trajectory via DecisionPacket. Here we only UPDATE the predictor
+            # network so it learns from the observed state. No episode_reward
+            # injection — that would double-count since PPO trajectory already
+            # includes intrinsic_rnd via record_result().
+            if self.rnd_curiosity:
                 try:
-                    import torch as _t66
-                    from core.models.state_encoder import encode_state as _enc66
-                    _st66 = _enc66(state, _t66.device("cpu"), current_step=step, max_steps=max_steps)
-                    _r66_intrinsic = self.rnd_curiosity.compute_intrinsic_reward(_st66, phase=_r66_phase)
-                    self.rnd_curiosity.update(_st66)
-                    episode_reward += _r66_intrinsic  # Add intrinsic to total
+                    _rnd_st = getattr(self, '_rnd_state_tensor', None)
+                    if _rnd_st is not None:
+                        self.rnd_curiosity.update(_rnd_st)
+                        self._rnd_state_tensor = None  # consumed
                 except Exception:
                     pass
             
@@ -4126,12 +4130,53 @@ class SmartOrchestrator:
             _red_coach_p50 = self.coaches.get(agent_name)
             if _red_coach_p50 and hasattr(_red_coach_p50, '_ddqn_confidence'):
                 _p50_macro_conf = getattr(_red_coach_p50, '_ddqn_confidence', 0.0)
+
+            # C02: Compute RND intrinsic reward BEFORE coach.decide()
+            # so the DecisionPacket carries per-step novelty into PPO trajectory.
+            # RND predictor update happens AFTER step (see post-step block).
+            _p50_rnd_intrinsic = 0.0
+            _p50_rnd_novelty = 0.0
+            _p50_rnd_decay = 1.0
+            if self.rnd_curiosity and enriched_state:
+                try:
+                    import torch as _t50
+                    from core.models.state_encoder import encode_state as _enc50
+                    _st50 = _enc50(
+                        enriched_state, _t50.device("cpu"),
+                        current_step=step, max_steps=max_steps,
+                    )
+                    _p50_phase = (
+                        ctx.current_phase.name if ctx else "RECON"
+                    )
+                    _p50_rnd_intrinsic = self.rnd_curiosity.compute_intrinsic_reward(
+                        _st50, phase=_p50_phase,
+                    )
+                    # Novelty = raw MSE from RND (before normalization/decay)
+                    with _t50.no_grad():
+                        _s50 = _st50.unsqueeze(0) if _st50.dim() == 1 else _st50
+                        _p50_rnd_novelty = float(
+                            ((self.rnd_curiosity.target_net(_s50)
+                              - self.rnd_curiosity.predictor_net(_s50)) ** 2)
+                            .mean().item()
+                        )
+                    # Compute phase decay factor
+                    _p50_ord = self.rnd_curiosity.PHASE_ORDINALS.get(_p50_phase, 0)
+                    if _p50_ord >= 5:
+                        _p50_rnd_decay = max(0.1, 1.0 - (_p50_ord - 4) * 0.3)
+                    # Stash tensor for post-step RND predictor update
+                    self._rnd_state_tensor = _st50
+                except Exception:
+                    pass
+
             decision_packet = DecisionPacket.from_step_context(
                 step_ctx,
-                rnd_intrinsic=0.0,  # C02 will populate per-step RND here
+                rnd_intrinsic=_p50_rnd_intrinsic,
                 coherence=_p50_coherence,
                 macro_confidence=_p50_macro_conf,
             )
+            # C02: Populate full RND signal on packet
+            decision_packet.rnd.novelty_score = _p50_rnd_novelty
+            decision_packet.rnd.phase_decay = _p50_rnd_decay
             
             # =========================================================================
             # PHASE 0.1: STUCK-ESCAPE LOGIC

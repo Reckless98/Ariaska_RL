@@ -8087,7 +8087,23 @@ class SmartCoach:
                         _r69_disc_types.extend([_dt] * len(_dv))
                     else:
                         _r69_disc_types.append(_dt)
-            
+
+            # C02: Inject RND intrinsic reward into PPO trajectory
+            # DecisionPacket carries per-step RND signal computed pre-step.
+            # This gives PPO exploration credit for visiting novel states.
+            _rnd_intrinsic = 0.0
+            _dp = self._current_decision_packet
+            if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
+                _rnd_intrinsic = _dp.rnd.intrinsic_reward
+                ppo_reward += _rnd_intrinsic
+                # Also populate reward composition on the packet
+                _dp.reward.intrinsic_rnd = _rnd_intrinsic
+                _dp.reward.extrinsic = breakdown.total
+                logger.debug(
+                    f"[PPO][{self.agent_name}] C02 RND intrinsic +"
+                    f"{_rnd_intrinsic:.3f} → ppo_reward={ppo_reward:.2f}"
+                )
+
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
                 "action": self._ppo_pending["action"],
