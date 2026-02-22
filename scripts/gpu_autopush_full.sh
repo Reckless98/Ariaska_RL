@@ -71,7 +71,28 @@ STATS=$(git diff --cached --stat --no-color 2>/dev/null | tail -1)
 git commit -m "gpu-sync: ${TIMESTAMP} — full intelligence push (${STATS})" \
     --allow-empty >/dev/null 2>&1 || true
 
-# ── Step 5: Push ─────────────────────────────────────────────
+# ── Step 5: Pull + Push (handle bidirectional sync) ──────────
+# First fetch + merge remote (local machine may have pushed code changes)
+git fetch origin "$BRANCH" >/dev/null 2>&1 || true
+
+LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null)
+REMOTE_HEAD=$(git rev-parse "origin/$BRANCH" 2>/dev/null || echo "unknown")
+
+if [[ "$LOCAL_HEAD" != "$REMOTE_HEAD" && "$REMOTE_HEAD" != "unknown" ]]; then
+    # Remote has changes — merge them in (keep ours for data, theirs for code)
+    if ! git merge "origin/$BRANCH" --no-edit -m "gpu-sync: merge local changes" >/dev/null 2>&1; then
+        # Auto-resolve: GPU owns data/models/traces, local owns code/scripts
+        git checkout --ours traces/ models/ data/ postmortems/ reports/ results/ 2>/dev/null || true
+        git checkout --theirs scripts/ core/ tests/ Makefile 2>/dev/null || true
+        git add -A >/dev/null 2>&1 || true
+        git commit --no-edit -m "gpu-sync: auto-resolved merge conflict" >/dev/null 2>&1 || {
+            git merge --abort 2>/dev/null || true
+            echo "[SYNC] ${TIMESTAMP} merge conflict — will retry next cycle"
+            exit 1
+        }
+    fi
+fi
+
 if git push origin "$BRANCH" >/dev/null 2>&1; then
     echo "[SYNC] ${TIMESTAMP} pushed to ${BRANCH} (${STATS})"
 else
