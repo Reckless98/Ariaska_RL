@@ -53,7 +53,7 @@ class TestAnnealController:
     def test_prior_alpha_starts_high(self) -> None:
         from scripts.h200_run_distill_3h import AnnealController
         ctrl = AnnealController(total_duration_sec=10000)
-        assert ctrl.prior_alpha() >= 0.45
+        assert ctrl.prior_alpha() >= 0.35  # Phase 51: max is 0.40 (was 0.50)
 
     def test_snapshot_has_required_keys(self) -> None:
         from scripts.h200_run_distill_3h import AnnealController
