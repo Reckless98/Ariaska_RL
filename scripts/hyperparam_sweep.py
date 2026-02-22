@@ -49,7 +49,7 @@ def _ensure_optuna():
     if _optuna is not None:
         return _optuna
     try:
-        import optuna
+        import optuna  # type: ignore[import-unresolved]
         _optuna = optuna
         return optuna
     except ImportError:
