@@ -327,6 +327,22 @@ class FeatureFlags:
     hallucination_guard: bool = field(
         default_factory=lambda: _env_bool("FF_HALLUCINATION_GUARD", True))
 
+    # ── C07: Algorithm Module Flags ─────────────────────────────────
+    cognition_node: bool = field(
+        default_factory=lambda: _env_bool("FF_COGNITION_NODE", True))
+    sac_shadow: bool = field(
+        default_factory=lambda: _env_bool("FF_SAC_SHADOW", True))
+    reptile_meta: bool = field(
+        default_factory=lambda: _env_bool("FF_REPTILE_META", False))
+    optuna_sweep: bool = field(
+        default_factory=lambda: _env_bool("FF_OPTUNA_SWEEP", False))
+    per_loss_grad_log: bool = field(
+        default_factory=lambda: _env_bool("FF_PER_LOSS_GRAD_LOG", False))
+    source_win_rate_flag: bool = field(
+        default_factory=lambda: _env_bool("FF_SOURCE_WIN_RATE", True))
+    heldout_eval: bool = field(
+        default_factory=lambda: _env_bool("FF_HELDOUT_EVAL", False))
+
 
 # Global singleton
 _ff: FeatureFlags = FeatureFlags()

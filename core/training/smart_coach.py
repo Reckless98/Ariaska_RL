@@ -455,6 +455,8 @@ class SmartCoach:
             if Mapper and PPOAgent and PPOConfig:
                 self.action_mapper = Mapper(agent_name)
                 if self.action_mapper.action_dim > 0:
+                    # C07: Wire FF_PER_LOSS_GRAD_LOG to PPOConfig.log_grad_norms
+                    from core.feature_flags import get_feature_flags as _get_ff_ppo
                     config = PPOConfig(
                         state_dim=512,
                         action_dim=self.action_mapper.action_dim,
@@ -465,6 +467,7 @@ class SmartCoach:
                         rollout_size=16,          # Phase 6.4: More frequent updates
                         entropy_coef=0.08,        # Phase 13.0: +60% (was 0.05) — high initial exploration
                         entropy_coef_min=0.01,    # Phase 13.0: +100% (was 0.005) — maintain exploration floor
+                        log_grad_norms=_get_ff_ppo().per_loss_grad_log,  # C07
                     )
                     self.ppo_agent = PPOAgent(config=config, device="cpu")
                     logger.info(
@@ -587,24 +590,30 @@ class SmartCoach:
         # B1: DDQN macro action_idx=-1 (no longer fused with PPO indices)
         # B2: SIL uses proper value estimate (critic forward) not value=0.0
         # B3: _vote_ppo() delegates to PPO.select_action() (R67-R80 preserved)
+        # C07: Gated by FF_COGNITION_NODE feature flag
         # =====================================================================
         self.cognition_node = None
-        try:
-            from core.algorithms.cognition_node import CognitionNode, CognitionConfig
-            _cn_ppo = self.ppo_agent if hasattr(self, 'ppo_agent') else None
-            _cn_sac = self.sac_agent if hasattr(self, 'sac_agent') else None
-            _cn_ddqn = self.ddqn_macro if hasattr(self, 'ddqn_macro') else None
-            # RND lives in SmartOrchestrator, not SmartCoach — pass None here
-            self.cognition_node = CognitionNode(
-                config=CognitionConfig(),
-                ppo=_cn_ppo,
-                sac=_cn_sac,
-                ddqn=_cn_ddqn,
-                rnd=None,  # RND is orchestrator-level, injected via DecisionPacket
-            )
-            logger.debug(f"[CognitionNode] {agent_name}: enabled with B1+B2+B3 fixes")
-        except Exception as e:
-            logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
+        from core.feature_flags import get_feature_flags as _get_ff
+        _ff = _get_ff()
+        if _ff.cognition_node:
+            try:
+                from core.algorithms.cognition_node import CognitionNode, CognitionConfig
+                _cn_ppo = self.ppo_agent if hasattr(self, 'ppo_agent') else None
+                _cn_sac = self.sac_agent if hasattr(self, 'sac_agent') else None
+                _cn_ddqn = self.ddqn_macro if hasattr(self, 'ddqn_macro') else None
+                # RND lives in SmartOrchestrator, not SmartCoach — pass None here
+                self.cognition_node = CognitionNode(
+                    config=CognitionConfig(),
+                    ppo=_cn_ppo,
+                    sac=_cn_sac,
+                    ddqn=_cn_ddqn,
+                    rnd=None,  # RND is orchestrator-level, injected via DecisionPacket
+                )
+                logger.debug(f"[CognitionNode] {agent_name}: enabled with B1+B2+B3 fixes")
+            except Exception as e:
+                logger.debug(f"CognitionNode init skipped for {agent_name}: {e}")
+        else:
+            logger.debug(f"[CognitionNode] {agent_name}: DISABLED by FF_COGNITION_NODE=false")
         self._cognition_result = None  # C04: per-step result, set in decide()
         self._last_grad_norms: Dict[str, float] = {}  # C05: latest PPO update grad norms
 
@@ -2597,7 +2606,10 @@ class SmartCoach:
         self._current_decision_packet = decision_packet
 
         # C03: SAC shadow select — off-policy observation of every step
-        self._sac_shadow_select(step_ctx)
+        # C07: Gated by FF_SAC_SHADOW feature flag
+        from core.feature_flags import get_feature_flags as _get_ff
+        if _get_ff().sac_shadow:
+            self._sac_shadow_select(step_ctx)
 
         # Phase 10.3: Collect reasoning events for dashboard visibility
         self._step_reasoning_log: List[Dict[str, Any]] = []
@@ -7886,20 +7898,24 @@ class SmartCoach:
             )
 
         # C06: Track decision source win rate
-        self.source_win_rate.record(
-            source=decision.source,
-            success=success and breakdown.total > 0,
-            reward=breakdown.total,
-        )
+        # C07: Gated by FF_SOURCE_WIN_RATE feature flag
+        from core.feature_flags import get_feature_flags as _get_ff
+        _ff = _get_ff()
+        if _ff.source_win_rate_flag:
+            self.source_win_rate.record(
+                source=decision.source,
+                success=success and breakdown.total > 0,
+                reward=breakdown.total,
+            )
 
-        # C06: Populate DecisionPacket attribution.source_win_rates
-        _dp = getattr(self, "_current_decision_packet", None)
-        if _dp is not None and hasattr(_dp, "attribution"):
-            _dp.attribution.source = decision.source
-            _dp.attribution.source_win_rates = {
-                name: stats["ema_win_rate"]
-                for name, stats in self.source_win_rate.get_summary().items()
-            }
+            # C06: Populate DecisionPacket attribution.source_win_rates
+            _dp = getattr(self, "_current_decision_packet", None)
+            if _dp is not None and hasattr(_dp, "attribution"):
+                _dp.attribution.source = decision.source
+                _dp.attribution.source_win_rates = {
+                    name: stats["ema_win_rate"]
+                    for name, stats in self.source_win_rate.get_summary().items()
+                }
         
         # Update discoveries in context
         if new_discoveries:
@@ -8595,7 +8611,9 @@ class SmartCoach:
         self.command_repeat_count.clear()
 
         # C06: Log source win-rate summary before clearing decisions
-        if self.decisions:
+        # C07: Gated by FF_SOURCE_WIN_RATE
+        from core.feature_flags import get_feature_flags as _get_ff
+        if _get_ff().source_win_rate_flag and self.decisions:
             _best = self.source_win_rate.get_best_source()
             if _best:
                 logger.debug(
