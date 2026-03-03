@@ -1,0 +1,155 @@
+{
+  "run_id": "run_20260226_230427_a92d18",
+  "timestamp": 1772121888.690423,
+  "key_outcomes": {
+    "wins": [
+      "Completed single episode with high reward (90.0), indicating at least one effective action sequence",
+      "Maintained stable performance with no reward variance across the run"
+    ],
+    "fails": [
+      "Success rate at 0.00%, indicating objectives were not achieved despite reward",
+      "High mentor call count (10) suggests heavy guidance dependency",
+      "Only one episode, limiting confidence in generalization"
+    ],
+    "summary": "The run shows strong step-level reward but failed to meet success criteria; performance is likely brittle and overly reliant on mentor input."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not completed despite accumulating reward, indicating misalignment between reward optimization and task success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_final"
+      ]
+    },
+    {
+      "pattern": "Excessive mentor intervention during decision points",
+      "frequency": 10,
+      "evidence_refs": [
+        "ep001_step3",
+        "ep001_step5",
+        "ep001_step7",
+        "ep001_step9",
+        "ep001_step11",
+        "ep001_step13",
+        "ep001_step15",
+        "ep001_step17",
+        "ep001_step19",
+        "ep001_step21"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When multiple open ports are detected in initial scan",
+      "then_action": "Run targeted nmap service/version detection on discovered ports",
+      "parameters_template": {
+        "nmap_flags": "-sV -sC",
+        "ports": "discovered_ports"
+      },
+      "confidence": 0.72,
+      "evidence_refs": [
+        "ep001_step4",
+        "ep001_step6"
+      ],
+      "created_at": 1772121903.0208783,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP service is detected on any port",
+      "then_action": "Enumerate web paths and technologies",
+      "parameters_template": {
+        "tools": [
+          "whatweb",
+          "gobuster"
+        ],
+        "wordlist": "common.txt"
+      },
+      "confidence": 0.68,
+      "evidence_refs": [
+        "ep001_step8",
+        "ep001_step10"
+      ],
+      "created_at": 1772121903.020892,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_003",
+      "if_condition": "When SSH service is detected and banner retrieved",
+      "then_action": "Perform SSH enumeration and credential hygiene checks",
+      "parameters_template": {
+        "script": "ssh-*",
+        "port": 22
+      },
+      "confidence": 0.65,
+      "evidence_refs": [
+        "ep001_step12",
+        "ep001_step14"
+      ],
+      "created_at": 1772121903.0209012,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Consistent early-phase reconnaissance action sequence"
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Web enumeration followed reliable detection cues"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Success-criteria alignment",
+      "description": "Instrument a reward-to-objective checkpoint after each major phase to prevent reward optimization that misses the end goal",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-dependency reduction",
+      "description": "Introduce a max-mentor-call budget per episode and measure success impact",
+      "priority": "high"
+    },
+    {
+      "title": "Multi-episode generalization",
+      "description": "Run at least 5 episodes with varied targets to validate stability of recon and enumeration skill cards",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

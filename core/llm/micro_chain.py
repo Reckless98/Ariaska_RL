@@ -39,7 +39,7 @@ _MAX_CANDIDATES = 3  # Phase 33.3: hard cap on candidates
 
 # P34-EXT: Ablation toggle — bypass nano stages 1+3 for A/B testing.
 # Set MC_NANO_ABLATION=1 to disable nano classify + nano score stages.
-# The chain becomes: heuristic_classify → mini_generate → heuristic_score.
+# The chain becomes: heuristic_classify → codex_generate → heuristic_score.
 NANO_ABLATION = os.environ.get("MC_NANO_ABLATION", "").strip() in ("1", "true", "yes")
 
 # Phases at or above EXPLOIT that relax escalation gating
@@ -470,7 +470,8 @@ class MicroChain:
             f"No markdown, no explanation outside JSON."
         )
 
-        # MODEL POLICY: codex for all schema-bound JSON generation.
+        # MODEL POLICY: codex for complex JSON generation (mini has JSON
+        # parsing reliability issues — complex 8-field schema needs codex).
         _gen_model = "gpt-5.2-codex"
         self._codex_calls = getattr(self, '_codex_calls', 0) + 1
 
@@ -479,9 +480,9 @@ class MicroChain:
                 prompt=prompt,
                 task_type="analysis",
                 agent_id="micro_chain",
-                max_tokens=400,
+                max_tokens=250,  # Phase 53: 400→250 — tighter JSON generation
                 model=_gen_model,
-                timeout=20,
+                timeout=15,  # Phase 53: 20→15s
             )
             parsed = _safe_json_load_list(response)
             if parsed is None:
@@ -548,19 +549,19 @@ class MicroChain:
             f"No markdown."
         )
 
-        # MODEL POLICY: codex for schema-bound JSON fill/enrich.
-        for _attempt in range(2):
-            _fill_model = "gpt-5.2-codex"
+        # MODEL POLICY: mini for JSON fill/enrich (cost-optimized Phase 52).
+        for _attempt in range(1):  # Phase 52: single attempt, no retry
+            _fill_model = "gpt-5.2-mini"
             try:
-                self._codex_calls = getattr(self, '_codex_calls', 0) + 1
+                self._mini_calls = getattr(self, '_mini_calls', 0) + 1
 
                 resp = self._gpt.gpt_request(
                     prompt=fill_prompt,
                     task_type="analysis",
                     agent_id="micro_chain",
-                    max_tokens=250,
+                    max_tokens=150,  # Phase 53: 250→150 — fill is simple
                     model=_fill_model,
-                    timeout=20,
+                    timeout=15,  # Phase 53: 20→15s
                 )
                 parsed = _safe_json_load_list(resp)
                 if not parsed:
@@ -635,14 +636,14 @@ class MicroChain:
         # P34-EXT: Retry loop (max 2 attempts) with schema validation
         for _attempt in range(2):
             try:
-                # MODEL POLICY: codex for schema-bound JSON scoring.
+                # MODEL POLICY: mini for JSON scoring (cost-optimized Phase 53).
                 response = self._gpt.gpt_request(
                     prompt=prompt,
                     task_type="analysis",
                     agent_id="micro_chain",
-                    max_tokens=200,
-                    model="gpt-5.2-codex",
-                    timeout=20,
+                    max_tokens=150,  # Phase 53: 200→150 — scoring is compact
+                    model="gpt-5.2-mini",
+                    timeout=15,  # Phase 53: 20→15s
                 )
                 parsed = _safe_json_load_list(response)
                 if parsed is None:
@@ -737,9 +738,9 @@ class MicroChain:
                 prompt=prompt,
                 task_type="analysis",
                 agent_id="micro_chain",
-                max_tokens=200,
+                max_tokens=120,  # Phase 53: 200→120 — single command suggestion
                 model="gpt-5.2-codex",
-                timeout=30,
+                timeout=20,  # Phase 53: 30→20s
             )
             obj = _safe_json_load(response)
             if obj and obj.get("command"):

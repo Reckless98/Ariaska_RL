@@ -807,7 +807,9 @@ class OutputParser:
                 result.vulnerabilities.append(match.group(1))
         
         # Look for password/credential patterns
-        cred_pattern = r'(?:password|passwd|pass)[\s:=]+(\S+)'
+        # P50: Tighter regex — require at least 2 alphanumeric chars in value
+        # to avoid matching garbled output like "password: x\r\n');"
+        cred_pattern = r'(?:password|passwd|pass)[\s:=]+([a-zA-Z0-9][a-zA-Z0-9!@#$%^&*._+-]{1,127})'
         for match in re.finditer(cred_pattern, output, re.IGNORECASE):
             result.credentials.append({"password": match.group(1)})
         
@@ -1015,6 +1017,16 @@ class OutputParser:
         re.IGNORECASE,
     )
 
+    # P50: Regex for garbled/non-printable credential values
+    # Catches control chars, unbalanced quotes/parens, HTML fragments, etc.
+    _CRED_GARBAGE_RE = re.compile(
+        r"[\x00-\x08\x0b\x0c\x0e-\x1f]"  # Control chars (except \t \n \r)
+        r"|\\[rnt]"                          # Literal backslash-escaped control chars
+        r"|['\");}{<>]{2,}"                  # Multiple special chars (garbled output)
+        r"|^[^a-zA-Z0-9]"                    # Starts with non-alphanumeric
+        r"|^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"  # Bare IP address
+    )
+
     def _normalize_services(self, result: ParsedOutput) -> None:
         """
         Normalize discovered services to canonical names.
@@ -1037,7 +1049,9 @@ class OutputParser:
         """
         Filter out credential false positives.
 
-        Rejects placeholder/example credentials and empty values.
+        Rejects placeholder/example credentials, empty values,
+        garbled strings with control characters, and obviously
+        non-credential data (IPs, HTML fragments, etc.).
         """
         if not result.credentials:
             return
@@ -1059,6 +1073,24 @@ class OutputParser:
 
             # Skip very short passwords (< 2 chars → likely parsing noise)
             if password and len(password) < 2:
+                continue
+
+            # P50: Skip garbled/non-printable values
+            if password and self._CRED_GARBAGE_RE.search(password):
+                logger.debug("Credential garbage filtered (password): %s", password[:30])
+                continue
+            if username and self._CRED_GARBAGE_RE.search(username):
+                logger.debug("Credential garbage filtered (username): %s", username[:30])
+                continue
+
+            # P50: Skip if password is entirely non-alphanumeric (punctuation-only)
+            if password and not any(c.isalnum() for c in password):
+                logger.debug("Credential non-alnum filtered: %s", password[:30])
+                continue
+
+            # P50: Skip unreasonably long credentials (>128 chars = garbled output)
+            if (password and len(password) > 128) or (username and len(username) > 64):
+                logger.debug("Credential too long filtered: u=%d p=%d", len(username), len(password))
                 continue
 
             clean.append(cred)

@@ -1,0 +1,96 @@
+{
+  "run_id": "run_20260227_054343_e59636",
+  "timestamp": 1772145843.2882528,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "Episode did not achieve success criteria (0% success rate)"
+    ],
+    "summary": "Single-episode run produced moderate reward but failed to complete objectives; no clear successful patterns to promote."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Objective not reached despite positive reward signal",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When a new target is identified for initial reconnaissance",
+      "then_action": "Run a baseline service and version scan",
+      "parameters_template": {
+        "cmd": "nmap -sC -sV -oA recon_baseline <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "ep001_recon_start"
+      ],
+      "created_at": 1772145855.030109,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS is detected on common ports",
+      "then_action": "Enumerate web technologies and directories",
+      "parameters_template": {
+        "cmd": "nikto -h http://<target> && gobuster dir -u http://<target> -w <wordlist>"
+      },
+      "confidence": 0.52,
+      "evidence_refs": [
+        "ep001_web_detect"
+      ],
+      "created_at": 1772145855.0301173,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is consistently a high-yield first step and aligns with mentor guidance."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Tighten success criteria tracking",
+      "description": "Instrument episode to log explicit objective checkpoints and failure reasons to distinguish reward from true success.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-to-exploitation handoff",
+      "description": "After baseline scan, branch into targeted service enumeration (e.g., SMB/FTP/HTTP) with predefined decision rules.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor call reduction",
+      "description": "Test a run with reduced mentor calls by front-loading a playbook of reconnaissance and enumeration steps.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

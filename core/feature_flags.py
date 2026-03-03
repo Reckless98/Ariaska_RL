@@ -333,7 +333,7 @@ class FeatureFlags:
     sac_shadow: bool = field(
         default_factory=lambda: _env_bool("FF_SAC_SHADOW", True))
     reptile_meta: bool = field(
-        default_factory=lambda: _env_bool("FF_REPTILE_META", False))
+        default_factory=lambda: _env_bool("FF_REPTILE_META", True))
     optuna_sweep: bool = field(
         default_factory=lambda: _env_bool("FF_OPTUNA_SWEEP", False))
     per_loss_grad_log: bool = field(

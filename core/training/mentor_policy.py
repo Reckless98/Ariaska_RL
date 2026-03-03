@@ -109,18 +109,16 @@ class MentorPolicyConfig:
     final_threshold: float = 0.8
     anneal_episodes: int = 50
     
-    # Adaptive mode settings — Phase 17: Dynamic floor based on learning maturity
-    # Start with maximum GPT guidance so agents learn WHY and HOW, then gradually reduce
-    # as agents internalize reasoning patterns and make autonomous decisions.
-    # The floor drops as the agent accumulates skills and success_rate rises.
-    min_adaptive_rate: float = 0.60  # Initial floor — drops dynamically via maturity signal
-    max_adaptive_rate: float = 1.0   # Full mentor saturation ceiling during early learning
-    struggling_boost: float = 2.50   # Maximum boost when agent struggles
-    performing_reduction: float = 0.04  # Slow reduction — agents learn longer before weaning
+    # Adaptive mode settings — Phase 53: Aggressive deweaning from LLM
+    # PPO must learn independently. Mentor is a luxury, not a crutch.
+    min_adaptive_rate: float = 0.05  # Phase 53: 0.15→0.05 — near-zero floor
+    max_adaptive_rate: float = 0.15  # Phase 53: 0.30→0.15 — low ceiling
+    struggling_boost: float = 1.20   # Phase 53: 1.50→1.20 — minimal boost
+    performing_reduction: float = 0.20  # Phase 53: 0.10→0.20 — wean 2x faster
     # Phase 17: Maturity-driven floor decay
     # At maturity=0: floor = min_adaptive_rate (0.60)
     # At maturity=1: floor = mature_floor (0.08) — agent barely needs mentor
-    mature_floor: float = 0.08  # Phase 17: absolute minimum mentor rate for mature agent
+    mature_floor: float = 0.03  # Phase 53: 0.08→0.03 — near-zero for mature agent
     # Phase 11.2: Confidence-gated dynamic bounds — prevents token bonfire
     confidence_gate_low: float = 0.3   # Below this: agent unsure → raise min/max for more learning
     confidence_gate_high: float = 0.7  # Above this: agent confident → lower min/max to save tokens
@@ -132,8 +130,8 @@ class MentorPolicyConfig:
     # Cooldown
     cooldown_steps: int = 1  # Minimum steps between mentor calls
     
-    # Per-episode limits — Phase 13.0: Doubled for maximum reasoning-to-autonomy pipeline
-    max_calls_per_episode: int = 240  # Phase 13.0: +36% (was 176) — deep GPT learning budget
+    # Per-episode limits — Phase 53: Halved from Phase 52
+    max_calls_per_episode: int = 15  # Phase 53: 30→15 — lean GPT budget
 
 
 class MentorPolicy:

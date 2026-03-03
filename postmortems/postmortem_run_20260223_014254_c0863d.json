@@ -1,0 +1,101 @@
+{
+  "run_id": "run_20260223_014254_c0863d",
+  "timestamp": 1771807398.4218569,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (30.00) indicating some task progress"
+    ],
+    "fails": [
+      "Overall success rate 0.00% indicates no episode-level completion",
+      "Single-episode run limits generalization and pattern validation"
+    ],
+    "summary": "The run produced a positive reward but failed to complete the objective; more episodes are needed to validate and improve task completion."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode completed without meeting success criteria",
+      "frequency": 1,
+      "evidence_refs": [
+        "run_20260223_014254_c0863d_ep001"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery is required and no confirmed targets exist",
+      "then_action": "Run a fast ping sweep to identify live hosts",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sn 10.0.0.0/24"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260223_014254_c0863d"
+      ],
+      "created_at": 1771807411.5398667,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a live host is found and service exposure is unknown",
+      "then_action": "Perform a top-ports TCP scan with service detection",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV --top-ports 1000 -T4 <target>"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_20260223_014254_c0863d"
+      ],
+      "created_at": 1771807411.5398757,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline discovery step is consistently necessary before any exploitation path"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count for stability",
+      "description": "Run 10\u201320 episodes to validate whether positive rewards can convert to completed objectives.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten success criteria feedback",
+      "description": "Instrument per-step success markers so the agent can optimize toward completion, not just reward accumulation.",
+      "priority": "high"
+    },
+    {
+      "title": "Action sequencing ablation",
+      "description": "Compare discovery-only vs. discovery+enumeration sequences to see which drives higher completion rates.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

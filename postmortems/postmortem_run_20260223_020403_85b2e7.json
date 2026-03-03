@@ -1,0 +1,106 @@
+{
+  "run_id": "run_20260223_020403_85b2e7",
+  "timestamp": 1771808658.783338,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward despite zero success rate, indicating partial progress or shaped rewards"
+    ],
+    "fails": [
+      "Success rate 0% across the only episode",
+      "High mentor call count (10) suggests heavy reliance on guidance"
+    ],
+    "summary": "Single-episode run shows partial reward accumulation but no task success and high dependency on mentor input."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Inability to convert partial progress into episode success",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_summary"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields partial rewards but no success",
+      "then_action": "Branch into prioritized service enumeration to identify viable attack paths",
+      "parameters_template": {
+        "tool": "nmap",
+        "args": "-sV -sC -p-"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771808668.9037764,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor call count rises above 5 in a single episode",
+      "then_action": "Pause and re-evaluate objective alignment; create a short action plan before proceeding",
+      "parameters_template": {
+        "plan_steps": 3
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_summary"
+      ],
+      "created_at": 1771808668.9037893,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Recon-to-enumeration transition is critical to convert partial rewards into success."
+    },
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "High mentor reliance indicates need for structured self-guided planning."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Conversion Drill",
+      "description": "Start with full port/service enumeration and select top 2 services for focused exploitation attempts; measure success conversion rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor Call Reduction Protocol",
+      "description": "Enforce a 3-step action plan after every 2 mentor calls to improve autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Success Criteria Checkpoints",
+      "description": "Add explicit success checkpoints after each phase (recon, enum, exploit) to avoid drifting without progress.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

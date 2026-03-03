@@ -1,0 +1,107 @@
+{
+  "run_id": "smart_f457bd31_ep0000",
+  "timestamp": 1772143040.025309,
+  "key_outcomes": {
+    "wins": [
+      "High total reward despite single-episode run"
+    ],
+    "fails": [
+      "Success rate was 0% across the only episode",
+      "No mentor calls used to correct trajectory"
+    ],
+    "summary": "Single episode produced high reward but no successful completion; insufficient data to confirm reliable tactics."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Episode failed to reach terminal success condition despite accumulating reward",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep000_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial environment state is unknown and no mentor calls are used",
+      "then_action": "Run baseline reconnaissance sweep and log discovered services",
+      "parameters_template": {
+        "scan_type": "fast",
+        "ports": "top-100"
+      },
+      "confidence": 0.42,
+      "evidence_refs": [
+        "ep000_step1",
+        "ep000_step3"
+      ],
+      "created_at": 1772143054.607693,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward is increasing but success condition is not achieved by mid-episode",
+      "then_action": "Trigger a pivot decision: verify objectives, reassess target state, and re-enumerate critical services",
+      "parameters_template": {
+        "checkpoint": "mid-episode",
+        "services": [
+          "ssh",
+          "http",
+          "smb"
+        ]
+      },
+      "confidence": 0.38,
+      "evidence_refs": [
+        "ep000_step10",
+        "ep000_step15"
+      ],
+      "created_at": 1772143054.607708,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline recon is a low-risk opener in single-episode runs with unknown state"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Add mentor checkpoint at mid-episode",
+      "description": "Invoke mentor assistance after midpoint if success condition not met to reduce blind exploration",
+      "priority": "high"
+    },
+    {
+      "title": "Objective verification routine",
+      "description": "Implement explicit success-condition checks at regular intervals to avoid reward-only progress",
+      "priority": "high"
+    },
+    {
+      "title": "Recon-to-exploit handoff tuning",
+      "description": "Test a structured handoff from recon results to prioritized exploitation attempts",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

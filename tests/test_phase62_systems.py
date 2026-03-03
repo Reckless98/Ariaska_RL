@@ -69,6 +69,7 @@ def mentor_controller():
         warmup_episodes=2,
         warmup_rate=0.40,
         stagnation_threshold=5,
+        uncertainty_threshold=0.15,  # Explicit for test isolation
         exfil_patience=3,
         cooldown_steps=1,
         max_calls_per_episode=20,
@@ -569,13 +570,14 @@ class TestMentorController:
     def test_tier_models_mapping(self):
         """TIER_MODELS maps tiers to correct model names."""
         from core.training.mentor_controller import TIER_MODELS, MentorTier
-        # Phase 38: all tiers upgraded to gpt-5.2-codex
+        # Phase 52: reactive + postmortem downgraded to mini for cost optimization;
+        # deliberative stays on codex for deep strategic reasoning
         assert "5.2" in TIER_MODELS[MentorTier.REACTIVE]
-        assert "codex" in TIER_MODELS[MentorTier.REACTIVE]
-        # Phase 8.2: deliberative upgraded to gpt-5.2-codex for deeper strategic analysis
+        assert "mini" in TIER_MODELS[MentorTier.REACTIVE]
         assert "5.2" in TIER_MODELS[MentorTier.DELIBERATIVE]
         assert "codex" in TIER_MODELS[MentorTier.DELIBERATIVE]
         assert "5.2" in TIER_MODELS[MentorTier.POSTMORTEM]
+        assert "mini" in TIER_MODELS[MentorTier.POSTMORTEM]
 
     def test_engagement_model_matches_tier(self, mentor_controller):
         """Engagement result has the correct model for the tier."""

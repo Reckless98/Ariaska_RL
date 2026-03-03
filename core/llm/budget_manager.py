@@ -37,22 +37,22 @@ logger = logging.getLogger("ariaska.llm.budget_manager")
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
-# Phase 38: Hard caps — +15% from Phase 36 for extended live HTB engagements.
-_TOTAL_BUDGET = 2_688_308  # Phase 50: -10% from 2,987,008 for cost discipline
-_MIN_BUDGET = 1_344_154    # Phase 50: 50% floor (-10%)
+# Phase 53: Global 50% budget cut — invest in RL self-reliance over LLM reasoning.
+_TOTAL_BUDGET = 1_344_154  # Phase 53: 50% cut from 2,688,308 — learn more, reason less
+_MIN_BUDGET = 672_077      # Phase 53: 50% floor
 _MIN_SCALE = _MIN_BUDGET / _TOTAL_BUDGET  # 0.50
 
-# Phase 50: Tier budgets — -10% across all tiers for cost discipline.
-#   codex: 537_662  (all reasoning: tactical, strategic, postmortem, analysis)
-#   full:  537_662  (parsing, interpretation, verification)
-#   mini:  806_492  (playbook selection, structured extraction)
-#   nano:  806_492  (classification, micro-chain Stages 1+3, reserve)
-#   Sum ≈ 2,688,308 ✓
+# Phase 53: Tier budgets — slash expensive tiers, keep cheap learning signals.
+#   codex: 67_207   (5% — only critical stagnation-breaking)
+#   full:  67_208   (5% — only critical parsing)
+#   mini:  604_869  (45% — primary workhorse for learning signals)
+#   nano:  604_870  (45% — heuristics + classification)
+#   Sum = 1,344,154 ✓
 _TIER_BUDGETS: Dict[str, int] = {
-    "codex":  537_662,  # 20.0% — all reasoning (tactical+strategic+postmortem)
-    "full":   537_662,  # 20.0% — parsing, interpretation, verification
-    "mini":   806_492,  # 30.0% — playbook selection, structured extraction
-    "nano":   806_492,  # 30.0% — classification, micro-chain, reserve
+    "codex":  67_207,    # 5.0% — Phase 53: minimal codex, only genuine stagnation
+    "full":   67_208,    # 5.0% — Phase 53: minimal, only critical parsing
+    "mini":   604_869,   # 45.0% — Phase 53: cheap learning signal workhorse
+    "nano":   604_870,   # 45.0% — Phase 53: classification + heuristic reserve
 }
 
 # Phase 33.2: Dynamic Burst Pool

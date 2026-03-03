@@ -1,0 +1,89 @@
+{
+  "run_id": "run_20260227_060059_0ced8d",
+  "timestamp": 1772146870.8067007,
+  "key_outcomes": {
+    "wins": [
+      "Completed a full run with consistent reward (40.00) across the single episode"
+    ],
+    "fails": [
+      "Success rate at 0.00% indicates objective completion failed",
+      "High mentor call usage (10) suggests overreliance on guidance"
+    ],
+    "summary": "The run completed with stable reward but failed to achieve objectives; heavy mentor usage suggests insufficient autonomy or unclear policy."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When success rate is 0% after an episode",
+      "then_action": "Trigger an immediate post-episode error analysis and adjust policy before next episode",
+      "parameters_template": {
+        "analysis_scope": "episode",
+        "adjustment_window": "before_next_episode"
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1772146885.4451728,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When mentor calls exceed 5 in a single episode",
+      "then_action": "Enforce a mentor call budget and attempt autonomous decision-making first",
+      "parameters_template": {
+        "mentor_call_budget": 5,
+        "autonomy_first": true
+      },
+      "confidence": 0.4,
+      "evidence_refs": [],
+      "created_at": 1772146885.4451814,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Critical to address 0% success rate before scaling training"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Reduce mentor dependence",
+      "description": "Cap mentor calls at 5 and log decisions made without guidance to measure autonomy impact on success rate.",
+      "priority": "high"
+    },
+    {
+      "title": "Policy adjustment after each episode",
+      "description": "Add a post-episode review step focusing on failure points to refine the action selection policy.",
+      "priority": "high"
+    },
+    {
+      "title": "Increase episode count",
+      "description": "Run at least 5 episodes to identify consistent failure patterns and validate reward stability.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

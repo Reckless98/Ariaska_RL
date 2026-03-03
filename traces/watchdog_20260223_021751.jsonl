@@ -1,0 +1,20 @@
+{"event": "attempt_start", "attempt": 1, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:17:51.713136"}
+{"event": "attempt_crash", "attempt": 1, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:18:00.206422"}
+{"event": "attempt_start", "attempt": 2, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:18:05.216733"}
+{"event": "attempt_crash", "attempt": 2, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:18:10.899342"}
+{"event": "attempt_start", "attempt": 3, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:18:15.914183"}
+{"event": "attempt_crash", "attempt": 3, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:18:21.959095"}
+{"event": "attempt_start", "attempt": 4, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:18:26.967127"}
+{"event": "attempt_crash", "attempt": 4, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:18:34.078590"}
+{"event": "attempt_start", "attempt": 5, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:18:39.095672"}
+{"event": "attempt_crash", "attempt": 5, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:18:50.167734"}
+{"event": "attempt_start", "attempt": 6, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:18:55.175593"}
+{"event": "attempt_crash", "attempt": 6, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:19:00.526316"}
+{"event": "attempt_start", "attempt": 7, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:19:05.533799"}
+{"event": "attempt_crash", "attempt": 7, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:19:10.848126"}
+{"event": "attempt_start", "attempt": 8, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:19:15.855939"}
+{"event": "attempt_crash", "attempt": 8, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:19:21.374048"}
+{"event": "attempt_start", "attempt": 9, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:19:26.382443"}
+{"event": "attempt_crash", "attempt": 9, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:19:31.915812"}
+{"event": "attempt_start", "attempt": 10, "seed": null, "target": "10.129.2.189", "max_steps": 500, "timestamp": "2026-02-23T02:19:36.923989"}
+{"event": "attempt_crash", "attempt": 10, "error": "INTEGRITY CHECK FAILED: 1 errors, 0 warnings\n  [ERROR] maturity_controller_wired: SmartCoach._maturity_controller is None \u2014 MaturityController not wired", "timestamp": "2026-02-23T02:19:43.390109"}

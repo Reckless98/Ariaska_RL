@@ -1,0 +1,95 @@
+{
+  "run_id": "run_20260226_155545_374e45",
+  "timestamp": 1772117765.722131,
+  "key_outcomes": {
+    "wins": [
+      "Completed 1 episode with positive total reward (80.0)"
+    ],
+    "fails": [
+      "Overall success rate was 0.00%"
+    ],
+    "summary": "Single-episode run yielded positive reward but no successful task completion, indicating partial progress without goal achievement."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial engagement begins and no prior target data is available",
+      "then_action": "Establish baseline situational awareness with passive observation and minimal footprint probing",
+      "parameters_template": {
+        "approach": "passive-first",
+        "notes": "avoid noisy scans until objectives are clear"
+      },
+      "confidence": 0.55,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1772117778.8253822,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When reward is positive but success criteria are not met",
+      "then_action": "Review goal criteria and adjust next action to directly satisfy success conditions",
+      "parameters_template": {
+        "checklist": [
+          "goal_definition",
+          "required_artifacts",
+          "termination_conditions"
+        ]
+      },
+      "confidence": 0.6,
+      "evidence_refs": [
+        "run_summary"
+      ],
+      "created_at": 1772117778.8253953,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_002",
+      "skill_card_id": "skill_002",
+      "reason": "Helps convert partial progress into task success when rewards are positive but success is 0%"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Success-criteria alignment",
+      "description": "Before action selection, explicitly validate the success conditions and choose steps that directly satisfy them.",
+      "priority": "high"
+    },
+    {
+      "title": "Reward-to-goal trace",
+      "description": "Log which actions produced reward and map them to unmet success criteria to identify gaps.",
+      "priority": "medium"
+    },
+    {
+      "title": "Single-episode replay with checkpoints",
+      "description": "Repeat the scenario and insert checkpoints to verify progress toward success at each stage.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

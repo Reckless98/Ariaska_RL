@@ -485,16 +485,16 @@ class PhaseGuidedLLM:
             "last_output_excerpt": last_output_excerpt[:500],
         }
 
-        # LLM call — use analysis task_type + 30s timeout for structured JSON
+        # LLM call — use analysis task_type + 20s timeout for structured JSON
         prompt = _build_user_prompt(input_data)
         raw = self._gpt.gpt_request(
             prompt=prompt,
             task_type="analysis",
             agent_id=f"phase_guide_{agent_role}",
-            max_tokens=1200,
+            max_tokens=400,  # Phase 53: 600→400 — tighter JSON
             model=model,
             system_prompt=_SYSTEM_PROMPT,
-            timeout=30,
+            timeout=15,  # Phase 53: 20→15s
         )
         self._call_count += 1
         logger.debug("[PHASE-GUIDE] Raw response (attempt 1, %d chars): %.200s", len(raw) if raw else 0, raw)
@@ -508,40 +508,18 @@ class PhaseGuidedLLM:
                 prompt=_JSON_RETRY_PROMPT + "\n\n" + prompt,
                 task_type="analysis",
                 agent_id=f"phase_guide_{agent_role}",
-                max_tokens=1200,
+                max_tokens=400,  # Phase 53: 600→400
                 model=model,
                 system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
-                timeout=30,
+                timeout=15,  # Phase 53: 20→15s
             )
             self._call_count += 1
             logger.debug("[PHASE-GUIDE] Raw response (attempt 2, %d chars): %.200s", len(raw_retry) if raw_retry else 0, raw_retry)
             parsed = _extract_json(raw_retry)
 
+        # Phase 52: Removed 3rd retry — 2 attempts max for cost optimization
         if parsed is None:
-            # 3rd retry: minimal fill-in-the-blanks template (very small prompt)
-            logger.debug("[PHASE-GUIDE] Attempt 2 failed, trying minimal template (attempt 3)")
-            mini_prompt = (
-                f"Current phase: {inferred_phase}. "
-                f"Ports: {list(discovery_board.get('ports', []))[:10]}. "
-                f"Services: {list(discovery_board.get('services', []))[:5]}. "
-                f"Step: {step_id}. Agent: {agent_role}.\n\n"
-                + _MINIMAL_RETRY_PROMPT
-            )
-            raw_min = self._gpt.gpt_request(
-                prompt=mini_prompt,
-                task_type="analysis",
-                agent_id=f"phase_guide_{agent_role}",
-                max_tokens=800,
-                model=model,
-                system_prompt="Complete the JSON template. Output ONLY the filled JSON.",
-                timeout=20,
-            )
-            self._call_count += 1
-            logger.debug("[PHASE-GUIDE] Raw response (attempt 3, %d chars): %.200s", len(raw_min) if raw_min else 0, raw_min)
-            parsed = _extract_json(raw_min)
-
-        if parsed is None:
-            logger.warning("[PHASE-GUIDE] All 3 JSON attempts failed — using deterministic heuristics")
+            logger.warning("[PHASE-GUIDE] Both JSON attempts failed — using deterministic heuristics")
             return self._heuristic_fallback(
                 inferred_phase, discovery_board, available_templates,
                 stagnation_steps, agent_role, model,

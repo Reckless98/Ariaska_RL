@@ -41,7 +41,7 @@ class TestLLMPolicyBridge:
         assert self.bridge.action_dim == 5
         assert self.bridge.llm_feature_dim == 256
         assert self.bridge.enabled is True
-        assert self.bridge.state.prior_alpha == 0.50
+        assert self.bridge.state.prior_alpha == 0.25  # Phase 53: accelerated handoff
 
     def test_compute_guidance_shapes(self):
         """Guidance packet must produce correct tensor shapes."""

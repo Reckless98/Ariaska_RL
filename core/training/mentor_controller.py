@@ -61,12 +61,11 @@ class MentorTrigger(str, Enum):
 
 
 # Model mapping: tier → model name
-# Phase 8.2: DELIBERATIVE upgraded to gpt-5.2-codex for deeper strategic reasoning
-# REACTIVE stays cheap (codex-mini), DELIBERATIVE+POSTMORTEM use 5.2 for quality
+# Phase 52: Tiered routing — cheap for reactive/postmortem, codex for deliberative
 TIER_MODELS: Dict[MentorTier, str] = {
-    MentorTier.REACTIVE: "gpt-5.2-codex",
-    MentorTier.DELIBERATIVE: "gpt-5.2-codex",
-    MentorTier.POSTMORTEM: "gpt-5.2-codex",
+    MentorTier.REACTIVE: "gpt-5.2-mini",       # Phase 52: quick tactical (cheap)
+    MentorTier.DELIBERATIVE: "gpt-5.2-codex",  # Keep codex for genuine stagnation
+    MentorTier.POSTMORTEM: "gpt-5.2-mini",     # Phase 52: postmortem can use mini
 }
 
 
@@ -80,18 +79,18 @@ class MentorControllerConfig:
     """
 
     # Budget: percentage of max_steps that can trigger mentor calls
-    # Phase 8.2: Raised for LIVE mode — real targets need more mentor guidance
-    budget_pct: float = 0.50          # Phase 8.2: 50% → aggressive mentor for LIVE training
-    min_rate: float = 0.15            # Phase 8.2: 15% floor — always substantial guidance
-    max_rate: float = 0.60            # Phase 8.2: Allow up to 60% during warmup
-    fade_episodes: int = 80           # Phase 8.2: Slower fade — LIVE needs longer guidance
+    # Phase 53: Aggressive cut — let PPO learn from mistakes, not LLM
+    budget_pct: float = 0.08          # Phase 53: 15%→8% — minimal mentor budget
+    min_rate: float = 0.02            # Phase 53: 5%→2% floor — near-zero guidance
+    max_rate: float = 0.12            # Phase 53: 25%→12% ceiling
+    fade_episodes: int = 15           # Phase 53: 30→15 — faster fade to independence
 
     # Warmup: first N episodes use mentor more aggressively
-    warmup_episodes: int = 12         # Phase 8.2: 12 episodes warmup (was 8)
-    warmup_rate: float = 0.55         # Phase 8.2: 55% call rate during warmup
+    warmup_episodes: int = 2          # Phase 53: 3→2 — minimal warmup
+    warmup_rate: float = 0.10         # Phase 53: 20%→10% — lean warmup
 
-    # Per-episode hard limit — Phase 13.0: Increased for deep autonomous learning
-    max_calls_per_episode: int = 80   # Phase 13.0: +60% (was 50) — more GPT reasoning per episode
+    # Per-episode hard limit — Phase 53: Severely reduced for cost discipline
+    max_calls_per_episode: int = 12   # Phase 53: 25→12 — ~2.4% of 500 steps
 
     # Cooldown between consecutive mentor calls (steps)
     cooldown_steps: int = 1             # Phase 7.3: Reduced from 2 → 1 for live mode responsiveness
@@ -99,11 +98,11 @@ class MentorControllerConfig:
     # --- Trigger thresholds ---
 
     # Uncertainty: PPO confidence below this → reactive mentor
-    # Phase 13.0: Lowered to trigger mentor earlier when agents are uncertain
-    uncertainty_threshold: float = 0.25  # Phase 13.0: 0.30→0.25 — engage mentor sooner for deeper learning
+    # Phase 53: Raised further — only trigger on extreme uncertainty
+    uncertainty_threshold: float = 0.10  # Phase 53: 0.15→0.10 — very conservative trigger
 
     # Stagnation: no new discoveries for N steps → deliberative
-    stagnation_threshold: int = 3       # Phase 7.3: Reduced to 3 (was 4) — fire codex-mini faster when stuck
+    stagnation_threshold: int = 10      # Phase 53: 6→10 — let PPO struggle longer
 
     # Phase transition always triggers deliberative
     phase_transition_enabled: bool = True
@@ -120,12 +119,11 @@ class MentorControllerConfig:
     ddqn_trigger_cooldown: int = 3    # Min steps between DDQN-triggered mentor calls
 
     # --- Model overrides ---
-    # Phase 7.1: DELIBERATIVE also uses codex-mini for cost savings
-    # Only POSTMORTEM uses expensive gpt-5.2-codex
+    # Phase 52: Tiered model routing — cheap for reactive, smart for deliberative
     tier_models: Dict[str, str] = field(default_factory=lambda: {
-        "reactive": "gpt-5.2-codex",     # Phase 38: upgraded from codex-mini
-        "deliberative": "gpt-5.2-codex",  # Phase 8.2: Upgraded for deeper strategic reasoning
-        "postmortem": "gpt-5.2-codex",
+        "reactive": "gpt-5.2-mini",       # Phase 52: quick tactical advice (cheap)
+        "deliberative": "gpt-5.2-codex",  # Keep codex for genuine stagnation-breaking
+        "postmortem": "gpt-5.2-mini",     # Phase 52: postmortem doesn't need codex
     })
 
 

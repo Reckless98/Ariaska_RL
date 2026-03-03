@@ -47,17 +47,17 @@ logger = logging.getLogger("ariaska.llm_policy_bridge")
 LLM_FEATURE_DIM = 256          # Additional dims appended to state
 ENHANCED_STATE_DIM = 512 + LLM_FEATURE_DIM  # 768 total
 
-# Anneal schedule constants
-PRIOR_ALPHA_INIT = 0.50        # Initial LLM prior weight (50% influence)
+# Anneal schedule constants — Phase 53: Accelerated LLM→RL handoff
+PRIOR_ALPHA_INIT = 0.25        # Phase 53: 0.50→0.25 — start with less LLM influence
 PRIOR_ALPHA_MIN = 0.02         # Minimum (never fully remove — safety net)
-KL_TEACHER_COEF_INIT = 0.15    # Initial KL regularization weight
+KL_TEACHER_COEF_INIT = 0.08    # Phase 53: 0.15→0.08 — lighter KL regularization
 KL_TEACHER_COEF_MIN = 0.01     # Minimum KL weight
 VALUE_REG_COEF = 0.10          # Value alignment regularization weight
 RANKING_LOSS_COEF = 0.05       # Ranking margin loss weight
 
-# Maturity thresholds for anneal acceleration
-MATURITY_FAST_DECAY = 0.7      # Above this → decay 2x faster
-MATURITY_PLATEAU = 0.9         # Above this → near-minimum influence
+# Maturity thresholds for anneal acceleration — Phase 53: faster handoff
+MATURITY_FAST_DECAY = 0.4      # Phase 53: 0.7→0.4 — start decay much sooner
+MATURITY_PLATEAU = 0.7         # Phase 53: 0.9→0.7 — reach near-minimum earlier
 
 
 @dataclass
@@ -348,17 +348,27 @@ class LLMPolicyBridge:
     def _compute_anneal_alpha(self) -> float:
         """Dynamic teacher anneal based on maturity signal.
 
-        Schedule:
-            Step 0        → alpha = 0.50 (60% LLM influence)
-            Mid training  → alpha = 0.25 (30% influence)
-            Late training → alpha = 0.10 (10% influence)
-            Mastery       → alpha = 0.02 (5% influence, safety net)
-
-        Maturity accelerates decay:
-            Low maturity (struggling) → slow decay
-            High maturity (succeeding) → fast decay
+        P3: If MaturityController has injected values (via _mc_prior_alpha),
+        use those directly to avoid duplicate annealing. Falls back to
+        internal cosine schedule when no MC authority is present.
         """
-        # Base schedule: cosine decay from init to min
+        # P3: Single Schedule Authority — if MaturityController has set
+        # our alpha, use it directly (no double-decay)
+        _mc_alpha = getattr(self, "_mc_prior_alpha", None)
+        if _mc_alpha is not None:
+            # MC already computed the annealed value
+            alpha = _mc_alpha
+            # Decay auxiliary coefs proportionally
+            decay_factor = alpha / max(self.prior_alpha_init, 1e-8)
+            self.state.kl_teacher_coef = max(
+                KL_TEACHER_COEF_MIN,
+                KL_TEACHER_COEF_INIT * decay_factor,
+            )
+            self.state.value_reg_coef = VALUE_REG_COEF * max(0.1, decay_factor)
+            self.state.ranking_loss_coef = RANKING_LOSS_COEF * max(0.1, decay_factor)
+            return alpha
+
+        # Fallback: internal cosine schedule (no MC available)
         progress = min(1.0, self._step_count / max(self.total_anneal_steps, 1))
 
         # Cosine decay (smooth, stays high longer)

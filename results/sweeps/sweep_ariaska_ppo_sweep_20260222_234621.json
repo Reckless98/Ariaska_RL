@@ -1,0 +1,91 @@
+{
+  "study_name": "ariaska_ppo_sweep",
+  "n_trials": 2,
+  "best_config": {
+    "clip_epsilon": 0.2570351922786027,
+    "learning_rate": 2.5081156860452307e-05,
+    "gae_lambda": 0.946281099457225,
+    "gamma": 0.97902831387424,
+    "entropy_coef": 0.0011992724522955163,
+    "bc_loss_coef": 0.1822634555704315,
+    "kl_teacher_coef": 0.03410482473745831,
+    "hidden_dims": [
+      512,
+      512,
+      256
+    ],
+    "dropout_rate": 0.013010318597055905,
+    "minibatch_size": 16,
+    "epochs_per_update": 3,
+    "max_grad_norm": 0.3683704798044687,
+    "use_attention": true,
+    "use_phase_gates": false,
+    "sil_coef": 0.017194260557609198,
+    "value_reg_coef": 0.1818640804157564
+  },
+  "results": [
+    {
+      "trial": 0,
+      "config": {
+        "clip_epsilon": 0.2197316968394073,
+        "learning_rate": 2.0513382630874486e-05,
+        "gae_lambda": 0.9140395068302583,
+        "gamma": 0.9528460969962418,
+        "entropy_coef": 0.029621516588303493,
+        "bc_loss_coef": 0.18033450352296262,
+        "kl_teacher_coef": 0.1416145155592091,
+        "hidden_dims": [
+          512,
+          256
+        ],
+        "dropout_rate": 0.004116898859160489,
+        "minibatch_size": 8,
+        "epochs_per_update": 2,
+        "max_grad_norm": 0.4283831568974037,
+        "use_attention": false,
+        "use_phase_gates": true,
+        "sil_coef": 0.30592644736118974,
+        "value_reg_coef": 0.027898772130408367
+      },
+      "metrics": {
+        "unique_commands": 11,
+        "diversity_ratio": 0.5,
+        "total_discoveries": 1,
+        "max_phase_reached": 2
+      },
+      "score": 21.0
+    },
+    {
+      "trial": 1,
+      "config": {
+        "clip_epsilon": 0.2570351922786027,
+        "learning_rate": 2.5081156860452307e-05,
+        "gae_lambda": 0.946281099457225,
+        "gamma": 0.97902831387424,
+        "entropy_coef": 0.0011992724522955163,
+        "bc_loss_coef": 0.1822634555704315,
+        "kl_teacher_coef": 0.03410482473745831,
+        "hidden_dims": [
+          512,
+          512,
+          256
+        ],
+        "dropout_rate": 0.013010318597055905,
+        "minibatch_size": 16,
+        "epochs_per_update": 3,
+        "max_grad_norm": 0.3683704798044687,
+        "use_attention": true,
+        "use_phase_gates": false,
+        "sil_coef": 0.017194260557609198,
+        "value_reg_coef": 0.1818640804157564
+      },
+      "metrics": {
+        "unique_commands": 12,
+        "diversity_ratio": 0.5,
+        "total_discoveries": 2,
+        "max_phase_reached": 2
+      },
+      "score": 28.0
+    }
+  ]
+}

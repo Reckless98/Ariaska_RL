@@ -1,0 +1,111 @@
+{
+  "run_id": "run_20260227_063318_07bfc7",
+  "timestamp": 1772148817.7033017,
+  "key_outcomes": {
+    "wins": [
+      "Achieved positive total reward (70) despite failure to complete objective",
+      "Completed at least one episode without negative reward accumulation"
+    ],
+    "fails": [
+      "0% success rate indicates objective not achieved",
+      "High mentor call count (10) suggests frequent intervention/uncertainty"
+    ],
+    "summary": "Single-episode run with modest reward but no task success; indicates partial progress yet failure to close the objective."
+  },
+  "repeated_failure_patterns": [
+    {
+      "pattern": "Failure to convert reconnaissance progress into objective completion",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_step_end"
+      ]
+    },
+    {
+      "pattern": "Over-reliance on mentor calls during decision points",
+      "frequency": 1,
+      "evidence_refs": [
+        "ep001_mentor_calls"
+      ]
+    }
+  ],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When initial host discovery yields limited targets",
+      "then_action": "Expand scan scope with targeted service enumeration using nmap",
+      "parameters_template": {
+        "ports": "1-1000",
+        "timing": "-T3",
+        "scripts": "default,vuln"
+      },
+      "confidence": 0.62,
+      "evidence_refs": [
+        "ep001_step06",
+        "ep001_step08"
+      ],
+      "created_at": 1772148826.903319,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When a single host is identified with open ports",
+      "then_action": "Prioritize service fingerprinting and version detection",
+      "parameters_template": {
+        "nmap_args": "-sV -sC",
+        "retry": 1
+      },
+      "confidence": 0.58,
+      "evidence_refs": [
+        "ep001_step10"
+      ],
+      "created_at": 1772148826.9033365,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Demonstrated reconnaissance progression despite lack of final success"
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Recon-to-Exploit Handoff Drill",
+      "description": "After service identification, immediately map to a concrete exploit path using a vulnerability lookup step before proceeding.",
+      "priority": "high"
+    },
+    {
+      "title": "Mentor-Call Minimization Run",
+      "description": "Repeat the same scenario with a cap of 3 mentor calls to force autonomous decision-making.",
+      "priority": "high"
+    },
+    {
+      "title": "Focused Service Enumeration",
+      "description": "Run targeted scans on detected services only, then attempt a single exploit chain to completion.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}

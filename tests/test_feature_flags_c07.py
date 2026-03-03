@@ -44,11 +44,11 @@ class TestFlagDefaults:
         assert hasattr(ff, "sac_shadow")
         assert ff.sac_shadow is True
 
-    def test_reptile_meta_default_false(self):
+    def test_reptile_meta_default_true(self):
         from core.feature_flags import get_feature_flags
         ff = get_feature_flags()
         assert hasattr(ff, "reptile_meta")
-        assert ff.reptile_meta is False
+        assert ff.reptile_meta is True
 
     def test_optuna_sweep_default_false(self):
         from core.feature_flags import get_feature_flags
@@ -317,10 +317,10 @@ class TestFutureFlags:
         )
 
     def test_dangerous_flags_default_false(self):
-        """Reptile, Optuna, held-out eval should default OFF (not yet wired)."""
+        """Optuna, held-out eval should default OFF (not yet wired)."""
         from core.feature_flags import get_feature_flags
         ff = get_feature_flags()
-        assert ff.reptile_meta is False, "reptile_meta should default False"
+        assert ff.reptile_meta is True, "reptile_meta should default True (Phase 50)"
         assert ff.optuna_sweep is False, "optuna_sweep should default False"
         assert ff.heldout_eval is False, "heldout_eval should default False"
 

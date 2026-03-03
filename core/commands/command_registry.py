@@ -2001,11 +2001,11 @@ register(CommandTemplate(
 
 register(CommandTemplate(
     name="nuclei_scan",
-    template="nuclei -u {url} -t {templates} -severity {severity}",
-    description="Fast vulnerability scanner with templates.",
+    template="nuclei -u {url} -as -severity {severity}",
+    description="Fast vulnerability scanner with automatic template selection.",
     phase=AttackPhase.ENUMERATION,
     required_params=["url"],
-    optional_params={"templates": "cves/", "severity": "medium,high,critical"},
+    optional_params={"severity": "medium,high,critical"},
     preconditions={"http_service_found"},
     success_indicators=["[", "CVE-", "found"],
     typical_reward=3.5,

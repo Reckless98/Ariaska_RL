@@ -1,0 +1,20 @@
+{"event": "attempt_start", "attempt": 1, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-26T23:08:32.405102"}
+{"event": "attempt_crash", "attempt": 1, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-26T23:25:09.274931"}
+{"event": "attempt_start", "attempt": 2, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-26T23:25:14.285501"}
+{"event": "attempt_crash", "attempt": 2, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T00:00:32.985567"}
+{"event": "attempt_start", "attempt": 3, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T00:00:38.007421"}
+{"event": "attempt_crash", "attempt": 3, "error": "'int' object is not iterable", "timestamp": "2026-02-27T00:01:23.866450"}
+{"event": "attempt_start", "attempt": 4, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T00:01:28.877701"}
+{"event": "attempt_crash", "attempt": 4, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T00:11:25.983967"}
+{"event": "attempt_start", "attempt": 5, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T00:11:30.995017"}
+{"event": "attempt_crash", "attempt": 5, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T00:31:11.613668"}
+{"event": "attempt_start", "attempt": 6, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T00:31:16.616914"}
+{"event": "attempt_crash", "attempt": 6, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T00:51:54.753724"}
+{"event": "attempt_start", "attempt": 7, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T00:51:59.770602"}
+{"event": "attempt_crash", "attempt": 7, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T01:13:00.230576"}
+{"event": "attempt_start", "attempt": 8, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T01:13:05.253222"}
+{"event": "attempt_crash", "attempt": 8, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T01:32:48.594431"}
+{"event": "attempt_start", "attempt": 9, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T01:32:53.614631"}
+{"event": "attempt_crash", "attempt": 9, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T01:51:05.043247"}
+{"event": "attempt_start", "attempt": 10, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T01:51:10.044064"}
+{"event": "attempt_crash", "attempt": 10, "error": "GlobalMaturityController.request_exploration_boost() got an unexpected keyword argument 'duration'", "timestamp": "2026-02-27T02:20:07.849902"}

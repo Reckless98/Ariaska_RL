@@ -1,0 +1,93 @@
+{
+  "run_id": "smart_31c2b070_ep0000",
+  "timestamp": 1772117434.2606814,
+  "key_outcomes": {
+    "wins": [
+      "Completed single training episode with high total reward despite zero success rate"
+    ],
+    "fails": [
+      "No successful episode completions (0% success rate)",
+      "No mentor calls used for course correction"
+    ],
+    "summary": "High reward but zero success indicates scoring may not align with objective completion; more targeted success-driven actions are needed."
+  },
+  "repeated_failure_patterns": [],
+  "skill_cards": [
+    {
+      "id": "skill_001",
+      "if_condition": "When target host is discovered during reconnaissance",
+      "then_action": "Perform full TCP port scan with service/version detection",
+      "parameters_template": {
+        "scan_type": "tcp_full",
+        "service_version": true
+      },
+      "confidence": 0.45,
+      "evidence_refs": [
+        "ep000"
+      ],
+      "created_at": 1772117445.5960023,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    {
+      "id": "skill_002",
+      "if_condition": "When HTTP/HTTPS service is detected",
+      "then_action": "Run web enumeration to identify directories and technologies",
+      "parameters_template": {
+        "paths": "/, /robots.txt, /sitemap.xml",
+        "tech_fingerprint": true
+      },
+      "confidence": 0.4,
+      "evidence_refs": [
+        "ep000"
+      ],
+      "created_at": 1772117445.5960176,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    }
+  ],
+  "memory_ops": [
+    {
+      "operation": "promote",
+      "target": "skill_001",
+      "skill_card_id": "skill_001",
+      "reason": "Baseline reconnaissance is foundational and likely contributed to reward generation."
+    }
+  ],
+  "next_experiments": [
+    {
+      "title": "Align reward with objective success",
+      "description": "Add explicit success-driven checkpoints and terminate episodes on objective completion to prevent reward inflation without success.",
+      "priority": "high"
+    },
+    {
+      "title": "Introduce mentor guidance",
+      "description": "Enable limited mentor calls during critical decision points to improve conversion from discovery to exploitation.",
+      "priority": "high"
+    },
+    {
+      "title": "Tighten action budget",
+      "description": "Reduce allowed steps to force focus on objective-relevant actions and improve success rate.",
+      "priority": "medium"
+    }
+  ],
+  "model_used": "gpt-5.2-codex",
+  "dry_run": false,
+  "validation_passed": true
+}
