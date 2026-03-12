@@ -43,25 +43,32 @@ class RoutingDecision:
 # System 1: Fast reflexive tasks → 4B model (low latency, simple tasks)
 _SYSTEM1_TASKS = frozenset({
     "classification", "diversify", "parsing", "playbook",
-    "command_selection",
+    "command_selection", "output_parse",
 })
 
 # System 2: Medium reasoning → 4B model (same model as S1, different task pool)
+# On CPU, favour 4b for speed. Tactical/analysis moved here from S3.
 _SYSTEM2_TASKS = frozenset({
     "reconnaissance", "defensive", "general", "embedding",
+    "tactical", "analysis", "reasoning", "learning", "reflection",
 })
 
-# System 3: Deep reasoning → 9B model (highest quality, slower)
+# System 3: Deep reasoning → 9B model (only truly critical slow tasks)
 _SYSTEM3_TASKS = frozenset({
-    "tactical", "analysis", "strategic", "reasoning", "learning",
-    "postmortem", "reflection",
+    "strategic", "postmortem",
 })
 
 # ── Local model names (Ollama) ──────────────────────────────────────────────
 
 FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", "jaahas/qwen3.5-uncensored:4b")
 MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", "jaahas/qwen3.5-uncensored:4b")
-REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", "jaahas/qwen3.5-uncensored:9b")
+# ARIASKA_ALL_4B=1 forces ALL tasks (including strategic/postmortem) to 4b
+# for maximum speed on CPU-only systems.
+_ALL_4B = os.getenv("ARIASKA_ALL_4B", "0").lower() in ("1", "true", "yes", "on")
+REASONING_MODEL = os.getenv(
+    "ARIASKA_REASONING_MODEL",
+    "jaahas/qwen3.5-uncensored:4b" if _ALL_4B else "jaahas/qwen3.5-uncensored:9b",
+)
 
 
 def classify_tier(model: str) -> str:

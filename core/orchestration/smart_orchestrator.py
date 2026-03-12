@@ -566,12 +566,16 @@ class SmartOrchestrator:
         # ─── P35: CoherenceChain — 4-step nano anti-hallucination chain ──
         self.coherence_chain = None
         self._last_coherence_result = None
-        try:
-            from core.state.coherence_chain import CoherenceChain
-            self.coherence_chain = CoherenceChain(gpt_manager=self.gpt_manager)
-            _init_modules.append(("CoherenceChain", "ok", "nano 4-step"))
-        except Exception as e:
-            _init_modules.append(("CoherenceChain", "warn", str(e)[:40]))
+        _skip_coherence = os.getenv("FF_COHERENCE_CHAIN", "1").lower() in ("0", "false", "off", "no")
+        if _skip_coherence:
+            _init_modules.append(("CoherenceChain", "skip", "FF_COHERENCE_CHAIN=0"))
+        else:
+            try:
+                from core.state.coherence_chain import CoherenceChain
+                self.coherence_chain = CoherenceChain(gpt_manager=self.gpt_manager)
+                _init_modules.append(("CoherenceChain", "ok", "nano 4-step"))
+            except Exception as e:
+                _init_modules.append(("CoherenceChain", "warn", str(e)[:40]))
         
         # ─── P35: LiveTraceWriter — append-only JSONL per step ──
         self.live_trace_writer = None

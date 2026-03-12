@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 import requests
 from typing import Any, Dict, List, Optional
@@ -56,7 +57,7 @@ class OllamaProvider(LLMProvider):
         elif isinstance(response_format, str) and response_format == "json_object":
             payload["format"] = "json"
         
-        req_timeout = timeout or 600.0
+        req_timeout = timeout or float(os.getenv("ARIASKA_OLLAMA_TIMEOUT", "60"))
         
         try:
             response = requests.post(

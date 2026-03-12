@@ -189,6 +189,8 @@ class FeatureFlags:
     # ── Phase 27.0: Intelligence Pipeline ───────────────────────────
     use_micro_chain: bool = field(
         default_factory=lambda: _env_bool("FF_USE_MICRO_CHAIN", True))
+    phase_guided: bool = field(
+        default_factory=lambda: _env_bool("FF_PHASE_GUIDED", True))
     strict_exploit_gate: str = field(
         default_factory=lambda: _validate_exploit_gate(
             os.environ.get("FF_STRICT_EXPLOIT_GATE", "enforce")))

