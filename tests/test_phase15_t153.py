@@ -231,7 +231,7 @@ class TestBudgetManagerV2Wiring:
         bm = gpt._budget_manager_v2
         assert bm is not None
         # Simulate spend
-        bm.record_spend("gpt-5.2-mini", 1000, "tactical")
+        bm.record_spend("local-llm", 1000, "tactical")
         stats = bm.get_stats()
         assert stats["total_used"] == 1000
         # Reset
@@ -245,13 +245,16 @@ class TestBudgetManagerV2Wiring:
         """BudgetManagerV2 correctly denies when budget exceeded."""
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2(total_budget=1000, tier_budgets={"mini": 500, "full": 500})
+        # Use a model that maps to 'mini' tier (default for unknown models)
+        # so budget tracking actually applies (local tier is free/unlimited).
+        test_model = "test-budget-model"
         # Should allow
-        d1 = bm.check_budget("gpt-5.2-mini", 400, "tactical")
+        d1 = bm.check_budget(test_model, 400, "tactical")
         assert d1.allowed
         # Record spend near limit
-        bm.record_spend("gpt-5.2-mini", 490, "tactical")
+        bm.record_spend(test_model, 490, "tactical")
         # Should deny (only 10 remaining)
-        d2 = bm.check_budget("gpt-5.2-mini", 100, "tactical")
+        d2 = bm.check_budget(test_model, 100, "tactical")
         assert not d2.allowed
         assert d2.reason == "budget_exceeded"
 

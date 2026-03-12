@@ -353,25 +353,25 @@ Connection successful (230 Login successful)
 # ═══════════════════════════════════════════════════════════════════════
 
 class TestCapModelRouting:
-    """GPT model routing must use gpt-5.2-codex for tactical decisions."""
+    """Model routing must use local LLM for all decisions."""
 
-    def test_tactical_uses_codex(self, fake_gpt):
-        """Tactical task type must route to gpt-5.2-codex."""
+    def test_tactical_uses_local(self, fake_gpt):
+        """Tactical task type must route to local LLM."""
         model = fake_gpt.get_model_for_role(task_type="tactical")
-        assert "5.2" in model or "codex" in model.lower(), \
-            f"Tactical should use gpt-5.2-codex, got {model}"
+        assert "local" in model.lower() or "qwen" in model.lower(), \
+            f"Tactical should use local LLM, got {model}"
 
-    def test_reasoning_uses_codex(self, fake_gpt):
-        """Reasoning task type must route to gpt-5.2-codex."""
+    def test_reasoning_uses_local(self, fake_gpt):
+        """Reasoning task type must route to local LLM."""
         model = fake_gpt.get_model_for_role(task_type="reasoning")
-        assert "5.2" in model or "codex" in model.lower(), \
-            f"Reasoning should use gpt-5.2-codex, got {model}"
+        assert "local" in model.lower() or "qwen" in model.lower(), \
+            f"Reasoning should use local LLM, got {model}"
 
-    def test_strategic_uses_codex(self, fake_gpt):
-        """Strategic task type must route to gpt-5.2-codex."""
+    def test_strategic_uses_local(self, fake_gpt):
+        """Strategic task type must route to local LLM."""
         model = fake_gpt.get_model_for_role(task_type="strategic")
-        assert "5.2" in model or "codex" in model.lower(), \
-            f"Strategic should use gpt-5.2-codex, got {model}"
+        assert "local" in model.lower() or "qwen" in model.lower(), \
+            f"Strategic should use local LLM, got {model}"
 
 
 # ═══════════════════════════════════════════════════════════════════════

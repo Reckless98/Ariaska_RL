@@ -2,6 +2,36 @@
 
 > **Read this entire file before generating ANY code for this project.**
 
+---
+
+## ⚠️ CLAUDE CODE GATE — READ BEFORE ANYTHING ELSE
+
+**You are NOT working alone. Claude Code (`claude` CLI) is your senior partner.**
+
+| Situation | You MUST |
+|-----------|----------|
+| Touching 2+ files | Fire `claude` audit async BEFORE writing one line |
+| Planning a new module/class | Get Claude architecture audit first |
+| Unsure about impact | Ask Claude, not yourself |
+| Reviewing your own implementation plan | Have Claude review it before you execute |
+| Context window getting full from reading files | STOP — delegate reading to Claude |
+
+```bash
+# One command. No excuses:
+./scripts/cc_sync.sh start "<describe your task>"
+
+# Or from VSCode: Ctrl+Shift+P → "Tasks: Run Task" → "CC: Start Session"
+# Or from Make: make cc-start task="describe your task"
+```
+
+**Violating this gate = wasted context + broken invariants + invariant-violating commits caught by pre-commit hook.**
+
+The `cc_sync.sh` script manages the full lifecycle. Claude Code reads `.claude/CLAUDE.md` for its instructions. Both agents share `.github/CC_SESSION.md` as the live conversation.
+
+See the full workflow: jump to **Claude Code Integration — Dual-Agent Workflow** section below.
+
+---
+
 ## Identity
 
 **Ariaska_RL** — Autonomous multi-agent reinforcement learning system for live authorized penetration testing. 5 specialized agents, tiered GPT-5.2 hybrid decision pipeline, PPO Actor-Critic v3.0 primary RL, 107K v2 knowledge corpus, ~154K lines of Python across 340 modules.
@@ -9,8 +39,8 @@
 **Author:** Filip Volf
 **Python:** 3.11+ (developed on 3.13)
 **Entry:** `ariaska_cli.py` → `SmartOrchestrator.run_training()`
-**Tests:** 1,753 collected, 1,753 passing (84 test files)
-**Current Phase:** Phase 39 — Trust Weights + Orion Deep-Rethink + CAP Regression Gate
+**Tests:** 2,938 collected, 2,938 passing (165 test files)
+**Current Phase:** Phase 53+ — Local LLM Migration + Accelerated LLM→RL Handoff
 
 ---
 
@@ -32,7 +62,8 @@ These are non-negotiable. Violation of any invariant breaks the system.
 12. **Evidence Gate default = `enforce`** — `FF_STRICT_EXPLOIT_GATE` must stay `enforce` unless explicitly changed
 13. **MicroChain escalation threshold = 0.40** — tunable via `MC_ESCALATE_THRESHOLD` env var only
 14. **Git policy: `master` branch only** — no feature branches, no PRs
-15. **Test baseline: 1,753 tests** — all must pass after any change
+15. **Test baseline: 2,938 tests** — all must pass after any change
+16. **Claude Code is REQUIRED for multi-file work** — fire `claude` CLI audit before touching 2+ files, before planning new modules, before any refactor. Context window is not an excuse to skip this.
 
 ---
 
@@ -110,7 +141,9 @@ core/
 │   ├── cloud_roles.py                      # Cloud role definitions for LLM
 │   ├── venice_reasoning.py                 # Venice AI reasoning integration
 │   ├── codex_personas.py                   # LLM persona definitions
-│   └── reflective_cortex.py               # Self-reflective LLM reasoning
+│   ├── reflective_cortex.py               # Self-reflective LLM reasoning
+│   ├── local_llm_provider.py              # Phase 43: Local LLM server lifecycle (llama-cpp/vLLM)
+│   └── model_router.py                    # Phase 43/44: Tier-based routing (local vs OpenAI)
 ├── cortex/
 │   ├── executive_cortex.py                 # Executive decision making
 │   └── tactical_cortex.py                  # Tactical decision making (7-rule quality gate)
@@ -200,7 +233,7 @@ scripts/
 ├── htb_readiness.py                        # HTB readiness assessment
 └── tool_dependency_audit.py                # Audit tool dependencies
 
-tests/                                      # 84 test files, 1,753 tests total
+tests/                                      # 165 test files, 2,938 tests total
 ```
 
 ---
@@ -670,7 +703,7 @@ from core.algorithms.ppo_agent import PPOAgent  # <- WILL CAUSE CIRCULAR IMPORT
 
 ## Testing
 
-**Framework:** pytest, 1,753 tests across 84 files. All passing.
+**Framework:** pytest, 2,938 tests across 165 files. All passing.
 
 ```bash
 make test              # Full suite
@@ -717,6 +750,14 @@ class TestMyFeature:
 | `MC_ESCALATE_THRESHOLD` | MicroChain escalation threshold (default: 0.40) |
 | `MC_NANO_ABLATION` | `1` -> bypass nano stages in MicroChain |
 | `PYTHONPATH` | Should include project root |
+| `ARIASKA_LOCAL_MODEL_PATH` | Path to local GGUF/AWQ model file |
+| `ARIASKA_LOCAL_LLM_PORT` | Local LLM server port (default: 8192) |
+| `ARIASKA_LOCAL_LLM_HOST` | Local LLM server host (default: 127.0.0.1) |
+| `ARIASKA_LOCAL_BACKEND` | Backend: `llama-cpp` or `vllm` |
+| `FF_LOCAL_LLM` | Enable local LLM provider (auto-detected) |
+| `FF_LOCAL_LLM_OFFLOAD_ALL` | Route ALL tiers to local GPU (full offline) |
+| `FF_LOCAL_LLM_OFFLOAD_NANO` | Route nano tier to local GPU |
+| `FF_LOCAL_LLM_OFFLOAD_MINI` | Route mini tier to local GPU |
 
 **Runtime flags** (`core/runtime_flags.py`):
 ```python
@@ -802,7 +843,7 @@ When generating code for this project:
 - [ ] Handle `torch.device` — check CUDA, default CPU
 - [ ] Respect phase system — commands must match `AttackPhase` + `preconditions`
 - [ ] Write tests with `FakeGPTManager` + `StubToolRunner`
-- [ ] Keep 1,753-test baseline passing
+- [ ] Keep 2,938-test baseline passing
 - [ ] Use reward-invariant metrics for validation
 - [ ] Type hints on all function signatures
 - [ ] Google-style docstrings on public APIs
@@ -858,3 +899,337 @@ When generating code for this project:
 | 37 | Level 5 GPT↔RL Neural Integration: LLMPolicyBridge, KL teacher distillation, ranking margin loss, value reg, teacher anneal, dashboard panel |
 | 38 | OpsHub authority (19 modules, 5,653L), discovery trust, phase invariants, command lockout, engagement metrics, reward ceiling 50→100, budget +15% |
 | 39 | Trust Weights + Orion Deep-Rethink escalation, CAP regression gate, debug trace instrumentation |
+| 40-42 | 25 new RL algorithms, self-play, world model, progressive nets, PBT, HRL options |
+| 43 | Local LLM Provider (GPU acceleration), model router, llama-cpp-python/vLLM backend |
+| 44 | Full-local routing: FF_LOCAL_LLM_OFFLOAD_ALL, offline operation mode |
+| 45-49 | Knowledge corpus expansion, agent improvements, training refinements |
+| 50 | Anti-repeat stagnation-aware thresholds, flag capture whitelist, gap-aware alternatives |
+| 51-52 | Additional algorithm tuning, Reptile meta-learning default ON |
+| 53 | Accelerated LLM→RL handoff: PRIOR_ALPHA 0.25, KL_TEACHER 0.08, MATURITY_FAST_DECAY 0.4 |
+
+---
+
+## Claude Code Integration — Dual-Agent Workflow
+
+**Available:** `claude` CLI (Claude Pro subscription, `~/.claude/` config present)
+
+Copilot + Claude Code work as a **dual-agent team with enforced role separation:**
+- **Claude Code** (`claude` CLI) → all reading, searching, auditing, research, architecture planning, impact analysis. **Read-only. Never mutates files.**
+- **Copilot** → all file edits, test execution, implementation. **Preserve your context window for implementation only — do not read files yourself when Claude can do it.**
+
+### Context Window Rule — CRITICAL
+**Never use your own file-reading tools for research across 2+ files. Delegate to Claude instead.**
+
+Copilot reading files = burns implementation context on research.
+Claude reading files = separate process, no context cost to you, Sonnet-quality analysis.
+
+```
+BAD:  Copilot reads 5 files to understand impact → context polluted → worse implementation
+GOOD: claude -p "..." reads 5 files → returns summary → Copilot implements with clean context
+```
+
+This is the primary efficiency gain. Follow it strictly.
+
+---
+
+### MANDATORY WORKFLOW — Follow this order for every non-trivial task
+
+**Step 1 — Fire Claude audit FIRST (async if possible)**
+Before writing a single line of code, run Claude to research impact:
+
+```bash
+# Fire async — Claude researches while you plan
+claude -p "<audit prompt>" --model sonnet --effort medium > /tmp/claude_audit.txt 2>&1 &
+CLAUDE_PID=$!
+
+# Meanwhile: think through the implementation plan yourself
+# Then consume Claude's output before touching files:
+wait $CLAUDE_PID && cat /tmp/claude_audit.txt
+```
+
+**Step 2 — Read Claude's output, then implement**
+Claude's response informs what Copilot touches. Never implement across >2 files without a Claude audit first.
+
+**Step 2b — Plan review (for changes >1 file)**
+After you've formed your implementation plan but BEFORE you edit anything, run:
+```bash
+claude -p "Here is my plan: <paste your plan>. Review it against this codebase. Flag: wrong assumptions, missed invariants, circular import risks, test coverage gaps. Be terse and direct." \
+  --model sonnet --effort medium 2>&1
+```
+Adjust your plan based on the review, then proceed.
+
+**Step 3 — Execute with Copilot**
+Copilot edits files, runs tests, commits.
+
+**Step 4 — Post-implementation audit (for changes touching core/ or tests/)**
+After edits but before committing, run:
+```bash
+claude -p "Audit these changes: <describe changes made>. Check: 1) architectural invariant violations, 2) GPTManager usage correct, 3) lazy import pattern respected, 4) test baseline likely intact. Flag issues only." \
+  --model sonnet --effort medium 2>&1
+```
+Fix any flagged issues before committing.
+
+---
+
+### Parallel Execution Pattern
+
+For tasks with independent research + implementation tracks, run both simultaneously:
+
+```bash
+# Track A: Claude audits impact (async)
+claude -p "Find all files that call SmartOrchestrator.run_training(). List file, line, caller context. JSON output." \
+  --model sonnet --effort medium > /tmp/audit_callers.txt 2>&1 &
+
+# Track B: Claude checks test coverage (async, parallel)
+claude -p "Which test files cover SmartCoach._select_command()? List file paths and relevant test names." \
+  --model sonnet --effort medium > /tmp/audit_tests.txt 2>&1 &
+
+# Wait for both, then implement
+wait && cat /tmp/audit_callers.txt /tmp/audit_tests.txt
+# NOW Copilot implements with full context
+```
+
+### Parallel Thinking Pattern
+
+When you're about to think through a problem yourself, also ask Claude:
+
+```bash
+# You think through approach in your head → Claude thinks independently → compare
+claude -p "Problem: <describe>. What is the correct approach? What are the gotchas in this specific codebase? What would break? Sonnet-quality analysis." \
+  --model sonnet --effort medium > /tmp/claude_think.txt 2>&1 &
+# Meanwhile you draft your own approach
+wait && cat /tmp/claude_think.txt
+# Use the better insight, discard the weaker one
+```
+
+This is especially valuable for: reward shaping changes, PPO modification proposals, state encoder extensions, any change to `core/training/` or `core/algorithms/`.
+
+---
+
+### Claude Command Templates
+
+```bash
+# Impact audit — before touching any module
+claude -p "List every file that imports or calls <symbol>. Include line numbers. JSON." \
+  --model sonnet --effort medium 2>&1
+
+# Architecture audit — before adding new subsystems
+claude -p "Audit <module>: entry points, dependencies, invariants that must be preserved, circular import risks. Be terse." \
+  --model opus --effort high 2>&1
+
+# Migration planning — before refactoring
+claude -p "Plan migration of <X> to <Y> in this codebase. List files to touch in order, risks per file, what to preserve. No code." \
+  --model opus --effort high 2>&1
+
+# Circular import check — before adding imports
+claude -p "Trace all import chains from <module>. Flag any cycle if <new_import> is added. Output: safe/unsafe + chain." \
+  --model sonnet --effort medium 2>&1
+
+# Test gap analysis — before implementing
+claude -p "What is NOT tested in <module>? List untested code paths, missing edge cases. Be specific." \
+  --model sonnet --effort medium 2>&1
+
+# Dependency audit — batch, not per-call
+claude -p "Scan all of core/llm/ and core/algorithms/. For each file: list external deps, GPTManager usage, any invariant violations. JSON per file." \
+  --model sonnet --effort medium 2>&1 | tail -200
+```
+
+**Model selection:**
+- `sonnet` + `medium` → all searches, audits, impact analysis (default)
+- `opus` + `high` → architecture decisions, migration plans, cross-cutting refactors (expensive — use sparingly)
+
+---
+
+### Decision Table — Who Does What
+
+| Task | Claude first? | Plan review? | Post-audit? | Model |
+|------|--------------|-------------|-------------|-------|
+| Touch 1 file, obvious change | No | No | No | — |
+| Touch 2+ files | Yes (async) | Yes | Yes | sonnet |
+| Add new module/class | Yes | Yes | Yes | sonnet |
+| Refactor shared interface | Yes | Yes | Yes | opus |
+| Migrate subsystem | Yes | Yes (each phase) | Yes | opus |
+| Find all usages of X | Yes | No | No | sonnet |
+| Add test for Y | Optional | No | No | sonnet |
+| Plan across multiple modules | Yes (parallel think) | Yes | No | sonnet |
+| Run tests / fix failing | No | No | No | — |
+| Edit single known line | No | No | No | — |
+
+---
+
+### Sync Contract
+
+Claude Code output is **consumed once** per task — at the start of implementation. Do not re-query Claude mid-implementation unless the scope changed. Batch all research questions into one or two Claude calls before starting any edits.
+
+---
+
+## Bidirectional Session Protocol — Copilot ↔ Claude Code
+
+Both agents share a single live file: **`.github/CC_SESSION.md`**
+
+This file is the persistent conversation log for the current task. Both Copilot and Claude read it and append to it. It survives context resets. It is the ground truth for the current task state.
+
+### Session File Structure
+
+```markdown
+## Task: <one-line description>
+**Status**: scoping | planning | in_progress | review | done
+**Started**: <timestamp>
+
+---
+### [Copilot → Claude] Request
+<what Copilot needs — question, task description, or plan to review>
+
+---
+### [Claude → Copilot] Analysis
+<Claude's findings, risks, plan, or verdict>
+
+---
+### [Copilot → Claude] Implementation Plan
+<what Copilot is about to do — file list, approach, key decisions>
+
+---
+### [Claude → Copilot] Plan Review
+<APPROVED / CONCERNS: <issues> / BLOCKED: <reason>>
+
+---
+### [Copilot] Done
+<what was implemented, tests run, result>
+
+---
+### [Claude] Post-Audit
+<CLEAN / ISSUES: <list>>
+```
+
+---
+
+### How Copilot Uses the Session — One Command Per Step
+
+All session management is handled by `./scripts/cc_sync.sh`. No raw bash needed.
+
+```bash
+# Step 1: Start — fire Claude audit
+./scripts/cc_sync.sh start "add new agent type for lateral movement"
+# Claude audits the task, writes analysis to CC_SESSION.md
+# Output: Claude's findings printed to terminal
+
+# Step 2: Plan — submit your plan for review
+./scripts/cc_sync.sh plan "Touch core/agents/lateral_agent.py (new), core/multiagent/agents.py (register), SmartOrchestrator (activation order)"
+# Claude reviews plan, returns APPROVED / CONCERNS / BLOCKED
+# If BLOCKED: do not proceed. If CONCERNS: address them first.
+
+# Step 3: Mid-task questions (as needed)
+./scripts/cc_sync.sh audit "Does SmartCoach need a role config for lateral agents?"
+# Claude answers, appends to session
+
+# Step 4: Done — fire post-audit
+./scripts/cc_sync.sh done "Created LateralAgent, registered in agents.py, added activation in SmartOrchestrator"
+# Claude audits changes, returns CLEAN / ISSUES
+# If ISSUES: fix before committing.
+
+# Parallel queries for complex research
+./scripts/cc_sync.sh parallel "List all SmartCoach role configs" "List all agent activation orderings in SmartOrchestrator"
+```
+
+**VSCode (no terminal needed):**
+- `Ctrl+Shift+P` → `Tasks: Run Task` → pick any `CC:` task
+- Prompts you for input, runs Claude, shows results in dedicated panel
+
+**Makefile:**
+```bash
+make cc-start task="your task"
+make cc-plan  p="your plan"
+make cc-done  s="your summary"
+make cc-status
+```
+
+---
+
+### How Claude Code Uses the Session File
+
+Claude Code reads `.claude/CLAUDE.md` for its role instructions + invariant checklist.
+When invoked by `cc_sync.sh`:
+- Reads full session context automatically
+- Appends only its section — never overwrites
+- Returns binding verdicts: APPROVED / CONCERNS / BLOCKED / CLEAN / ISSUES
+- Copilot must respect these verdicts before proceeding
+
+---
+
+### Auto-Audit on Commit (Pre-Commit Hook)
+
+A git pre-commit hook at `.git/hooks/pre-commit` automatically fires Claude when `core/` files are staged:
+
+```
+git add core/llm/micro_chain.py
+git commit -m "fix: micro chain threshold"
+# → Hook fires: Claude audits staged core files
+# → If Claude says NO: commit blocked (bypass with --no-verify)
+# → If Claude says YES: commit proceeds
+```
+
+This is the safety net — even if Copilot skips all session steps, the pre-commit hook catches invariant violations before they land.
+
+---
+
+### Parallel Session Pattern
+
+For complex tasks, run two Claude streams simultaneously against the same session:
+
+```bash
+# Stream A: impact audit
+claude -p "$(cat .github/CC_SESSION.md) List every file affected by this change. JSON." \
+  --model sonnet --effort medium > /tmp/cc_impact.txt 2>&1 &
+
+# Stream B: risk audit
+claude -p "$(cat .github/CC_SESSION.md) List every invariant at risk from this change and why." \
+  --model sonnet --effort medium > /tmp/cc_risks.txt 2>&1 &
+
+wait
+# Merge both into session
+cat >> .github/CC_SESSION.md << EOF
+
+---
+### [Claude → Copilot] Analysis
+**Impact:** $(cat /tmp/cc_impact.txt)
+**Risks:** $(cat /tmp/cc_risks.txt)
+EOF
+```
+
+---
+
+### Session Lifecycle Rules
+
+- **One session file per task** — reset it at task start, don't append across unrelated tasks
+- **Never delete mid-task** — the session is the audit trail
+- **Archive completed sessions** (optional): `cp .github/CC_SESSION.md .github/sessions/CC_SESSION_$(date +%Y%m%d_%H%M%S).md`
+- **Status field is mandatory** — update it at each stage (scoping → planning → in_progress → review → done)
+- **If Claude writes BLOCKED** — do not proceed. Resolve the blocker first, then re-run the plan review step.
+
+---
+
+## Local LLM Infrastructure (Phase 43-44)
+
+Phase 43 built ~70% of the local LLM stack. Key files:
+
+| File | Purpose |
+|------|---------|
+| `core/llm/local_llm_provider.py` | Server lifecycle (llama-cpp-python / vLLM subprocess), OpenAI-compatible client |
+| `core/llm/model_router.py` | Tier-based routing: nano/mini → local GPU, codex/full → OpenAI (or all-local) |
+| `core/llm/smart_mentor.py` | DualMentor: secondary_client slot for local LLM (replaces Venice) |
+| `core/feature_flags.py` | `FF_LOCAL_LLM`, `FF_LOCAL_LLM_OFFLOAD_*` flags |
+| `config/llm_router.json` | Static routing configuration |
+
+**Architecture:** All LLM calls still go through `GPTManager` → `ModelRouter` decides provider → local or OpenAI client.
+
+**3090 VRAM budget (24GB):**
+- 7B Q4_K_M: ~4-5GB VRAM, ~30 tok/s — fast, adequate for nano/mini
+- 13B Q4_K_M: ~8-10GB VRAM, ~15 tok/s — better reasoning, still leaves room for RL
+- 32B Q4_K_M: ~18-22GB VRAM, ~8 tok/s — best local quality, tight on VRAM
+
+**Migration status (OpenAI → Local):**
+- GPTManager is the single gateway (invariant #1) — all migration happens here
+- ModelRouter already routes by tier
+- LocalLLMProvider already manages server lifecycle
+- DualMentor already has secondary_client slot
+- Remaining: provider abstraction layer, HuggingFace native provider, full GPTManager refactor

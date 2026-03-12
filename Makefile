@@ -447,3 +447,26 @@ gpu-watch: watch-gpu
 traces:
 	@echo "Recent training runs:"
 	@ls -lt traces/ | head -10
+
+# ── Claude Code Integration ──────────────────────────────────────────
+
+cc-start:  ## Start Claude Code session (usage: make cc-start task="describe task")
+	@./scripts/cc_sync.sh start "$(task)"
+
+cc-audit:  ## Ask Claude a question (usage: make cc-audit q="your question")
+	@./scripts/cc_sync.sh audit "$(q)"
+
+cc-plan:   ## Submit plan for review (usage: make cc-plan p="your plan")
+	@./scripts/cc_sync.sh plan "$(p)"
+
+cc-done:   ## Mark done + post-audit (usage: make cc-done s="summary")
+	@./scripts/cc_sync.sh done "$(s)"
+
+cc-status: ## Show session status
+	@./scripts/cc_sync.sh status
+
+cc-review: ## Full session review by Claude
+	@./scripts/cc_sync.sh review
+
+cc-archive: ## Archive current session
+	@./scripts/cc_sync.sh archive

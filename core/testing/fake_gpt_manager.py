@@ -85,21 +85,21 @@ class FakeGPTManager:
         ],
     }
     
-    # Model routing — Phase 12.1: mirrors real GPTManager (all reasoning → gpt-5.2-codex)
+    # Model routing — Phase 12.1: mirrors real GPTManager (all reasoning → local-llm)
     MODEL_MAP = {
-        "red": "gpt-5.2-codex",
-        "orion": "gpt-5.2-codex",
-        "scout": "gpt-5.2-codex",
-        "shadow": "gpt-5.2-codex",
-        "blue": "gpt-5.2-codex",
-        "tactical": "gpt-5.2-codex",
-        "strategic": "gpt-5.2-codex",
-        "reasoning": "gpt-5.2-codex",
-        "analysis": "gpt-5.2-codex",
-        "postmortem": "gpt-5.2-codex",
-        "classification": "gpt-5.2-codex",
-        "general": "gpt-5.2-codex",
-        "default": "gpt-5.2-codex",
+        "red": "local-llm",
+        "orion": "local-llm",
+        "scout": "local-llm",
+        "shadow": "local-llm",
+        "blue": "local-llm",
+        "tactical": "local-llm",
+        "strategic": "local-llm",
+        "reasoning": "local-llm",
+        "analysis": "local-llm",
+        "postmortem": "local-llm",
+        "classification": "local-llm",
+        "general": "local-llm",
+        "default": "local-llm",
     }
     
     def __init__(self, seed: int = 42):
@@ -114,10 +114,10 @@ class FakeGPTManager:
         self._requests: List[Dict[str, Any]] = []
         
         # Mimic real GPTManager interface
-        self.primary_model = "gpt-5.2-codex"
-        self.fallback_model = "gpt-5.2-mini"
-        self.nano_model = "gpt-5-nano"
-        self.postmortem_model = "gpt-5.1-codex"
+        self.primary_model = "local-llm"
+        self.fallback_model = "local-llm"
+        self.nano_model = "local-llm"
+        self.postmortem_model = "local-llm"
         self.tokens_used = 0
         self.token_limit = 3000
         

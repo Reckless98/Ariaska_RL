@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
-core/llm/model_router.py — Phase 43: Intelligent Model Router
+core/llm/model_router.py — Phase 43 / 44 / 54: Intelligent Model Router
 
-Routes LLM requests to the optimal provider based on tier:
-  - nano/mini → Local GPU model (fast, free, ~15 tok/s on RTX 3090)
-  - codex/full → OpenAI API (deep reasoning, expensive)
+Routes LLM requests to the optimal local model based on task complexity:
+  - Fast tasks (classification, diversify, parsing) → 4B model (System 1: fast, reflexive)
+  - Medium tasks (recon, defensive, general) → 4B model (System 2: same physical model)
+  - Heavy tasks (tactical, analysis, strategic, postmortem) → 9B model (System 3: deep reasoning)
 
-When local LLM is unavailable, ALL tiers route to OpenAI (graceful degradation).
+Phase 55 — Qwen 3.5 Uncensored tri-model local routing:
+  All tiers route to local Ollama models. Task type determines which model
+  handles the request, matching cognitive load to model capability:
+    System 1 (jaahas/qwen3.5-uncensored:4b): ~12-15 tok/s CPU — MicroChain, classification, parsing
+    System 2 (jaahas/qwen3.5-uncensored:4b): ~12-15 tok/s CPU — recon, defensive, general
+    System 3 (jaahas/qwen3.5-uncensored:9b): ~5-8 tok/s CPU — tactical, strategic, postmortem
 
-The router intercepts model names at the GPTManager level and returns
-a routing decision: {"provider": "local"|"openai", "model": "<model_name>"}.
+Feature-flag gated: FF_LOCAL_LLM + FF_LOCAL_LLM_OFFLOAD_ALL.
 
-Feature-flag gated: FF_LOCAL_LLM + FF_LOCAL_LLM_OFFLOAD_NANO/MINI.
-
-Author: Phase 43 — GPU Acceleration Layer
+Author: Phase 43/44/54 — Full Local LLM Operation
 """
 
 from __future__ import annotations
@@ -35,40 +38,37 @@ class RoutingDecision:
     reason: str = ""    # Why this routing was chosen
 
 
-# ── Tier classification ─────────────────────────────────────────────────────
+# ── Task-type to cognitive tier mapping ─────────────────────────────────────
 
-# Models that belong to the nano tier (offloadable to local)
-_NANO_MODELS = frozenset({
-    "gpt-5-nano", "gpt-5.2-nano",
+# System 1: Fast reflexive tasks → 4B model (low latency, simple tasks)
+_SYSTEM1_TASKS = frozenset({
+    "classification", "diversify", "parsing", "playbook",
+    "command_selection",
 })
 
-# Models that belong to the mini tier (offloadable to local)
-_MINI_MODELS = frozenset({
-    "gpt-5-mini", "gpt-5.2-mini",
+# System 2: Medium reasoning → 4B model (same model as S1, different task pool)
+_SYSTEM2_TASKS = frozenset({
+    "reconnaissance", "defensive", "general", "embedding",
 })
 
-# Models that stay on OpenAI (reasoning tier)
-_CODEX_MODELS = frozenset({
-    "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini",
+# System 3: Deep reasoning → 9B model (highest quality, slower)
+_SYSTEM3_TASKS = frozenset({
+    "tactical", "analysis", "strategic", "reasoning", "learning",
+    "postmortem", "reflection",
 })
 
-_FULL_MODELS = frozenset({
-    "gpt-5.2",
-})
+# ── Local model names (Ollama) ──────────────────────────────────────────────
+
+FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", "jaahas/qwen3.5-uncensored:4b")
+MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", "jaahas/qwen3.5-uncensored:4b")
+REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", "jaahas/qwen3.5-uncensored:9b")
 
 
 def classify_tier(model: str) -> str:
     """Classify a model name into a budget tier."""
-    if model in _NANO_MODELS:
-        return "nano"
-    if model in _MINI_MODELS:
-        return "mini"
-    if model in _CODEX_MODELS:
-        return "codex"
-    if model in _FULL_MODELS:
-        return "full"
-    # Unknown model — check for keywords
     ml = model.lower()
+    if ml == "local-llm" or ml == "local":
+        return "local"
     if "nano" in ml:
         return "nano"
     if "mini" in ml:
@@ -78,32 +78,49 @@ def classify_tier(model: str) -> str:
     return "full"
 
 
+def _task_to_model(task_type: Optional[str]) -> tuple[str, str]:
+    """Map task_type to (model_name, system_label).
+    
+    Returns the optimal local model and a human-readable label.
+    """
+    if task_type in _SYSTEM1_TASKS:
+        return FAST_MODEL, "System1-fast"
+    if task_type in _SYSTEM3_TASKS:
+        return REASONING_MODEL, "System3-reasoning"
+    if task_type in _SYSTEM2_TASKS:
+        return MEDIUM_MODEL, "System2-balanced"
+    # Default: medium model for unknown task types
+    return MEDIUM_MODEL, "System2-default"
+
+
 class ModelRouter:
     """
-    Routes model requests to local GPU or OpenAI based on tier and availability.
-    
-    Offload strategy:
-      - nano  → local (classification, lightweight checks)
-      - mini  → local (parsing, structured extraction)
-      - codex → OpenAI (deep reasoning, strategic)
-      - full  → OpenAI (verification, validation)
-    
-    When local is unavailable, everything goes to OpenAI (no degradation).
+    Routes model requests to local Ollama models based on task complexity.
+
+    Tri-model strategy (Phase 54):
+      - System 1 (3B): classification, diversify — fast reflexive
+      - System 2 (4B): recon, defensive, general — balanced (same physical model as S1)
+      - System 3 (9B): tactical, analysis, strategic, reasoning, postmortem — deep
+
+    When local is unavailable, everything falls back to OpenAI.
     """
-    
+
     def __init__(
         self,
         local_available: bool = False,
         local_model_name: str = "",
         offload_nano: bool = True,
         offload_mini: bool = True,
+        offload_all: bool = False,
     ):
         self._local_available = local_available
-        self._local_model_name = local_model_name
+        self._local_model_name = local_model_name or FAST_MODEL
         self._offload_nano = offload_nano
         self._offload_mini = offload_mini
+        self._offload_all = offload_all
         self._routed_local = 0
         self._routed_openai = 0
+        self._routed_by_system: dict[str, int] = {"s1": 0, "s2": 0, "s3": 0}
     
     @classmethod
     def from_flags(cls) -> "ModelRouter":
@@ -114,10 +131,13 @@ class ModelRouter:
             local_llm = getattr(ff, "local_llm", False)
             offload_nano = getattr(ff, "local_llm_offload_nano", True)
             offload_mini = getattr(ff, "local_llm_offload_mini", True)
+            offload_all = getattr(ff, "local_llm_offload_all", False)
         except Exception:
-            local_llm = os.getenv("FF_LOCAL_LLM", "0").lower() in ("1", "true", "yes", "on")
+            _truthy = ("1", "true", "yes", "on")
+            local_llm = os.getenv("FF_LOCAL_LLM", "0").lower() in _truthy
             offload_nano = True
             offload_mini = True
+            offload_all = os.getenv("FF_LOCAL_LLM_OFFLOAD_ALL", "0").lower() in _truthy
         
         local_model_name = ""
         if local_llm:
@@ -134,15 +154,26 @@ class ModelRouter:
             local_model_name=local_model_name,
             offload_nano=offload_nano,
             offload_mini=offload_mini,
+            offload_all=offload_all,
         )
+
+    @classmethod
+    def for_full_local(cls) -> "ModelRouter":
+        """Create a router that sends ALL tiers to local models.
+
+        Convenience factory for fully offline operation (Phase 44/54).
+        """
+        router = cls.from_flags()
+        router._offload_all = True
+        return router
     
     def route(self, model: str, task_type: Optional[str] = None) -> RoutingDecision:
         """
-        Route a model request to the optimal provider.
+        Route a model request to the optimal local model by task complexity.
         
         Args:
-            model: The requested model name (e.g. "gpt-5-nano")
-            task_type: Optional task type for context-aware routing
+            model: The requested model name (e.g. "local-llm")
+            task_type: Task type for cognitive-tier routing
             
         Returns:
             RoutingDecision with provider, model, and tier.
@@ -157,23 +188,39 @@ class ModelRouter:
                 reason="local LLM unavailable"
             )
         
-        # Nano → local (if flag enabled)
-        if tier == "nano" and self._offload_nano:
+        # Phase 54: Task-aware tri-model local routing
+        if self._offload_all:
+            target_model, system_label = _task_to_model(task_type)
+            self._routed_local += 1
+            # Track per-system stats
+            if system_label.startswith("System1"):
+                self._routed_by_system["s1"] += 1
+            elif system_label.startswith("System3"):
+                self._routed_by_system["s3"] += 1
+            else:
+                self._routed_by_system["s2"] += 1
+            return RoutingDecision(
+                provider="local", model=target_model, tier="local",
+                reason=f"{task_type or 'unknown'} → {system_label} ({target_model})"
+            )
+
+        # Nano → local fast model
+        if tier in ("nano", "local") and self._offload_nano:
             self._routed_local += 1
             return RoutingDecision(
-                provider="local", model=self._local_model_name, tier="local",
-                reason="nano offloaded to local GPU"
+                provider="local", model=FAST_MODEL, tier="local",
+                reason=f"nano/local offloaded to {FAST_MODEL}"
             )
-        
-        # Mini → local (if flag enabled)
+
+        # Mini → local medium model
         if tier == "mini" and self._offload_mini:
             self._routed_local += 1
             return RoutingDecision(
-                provider="local", model=self._local_model_name, tier="local",
-                reason="mini offloaded to local GPU"
+                provider="local", model=MEDIUM_MODEL, tier="local",
+                reason=f"mini offloaded to {MEDIUM_MODEL}"
             )
-        
-        # Codex/Full → always OpenAI
+
+        # Codex/Full → OpenAI (when not offload_all)
         self._routed_openai += 1
         return RoutingDecision(
             provider="openai", model=model, tier=tier,
@@ -193,6 +240,8 @@ class ModelRouter:
             ),
             "offload_nano": self._offload_nano,
             "offload_mini": self._offload_mini,
+            "offload_all": self._offload_all,
+            "system_routing": self._routed_by_system,
         }
     
     def set_local_available(self, available: bool, model_name: str = "") -> None:

@@ -338,7 +338,7 @@ class SmartCoach:
         learned_store: Optional[LearnedCommandStore] = None,
         reward_calculator: Optional[SmartRewardCalculator] = None,
         mentor_log_path: Optional[str] = None,
-        model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning for all mentor calls
+        model: str = "local-llm",  # Phase 12.1: full reasoning for all mentor calls
         tactical_cortex: Optional[Any] = None,
         executive_cortex: Optional[Any] = None,
         budget_controller: Optional[Any] = None,
@@ -528,7 +528,7 @@ class SmartCoach:
 
         # =====================================================================
         # LAYER 3: CODEX META-LAYER — Strategic stagnation-breaking
-        # Uses gpt-5.2-codex for high-level reasoning when agents get stuck
+        # Uses local-llm for high-level reasoning when agents get stuck
         # in a phase for too long without discoveries. Budget-controlled:
         # max 5 calls/episode, 2-step cooldown between calls.
         # R60: Increased budget 3→5, cooldown 4→2, lower thresholds.
@@ -962,7 +962,7 @@ class SmartCoach:
         
         Venice was causing f-string format errors with JSON braces in prompts
         and adding complexity without proportional value. All 3 codex model
-        variants (gpt-5.1-codex-mini, gpt-4o-mini fallback) are GPT-based.
+        variants (local-llm, gpt-4o-mini fallback) are GPT-based.
         """
         try:
             # Phase 6.9: Venice/DualMentor REMOVED — GPT-only pipeline
@@ -1874,7 +1874,7 @@ class SmartCoach:
                 task_type="reasoning",
                 agent_id=self.agent_name,
                 max_tokens=410,  # Phase 11.5: +50% (was 273) for ultra-deep mentor→apprentice reasoning
-                model="gpt-5.2-codex",
+                model="local-llm",
             )
             if response:
                 logger.info(
@@ -1989,7 +1989,7 @@ class SmartCoach:
         filtered_commands: List[CommandTemplate],
     ) -> Optional[SmartDecisionResult]:
         """
-        Layer 3: Codex Meta-Layer — Strategic stagnation-breaking with gpt-5.2-codex.
+        Layer 3: Codex Meta-Layer — Strategic stagnation-breaking with local-llm.
 
         R60 UPGRADE: Now outputs phase-compatible template_names instead of raw
         commands. Codex returns JSON with recommended_template that maps to the
@@ -2216,7 +2216,7 @@ class SmartCoach:
         try:
             response = self.gpt_manager.gpt_request(
                 prompt=prompt,
-                task_type="strategic",  # Routes to gpt-5.2-codex
+                task_type="strategic",  # Routes to local-llm
                 agent_id=self.agent_name,
                 max_tokens=390,  # Phase 11.5: +50% (was 260) for ultra-rich mentor guidance
             )
@@ -2336,7 +2336,7 @@ class SmartCoach:
                     f"Template={_chosen_template_name}. {_codex_reason}"
                 ),
                 mentor_call=True,
-                model_used="gpt-5.2-codex",
+                model_used="local-llm",
                 mentor_reasoning=(
                     f"[CODEX-META] Strategic override → {_chosen_template_name} "
                     f"({current_phase.name} step {self._codex_meta_phase_steps}). "
@@ -2574,7 +2574,7 @@ class SmartCoach:
                     f"Template={_chosen_name}. {_reason}"
                 ),
                 mentor_call=True,
-                model_used="gpt-5.2-codex",
+                model_used="local-llm",
                 mentor_reasoning=(
                     f"[CODEX-STRATEGIC] Plan repair → {_chosen_name}. "
                     f"Call {self._codex_strategic_calls_episode}/{self._codex_strategic_max_per_episode}"
@@ -9059,7 +9059,7 @@ def create_smart_coach(
     agent_name: str,
     gpt_manager: "GPTManager",
     mentor_policy: Optional[MentorPolicy] = None,
-    model: str = "gpt-5.2-codex",
+    model: str = "local-llm",
 ) -> SmartCoach:
     """
     Factory function to create a SmartCoach.

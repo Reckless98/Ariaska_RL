@@ -425,7 +425,7 @@ class MicroChain:
                 task_type="classification",
                 agent_id="micro_chain",
                 max_tokens=20,
-                model="gpt-5-nano",
+                model="local-llm",
             )
             # Extract first word
             label = response.strip().split()[0].lower().rstrip(".,;:")
@@ -472,7 +472,7 @@ class MicroChain:
 
         # MODEL POLICY: codex for complex JSON generation (mini has JSON
         # parsing reliability issues — complex 8-field schema needs codex).
-        _gen_model = "gpt-5.2-codex"
+        _gen_model = "local-llm"
         self._codex_calls = getattr(self, '_codex_calls', 0) + 1
 
         try:
@@ -482,7 +482,7 @@ class MicroChain:
                 agent_id="micro_chain",
                 max_tokens=250,  # Phase 53: 400→250 — tighter JSON generation
                 model=_gen_model,
-                timeout=15,  # Phase 53: 20→15s
+                timeout=600,
             )
             parsed = _safe_json_load_list(response)
             if parsed is None:
@@ -551,7 +551,7 @@ class MicroChain:
 
         # MODEL POLICY: mini for JSON fill/enrich (cost-optimized Phase 52).
         for _attempt in range(1):  # Phase 52: single attempt, no retry
-            _fill_model = "gpt-5.2-mini"
+            _fill_model = "local-llm"
             try:
                 self._mini_calls = getattr(self, '_mini_calls', 0) + 1
 
@@ -561,7 +561,7 @@ class MicroChain:
                     agent_id="micro_chain",
                     max_tokens=150,  # Phase 53: 250→150 — fill is simple
                     model=_fill_model,
-                    timeout=15,  # Phase 53: 20→15s
+                    timeout=600,
                 )
                 parsed = _safe_json_load_list(resp)
                 if not parsed:
@@ -639,11 +639,11 @@ class MicroChain:
                 # MODEL POLICY: mini for JSON scoring (cost-optimized Phase 53).
                 response = self._gpt.gpt_request(
                     prompt=prompt,
-                    task_type="analysis",
+                    task_type="classification",
                     agent_id="micro_chain",
                     max_tokens=150,  # Phase 53: 200→150 — scoring is compact
-                    model="gpt-5.2-mini",
-                    timeout=15,  # Phase 53: 20→15s
+                    model="local-llm",
+                    timeout=600,
                 )
                 parsed = _safe_json_load_list(response)
                 if parsed is None:
@@ -739,8 +739,8 @@ class MicroChain:
                 task_type="analysis",
                 agent_id="micro_chain",
                 max_tokens=120,  # Phase 53: 200→120 — single command suggestion
-                model="gpt-5.2-codex",
-                timeout=20,  # Phase 53: 30→20s
+                model="local-llm",
+                timeout=600,
             )
             obj = _safe_json_load(response)
             if obj and obj.get("command"):

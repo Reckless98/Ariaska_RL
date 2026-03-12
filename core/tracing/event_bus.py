@@ -66,7 +66,7 @@ class AgentStepRecord:
     reward: float = 0.0
     reward_breakdown: Optional[Dict[str, float]] = None
     mentor_call: bool = False
-    mentor_model: Optional[str] = None       # "gpt-5.1-codex-mini", "gpt-5.1-codex", "gpt-5.2-codex"
+    mentor_model: Optional[str] = None       # "local-llm", "local-llm", "local-llm"
     mentor_tier: Optional[str] = None        # "reactive", "deliberative", "postmortem"
     exec_ms: float = 0.0          # Execution latency
     stdout_snippet: str = ""      # First 200 chars of output

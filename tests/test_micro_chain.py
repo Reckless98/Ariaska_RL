@@ -22,53 +22,46 @@ class _StubGPT:
     def gpt_request(self, prompt, task_type="", agent_id="", max_tokens=100,
                     model=None, **kw):
         self._calls.append({"model": model, "task_type": task_type, "prompt": prompt[:80]})
-        # Return model-keyed response if configured
+        # Return model-keyed response if configured (for override tests)
         if model in self._responses:
             return self._responses[model]
-        # Default responses per model
-        if model == "gpt-5-nano":
+        # Route by task_type (all models are "local-llm" now)
+        # Stage 1: classification (nano)
+        if task_type == "classification":
             if "Score" in prompt or "score" in prompt:
                 return json.dumps([
                     {"idx": 0, "phase_fit": 0.8, "evidence_support": 0.7, "novelty": 0.6},
                     {"idx": 1, "phase_fit": 0.5, "evidence_support": 0.4, "novelty": 0.3},
                 ])
             return "recon_gap"
-        if model == "gpt-5.2-mini":
-            # Stage 3 scoring uses mini — detect scoring prompts
+        # Stage 2+3: analysis (mini/codex candidate generation + scoring)
+        if task_type == "analysis":
             if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
                 return json.dumps([
                     {"idx": 0, "phase_fit": 0.8, "evidence_support": 0.7, "novelty": 0.6},
                     {"idx": 1, "phase_fit": 0.5, "evidence_support": 0.4, "novelty": 0.3},
                 ])
-            return json.dumps([
-                {"command": "nmap -sV -p- 10.10.10.1", "template_name": "nmap_full", "reasoning": "full scan"},
-                {"command": "gobuster dir -u http://10.10.10.1", "template_name": "gobuster_dir", "reasoning": "web enum"},
-            ])
-        if model == "gpt-5.2-codex":
-            # Score/rating prompts → return JSON array of scores
-            if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
-                return json.dumps([
-                    {"idx": 0, "phase_fit": 0.8, "evidence_support": 0.7, "novelty": 0.6},
-                    {"idx": 1, "phase_fit": 0.5, "evidence_support": 0.4, "novelty": 0.3},
-                ])
-            # Candidate generation prompts → return JSON array of candidates
             if "candidate" in prompt.lower() or "Generate" in prompt:
                 return json.dumps([
                     {"command": "nmap -sV -p- 10.10.10.1", "template_name": "nmap_full", "reasoning": "full scan"},
                     {"command": "gobuster dir -u http://10.10.10.1", "template_name": "gobuster_dir", "reasoning": "web enum"},
                 ])
-            # Fill/enrich prompts → return JSON array
             if "evidence_used" in prompt or "hypothesis" in prompt:
                 return json.dumps([
                     {"idx": 0, "evidence_used": ["port_22"], "hypothesis": "ssh brute", "test": "nmap_full",
                      "expected_observable": "open port", "stop_condition": "done", "confidence": 0.7},
                 ])
-            # Generic codex fallback (single object)
-            return json.dumps({
-                "command": "nikto -h http://10.10.10.1",
-                "template_name": "nikto_scan",
-                "reasoning": "codex suggests nikto"
-            })
+            if "scored poorly" in prompt:
+                return json.dumps({
+                    "command": "nikto -h http://10.10.10.1",
+                    "template_name": "nikto_scan",
+                    "reasoning": "codex escalation"
+                })
+            # Default analysis: candidate generation
+            return json.dumps([
+                {"command": "nmap -sV -p- 10.10.10.1", "template_name": "nmap_full", "reasoning": "full scan"},
+                {"command": "gobuster dir -u http://10.10.10.1", "template_name": "gobuster_dir", "reasoning": "web enum"},
+            ])
         return "{}"
 
 
@@ -91,8 +84,8 @@ class TestMicroChain:
 
     def test_micro_chain_malformed_codex_json_returns_none(self):
         from core.llm.micro_chain import MicroChain
-        # Stage 2 uses gpt-5.2-codex for complex JSON generation
-        gpt = _StubGPT(responses={"gpt-5.2-codex": "this is not json at all!!!"})
+        # Stage 2 uses local-llm for complex JSON generation
+        gpt = _StubGPT(responses={"local-llm": "this is not json at all!!!"})
         mc = MicroChain(gpt)  # type: ignore[arg-type]
         result = mc.decide(
             phase="RECON", discovery_board=self.board,
@@ -134,13 +127,13 @@ class TestMicroChain:
         def patched_request(prompt, task_type="", agent_id="", max_tokens=100,
                             model=None, **kw):
             # Stage 1: classify (nano)
-            if model == "gpt-5-nano" and "Classify" in prompt:
+            if model == "local-llm" and "Classify" in prompt:
                 return "recon_gap"
             # Stage 3: scoring (mini) — return low scores to trigger escalation
-            if model == "gpt-5.2-mini" and ("Score" in prompt or "phase_fit" in prompt):
+            if model == "local-llm" and ("Score" in prompt or "phase_fit" in prompt):
                 return low_scores
             # Escalation: "scored poorly" prompt (codex) — return valid single object
-            if model == "gpt-5.2-codex" and "scored poorly" in prompt:
+            if model == "local-llm" and "scored poorly" in prompt:
                 return json.dumps({
                     "command": "nmap -A -T4 10.10.10.1",
                     "template_name": "nmap_aggressive",
@@ -172,17 +165,17 @@ class TestMicroChain:
         def custom_request(prompt, task_type="", agent_id="", max_tokens=100,
                            model=None, **kw):
             call_count[0] += 1
-            if model == "gpt-5-nano":
+            # Stage 1: classification → return situation label
+            if task_type == "classification" and "Classify" in prompt:
                 return "recon_gap"
-            if model == "gpt-5.2-codex":
-                # Generation prompts → return valid candidates
+            # Stage 2: generation → return valid candidates
+            if task_type == "analysis" and "JSON array" in prompt:
                 return json.dumps([
                     {"command": "nmap -sV 10.10.10.1", "template_name": "nmap", "reasoning": "scan"},
                 ])
-            if model == "gpt-5.2-mini":
-                # Scoring prompts → return invalid JSON to trigger heuristic
-                if "Score" in prompt or "score" in prompt or "phase_fit" in prompt:
-                    return "NOT VALID JSON AT ALL"
+            # Stage 3: scoring → return invalid JSON to trigger heuristic
+            if task_type == "classification" and ("phase_fit" in prompt or "score" in prompt or "Score" in prompt):
+                return "NOT VALID JSON AT ALL"
             return "{}"
 
         gpt = _StubGPT()

@@ -39,8 +39,8 @@ class LLMRole(Enum):
 @dataclass
 class RoleConfig:
     """Configuration for an LLM role."""
-    model: str = "gpt-5-mini"
-    fallback_model: str = "gpt-5.2-mini"
+    model: str = "local-llm"
+    fallback_model: str = "local-llm"
     max_calls_per_episode: int = 5
     temperature: float = 0.3
     max_tokens: int = 500
@@ -257,7 +257,7 @@ class PostmortemSkillExtractor(BaseLLMRole):
             flag_name="llm_postmortem_skills",
             gpt_manager=gpt_manager,
             config=config or RoleConfig(
-                model="gpt-5.2", max_calls_per_episode=1, temperature=0.3, max_tokens=1000
+                model="local-llm", max_calls_per_episode=1, temperature=0.3, max_tokens=1000
             ),
         )
 

@@ -5,7 +5,7 @@ core/execution/llm_output_interpreter.py — Phase 13.0: GPT-Primary Output Inte
 Replaces hardcoded regex-heavy output parsing with LLM-based interpretation
 that teaches agents to reason about command output:
 
-  Primary:  gpt-5.2-codex — deep reasoning, autonomous interpretation, high-quality discovery extraction
+  Primary:  local-llm — deep reasoning, autonomous interpretation, high-quality discovery extraction
   Validator: Venice qwen3-coder-480b — pre-filters trivial output, validates high-value GPT findings
 
 Phase 13.0 reversal: GPT is now the PRIMARY interpreter for maximum reasoning quality.
@@ -36,7 +36,7 @@ logger = logging.getLogger("ariaska.llm_output_interpreter")
 
 # ── Model configuration ─────────────────────────────────────────────
 VENICE_INTERPRETER_MODEL = "qwen3-coder-480b-a35b-instruct"  # Primary: Venice qwen3-coder
-GPT_FALLBACK_MODEL = "gpt-5.2-codex"              # Phase 11.5: Fallback: gpt-5.2-codex (was gpt-5.2-mini)
+GPT_FALLBACK_MODEL = "local-llm"              # Phase 11.5: Fallback: local-llm (was local-llm)
 
 
 @dataclass
@@ -385,7 +385,7 @@ JSON:"""
         command: str,
         agent_name: str,
     ) -> Optional[InterpretationLesson]:
-        """Fallback to gpt-5.2-codex when Venice is unavailable."""
+        """Fallback to local-llm when Venice is unavailable."""
         if not self._gpt:
             return None
 
@@ -398,7 +398,7 @@ JSON:"""
                 prompt=prompt,
                 task_type="reasoning",
                 agent_id=f"interpreter_{agent_name}",
-                max_tokens=750,  # Phase 11.5: +50% (was 500) for deeper gpt-5.2-codex reasoning
+                max_tokens=750,  # Phase 11.5: +50% (was 500) for deeper local-llm reasoning
                 model=GPT_FALLBACK_MODEL,
             )
 
@@ -413,7 +413,7 @@ JSON:"""
                     self._stats["gpt_fallback_successes"] += 1
                     self._stats["lessons_produced"] += 1
                     logger.debug(
-                        f"[LLM-INTERP] gpt-5.2-codex | {agent_name} | "
+                        f"[LLM-INTERP] local-llm | {agent_name} | "
                         f"found={list(lesson.discoveries.keys())} | "
                         f"{latency_ms:.0f}ms"
                     )

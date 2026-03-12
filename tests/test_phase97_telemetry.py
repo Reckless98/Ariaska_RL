@@ -72,14 +72,14 @@ class TestStepEvent:
             agent="ScoutAgent",
             step=5,
             phase="RECON",
-            llm_calls=[LLMCallRecord(role="mentor", model="gpt-5-mini", tokens_in=100, tokens_out=50)],
+            llm_calls=[LLMCallRecord(role="mentor", model="local-llm", tokens_in=100, tokens_out=50)],
             time_ms=TimingRecord(decide_ms=10, total_ms=25),
         )
         d = ev.to_dict()
         serialized = json.dumps(d)
         parsed = json.loads(serialized)
         assert parsed["agent"] == "ScoutAgent"
-        assert parsed["llm_calls"][0]["model"] == "gpt-5-mini"
+        assert parsed["llm_calls"][0]["model"] == "local-llm"
         assert parsed["time_ms"]["decide"] == 10
 
 
@@ -139,7 +139,7 @@ class TestTimingRecord:
 
 class TestLLMCallRecord:
     def test_to_dict(self):
-        rec = LLMCallRecord(role="tactical", model="gpt-5-nano", tokens_in=200, tokens_out=80, latency_ms=350, cached=True)
+        rec = LLMCallRecord(role="tactical", model="local-llm", tokens_in=200, tokens_out=80, latency_ms=350, cached=True)
         d = rec.to_dict()
         assert d["role"] == "tactical"
         assert d["cached"] is True

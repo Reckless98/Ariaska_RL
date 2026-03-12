@@ -70,19 +70,19 @@ for tag in sorted(VALID_ROI_TAGS):
     print(f"    • {tag}")
 
 # Test budget check with valid model
-decision_ok = bm.check_budget("gpt-5.2-mini", 1000, "classification")
+decision_ok = bm.check_budget("local-llm", 1000, "classification")
 print(f"\n  Budget check (mini, 1K tokens, 'classification'): allowed={decision_ok.allowed}")
 
 # Test budget denial when exceeding
 bm_overflow = BudgetManagerV2(total_budget=100, tier_budgets={"mini": 100})
-decision_denied = bm_overflow.check_budget("gpt-5.2-mini", 200, "tactical_advice")
+decision_denied = bm_overflow.check_budget("local-llm", 200, "tactical_advice")
 print(f"  Budget check (overflow test, 200 > 100): allowed={decision_denied.allowed}, reason={decision_denied.reason}")
 assert not decision_denied.allowed, "Overflow budget should be denied"
 
 # Record spend and verify ROI
-bm.record_spend("gpt-5.2-mini", 500, "classification")
-bm.record_spend("gpt-5.2-mini", 300, "verification")
-bm.record_spend("gpt-5.2-mini", 0, "classification", cache_hit=True)
+bm.record_spend("local-llm", 500, "classification")
+bm.record_spend("local-llm", 300, "verification")
+bm.record_spend("local-llm", 0, "classification", cache_hit=True)
 roi = bm.get_roi_summary()
 print(f"\n  ROI Summary after 3 calls:")
 for tag, stats in roi.items():

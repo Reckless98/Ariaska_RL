@@ -67,7 +67,7 @@ class SmartOrchestratorConfig:
     enable_shadow: bool = True
     
     # Smart mentor settings — Phase 13.0: Maximum GPT reasoning for autonomous learning
-    model: str = "gpt-5.2-codex"  # Phase 12.1: full reasoning model for all mentor/teaching/planning
+    model: str = "local-llm"  # Phase 12.1: full reasoning model for all mentor/teaching/planning
     mentor_mode: str = "adaptive"  # Phase 11.1: adaptive for accelerated learning
     mentor_warmup_episodes: int = 3  # Phase 11.1: extended warmup for deeper learning
     mentor_min_rate: float = 0.92  # Phase 13.0: +3% (was 0.89) — near-saturation mentor guidance
@@ -315,16 +315,16 @@ class SmartOrchestrator:
         except Exception as e:
             logger.debug(f"StepParseCache init skipped: {e}")
         
-        # ─── PHASE 7.1: OrionPostmortem — uses gpt-5.2-codex for deep analysis ──
+        # ─── PHASE 7.1: OrionPostmortem — uses local LLM for deep analysis ──
         self.postmortem = None
         try:
             from core.postmortem.orion_postmortem import OrionPostmortem
             self.postmortem = OrionPostmortem(
                 gpt_manager=gpt_manager,
                 output_dir="postmortems",
-                enable_gpt_5_2=True,  # Phase 7.1: Use gpt-5.2-codex for postmortems
+                enable_advanced_llm=True,  # Phase 55: Use local LLM for postmortems
             )
-            _init_modules.append(("OrionPostmortem", "ok", "gpt-5.2-codex"))
+            _init_modules.append(("OrionPostmortem", "ok", "local-llm"))
         except Exception as e:
             _init_modules.append(("OrionPostmortem", "warn", str(e)[:40]))
         
@@ -2628,7 +2628,7 @@ class SmartOrchestrator:
                     "credentials": ["found"] if self.attack_context.state_flags.get("credentials_known") else [],
                 })
             
-            # ─── Phase 8.2: Orion gpt-5.2-codex strategic reviews (2 per episode) ────
+            # ─── Phase 8.2: Orion local-llm strategic reviews (2 per episode) ────
             # Review 1 at step 10: Initial assessment and kill chain selection
             # Review 2 at step 25: Mid-game strategic adjustment based on progress
             # Dynamic token allocation: more tokens for deeper analysis on LIVE targets
@@ -2723,7 +2723,7 @@ class SmartOrchestrator:
                         task_type="strategic",
                         agent_id="OrionAgent",
                         max_tokens=_max_tokens,
-                        model="gpt-5.2-codex",
+                        model="local-llm",
                     )
                     if _orion_response:
                         _resp_str = str(_orion_response)
@@ -3605,7 +3605,7 @@ class SmartOrchestrator:
         # ─── PHASE 8.2: End-of-episode postmortem analysis ──────────
         # Run OrionPostmortem EVERY episode (Phase 8.2: was every 2).
         # LIVE-only training demands maximum learning extraction per episode.
-        # gpt-5.2-codex deep analysis with team coordination context.
+        # local-llm deep analysis with team coordination context.
         # Only run in LIVE mode — SIM mode skips expensive LLM postmortems.
         # CRITICAL: Entire block runs with a hard 45s timeout to prevent
         # blocking the training loop if GPT or parsing hangs.
@@ -8758,10 +8758,12 @@ class SmartOrchestrator:
                     "live": True,  # Post-Phase 20: always live
                     "mentor_budget": int(self.config.mentor_budget_pct * 100)
                         if hasattr(self.config, 'mentor_budget_pct') else 30,
-                    # Phase 23: GPT model visibility
-                    "gpt_primary": getattr(self.gpt_manager, 'primary_model', '?'),
-                    "gpt_nano": getattr(self.gpt_manager, 'nano_model', '?'),
-                    "gpt_postmortem": getattr(self.gpt_manager, 'postmortem_model', '?'),
+                    # Local LLM model visibility
+                    "llm_brain": "Qwen3.5-9b",
+                    "llm_fast": "Qwen3.5-4b",
+                    "gpt_primary": getattr(self.gpt_manager, 'primary_model', 'local-llm'),
+                    "gpt_nano": getattr(self.gpt_manager, 'nano_model', 'local-llm'),
+                    "gpt_postmortem": getattr(self.gpt_manager, 'postmortem_model', 'local-llm'),
                     "gpt_token_limit": getattr(self.gpt_manager, 'token_limit', 0),
                     "auto_close": "CTF: user.txt + root.txt (immediate)" if self.config.ctf_mode else "CLOSEOUT phase with cleanup",
                 },

@@ -467,7 +467,7 @@ class CoherenceChain:
                 task_type="classification",
                 agent_id="coherence_chain",
                 max_tokens=60,
-                model="gpt-5-nano",
+                model="local-llm",
             )
             self._total_nano_tokens += 60
 
@@ -515,7 +515,7 @@ class CoherenceChain:
                     task_type="playbook",
                     agent_id="coherence_chain",
                     max_tokens=80,
-                    model="gpt-5.2-mini",
+                    model="local-llm",
                 )
                 self._total_mini_tokens += 80
                 if resp and len(resp.strip()) > 10:

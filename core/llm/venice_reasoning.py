@@ -402,23 +402,23 @@ CRITICAL RULES:
             logger.warning(f"Venice reasoning analysis failed: {e}")
             self.gpt_manager.stats_venice["failures"] = self.gpt_manager.stats_venice.get("failures", 0) + 1
             
-            # Phase 11.5: Fallback to gpt-5.2-codex when Venice fails
+            # Phase 11.5: Fallback to local-llm when Venice fails
             try:
-                logger.info(f"[VENICE→CODEX FALLBACK] Attempting gpt-5.2-codex for reasoning analysis")
+                logger.info(f"[VENICE→CODEX FALLBACK] Attempting local-llm for reasoning analysis")
                 fallback_response = self.gpt_manager.gpt_request(
                     prompt=prompt,
                     task_type="reasoning",
                     agent_id="venice_fallback",
                     max_tokens=750,  # Phase 11.5: generous budget for deep reasoning
-                    model="gpt-5.2-codex",
+                    model="local-llm",
                 )
                 if fallback_response:
                     latency_ms = int((time.time() - start_time) * 1000)
                     insight.latency_ms = latency_ms
-                    insight.model_used = "gpt-5.2-codex"
+                    insight.model_used = "local-llm"
                     insight = self._parse_venice_response(fallback_response, insight)
                     insight.reasoning_narrative = (
-                        f"[gpt-5.2-codex fallback] {insight.reasoning_narrative}"
+                        f"[local-llm fallback] {insight.reasoning_narrative}"
                     )
                     logger.info(f"[VENICE→CODEX FALLBACK] Success — discoveries found: {insight.has_discoveries}")
                     self._episode_insights.append(insight)

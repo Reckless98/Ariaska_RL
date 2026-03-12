@@ -31,7 +31,7 @@ services:
       - ./models:/home/ariaska/ARIASKA_RL/models
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GPT_PRIMARY_MODEL=${GPT_PRIMARY_MODEL:-gpt-5.2-codex}
+      - GPT_PRIMARY_MODEL=${GPT_PRIMARY_MODEL:-local-llm}
       - GPT_TOKEN_LIMIT=${GPT_TOKEN_LIMIT:-8000}
       - PYTHONPATH=/home/ariaska/ARIASKA_RL
       - ARIASKA_MODE=live

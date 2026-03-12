@@ -12,7 +12,7 @@ Phase 11.0: Full Visibility upgrade with teaching annotations:
   ─── NEW in v4.0 ───
   • Training start banner with full configuration display
   • Unified algorithm panel (PPO + DDQN + CognitionNode + SIL + RND)
-  • Decision pipeline visualization (4-stage: Playbook → PPO → Registry → GPT)
+  • Decision pipeline visualization (4-stage: Playbook → PPO → Registry → LLM)
   • Per-coach PPO training metrics (policy loss, value loss, entropy sparklines)
   • DDQN macro-intent distribution chart
   • Discovery board heatmap panel
@@ -86,6 +86,9 @@ SOURCE_STYLES = {
     "cognition": ("🧠", "bright_white"),
     "gpt_codex": ("🧠", "bright_green"),
     "gpt_primary": ("🧠", "bright_green"),
+    "local_llm": ("🧠", "bright_cyan"),
+    "qwen_fast": ("⚡", "bright_cyan"),
+    "qwen_brain": ("🧠", "bright_magenta"),
     "arbitrator_ppo": ("🤖", "green"),
     "arbitrato": ("🤖", "green"),
     "regex_fallback": ("🔍", "dim"),
@@ -471,13 +474,13 @@ class LiveDashboard:
             config_lines.append(f"[bold cyan]Auto-Close:[/bold cyan]  [{_ac_style}]{auto_close}[/{_ac_style}]")
         if config.get('mentor_budget'):
             config_lines.append(f"[bold cyan]Mentor:[/bold cyan]      {config.get('mentor_budget')}% budget")
-        # Phase 23: GPT model info
-        if config.get('gpt_primary'):
-            config_lines.append(f"[bold cyan]GPT Model:[/bold cyan]   [bright_green]{config['gpt_primary']}[/bright_green]")
-        if config.get('gpt_nano') and config.get('gpt_nano') != config.get('gpt_primary'):
-            config_lines.append(f"[bold cyan]GPT Nano:[/bold cyan]    [dim]{config['gpt_nano']}[/dim]")
-        if config.get('gpt_postmortem') and config.get('gpt_postmortem') != config.get('gpt_primary'):
-            config_lines.append(f"[bold cyan]GPT Post:[/bold cyan]    [dim]{config['gpt_postmortem']}[/dim]")
+        # Local LLM model info
+        _brain = config.get('llm_brain', config.get('gpt_primary', '?'))
+        _fast = config.get('llm_fast', config.get('gpt_nano', '?'))
+        config_lines.append(f"[bold cyan]LLM Engine:[/bold cyan]  [bold bright_cyan]Local Ollama[/bold bright_cyan]")
+        config_lines.append(f"[bold cyan]🧠 Brain:[/bold cyan]    [bright_magenta]{_brain}[/bright_magenta]")
+        if _fast != _brain:
+            config_lines.append(f"[bold cyan]⚡ Fast:[/bold cyan]     [bright_cyan]{_fast}[/bright_cyan]")
         if config.get('gpt_token_limit'):
             config_lines.append(f"[bold cyan]Token Lim:[/bold cyan]   {config['gpt_token_limit']:,}/episode")
         config_panel = Panel(
@@ -537,20 +540,17 @@ class LiveDashboard:
 
         console.print(algo_table)
 
-        # ── GPT MODEL ROUTING (compact inline — key info already in Config) ──
-        _gpt_primary = config.get('gpt_primary', '?')
-        _gpt_nano = config.get('gpt_nano', '?')
-        _gpt_post = config.get('gpt_postmortem', '?')
+        # ── LOCAL LLM ROUTING (compact inline) ──
+        _brain = config.get('llm_brain', config.get('gpt_primary', '?'))
+        _fast = config.get('llm_fast', config.get('gpt_nano', '?'))
         _tok_lim = config.get('gpt_token_limit', 0)
-        gpt_parts = [f"[bright_green]🧠 {_gpt_primary}[/bright_green]"]
-        if _gpt_nano != _gpt_primary:
-            gpt_parts.append(f"[dim]⚡ {_gpt_nano}[/dim]")
-        if _gpt_post != _gpt_primary:
-            gpt_parts.append(f"[dim]📊 {_gpt_post}[/dim]")
+        llm_parts = [f"[bright_magenta]🧠 Brain: {_brain}[/bright_magenta]"]
+        if _fast != _brain:
+            llm_parts.append(f"[bright_cyan]⚡ Fast: {_fast}[/bright_cyan]")
         if _tok_lim:
-            gpt_parts.append(f"[cyan]📏 {_tok_lim:,} tok/ep[/cyan]")
-        gpt_parts.append("[cyan]💳 per-call tracking[/cyan]")
-        console.print(f"  [bold]GPT Layer:[/bold]  {'  │  '.join(gpt_parts)}")
+            llm_parts.append(f"[cyan]📏 {_tok_lim:,} tok/ep[/cyan]")
+        llm_parts.append("[cyan]💳 per-call tracking[/cyan]")
+        console.print(f"  [bold]LLM Layer:[/bold]  {'  │  '.join(llm_parts)}")
         console.print()
 
         # ── DECISION PIPELINE ────────────────────────────────────────
@@ -561,7 +561,7 @@ class LiveDashboard:
             "[bright_white]━━▶[/bright_white] "
             "[bold blue]📦 REGISTRY[/bold blue] [dim](144+)[/dim] "
             "[bright_white]━━▶[/bright_white] "
-            "[bold yellow]📡 MENTOR[/bold yellow] [dim](GPT)[/dim] "
+            "[bold yellow]📡 MENTOR[/bold yellow] [dim](LLM)[/dim] "
             "[bright_white]━━▶[/bright_white] "
             "[bold red]🔁 ANTI-REPEAT[/bold red]\n"
             "\n"
@@ -713,10 +713,10 @@ class LiveDashboard:
         self,
         bridge_data: Dict[str, Any],
     ) -> Panel:
-        """Build Phase 37 Level 5 GPT↔RL Integration panel.
+        """Build Phase 37 Level 5 LLM↔RL Integration panel.
 
         Shows real-time LLM influence metrics including:
-        - Teacher anneal progress (% detachment from GPT)
+        - Teacher anneal progress (% detachment from LLM mentor)
         - Prior alpha (logit injection weight)
         - Auxiliary losses (KL teacher, ranking, value reg)
         - Maturity signal components
@@ -725,7 +725,7 @@ class LiveDashboard:
             bridge_data: Snapshot from LLMPolicyBridge.get_influence_snapshot()
 
         Returns:
-            Rich Panel with GPT↔RL integration visualization
+            Rich Panel with LLM↔RL integration visualization
         """
         lines = []
 
@@ -789,7 +789,7 @@ class LiveDashboard:
 
         return Panel(
             "\n".join(lines),
-            title="[bold magenta]🧬  GPT↔RL Integration (Level 5)[/bold magenta]",
+            title="[bold magenta]🧬  LLM↔RL Integration (Qwen 3.5)[/bold magenta]",
             border_style="magenta",
             box=box.ROUNDED,
             padding=(0, 2),

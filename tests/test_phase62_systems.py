@@ -568,26 +568,25 @@ class TestMentorController:
     # --- Tier model routing ---
 
     def test_tier_models_mapping(self):
-        """TIER_MODELS maps tiers to correct model names."""
+        """TIER_MODELS maps tiers to correct local model names."""
         from core.training.mentor_controller import TIER_MODELS, MentorTier
-        # Phase 52: reactive + postmortem downgraded to mini for cost optimization;
-        # deliberative stays on codex for deep strategic reasoning
-        assert "5.2" in TIER_MODELS[MentorTier.REACTIVE]
-        assert "mini" in TIER_MODELS[MentorTier.REACTIVE]
-        assert "5.2" in TIER_MODELS[MentorTier.DELIBERATIVE]
-        assert "codex" in TIER_MODELS[MentorTier.DELIBERATIVE]
-        assert "5.2" in TIER_MODELS[MentorTier.POSTMORTEM]
-        assert "mini" in TIER_MODELS[MentorTier.POSTMORTEM]
+        # Phase 55: All local — 4b for reactive/postmortem, 9b for deliberative
+        assert "qwen3.5" in TIER_MODELS[MentorTier.REACTIVE]
+        assert "4b" in TIER_MODELS[MentorTier.REACTIVE]
+        assert "qwen3.5" in TIER_MODELS[MentorTier.DELIBERATIVE]
+        assert "9b" in TIER_MODELS[MentorTier.DELIBERATIVE]
+        assert "qwen3.5" in TIER_MODELS[MentorTier.POSTMORTEM]
+        assert "4b" in TIER_MODELS[MentorTier.POSTMORTEM]
 
     def test_engagement_model_matches_tier(self, mentor_controller):
         """Engagement result has the correct model for the tier."""
         mentor_controller.start_episode(episode=10, max_steps=100)
         mentor_controller.step()
 
-        # Force → deliberative (Phase 8.2: now uses gpt-5.2-codex for deep reasoning)
+        # Force → deliberative (Phase 55: uses 9b local model for deep reasoning)
         eng = mentor_controller.should_engage(force=True)
-        assert "codex" in eng.model
-        assert "5.2" in eng.model  # Phase 8.2: deliberative uses gpt-5.2-codex
+        assert "qwen3.5" in eng.model
+        assert "9b" in eng.model  # Phase 55: deliberative uses 9b
 
     # --- Stats & diagnostics ---
 
@@ -940,7 +939,7 @@ class TestPhase62Integration:
                     decision_source="mentor", phase="EXPLOITATION",
                     command="exploit/vsftpd_234_backdoor",
                     reward=50.0, mentor_call=True,
-                    mentor_model="gpt-5.1-codex",
+                    mentor_model="local-llm",
                     mentor_tier="deliberative",
                 ),
             ],
@@ -960,7 +959,7 @@ class TestPhase62Integration:
         step_data = json.loads(lines[0])
         assert step_data["kind"] == "step"
         assert step_data["episode_num"] == 5
-        assert step_data["agent_records"][0]["mentor_model"] == "gpt-5.1-codex"
+        assert step_data["agent_records"][0]["mentor_model"] == "local-llm"
 
         generic_data = json.loads(lines[1])
         assert generic_data["kind"] == "checkpoint"
@@ -1062,14 +1061,14 @@ class TestPhase62EdgeCases:
             engage=True,
             tier=MentorTier.DELIBERATIVE,
             trigger=MentorTrigger.STAGNATION,
-            model="gpt-5.1-codex",
+            model="local-llm",
             reason="test",
             exfil_guidance=False,
             max_tokens=300,
         )
         assert eng.engage is True
         assert eng.tier == MentorTier.DELIBERATIVE
-        assert eng.model == "gpt-5.1-codex"
+        assert eng.model == "local-llm"
         assert eng.max_tokens == 300
 
     def test_checkpoint_config_defaults(self):

@@ -77,7 +77,7 @@ class MentorFeedback:
     reasoning: str
     reward_modifier: float  # -0.5 to 0.5
     should_explore: bool
-    model_used: str = "gpt-5.2-codex"
+    model_used: str = "local-llm"
 
 
 @dataclass

@@ -214,7 +214,7 @@ class SmartMentor:
         self,
         llm_client: Any,
         learned_store: Optional[LearnedCommandStore] = None,
-        model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model for all mentor calls
+        model: str = "local-llm",  # Phase 12.1: full reasoning model for all mentor calls
         temperature: float = 0.7,
         max_retries: int = 2,
         target_profile: str = "generic",
@@ -714,7 +714,7 @@ After ANY shell, read the flag file FIRST.
         tokens_used = 0
         
         # Detect API compatibility
-        uses_responses_api = "codex" in self.model  # gpt-5.1-codex-mini, gpt-5.1-codex
+        uses_responses_api = "codex" in self.model  # local-llm, local-llm
         uses_new_api = any(x in self.model for x in ["gpt-5", "o1-", "o3-"])
         
         # Call LLM
@@ -1004,7 +1004,7 @@ class DualMentor:
         self,
         gpt_client: Any,
         venice_client: Optional[Any] = None,
-        gpt_model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
+        gpt_model: str = "local-llm",  # Phase 12.1: full reasoning model
         venice_model: str = "qwen3-coder-480b-a35b-instruct",
         learned_store: Optional[LearnedCommandStore] = None,
         strategy: str = "gpt_first",
@@ -1020,7 +1020,7 @@ class DualMentor:
         Args:
             gpt_client: OpenAI client for GPT
             venice_client: OpenAI-compatible client for secondary provider (legacy name)
-            gpt_model: GPT model to use (Phase 12.1: default gpt-5.2-codex)
+            gpt_model: GPT model to use (Phase 12.1: default local-llm)
             venice_model: Secondary model to use (legacy name, default: qwen3-coder)
             learned_store: Store for learned commands
             strategy: Mentor selection strategy
@@ -1309,7 +1309,7 @@ class DualMentor:
 
 def create_smart_mentor(
     llm_client: Any,
-    model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
+    model: str = "local-llm",  # Phase 12.1: full reasoning model
     temperature: float = 0.7
 ) -> SmartMentor:
     """
@@ -1333,7 +1333,7 @@ def create_smart_mentor(
 def create_dual_mentor(
     gpt_client: Any,
     venice_client: Optional[Any] = None,
-    gpt_model: str = "gpt-5.2-codex",  # Phase 12.1: full reasoning model
+    gpt_model: str = "local-llm",  # Phase 12.1: full reasoning model
     venice_model: str = "qwen3-coder-480b-a35b-instruct",
     strategy: str = "gpt_first",
     temperature: float = 0.7,

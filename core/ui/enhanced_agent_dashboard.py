@@ -43,8 +43,8 @@ class ProfessionalAgentDashboard:
                 "next_command": "Analyzing...",
                 "avg_reward": 0.0,
                 "total_reward": 0.0,
-                "gpt_calls": 0,
-                "gpt_dependency": 0.0,  # Percentage
+                "llm_calls": 0,
+                "llm_dependency": 0.0,  # Percentage
                 "memory_updated": False,
                 "learning_active": False,
                 "agent_type": "Rule-based",
@@ -66,11 +66,10 @@ class ProfessionalAgentDashboard:
         step_count = max(1, int(data.get("step_count", 1)))
         avg_reward = self.agent_data[agent_id]["total_reward"] / step_count
         
-        # Calculate GPT dependency
-        gpt_calls = int(data.get("gpt_calls", 0))
-        total_actions = max(1, step_count)
-        gpt_dependency = (gpt_calls / total_actions) * 100
-        
+        # Calculate LLM dependency
+        llm_calls = int(data.get("llm_calls", 0))
+        total_actions = int(data.get("actions_taken", 0))
+        llm_dependency = (llm_calls / total_actions) * 100 if total_actions > 0 else 0.0   
         # Update essential metrics only
         self.agent_data[agent_id].update({
             "command": str(data.get("action", "No action"))[:50],
@@ -78,8 +77,8 @@ class ProfessionalAgentDashboard:
             "output": str(data.get("output", "No output"))[:40],
             "next_command": str(data.get("next_step", "Analyzing..."))[:35],
             "avg_reward": avg_reward,
-            "gpt_calls": gpt_calls,
-            "gpt_dependency": gpt_dependency,
+            "llm_calls": llm_calls,
+            "llm_dependency": llm_dependency,
             "memory_updated": bool(data.get("memory_updated", False)),
             "learning_active": bool(data.get("learning_active", False)),
             "agent_type": str(data.get("agent_type", "Rule-based")),
@@ -115,8 +114,8 @@ class ProfessionalAgentDashboard:
         table.add_row("Next Command", red_data.get("next_command", "N/A"), "")
         table.add_row("Avg Reward", f"{red_data.get('avg_reward', 0):.2f}", "")
         table.add_row("Total Reward", f"{red_data.get('total_reward', 0):.1f}", "")
-        table.add_row("GPT Calls", str(red_data.get("gpt_calls", 0)), "")
-        table.add_row("GPT Dependency", f"{red_data.get('gpt_dependency', 0):.1f}%", "")
+        table.add_row("LLM Calls", str(red_data.get("llm_calls", 0)), "")
+        table.add_row("LLM Dependency", f"{red_data.get('llm_dependency', 0):.1f}%", "")
         table.add_row("Memory Updated", "Yes" if red_data.get("memory_updated") else "No", memory_icon)
         table.add_row("Learning Active", "Yes" if red_data.get("learning_active") else "No", learning_icon)
         table.add_row("Neural Loss", f"{red_data.get('neural_loss', 0):.4f}", "")
@@ -143,7 +142,7 @@ class ProfessionalAgentDashboard:
         
         table.add_row("Action", agent_data.get("command", "N/A")[:25])
         table.add_row("Reward", f"{agent_data.get('avg_reward', 0):.1f}")
-        table.add_row("GPT Calls", str(agent_data.get("gpt_calls", 0)))
+        table.add_row("LLM Calls", str(agent_data.get("llm_calls", 0)))
         table.add_row("Type", agent_data.get("agent_type", "Rule-based")[:15])
         table.add_row("Status", "🟢" if agent_data.get("status") == "ACTIVE" else "🔴")
         
@@ -164,15 +163,15 @@ class ProfessionalAgentDashboard:
         total_rewards = sum(agent.get("total_reward", 0) for agent in self.agent_data.values())
         avg_system_reward = total_rewards / max(1, total_agents)
         
-        total_gpt_calls = sum(agent.get("gpt_calls", 0) for agent in self.agent_data.values())
-        avg_gpt_dependency = sum(agent.get("gpt_dependency", 0) for agent in self.agent_data.values()) / max(1, total_agents)
+        total_llm_calls = sum(agent.get("llm_calls", 0) for agent in self.agent_data.values())
+        avg_llm_dependency = sum(agent.get("llm_dependency", 0) for agent in self.agent_data.values()) / max(1, total_agents)
         
         table.add_row("Episode", f"{self.system_metrics.get('current_episode', 0)}/{self.system_metrics.get('total_episodes', 0)}", "")
         table.add_row("Active Agents", f"{active_agents}/{total_agents}", "✅" if active_agents > 0 else "❌")
         table.add_row("System Reward", f"{total_rewards:.1f}", "")
         table.add_row("Avg Reward", f"{avg_system_reward:.2f}", "")
-        table.add_row("Total GPT Calls", str(total_gpt_calls), "")
-        table.add_row("Avg GPT Depend.", f"{avg_gpt_dependency:.1f}%", "")
+        table.add_row("Total LLM Calls", str(total_llm_calls), "")
+        table.add_row("Avg LLM Depend.", f"{avg_llm_dependency:.1f}%", "")
         table.add_row("GPU Usage", f"{self.system_metrics.get('gpu_utilization', 0):.1f}%", "🚀" if self.system_metrics.get('gpu_utilization', 0) > 0 else "💻")
         table.add_row("Training", "Active" if self.system_metrics.get('training_active') else "Idle", "🟢" if self.system_metrics.get('training_active') else "🔴")
         
@@ -290,10 +289,10 @@ if __name__ == "__main__":
         "next_step": "exploit ssh vulnerability",
         "reward": 15.5,
         "step_count": 25,
-        "gpt_calls": 8,
-        "memory_updated": True,
-        "learning_active": True,
-        "agent_type": "Neural + GPT",
+        "llm_calls": 8,
+        "actions_taken": 24,
+        "success_rate": 65.5,
+        "agent_type": "Neural + LLM",
         "neural_loss": 0.0234,
         "confidence": 0.87
     })
@@ -303,7 +302,7 @@ if __name__ == "__main__":
         "action": "monitor network traffic",
         "reward": 8.2,
         "step_count": 22,
-        "gpt_calls": 3,
+        "llm_calls": 3,
         "agent_type": "Deep Q-Network"
     })
     

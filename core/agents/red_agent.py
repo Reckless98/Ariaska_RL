@@ -78,8 +78,8 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
     """
 
     # --- Configurable constants ---
-    GPT_PRIMARY_MODEL = "gpt-5.2-codex"  # ✅ Phase 5.1: Primary model
-    GPT_FALLBACK_MODEL = "gpt-5.2-mini"  # ✅ Fallback when primary unavailable (Phase 23: no gpt-4)
+    GPT_PRIMARY_MODEL = "local-llm"  # ✅ Phase 5.1: Primary model
+    GPT_FALLBACK_MODEL = "local-llm"  # ✅ Fallback when primary unavailable (Phase 23: no gpt-4)
     GPT_TOKEN_LIMIT = 3000  # ✅ Conservative limit from .env
     epsilon_min = 0.02  # ✅ Minimum exploration
     entropy_beta = 0.01
@@ -476,7 +476,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                     alternative_command = self.gpt_manager.gpt_request(
                         diversity_prompt, 
                         task_type="diversify",
-                        model="gpt-5.2-codex",  # Phase 38: upgraded from codex-mini
+                        model="local-llm",  # Phase 38: upgraded from codex-mini
                     )
                     
                     if alternative_command and isinstance(alternative_command, str) and len(alternative_command.split()) > 2:
@@ -526,7 +526,7 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
                 
             # Reasoning/explanation — Phase 38 C1: downgrade to nano (non-decision explanatory call)
             reason_prompt = f"Explain in one sentence why '{command}' is optimal for phase '{phase}'."
-            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="gpt-5-nano")
+            gpt_reason = self.gpt_manager.gpt_request(reason_prompt, task_type="reasoning", model="local-llm")
             
             if not gpt_reason or not isinstance(gpt_reason, str) or len(gpt_reason) < 5:
                 gpt_reason = f"Fallback reason for {command} in {phase}."
@@ -1484,7 +1484,7 @@ You are a cybersecurity RL agent coach. Analyze the following RedAgent steps and
 - Suggest one new strategy for the next episode.
 Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": "..."}}
 """
-        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="gpt-5.2-codex")
+        gpt_feedback = self.gpt_manager.gpt_request(prompt, task_type="reflection", model="local-llm")
         
         # Phase 38 B4: Parse reflection JSON and store for next episode's context
         if gpt_feedback and isinstance(gpt_feedback, str):
@@ -1919,11 +1919,11 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                                 self.gpt_manager.gpt_request,
                                 recommendation_prompt, 
                                 task_type="recommendations",
-                                model="gpt-5.2-codex"
+                                model="local-llm"
                             )
                             try:
-                                # Wait up to 5 seconds for GPT response
-                                gpt_response = future.result(timeout=5.0)
+                                # Wait up to 600 seconds for local LLM response
+                                gpt_response = future.result(timeout=600.0)
                                 
                                 # Parse the GPT response into recommendations
                                 import json
@@ -2008,11 +2008,11 @@ Respond in JSON: {{"improvements": [...], "reinforce": [...], "new_strategy": ".
                         self.gpt_manager.gpt_request,
                         f"Explain in one sentence what the command '{command}' does and what its output shows.", 
                         task_type="reasoning",
-                        model="gpt-5.2-codex"
+                        model="local-llm"
                     )
                     try:
-                        # Wait up to 3 seconds for GPT response
-                        gpt_reason = future.result(timeout=3.0)
+                        # Wait up to 600 seconds for local LLM response
+                        gpt_reason = future.result(timeout=600.0)
                     except concurrent.futures.TimeoutError:
                         gpt_reason = f"Manual command execution: {command}"
             except Exception:

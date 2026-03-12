@@ -206,7 +206,7 @@ class TestPhaseGuidedLLM:
         )
         assert result is not None
         # With stagnation >= 8, should use codex
-        assert any(c["model"] == "gpt-5.2-codex" for c in gpt._calls)
+        assert any(c["model"] == "local-llm" for c in gpt._calls)
 
     def test_escalation_on_contradictions(self):
         from core.llm.phase_guided_llm import PhaseGuidedLLM
@@ -220,7 +220,7 @@ class TestPhaseGuidedLLM:
             available_templates=self.templates,
         )
         assert result is not None
-        assert any(c["model"] == "gpt-5.2-codex" for c in gpt._calls)
+        assert any(c["model"] == "local-llm" for c in gpt._calls)
 
     def test_escalation_on_low_confidence(self):
         """Phase 38 D1: Post-parse escalation removed (model always codex).
@@ -238,7 +238,7 @@ class TestPhaseGuidedLLM:
         assert result is not None
         # Phase 38 D1: Only 1 call — model is always codex, no post-parse re-run
         assert len(gpt._calls) == 1
-        assert gpt._calls[0]["model"] == "gpt-5.2-codex"
+        assert gpt._calls[0]["model"] == "local-llm"
 
     def test_candidates_capped(self):
         from core.llm.phase_guided_llm import PhaseGuidedLLM, _MAX_CANDIDATES

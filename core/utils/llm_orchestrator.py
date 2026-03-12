@@ -52,14 +52,14 @@ class LLMOrchestrator:
         self._load_cache()
         self._init_gpt_manager()
         
-        logger.debug("LLM Orchestrator (GPT-4o-mini only) initialized")
+        logger.debug("LLM Orchestrator (local-llm) initialized")
     
     def _init_gpt_manager(self):
         """Initialize GPT-4o-mini manager."""
         try:
             from core.gpt_manager import GPTManager
             self.gpt_manager = GPTManager.get_instance()
-            logger.debug("GPT-4o-mini manager initialized")
+            logger.debug("local-llm manager initialized")
         except Exception as e:
             logger.error(f"X Failed to initialize GPT manager: {e}")
             self.gpt_manager = None
@@ -131,7 +131,7 @@ class LLMOrchestrator:
         if not self.gpt_manager:
             self.stats["errors"] += 1
             return {
-                "content": "Error: GPT-4o-mini not available",
+                "content": "Error: local-llm not available",
                 "success": False,
                 "model": "none",
                 "tokens": 0,
@@ -191,7 +191,7 @@ class LLMOrchestrator:
                 return {
                     "content": response,
                     "success": True,
-                    "model": "gpt-5.2-codex",
+                    "model": "local-llm",
                     "tokens": tokens,
                     "response_time": response_time,
                     "cached": False

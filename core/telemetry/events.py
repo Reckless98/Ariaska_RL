@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 class LLMCallRecord:
     """One LLM API call within a step."""
     role: str = ""            # "mentor", "tactical", "strategic", "parser", etc.
-    model: str = ""           # "gpt-5-mini", "gpt-5-nano", etc.
+    model: str = ""           # "local-llm", "local-llm", etc.
     tokens_in: int = 0
     tokens_out: int = 0
     latency_ms: int = 0

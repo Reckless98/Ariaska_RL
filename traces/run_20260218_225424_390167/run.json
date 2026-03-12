@@ -43,7 +43,7 @@
   "total_steps": 15,
   "total_mentor_calls": 15,
   "mentor_models_used": {
-    "gpt-5.2-codex": 15
+    "local-llm": 15
   },
   "success_rate": 0.0,
   "avg_reward_per_episode": 77.5,

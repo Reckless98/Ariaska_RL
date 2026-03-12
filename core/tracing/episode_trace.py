@@ -60,7 +60,7 @@ class StepTrace:
     
     # Mentor/GPT information
     mentor_call: bool = False
-    model_used: Optional[str] = None  # "gpt-5.2-codex", None if no mentor
+    model_used: Optional[str] = None  # "local-llm", None if no mentor
     
     # Outcome
     reward: Optional[float] = None
@@ -677,7 +677,7 @@ if __name__ == "__main__":
                 chosen_action="nmap -sV 10.10.10.10",
                 reward=10.0 if step == 4 else 1.0,
                 mentor_call=step == 0,
-                model_used="gpt-5.2-codex" if step == 0 else None,
+                model_used="local-llm" if step == 0 else None,
                 confidence=0.5 + (step * 0.1)
             ))
         

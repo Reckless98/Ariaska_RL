@@ -291,11 +291,19 @@ class FeatureFlags:
 
     # ── Phase 43: GPU Acceleration + Local LLM ─────────────────
     local_llm: bool = field(
-        default_factory=lambda: _env_bool("FF_LOCAL_LLM", False))  # Auto-detected at startup
+        default_factory=lambda: _env_bool("FF_LOCAL_LLM", True))  # Auto-detected at startup
     local_llm_offload_nano: bool = field(
         default_factory=lambda: _env_bool("FF_LOCAL_LLM_OFFLOAD_NANO", True))
     local_llm_offload_mini: bool = field(
         default_factory=lambda: _env_bool("FF_LOCAL_LLM_OFFLOAD_MINI", True))
+
+    # ── Phase 44: Full-Local LLM Mode ──────────────────────────────
+    local_llm_offload_all: bool = field(
+        default_factory=lambda: _env_bool('FF_LOCAL_LLM_OFFLOAD_ALL', True))
+    hf_provider: bool = field(
+        default_factory=lambda: _env_bool('FF_HF_PROVIDER', False))
+    openai_optional: bool = field(
+        default_factory=lambda: _env_bool('FF_OPENAI_OPTIONAL', True))
 
     # ── Phase 42: Deep Wiring + HTB Evolution ──────────────────────
     her_wiring: bool = field(
@@ -399,11 +407,14 @@ def resolve_profile() -> str:
     )
 
     has_api_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    has_local_llm = bool(os.environ.get('FF_LOCAL_LLM', '').strip().lower() in ('1', 'true', 'yes', 'on'))
 
     if is_pytest:
         profile = "DETERMINISTIC"
     elif has_api_key:
         profile = "CLOUD"
+    elif has_local_llm:
+        profile = "LOCAL"
     else:
         profile = "OFFLINE"
 
@@ -416,7 +427,7 @@ def resolve_profile() -> str:
     ]
 
     with _lock:
-        if profile == "CLOUD":
+        if profile in ("CLOUD", "LOCAL"):
             for flag in llm_flags:
                 if not _env_bool(f"FF_{flag.upper()}", True):
                     # Explicit env override says OFF — respect it

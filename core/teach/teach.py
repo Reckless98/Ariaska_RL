@@ -111,7 +111,7 @@ class TeachModule:
         # Use LLMRouter for async LLM call
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
-            None, lambda: self.llm_router.route_task("teach_action_parsing", prompt, model="gpt-5.2-codex")
+            None, lambda: self.llm_router.route_task("teach_action_parsing", prompt, model="local-llm")
         )
         with self._cache_lock:
             self._cache[cache_key] = response

@@ -1,6 +1,6 @@
 # core/gpt_manager.py — ARIASKA GPTManager v6.0 (GPT-5.2-codex + Mini + Nano)
 # Centralized LLM Gateway: Role-Based Routing, Cross-Platform, Learning-Enhanced
-# Models: gpt-5.2-codex (primary), gpt-5.2-mini (parsing/fallback), gpt-5-nano (lightweight)
+# Models: local-llm (primary), local-llm (parsing/fallback), local-llm (lightweight)
 
 import os
 import logging
@@ -45,6 +45,9 @@ try:
     console = Console()
 except ImportError:
     console = None
+
+from core.llm.llm_provider import LLMProvider, LLMResponse, OpenAIProvider, LocalServerProvider
+from core.llm.hf_provider import HFProvider
 
 logger = logging.getLogger(__name__)
 
@@ -154,9 +157,9 @@ class GPTManager:
     Centralized LLM manager for all agents with role-based model routing.
     
     Model Routing (Phase 36 — codex-primary):
-    - gpt-5.2-codex: All reasoning — strategic, tactical, analysis, defensive, recon, postmortem
-    - gpt-5.2-mini: Parsing, output interpretation, playbook selection, structured extraction
-    - gpt-5-nano: Lightweight classification, reformatting, boolean checks
+    - local-llm: All reasoning — strategic, tactical, analysis, defensive, recon, postmortem
+    - local-llm: Parsing, output interpretation, playbook selection, structured extraction
+    - local-llm: Lightweight classification, reformatting, boolean checks
     
     Features:
     - Role-based automatic routing
@@ -166,44 +169,41 @@ class GPTManager:
     - Strict mode: fail fast if API key missing
     """
     
-    # Model configuration — Phase 12.1: All reasoning tasks → gpt-5.2-codex
+    # Model configuration — Phase 12.1: All reasoning tasks → local-llm
     # ── Model routing constants (Phase 38: centralized, no hardcoded strings) ──
-    MODEL_CODEX = "gpt-5.2-codex"       # Primary decision model
-    MODEL_MINI  = "gpt-5.2-mini"        # Free-text / fallback
-    MODEL_NANO  = "gpt-5-nano"          # Classification / lightweight parse
+    MODEL_CODEX = "local-llm"       # Primary decision model
+    MODEL_MINI  = "local-llm"        # Free-text / fallback
+    MODEL_NANO  = "local-llm"          # Classification / lightweight parse
 
     # This map is kept for test compatibility. Actual routing is in get_model_for_role().
     MODEL_MAP = {
-        # All agents use gpt-5.2-codex for reasoning/mentor tasks
-        "red": "gpt-5.2-codex",
-        "orion": "gpt-5.2-codex",
-        "scout": "gpt-5.2-codex",
-        "shadow": "gpt-5.2-codex",
-        "blue": "gpt-5.2-codex",
+        # All agents use local-llm for reasoning/mentor tasks
+        "red": "local-llm",
+        "orion": "local-llm",
+        "scout": "local-llm",
+        "shadow": "local-llm",
+        "blue": "local-llm",
         # Task-based routing
-        "tactical": "gpt-5.2-codex",
-        "strategic": "gpt-5.2-codex",
-        "reasoning": "gpt-5.2-codex",
-        "analysis": "gpt-5.2-codex",
-        "classification": "gpt-5.2-codex",   # Phase 38: upgraded from codex-mini
-        "embedding": "gpt-5.2-codex",         # Phase 38: upgraded from codex-mini
-        "postmortem": "gpt-5.2-codex",
+        "tactical": "local-llm",
+        "strategic": "local-llm",
+        "reasoning": "local-llm",
+        "analysis": "local-llm",
+        "classification": "local-llm",   # Phase 38: upgraded from codex-mini
+        "embedding": "local-llm",         # Phase 38: upgraded from codex-mini
+        "postmortem": "local-llm",
         # Fallbacks
-        "general": "gpt-5.2-mini",
-        "default": "gpt-5.2-mini",
+        "general": "local-llm",
+        "default": "local-llm",
     }
     
-    FALLBACK_MODEL = "gpt-5.2-mini"  # Universal fallback (Phase 23: no gpt-4)
+    FALLBACK_MODEL = "local-llm"  # Universal fallback (Phase 23: no gpt-4)
 
     # Cost per 1K tokens (USD) — approximate, input+output blended average
     COST_PER_1K_TOKENS: Dict[str, float] = {
-        "gpt-5-nano": 0.00010,
-        "gpt-5-mini": 0.00040,
-        "gpt-5.2-mini": 0.00060,
-        "gpt-5.1-codex-mini": 0.00150,   # Legacy — kept for cost tracking
-        "gpt-5.1-codex": 0.00600,
-        "gpt-5.2-codex": 0.01000,
-        "gpt-5.2": 0.01000,
+        "local-llm": 0.00010,
+        "qwen2.5:7b": 0.00,
+        "qwen2.5-coder:3b": 0.00,
+        "local": 0.00,
         # Venice AI models
         "qwen3-coder-480b-a35b-instruct": 0.000315,
     }
@@ -236,20 +236,19 @@ class GPTManager:
         
         # Lazy init: don't require API key or openai package at construction
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self._client = None  # Lazy-initialized OpenAI sync client
-        self._async_client = None  # Lazy-initialized OpenAI async client
+        self._providers = {}  # Lazy-initialized provider cache
         
-        # ── Phase 43: Local LLM integration (replaces Venice) ────────
-        self._local_llm_provider = None  # Lazy-initialized
-        self._local_client = None        # OpenAI-compatible client for local model
+        # ── Lazy-initialized clients ────────
+        self._client = None              # OpenAI sync client
+        self._async_client = None        # OpenAI async client
+        self._venice_client = None       # Venice sync client
+        self._venice_async_client = None # Venice async client
+        self._local_client = None        # Local LLM client
+        
+        # ── Phase 43/44: Local LLM integration ────────
+        self._local_llm_provider = None  # Lazy-initialized (LocalServerProvider wrapper)
+        self._local_llm_enabled = False  # Set True by _detect_local_llm()
         self._model_router = None        # Lazy-initialized ModelRouter
-        
-        # Legacy Venice compat (now maps to local LLM)
-        self.venice_api_key = os.getenv("VENICE_API_KEY")  # Legacy — ignored if local LLM active
-        self.venice_base_url = "https://api.venice.ai/api/v1"  # Legacy
-        self._venice_client = None
-        self._venice_async_client = None
-        self.venice_model = os.getenv("VENICE_MODEL", "qwen3-coder-480b-a35b-instruct")
         
         # Dual-mentor strategy settings
         self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
@@ -257,33 +256,26 @@ class GPTManager:
         self._mentor_call_count = 0  # For round-robin
         
         # Strict mode validation
-        if self._enable_llm and self._require_llm and not self.api_key:
+        if self._enable_llm and self._require_llm and not self.api_key and not self._local_llm_enabled:
             raise RuntimeError(
-                "GPTManager: require_llm=True but OPENAI_API_KEY not set. "
-                "Set the environment variable or use offline mode."
+                "GPTManager: require_llm=True but no API key and no local LLM. "
+                "Set OPENAI_API_KEY, enable FF_LOCAL_LLM, or use offline mode."
             )
         
-        # Model configuration from environment or defaults
-        self.primary_model = os.getenv("GPT_PRIMARY_MODEL", "gpt-5.2-codex")
-        self.fallback_model = os.getenv("GPT_FALLBACK_MODEL", "gpt-5.2-mini")
-        self.nano_model = os.getenv("GPT_NANO_MODEL", "gpt-5-nano")
-        self.postmortem_model = os.getenv("GPT_POSTMORTEM_MODEL", "gpt-5.2-codex")
-        self.strategic_model = os.getenv("GPT_STRATEGIC_MODEL", "gpt-5.2-codex")
+        # Model configuration — Local LLM (Qwen 3.5 Uncensored)
+        self.primary_model = os.getenv("LLM_PRIMARY_MODEL", "local-llm")
+        self.fallback_model = os.getenv("LLM_FALLBACK_MODEL", "local-llm")
+        self.nano_model = os.getenv("LLM_NANO_MODEL", "local-llm")
+        self.postmortem_model = os.getenv("LLM_POSTMORTEM_MODEL", "local-llm")
+        self.strategic_model = os.getenv("LLM_STRATEGIC_MODEL", "local-llm")
         
         # Feature flags
         self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
         
-        # Venice (secondary provider)
-        self.venice_enabled = bool(self.venice_api_key) and self.enable_dual_mentor
-        self.stats_venice = {
-            "total_requests": 0,
-            "successes": 0,
-            "failures": 0,
-            "tokens_used": 0
-        }
+        # Phase 44: HF Provider opt-in
+        self._hf_enabled = os.getenv("FF_HF_PROVIDER", "0").lower() in ("1", "true", "yes", "on")
         
         # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + GPU model present)
-        self._local_llm_enabled = False
         self._detect_local_llm()  # Sets _local_llm_enabled=True only when FF_LOCAL_LLM=1 + server live
         self.stats_local_llm = {
             "total_requests": 0,
@@ -368,14 +360,15 @@ class GPTManager:
             elif self.venice_enabled:
                 logger.debug(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
         else:
-            logger.warning("GPTManager: OPENAI_API_KEY not set. LLM calls disabled until configured.")
+            logger.warning("GPTManager: No API key and no local LLM. Calls disabled.")
     
     def is_configured(self) -> bool:
-        """Check if API key is available for LLM calls."""
-        return bool(self.api_key) and self._enable_llm and not self._offline
+        """Check if an LLM backend (OpenAI or Local) is available."""
+        has_backend = bool(self.api_key) or self._local_llm_enabled
+        return has_backend and self._enable_llm and not self._offline
     
     def _detect_local_llm(self) -> bool:
-        """Check if local LLM should be activated (Phase 43).
+        """Check if local LLM should be activated and detect hardware routing (Phase 43/44).
         
         Returns True if local LLM is available and feature flag is on.
         """
@@ -388,12 +381,30 @@ class GPTManager:
             if os.getenv("FF_LOCAL_LLM", "0").lower() not in ("1", "true", "yes", "on"):
                 return False
         
+        # Phase 44: Hardware auto-detection for CPU fallback
+        from core.llm.model_manager import detect_hardware
+        hw_info = detect_hardware()
+        
+        if not hw_info["has_gpu"]:
+            try:
+                from core.llm.ollama_provider import OllamaProvider
+                provider = OllamaProvider()
+                if provider.is_available():
+                    self._local_llm_provider = provider
+                    self._local_llm_enabled = True
+                    logger.info("Auto-detected CPU: activated Ollama local LLM fallback.")
+                    return True
+            except Exception as e:
+                logger.debug(f"Ollama detection failed: {e}")
+        
+        # GPU / existing fallback
         try:
             from core.llm.local_llm_provider import get_local_llm_provider
             provider = get_local_llm_provider()
             if provider.is_available():
                 self._local_llm_provider = provider
                 self._local_llm_enabled = True
+                logger.info("Auto-detected GPU: activated vLLM/llama-cpp local LLM.")
                 return True
         except Exception as e:
             logger.debug(f"Local LLM detection failed: {e}")
@@ -403,6 +414,8 @@ class GPTManager:
     def _get_model_router(self):
         """Get or create the model router (lazy init)."""
         if self._model_router is None:
+            from core.feature_flags import get_feature_flags
+            ff = get_feature_flags()
             from core.llm.model_router import ModelRouter
             self._model_router = ModelRouter(
                 local_available=self._local_llm_enabled,
@@ -410,6 +423,9 @@ class GPTManager:
                     self._local_llm_provider.get_model_name()
                     if self._local_llm_provider else ""
                 ),
+                offload_nano=ff.local_llm_offload_nano,
+                offload_mini=ff.local_llm_offload_mini,
+                offload_all=ff.local_llm_offload_all,
             )
         return self._model_router
     
@@ -417,7 +433,7 @@ class GPTManager:
     def local_client(self):
         """Get the local LLM client (OpenAI-compatible)."""
         if self._local_client is None and self._local_llm_provider:
-            self._local_client = self._local_llm_provider.get_client()
+            self._local_client = getattr(self._local_llm_provider, "get_client", lambda: None)()
         return self._local_client
     
     def has_local_llm(self) -> bool:
@@ -426,7 +442,7 @@ class GPTManager:
     
     def is_offline(self) -> bool:
         """Check if running in offline mode."""
-        return self._offline or not self._enable_llm or not self.api_key
+        return self._offline or not self._enable_llm or (not self.api_key and not self._local_llm_enabled)
     
     def request(
         self,
@@ -752,15 +768,15 @@ class GPTManager:
         """
         Get appropriate model based on 3-tier cost-optimized routing.
         
-        Tier 1 — NANO (gpt-5-nano, $0.0001/1K tokens):
+        Tier 1 — NANO (local-llm, $0.0001/1K tokens):
             Simple classification, output reformatting, cache key generation,
             boolean checks, template selection.
             
-        Tier 2 — MINI (gpt-5.2-mini, $0.0006/1K tokens):
+        Tier 2 — MINI (local-llm, $0.0006/1K tokens):
             Command parsing, tactical decisions, playbook selection,
             defensive analysis, reconnaissance planning, output interpretation.
             
-        Tier 3 — CODEX (gpt-5.2-codex, $0.01/1K tokens):
+        Tier 3 — CODEX (local-llm, $0.01/1K tokens):
             Strategic reasoning, exploit chain planning, postmortem analysis,
             deep learning/teaching, diversification.
         
@@ -780,7 +796,7 @@ class GPTManager:
             "tactical", "analysis",  # Core reasoning stays at codex
         }
         if task_type in _codex_tasks:
-            return self.strategic_model  # gpt-5.2-codex
+            return self.strategic_model  # local-llm
         
         # Tier 2 — MINI: Parsing, output interpretation, playbook selection, recon, defense
         _mini_tasks = {
@@ -788,11 +804,11 @@ class GPTManager:
             "defensive", "reconnaissance",  # Phase 36.1: moved from codex (cost-efficient)
         }
         if task_type in _mini_tasks:
-            return self.fallback_model  # gpt-5.2-mini — structured extraction tier
+            return self.fallback_model  # local-llm — structured extraction tier
         
         # Tier 1 — NANO: Simple classification, reformatting, checks
         # "general", "classification", "reformat", "cache", None, or unknown
-        return self.nano_model  # gpt-5-nano
+        return self.nano_model  # local-llm
     
     def get_model_for_task(self, task_type: str) -> str:
         """
@@ -1130,67 +1146,58 @@ class GPTManager:
             import concurrent.futures
             import signal
             
-            # Determine API endpoint: codex models use Responses API, others use Chat Completions
-            uses_responses_api = ("codex" in model) and not _use_local  # Local never uses Responses API
-            uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"]) and not _use_local
-            token_param = "max_completion_tokens" if uses_new_api else "max_tokens"
+            # Determine API endpoint provider
+            def _get_provider():
+                if self._hf_enabled:
+                    if "hf" not in self._providers:
+                        from core.llm.hf_provider import HFProvider
+                        self._providers["hf"] = HFProvider()
+                    return self._providers["hf"], "hf_native"
+                elif _use_local and self._local_llm_provider:
+                    if "local" not in self._providers:
+                        # Check if we already have a direct LLMProvider (e.g., Ollama)
+                        if getattr(self._local_llm_provider, "get_provider_name", lambda: "")() == "ollama":
+                            self._providers["local"] = self._local_llm_provider
+                        else:
+                            from core.llm.llm_provider import LocalServerProvider
+                            self._providers["local"] = LocalServerProvider()
+                    # Phase 55: Pass the routed model from ModelRouter (task-aware)
+                    # instead of the provider's default_model (always the same).
+                    _routed_model = _routing_decision.model if _routing_decision else self._local_llm_provider.get_model_name()
+                    return self._providers["local"], _routed_model
+                else:
+                    if "openai" not in self._providers:
+                        from core.llm.llm_provider import OpenAIProvider
+                        if not self.api_key:
+                            raise RuntimeError("OpenAI API key not found but required for this route.")
+                        self._providers["openai"] = OpenAIProvider(self.api_key)
+                    return self._providers["openai"], model
             
             def make_gpt_request():
-                # ── Phase 43: Local LLM path ────────────────────────────
-                if _use_local and self._local_llm_provider:
-                    _local_cl = self.local_client
-                    if _local_cl is None:
-                        raise RuntimeError("Local LLM provider active but client unavailable")
-                    local_model = self._local_llm_provider.get_model_name()
-                    request_params = {
-                        "model": local_model,
-                        "messages": [
-                            {"role": "system", "content": _system_prompt},
-                            {"role": "user", "content": prompt}
-                        ],
-                        "max_tokens": max_tokens,
-                        "temperature": 0.7 if task_type == "diversify" else 0.3,
-                    }
-                    if response_format == "json_object":
-                        request_params["response_format"] = {"type": "json_object"}
-                    return _local_cl.chat.completions.create(**request_params)
+                provider, actual_model = _get_provider()
+                # Determine config
+                temp = 0.7 if task_type == "diversify" else 0.3
+                fmt = "json_object" if response_format == "json_object" else "text"
+                req_timeout = timeout if timeout is not None else 600.0
                 
-                if uses_responses_api:
-                    # OpenAI Responses API (v1/responses) for codex models
-                    # Codex models use internal reasoning tokens (~1000+) that count against
-                    # max_output_tokens, so we need a much higher budget than chat completions
-                    codex_token_budget = max(max_tokens * 15, 2000)
-                    return self.client.responses.create(
-                        model=model,
-                        instructions=_system_prompt,
-                        input=prompt,
-                        max_output_tokens=codex_token_budget,
-                    )
-                else:
-                    # Standard Chat Completions API
-                    request_params = {
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": _system_prompt},
-                            {"role": "user", "content": prompt}
-                        ],
-                        token_param: max_tokens,
-                        "timeout": min(max(5.0, (timeout or 8) - 2), 120.0),  # Client timeout: adapt to request timeout
-                    }
-                    # Only add temperature for models that support it (not gpt-5.x, o1, o3)
-                    if not uses_new_api:
-                        request_params["temperature"] = 0.7 if task_type == "diversify" else 0.3
-                    # Phase 38: JSON mode — force structured output when requested
-                    if response_format == "json_object" and not uses_responses_api:
-                        request_params["response_format"] = {"type": "json_object"}
-                    return self.client.chat.completions.create(**request_params)
+                return provider.chat_completion(
+                    messages=[
+                        {"role": "system", "content": _system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    model=actual_model,
+                    max_tokens=max_tokens,
+                    temperature=temp,
+                    response_format=fmt,
+                    timeout=req_timeout
+                )
             
             # Execute with aggressive timeout using ThreadPoolExecutor
             # CRITICAL: Do NOT use `with` context manager — its __exit__ calls
             # shutdown(wait=True) which blocks until the thread completes, even
-            # after TimeoutError. For slow models (gpt-5.2-codex postmortem with
+            # after TimeoutError. For slow models (local-llm postmortem with
             # 30K tokens), this would hang for minutes.
-            _request_timeout = timeout if timeout is not None else 8
+            _request_timeout = timeout if timeout is not None else 600.0
             try:
                 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(make_gpt_request)
@@ -1198,7 +1205,7 @@ class GPTManager:
                     response = future.result(timeout=_request_timeout)
                     executor.shutdown(wait=False)
                 except concurrent.futures.TimeoutError:
-                    logger.warning(f"GPT request timed out after {_request_timeout} seconds for {agent_id}, using fallback")
+                    logger.warning(f"LLM request timed out after {_request_timeout}s for {agent_id}")
                     future.cancel()
                     executor.shutdown(wait=False, cancel_futures=True)
                     # Return immediate fallback command based on task type
@@ -1208,120 +1215,101 @@ class GPTManager:
                         "reconnaissance": "ping 10.10.10.10",
                         "diversify": "nslookup 10.10.10.10",
                         "analysis": self._ANALYSIS_FALLBACK_JSON,
-                        "general": "echo 'GPT timeout - using fallback'"
+                        "general": "echo 'LLM timeout - using fallback'"
                     }
-                    return fallback_commands.get(task_type, "echo 'GPT timeout'")
+                    return fallback_commands.get(task_type, "echo 'LLM timeout'")
             except Exception as e:
-                logger.warning(f"GPT request failed with exception: {e}, using immediate fallback")
+                logger.warning(f"LLM request failed: {e}")
                 # PHASE 6.5: Activate circuit breaker on quota exhaustion
                 error_str = str(e).lower()
                 if "insufficient_quota" in error_str or "exceeded your current quota" in error_str:
                     self._quota_exhausted = True
-                    logger.warning("⚡ GPT quota exhausted — circuit breaker activated, all future LLM calls skipped this session")
+                    logger.warning("⚡ LLM quota exhausted — circuit breaker activated, all future LLM calls skipped this session")
                 # Immediate fallback for any network issues
                 fallback_commands = {
                     "tactical": "nmap -sV 10.10.10.10",
-                    "defensive": "netstat -an", 
+                    "defensive": "netstat -an",
                     "reconnaissance": "ping 10.10.10.10",
                     "diversify": "nslookup 10.10.10.10",
                     "analysis": self._ANALYSIS_FALLBACK_JSON,
-                    "general": "echo 'GPT error - using fallback'"
+                    "general": "echo 'LLM error - using fallback'"
                 }
-                return fallback_commands.get(task_type, "echo 'GPT error'")
+                return fallback_commands.get(task_type, "echo 'LLM error'")
             
             self.last_request_time = time.time()
             self.stats["total_requests"] += 1
             
-            # Extract content — Responses API uses .output_text, Chat Completions uses .choices[]
-            if uses_responses_api:
-                content = getattr(response, 'output_text', '') or ''
-                content = content.strip()
-                
-                # Fallback: if output_text is empty, try parsing response.output directly
-                if not content and hasattr(response, 'output') and response.output:
-                    for item in response.output:
-                        # ResponseOutputMessage items have .content list
-                        if hasattr(item, 'content') and item.content:  # type: ignore[union-attr]
-                            for part in item.content:  # type: ignore[union-attr]
-                                if hasattr(part, 'text') and part.text:  # type: ignore[union-attr]
-                                    content = part.text.strip()  # type: ignore[union-attr]
-                                    if content:
-                                        break
-                        if content:
-                            break
-                
-                # Diagnostic logging when response is truly empty
-                if not content:
-                    resp_status = getattr(response, 'status', 'unknown')
-                    resp_output_len = len(response.output) if hasattr(response, 'output') and response.output else 0
-                    output_types = []
-                    if hasattr(response, 'output') and response.output:
-                        output_types = [type(item).__name__ for item in response.output]
-                    logger.warning(
-                        f"Empty Responses API output | agent={agent_id} | task={task_type} | "
-                        f"status={resp_status} | output_items={resp_output_len} | "
-                        f"types={output_types}"
-                    )
-            elif hasattr(response, 'choices') and response.choices and len(response.choices) > 0:  # type: ignore[union-attr]
-                content = response.choices[0].message.content  # type: ignore[union-attr]
-                if content:
-                    content = content.strip()
-                else:
-                    content = ""
-            else:
-                content = ""
+            # Extract content from LLMResponse
+            content = getattr(response, "text", getattr(response, "content", "")).strip()
+            
+            _track_model = getattr(response, "model", model)
+            
+            if not content:
+                logger.warning(
+                    f"Empty LLMResponse output | agent={agent_id} | task={task_type} | "
+                    f"model={_track_model}"
+                )
                 
             if content:
                 # Track tokens
-                if hasattr(response, 'usage') and response.usage:
-                    tokens_used = response.usage.total_tokens
-                    self.tokens_used += tokens_used
-                    self.stats["tokens_used_total"] += tokens_used
-                    # Phase 43: Track local LLM separately
-                    _track_model = model
-                    if _use_local:
-                        _track_model = f"local:{self._local_llm_provider.get_model_name()}" if self._local_llm_provider else "local:unknown"
-                        self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
-                        self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
-                        self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
-                    # Phase 6.3: per-model tracking + cost
-                    self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
-                    self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
-                    cost_rate = 0.0 if _use_local else self.COST_PER_1K_TOKENS.get(model, 0.001)
-                    step_cost = (tokens_used / 1000.0) * cost_rate
-                    self._cumulative_cost_usd += step_cost
-                    self._episode_cost_usd += step_cost
-                    # Phase 15.0: Record spend in BudgetManagerV2
-                    # Phase 43: Skip for local LLM (zero cost, avoid depleting OpenAI tiers)
-                    if self._budget_manager_v2 is not None and not _use_local:
-                        self._budget_manager_v2.record_spend(
-                            model=model, tokens_used=tokens_used,
-                            roi_tag=_bm2_roi_tag,
-                        )
+                tokens_used = getattr(response, "total_tokens", 0)
+                if hasattr(response, "usage") and response.usage:
+                    tokens_used = getattr(response.usage, "total_tokens", tokens_used)
+                    
+                self.tokens_used += tokens_used
+                self.stats["tokens_used_total"] += tokens_used
+                
+                # Phase 43: Track local LLM separately
+                if _use_local or self._hf_enabled:
+                    self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
+                    self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
+                    self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
+                    
+                # Phase 6.3: per-model tracking + cost
+                self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
+                self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
+                
+                step_cost = getattr(response, "cost_usd", 0.0)
+                self._cumulative_cost_usd += step_cost
+                self._episode_cost_usd += step_cost
+                
+                # Phase 15.0: Record spend in BudgetManagerV2
+                # Phase 43: Skip for local LLM (zero cost, avoid depleting OpenAI tiers)
+                if self._budget_manager_v2 is not None and not (_use_local or self._hf_enabled):
+                    self._budget_manager_v2.record_spend(
+                        model=model, tokens_used=tokens_used,
+                        roi_tag=_bm2_roi_tag,
+                    )
 
-                    # Phase 23: Record call in visibility log for dashboard
-                    _call_record = {
-                        "timestamp": time.time(),
-                        "model": model,
-                        "agent_id": agent_id,
-                        "task_type": task_type,
-                        "prompt_snippet": prompt[:120].replace("\n", " ").strip(),
-                        "response_snippet": content[:120].replace("\n", " ").strip(),
-                        "tokens": tokens_used,
-                        "input_tokens": getattr(response.usage, 'input_tokens', 0) or getattr(response.usage, 'prompt_tokens', 0) or 0,
-                        "output_tokens": getattr(response.usage, 'output_tokens', 0) or getattr(response.usage, 'completion_tokens', 0) or 0,
-                        "cost_usd": step_cost,
-                        "cache_hit": False,
-                        "latency_ms": int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0,
-                    }
-                    self._call_log.append(_call_record)
-                    self._step_calls.append(_call_record)
+                # Phase 23: Record call in visibility log for dashboard
+                input_tok = getattr(response, "input_tokens", 0)
+                output_tok = getattr(response, "output_tokens", 0)
+                if hasattr(response, "usage") and response.usage:
+                    input_tok = getattr(response.usage, 'prompt_tokens', input_tok) or getattr(response.usage, 'input_tokens', input_tok)
+                    output_tok = getattr(response.usage, 'completion_tokens', output_tok) or getattr(response.usage, 'output_tokens', output_tok)
+                    
+                _call_record = {
+                    "timestamp": time.time(),
+                    "model": _track_model,
+                    "agent_id": agent_id,
+                    "task_type": task_type,
+                    "prompt_snippet": prompt[:120].replace("\n", " ").strip(),
+                    "response_snippet": content[:120].replace("\n", " ").strip(),
+                    "tokens": tokens_used,
+                    "input_tokens": input_tok,
+                    "output_tokens": output_tok,
+                    "cost_usd": step_cost,
+                    "cache_hit": False,
+                    "latency_ms": getattr(response, "latency_ms", int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0),
+                }
+                self._call_log.append(_call_record)
+                self._step_calls.append(_call_record)
                 
                 # Sanitize if it's a command
                 if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
                     content = self._sanitize_command(content)
                     if not content:
-                        logger.warning(f"Sanitizer emptied GPT response for {agent_id}/{task_type}")
+                        logger.warning(f"Sanitizer emptied LLM response for {agent_id}/{task_type}")
                         content = "nmap -sV {target}" if task_type == "tactical" else "netstat -an"
                 
                 # Cache the response
@@ -1340,21 +1328,21 @@ class GPTManager:
                 logger.debug(f"GPT response for {agent_id}: {content[:50]}...")
                 return content
             else:
-                logger.warning(f"Empty response from GPT for {agent_id}/{task_type}, using task-based fallback")
+                logger.warning(f"Empty LLM response for {agent_id}/{task_type}, using task-based fallback")
                 fallback_commands = {
                     "tactical": "nmap -sV -p- --min-rate=1000 {target}",
                     "defensive": "netstat -tlnp",
                     "reconnaissance": "nmap -sC -sV {target}",
                     "diversify": "nikto -h {target}",
                     "analysis": self._ANALYSIS_FALLBACK_JSON,
-                    "general": "echo 'Empty GPT response — fallback'"
+                    "general": "echo 'LLM fallback'"
                 }
-                return fallback_commands.get(task_type, "echo 'Empty GPT response'")
+                return fallback_commands.get(task_type, "echo 'LLM fallback'")
                 
         except Exception as e:
-            logger.error(f"GPT request failed for {agent_id}: {e}")
+            logger.error(f"LLM request failed for {agent_id}: {e}")
             self.stats["failures"] += 1
-            return f"echo 'GPT error: {str(e)[:50]}'"
+            return f"echo 'LLM error: {str(e)[:50]}'"
     
     def smart_decision(self, task_type: str, task_description: str, 
                       agent_id: str = "unknown", use_gpt: bool = True) -> str:

@@ -1583,8 +1583,8 @@ def _show_model_routing() -> None:
         table.add_column("→ Provider", style=C_OK, width=30)
 
         test_models = [
-            "gpt-5.2-nano", "gpt-5.2-mini", "gpt-5.2", "gpt-5.2-codex",
-            "gpt-5-nano", "gpt-5-mini",
+            "local-llm", "local-llm", "local-llm", "local-llm",
+            "local-llm", "local-llm",
         ]
         for m in test_models:
             try:

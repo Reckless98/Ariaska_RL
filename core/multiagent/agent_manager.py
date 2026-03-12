@@ -621,8 +621,8 @@ class AgentManager:
         gpt_table.add_column("Status")
         
         # Add GPT info
-        gpt_table.add_row("GPT-4o-mini", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
-        gpt_table.add_row("GPT-4.1-nano", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
+        gpt_table.add_row("local-llm", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
+        gpt_table.add_row("local-llm", "[green]Ready[/green]" if gpt_context_synced else "[yellow]Pending[/yellow]")
         
         # Create environment table
         env_table = Table(box=box.SIMPLE)

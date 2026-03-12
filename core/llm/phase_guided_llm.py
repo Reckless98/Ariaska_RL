@@ -9,7 +9,7 @@ Produces structured JSON guidance for Ariaska agents:
   - Distillation packet (MentorTrace target) for apprentice policy training
 
 All LLM calls go through GPTManager (never ``import openai`` directly).
-Model routing: gpt-5.2-codex for all schema-bound JSON calls.
+Model routing: local-llm for all schema-bound JSON calls.
 Escalation logic retained for confidence < 0.45, contradictions, or stall >= 8 steps.
 
 Author: Phase 34
@@ -407,7 +407,7 @@ class PhaseGuidedLLM:
     packet compatible with MentorTrace.
 
     Model routing:
-      - Default: gpt-5.2-codex (schema-bound JSON generation)
+      - Default: local-llm (schema-bound JSON generation)
       - Additional escalation if:
         (a) confidence < 0.45 after scoring, OR
         (b) contradictions detected, OR
@@ -470,7 +470,7 @@ class PhaseGuidedLLM:
         )
         # MODEL POLICY: Always use codex for schema-bound JSON generation.
         # Escalation flag kept for logging / downstream awareness.
-        model = "gpt-5.2-codex"
+        model = "local-llm"
 
         # Build input payload
         input_data = {
@@ -485,16 +485,16 @@ class PhaseGuidedLLM:
             "last_output_excerpt": last_output_excerpt[:500],
         }
 
-        # LLM call — use analysis task_type + 20s timeout for structured JSON
+        # LLM call — use strategic task_type for 9b brain routing + 20s timeout
         prompt = _build_user_prompt(input_data)
         raw = self._gpt.gpt_request(
             prompt=prompt,
-            task_type="analysis",
+            task_type="strategic",
             agent_id=f"phase_guide_{agent_role}",
             max_tokens=400,  # Phase 53: 600→400 — tighter JSON
             model=model,
             system_prompt=_SYSTEM_PROMPT,
-            timeout=15,  # Phase 53: 20→15s
+            timeout=600,
         )
         self._call_count += 1
         logger.debug("[PHASE-GUIDE] Raw response (attempt 1, %d chars): %.200s", len(raw) if raw else 0, raw)
@@ -511,7 +511,7 @@ class PhaseGuidedLLM:
                 max_tokens=400,  # Phase 53: 600→400
                 model=model,
                 system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
-                timeout=15,  # Phase 53: 20→15s
+                timeout=600,
             )
             self._call_count += 1
             logger.debug("[PHASE-GUIDE] Raw response (attempt 2, %d chars): %.200s", len(raw_retry) if raw_retry else 0, raw_retry)
@@ -532,7 +532,7 @@ class PhaseGuidedLLM:
         )
 
         # Phase 38 D1: Post-parse codex escalation removed — model is always
-        # gpt-5.2-codex since PR-4, so the re-run was dead code burning tokens.
+        # local-llm since PR-4, so the re-run was dead code burning tokens.
 
         # Validate phase_tag presence
         if not result.validate():

@@ -1,25 +1,17 @@
 #!/usr/bin/env python3
 """
-core/llm/budget_manager.py — Phase 17: BudgetManagerV2 with Dynamic Scaling
+core/llm/budget_manager.py — Phase 55: BudgetManagerV2 — Local LLM Migration
 
 Per-episode and per-model-tier budget management with ROI tags and
-adaptive cost control.
+adaptive cost control. Now fully local — all Ollama models are free tier.
 
-Phase 17 Dynamic Budget:
-  Episode budget scales from $0.50 to $3.33 based on learning maturity.
-  Early episodes: full $3.33 budget (999K tokens) — heavy GPT steering.
-  As success_rate rises and skill library grows: scales down to minimum
-  $0.50 budget (~146K tokens) — agent knows what to do, mentor is luxury.
-
-  Formula: budget_scale = max(MIN_SCALE, 1.0 - maturity_signal)
-  Where maturity_signal = 0.4 * avg_success_rate + 0.3 * skill_coverage
-                        + 0.2 * discovery_efficiency + 0.1 * (1 - stagnation_rate)
-
-Model tiers:
-  Tier 1 (codex): gpt-5.2-codex — architecture, complex reasoning (highest cost)
-  Tier 2 (full):  gpt-5.2 — verification, validation
-  Tier 3 (mini):  gpt-5.2-mini / gpt-5-mini — structured extraction
-  Tier 4 (nano):  gpt-5.2-nano / gpt-5-nano — classification only
+Phase 55 Local LLM:
+  All inference runs on local Ollama models (jaahas/qwen3.5-uncensored).
+  Budget tracking kept for analytics but all local models bypass spending.
+  
+  Model tiers (for analytics):
+  - 4b model: fast tactical, classification, parsing  
+  - 9b model: deep reasoning, strategic, postmortem
 
 Feature-flag gated: FF_BUDGET_MANAGER_V2.
 
@@ -61,17 +53,12 @@ _BURST_STEP_CAP_RATIO = 0.03 # 3% of max budget per-step burst limit
 _BURST_COOLDOWN_STEPS = 5    # Minimum steps between bursts
 _BURST_TIERS = frozenset({"mini", "codex"})  # Only mini+codex get bursts
 
-# Model → tier mapping
+# Model → tier mapping (Phase 55: fully local LLM — all Ollama models = free tier).
 _MODEL_TIER: Dict[str, str] = {
-    "gpt-5.2-codex": "codex",
-    "gpt-5.2": "full",
-    "gpt-5-mini": "mini",
-    "gpt-5.2-mini": "mini",
-    "gpt-5-nano": "nano",
-    "gpt-5.2-nano": "nano",
-    # Phase 23: no gpt-4 models — all routing is gpt-5.x
-    # Phase 43: Local LLM tier — zero cost, unlimited budget
+    "local-llm": "local",
     "local": "local",
+    "jaahas/qwen3.5-uncensored:4b": "local",
+    "jaahas/qwen3.5-uncensored:9b": "local",
 }
 
 # Valid ROI tags
@@ -241,6 +228,16 @@ class BudgetManagerV2:
         """
         tier = _MODEL_TIER.get(model, "mini")
 
+        # Local LLM calls are free — always allow, no budget tracking.
+        if tier == "local":
+            return BudgetDecision(
+                allowed=True,
+                tier="local",
+                tokens_requested=estimated_tokens,
+                tokens_remaining=999_999,
+                roi_tag=roi_tag,
+            )
+
         with self._lock:
             alloc = self._allocations.get(tier)
             if alloc is None:
@@ -318,6 +315,9 @@ class BudgetManagerV2:
                 else:
                     alloc.used += tokens_used
                     self._total_used += tokens_used
+            elif not cache_hit:
+                # Local/untracked tier — still count total spend for analytics
+                self._total_used += tokens_used
 
             # Phase 32: per-tier call counter
             self._tier_calls[tier] = self._tier_calls.get(tier, 0) + 1
@@ -583,6 +583,11 @@ class BudgetManagerV2:
             tokens_by_tier: Dict[str, int] = {
                 k: v.used for k, v in self._allocations.items()
             }
+            # Include local tier token tracking (free but tracked for analytics)
+            if "local" in calls_by_tier:
+                local_tokens = self._total_used - sum(tokens_by_tier.values())
+                if local_tokens > 0:
+                    tokens_by_tier["local"] = local_tokens
             cost_by_tier: Dict[str, float] = {}
             for tier, tok in tokens_by_tier.items():
                 rate = _COST_PER_TOKEN.get(tier, 0.000001)
@@ -602,6 +607,6 @@ class BudgetManagerV2:
                 "codex_escalation_rate": round(codex_calls / total_calls, 4),
                 "call_distribution": {
                     tier: round(calls_by_tier.get(tier, 0) / total_calls, 4)
-                    for tier in ("nano", "mini", "full", "codex")
+                    for tier in set(list(calls_by_tier.keys()) + ["nano", "mini", "full", "codex"])
                 },
             }

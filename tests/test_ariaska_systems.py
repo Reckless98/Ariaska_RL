@@ -113,7 +113,7 @@ class TestEpisodeTrace(unittest.TestCase):
             "action_final": "msfconsole",     # Old name
             "reward": 25.0,
             "mentor_call": True,
-            "mentor_model": "gpt-5.1-codex-mini"      # Old name
+            "mentor_model": "local-llm"      # Old name
         }
         
         step = StepTrace.from_dict(old_data)
@@ -121,7 +121,7 @@ class TestEpisodeTrace(unittest.TestCase):
         self.assertEqual(step.step, 3)
         self.assertEqual(step.agent, "RedAgent")  # Migrated
         self.assertEqual(step.chosen_action, "msfconsole")  # Migrated
-        self.assertEqual(step.model_used, "gpt-5.1-codex-mini")  # Migrated
+        self.assertEqual(step.model_used, "local-llm")  # Migrated
         self.assertTrue(step.mentor_call)
     
     def test_episode_trace_metrics(self):
@@ -145,7 +145,7 @@ class TestEpisodeTrace(unittest.TestCase):
                 chosen_action="action",
                 reward=10.0,
                 mentor_call=(i == 0),
-                model_used="gpt-5.1-codex-mini" if i == 0 else None,
+                model_used="local-llm" if i == 0 else None,
                 confidence=0.5 + (i * 0.1)
             )
             episode.add_step(step)
@@ -295,17 +295,17 @@ class TestLLMRouting(unittest.TestCase):
         # This will fail without API key, so we mock the routing logic
         model_map = GPTManager.MODEL_MAP
         
-        # Phase 12.1: All agents use gpt-5.2-codex for reasoning
-        self.assertEqual(model_map.get("red"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("orion"), "gpt-5.2-codex")
+        # Phase 12.1: All agents use local-llm for reasoning
+        self.assertEqual(model_map.get("red"), "local-llm")
+        self.assertEqual(model_map.get("orion"), "local-llm")
         
-        # Scout/Shadow/Blue also use gpt-5.2-codex for reasoning
-        self.assertEqual(model_map.get("scout"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("shadow"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("blue"), "gpt-5.2-codex")
+        # Scout/Shadow/Blue also use local-llm for reasoning
+        self.assertEqual(model_map.get("scout"), "local-llm")
+        self.assertEqual(model_map.get("shadow"), "local-llm")
+        self.assertEqual(model_map.get("blue"), "local-llm")
         
-        # Postmortem uses gpt-5.2-codex
-        self.assertEqual(model_map.get("postmortem"), "gpt-5.2-codex")
+        # Postmortem uses local-llm
+        self.assertEqual(model_map.get("postmortem"), "local-llm")
     
     def test_task_type_routing(self):
         """Test model selection by task type."""
@@ -313,28 +313,44 @@ class TestLLMRouting(unittest.TestCase):
         
         model_map = GPTManager.MODEL_MAP
         
-        # Phase 12.1: All reasoning tasks use gpt-5.2-codex
-        self.assertEqual(model_map.get("tactical"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("strategic"), "gpt-5.2-codex")
+        # Phase 12.1: All reasoning tasks use local-llm
+        self.assertEqual(model_map.get("tactical"), "local-llm")
+        self.assertEqual(model_map.get("strategic"), "local-llm")
         
-        # Analysis uses gpt-5.2-codex, classification upgraded to codex (Phase 38)
-        self.assertEqual(model_map.get("analysis"), "gpt-5.2-codex")
-        self.assertEqual(model_map.get("classification"), "gpt-5.2-codex")
+        # Analysis uses local-llm, classification upgraded to codex (Phase 38)
+        self.assertEqual(model_map.get("analysis"), "local-llm")
+        self.assertEqual(model_map.get("classification"), "local-llm")
     
     def test_gpt_manager_init_without_api_key(self):
-        """Test that GPTManager can be instantiated without API key."""
+        """Test that GPTManager can be instantiated without API key.
+        
+        When a local LLM (Ollama) is available, is_configured() returns True
+        even without an OpenAI key — this is correct Phase 44+ behavior.
+        Disable local LLM detection to test pure-offline path.
+        """
         import os
         from core.gpt_manager import GPTManager
+        from core.feature_flags import get_feature_flags, set_feature_flag
         
-        # Temporarily remove API key
+        # Temporarily remove API key AND disable local LLM to test pure-offline
         old_key = os.environ.pop("OPENAI_API_KEY", None)
+        old_ff = os.environ.pop("FF_LOCAL_LLM", None)
+        os.environ["FF_LOCAL_LLM"] = "0"
+        ff = get_feature_flags()
+        old_local_llm = ff.local_llm
+        set_feature_flag("local_llm", False)
         try:
             # Should NOT raise
             manager = GPTManager()
             self.assertFalse(manager.is_configured())
         finally:
+            set_feature_flag("local_llm", old_local_llm)
             if old_key:
                 os.environ["OPENAI_API_KEY"] = old_key
+            if old_ff is not None:
+                os.environ["FF_LOCAL_LLM"] = old_ff
+            else:
+                os.environ.pop("FF_LOCAL_LLM", None)
     
     def test_gpt_request_raises_without_api_key(self):
         """Test that gpt_request raises RuntimeError when API key is missing."""

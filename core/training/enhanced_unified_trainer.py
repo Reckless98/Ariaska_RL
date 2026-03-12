@@ -514,7 +514,7 @@ class EnhancedUnifiedTrainer:
             f"🚀 Enhanced ARIASKA_RL Training Session {self.session_id}\\n"
             f"📊 Episodes: {self.episodes} | Agents: {len(self.agents)}\\n"
             f"🎯 Target: {self.current_target}\\n"
-            f"🧠 Mode: Advanced Deep RL + GPT-4o-mini + Memory Persistence",
+            f"🧠 Mode: Advanced Deep RL + local-llm + Memory Persistence",
             title="🧠 Training Initialization",
             border_style="bright_blue"
         ))

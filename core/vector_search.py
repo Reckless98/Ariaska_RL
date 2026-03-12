@@ -33,7 +33,7 @@ class VectorSearch:
         self.cache_size = cache_size
         self.cache = {} if cache_size > 0 else None
         self.gpt_trigger_threshold = 0.4
-        self.gpt_model = "gpt-5.2-codex"
+        self.gpt_model = "local-llm"
         self.database = self._load_database()
         self.gpt_manager = GPTManager.get_instance()
         console.print(

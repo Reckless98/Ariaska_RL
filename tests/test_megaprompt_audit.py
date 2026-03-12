@@ -214,36 +214,36 @@ class TestModelRoutingTiers:
         from core.gpt_manager import GPTManager
         gpt = GPTManager.__new__(GPTManager)
         # Manually set model attributes
-        gpt.strategic_model = "gpt-5.2-codex"
-        gpt.fallback_model = "gpt-5.2-mini"
-        gpt.nano_model = "gpt-5-nano"
+        gpt.strategic_model = "local-llm"
+        gpt.fallback_model = "local-llm"
+        gpt.nano_model = "local-llm"
 
         for task in ["strategic", "postmortem", "reasoning", "tactical", "analysis"]:
             model = gpt.get_model_for_role(task_type=task)
-            assert model == "gpt-5.2-codex", f"{task} should route to codex"
+            assert model == "local-llm", f"{task} should route to codex"
 
     def test_mini_tasks(self):
         from core.gpt_manager import GPTManager
         gpt = GPTManager.__new__(GPTManager)
-        gpt.strategic_model = "gpt-5.2-codex"
-        gpt.fallback_model = "gpt-5.2-mini"
-        gpt.nano_model = "gpt-5-nano"
+        gpt.strategic_model = "local-llm"
+        gpt.fallback_model = "local-llm"
+        gpt.nano_model = "local-llm"
 
         for task in ["playbook", "parsing", "command_selection", "output_parse",
                      "defensive", "reconnaissance"]:
             model = gpt.get_model_for_role(task_type=task)
-            assert model == "gpt-5.2-mini", f"{task} should route to mini"
+            assert model == "local-llm", f"{task} should route to mini"
 
     def test_nano_tasks(self):
         from core.gpt_manager import GPTManager
         gpt = GPTManager.__new__(GPTManager)
-        gpt.strategic_model = "gpt-5.2-codex"
-        gpt.fallback_model = "gpt-5.2-mini"
-        gpt.nano_model = "gpt-5-nano"
+        gpt.strategic_model = "local-llm"
+        gpt.fallback_model = "local-llm"
+        gpt.nano_model = "local-llm"
 
         for task in ["general", "classification", "reformat", "cache", None]:
             model = gpt.get_model_for_role(task_type=task)
-            assert model == "gpt-5-nano", f"{task} should route to nano"
+            assert model == "local-llm", f"{task} should route to nano"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

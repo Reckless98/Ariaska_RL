@@ -316,7 +316,7 @@ class TestGPTManagerCostTracking:
         from core.gpt_manager import GPTManager
         gpt = GPTManager(offline=True, enable_llm=False)
         assert len(gpt.COST_PER_1K_TOKENS) > 0
-        assert "gpt-5.1-codex-mini" in gpt.COST_PER_1K_TOKENS
+        assert "local-llm" in gpt.COST_PER_1K_TOKENS
 
     def test_initial_cost_is_zero(self):
         from core.gpt_manager import GPTManager

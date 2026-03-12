@@ -65,17 +65,17 @@ class TestPhase15NoSpendIncrease:
         from core.llm.call_cache import LLMCallCache
         cache = LLMCallCache(capacity=10)
         # Old API still works
-        cache.put("prompt", "response", model="gpt-5.2-mini", tokens_used=100)
-        result = cache.get("prompt", model="gpt-5.2-mini")
+        cache.put("prompt", "response", model="local-llm", tokens_used=100)
+        result = cache.get("prompt", model="local-llm")
         assert result == "response"
 
     def test_call_cache_new_api_compatible(self):
         """LLMCallCache works with new ROI tag API."""
         from core.llm.call_cache import LLMCallCache
         cache = LLMCallCache(capacity=10)
-        cache.put("prompt", "response", model="gpt-5.2-mini",
+        cache.put("prompt", "response", model="local-llm",
                   tokens_used=100, roi_tag="classification", prompt_version="v1")
-        result = cache.get("prompt", model="gpt-5.2-mini", prompt_version="v1")
+        result = cache.get("prompt", model="local-llm", prompt_version="v1")
         assert result == "response"
 
     def test_clear_episode_preserves_cross_episode(self):
@@ -93,7 +93,7 @@ class TestPhase15NoSpendIncrease:
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
         # Should exist but not affect anything without wiring
-        decision = bm.check_budget("gpt-5.2-mini", 100, "classification")
+        decision = bm.check_budget("local-llm", 100, "classification")
         assert decision.allowed is True
 
 

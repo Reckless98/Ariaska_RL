@@ -152,7 +152,7 @@ def run_training(
     gpt = GPTManager.get_instance()
 
     config = SmartOrchestratorConfig(
-        model="gpt-5.2-codex",
+        model="local-llm",
         mentor_mode="adaptive",
         mentor_warmup_episodes=2,
         mentor_min_rate=mentor_min_rate,

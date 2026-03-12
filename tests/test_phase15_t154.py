@@ -116,9 +116,9 @@ class TestBudgetROI:
     def test_roi_summary_after_spend(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        bm.record_spend("gpt-5.2-mini", 100, "tactical")
-        bm.record_spend("gpt-5.2-mini", 200, "tactical")
-        bm.record_spend("gpt-5.2-mini", 0, "tactical", cache_hit=True)
+        bm.record_spend("local-llm", 100, "tactical")
+        bm.record_spend("local-llm", 200, "tactical")
+        bm.record_spend("local-llm", 0, "tactical", cache_hit=True)
         summary = bm.get_roi_summary()
         assert "tactical" in summary
         assert summary["tactical"]["calls"] == 3
@@ -129,13 +129,13 @@ class TestBudgetROI:
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2(total_budget=1000, tier_budgets={"mini": 1000})
         assert bm.get_budget_pressure() == 0.0
-        bm.record_spend("gpt-5.2-mini", 500, "tactical")
+        bm.record_spend("local-llm", 500, "tactical")
         assert abs(bm.get_budget_pressure() - 0.5) < 0.01
 
     def test_budget_pressure_reset(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2(total_budget=1000, tier_budgets={"mini": 1000})
-        bm.record_spend("gpt-5.2-mini", 500, "tactical")
+        bm.record_spend("local-llm", 500, "tactical")
         bm.reset_episode("ep_2")
         assert bm.get_budget_pressure() == 0.0
 

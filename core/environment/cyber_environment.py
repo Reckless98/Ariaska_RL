@@ -961,39 +961,52 @@ class CyberEnvironment:
                 if not NMAP_AVAILABLE or nmap is None:
                     try:
                         cmd = ["nmap"]
-                        
+
                         for arg in ["-p", "-sS", "-sV", "-A"]:
                             if arg in scan_command:
-                                idx = scan_command.find(arg)
                                 value_match = re.search(r'{}([\s=]+(\S+))'.format(arg), scan_command)
                                 if value_match and len(value_match.groups()) >= 2:
                                     cmd.extend([arg, value_match.group(2)])
                                 else:
                                     cmd.append(arg)
-                        
+
                         cmd.append(target)
-                        
-                        result = subprocess.run(
+
+                        proc_result = subprocess.run(
                             cmd,
-                            capture_output=True, 
-                            text=True, 
-                            timeout=self.scan_timeout
+                            capture_output=True,
+                            text=True,
+                            timeout=self.scan_timeout,
                         )
-                        
-                        for line in result.stdout.splitlines():
-                            port_match = re.search(r'(\d+)/tcp\s+open', line)
-                            if port_match:
-                                port = int(port_match.group(1))
-                                discovered_ports.append(port)
-                                
-                                service_match = re.search(r'open\s+(\S+)(?:\s+(.*))?$', line)
-                                if service_match:
-                                    service_name = service_match.group(1)
-                                    service_details = service_match.group(2) if service_match.lastindex and service_match.lastindex >= 2 else ""
-                                    self.service_banners[port] = f"{service_name} {service_details}".strip()
-                                    
-                                    if service_name.lower() not in self.services:
-                                        self.services.append(service_name.lower())
+
+                        # ── LLM-based nmap output parsing ─────────────
+                        parsed = self._llm_parse_scan_output(
+                            scan_command, proc_result.stdout
+                        )
+                        if parsed:
+                            for port_info in parsed:
+                                port = port_info.get("port")
+                                svc = port_info.get("service", "unknown")
+                                ver = port_info.get("version", "")
+                                if port and 0 < port < 65536:
+                                    discovered_ports.append(int(port))
+                                    self.service_banners[int(port)] = f"{svc} {ver}".strip()
+                                    if svc.lower() not in self.services:
+                                        self.services.append(svc.lower())
+                        else:
+                            # Regex fallback if LLM unavailable/failed
+                            for line in proc_result.stdout.splitlines():
+                                port_match = re.search(r'(\d+)/tcp\s+open', line)
+                                if port_match:
+                                    port = int(port_match.group(1))
+                                    discovered_ports.append(port)
+                                    service_match = re.search(r'open\s+(\S+)(?:\s+(.*))?$', line)
+                                    if service_match:
+                                        service_name = service_match.group(1)
+                                        service_details = service_match.group(2) or ""
+                                        self.service_banners[port] = f"{service_name} {service_details}".strip()
+                                        if service_name.lower() not in self.services:
+                                            self.services.append(service_name.lower())
                     except subprocess.TimeoutExpired:
                         console.print("[red]❌ Scan timeout - scan taking too long[/red]")
                     except Exception as e:
@@ -1016,6 +1029,59 @@ class CyberEnvironment:
             console.print(f"[red]❌ Error during live scan: {e}[/red]")
             console.print(traceback.format_exc())
             return []
+
+    def _llm_parse_scan_output(
+        self, command: str, stdout: str,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Use LLM to parse nmap/masscan STDOUT into structured port data.
+
+        Returns a list of dicts: [{"port": 22, "service": "ssh", "version": "OpenSSH 7.2p2"}, ...]
+        Returns None if no GPTManager is available or parsing fails.
+        """
+        # Lazily resolve GPTManager from agent_manager if available
+        gpt = getattr(getattr(self, "agent_manager", None), "gpt_manager", None)
+        if gpt is None:
+            return None
+
+        if not stdout or len(stdout.strip()) < 20:
+            return None
+
+        truncated = stdout[:1500]
+        prompt = (
+            "Parse this nmap/masscan scan output. Extract every open port with "
+            "its service name and version string.\n\n"
+            f"Command: {command}\nOutput:\n```\n{truncated}\n```\n\n"
+            'Return JSON: {"ports": [{"port": INT, "service": "STR", "version": "STR"}]}\n'
+            "If no open ports found, return {\"ports\": []}."
+        )
+        try:
+            response = gpt.gpt_request(
+                prompt=prompt,
+                task_type="classification",
+                agent_id="env_scan_parser",
+                max_tokens=250,
+                model="nano",
+                temperature=0.1,
+                response_format="json_object",
+            )
+            if not response:
+                return None
+            data = json.loads(response)
+            ports = data.get("ports", [])
+            if isinstance(ports, list) and ports:
+                # Validate each entry
+                valid = []
+                for entry in ports:
+                    if isinstance(entry, dict) and "port" in entry:
+                        try:
+                            entry["port"] = int(entry["port"])
+                            valid.append(entry)
+                        except (ValueError, TypeError):
+                            pass
+                return valid if valid else None
+        except Exception as e:
+            logger.debug(f"[ENV-LLM-SCAN-PARSER] Failed: {e}")
+        return None
 
     def _calculate_scan_quality(self, command: str) -> float:
         """Calculate scan quality/effectiveness based on command options"""
@@ -2040,7 +2106,7 @@ Privilege: {self.privilege_level}
 Keep it brief (max 5 lines) and realistic."""
 
                 result = subprocess.run(
-                    ["sgpt", "--model", "gpt-5.2-codex", "--temperature", "0.4", "--role", "aria", gpt_prompt],
+                    ["sgpt", "--model", "local-llm", "--temperature", "0.4", "--role", "aria", gpt_prompt],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8
                 )
                 output = result.stdout.strip()

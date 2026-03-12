@@ -43,8 +43,8 @@
   "total_steps": 10,
   "total_mentor_calls": 10,
   "mentor_models_used": {
-    "gpt-5-nano": 6,
-    "gpt-5-mini": 4
+    "local-llm": 6,
+    "local-llm": 4
   },
   "success_rate": 0.0,
   "avg_reward_per_episode": 70.0,

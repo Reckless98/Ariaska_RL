@@ -62,16 +62,16 @@ class LLMRouter:
         self._init_gpt_backend()
         
         self._initialized = True
-        logger.info("Brain: Simplified LLM Router (GPT-4o-mini only) initialized")
+        logger.info("Brain: local-llm Router initialized")
         
     def _init_gpt_backend(self):
         """Initialize GPT-4o-mini backend."""
         try:
             from core.gpt_manager import GPTManager
             self.gpt_manager = GPTManager.get_instance()
-            logger.info("Checkmark: GPT-4o-mini backend initialized")
+            logger.info("Checkmark: local-llm backend initialized")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize GPT-4o-mini: {e}")
+            logger.error(f"❌ Failed to initialize local-llm: {e}")
             self.gpt_manager = None
     
     def _load_cache(self):
@@ -165,7 +165,7 @@ class LLMRouter:
         if not self.gpt_manager:
             self.stats["errors"] += 1
             return {
-                "content": "Error: GPT-4o-mini backend not available",
+                "content": "Error: local-llm backend not available",
                 "success": False,
                 "model_used": "none",
                 "tokens": {"total": 0},
@@ -239,11 +239,11 @@ class LLMRouter:
                     if self.stats["requests"] % 10 == 0:
                         threading.Thread(target=self._save_cache).start()
                 
-                logger.info(f"✅ GPT-4o-mini request successful ({elapsed:.2f}s)")
+                logger.info(f"✅ local-llm request successful ({elapsed:.2f}s)")
                 return {
                     "content": content,
                     "success": True,
-                    "model_used": "gpt-5.2-codex",
+                    "model_used": "local-llm",
                     "tokens": tokens,
                     "latency": elapsed,
                     "metadata": {"task_type": task_type}
@@ -254,7 +254,7 @@ class LLMRouter:
         except Exception as e:
             self.stats["errors"] += 1
             error_message = str(e)
-            logger.error(f"❌ GPT-4o-mini request failed: {error_message}")
+            logger.error(f"❌ local-llm request failed: {error_message}")
             
             return {
                 "content": f"Error: {error_message}",

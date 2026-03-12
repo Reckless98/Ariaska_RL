@@ -1315,8 +1315,8 @@ class LocalMentorClient:
 # ---------------------------------------------------------------------------
 
 # Codex pricing estimates (per 1K tokens) — Phase 44: corrected to real API rates
-_CODEX_INPUT_COST_PER_1K = 0.002   # gpt-5.2-codex input (actual rate)
-_CODEX_OUTPUT_COST_PER_1K = 0.008  # gpt-5.2-codex output (actual rate)
+_CODEX_INPUT_COST_PER_1K = 0.002   # local-llm input (actual rate)
+_CODEX_OUTPUT_COST_PER_1K = 0.008  # local-llm output (actual rate)
 _CODEX_BUDGET_USD = 27.0            # Phase 51b: -70% ($90→$27) aggressive cost cut
 _CODEX_MAX_CALLS = 13500            # Phase 51b: -70% (45000→13500)
 
@@ -1410,7 +1410,7 @@ class CodexEscalationPolicy:
 
 
 class CodexMentorClient:
-    """Calls OpenAI gpt-5.2-codex via HTTP for hard-case teacher signals.
+    """Calls OpenAI local-llm via HTTP for hard-case teacher signals.
 
     Uses ``requests`` — no ``import openai`` per project invariant.
     Budget-capped at $7.28 (+30% accelerated learning).
@@ -1420,7 +1420,7 @@ class CodexMentorClient:
         self._session: Any = None
         self._api_key: Optional[str] = os.environ.get("OPENAI_API_KEY")
         self._base_url = "https://api.openai.com/v1"
-        self._model = "gpt-5.2-codex"
+        self._model = "local-llm"
         self._available = self._api_key is not None and len(self._api_key) > 10
         self.policy = CodexEscalationPolicy()
 
@@ -1449,7 +1449,7 @@ class CodexMentorClient:
     ) -> Tuple[Optional[Dict[str, Any]], int, int]:
         """Query codex for teacher signal.
 
-        gpt-5.2-codex uses the Responses API (``/v1/responses``), NOT the
+        local-llm uses the Responses API (``/v1/responses``), NOT the
         chat completions endpoint.  The payload and response structure differ:
         - ``instructions`` (system) + ``input`` (user) instead of ``messages``
         - ``max_output_tokens`` instead of ``max_tokens``
@@ -1483,7 +1483,7 @@ class CodexMentorClient:
         )
 
         instructions = (
-            "You are gpt-5.2-codex acting as a senior pentesting mentor for an RL agent "
+            "You are local-llm acting as a senior pentesting mentor for an RL agent "
             "training on CTF challenges (HTB, TryHackMe) and real pentesting scenarios.\n"
             "Return JSON only. No markdown. No prose.\n\n"
             "OUTPUT CONTRACT (every key required):\n"
@@ -2013,7 +2013,7 @@ class H200DistillationRunner:
         self._codex = CodexMentorClient()
         if self._codex.available:
             console.print(Panel(
-                f"[green]Codex online[/green]: gpt-5.2-codex\n"
+                f"[green]Codex online[/green]: local-llm\n"
                 f"Budget: ${_CODEX_BUDGET_USD:.2f} | Max calls: {_CODEX_MAX_CALLS}\n"
                 f"Strategy: Phase 44 MAXIMUM — every step 0-30%, anneal to light by 95%\n"
                 f"Target real spend: $10.00",
@@ -4105,7 +4105,7 @@ class H200DistillationRunner:
         changes_table.add_row("Steering: JSON-only contract", "ON — strict schema, retry once")
         changes_table.add_row("Mentor model", "gpt-oss-120b (MXFP4) or Qwen2.5-72B AWQ")
         changes_table.add_row("Verbosity", "Per-episode rich table + mini-dashboard every 5 ep")
-        changes_table.add_row("OpenAI gpt-5.2-codex", "$5.60 budget, front-loaded anneal")
+        changes_table.add_row("OpenAI local-llm", "$5.60 budget, front-loaded anneal")
         changes_table.add_row("core/ modifications", "NONE — all new code in scripts/")
         changes_table.add_row("PPO hyperparameters", "UNCHANGED")
 

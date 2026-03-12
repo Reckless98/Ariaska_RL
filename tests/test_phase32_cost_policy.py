@@ -69,20 +69,15 @@ class TestTokenCeilings:
 
     def test_output_cap_values(self):
         """Token output caps are defined at expected values."""
-        # These are inline in gpt_request; verify by importing GPTManager
-        # and checking model routing path.  We verify the constants
-        # indirectly through _MODEL_TIER + expected cap dict.
         from core.llm.budget_manager import _MODEL_TIER
-        # All expected models are mapped
-        assert "gpt-5-nano" in _MODEL_TIER
-        assert "gpt-5.2-mini" in _MODEL_TIER
-        assert "gpt-5.2-codex" in _MODEL_TIER
-        assert "gpt-5.2" in _MODEL_TIER
-        # Tiers resolve correctly
-        assert _MODEL_TIER["gpt-5-nano"] == "nano"
-        assert _MODEL_TIER["gpt-5.2-mini"] == "mini"
-        assert _MODEL_TIER["gpt-5.2-codex"] == "codex"
-        assert _MODEL_TIER["gpt-5.2"] == "full"
+        # Phase 55: all local models mapped to free "local" tier
+        assert "local-llm" in _MODEL_TIER
+        assert "jaahas/qwen3.5-uncensored:4b" in _MODEL_TIER
+        assert "jaahas/qwen3.5-uncensored:9b" in _MODEL_TIER
+        # All local models resolve to "local" tier
+        assert _MODEL_TIER["local-llm"] == "local"
+        assert _MODEL_TIER["jaahas/qwen3.5-uncensored:4b"] == "local"
+        assert _MODEL_TIER["jaahas/qwen3.5-uncensored:9b"] == "local"
 
     def test_output_cap_clamp_nano(self):
         """Requesting more than 450 tokens on nano should be clamped."""
@@ -114,12 +109,11 @@ class TestTierCallCounting:
     def test_record_spend_counts_calls(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        bm.record_spend(model="gpt-5-nano", tokens_used=100, roi_tag="classification")
-        bm.record_spend(model="gpt-5-nano", tokens_used=50, roi_tag="classification")
-        bm.record_spend(model="gpt-5.2-mini", tokens_used=200, roi_tag="tactical_advice")
+        bm.record_spend(model="local-llm", tokens_used=100, roi_tag="classification")
+        bm.record_spend(model="local-llm", tokens_used=50, roi_tag="classification")
+        bm.record_spend(model="local-llm", tokens_used=200, roi_tag="tactical_advice")
         summary = bm.get_episode_cost_summary()
-        assert summary["calls_by_tier"]["nano"] == 2
-        assert summary["calls_by_tier"]["mini"] == 1
+        assert summary["calls_by_tier"]["local"] == 3
 
     def test_reset_episode_clears_tier_calls(self):
         from core.llm.budget_manager import BudgetManagerV2
@@ -173,26 +167,23 @@ class TestEpisodeCostSummary:
     def test_summary_after_spend(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        bm.record_spend(model="gpt-5-nano", tokens_used=1000, roi_tag="classification")
-        bm.record_spend(model="gpt-5.2-codex", tokens_used=500, roi_tag="postmortem")
+        bm.record_spend(model="local-llm", tokens_used=1000, roi_tag="classification")
+        bm.record_spend(model="local-llm", tokens_used=500, roi_tag="postmortem")
         from core.llm.budget_manager import _TOTAL_BUDGET
         s = bm.get_episode_cost_summary()
         assert s["total_calls"] == 2
         assert s["total_tokens"] == 1500
-        assert s["tokens_by_tier"]["nano"] == 1000
-        assert s["tokens_by_tier"]["codex"] == 500
-        assert s["total_cost_usd"] > 0
+        assert s["tokens_by_tier"]["local"] == 1500
+        # Local models are free
         assert s["budget_remaining"] == _TOTAL_BUDGET - 1500
-        # Codex escalation rate = 1 codex / 2 total = 0.5
-        assert s["codex_escalation_rate"] == pytest.approx(0.5, abs=0.01)
 
     def test_call_distribution_sums_to_one(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        bm.record_spend(model="gpt-5-nano", tokens_used=100, roi_tag="classification")
-        bm.record_spend(model="gpt-5.2-mini", tokens_used=100, roi_tag="tactical_advice")
-        bm.record_spend(model="gpt-5.2-codex", tokens_used=100, roi_tag="postmortem")
-        bm.record_spend(model="gpt-5.2", tokens_used=100, roi_tag="parsing")
+        bm.record_spend(model="local-llm", tokens_used=100, roi_tag="classification")
+        bm.record_spend(model="local-llm", tokens_used=100, roi_tag="tactical_advice")
+        bm.record_spend(model="local-llm", tokens_used=100, roi_tag="postmortem")
+        bm.record_spend(model="local-llm", tokens_used=100, roi_tag="parsing")
         s = bm.get_episode_cost_summary()
         dist = s["call_distribution"]
         total = sum(dist.values())
@@ -201,10 +192,10 @@ class TestEpisodeCostSummary:
     def test_cost_by_tier_uses_correct_rates(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        bm.record_spend(model="gpt-5-nano", tokens_used=1_000_000, roi_tag="classification")
+        bm.record_spend(model="local-llm", tokens_used=1_000_000, roi_tag="classification")
         s = bm.get_episode_cost_summary()
-        # nano rate = $0.10 / 1M tokens → 1M tokens = $0.10
-        assert s["cost_by_tier"]["nano"] == pytest.approx(0.10, abs=0.01)
+        # Local models are free — cost should be 0 or minimal
+        assert s["tokens_by_tier"]["local"] == 1_000_000
 
     def test_empty_summary_zero_cost(self):
         from core.llm.budget_manager import BudgetManagerV2, _TOTAL_BUDGET

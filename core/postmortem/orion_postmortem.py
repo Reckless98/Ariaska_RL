@@ -155,7 +155,7 @@ class PostmortemResult:
     next_experiments: List[Dict[str, Any]] = field(default_factory=list)
     
     # Metadata
-    model_used: str = "gpt-5.2-codex"
+    model_used: str = "local-llm"
     dry_run: bool = False
     validation_passed: bool = False
     raw_response: str = ""
@@ -211,14 +211,16 @@ class OrionPostmortem:
         self,
         gpt_manager=None,
         output_dir: str = "postmortems",
+        enable_advanced_llm: bool = False,
+        enable_llm: bool = True,
+        # Legacy alias kept for backward compat
         enable_gpt_5_2: bool = False,
-        enable_llm: bool = True
     ):
         # Lazy import to avoid requiring GPTManager instantiation
         self._gpt_manager = gpt_manager
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.enable_gpt_5_2 = enable_gpt_5_2
+        self.enable_advanced_llm = enable_advanced_llm or enable_gpt_5_2
         self.enable_llm = enable_llm
         
         logger.info(f"OrionPostmortem initialized (LLM enabled: {self.enable_llm})")
@@ -237,9 +239,11 @@ class OrionPostmortem:
             return False
         if self._gpt_manager is not None:
             return self._gpt_manager.is_configured()
-        # Check if API key is available without instantiating
+        # Check if API key or local LLM is available without instantiating GPTManager if not needed yet
         import os
-        return bool(os.getenv("OPENAI_API_KEY"))
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
+        return bool(os.getenv("OPENAI_API_KEY")) or ff.local_llm
     
     def analyze_run(
         self,
@@ -284,7 +288,7 @@ class OrionPostmortem:
         prompt = self._build_analysis_prompt(run_trace)
         
         # Determine model to use
-        if self.enable_gpt_5_2:
+        if self.enable_advanced_llm:
             task_type = "postmortem"
             model = self.gpt_manager.postmortem_model  # type: ignore[union-attr]
         else:
@@ -579,12 +583,12 @@ IMPORTANT:
 
 # Factory function
 def create_postmortem_analyzer(
-    enable_gpt_5_2: bool = False,
+    enable_advanced_llm: bool = False,
     output_dir: str = "postmortems"
 ) -> OrionPostmortem:
     """Create a postmortem analyzer."""
     return OrionPostmortem(
-        enable_gpt_5_2=enable_gpt_5_2,
+        enable_advanced_llm=enable_advanced_llm,
         output_dir=output_dir
     )
 

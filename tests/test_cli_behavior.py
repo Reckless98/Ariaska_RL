@@ -26,10 +26,12 @@ class TestCLIBehavior:
     """Tests for CLI argument handling and LLM mode behavior."""
     
     def test_default_fails_fast_without_key(self):
-        """Default CLI run MUST fail fast when OPENAI_API_KEY is missing."""
+        """Default CLI run MUST fail fast when OPENAI_API_KEY is missing and no local LLM."""
         env = os.environ.copy()
         # Set to empty string to override .env file loading
         env["OPENAI_API_KEY"] = ""
+        # Disable local LLM to test pure-offline failure path
+        env["FF_LOCAL_LLM"] = "0"
         
         result = subprocess.run(
             [sys.executable, "-m", "core.training.ariaska_trainer", "--episodes", "1"],
@@ -51,6 +53,8 @@ class TestCLIBehavior:
         env = os.environ.copy()
         # Set to empty string to override .env file loading
         env["OPENAI_API_KEY"] = ""
+        # Disable local LLM to avoid slow Ollama inference in subprocess
+        env["FF_LOCAL_LLM"] = "0"
         
         result = subprocess.run(
             [
@@ -77,6 +81,8 @@ class TestCLIBehavior:
         env = os.environ.copy()
         # Set to empty string to override .env file loading
         env["OPENAI_API_KEY"] = ""
+        # Disable local LLM to avoid slow Ollama inference in subprocess
+        env["FF_LOCAL_LLM"] = "0"
         
         result = subprocess.run(
             [

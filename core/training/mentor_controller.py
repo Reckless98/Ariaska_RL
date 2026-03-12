@@ -5,9 +5,9 @@ core/training/mentor_controller.py — ARIASKA Mentor Controller v1.0
 Smart 3-tier mentor engagement system with budget, fade, and trigger-based routing.
 
 TIERS:
-  reactive      → gpt-5.2-codex    (Phase 38: upgraded from codex-mini)
-  deliberative  → gpt-5.2-codex    (strategic replanning)
-  postmortem    → gpt-5.2-codex    (deep analysis)
+  reactive      → local-llm    (Phase 38: upgraded from codex-mini)
+  deliberative  → local-llm    (strategic replanning)
+  postmortem    → local-llm    (deep analysis)
 
 TRIGGERS:
   1. uncertainty    — PPO entropy high / confidence low      → reactive
@@ -42,9 +42,9 @@ logger = logging.getLogger("ariaska.mentor_controller")
 
 class MentorTier(str, Enum):
     """3-tier mentor model routing."""
-    REACTIVE = "reactive"           # gpt-5.2-codex — Phase 38: upgraded
-    DELIBERATIVE = "deliberative"   # gpt-5.1-codex — strategic
-    POSTMORTEM = "postmortem"       # gpt-5.2-codex — deep analysis
+    REACTIVE = "reactive"           # local-llm — Phase 38: upgraded
+    DELIBERATIVE = "deliberative"   # local-llm — strategic
+    POSTMORTEM = "postmortem"       # local-llm — deep analysis
 
 
 class MentorTrigger(str, Enum):
@@ -61,11 +61,11 @@ class MentorTrigger(str, Enum):
 
 
 # Model mapping: tier → model name
-# Phase 52: Tiered routing — cheap for reactive/postmortem, codex for deliberative
+# Phase 55: Fully local LLM — tiered by model size
 TIER_MODELS: Dict[MentorTier, str] = {
-    MentorTier.REACTIVE: "gpt-5.2-mini",       # Phase 52: quick tactical (cheap)
-    MentorTier.DELIBERATIVE: "gpt-5.2-codex",  # Keep codex for genuine stagnation
-    MentorTier.POSTMORTEM: "gpt-5.2-mini",     # Phase 52: postmortem can use mini
+    MentorTier.REACTIVE: "jaahas/qwen3.5-uncensored:4b",       # Fast tactical (small model)
+    MentorTier.DELIBERATIVE: "jaahas/qwen3.5-uncensored:9b",  # Deep reasoning (large model)
+    MentorTier.POSTMORTEM: "jaahas/qwen3.5-uncensored:4b",     # Postmortem analysis (small model)
 }
 
 
@@ -119,11 +119,11 @@ class MentorControllerConfig:
     ddqn_trigger_cooldown: int = 3    # Min steps between DDQN-triggered mentor calls
 
     # --- Model overrides ---
-    # Phase 52: Tiered model routing — cheap for reactive, smart for deliberative
+    # Phase 55: Fully local LLM — tiered by model size
     tier_models: Dict[str, str] = field(default_factory=lambda: {
-        "reactive": "gpt-5.2-mini",       # Phase 52: quick tactical advice (cheap)
-        "deliberative": "gpt-5.2-codex",  # Keep codex for genuine stagnation-breaking
-        "postmortem": "gpt-5.2-mini",     # Phase 52: postmortem doesn't need codex
+        "reactive": "jaahas/qwen3.5-uncensored:4b",       # Fast tactical (small)
+        "deliberative": "jaahas/qwen3.5-uncensored:9b",  # Deep reasoning (large)
+        "postmortem": "jaahas/qwen3.5-uncensored:4b",     # Postmortem (small)
     })
 
 
@@ -137,7 +137,7 @@ class MentorEngagement:
     engage: bool = False
     tier: MentorTier = MentorTier.REACTIVE
     trigger: MentorTrigger = MentorTrigger.NONE
-    model: str = "gpt-5.2-codex"
+    model: str = "local-llm"
     reason: str = ""
     exfil_guidance: bool = False      # True if exfil-specific prompt should be injected
     max_tokens: int = 300             # Token limit for this call
@@ -345,7 +345,7 @@ class MentorController:
                 max_tokens=500,  # More tokens for strategic exfil guidance
             )
 
-        # T4: Stagnation → deliberative (gpt-5.2-codex for deep reasoning)
+        # T4: Stagnation → deliberative (local-llm for deep reasoning)
         if self._stagnation_steps >= self.config.stagnation_threshold:
             return self._make_engagement(
                 MentorTier.DELIBERATIVE, MentorTrigger.STAGNATION,
@@ -487,7 +487,7 @@ class MentorController:
         max_tokens: int = 300,
     ) -> MentorEngagement:
         """Build engagement result and update tracking."""
-        model = self.config.tier_models.get(tier.value, TIER_MODELS.get(tier, "gpt-5.2-codex"))
+        model = self.config.tier_models.get(tier.value, TIER_MODELS.get(tier, "local-llm"))
 
         # Record
         self.calls_this_episode += 1

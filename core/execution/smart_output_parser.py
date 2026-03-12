@@ -4,7 +4,7 @@ core/execution/smart_output_parser.py — ARIASKA Smart Output Parser v1.0
 
 Two-stage output parsing wrapping the existing OutputParser:
   1. Fast regex pass via OutputParser (zero cost) — handles 80%+ of outputs
-  2. Nano-LLM fallback (gpt-5-nano) — for unparseable or ambiguous output
+  2. Nano-LLM fallback (local-llm) — for unparseable or ambiguous output
 
 The nano-LLM path is ultra-cheap (~$0.0001/call) and only triggered
 when the regex parser finds nothing meaningful in non-trivial output.
@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("ariaska.smart_output_parser")
 
-# Nano-LLM model for output parsing (ultra-cheap)
-PARSER_MODEL = "gpt-5-nano"
+# Nano-LLM tier for output parsing (System 1 - Fast)
+PARSER_MODEL = "nano"
 
 # Minimum meaningful output length to consider LLM parsing
 MIN_OUTPUT_FOR_LLM = 30
@@ -53,11 +53,11 @@ class SmartOutputParser:
         self._llm_calls_this_episode: int = 0
         self._knowledge_retriever = knowledge_retriever
         
-        # Wrap existing OutputParser for regex stage
+        # Wrap existing OutputParser (now LLM-primary with regex fallback)
         self._regex_parser: Optional[Any] = None
         try:
             from core.execution.output_parser import OutputParser
-            self._regex_parser = OutputParser()
+            self._regex_parser = OutputParser(gpt_manager=gpt_manager)
         except ImportError:
             logger.warning("OutputParser not available, LLM-only mode")
         
@@ -80,49 +80,45 @@ class SmartOutputParser:
         output: str,
         agent_name: str = "unknown",
     ) -> Dict[str, Any]:
-        """
-        Parse command output for discoveries using two-stage pipeline.
-        
-        Returns dict of discoveries compatible with SmartOrchestrator:
+        """Parse command output for discoveries using LLM-primary pipeline.
+
+        Pipeline:
+          1. OutputParser (LLM-primary + regex fallback) → ParsedOutput
+          2. Convert to flat discovery dict
+          3. Standalone LLM fallback if OutputParser found nothing
+          4. KnowledgeRetriever enrichment
+
+        Returns dict compatible with SmartOrchestrator:
         {"open_port": [80], "service": ["http"], "credential": True, ...}
         """
         self._stats["total_calls"] += 1
-        
+
         if not output or len(output.strip()) < 5:
             self._stats["empty_outputs"] += 1
             return {}
-        
-        # ── Stage 1: Regex via existing OutputParser ────────────────
-        regex_discoveries = {}
-        if self._regex_parser:
-            try:
-                parsed = self._regex_parser.parse(command, output)
-                regex_discoveries = self._parsed_output_to_discoveries(parsed)
-            except Exception as e:
-                logger.debug(f"[SMART-PARSER] Regex parse error: {e}")
-        
-        if regex_discoveries:
-            self._stats["regex_hits"] += 1
-            # Phase 9.4: Enrich with KnowledgeRetriever port lookups
-            if self._knowledge_retriever is not None:
-                regex_discoveries = self._kr_enrich(regex_discoveries)
-            return regex_discoveries
-        
-        # ── Stage 2: LLM fallback (nano model) ─────────────────────
-        if (
-            self._enable_llm
-            and self._llm_calls_this_episode < self._max_llm_calls
-            and len(output.strip()) > MIN_OUTPUT_FOR_LLM
-            and not self._is_trivial_output(output)
-        ):
+
+        # ── Stage 1: OutputParser (LLM-primary + regex fallback) ──────
+        if self._regex_parser is not None:
+            parsed = self._regex_parser.parse(command, output)
+            if parsed and parsed.discovery_count > 0:
+                discoveries = self._parsed_output_to_discoveries(parsed)
+                self._stats["regex_hits"] += 1
+                if self._knowledge_retriever is not None:
+                    discoveries = self._kr_enrich(discoveries)
+                return discoveries
+
+        # ── Stage 2: Standalone LLM fallback ──────────────────────────
+        if self._enable_llm and not self._is_trivial_output(output):
             llm_result = self._llm_parse(command, output, agent_name)
             if llm_result:
                 self._stats["llm_calls"] += 1
                 self._stats["llm_discoveries"] += 1
                 self._llm_calls_this_episode += 1
+                if self._knowledge_retriever is not None:
+                    llm_result = self._kr_enrich(llm_result)
                 return llm_result
-        
-        return regex_discoveries
+
+        return {}
 
     # ------------------------------------------------------------------
     # Convert ParsedOutput to flat discovery dict
@@ -187,7 +183,7 @@ class SmartOutputParser:
         agent_name: str,
     ) -> Optional[Dict[str, Any]]:
         """
-        Use gpt-5-nano to parse output that regex couldn't handle.
+        Use local-llm to parse output that regex couldn't handle.
         """
         if not self._gpt:
             return None
@@ -225,22 +221,31 @@ JSON:"""
                 agent_id=f"parser_{agent_name}",
                 max_tokens=200,
                 model=PARSER_MODEL,
+                temperature=0.1,
+                response_format={"type": "json_object"}
             )
             
             if not response:
                 return None
             
-            # Extract JSON from response
-            json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                # Filter out empty values
-                result = {k: v for k, v in result.items() if v}
-                if result:
-                    logger.debug(f"[SMART-PARSER-LLM] Found: {list(result.keys())}")
-                    return result
+            # Since response_format="json_object" is enforced, we can load directly
+            try:
+                result = json.loads(response)
+            except json.JSONDecodeError:
+                # Fallback to regex extraction if the model hallucinated markdown formatting
+                json_match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group())
+                else:
+                    return None
             
-        except (json.JSONDecodeError, Exception) as e:
+            # Filter out empty values
+            result = {k: v for k, v in result.items() if v}
+            if result:
+                logger.debug(f"[SMART-PARSER-LLM] JSON Extracted: {list(result.keys())}")
+                return result
+            
+        except Exception as e:
             logger.debug(f"[SMART-PARSER-LLM] Parse failed: {e}")
         
         return None
@@ -292,7 +297,7 @@ JSON:"""
         if stripped.startswith("[SIM]") and len(stripped) < 50:
             return True
         lines = stripped.split("\n")
-        if len(lines) <= 1:
+        if len(lines) <= 1 and len(stripped) < 80:
             return True
         error_markers = ["error", "failed", "denied", "refused", "timeout", "not found"]
         error_count = sum(

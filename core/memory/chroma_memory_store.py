@@ -60,20 +60,28 @@ class ChromaMemoryStore:
                 console.print(f"[green]✓ ChromaDB collection '{self.collection_name}' loaded[/green]")
                 console.print(f"[cyan]📊 Collection count: {self.collection.count()}[/cyan]")
             except ValueError:
-                # Create embedding function if not provided
+                # Phase 6: Deep Integration - Local Embeddings First
                 if self.embedding_function is None:
-                    if chromadb.utils.embedding_functions.OpenAIEmbeddingFunction is not None:
-                        # Try to get API key from environment
-                        api_key = os.environ.get("OPENAI_API_KEY")
-                        if api_key:
-                            try:
-                                self.embedding_function = chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-                                    api_key=api_key,
-                                    model_name="text-embedding-ada-002"
-                                )
-                            except Exception as e:
-                                console.print(f"[yellow]⚠ Could not initialize OpenAI embedding: {e}[/yellow]")
-                                self.embedding_function = None
+                    try:
+                        # 1. Try local default (SentenceTransformers - all-MiniLM-L6-v2)
+                        from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+                        self.embedding_function = DefaultEmbeddingFunction()
+                        console.print("[green]✓ Initialized Local SentenceTransformer Embeddings (all-MiniLM-L6-v2)[/green]")
+                    except Exception as e_local:
+                        console.print(f"[yellow]⚠ Could not initialize local embeddings: {e_local}[/yellow]")
+                        # 2. Try OpenAI fallback
+                        if chromadb.utils.embedding_functions.OpenAIEmbeddingFunction is not None:
+                            api_key = os.environ.get("OPENAI_API_KEY")
+                            if api_key:
+                                try:
+                                    self.embedding_function = chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
+                                        api_key=api_key,
+                                        model_name="text-embedding-ada-002"
+                                    )
+                                    console.print("[green]✓ Initialized OpenAI Embeddings[/green]")
+                                except Exception as e_oai:
+                                    console.print(f"[yellow]⚠ Could not initialize OpenAI embedding: {e_oai}[/yellow]")
+                                    self.embedding_function = None
                 
                 # Create collection with or without embedding function
                 self.collection = self.client.create_collection(
@@ -110,7 +118,7 @@ class ChromaMemoryStore:
             response = self.gpt_manager.gpt_request(
                 prompt=prompt,
                 task_type="embedding",
-                model="gpt-5-nano"
+                model="local-llm"
             )
             
             try:

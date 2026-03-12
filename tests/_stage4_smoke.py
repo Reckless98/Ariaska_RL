@@ -227,7 +227,7 @@ def test_cot_cache():
         reasoning_chain="nmap scan complete",
         command_suggestion="nmap -sV",
         confidence=0.9,
-        model_used="gpt-5.2-nano",
+        model_used="local-llm",
         token_cost=50,
     )
     hit = cache.get("RECON", fp)

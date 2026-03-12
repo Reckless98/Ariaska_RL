@@ -81,7 +81,7 @@ class TrainingConfig:
     
     # Postmortem
     enable_postmortem: bool = True
-    enable_gpt_5_2_postmortem: bool = False
+    enable_advanced_llm_postmortem: bool = False
     postmortem_output_dir: str = "postmortems"
     
     # Skill Library
@@ -219,7 +219,7 @@ class AriaskaTrainer:
             self.postmortem = OrionPostmortem(
                 gpt_manager=self.gpt_manager,
                 output_dir=self.config.postmortem_output_dir,
-                enable_gpt_5_2=self.config.enable_gpt_5_2_postmortem
+                enable_advanced_llm=self.config.enable_advanced_llm_postmortem
             )
         
         # Skill Library
@@ -634,7 +634,8 @@ def main():
                         default="standard", help="Verbosity level")
     parser.add_argument("--no-postmortem", action="store_true", help="Disable postmortem analysis")
     parser.add_argument("--dry-run", action="store_true", help="Don't apply skill updates")
-    parser.add_argument("--enable-gpt-5-2", action="store_true", help="Enable GPT-5.2 for postmortem")
+    parser.add_argument("--enable-gpt-5-2", action="store_true", help="(legacy alias) Enable advanced LLM for postmortem")
+    parser.add_argument("--enable-advanced-llm", action="store_true", help="Enable advanced local LLM for postmortem")
     
     # LLM mode arguments (online-first by default)
     parser.add_argument("--offline", action="store_true",
@@ -673,7 +674,7 @@ def main():
         verbosity=args.verbosity,
         enable_postmortem=not args.no_postmortem,
         apply_skill_updates=not args.dry_run,
-        enable_gpt_5_2_postmortem=args.enable_gpt_5_2,
+        enable_advanced_llm_postmortem=args.enable_gpt_5_2 or getattr(args, 'enable_advanced_llm', False),
         enable_llm=enable_llm,
         require_llm=require_llm,
         offline=offline,
@@ -686,14 +687,17 @@ def main():
     
     # Early validation: online-first means fail fast if no API key
     if config.enable_llm and config.require_llm and not config.offline:
+        from core.feature_flags import get_feature_flags
+        ff = get_feature_flags()
         api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            logger.error("OPENAI_API_KEY not set. Online mode requires API key.")
-            print("ERROR: OPENAI_API_KEY environment variable not set.")
+        if not api_key and not ff.local_llm:
+            logger.error("OPENAI_API_KEY not set and local LLM is not enabled. Online mode requires LLM access.")
+            print("ERROR: Neither OPENAI_API_KEY nor local LLM enabled.")
             print("       Options:")
             print("         1. Set OPENAI_API_KEY environment variable")
-            print("         2. Run with --offline for offline mode")
-            print("         3. Run with --no-require-llm to gracefully degrade")
+            print("         2. Set FF_LOCAL_LLM=1 for local inference")
+            print("         3. Run with --offline for offline mode")
+            print("         4. Run with --no-require-llm to gracefully degrade")
             return 1
     
     trainer = AriaskaTrainer(config=config)

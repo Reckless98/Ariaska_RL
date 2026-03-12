@@ -22,12 +22,22 @@ Usage:
     result = parser.parse("nmap -sV 192.168.56.101", output_text)
 """
 
+from __future__ import annotations
+
+import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.gpt_manager import GPTManager
 
 logger = logging.getLogger(__name__)
+
+# ── LLM extraction constants ──────────────────────────────────────────
+LLM_PARSER_MODEL = "nano"
+_LLM_MAX_OUTPUT_CHARS = 1500  # Truncate STDOUT before sending to LLM
 
 
 @dataclass
@@ -134,53 +144,67 @@ class OutputParser:
         "erl": "_parse_erlang",
     }
     
-    def __init__(self, known_ports_path: Optional[str] = None):
+    def __init__(
+        self,
+        known_ports_path: Optional[str] = None,
+        gpt_manager: Optional["GPTManager"] = None,
+    ):
+        self._gpt = gpt_manager
         self._all_discovered_ports: Set[int] = set()
         self._all_discovered_services: Dict[int, str] = {}
         self._all_credentials: List[Dict[str, str]] = []
         self._all_vulns: List[str] = []
     
     def parse(self, command: str, output: str) -> ParsedOutput:
-        """
-        Parse command output into structured data.
-        
-        Args:
-            command: The command that was executed
-            output: Raw stdout from the command
-            
-        Returns:
-            ParsedOutput with structured discoveries
+        """Parse command output into structured data.
+
+        Pipeline:
+          1. LLM extraction (if GPTManager available) — robust, handles
+             non-standard formats and mixed output.
+          2. Regex fallback — zero-cost, deterministic, tool-specific.
         """
         if not command or not output:
             return ParsedOutput(command=command or "", error="Empty command or output")
-        
-        # Phase 18: Strip ANSI escape codes — real tool output contains
-        # colour/cursor sequences that break all regex patterns.
-        import re as _re
-        output = _re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+
+        # Strip ANSI escape codes that break both regex and LLM parsing.
+        output = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
         output = output.replace('\r', '')
-        
-        # Identify tool from command
+
         tool = self._identify_tool(command)
-        
-        # Get appropriate parser
+
+        # ── Stage 1: LLM extraction (primary) ────────────────────────
+        if self._gpt and len(output.strip()) >= 30:
+            try:
+                llm_result = self._llm_extract(command, output, tool)
+                if llm_result and llm_result.discovery_count > 0:
+                    llm_result.command = command
+                    llm_result.tool = tool
+                    llm_result.raw_output_length = len(output)
+                    self._normalize_services(llm_result)
+                    self._guard_credentials(llm_result)
+                    self._sanitize_web_paths(llm_result)
+                    self._update_global_discoveries(llm_result)
+                    logger.debug(
+                        f"[OUTPUT-PARSER-LLM] {tool}: "
+                        f"{llm_result.discovery_count} discoveries"
+                    )
+                    return llm_result
+            except Exception as e:
+                logger.debug(f"[OUTPUT-PARSER-LLM] {tool} failed, regex fallback: {e}")
+
+        # ── Stage 2: Regex fallback ───────────────────────────────────
         parser_name = self.TOOL_PARSERS.get(tool, "_parse_generic")
         parser_method = getattr(self, parser_name, self._parse_generic)
-        
+
         try:
             result = parser_method(command, output)
             result.command = command
             result.tool = tool
             result.raw_output_length = len(output)
-
-            # Phase 38.1: Post-parse normalization + validation
             self._normalize_services(result)
             self._guard_credentials(result)
             self._sanitize_web_paths(result)
-
-            # Update global discovery tracking
             self._update_global_discoveries(result)
-            
             return result
         except Exception as e:
             logger.warning(f"Parse error for {tool}: {e}")
@@ -190,6 +214,162 @@ class OutputParser:
                 error=str(e),
                 raw_output_length=len(output),
             )
+
+    # ------------------------------------------------------------------
+    # LLM-based structured extraction
+    # ------------------------------------------------------------------
+
+    _LLM_SYSTEM_PROMPT = (
+        "You are a penetration-testing output parser. "
+        "Given a command and its STDOUT, extract structured discoveries. "
+        "Return ONLY valid JSON — no markdown, no explanation."
+    )
+
+    _LLM_EXTRACTION_PROMPT = """\
+Parse this penetration testing tool output and extract all discoveries as JSON.
+
+Tool: {tool}
+Command: {command}
+STDOUT:
+```
+{output}
+```
+
+Return a JSON object with ONLY the keys that have findings (omit empty keys):
+- "open_ports": [list of integer port numbers]
+- "services": {{"port_int": "service_name version_string"}}  (port as string key)
+- "os_info": "OS identification string"
+- "web_paths": [list of discovered URL paths]
+- "credentials": [{{"username": "...", "password": "...", "service": "..."}}]
+- "vulnerabilities": [list of CVE IDs or vulnerability descriptions]
+- "users": [list of discovered usernames]
+- "shares": [list of SMB/NFS share names]
+- "sessions": [{{"type": "meterpreter|shell|root", "id": N}}]
+- "artifacts": {{"key": "value"}} for any other notable findings
+- "success": true/false whether the command achieved its goal
+
+JSON:"""
+
+    def _llm_extract(
+        self, command: str, output: str, tool: str,
+    ) -> Optional[ParsedOutput]:
+        """Use the local LLM to parse STDOUT into a ParsedOutput."""
+        if not self._gpt:
+            return None
+
+        truncated = output[:_LLM_MAX_OUTPUT_CHARS]
+        prompt = self._LLM_EXTRACTION_PROMPT.format(
+            tool=tool, command=command, output=truncated,
+        )
+
+        response = self._gpt.gpt_request(
+            prompt=prompt,
+            task_type="classification",
+            agent_id=f"output_parser_{tool}",
+            max_tokens=300,
+            model=LLM_PARSER_MODEL,
+            temperature=0.1,
+            system_prompt=self._LLM_SYSTEM_PROMPT,
+            response_format="json_object",
+        )
+
+        if not response:
+            return None
+
+        try:
+            data = json.loads(response)
+        except json.JSONDecodeError:
+            # Fallback: extract first JSON object from response
+            m = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+            if not m:
+                return None
+            data = json.loads(m.group())
+
+        return self._json_to_parsed_output(data, command, tool)
+
+    @staticmethod
+    def _json_to_parsed_output(
+        data: Dict[str, Any], command: str, tool: str,
+    ) -> ParsedOutput:
+        """Convert a raw JSON dict from LLM into a ParsedOutput dataclass."""
+        result = ParsedOutput(command=command, tool=tool)
+
+        # open_ports
+        for p in data.get("open_ports", []):
+            try:
+                port = int(p)
+                if 0 < port < 65536:
+                    result.open_ports.append(port)
+            except (ValueError, TypeError):
+                pass
+
+        # services  {"22": "ssh OpenSSH 7.2p2", ...}
+        raw_svcs = data.get("services", {})
+        if isinstance(raw_svcs, dict):
+            for k, v in raw_svcs.items():
+                try:
+                    result.services[int(k)] = str(v)
+                except (ValueError, TypeError):
+                    pass
+
+        # os_info
+        if data.get("os_info"):
+            result.os_info = str(data["os_info"])
+
+        # web_paths
+        for wp in data.get("web_paths", []):
+            if isinstance(wp, str) and wp.startswith("/"):
+                result.web_paths.append(wp)
+
+        # credentials
+        for cred in data.get("credentials", []):
+            if isinstance(cred, dict):
+                result.credentials.append({
+                    k: str(v) for k, v in cred.items()
+                    if k in ("username", "password", "service", "host", "port", "source", "hash")
+                })
+
+        # vulnerabilities
+        for v in data.get("vulnerabilities", []):
+            if isinstance(v, str):
+                result.vulnerabilities.append(v)
+
+        # users
+        for u in data.get("users", []):
+            if isinstance(u, str) and u not in result.users:
+                result.users.append(u)
+
+        # shares
+        for s in data.get("shares", []):
+            if isinstance(s, str):
+                result.shares.append(s)
+
+        # sessions
+        for sess in data.get("sessions", []):
+            if isinstance(sess, dict):
+                result.sessions.append(sess)
+
+        # artifacts
+        raw_artifacts = data.get("artifacts", {})
+        if isinstance(raw_artifacts, dict):
+            result.artifacts.update(raw_artifacts)
+
+        # success
+        result.success = bool(data.get("success", result.discovery_count > 0))
+
+        # Infer phase from discoveries
+        if result.sessions:
+            result.phase = "privesc"
+        elif result.credentials:
+            result.phase = "exploit"
+        elif result.vulnerabilities:
+            result.phase = "exploit"
+        elif result.open_ports:
+            result.phase = "recon"
+        elif result.web_paths or result.users or result.shares:
+            result.phase = "enumeration"
+
+        return result
     
     def _identify_tool(self, command: str) -> str:
         """Identify the base tool from a command string."""

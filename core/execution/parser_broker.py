@@ -12,10 +12,10 @@ Dual-mode discovery parsing pipeline with GPT-primary LLM interpretation:
     Stage 1: Regex           — free, pattern matching
     Stage 2: SOP LLM         — nano-LLM fallback
     Stage 3: LLM Interpreter — GPT-5.2-codex primary / Venice qwen3-coder fallback
-    Stage 4: GPT finaliser   — gpt-5-nano for edge cases
+    Stage 4: GPT finaliser   — local-llm for edge cases
 
 Phase 13.0: Stage 3 now uses GPT-5.2-codex as PRIMARY interpreter:
-  - Uses gpt-5.2-codex for deep reasoning interpretation (primary)
+  - Uses local-llm for deep reasoning interpretation (primary)
   - Venice qwen3-coder validates high-value GPT discoveries (shells, creds, flags)
   - Falls back to Venice when GPT budget exhausted
   - Produces InterpretationLessons that teach agents to interpret output
@@ -107,7 +107,7 @@ class ParserBroker:
         except ImportError:
             logger.warning("SmartOutputParser not available")
 
-        # Phase 11.3: LLM Output Interpreter (qwen3-coder → gpt-5.2-mini)
+        # Phase 11.3: LLM Output Interpreter (qwen3-coder → local-llm)
         # This is the new stage that teaches agents to interpret output
         self._llm_interpreter: Optional[Any] = None
         try:
@@ -117,7 +117,7 @@ class ParserBroker:
                 max_venice_calls_per_episode=max_venice_calls_per_episode,
                 max_gpt_calls_per_episode=max_llm_calls_per_episode,
             )
-            logger.info("[BROKER-11.3] LLMOutputInterpreter loaded (qwen3-coder → gpt-5.2-mini)")
+            logger.info("[BROKER-11.3] LLMOutputInterpreter loaded (qwen3-coder → local-llm)")
         except Exception as e:
             logger.warning(f"LLMOutputInterpreter not available: {e}")
 
@@ -126,7 +126,7 @@ class ParserBroker:
             "total_calls": 0,
             "stage1_hits": 0,    # regex
             "stage2_hits": 0,    # SOP LLM
-            "stage3_hits": 0,    # LLM Interpreter (Venice qwen3-coder / gpt-5.2-mini)
+            "stage3_hits": 0,    # LLM Interpreter (Venice qwen3-coder / local-llm)
             "stage4_hits": 0,    # GPT finaliser
             "empty_outputs": 0,
             "total_events": 0,
@@ -494,7 +494,7 @@ class ParserBroker:
                     self._stats["lessons_produced"] += 1
                     self._last_lesson = lesson
                     logger.debug(
-                        f"[BROKER-GPT] gpt-5.2-codex | {agent_name} | "
+                        f"[BROKER-GPT] local-llm | {agent_name} | "
                         f"found: {list(flat_discoveries.keys())} | "
                         f"{lesson.latency_ms:.0f}ms"
                     )
