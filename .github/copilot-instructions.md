@@ -10,21 +10,41 @@
 
 | Situation | You MUST |
 |-----------|----------|
+| Starting ANY new task | `cc_sync.sh start` → THEN write your TODO list with `cc_sync.sh todos` |
 | Touching 2+ files | Fire `claude` audit async BEFORE writing one line |
 | Planning a new module/class | Get Claude architecture audit first |
-| Unsure about impact | Ask Claude, not yourself |
+| Unsure about ANYTHING in the codebase | `cc_sync.sh audit` — never assume, never guess |
 | Reviewing your own implementation plan | Have Claude review it before you execute |
-| Context window getting full from reading files | STOP — delegate reading to Claude |
+| Completing each TODO step | `cc_sync.sh checkpoint "<step N done: summary>"` |
+| Context window filling up | `cc_sync.sh checkpoint --ask-claude "<done so far, remaining TODOs>"` IMMEDIATELY |
+| About to re-read a file you already tried | STOP — you're in a loop. Call `cc_sync.sh audit` |
+| Going in circles / unsure what to do next | `cc_sync.sh checkpoint --ask-claude "<stuck on X because Y>"` |
 
 ```bash
-# One command. No excuses:
+# Full workflow — no exceptions:
 ./scripts/cc_sync.sh start "<describe your task>"
+./scripts/cc_sync.sh todos "1. step one\n2. step two\n3. step three"
+# ... implement step 1 ...
+./scripts/cc_sync.sh checkpoint "step 1 done: <what you did>"
+# ... implement step 2 ...
+./scripts/cc_sync.sh checkpoint "step 2 done: <what you did>"
+./scripts/cc_sync.sh done "<full summary>"
 
-# Or from VSCode: Ctrl+Shift+P → "Tasks: Run Task" → "CC: Start Session"
-# Or from Make: make cc-start task="describe your task"
+# Mid-task: context getting full or stuck?
+./scripts/cc_sync.sh checkpoint --ask-claude "completed: X. remaining: Y, Z. stuck because: <reason>"
 ```
 
 **Violating this gate = wasted context + broken invariants + invariant-violating commits caught by pre-commit hook.**
+
+### Anti-Hallucination Rules
+
+These are HARD RULES. Violating them causes the circular loops and incomplete work the user has complained about.
+
+1. **NEVER assume what a function/class does without reading it.** If you haven't read it this session, `cc_sync.sh audit "read and explain <path>:<line>"`.
+2. **NEVER implement based on guessed file structure.** If your context is too full to read, `checkpoint --ask-claude`.
+3. **NEVER re-implement something you already wrote.** Check the session and your recent edits first.
+4. **NEVER stop mid-task without calling `checkpoint`.** If you must stop (context full, uncertain), record exactly where you are so Claude can guide the next step.
+5. **If you've tried the same fix twice and it still doesn't work** — STOP. `cc_sync.sh audit "tried X twice, still failing because Y"`.
 
 The `cc_sync.sh` script manages the full lifecycle. Claude Code reads `.claude/CLAUDE.md` for its instructions. Both agents share `.github/CC_SESSION.md` as the live conversation.
 

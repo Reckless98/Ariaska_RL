@@ -545,6 +545,62 @@ Check ONLY:
     return 0
 }
 
+cmd_todos() {
+    local todos="${1:-}"
+    if [[ -z "$todos" ]]; then
+        echo "Usage: cc_sync.sh todos '<numbered list of steps>'"
+        exit 1
+    fi
+
+    _append "---"
+    _append "### [Copilot] TODO List — $(_timestamp)"
+    _append "$todos"
+
+    echo "[cc_sync] TODO list saved to session."
+    echo "After each step, run: cc_sync.sh checkpoint '<step N done: summary>'"
+}
+
+cmd_checkpoint() {
+    local update="${1:-}"
+    local ask_claude="${2:-}"
+
+    if [[ -z "$update" ]]; then
+        echo "Usage: cc_sync.sh checkpoint '<what was completed, what remains>' [--ask-claude]"
+        exit 1
+    fi
+
+    _append "---"
+    _append "### [Copilot] Checkpoint — $(_timestamp)"
+    _append "$update"
+
+    echo "[cc_sync] Checkpoint saved."
+
+    if [[ "$ask_claude" == "--ask-claude" ]]; then
+        echo "[cc_sync] Asking Claude for next-step guidance..."
+        local response
+        if response=$(_claude "You are Claude Code for Ariaska_RL. Read .claude/CLAUDE.md for context.
+
+Current session:
+$(_read_session)
+
+Copilot has hit a checkpoint and needs guidance on next steps. Respond using this EXACT format:
+
+### [Claude → Copilot] Next Steps
+**Completed so far:** <summary from checkpoint>
+**Remaining TODOs:** <what still needs doing, inferred from session>
+**Recommended next action:** <specific concrete next step>
+**Watch out for:** <invariants or risks for remaining work>
+**Context advice:** <whether to start fresh context or continue>"); then
+            _append "---"
+            _append "$response"
+            echo ""
+            echo "$response"
+        else
+            echo "[cc_sync] WARNING: Claude guidance failed — continue from checkpoint manually."
+        fi
+    fi
+}
+
 cmd_parallel() {
     local q1="${1:-}"
     local q2="${2:-}"
@@ -603,29 +659,33 @@ cmd_parallel() {
 # ── Dispatch ─────────────────────────────────────────────────────────
 
 case "${1:-help}" in
-    start)    shift; cmd_start "$*" ;;
-    audit)    shift; cmd_audit "$*" ;;
-    plan)     shift; cmd_plan "$*" ;;
-    done)     shift; cmd_done "$*" ;;
-    review)   cmd_review ;;
-    status)   cmd_status ;;
-    archive)  cmd_archive ;;
+    start)      shift; cmd_start "$*" ;;
+    audit)      shift; cmd_audit "$*" ;;
+    plan)       shift; cmd_plan "$*" ;;
+    done)       shift; cmd_done "$*" ;;
+    todos)      shift; cmd_todos "$*" ;;
+    checkpoint) shift; cmd_checkpoint "$1" "${2:-}" ;;
+    review)     cmd_review ;;
+    status)     cmd_status ;;
+    archive)    cmd_archive ;;
     auto-audit) cmd_auto_audit ;;
-    parallel) shift; cmd_parallel "$1" "$2" ;;
+    parallel)   shift; cmd_parallel "$1" "$2" ;;
     help|*)
         cat << 'HELP'
 cc_sync.sh — Copilot ↔ Claude Code bidirectional session manager
 
 Commands:
-  start  <task>       Start new session, fire Claude audit
-  audit  <question>   Ask Claude a question mid-session
-  plan   <plan>       Submit plan for Claude review (returns APPROVED/CONCERNS/BLOCKED)
-  done   <summary>    Mark done, fire post-audit (returns CLEAN/ISSUES)
-  review              Review full session state
-  status              Show current session status
-  archive             Archive and reset session
-  auto-audit          Auto-audit staged git changes (pre-commit hook)
-  parallel <q1> <q2>  Two parallel Claude queries
+  start       <task>       Start new session, fire Claude audit
+  todos       <list>       Write numbered TODO list to session (call after start)
+  audit       <question>   Ask Claude a question mid-session
+  plan        <plan>       Submit plan for Claude review (returns APPROVED/CONCERNS/BLOCKED)
+  checkpoint  <update>     Record progress mid-task; add --ask-claude for next-step guidance
+  done        <summary>    Mark done, fire post-audit (returns CLEAN/ISSUES)
+  review                   Review full session state
+  status                   Show current session status
+  archive                  Archive and reset session
+  auto-audit               Auto-audit staged git changes (pre-commit hook)
+  parallel    <q1> <q2>    Two parallel Claude queries
 
 Environment:
   CC_MODEL=sonnet     Claude model (default: sonnet)
@@ -636,11 +696,15 @@ Session file: .github/CC_SESSION.md
 Archives:     .github/sessions/
 
 Workflow:
-  1. cc_sync.sh start "task description"    → Claude audits
-  2. cc_sync.sh plan "my implementation"     → Claude reviews (APPROVED/BLOCKED)
-  3. (implement)
-  4. cc_sync.sh done "what I did"            → Claude audits (CLEAN/ISSUES)
-  5. git commit                              → pre-commit hook auto-audits
+  1. cc_sync.sh start "task description"                      → Claude audits
+  2. cc_sync.sh todos "1. step\n2. step\n3. step"             → TODO list saved
+  3. cc_sync.sh plan "my implementation plan"                  → Claude reviews (APPROVED/BLOCKED)
+  4. (implement step 1)
+  5. cc_sync.sh checkpoint "step 1 done: <summary>"           → progress saved
+  6. (implement step 2... if stuck/context full:)
+     cc_sync.sh checkpoint --ask-claude "done: X. remaining: Y" → Claude guides next step
+  7. cc_sync.sh done "full summary"                           → Claude audits (CLEAN/ISSUES)
+  8. git commit                                                → pre-commit hook auto-audits
 HELP
         ;;
 esac

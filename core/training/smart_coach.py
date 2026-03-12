@@ -3418,6 +3418,22 @@ class SmartCoach:
             return _web_probe
 
         # =====================================================================
+        # P55: FORCE playbook result for HTB initial recon (steps 0-2).
+        # Playbook produces forced nmap_top_ports → nmap_full_tcp sequence
+        # but DecisionCore may still pick PPO over it. For HTB targets in
+        # early RECON, playbook MUST win — PPO is untrained and selects
+        # narrow wrong-port scans. Same pattern as web_probe force above.
+        # =====================================================================
+        if (playbook_result is not None
+                and playbook_result.source == "playbook"
+                and getattr(playbook_result, 'reasoning', '').startswith("[P55 HTB")):
+            self._step_reasoning_log.append({
+                "event": "htb_recon_forced",
+                "detail": f"Forcing HTB recon: {getattr(playbook_result, 'template_name', 'unknown')}",
+            })
+            return playbook_result
+
+        # =====================================================================
         # P1: Decision Sovereignty — DecisionCore.arbitrate()
         # All source producers above have run. Collect as Advisory objects
         # and let DecisionCore pick the single winner via weighted scoring.
@@ -6714,6 +6730,41 @@ class SmartCoach:
         ctx = step_ctx.attack_context
         _is_htb_target = (ctx and ctx.target and '10.' in ctx.target
                           and '172.28.' not in ctx.target)
+
+        # P55: Forced initial recon for HTB targets — guarantee broad port scan
+        # before PPO gets a chance to select narrow wrong-port scans.
+        # On step 0-1 in RECON, Scout MUST run nmap_top_ports / nmap_full_tcp.
+        if (_is_htb_target
+                and ctx and ctx.current_phase == AttackPhase.RECON
+                and step_ctx.step < 3
+                and self.agent_role.get("role") == "recon"):
+            _htb_recon_done = set(d.template_name for d in self.decisions if d.template_name)
+            _htb_recon_seq = [
+                ("nmap_top_ports", "nmap -Pn -sC -sV --top-ports 1000 {target}",
+                 "Initial broad recon — top 1000 ports with scripts + version detection"),
+                ("nmap_full_tcp", "nmap -Pn -sT -p- --min-rate 5000 {target}",
+                 "Full TCP scan — catch non-standard ports"),
+                ("nmap_udp_scan", "nmap -Pn -sU --top-ports 50 {target}",
+                 "Top UDP ports"),
+            ]
+            for _tname, _tcmd, _tdesc in _htb_recon_seq:
+                if _tname not in _htb_recon_done:
+                    _target = ctx.target or "10.0.0.1"
+                    _rendered = _tcmd.replace("{target}", _target)
+                    logger.info(
+                        f"[PLAYBOOK-HTB-FORCE] {self.agent_name}: Forcing "
+                        f"{_tname} at step {step_ctx.step}"
+                    )
+                    return SmartDecisionResult(
+                        command=_rendered,
+                        source="playbook",
+                        confidence=0.95,
+                        template_name=_tname,
+                        params={"target": _target},
+                        mentor_call=False,
+                        reasoning=f"[P55 HTB Forced Recon] {_tdesc}",
+                        phase=AttackPhase.RECON,
+                    )
         if (ctx and ctx.current_phase == AttackPhase.RECON
                 and step_ctx.step < 2
                 and not _is_htb_target
