@@ -44,9 +44,10 @@ class TestCLIBehavior:
         # Should fail with exit code 1
         assert result.returncode == 1, f"Expected exit code 1, got {result.returncode}"
         
-        # Should have clear error message
-        assert "OPENAI_API_KEY" in result.stdout or "OPENAI_API_KEY" in result.stderr, \
-            f"Expected API key error message, got:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+        # Should have clear error message about missing LLM access
+        combined = result.stdout + result.stderr
+        assert ("OPENAI_API_KEY" in combined or "Local LLM" in combined or "LLM" in combined), \
+            f"Expected LLM error message, got:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     
     def test_offline_mode_succeeds_without_key(self):
         """--offline mode should succeed without API key."""

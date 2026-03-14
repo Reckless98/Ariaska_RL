@@ -242,21 +242,15 @@ class TestBudgetManagerV2Wiring:
         _reset_flags()
 
     def test_bm2_budget_check(self):
-        """BudgetManagerV2 correctly denies when budget exceeded."""
+        """BudgetManagerV2 always allows local models (zero cost)."""
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2(total_budget=1000, tier_budgets={"mini": 500, "full": 500})
-        # Use a model that maps to 'mini' tier (default for unknown models)
-        # so budget tracking actually applies (local tier is free/unlimited).
-        test_model = "test-budget-model"
-        # Should allow
-        d1 = bm.check_budget(test_model, 400, "tactical")
+        # All models are local — always allowed
+        d1 = bm.check_budget("local-llm", 400, "tactical")
         assert d1.allowed
-        # Record spend near limit
-        bm.record_spend(test_model, 490, "tactical")
-        # Should deny (only 10 remaining)
-        d2 = bm.check_budget(test_model, 100, "tactical")
-        assert not d2.allowed
-        assert d2.reason == "budget_exceeded"
+        bm.record_spend("local-llm", 999_999, "tactical")
+        d2 = bm.check_budget("local-llm", 100, "tactical")
+        assert d2.allowed  # local is always allowed
 
 
 # ── CAP Contract Tests ──────────────────────────────────────────────────────

@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-03-13T06:03:24.321557",
+  "max_steps": 500,
+  "seed": null,
+  "target_ip": "10.129.5.9",
+  "mode": "continuous",
+  "duration_s": 1330.3458323478699,
+  "total_reward": 0.0,
+  "highest_phase": "RECON",
+  "total_steps": 0,
+  "user_flag_captured": true,
+  "root_flag_captured": true,
+  "user_flag_value": "771f57b249ed69f6e477b00dabce5f1b",
+  "root_flag_value": "ab8d07d1c7d50d853f9974f77016f60f",
+  "decision_sources": {
+    "ppo": 0,
+    "playbook": 0,
+    "registry": 0,
+    "anti_repeat": 0,
+    "codex_meta": 0
+  },
+  "episode_metrics": {}
+}

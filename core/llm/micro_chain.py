@@ -258,6 +258,13 @@ class MicroChain:
             logger.debug("[MICRO-CHAIN] Budget exhausted, returning None")
             return None
 
+        # Phase 56: Local-only → fast single-call path (replaces P55 blanket skip)
+        if getattr(self._gpt, 'is_local_only', lambda: False)():
+            return self._fast_local_decide(
+                phase, discovery_board, recent_commands,
+                available_templates, agent_role, stagnation_steps,
+            )
+
         # Cache check
         cache_key = _build_cache_key(
             phase, discovery_board, agent_role, stagnation_steps, available_templates
@@ -371,6 +378,131 @@ class MicroChain:
         # Cache
         self._cache[cache_key] = result
         self._total_tokens += total_tokens
+        return result
+
+    def _fast_local_decide(
+        self,
+        phase: str,
+        discovery_board: Dict[str, Any],
+        recent_commands: List[str],
+        available_templates: List[str],
+        agent_role: str,
+        stagnation_steps: int = 0,
+    ) -> Optional[MicroChainResult]:
+        """Phase 56: Single-call fast path for local LLM (4B Qwen).
+
+        Instead of 3-stage nano→mini→nano (3x calls, ~15s on CPU), make
+        exactly 1 LLM call with a compact prompt requesting JSON output.
+        Falls through to heuristic on timeout/error.
+        """
+        cache_key = _build_cache_key(
+            phase, discovery_board, agent_role, stagnation_steps, available_templates
+        )
+        if cache_key in self._cache:
+            logger.debug(f"[MICRO-CHAIN:local] Cache hit: {cache_key[:40]}")
+            return self._cache[cache_key]
+
+        ports = sorted(str(p) for p in list(discovery_board.get("ports", []))[:8])
+        services = sorted(str(s) for s in list(discovery_board.get("services", []))[:8])
+        creds = list(discovery_board.get("credentials", []))[:3]
+        recent = recent_commands[-5:] if recent_commands else []
+        templates = available_templates[:10]
+
+        prompt = (
+            "/no_think\n"
+            f"phase={phase} role={agent_role} stagnation={stagnation_steps}\n"
+            f"ports={ports} services={services} creds={creds}\n"
+            f"recent={recent}\n"
+            f"templates={templates}\n"
+            "Pick the BEST next command. Reply ONLY JSON:\n"
+            '{"command":"full command string","template_name":"from templates list",'
+            '"reasoning":"why this command","score":0.0-1.0}'
+        )
+        import time as _time
+        _t0 = _time.monotonic()
+        try:
+            response = self._gpt.gpt_request(
+                prompt=prompt,
+                task_type="classification",
+                agent_id="micro_chain_local",
+                max_tokens=120,
+                model="local-llm",
+                timeout=30,
+            )
+            _latency_ms = int((_time.monotonic() - _t0) * 1000)
+            parsed = _safe_json_load(response)
+            if parsed and parsed.get("command"):
+                score = max(0.0, min(1.0, float(parsed.get("score", 0.5))))
+                candidate = MicroChainCandidate(
+                    command=str(parsed["command"]),
+                    template_name=str(parsed.get("template_name", "")),
+                    reasoning=str(parsed.get("reasoning", "")),
+                    score=score,
+                    phase_fit=score,
+                    evidence_support=score * 0.9,
+                    novelty=0.7 if str(parsed["command"]) not in set(recent) else 0.3,
+                    evidence_used=list(ports[:3]),
+                    hypothesis=str(parsed.get("reasoning", ""))[:120],
+                    test=str(parsed.get("template_name", "")),
+                    expected_observable="new discovery or confirmation",
+                    stop_condition="timeout or completion",
+                    confidence=score,
+                )
+                result = MicroChainResult(
+                    selected=candidate,
+                    candidates=[candidate],
+                    escalated=False,
+                    chain_tokens=60,
+                    chain_cost_usd=0.0,  # local = free
+                    stages_used=["fast_local"],
+                    model_trace="fast_local_4b",
+                )
+                self._cache[cache_key] = result
+                # Publish reasoning for dashboard
+                self._gpt._last_reasoning = {
+                    "source": "micro_chain",
+                    "command": candidate.command[:80],
+                    "reasoning": candidate.reasoning[:200],
+                    "score": score,
+                    "latency_ms": _latency_ms,
+                    "model": "qwen3.5:4b",
+                }
+                logger.info(
+                    f"MC:local {candidate.command[:50]} score={score:.2f} "
+                    f"latency={_latency_ms}ms"
+                )
+                return result
+        except Exception as e:
+            logger.debug(f"[MICRO-CHAIN:local] Fast path failed: {e}")
+
+        # Fallback: heuristic-only result
+        situation = self._heuristic_classify(phase, discovery_board)
+        fallback_cmd = available_templates[0] if available_templates else "nmap -sV {target}"
+        candidate = MicroChainCandidate(
+            command=fallback_cmd,
+            template_name=fallback_cmd,
+            reasoning=f"heuristic_fallback: {situation}",
+            score=0.35,
+            phase_fit=0.4,
+            evidence_support=0.3,
+            novelty=0.5,
+            evidence_used=["implicit_phase_context"],
+            hypothesis=f"Heuristic for {phase}",
+            test=fallback_cmd,
+            expected_observable="new data",
+            stop_condition="timeout",
+            confidence=0.35,
+        )
+        result = MicroChainResult(
+            selected=candidate,
+            candidates=[candidate],
+            escalated=False,
+            chain_tokens=0,
+            chain_cost_usd=0.0,
+            stages_used=["heuristic_fallback"],
+            model_trace="heuristic",
+        )
+        self._cache[cache_key] = result
         return result
 
     def _heuristic_classify(

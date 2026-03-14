@@ -328,23 +328,6 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("OrionPostmortem", "warn", str(e)[:40]))
         
-        # ─── PHASE 7.2: Venice Reasoning Layer — DISABLED (Phase 22: GPT-only) ──
-        # Venice adds 5-7s latency per call (6000ms ping). All reasoning
-        # now handled by GPT-5.2-codex through LLMOutputInterpreter.
-        self.venice_reasoning = None
-        _init_modules.append(("VeniceReasoning", "off", "Phase 22: GPT-only"))
-        # try:
-        #     from core.llm.venice_reasoning import VeniceReasoningLayer
-        #     self.venice_reasoning = VeniceReasoningLayer(
-        #         gpt_manager=gpt_manager,
-        #         call_budget_per_episode=15,
-        #         min_output_length=30,
-        #         enable_cross_episode_memory=True,
-        #     )
-        #     _init_modules.append(("VeniceReasoning", "ok", "glm-4.7-flash"))
-        # except Exception as e:
-        #     _init_modules.append(("VeniceReasoning", "warn", str(e)[:40]))
-        
         # ─── PHASE 8: DecisionLogger — JSONL decision telemetry ──
         self.decision_logger = None
         try:
@@ -443,11 +426,8 @@ class SmartOrchestrator:
             _ff = get_feature_flags()
             self.parser_broker = ParserBroker(
                 gpt_manager=gpt_manager,
-                venice=None,              # Phase 22: Venice disabled — GPT-only
-                enable_venice=False,       # Phase 22: GPT-5.2-codex handles all parsing
                 enable_gpt=True,
-                max_llm_calls_per_episode=80,   # Phase 22: doubled — GPT handles everything
-                max_venice_calls_per_episode=0,  # Phase 22: Venice disabled
+                max_llm_calls_per_episode=80,
                 default_mode=_ff.parser_mode,
             )
             _init_modules.append(("ParserBroker", "ok", f"v2.0 mode={_ff.parser_mode}"))
@@ -463,19 +443,13 @@ class SmartOrchestrator:
             if _ff.adaptive_budget:
                 self.budget_controller = AdaptiveBudgetController(
                     config=BudgetConfig(
-                        mentor_budget_total=140,  # Phase 13.0: +57% (was 89) — maximum GPT reasoning guidance
-                        venice_budget_total=50,   # Phase 13.0: +43% (was 35) — Venice second-brain validation
-                        token_budget_total=292_500,  # Phase 13.0: +100% (was 146.25K) — full reasoning depth
+                        mentor_budget_total=140,
+                        token_budget_total=292_500,
                     )
                 )
                 _init_modules.append(("AdaptiveBudget", "ok", "adaptive pacing"))
         except Exception as e:
             _init_modules.append(("AdaptiveBudget", "warn", str(e)[:40]))
-        
-        # Phase 12.1: Wire budget controller into Venice reasoning
-        # Phase 22: Venice disabled — GPT-only mode
-        # if self.budget_controller is not None and self.venice_reasoning is not None:
-        #     self.venice_reasoning._budget_controller = self.budget_controller
         
         # ─── PHASE 11.0: LearningSignalExporter ──
         self.learning_exporter = None
@@ -1725,10 +1699,6 @@ class SmartOrchestrator:
         if self._parse_cache:
             self._parse_cache.reset_episode()
         
-        # ─── PHASE 7.2: Venice reasoning layer — DISABLED (Phase 22: GPT-only) ──
-        # if self.venice_reasoning:
-        #     self.venice_reasoning.reset_episode()
-        
         # ─── PHASE 8: DecisionLogger episode start ──────────────────
         if self.decision_logger is not None:
             try:
@@ -1919,7 +1889,7 @@ class SmartOrchestrator:
         self.dashboard.update_env_snapshot({
             "target_ip": target,
             "phase": self.attack_context.current_phase.name.lower(),
-            "discovered_ports": list(self.attack_context.discoveries.get("open_port", [])),
+            "discovered_ports": list(_v) if isinstance((_v := self.attack_context.discoveries.get("open_port", [])), (list, set, tuple)) else [_v] if _v else [],
             "discovered_services": {s: None for s in self.attack_context.services_found},
         })
         
@@ -2247,8 +2217,8 @@ class SmartOrchestrator:
                     "total_calls": _raw.get("total_calls", 0),
                     "stage1_hits": _raw.get("regex_hits", 0),
                     "stage2_hits": _raw.get("llm_calls", 0),
-                    "stage3_hits": 0,  # Venice not used in SOP path
-                    "stage4_hits": 0,  # GPT finaliser not used in SOP path
+                    "stage3_hits": 0,
+                    "stage4_hits": 0,
                     "empty_outputs": _raw.get("empty_outputs", 0),
                 }
             
@@ -2421,6 +2391,11 @@ class SmartOrchestrator:
                         _llm_bridge_snap = _bridge.get_influence_snapshot()
                         break  # Use first active bridge (typically RedAgent)
 
+                # Phase 56: Collect LLM reasoning snapshot for dashboard
+                _llm_reasoning_snap = None
+                if self.gpt_manager is not None:
+                    _llm_reasoning_snap = getattr(self.gpt_manager, '_last_reasoning', None) or None
+
                 self.dashboard.print_step(
                     step=step,
                     phase=self.attack_context.current_phase.name.lower(),
@@ -2440,6 +2415,7 @@ class SmartOrchestrator:
                     gpt_activity=_gpt_activity,
                     learning_snapshot=_learning_snapshot,
                     llm_bridge_snapshot=_llm_bridge_snap,
+                    llm_reasoning=_llm_reasoning_snap,
                 )
             except Exception as _ps_err:
                 import sys
@@ -2626,7 +2602,7 @@ class SmartOrchestrator:
                 self.dashboard.update_env_snapshot({
                     "target_ip": self.attack_context.target,
                     "phase": self.attack_context.current_phase.name.lower(),
-                    "discovered_ports": list(self.attack_context.discoveries.get("open_port", [])),
+                    "discovered_ports": list(_v) if isinstance((_v := self.attack_context.discoveries.get("open_port", [])), (list, set, tuple)) else [_v] if _v else [],
                     "discovered_services": {s: None for s in self.attack_context.services_found},
                     "root_achieved": self.attack_context.state_flags.get("root_shell_obtained", False),
                     "credentials": ["found"] if self.attack_context.state_flags.get("credentials_known") else [],
@@ -3547,11 +3523,6 @@ class SmartOrchestrator:
                     for k, v in self.discovery_board.items()
                 }
 
-            # Phase 23: Get GPT cost summary for episode summary
-            _gpt_cost = None
-            if hasattr(self.gpt_manager, 'get_cost_summary'):
-                _gpt_cost = self.gpt_manager.get_cost_summary()
-
             self.dashboard.print_episode_summary(
                 episode=episode_number,
                 total_reward=episode_reward,
@@ -3563,7 +3534,6 @@ class SmartOrchestrator:
                 ddqn_metrics=_ddqn_agg,
                 decision_sources=source_counts,
                 discovery_board=_disc_board,
-                gpt_cost_summary=_gpt_cost,
             )
         except Exception as e:
             logger.warning(f"Phase 10.2: Episode summary display failed: {e}")
@@ -4842,15 +4812,6 @@ class SmartOrchestrator:
                         _lg.getLogger("ariaska.orchestration").debug(
                             f"[P15] Sensory push failed: {e}"
                         )
-            
-            # ─────────────────────────────────────────────────────────────
-            # PHASE 7.2: VENICE REASONING — DISABLED (Phase 22: GPT-only)
-            # Venice added 5-7s latency per call (6000ms ping).
-            # All output analysis now handled by GPT-5.2-codex through
-            # ParserBroker → LLMOutputInterpreter pipeline.
-            # ─────────────────────────────────────────────────────────────
-            # Venice reasoning layer commented out — see Phase 22 notes
-            pass  # GPT-5.2-codex handles all output interpretation via parser_broker
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 6.5: COMMAND-BASED SHELL DETECTION

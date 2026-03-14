@@ -221,53 +221,14 @@ class BudgetManagerV2:
         estimated_tokens: int,
         roi_tag: str,
     ) -> BudgetDecision:
-        """
-        Check if a request is within budget.
-
-        Returns BudgetDecision indicating whether to proceed.
-        """
-        tier = _MODEL_TIER.get(model, "mini")
-
-        # Local LLM calls are free — always allow, no budget tracking.
-        if tier == "local":
-            return BudgetDecision(
-                allowed=True,
-                tier="local",
-                tokens_requested=estimated_tokens,
-                tokens_remaining=999_999,
-                roi_tag=roi_tag,
-            )
-
-        with self._lock:
-            alloc = self._allocations.get(tier)
-            if alloc is None:
-                return BudgetDecision(
-                    allowed=False,
-                    tier=tier,
-                    tokens_requested=estimated_tokens,
-                    roi_tag=roi_tag,
-                    reason=f"unknown_tier_{tier}",
-                )
-
-            if estimated_tokens > alloc.remaining:
-                alloc.denied += 1
-                self._total_denied += 1
-                return BudgetDecision(
-                    allowed=False,
-                    tier=tier,
-                    tokens_requested=estimated_tokens,
-                    tokens_remaining=alloc.remaining,
-                    roi_tag=roi_tag,
-                    reason="budget_exceeded",
-                )
-
-            return BudgetDecision(
-                allowed=True,
-                tier=tier,
-                tokens_requested=estimated_tokens,
-                tokens_remaining=alloc.remaining,
-                roi_tag=roi_tag,
-            )
+        """Check if a request is within budget. All local — always allowed."""
+        return BudgetDecision(
+            allowed=True,
+            tier="local",
+            tokens_requested=estimated_tokens,
+            tokens_remaining=999_999,
+            roi_tag=roi_tag,
+        )
 
     def is_learning_accel_tag(self, roi_tag: str) -> bool:
         """P36.1: Check if ROI tag qualifies for doubled learning-accel budget."""
@@ -449,7 +410,7 @@ class BudgetManagerV2:
 
         logger.info(
             f"[DYNAMIC-BUDGET] maturity={maturity:.3f} → scale={scale:.3f} "
-            f"(${scale * 3.34:.2f}/ep, {int(scale * _TOTAL_BUDGET):,} tokens) "
+            f"({int(scale * _TOTAL_BUDGET):,} tokens) "
             f"[success={avg_success_rate:.2f}, skills={skill_count}, "
             f"disc_eff={discovery_efficiency:.2f}, stag={stagnation_rate:.2f}]"
         )
@@ -488,8 +449,8 @@ class BudgetManagerV2:
 
     @property
     def estimated_cost_usd(self) -> float:
-        """Estimated per-episode cost in USD at current scale."""
-        return self._budget_scale * 2.20  # Phase 33: 660k → ~$2.20/ep at scale 1.0
+        """All local inference — zero cost."""
+        return 0.0
 
     # ── Phase 33.2: Dynamic Burst Pool ──────────────────────────────
 
@@ -565,48 +526,22 @@ class BudgetManagerV2:
     # ── Phase 32: Episode Cost Summary ──────────────────────────────
 
     def get_episode_cost_summary(self) -> Dict[str, Any]:
-        """
-        Return a per-episode cost summary for trace/dashboard.
-
-        Includes calls_by_tier, tokens_by_tier, cost_by_tier, and
-        codex_escalation_rate.
-        """
-        # Cost rates (USD per token, blended input+output average)
-        _COST_PER_TOKEN: Dict[str, float] = {
-            "codex": 0.00001000,   # $10.00 / 1M tokens
-            "full":  0.00001000,   # $10.00 / 1M tokens
-            "mini":  0.00000060,   # $0.60  / 1M tokens
-            "nano":  0.00000010,   # $0.10  / 1M tokens
-        }
+        """Return per-episode usage summary (all local, zero cost)."""
         with self._lock:
             calls_by_tier: Dict[str, int] = dict(self._tier_calls)
-            tokens_by_tier: Dict[str, int] = {
-                k: v.used for k, v in self._allocations.items()
-            }
-            # Include local tier token tracking (free but tracked for analytics)
-            if "local" in calls_by_tier:
-                local_tokens = self._total_used - sum(tokens_by_tier.values())
-                if local_tokens > 0:
-                    tokens_by_tier["local"] = local_tokens
-            cost_by_tier: Dict[str, float] = {}
-            for tier, tok in tokens_by_tier.items():
-                rate = _COST_PER_TOKEN.get(tier, 0.000001)
-                cost_by_tier[tier] = round(tok * rate, 6)
-
             total_calls = sum(calls_by_tier.values()) or 1
-            codex_calls = calls_by_tier.get("codex", 0)
 
             return {
                 "calls_by_tier": calls_by_tier,
-                "tokens_by_tier": tokens_by_tier,
-                "cost_by_tier": cost_by_tier,
-                "total_cost_usd": round(sum(cost_by_tier.values()), 6),
+                "tokens_by_tier": {"local": self._total_used},
+                "cost_by_tier": {"local": 0.0},
+                "total_cost_usd": 0.0,
                 "total_calls": sum(calls_by_tier.values()),
                 "total_tokens": self._total_used,
-                "budget_remaining": self._total_budget - self._total_used,
-                "codex_escalation_rate": round(codex_calls / total_calls, 4),
+                "budget_remaining": 999_999,
+                "codex_escalation_rate": 0.0,
                 "call_distribution": {
                     tier: round(calls_by_tier.get(tier, 0) / total_calls, 4)
-                    for tier in set(list(calls_by_tier.keys()) + ["nano", "mini", "full", "codex"])
+                    for tier in calls_by_tier
                 },
             }

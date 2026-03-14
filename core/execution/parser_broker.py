@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-core/execution/parser_broker.py — Phase 13.0: Intelligent Parser Broker v4.0
+core/execution/parser_broker.py — Intelligent Parser Broker v5.0
 
-Dual-mode discovery parsing pipeline with GPT-primary LLM interpretation:
+2-stage: deterministic regex → local LLM fallback.
 
   MODE 1: "fast" (default)
     Stage 1: Regex (OutputParser) — free, handles 80%+
@@ -11,20 +11,17 @@ Dual-mode discovery parsing pipeline with GPT-primary LLM interpretation:
   MODE 2: "intelligent_fullparse"
     Stage 1: Regex           — free, pattern matching
     Stage 2: SOP LLM         — nano-LLM fallback
-    Stage 3: LLM Interpreter — GPT-5.2-codex primary / Venice qwen3-coder fallback
-    Stage 4: GPT finaliser   — local-llm for edge cases
+    Stage 3: LLM Interpreter — local LLM for deep reasoning
+    Stage 4: LLM finaliser   — local-llm for edge cases
 
-Phase 13.0: Stage 3 now uses GPT-5.2-codex as PRIMARY interpreter:
   - Uses local-llm for deep reasoning interpretation (primary)
-  - Venice qwen3-coder validates high-value GPT discoveries (shells, creds, flags)
-  - Falls back to Venice when GPT budget exhausted
   - Produces InterpretationLessons that teach agents to interpret output
   - Agents accumulate learned patterns cross-episode
 
 Each stage only fires if prior stages found nothing meaningful.
 All stages emit DiscoveryEvent objects with ParseExplanation annotations.
 
-Author: Filip Volf / Ariaska System — Phase 10.0 → Phase 13.0
+Author: Filip Volf / Ariaska System
 """
 
 from __future__ import annotations
@@ -59,18 +56,17 @@ _EXPLOIT_PHASES = frozenset({
 
 class ParserBroker:
     """
-    Dual-mode output parsing pipeline (v4.0).
+    2-stage: deterministic regex → local LLM fallback.
 
     Modes:
       "fast" — regex only, zero LLM calls, ~1ms latency
       "intelligent_fullparse" — 4-stage cascade with LLM interpretation + agent learning
 
-    Phase 13.0: Stage 3 uses LLMOutputInterpreter (GPT-5.2-codex primary → Venice fallback)
-    which teaches agents how to interpret command output via InterpretationLessons.
-    Venice validates high-value GPT discoveries to prevent hallucinations.
+    Stage 3 uses LLMOutputInterpreter (local LLM) which teaches agents how to
+    interpret command output via InterpretationLessons.
 
     Usage:
-        broker = ParserBroker(gpt_manager=gpt, venice=venice_layer)
+        broker = ParserBroker(gpt_manager=gpt)
         events, explanations = broker.parse(command, output, agent_name)
         flat = DiscoveryEvent.to_flat_discoveries(events)  # backward compat
     """
@@ -78,22 +74,16 @@ class ParserBroker:
     def __init__(
         self,
         gpt_manager: Optional["GPTManager"] = None,
-        venice: Optional[Any] = None,
-        enable_venice: bool = True,
         enable_gpt: bool = True,
         max_llm_calls_per_episode: int = 20,
-        max_venice_calls_per_episode: int = 15,
         default_mode: str = "fast",
+        **_kwargs: Any,  # absorb legacy kwargs
     ):
         self._gpt = gpt_manager
-        self._venice = venice
-        self._enable_venice = enable_venice and venice is not None
         self._enable_gpt = enable_gpt and gpt_manager is not None
         self._max_llm_calls = max_llm_calls_per_episode
-        self._max_venice_calls = max_venice_calls_per_episode
         self._default_mode = default_mode
         self._llm_calls: int = 0
-        self._venice_calls: int = 0
 
         # Load SmartOutputParser (wraps Stage 1 regex + Stage 2 LLM)
         self._sop: Optional[Any] = None
@@ -107,17 +97,15 @@ class ParserBroker:
         except ImportError:
             logger.warning("SmartOutputParser not available")
 
-        # Phase 11.3: LLM Output Interpreter (qwen3-coder → local-llm)
-        # This is the new stage that teaches agents to interpret output
+        # LLM Output Interpreter (local-llm)
         self._llm_interpreter: Optional[Any] = None
         try:
             from core.execution.llm_output_interpreter import LLMOutputInterpreter
             self._llm_interpreter = LLMOutputInterpreter(
                 gpt_manager=gpt_manager,
-                max_venice_calls_per_episode=max_venice_calls_per_episode,
                 max_gpt_calls_per_episode=max_llm_calls_per_episode,
             )
-            logger.info("[BROKER-11.3] LLMOutputInterpreter loaded (qwen3-coder → local-llm)")
+            logger.info("[BROKER] LLMOutputInterpreter loaded (local-llm)")
         except Exception as e:
             logger.warning(f"LLMOutputInterpreter not available: {e}")
 
@@ -126,8 +114,8 @@ class ParserBroker:
             "total_calls": 0,
             "stage1_hits": 0,    # regex
             "stage2_hits": 0,    # SOP LLM
-            "stage3_hits": 0,    # LLM Interpreter (Venice qwen3-coder / local-llm)
-            "stage4_hits": 0,    # GPT finaliser
+            "stage3_hits": 0,    # LLM Interpreter (local-llm)
+            "stage4_hits": 0,    # LLM finaliser
             "empty_outputs": 0,
             "total_events": 0,
             "fast_calls": 0,
@@ -145,7 +133,6 @@ class ParserBroker:
     def reset_episode(self) -> None:
         """Reset per-episode counters."""
         self._llm_calls = 0
-        self._venice_calls = 0
         self._output_cache.clear()  # Phase 33.4: clear hash cache
         if self._sop:
             self._sop.reset_episode()
@@ -247,7 +234,7 @@ class ParserBroker:
 
         stage_reached = 0
         for ev in events:
-            s = {"regex": 1, "sop_llm": 2, "venice": 3, "gpt_finaliser": 4}.get(
+            s = {"regex": 1, "sop_llm": 2, "local_llm": 3}.get(
                 getattr(ev, 'source_stage', ''), 0
             )
             stage_reached = max(stage_reached, s)
@@ -313,7 +300,7 @@ class ParserBroker:
         explanations = []
         stage_reached = 0
         for ev in events:
-            stage_num = {"regex": 1, "sop_llm": 2, "venice": 3, "gpt_finaliser": 4}.get(
+            stage_num = {"regex": 1, "sop_llm": 2, "local_llm": 3}.get(
                 ev.source_stage, 0
             )
             stage_reached = max(stage_reached, stage_num)
@@ -506,18 +493,6 @@ class ParserBroker:
                     source_stage = "sop_llm"
                     self._stats["stage2_hits"] += 1
 
-        # # ── Venice stages COMMENTED OUT — Phase 22 GPT-only mode ──
-        # # Venice was adding 5-7s latency per call with 6000ms ping.
-        # # All interpretation now handled by GPT-5.2-codex.
-        # if (
-        #     not flat_discoveries
-        #     and self._enable_venice
-        #     and self._venice_calls < self._max_venice_calls
-        #     and len(output.strip()) > 30
-        # ):
-        #     venice_discoveries = self._venice_rationalise(command, output)
-        #     ...
-
         # Convert to DiscoveryEvents
         events = DiscoveryEvent.from_flat_discoveries(
             discoveries=flat_discoveries,
@@ -529,111 +504,7 @@ class ParserBroker:
 
         return events
 
-    def _venice_rationalise(
-        self,
-        command: str,
-        output: str,
-    ) -> Dict[str, Any]:
-        """
-        Stage 3: Venice rationaliser.
-
-        Uses GLM 4.7 Flash (or Codex Mini fallback) to validate/extract
-        discoveries from ambiguous output.
-        """
-        if not self._venice:
-            return {}
-
-        truncated = output[:1200] if len(output) > 1200 else output
-        prompt = (
-            f"Extract penetration testing discoveries from this output.\n"
-            f"Command: {command[:200]}\n"
-            f"Output:\n{truncated}\n\n"
-            f"Reply with comma-separated discoveries: PORT:num, SERVICE:name, "
-            f"CRED:user:pass, SHELL:type, CVE:id, or NONE if nothing found."
-        )
-
-        try:
-            # Venice reasoning layer has a .reason() or .query() method
-            response = ""
-            if hasattr(self._venice, "reason"):
-                result = self._venice.reason(prompt)
-                response = result if isinstance(result, str) else str(result.get("response", ""))
-            elif hasattr(self._venice, "query"):
-                response = self._venice.query(prompt)
-            elif hasattr(self._venice, "call"):
-                response = self._venice.call(prompt)
-
-            if not response or "NONE" in response.upper():
-                return {}
-
-            return self._parse_venice_response(response)
-
-        except Exception as e:
-            logger.debug(f"[BROKER-VENICE] Error: {e}")
-            # Fallback: try codex mini through GPTManager
-            if self._gpt:
-                try:
-                    response = self._gpt.gpt_request(
-                        prompt=prompt,
-                        task_type="classification",
-                        agent_id="parser_venice_fallback",
-                        max_tokens=150,
-                    )
-                    if response and "NONE" not in response.upper():
-                        return self._parse_venice_response(response)
-                except Exception:
-                    pass
-            return {}
-
-    def _parse_venice_response(self, response: str) -> Dict[str, Any]:
-        """Parse Venice compact discovery format."""
-        discoveries: Dict[str, Any] = {}
-
-        for item in response.split(","):
-            item = item.strip()
-            if item.startswith("PORT:"):
-                try:
-                    port = int(item.split(":")[1].strip())
-                    discoveries.setdefault("open_port", []).append(port)
-                except (ValueError, IndexError):
-                    pass
-            elif item.startswith("SERVICE:"):
-                svc = item.split(":", 1)[1].strip().lower()
-                if svc:
-                    discoveries.setdefault("service", []).append(svc)
-            elif item.startswith("CRED:"):
-                discoveries["credential"] = True
-            elif item.startswith("SHELL:"):
-                shell_type = item.split(":", 1)[1].strip().lower()
-                discoveries["shell"] = True
-                if "root" in shell_type or "admin" in shell_type:
-                    discoveries["root_shell"] = True
-            elif item.startswith("CVE:"):
-                cve_id = item.split(":", 1)[1].strip().upper()
-                if cve_id.startswith("CVE-"):
-                    discoveries.setdefault("cve", []).append(cve_id)
-                    discoveries["vulnerability"] = True
-
-        return discoveries
-
-    def _gpt_finalise(
-        self,
-        command: str,
-        output: str,
-        agent_name: str,
-    ) -> Dict[str, Any]:
-        """Stage 4: GPT finaliser for edge cases."""
-        if not self._gpt:
-            return {}
-
-        # Delegate to SOP's LLM path directly
-        if self._sop and hasattr(self._sop, "_llm_parse"):
-            result = self._sop._llm_parse(command, output, agent_name)
-            return result or {}
-
-        return {}
-
-    # ── Phase 11.3: Agent Learning Interface ────────────────────────
+    # ── Agent Learning Interface ──────────────────────────────────────
 
     def get_last_lesson(self) -> Optional[Any]:
         """Get the last InterpretationLesson produced (for agent feedback)."""

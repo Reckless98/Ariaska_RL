@@ -226,10 +226,10 @@ class TestAdaptiveBudgetController:
         budget = AdaptiveBudgetController()
         budget.reset_episode(max_steps=40)
         budget.record_mentor_call(tokens_used=100)
-        budget.record_venice_call(tokens_used=50)
+        budget.record_parse_llm_call(tokens_used=50)
         summary = budget.get_summary()
         assert summary["mentor_calls"] == 1
-        assert summary["venice_calls"] == 1
+        assert summary["parse_llm_calls"] == 1
         assert summary["tokens_used"] == 150
 
 
@@ -276,10 +276,8 @@ class TestParserBrokerV2:
         from core.execution.parser_broker import ParserBroker
         broker = ParserBroker(default_mode="fast")
         broker._llm_calls = 5
-        broker._venice_calls = 3
         broker.reset_episode()
         assert broker._llm_calls == 0
-        assert broker._venice_calls == 0
 
     def test_get_stage_distribution(self):
         from core.execution.parser_broker import ParserBroker
@@ -583,15 +581,15 @@ class TestBudgetGateWiring:
         if pressure >= 0.6:
             assert closeout_ok is False, f"CLOSEOUT should be blocked at pressure {pressure:.2f}"
 
-    def test_can_call_venice_gate(self):
-        """can_call_venice returns False when venice budget exhausted."""
+    def test_can_call_parse_llm_gate(self):
+        """can_call_parse_llm returns False when parse_llm budget exhausted."""
         from core.training.adaptive_budget import AdaptiveBudgetController, BudgetConfig
-        bc = AdaptiveBudgetController(config=BudgetConfig(venice_budget_total=3))
+        bc = AdaptiveBudgetController(config=BudgetConfig(parse_llm_budget_total=3))
         bc.reset_episode(max_steps=40)
-        assert bc.can_call_venice() is True
+        assert bc.can_call_parse_llm() is True
         for _ in range(3):
-            bc.record_venice_call(tokens_used=50)
-        assert bc.can_call_venice() is False
+            bc.record_parse_llm_call(tokens_used=50)
+        assert bc.can_call_parse_llm() is False
 
     def test_budget_recording_tracks_calls(self):
         """record_mentor_call and record_no_call update counters."""

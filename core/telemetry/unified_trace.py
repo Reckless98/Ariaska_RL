@@ -26,8 +26,8 @@ class ParseExplanation:
     and the learning signal exporter.
     """
     # Which stage produced this discovery
-    stage: str = ""  # "regex", "sop_llm", "venice", "gpt_finaliser"
-    stage_number: int = 0  # 1-4
+    stage: str = ""  # "regex", "sop_llm", "local_llm"
+    stage_number: int = 0  # 1-3
 
     # What was found
     discovery_type: str = ""  # "open_port", "service", "credential", "shell", etc.
@@ -64,8 +64,6 @@ class BudgetSnapshot:
     mentor_budget_remaining: int = 0
     mentor_budget_total: int = 0
     mentor_spend_rate: float = 0.0  # calls/step rolling average
-    venice_budget_remaining: int = 0
-    venice_budget_total: int = 0
     parse_llm_remaining: int = 0
     token_budget_remaining: int = 0
     token_budget_total: int = 0
@@ -76,8 +74,6 @@ class BudgetSnapshot:
             "mentor_remaining": self.mentor_budget_remaining,
             "mentor_total": self.mentor_budget_total,
             "mentor_spend_rate": round(self.mentor_spend_rate, 3),
-            "venice_remaining": self.venice_budget_remaining,
-            "venice_total": self.venice_budget_total,
             "parse_llm_remaining": self.parse_llm_remaining,
             "token_remaining": self.token_budget_remaining,
             "token_total": self.token_budget_total,

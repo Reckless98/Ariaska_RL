@@ -48,9 +48,6 @@ class BudgetConfig:
     mentor_budget_total: int = 140  # max mentor calls per episode
     mentor_reserve_pct: float = 0.20  # Hold 20% for late phases
 
-    # Venice parsing budget
-    venice_budget_total: int = 50  # Phase 42: raised 15→50
-
     # Token budget
     # Phase 42: Raised from 50K→500K to match BudgetManagerV2's 1.1M ceiling.
     # 50K was exhausted in early steps, killing all LLM reasoning.
@@ -94,7 +91,6 @@ class AdaptiveBudgetController:
     def __init__(self, config: Optional[BudgetConfig] = None):
         self.config = config or BudgetConfig()
         self._mentor_calls: int = 0
-        self._venice_calls: int = 0
         self._parse_llm_calls: int = 0
         self._tokens_used: int = 0
         self._max_steps: int = 40
@@ -107,7 +103,6 @@ class AdaptiveBudgetController:
     def reset_episode(self, max_steps: int = 40) -> None:
         """Reset all counters for a new episode."""
         self._mentor_calls = 0
-        self._venice_calls = 0
         self._parse_llm_calls = 0
         self._tokens_used = 0
         self._max_steps = max_steps
@@ -171,10 +166,6 @@ class AdaptiveBudgetController:
         """
         return self._mentor_calls < self.config.mentor_budget_total
 
-    def can_call_venice(self) -> bool:
-        """Check if a Venice parsing call is allowed."""
-        return self._venice_calls < self.config.venice_budget_total
-
     def can_call_parse_llm(self) -> bool:
         """Check if a parse LLM call is allowed."""
         return self._parse_llm_calls < self.config.parse_llm_budget_total
@@ -184,11 +175,6 @@ class AdaptiveBudgetController:
         self._mentor_calls += 1
         self._tokens_used += tokens_used
         self._mentor_rate_window.append(1)
-
-    def record_venice_call(self, tokens_used: int = 0) -> None:
-        """Record a Venice call."""
-        self._venice_calls += 1
-        self._tokens_used += tokens_used
 
     def record_parse_llm_call(self, tokens_used: int = 0) -> None:
         """Record a parse LLM call."""
@@ -250,8 +236,6 @@ class AdaptiveBudgetController:
             "mentor_budget_remaining": max(0, self.config.mentor_budget_total - self._mentor_calls),
             "mentor_budget_total": self.config.mentor_budget_total,
             "mentor_spend_rate": self.get_spend_rate(),
-            "venice_budget_remaining": max(0, self.config.venice_budget_total - self._venice_calls),
-            "venice_budget_total": self.config.venice_budget_total,
             "parse_llm_remaining": max(0, self.config.parse_llm_budget_total - self._parse_llm_calls),
             "token_budget_remaining": max(0, self.config.token_budget_total - self._tokens_used),
             "token_budget_total": self.config.token_budget_total,
@@ -263,8 +247,6 @@ class AdaptiveBudgetController:
         return {
             "mentor_calls": self._mentor_calls,
             "mentor_budget": self.config.mentor_budget_total,
-            "venice_calls": self._venice_calls,
-            "venice_budget": self.config.venice_budget_total,
             "parse_llm_calls": self._parse_llm_calls,
             "parse_llm_budget": self.config.parse_llm_budget_total,
             "tokens_used": self._tokens_used,

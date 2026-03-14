@@ -169,13 +169,12 @@ class TestEpisodeCostSummary:
         bm = BudgetManagerV2()
         bm.record_spend(model="local-llm", tokens_used=1000, roi_tag="classification")
         bm.record_spend(model="local-llm", tokens_used=500, roi_tag="postmortem")
-        from core.llm.budget_manager import _TOTAL_BUDGET
         s = bm.get_episode_cost_summary()
         assert s["total_calls"] == 2
         assert s["total_tokens"] == 1500
         assert s["tokens_by_tier"]["local"] == 1500
-        # Local models are free
-        assert s["budget_remaining"] == _TOTAL_BUDGET - 1500
+        # Local models are free — budget always shows 999_999
+        assert s["budget_remaining"] == 999_999
 
     def test_call_distribution_sums_to_one(self):
         from core.llm.budget_manager import BudgetManagerV2
@@ -198,25 +197,24 @@ class TestEpisodeCostSummary:
         assert s["tokens_by_tier"]["local"] == 1_000_000
 
     def test_empty_summary_zero_cost(self):
-        from core.llm.budget_manager import BudgetManagerV2, _TOTAL_BUDGET
+        from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
         s = bm.get_episode_cost_summary()
         assert s["total_cost_usd"] == 0.0
         assert s["total_calls"] == 0
         assert s["total_tokens"] == 0
-        assert s["budget_remaining"] == _TOTAL_BUDGET
+        assert s["budget_remaining"] == 999_999
 
 
 # ── Estimated cost property ─────────────────────────────────────────────────
 
 class TestEstimatedCost:
-    """estimated_cost_usd should use $2.00 ceiling."""
+    """estimated_cost_usd is always 0.0 for local inference."""
 
     def test_full_scale_cost(self):
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2()
-        # default scale = 1.0
-        assert bm.estimated_cost_usd == pytest.approx(2.20, abs=0.01)
+        assert bm.estimated_cost_usd == 0.0
 
     def test_half_scale_cost(self):
         from core.llm.budget_manager import BudgetManagerV2
@@ -225,5 +223,4 @@ class TestEstimatedCost:
             avg_success_rate=1.0, skill_count=100, max_skills=50,
             discovery_efficiency=1.0, stagnation_rate=0.0, episode=50,
         )
-        # At maturity, scale should be 0.5, cost = $1.10
-        assert bm.estimated_cost_usd == pytest.approx(1.10, abs=0.10)
+        assert bm.estimated_cost_usd == 0.0

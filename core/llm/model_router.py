@@ -32,9 +32,9 @@ logger = logging.getLogger("ariaska.llm.model_router")
 @dataclass(frozen=True)
 class RoutingDecision:
     """Result of a model routing decision."""
-    provider: str       # "local" or "openai"
-    model: str          # Model name to use with that provider
-    tier: str           # Budget tier: "nano", "mini", "codex", "full", "local"
+    provider: str       # "local"
+    model: str          # Local model name for Ollama
+    tier: str           # Budget tier: "local"
     reason: str = ""    # Why this routing was chosen
 
 
@@ -72,17 +72,8 @@ REASONING_MODEL = os.getenv(
 
 
 def classify_tier(model: str) -> str:
-    """Classify a model name into a budget tier."""
-    ml = model.lower()
-    if ml == "local-llm" or ml == "local":
-        return "local"
-    if "nano" in ml:
-        return "nano"
-    if "mini" in ml:
-        return "mini"
-    if "codex" in ml:
-        return "codex"
-    return "full"
+    """Classify a model name into a budget tier. All models are local."""
+    return "local"
 
 
 def _task_to_model(task_type: Optional[str]) -> tuple[str, str]:
@@ -104,12 +95,12 @@ class ModelRouter:
     """
     Routes model requests to local Ollama models based on task complexity.
 
-    Tri-model strategy (Phase 54):
-      - System 1 (3B): classification, diversify — fast reflexive
-      - System 2 (4B): recon, defensive, general — balanced (same physical model as S1)
-      - System 3 (9B): tactical, analysis, strategic, reasoning, postmortem — deep
+    Tri-model strategy:
+      - System 1 (4B): classification, diversify, parsing — fast reflexive
+      - System 2 (4B): recon, defensive, general — balanced
+      - System 3 (9B): strategic, postmortem — deep reasoning
 
-    When local is unavailable, everything falls back to OpenAI.
+    All inference is local. No external API fallback.
     """
 
     def __init__(
@@ -118,7 +109,7 @@ class ModelRouter:
         local_model_name: str = "",
         offload_nano: bool = True,
         offload_mini: bool = True,
-        offload_all: bool = False,
+        offload_all: bool = True,
     ):
         self._local_available = local_available
         self._local_model_name = local_model_name or FAST_MODEL
@@ -126,7 +117,6 @@ class ModelRouter:
         self._offload_mini = offload_mini
         self._offload_all = offload_all
         self._routed_local = 0
-        self._routed_openai = 0
         self._routed_by_system: dict[str, int] = {"s1": 0, "s2": 0, "s3": 0}
     
     @classmethod
@@ -185,69 +175,35 @@ class ModelRouter:
         Returns:
             RoutingDecision with provider, model, and tier.
         """
-        tier = classify_tier(model)
-        
-        # If local LLM is not available, everything goes to OpenAI
+        # If local LLM is not available, return error decision
         if not self._local_available:
-            self._routed_openai += 1
             return RoutingDecision(
-                provider="openai", model=model, tier=tier,
-                reason="local LLM unavailable"
-            )
-        
-        # Phase 54: Task-aware tri-model local routing
-        if self._offload_all:
-            target_model, system_label = _task_to_model(task_type)
-            self._routed_local += 1
-            # Track per-system stats
-            if system_label.startswith("System1"):
-                self._routed_by_system["s1"] += 1
-            elif system_label.startswith("System3"):
-                self._routed_by_system["s3"] += 1
-            else:
-                self._routed_by_system["s2"] += 1
-            return RoutingDecision(
-                provider="local", model=target_model, tier="local",
-                reason=f"{task_type or 'unknown'} → {system_label} ({target_model})"
+                provider="local", model=model, tier="local",
+                reason="local LLM unavailable — check Ollama"
             )
 
-        # Nano → local fast model
-        if tier in ("nano", "local") and self._offload_nano:
-            self._routed_local += 1
-            return RoutingDecision(
-                provider="local", model=FAST_MODEL, tier="local",
-                reason=f"nano/local offloaded to {FAST_MODEL}"
-            )
-
-        # Mini → local medium model
-        if tier == "mini" and self._offload_mini:
-            self._routed_local += 1
-            return RoutingDecision(
-                provider="local", model=MEDIUM_MODEL, tier="local",
-                reason=f"mini offloaded to {MEDIUM_MODEL}"
-            )
-
-        # Codex/Full → OpenAI (when not offload_all)
-        self._routed_openai += 1
+        # Task-aware tri-model local routing
+        target_model, system_label = _task_to_model(task_type)
+        self._routed_local += 1
+        # Track per-system stats
+        if system_label.startswith("System1"):
+            self._routed_by_system["s1"] += 1
+        elif system_label.startswith("System3"):
+            self._routed_by_system["s3"] += 1
+        else:
+            self._routed_by_system["s2"] += 1
         return RoutingDecision(
-            provider="openai", model=model, tier=tier,
-            reason=f"{tier} stays on OpenAI"
+            provider="local", model=target_model, tier="local",
+            reason=f"{task_type or 'unknown'} → {system_label} ({target_model})"
         )
     
     def get_stats(self) -> dict:
         """Get routing statistics."""
-        total = self._routed_local + self._routed_openai
         return {
             "local_available": self._local_available,
             "local_model": self._local_model_name,
             "routed_local": self._routed_local,
-            "routed_openai": self._routed_openai,
-            "local_pct": round(
-                100 * self._routed_local / max(1, total), 1
-            ),
-            "offload_nano": self._offload_nano,
-            "offload_mini": self._offload_mini,
-            "offload_all": self._offload_all,
+            "local_pct": 100.0,
             "system_routing": self._routed_by_system,
         }
     

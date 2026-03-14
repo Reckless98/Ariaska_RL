@@ -239,11 +239,10 @@ class OrionPostmortem:
             return False
         if self._gpt_manager is not None:
             return self._gpt_manager.is_configured()
-        # Check if API key or local LLM is available without instantiating GPTManager if not needed yet
-        import os
+        # Check if local LLM is available without instantiating GPTManager
         from core.feature_flags import get_feature_flags
         ff = get_feature_flags()
-        return bool(os.getenv("OPENAI_API_KEY")) or ff.local_llm
+        return ff.local_llm
     
     def analyze_run(
         self,
@@ -548,7 +547,7 @@ IMPORTANT:
         result.next_experiments = [
             {
                 "title": "Enable LLM Analysis",
-                "description": "Set OPENAI_API_KEY to enable full postmortem analysis",
+                "description": "Enable local LLM (Ollama) for full postmortem analysis",
                 "priority": "high"
             }
         ]

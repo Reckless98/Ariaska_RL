@@ -105,15 +105,22 @@ class AttackContext:
     def add_discovery(self, key: str, value: Any) -> None:
         """Add a discovery to the context."""
         if key in self.discoveries:
-            if isinstance(self.discoveries[key], list):
+            existing = self.discoveries[key]
+            if isinstance(existing, (list, set)):
                 if isinstance(value, list):
-                    self.discoveries[key].extend(value)
+                    if isinstance(existing, set):
+                        existing.update(value)
+                    else:
+                        existing.extend(value)
                 else:
-                    self.discoveries[key].append(value)
+                    if isinstance(existing, set):
+                        existing.add(value)
+                    else:
+                        existing.append(value)
             else:
-                self.discoveries[key] = [self.discoveries[key], value]
+                self.discoveries[key] = [existing, value]
         else:
-            self.discoveries[key] = value
+            self.discoveries[key] = [value]
     
     def set_state_flag(self, flag: str, value: bool = True) -> None:
         """Set a state flag."""
@@ -712,57 +719,28 @@ After ANY shell, read the flag file FIRST.
         
         # Track tokens for this call (accumulate across retries)
         tokens_used = 0
-        
-        # Detect API compatibility
-        uses_responses_api = "codex" in self.model  # local-llm, local-llm
-        uses_new_api = any(x in self.model for x in ["gpt-5", "o1-", "o3-"])
-        
-        # Call LLM
+
+        # Call local LLM via standard chat completions
         for attempt in range(self.max_retries + 1):
             try:
-                if uses_responses_api:
-                    # OpenAI Responses API (v1/responses) for codex models
-                    # Codex models use internal reasoning tokens (~1000+) that count against
-                    # max_output_tokens, so we need a much higher budget
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    sync_client = getattr(self.llm_client, '_sync_client', None)
-                    if sync_client is None:
-                        # Create sync client from async client's API key
-                        import openai
-                        sync_client = openai.OpenAI()
-                    response = await loop.run_in_executor(None, lambda: sync_client.responses.create(  # type: ignore[union-attr]
-                        model=self.model,
-                        instructions=system_prompt,
-                        input=user_prompt,
-                        max_output_tokens=4000,
-                    ))
-                else:
-                    request_params = {
-                        "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                    }
-                    # Use correct token parameter for the model generation
-                    if uses_new_api:
-                        request_params["max_completion_tokens"] = 500
-                    else:
-                        request_params["max_tokens"] = 500
-                        request_params["temperature"] = self.temperature
-                    
-                    response = await self.llm_client.chat.completions.create(**request_params)
-                
-                # Capture token usage from API response (accumulate!)
+                request_params = {
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "max_tokens": 500,
+                    "temperature": self.temperature,
+                }
+
+                response = await self.llm_client.chat.completions.create(**request_params)
+
+                # Capture token usage from response (accumulate!)
                 if hasattr(response, 'usage') and response.usage:
                     tokens_used += response.usage.total_tokens
-                
-                # Extract text — Responses API uses .output_text, Chat uses .choices[]
-                if uses_responses_api:
-                    response_text = getattr(response, 'output_text', '') or ''
-                else:
-                    response_text = response.choices[0].message.content  # type: ignore[union-attr]
+
+                # Extract text from chat completion
+                response_text = response.choices[0].message.content  # type: ignore[union-attr]
                 
                 # Parse response
                 parsed = self._parse_response(response_text)

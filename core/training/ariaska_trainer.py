@@ -685,19 +685,17 @@ def main():
         ui_mode=args.ui,
     )
     
-    # Early validation: online-first means fail fast if no API key
+    # Early validation: fail fast if local LLM is not available
     if config.enable_llm and config.require_llm and not config.offline:
         from core.feature_flags import get_feature_flags
         ff = get_feature_flags()
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key and not ff.local_llm:
-            logger.error("OPENAI_API_KEY not set and local LLM is not enabled. Online mode requires LLM access.")
-            print("ERROR: Neither OPENAI_API_KEY nor local LLM enabled.")
+        if not ff.local_llm:
+            logger.error("Local LLM is not enabled. Online mode requires LLM access.")
+            print("ERROR: Local LLM not enabled.")
             print("       Options:")
-            print("         1. Set OPENAI_API_KEY environment variable")
-            print("         2. Set FF_LOCAL_LLM=1 for local inference")
-            print("         3. Run with --offline for offline mode")
-            print("         4. Run with --no-require-llm to gracefully degrade")
+            print("         1. Set FF_LOCAL_LLM=1 for local inference")
+            print("         2. Run with --offline for offline mode")
+            print("         3. Run with --no-require-llm to gracefully degrade")
             return 1
     
     trainer = AriaskaTrainer(config=config)

@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
 """
-core/execution/llm_output_interpreter.py — Phase 13.0: GPT-Primary Output Interpreter
+core/execution/llm_output_interpreter.py — LLM Output Interpreter
 
-Replaces hardcoded regex-heavy output parsing with LLM-based interpretation
-that teaches agents to reason about command output:
+LLM-based interpretation that teaches agents to reason about command output:
 
-  Primary:  local-llm — deep reasoning, autonomous interpretation, high-quality discovery extraction
-  Validator: Venice qwen3-coder-480b — pre-filters trivial output, validates high-value GPT findings
-
-Phase 13.0 reversal: GPT is now the PRIMARY interpreter for maximum reasoning quality.
-Venice serves as a cost-efficient pre-filter for trivial outputs and as a secondary
-validator for high-value GPT discoveries (shells, creds, flags) to prevent hallucinations.
+  Primary: local-llm — deep reasoning, autonomous interpretation, high-quality discovery extraction
 
 The interpreter doesn't just extract discoveries — it produces an
 "interpretation lesson" that agents can learn from: WHY certain output
 patterns indicate specific discoveries, HOW to chain findings, and
 WHAT to look for next.
 
-Author: Filip Volf / Ariaska System — Phase 13.0
+Author: Filip Volf / Ariaska System
 """
 
 from __future__ import annotations
@@ -35,8 +29,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("ariaska.llm_output_interpreter")
 
 # ── Model configuration ─────────────────────────────────────────────
-VENICE_INTERPRETER_MODEL = "qwen3-coder-480b-a35b-instruct"  # Primary: Venice qwen3-coder
-GPT_FALLBACK_MODEL = "local-llm"              # Phase 11.5: Fallback: local-llm (was local-llm)
+LOCAL_LLM_MODEL = "local-llm"
 
 
 @dataclass
@@ -63,7 +56,7 @@ class InterpretationLesson:
 
     # Meta
     model_used: str = ""
-    provider: str = ""           # "venice" or "gpt_fallback"
+    provider: str = ""           # "local"
     confidence: float = 0.0
     latency_ms: float = 0.0
     tokens_used: int = 0
@@ -91,14 +84,10 @@ class LLMOutputInterpreter:
     LLM-driven output interpreter that teaches agents to reason about
     command output.
 
-    Phase 13.0: GPT-Primary Interpreter Pipeline
-
     Pipeline:
-      1. GPT-5.2-codex interprets output (primary — deep reasoning)
-      2. Venice validates high-value GPT discoveries (shells, creds, flags)
-      3. If GPT exhausted → fall back to Venice qwen3-coder
-      4. Extract structured discoveries + interpretation lesson
-      5. Feed lesson back to agent's reasoning memory
+      1. Local LLM interprets output (primary — deep reasoning)
+      2. Extract structured discoveries + interpretation lesson
+      3. Feed lesson back to agent's reasoning memory
 
     The interpreter is designed for the "intelligent_fullparse" mode.
     In "fast" mode, it's skipped entirely — regex handles those.
@@ -107,17 +96,14 @@ class LLMOutputInterpreter:
     def __init__(
         self,
         gpt_manager: Optional["GPTManager"] = None,
-        max_venice_calls_per_episode: int = 50,  # Phase 13.0: +32% (was 38) — Venice second-brain validation
-        max_gpt_calls_per_episode: int = 45,      # Phase 13.0: +96% (was 23) — GPT-5.2-codex primary parser
+        max_gpt_calls_per_episode: int = 45,
         min_output_length: int = 30,
     ):
         self._gpt = gpt_manager
-        self._max_venice = max_venice_calls_per_episode
         self._max_gpt = max_gpt_calls_per_episode
         self._min_output_len = min_output_length
 
         # Per-episode counters
-        self._venice_calls: int = 0
         self._gpt_calls: int = 0
 
         # Cross-episode learned patterns — agents accumulate these
@@ -127,10 +113,8 @@ class LLMOutputInterpreter:
         # Stats
         self._stats = {
             "total_calls": 0,
-            "venice_calls": 0,
-            "venice_successes": 0,
-            "gpt_fallback_calls": 0,
-            "gpt_fallback_successes": 0,
+            "llm_calls": 0,
+            "llm_successes": 0,
             "lessons_produced": 0,
             "patterns_learned": 0,
             "total_tokens": 0,
@@ -138,22 +122,14 @@ class LLMOutputInterpreter:
 
     def reset_episode(self) -> None:
         """Reset per-episode call counters."""
-        self._venice_calls = 0
         self._gpt_calls = 0
 
     def can_interpret(self) -> bool:
         """Check if we have budget for another interpretation call."""
-        # Phase 22: GPT-only — Venice disabled
-        return self._gpt_available()
+        return self._llm_available()
 
-    def _venice_available(self) -> bool:
-        """Check if Venice is available and within budget."""
-        if not self._gpt or not self._gpt.has_venice():
-            return False
-        return self._venice_calls < self._max_venice
-
-    def _gpt_available(self) -> bool:
-        """Check if GPT fallback is available and within budget."""
+    def _llm_available(self) -> bool:
+        """Check if local LLM is available and within budget."""
         if not self._gpt or self._gpt.is_offline():
             return False
         return self._gpt_calls < self._max_gpt
@@ -167,9 +143,8 @@ class LLMOutputInterpreter:
         known_discoveries: Optional[Dict[str, Any]] = None,
     ) -> InterpretationLesson:
         """
-        Phase 22: GPT-only output interpretation with full reasoning.
+        Local LLM output interpretation with full reasoning.
 
-        GPT-5.2-codex is the ONLY interpreter. No Venice calls.
         Produces InterpretationLessons that teach agents:
         - HOW to parse output (patterns, keywords, structure)
         - WHY certain output indicates specific discoveries
@@ -197,20 +172,11 @@ class LLMOutputInterpreter:
         # Build the interpretation prompt
         prompt = self._build_prompt(command, output, agent_name, phase, known_discoveries)
 
-        # ── GPT-5.2-codex ONLY (Phase 22: no Venice) ──
-        if self._gpt_available():
-            lesson = self._call_gpt_fallback(prompt, command, agent_name)
+        if self._llm_available():
+            lesson = self._call_local_llm(prompt, command, agent_name)
             if lesson and lesson.discoveries:
-                # No Venice validation — GPT-5.2-codex reasoning is authoritative
                 self._record_learned_patterns(agent_name, lesson)
                 return lesson
-
-        # # ── Venice COMMENTED OUT — Phase 22 GPT-only mode ──
-        # # Venice was adding 5-7s latency per call (6000ms ping).
-        # # All interpretation handled by GPT-5.2-codex.
-        # if self._venice_available():
-        #     lesson = self._call_venice(prompt, command, agent_name)
-        #     ...
 
         return InterpretationLesson(command=command, agent_name=agent_name)
 
@@ -305,79 +271,6 @@ RULES:
 - If nothing useful: return {{"discoveries": {{}}, "reasoning": "No actionable findings", "confidence": 0.1}}
 
 JSON:"""
-
-    def _call_venice(
-        self,
-        prompt: str,
-        command: str,
-        agent_name: str,
-    ) -> Optional[InterpretationLesson]:
-        """Call Venice qwen3-coder for interpretation."""
-        if not self._gpt:
-            return None
-
-        self._venice_calls += 1
-        self._stats["venice_calls"] += 1
-        t0 = time.time()
-
-        try:
-            venice_client = self._gpt.venice_client
-            response = venice_client.chat.completions.create(
-                model=VENICE_INTERPRETER_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a pentesting output analysis expert. "
-                            "Extract discoveries and teach the AI agent to interpret "
-                            "command output by explaining patterns and reasoning. "
-                            "Respond ONLY in valid JSON."
-                        ),
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=750,  # Phase 11.5: +50% (was 500) for deeper interpretation
-                temperature=0.3,  # Low temp for precise extraction
-            )
-
-            latency_ms = (time.time() - t0) * 1000
-            content = ""
-            tokens = 0
-
-            if response.choices and len(response.choices) > 0:
-                content = response.choices[0].message.content or ""
-            if hasattr(response, "usage") and response.usage:
-                tokens = response.usage.total_tokens
-                self._stats["total_tokens"] += tokens
-                # Update GPTManager Venice stats
-                self._gpt.stats_venice["total_requests"] += 1
-                self._gpt.stats_venice["successes"] += 1
-                self._gpt.stats_venice["tokens_used"] += tokens
-
-            if content:
-                lesson = self._parse_response(content, command, agent_name)
-                lesson.model_used = VENICE_INTERPRETER_MODEL
-                lesson.provider = "venice"
-                lesson.latency_ms = latency_ms
-                lesson.tokens_used = tokens
-                if lesson.discoveries:
-                    self._stats["venice_successes"] += 1
-                    self._stats["lessons_produced"] += 1
-                    logger.debug(
-                        f"[LLM-INTERP] Venice qwen3-coder | {agent_name} | "
-                        f"found={list(lesson.discoveries.keys())} | "
-                        f"{latency_ms:.0f}ms | {tokens}tok"
-                    )
-                return lesson
-
-        except Exception as e:
-            logger.debug(f"[LLM-INTERP] Venice error: {e}")
-            # Mark Venice failure for this attempt
-            self._gpt.stats_venice["failures"] = (
-                self._gpt.stats_venice.get("failures", 0) + 1
-            )
-
-        return None
 
     def _call_gpt_fallback(
         self,

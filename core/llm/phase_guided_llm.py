@@ -451,6 +451,13 @@ class PhaseGuidedLLM:
             logger.debug("[PHASE-GUIDE] Budget exhausted")
             return None
 
+        # Phase 56: Local-only → fast single-call path (replaces P55 blanket skip)
+        if getattr(self._gpt, 'is_local_only', lambda: False)():
+            return self._fast_local_guide(
+                episode_id, step_id, agent_role, current_phase,
+                phase_state, discovery_board, available_templates,
+            )
+
         # Determine stagnation
         stagnation_steps = phase_state.get("stagnation_steps", 0)
         recent_deltas = phase_state.get("recent_discovery_deltas", [])
@@ -541,6 +548,155 @@ class PhaseGuidedLLM:
             result.distillation_packet.phase_tag = _PHASE_TAG
 
         return result
+
+    # ── Phase 56: Fast local single-call path ──────────────────────────
+
+    def _fast_local_guide(
+        self,
+        episode_id: str,
+        step_id: int,
+        agent_role: str,
+        current_phase: str,
+        phase_state: Dict[str, Any],
+        discovery_board: Dict[str, Any],
+        available_templates: List[Dict[str, Any]],
+    ) -> Optional[PhaseGuidanceResult]:
+        """Single-call fast path for local 4B LLM.
+
+        Instead of the full schema-bound prompt + retry loop, ask a single
+        compact question: stay-or-advance + suggest 3 candidates.
+        Falls through to heuristic on failure.
+        """
+        if not self._gpt.can_make_request():
+            return None
+
+        inferred_phase = _infer_phase(discovery_board, current_phase)
+        stagnation_steps = phase_state.get("stagnation_steps", 0)
+
+        # Sanitize board for prompt
+        ports = sorted(str(p) for p in list(discovery_board.get("ports", []))[:8])
+        services = sorted(str(s) for s in list(discovery_board.get("services", []))[:8])
+        creds = list(discovery_board.get("creds", []))[:3]
+        shells = list(discovery_board.get("shells", []))[:3]
+        tmpl_names = [
+            t.get("name", str(t)) if isinstance(t, dict) else str(t)
+            for t in available_templates[:10]
+        ]
+
+        prompt = (
+            "/no_think\n"
+            f"phase={current_phase} inferred={inferred_phase} stagnation={stagnation_steps}\n"
+            f"ports={ports} services={services} creds={creds} shells={shells}\n"
+            f"templates={tmpl_names}\n"
+            "Should we STAY in current phase or ADVANCE? Suggest 3 candidate templates.\n"
+            "Reply ONLY JSON:\n"
+            '{"stay_or_advance":"stay|advance","reason":"why",'
+            '"candidates":["tmpl1","tmpl2","tmpl3"],"confidence":0.0-1.0}'
+        )
+
+        import time as _time
+        _t0 = _time.monotonic()
+        try:
+            raw = self._gpt.gpt_request(
+                prompt=prompt,
+                task_type="classification",
+                agent_id=f"phase_guide_local_{agent_role}",
+                max_tokens=120,
+                model="local-llm",
+                timeout=30,
+            )
+            _latency_ms = int((_time.monotonic() - _t0) * 1000)
+            self._call_count += 1
+
+            parsed = _extract_json(raw)
+            if parsed and parsed.get("candidates"):
+                stay_or_advance = str(parsed.get("stay_or_advance", "stay"))
+                reason = str(parsed.get("reason", ""))
+                confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.5))))
+                raw_candidates = parsed.get("candidates", [])
+                if isinstance(raw_candidates, list):
+                    candidate_names = [str(c) for c in raw_candidates[:_MAX_CANDIDATES]]
+                else:
+                    candidate_names = []
+
+                chosen_phase = inferred_phase if stay_or_advance == "advance" else current_phase
+                phase_decision = PhaseDecision(
+                    chosen_phase=chosen_phase,
+                    phase_confidence=confidence,
+                    phase_goal=reason,
+                    stay_conditions=["LLM advises stay"] if stay_or_advance == "stay" else [],
+                    move_on_conditions=["LLM advises advance"] if stay_or_advance == "advance" else [],
+                    contradictions=[],
+                    phase_tag=_PHASE_TAG,
+                )
+
+                candidates = []
+                for name in candidate_names:
+                    candidates.append(Candidate(
+                        template_name=name,
+                        family="",
+                        why=reason[:120],
+                        expected_outcome="discovery or confirmation",
+                        stop_condition="timeout or error",
+                        confidence=confidence,
+                        risk="low",
+                        tags=["LOCAL_LLM"],
+                    ))
+
+                best_name = candidate_names[0] if candidate_names else ""
+                selection = Selection(
+                    best_template_name=best_name,
+                    runner_up_template_name=candidate_names[1] if len(candidate_names) > 1 else "",
+                    selection_reason=f"local_llm: {reason[:80]}",
+                    should_escalate_to_codex=False,
+                    escalation_reason="",
+                )
+
+                distillation_packet = DistillationPacket(
+                    observation=f"{len(ports)} ports, {len(services)} services",
+                    reasoning=reason[:200],
+                    action_target=ActionTarget(template_name=best_name, why=reason[:80]),
+                    expected_outcome="New discovery",
+                    phase_target=chosen_phase,
+                    confidence_target=confidence,
+                    gating_notes=GatingNotes(expected_gate_result="PASS", reasons=[]),
+                    phase_tag=_PHASE_TAG,
+                )
+
+                result = PhaseGuidanceResult(
+                    phase_decision=phase_decision,
+                    anomalies=[],
+                    candidates=candidates,
+                    selection=selection,
+                    distillation_packet=distillation_packet,
+                    model_used="local-llm-4b",
+                    escalated_to_codex=False,
+                )
+
+                # Publish reasoning for dashboard
+                self._gpt._last_reasoning = {
+                    "source": "phase_guided",
+                    "stay_or_advance": stay_or_advance,
+                    "candidates": candidate_names,
+                    "reasoning": reason[:200],
+                    "confidence": confidence,
+                    "latency_ms": _latency_ms,
+                    "model": "qwen3.5:4b",
+                }
+                logger.info(
+                    f"PG:local {stay_or_advance} conf={confidence:.2f} "
+                    f"best={best_name} latency={_latency_ms}ms"
+                )
+                return result
+
+        except Exception as e:
+            logger.debug(f"[PHASE-GUIDE:local] Fast path failed: {e}")
+
+        # Fallback: heuristic
+        return self._heuristic_fallback(
+            inferred_phase, discovery_board, available_templates,
+            stagnation_steps, agent_role, "local-llm-heuristic",
+        )
 
     # ── Internal helpers ─────────────────────────────────────────────────
 

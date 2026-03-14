@@ -293,8 +293,6 @@ class LiveDashboard:
         self.llm_model_usage: Dict[str, int] = {}     # model → call count
         self.parser_stage_counts: Dict[str, int] = {}  # stage → hit count
         self.cloud_role_calls: Dict[str, int] = {}     # role → call count
-        self.venice_calls_episode: int = 0
-        self.venice_calls_total: int = 0
         self.runtime_profile: str = "UNKNOWN"
 
         # Phase 10.2: Algorithm-level tracking for unified display
@@ -347,7 +345,7 @@ class LiveDashboard:
         tokens: int = 0,
         model: str = "",
         role: str = "",
-        venice_calls: int = 0,
+        **_kwargs,
     ):
         """Update LLM usage stats."""
         self.llm_calls_episode += calls
@@ -358,8 +356,6 @@ class LiveDashboard:
             self.llm_model_usage[model] = self.llm_model_usage.get(model, 0) + calls
         if role:
             self.cloud_role_calls[role] = self.cloud_role_calls.get(role, 0) + calls
-        self.venice_calls_episode += venice_calls
-        self.venice_calls_total += venice_calls
 
     def update_parser_stats(self, stage: str):
         """Record which parser stage produced a discovery."""
@@ -549,7 +545,7 @@ class LiveDashboard:
             llm_parts.append(f"[bright_cyan]⚡ Fast: {_fast}[/bright_cyan]")
         if _tok_lim:
             llm_parts.append(f"[cyan]📏 {_tok_lim:,} tok/ep[/cyan]")
-        llm_parts.append("[cyan]💳 per-call tracking[/cyan]")
+        llm_parts.append("[cyan]⚡ local inference[/cyan]")
         console.print(f"  [bold]LLM Layer:[/bold]  {'  │  '.join(llm_parts)}")
         console.print()
 
@@ -972,7 +968,7 @@ class LiveDashboard:
         elif source == "playbook":
             parts.append(f"[cyan]📖 PLAY[/cyan]")
         elif source in ("mentor", "dual_mentor"):
-            parts.append(f"[yellow]📡 GPT[/yellow]")
+            parts.append(f"[yellow]📡 LLM[/yellow]")
         elif source == "registry":
             parts.append(f"[blue]📦 REG[/blue]")
         elif source == "anti_repeat":
@@ -1161,26 +1157,23 @@ class LiveDashboard:
             pressure = budget_snapshot.get("pressure_pct", 0)
             mentor_rem = budget_snapshot.get("mentor_remaining", 0)
             mentor_max = budget_snapshot.get("mentor_max", 0)
-            venice_rem = budget_snapshot.get("venice_remaining", 0)
             p_color = "green" if pressure < 50 else "yellow" if pressure < 80 else "red"
             lines.append(
                 f"[{p_color}]{'🟢' if pressure < 50 else '🟡' if pressure < 80 else '🔴'} "
                 f"Budget[/{p_color}]    pressure:{pressure}% │ "
-                f"mentor:{mentor_rem}/{mentor_max} │ venice:{venice_rem}"
+                f"mentor:{mentor_rem}/{mentor_max}"
             )
 
-        # GPT cost
+        # LLM activity (local inference)
         if gpt_activity:
-            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
-            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
-            total_calls = gpt_activity.get("total_calls", 0)
+            total_calls = gpt_activity.get("total_requests", gpt_activity.get("total_calls", 0))
             total_tokens = gpt_activity.get("total_tokens", 0)
             cache_hits = gpt_activity.get("cache_hits", 0)
-            cost_color = "red" if cum_cost > 1.0 else "yellow" if cum_cost > 0.25 else "green"
+            step_tokens = gpt_activity.get("step_tokens", 0)
             lines.append(
-                f"[{cost_color}]💳 GPT[/{cost_color}]       "
-                f"${cum_cost:.4f} │ ep:${ep_cost:.4f} │ "
-                f"calls:{total_calls} │ tokens:{total_tokens:,} │ cache:{cache_hits}"
+                f"[bright_cyan]⚡ LLM[/bright_cyan]       "
+                f"calls:{total_calls} │ tokens:{total_tokens:,} │ "
+                f"step_tok:{step_tokens:,} │ cache:{cache_hits}"
             )
 
         if not lines:
@@ -1321,6 +1314,62 @@ class LiveDashboard:
             padding=(0, 2),
         )
 
+    def _build_llm_reasoning_panel(
+        self,
+        reasoning: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Panel]:
+        """Phase 56: Build LLM Reasoning panel showing last local LLM decision.
+
+        Displays MicroChain / PhaseGuided / Mentor reasoning from the
+        ``GPTManager._last_reasoning`` snapshot.
+        """
+        if not reasoning:
+            return None
+
+        source = reasoning.get("source", "unknown")
+        model = reasoning.get("model", "local-llm")
+        latency = reasoning.get("latency_ms", 0)
+        lines: list[str] = []
+
+        source_icons = {
+            "micro_chain": "🔗", "phase_guided": "🧭", "mentor": "📡",
+        }
+        icon = source_icons.get(source, "🧠")
+        lines.append(f"[bold]{icon} Source:[/bold]  {source}  [dim]({model})[/dim]")
+        lines.append(f"[bold]⏱ Latency:[/bold] {latency}ms")
+
+        if source == "micro_chain":
+            cmd = reasoning.get("command", "")
+            score = reasoning.get("score", 0.0)
+            reason = reasoning.get("reasoning", "")
+            score_color = "green" if score >= 0.6 else "yellow" if score >= 0.4 else "red"
+            lines.append(f"[bold]🎯 Command:[/bold] [bright_white]{cmd}[/bright_white]")
+            lines.append(f"[bold]📊 Score:[/bold]   [{score_color}]{score:.2f}[/{score_color}]")
+            lines.append(f"[bold]💭 Why:[/bold]     [dim]{reason[:120]}[/dim]")
+        elif source == "phase_guided":
+            action = reasoning.get("stay_or_advance", "?")
+            candidates = reasoning.get("candidates", [])
+            confidence = reasoning.get("confidence", 0.0)
+            reason = reasoning.get("reasoning", "")
+            action_color = "green" if action == "advance" else "cyan"
+            lines.append(f"[bold]📍 Action:[/bold]  [{action_color}]{action.upper()}[/{action_color}]")
+            lines.append(f"[bold]🎯 Top 3:[/bold]  {', '.join(candidates[:3])}")
+            lines.append(f"[bold]📊 Conf:[/bold]   {confidence:.2f}")
+            lines.append(f"[bold]💭 Why:[/bold]    [dim]{reason[:120]}[/dim]")
+        elif source == "mentor":
+            reason = reasoning.get("reasoning", "")
+            confidence = reasoning.get("confidence", 0.0)
+            lines.append(f"[bold]📊 Conf:[/bold]   {confidence:.2f}")
+            lines.append(f"[bold]💭 Advice:[/bold] [dim]{reason[:150]}[/dim]")
+
+        return Panel(
+            "\n".join(lines),
+            title="[bold bright_cyan]🧠 Local LLM Reasoning[/bold bright_cyan]",
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+            padding=(0, 2),
+        )
+
     def _build_system_log_panel(
         self,
         events: List['EventRecord'],
@@ -1424,6 +1473,8 @@ class LiveDashboard:
         learning_snapshot: Optional[Dict[str, Any]] = None,
         # Phase 37: GPT↔RL bridge metrics
         llm_bridge_snapshot: Optional[Dict[str, Any]] = None,
+        # Phase 56: Local LLM reasoning snapshot
+        llm_reasoning: Optional[Dict[str, Any]] = None,
     ):
         """
         Print unified step display with Rich agent table. Phase 6.9.3.
@@ -1454,13 +1505,7 @@ class LiveDashboard:
         mentor_str = f"📡 {self.episode_mentor_calls_total}" if self.episode_mentor_calls_total else ""
         done_tag = " [bold green]✅ DONE[/bold green]" if done else ""
 
-        # Phase 23: GPT cost in header
         gpt_cost_str = ""
-        if gpt_activity:
-            _cum = gpt_activity.get("cumulative_cost_usd", 0.0)
-            if _cum > 0:
-                _cost_clr = "red" if _cum > 1.0 else "yellow" if _cum > 0.25 else "green"
-                gpt_cost_str = f" │ [{_cost_clr}]💳${_cum:.3f}[/{_cost_clr}]"
 
         # ── STEP HEADER ──────────────────────────────────────────────
         # Phase 37: Clean gradient-style header with Rich Rule
@@ -1774,7 +1819,6 @@ class LiveDashboard:
             pressure = budget_snapshot.get("budget_pressure", 0)
             mentor_rem = budget_snapshot.get("mentor_budget_remaining", budget_snapshot.get("mentor_remaining", 0))
             mentor_tot = budget_snapshot.get("mentor_budget_total", budget_snapshot.get("mentor_total", 0))
-            venice_rem = budget_snapshot.get("venice_budget_remaining", budget_snapshot.get("venice_remaining", 0))
             if pressure > 0.8:
                 p_style = "bold red"
                 p_icon = "🔴"
@@ -1787,27 +1831,16 @@ class LiveDashboard:
             _metrics_lines.append(
                 f"[{p_style}]{p_icon} Budget[/{p_style}]    "
                 f"pressure:[bold]{pressure:.0%}[/bold] │ "
-                f"mentor:{mentor_rem}/{mentor_tot} │ "
-                f"venice:{venice_rem}"
+                f"mentor:{mentor_rem}/{mentor_tot}"
             )
 
-        # ── GPT cost row ──
+        # ── LLM activity row ──
         if gpt_activity:
-            cum_cost = gpt_activity.get("cumulative_cost_usd", 0.0)
-            ep_cost = gpt_activity.get("episode_cost_usd", 0.0)
             total_req = gpt_activity.get("total_requests", 0)
             total_tok = gpt_activity.get("total_tokens", 0)
             cache_hits = gpt_activity.get("cache_hits", 0)
-            if cum_cost > 1.0:
-                cost_style = "bold red"
-            elif cum_cost > 0.25:
-                cost_style = "yellow"
-            else:
-                cost_style = "green"
             _metrics_lines.append(
-                f"💳 [bold]GPT[/bold]       "
-                f"[{cost_style}]${cum_cost:.4f}[/{cost_style}] │ "
-                f"ep:${ep_cost:.4f} │ "
+                f"🤖 [bold]LLM[/bold]       "
                 f"calls:{total_req} │ tokens:{total_tok:,} │ "
                 f"cache:{cache_hits}"
             )
@@ -2019,6 +2052,11 @@ class LiveDashboard:
                 _v6_gpt_panel = None
         else:
             _v6_gpt_panel = None
+
+        # ── Phase 56: LOCAL LLM REASONING PANEL ─────────────────────
+        _v6_llm_reasoning_panel = self._build_llm_reasoning_panel(llm_reasoning)
+        if _v6_llm_reasoning_panel:
+            console.print(_v6_llm_reasoning_panel)
 
         # ── GPT INTERPRETATION REASONING ─────────────────────────────
         _v6_parser_panel = None
@@ -2364,7 +2402,6 @@ class LiveDashboard:
         ddqn_metrics: Optional[Dict[str, Any]] = None,
         decision_sources: Optional[Dict[str, int]] = None,
         discovery_board: Optional[Dict[str, Any]] = None,
-        gpt_cost_summary: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         self.current_episode = episode
@@ -2487,8 +2524,6 @@ class LiveDashboard:
                 f"{self.llm_calls_episode}",
                 f"tokens: {self.llm_tokens_episode:,}  [{models_str}]"
             )
-        if self.venice_calls_episode > 0:
-            table.add_row("🌊 Venice", f"{self.venice_calls_episode}", "")
         if self.cloud_role_calls:
             roles_str = ", ".join(
                 f"{r}:{c}" for r, c in sorted(self.cloud_role_calls.items(), key=lambda x: -x[1])
@@ -2499,22 +2534,6 @@ class LiveDashboard:
                 f"{s}:{c}" for s, c in sorted(self.parser_stage_counts.items(), key=lambda x: -x[1])
             )
             table.add_row("🔍 Parser", parser_str, "")
-
-        # Phase 23: GPT Cost Summary
-        if gpt_cost_summary:
-            _cum = gpt_cost_summary.get("cumulative_usd", 0.0)
-            _ep = gpt_cost_summary.get("episode_usd", 0.0)
-            _cost_clr = "red" if _cum > 1.0 else "yellow" if _cum > 0.25 else "green"
-            models_info = gpt_cost_summary.get("models", {})
-            model_parts = []
-            for mname, mdata in models_info.items():
-                short = mname.replace("gpt-", "").replace("-codex", "c")
-                model_parts.append(f"{short}:{mdata.get('requests', 0)}r/{mdata.get('tokens', 0):,}t")
-            table.add_row(
-                "💳 GPT Cost",
-                f"[{_cost_clr}]${_cum:.4f}[/{_cost_clr}]",
-                f"ep: ${_ep:.4f}  {' '.join(model_parts)}"
-            )
 
         console.print(table)
 
@@ -2531,6 +2550,13 @@ class LiveDashboard:
         _llm_bridge_data = kwargs.get("llm_bridge_snapshot")
         if _llm_bridge_data:
             algo_panels.append(self._build_llm_bridge_panel(_llm_bridge_data))
+
+        # Phase 56: LLM Reasoning Panel (from GPTManager._last_reasoning)
+        _llm_reasoning = kwargs.get("llm_reasoning")
+        if _llm_reasoning:
+            _reasoning_panel = self._build_llm_reasoning_panel(_llm_reasoning)
+            if _reasoning_panel:
+                algo_panels.append(_reasoning_panel)
 
         # DDQN Panel
         if ddqn_metrics:
@@ -2813,7 +2839,6 @@ class LiveDashboard:
         self.kg_hits_episode = 0
         self.llm_calls_episode = 0
         self.llm_tokens_episode = 0
-        self.venice_calls_episode = 0
 
     def reset_episode(self):
         self.step_counter = 0

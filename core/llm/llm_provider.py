@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """
-core/llm/llm_provider.py — Phase 44: LLM Provider Abstraction
+core/llm/llm_provider.py — LLM Provider Abstraction
 
-Abstract base class for LLM providers. Enables transparent switching
-between OpenAI, local LLM (llama-cpp/vLLM), and HuggingFace providers.
+Abstract base class for LLM providers. All inference runs locally
+via Ollama (Qwen 3.5 Uncensored 4b/9b).
 
 All providers expose an identical interface so GPTManager and callers
-don't need to know *where* inference happens.
-
-Author: Phase 44 — OpenAI Removal & Local LLM Migration
+don't need to know implementation details.
 """
 
 from __future__ import annotations
@@ -27,7 +25,7 @@ class LLMResponse:
 
     text: str
     model: str
-    provider: str  # "openai", "local", "huggingface"
+    provider: str  # "local"
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
@@ -103,168 +101,6 @@ class LLMProvider(ABC):
             "model": self.get_model_name(),
             "available": self.is_available(),
         }
-
-
-class OpenAIProvider(LLMProvider):
-    """Provider wrapping the OpenAI API (GPT-5.x, codex, etc.).
-
-    Uses the official openai Python SDK. Supports both Chat Completions
-    and the Responses API for codex models.
-    """
-
-    # Cost per 1K tokens (USD) — blended input+output estimate
-    COST_MAP: Dict[str, float] = {
-        "local-llm": 0.00010,
-        "qwen2.5:7b": 0.00,
-        "qwen2.5-coder:3b": 0.00,
-        "local": 0.00,
-    }
-
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        import os
-
-        self._api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self._client: Any = None
-        self._async_client: Any = None
-        self._stats = {
-            "total_requests": 0,
-            "total_tokens": 0,
-            "total_cost_usd": 0.0,
-            "errors": 0,
-        }
-
-    def _get_client(self) -> Any:
-        """Lazy-initialize the OpenAI client."""
-        if self._client is None:
-            try:
-                from openai import OpenAI
-
-                if not self._api_key:
-                    raise RuntimeError("OPENAI_API_KEY not set")
-                self._client = OpenAI(api_key=self._api_key)
-            except ImportError:
-                raise RuntimeError(
-                    "openai package not installed. Install with: pip install openai"
-                )
-        return self._client
-
-    def chat_completion(
-        self,
-        messages: List[Dict[str, str]],
-        model: str,
-        max_tokens: int = 150,
-        temperature: float = 0.3,
-        response_format: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None,
-    ) -> LLMResponse:
-        import time
-
-        start = time.time()
-        try:
-            client = self._get_client()
-            uses_responses_api = "codex" in model
-            uses_new_api = any(x in model for x in ["gpt-5", "o1-", "o3-"])
-
-            if uses_responses_api:
-                # Codex models use Responses API
-                system_msg = next(
-                    (m["content"] for m in messages if m["role"] == "system"), ""
-                )
-                user_msg = next(
-                    (m["content"] for m in messages if m["role"] == "user"), ""
-                )
-                codex_budget = max(max_tokens * 15, 2000)
-                resp = client.responses.create(
-                    model=model,
-                    instructions=system_msg,
-                    input=user_msg,
-                    max_output_tokens=codex_budget,
-                )
-                # Extract text from Responses API
-                text = ""
-                if hasattr(resp, "output"):
-                    for block in resp.output:
-                        if hasattr(block, "content"):
-                            for part in block.content:
-                                if hasattr(part, "text"):
-                                    text += part.text
-                elif hasattr(resp, "output_text"):
-                    text = resp.output_text
-
-                input_tokens = getattr(
-                    getattr(resp, "usage", None), "input_tokens", 0
-                )
-                output_tokens = getattr(
-                    getattr(resp, "usage", None), "output_tokens", 0
-                )
-            else:
-                # Standard Chat Completions
-                token_param = (
-                    "max_completion_tokens" if uses_new_api else "max_tokens"
-                )
-                request_params: Dict[str, Any] = {
-                    "model": model,
-                    "messages": messages,
-                    token_param: max_tokens,
-                }
-                if not uses_new_api:
-                    request_params["temperature"] = temperature
-                if response_format:
-                    request_params["response_format"] = response_format
-                if timeout:
-                    request_params["timeout"] = min(timeout, 600.0)
-
-                resp = client.chat.completions.create(**request_params)
-                text = resp.choices[0].message.content or ""
-                input_tokens = getattr(resp.usage, "prompt_tokens", 0) if resp.usage else 0
-                output_tokens = getattr(resp.usage, "completion_tokens", 0) if resp.usage else 0
-
-            total_tokens = input_tokens + output_tokens
-            cost = total_tokens * self.get_cost_per_1k_tokens(model) / 1000.0
-            latency = (time.time() - start) * 1000
-
-            self._stats["total_requests"] += 1
-            self._stats["total_tokens"] += total_tokens
-            self._stats["total_cost_usd"] += cost
-
-            return LLMResponse(
-                text=text.strip(),
-                model=model,
-                provider="openai",
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                total_tokens=total_tokens,
-                latency_ms=latency,
-                cost_usd=cost,
-            )
-        except Exception as e:
-            self._stats["errors"] += 1
-            latency = (time.time() - start) * 1000
-            logger.error(f"OpenAI request failed: {e}")
-            return LLMResponse(
-                text="",
-                model=model,
-                provider="openai",
-                latency_ms=latency,
-                error=str(e),
-            )
-
-    def is_available(self) -> bool:
-        return bool(self._api_key)
-
-    def get_model_name(self) -> str:
-        return "local-llm"
-
-    def get_provider_name(self) -> str:
-        return "openai"
-
-    def get_cost_per_1k_tokens(self, model: Optional[str] = None) -> float:
-        return self.COST_MAP.get(model or "", 0.01)
-
-    def get_stats(self) -> Dict[str, Any]:
-        base = super().get_stats()
-        base.update(self._stats)
-        return base
 
 
 class LocalServerProvider(LLMProvider):

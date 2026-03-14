@@ -387,9 +387,8 @@ def resolve_profile() -> str:
     Auto-detect runtime profile and flip feature flags accordingly.
 
     Profiles:
-      CLOUD          — OPENAI_API_KEY present → turn ON all 5 LLM role flags
+      LOCAL          — Default → turn ON all 5 LLM role flags (local Ollama)
       DETERMINISTIC  — Running under pytest → all LLM flags OFF (safe)
-      OFFLINE        — No API key → all LLM flags OFF
 
     DOES NOT modify token budgets, call limits, or LLM model routing.
     Only flips the 5 feature flags: llm_strategic_planner, llm_tactical_advisor,
@@ -408,17 +407,10 @@ def resolve_profile() -> str:
         or os.environ.get("PYTEST_CURRENT_TEST", "") != ""
     )
 
-    has_api_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
-    has_local_llm = bool(os.environ.get('FF_LOCAL_LLM', '').strip().lower() in ('1', 'true', 'yes', 'on'))
-
     if is_pytest:
         profile = "DETERMINISTIC"
-    elif has_api_key:
-        profile = "CLOUD"
-    elif has_local_llm:
-        profile = "LOCAL"
     else:
-        profile = "OFFLINE"
+        profile = "LOCAL"
 
     llm_flags = [
         "llm_strategic_planner",
@@ -429,13 +421,13 @@ def resolve_profile() -> str:
     ]
 
     with _lock:
-        if profile in ("CLOUD", "LOCAL"):
+        if profile == "LOCAL":
             for flag in llm_flags:
                 if not _env_bool(f"FF_{flag.upper()}", True):
                     # Explicit env override says OFF — respect it
                     continue
                 setattr(_ff, flag, True)
-            # Phase 11.0: CLOUD profile gets full-parse mode by default
+            # Phase 11.0: LOCAL profile gets full-parse mode by default
             if not os.environ.get("FF_PARSER_MODE"):
                 _ff.parser_mode = "intelligent_fullparse"
         else:
@@ -462,8 +454,7 @@ def resolve_profile() -> str:
                 logger.info("[P19] Auto-switched parser to intelligent_fullparse for live/HTB target")
 
     logger.info(f"[PROFILE] Resolved profile: {profile} "
-                f"(api_key={'yes' if has_api_key else 'no'}, "
-                f"pytest={'yes' if is_pytest else 'no'})")
+                f"(pytest={'yes' if is_pytest else 'no'})")
     return profile
 
 

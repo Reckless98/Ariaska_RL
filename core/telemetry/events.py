@@ -142,7 +142,6 @@ class StepEvent:
     teaching_points: List[str] = field(default_factory=list)
     budget_pressure: float = 0.0             # 0.0-1.0
     mentor_budget_remaining: int = 0
-    venice_budget_remaining: int = 0
     phase_steps_in_current: int = 0
     phase_ladder_blocked: bool = False
     tool_privilege_state: str = ""           # "user" | "sudo" | "root"
@@ -199,7 +198,6 @@ class StepEvent:
             "teaching_points": self.teaching_points,
             "budget_pressure": round(self.budget_pressure, 3),
             "mentor_budget_remaining": self.mentor_budget_remaining,
-            "venice_budget_remaining": self.venice_budget_remaining,
             "phase_steps_in_current": self.phase_steps_in_current,
             "phase_ladder_blocked": self.phase_ladder_blocked,
             "tool_privilege_state": self.tool_privilege_state,

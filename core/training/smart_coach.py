@@ -31,8 +31,6 @@ from core.llm.smart_mentor import (
     SmartMentor,
     AttackContext,
     MentorResponse,
-    DualMentor,
-    DualMentorResponse,
 )
 from core.llm.reward_calculator import (
     SmartRewardCalculator,
@@ -103,7 +101,7 @@ class SmartDecisionResult:
     model_used: Optional[str] = None
     mentor_reasoning: Optional[str] = None
     mentor_delta: str = "kept"
-    mentor_provider: str = "gpt"  # "gpt", "venice", "gpt_consensus", "venice_consensus", etc.
+    mentor_provider: str = "local"  # Always local inference
     
     # Phase info
     phase: AttackPhase = AttackPhase.RECON
@@ -158,8 +156,8 @@ class SmartDecisionResult:
     
     @property
     def is_dual_mentor(self) -> bool:
-        """Check if this decision used dual mentor."""
-        return self.mentor_provider not in ("gpt", "offline", "none")
+        """Always False — single local mentor only."""
+        return False
 
 
 @dataclass
@@ -377,7 +375,6 @@ class SmartCoach:
         self.learned_store = learned_store or get_learned_store()
         self.reward_calculator = reward_calculator or SmartRewardCalculator()
         self.smart_mentor: Optional[SmartMentor] = None
-        self.dual_mentor: Optional[DualMentor] = None  # GPT + Venice dual mentor
         
         # Initialize smart mentor if GPT manager has async client
         self._init_smart_mentor()
@@ -961,15 +958,8 @@ class SmartCoach:
             return []
 
     def _init_smart_mentor(self):
-        """Initialize the smart mentor — GPT-only (Phase 6.9: Venice removed).
-        
-        Venice was causing f-string format errors with JSON braces in prompts
-        and adding complexity without proportional value. All 3 codex model
-        variants (local-llm, gpt-4o-mini fallback) are GPT-based.
-        """
+        """Initialize the smart mentor — local LLM only."""
         try:
-            # Phase 6.9: Venice/DualMentor REMOVED — GPT-only pipeline
-            self.dual_mentor = None
             
             if hasattr(self.gpt_manager, 'async_client'):
                 self.smart_mentor = SmartMentor(
@@ -1017,8 +1007,8 @@ class SmartCoach:
             logger.debug(f"Cloud roles init skipped for {self.agent_name}: {e}")
 
     def has_dual_mentor(self) -> bool:
-        """Check if dual mentor (GPT + Venice) is available."""
-        return hasattr(self, 'dual_mentor') and self.dual_mentor is not None
+        """Always False — single local mentor only."""
+        return False
     
     def init_attack_context(
         self,
@@ -2076,6 +2066,10 @@ class SmartCoach:
         if self.gpt_manager is None or self.gpt_manager.is_offline():
             return None
 
+        # Phase 55: Skip codex meta when only local (CPU-bound) LLM
+        if getattr(self.gpt_manager, 'is_local_only', lambda: False)():
+            return None
+
         # Build strategic context from discovery board and attack context
         ctx = step_ctx.attack_context
         discovery_board = step_ctx.state.get("discovery_board", {})
@@ -2379,6 +2373,10 @@ class SmartCoach:
         if self.agent_role.get("role") != "offensive":
             return None
         if self.gpt_manager is None or self.gpt_manager.is_offline():
+            return None
+
+        # Phase 55: Skip codex strategic when only local (CPU-bound) LLM
+        if getattr(self.gpt_manager, 'is_local_only', lambda: False)():
             return None
         
         # Phase 11.0: Centralized budget gate for codex strategic calls
@@ -3048,12 +3046,19 @@ class SmartCoach:
                     "message": f"📊 Budget pressure {_pressure:.0%} — mentor call suppressed for phase {_phase_name}",
                 })
         
-        # Check if GPT is available
+        # Phase 56: Re-enable mentor for local LLM with rate limiting.
+        # Local LLM is fast enough for single calls (~3-8s) but not 3-stage chains.
+        # Rate limit: max 1 mentor call per 5 steps when local-only.
         gpt_available = (
             self.smart_mentor is not None
             and self.gpt_manager is not None
             and not self.gpt_manager.is_offline()
         )
+        if gpt_available and getattr(self.gpt_manager, "is_local_only", lambda: False)():
+            _last_mentor_step = getattr(self, '_last_local_mentor_step', -5)
+            _current_step = step_ctx.step if hasattr(step_ctx, 'step') else 0
+            if _current_step - _last_mentor_step < 5:
+                gpt_available = False  # Rate-limited: too soon since last local mentor call
         
         # Pre-compute filtered commands for this agent's role
         valid_commands = get_valid_commands_for_state(ctx.state_flags, ctx.current_phase)
@@ -3937,7 +3942,6 @@ class SmartCoach:
                                 "anti_repeat": -1.0,       # Soft: PPO wasn't wrong, just redundant
                                 "registry": -1.5,          # Registry found better match
                                 "mentor": -2.0,            # Mentor override — moderate
-                                "dual_mentor": -2.0,
                                 "micro_chain": -2.0,
                                 "phase_guided": -2.0,
                                 "playbook": -2.5,          # Curriculum-guided override
@@ -5379,6 +5383,9 @@ class SmartCoach:
 
             if _call_mentor:
                 _mentor_called = True
+                # Phase 56: Track step for local LLM rate limiting
+                if getattr(self.gpt_manager, "is_local_only", lambda: False)():
+                    self._last_local_mentor_step = step_ctx.step if hasattr(step_ctx, 'step') else 0
                 if mentor_engagement is not None and getattr(
                     mentor_engagement, "engage", False
                 ):
@@ -8059,8 +8066,7 @@ class SmartCoach:
         exfil_prompt: Optional[str] = None,
     ) -> SmartDecisionResult:
         """
-        Make decision using the smart mentor (LLM).
-        Uses DualMentor (GPT + Venice) if available, otherwise single SmartMentor.
+        Make decision using the smart mentor (local LLM).
         Validates that mentor's command respects role exclusivity AND anti-loop rules.
         
         Args:
@@ -8088,33 +8094,9 @@ class SmartCoach:
             setattr(ctx, '_exfil_injection', exfil_prompt)
         
         try:
-            # === USE DUAL MENTOR IF AVAILABLE ===
-            if self.has_dual_mentor():
-                # Phase 11.0: Check Venice budget before dual-mentor call
-                if self.budget_controller is not None and not self.budget_controller.can_call_venice():
-                    logger.debug(f"[{self.agent_name}] Venice budget exhausted, falling back to single mentor")
-                    mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
-                    provider_used = "gpt"
-                    tokens_used = getattr(mentor_response, 'tokens_used', 0)
-                else:
-                    dual_response = self.dual_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
-                    mentor_response = dual_response.chosen
-                    provider_used = dual_response.provider_used
-                    tokens_used = dual_response.tokens_total
-                    # Record Venice usage if that provider was used
-                    if self.budget_controller and provider_used == "venice":
-                        self.budget_controller.record_venice_call(tokens_used=tokens_used)
-                
-                if not mentor_response or not mentor_response.is_valid:
-                    logger.warning(f"[{self.agent_name}] DualMentor returned invalid response, falling back to registry")
-                    return self._decide_from_registry(step_ctx, proposed_action, confidence)
-                
-                logger.debug(f"[{self.agent_name}] DualMentor chose: {mentor_response.template_name} via {provider_used}")
-            else:
-                # === SINGLE MENTOR FALLBACK ===
-                mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
-                provider_used = "gpt"
-                tokens_used = getattr(mentor_response, 'tokens_used', 0)
+            mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
+            provider_used = "local"
+            tokens_used = getattr(mentor_response, 'tokens_used', 0)
             
             # VALIDATE: Reject offline placeholders masquerading as commands
             from core.gpt_manager import GPTManager as _GPTMgr
@@ -8183,7 +8165,7 @@ class SmartCoach:
                 logger.debug(f"[TOKEN_WARN] {self.agent_name} mentor call but tokens=0 - may be cached or estimate missing")
             
             # Add provider info to model_used
-            model_display = f"{self.model}|{provider_used}" if self.has_dual_mentor() else self.model
+            model_display = self.model
             
             return SmartDecisionResult(
                 command=mentor_response.command,

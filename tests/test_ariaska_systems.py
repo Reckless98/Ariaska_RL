@@ -352,21 +352,13 @@ class TestLLMRouting(unittest.TestCase):
             else:
                 os.environ.pop("FF_LOCAL_LLM", None)
     
-    def test_gpt_request_raises_without_api_key(self):
-        """Test that gpt_request raises RuntimeError when API key is missing."""
-        import os
+    def test_local_only_mode(self):
+        """Test that GPTManager is always in local-only mode."""
         from core.gpt_manager import GPTManager
-        
-        old_key = os.environ.pop("OPENAI_API_KEY", None)
-        try:
-            manager = GPTManager()
-            # Attempting to use client should raise RuntimeError
-            with self.assertRaises(RuntimeError) as ctx:
-                _ = manager.client  # Access client property
-            self.assertIn("OPENAI_API_KEY", str(ctx.exception))
-        finally:
-            if old_key:
-                os.environ["OPENAI_API_KEY"] = old_key
+
+        manager = GPTManager()
+        self.assertTrue(manager.is_local_only())
+        self.assertIsNone(manager.api_key)
 
 
 class TestApprenticeTrainer(unittest.TestCase):

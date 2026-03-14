@@ -1,0 +1,39 @@
+{
+  "run_id": "20260313T171539Z",
+  "type": "offline_distillation",
+  "elapsed_hours": 0.0002591331799825033,
+  "config": {
+    "epochs": 2,
+    "batch_size": 8,
+    "learning_rate": 0.0001,
+    "bc_coef": 0.3,
+    "kl_coef": 0.2,
+    "sil_coef": 0.25,
+    "ranking_coef": 0.05,
+    "use_cql": false,
+    "advantage_weighted_bc": true,
+    "device": "cpu",
+    "seed": 42
+  },
+  "data": {
+    "total_steps": 32,
+    "total_episodes": 1,
+    "sil_episodes": 1,
+    "steps_with_state_vector": 32,
+    "steps_with_teacher_dist": 0
+  },
+  "final_metrics": {
+    "total_loss": 41.66862440109253,
+    "bc_loss": 125.00115585327148,
+    "kl_loss": 0.0,
+    "ranking_loss": 1.4830734133720398,
+    "value_loss": 8.476109743118286,
+    "sil_loss": 14.461392879486084,
+    "cql_loss": 0.0,
+    "phase_pred_loss": 1.0993891656398773,
+    "lr": 5.05e-05,
+    "epoch": 1
+  },
+  "best_total_loss": 33.322336196899414,
+  "eval_teacher_accuracy": 0.0
+}

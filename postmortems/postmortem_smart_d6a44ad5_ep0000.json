@@ -1,0 +1,12 @@
+{
+  "run_id": "smart_d6a44ad5_ep0000",
+  "timestamp": 1773356094.0878017,
+  "key_outcomes": {},
+  "repeated_failure_patterns": [],
+  "skill_cards": [],
+  "memory_ops": [],
+  "next_experiments": [],
+  "model_used": "local-llm",
+  "dry_run": false,
+  "validation_passed": false
+}

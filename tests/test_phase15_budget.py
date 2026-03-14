@@ -28,15 +28,14 @@ class TestBudgetManagerV2:
         assert decision.allowed is True
         assert decision.tier == "local"
 
-    def test_check_budget_denied(self):
-        """Budget denied for non-local models when tier budget exceeded."""
+    def test_check_budget_always_allowed(self):
+        """All local models are always allowed (zero cost)."""
         from core.llm.budget_manager import BudgetManagerV2
         bm = BudgetManagerV2(tier_budgets={"codex": 100, "full": 100, "mini": 100, "nano": 100})
-        # Local models always allowed (free), so test denial with unknown model
-        bm.record_spend("unknown-cloud-model", 100, "strategy_plan")
-        decision = bm.check_budget("unknown-cloud-model", 1, "strategy_plan")
-        assert decision.allowed is False
-        assert decision.reason == "budget_exceeded"
+        bm.record_spend("local-llm", 999_999, "strategy_plan")
+        decision = bm.check_budget("local-llm", 1, "strategy_plan")
+        assert decision.allowed is True
+        assert decision.tier == "local"
 
     def test_record_spend(self):
         from core.llm.budget_manager import BudgetManagerV2

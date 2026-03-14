@@ -1,6 +1,6 @@
-# core/gpt_manager.py — ARIASKA GPTManager v6.0 (GPT-5.2-codex + Mini + Nano)
-# Centralized LLM Gateway: Role-Based Routing, Cross-Platform, Learning-Enhanced
-# Models: local-llm (primary), local-llm (parsing/fallback), local-llm (lightweight)
+# core/gpt_manager.py — ARIASKA GPTManager v7.0 (Local Ollama Gateway)
+# Centralized LLM Gateway: Qwen 3.5 Uncensored 4b/9b via Ollama
+# All inference is local. No external API dependencies.
 
 import os
 import logging
@@ -30,15 +30,8 @@ except ImportError:
                     value = value.strip('"\'')
                     os.environ[key] = value
 
-try:
-    import openai
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OpenAI = None
-    OPENAI_AVAILABLE = False
-    logging.warning("OpenAI library not available. Install with: pip install openai")
-    OPENAI_AVAILABLE = False
+# Local-only: OpenAI library used only as OpenAI-compatible HTTP client for Ollama
+OPENAI_AVAILABLE = False
 
 try:
     from rich.console import Console
@@ -46,8 +39,7 @@ try:
 except ImportError:
     console = None
 
-from core.llm.llm_provider import LLMProvider, LLMResponse, OpenAIProvider, LocalServerProvider
-from core.llm.hf_provider import HFProvider
+from core.llm.llm_provider import LLMProvider, LLMResponse, LocalServerProvider
 
 logger = logging.getLogger(__name__)
 
@@ -198,15 +190,8 @@ class GPTManager:
     
     FALLBACK_MODEL = "local-llm"  # Universal fallback (Phase 23: no gpt-4)
 
-    # Cost per 1K tokens (USD) — approximate, input+output blended average
-    COST_PER_1K_TOKENS: Dict[str, float] = {
-        "local-llm": 0.00010,
-        "qwen2.5:7b": 0.00,
-        "qwen2.5-coder:3b": 0.00,
-        "local": 0.00,
-        # Venice AI models
-        "qwen3-coder-480b-a35b-instruct": 0.000315,
-    }
+    # All models are local — zero cost
+    COST_PER_1K_TOKENS: Dict[str, float] = {}  # kept for API compat; always 0.0
     
     def __init__(self, enable_llm: Optional[bool] = None, require_llm: Optional[bool] = None, 
                  offline: Optional[bool] = None):
@@ -234,15 +219,11 @@ class GPTManager:
         self._require_llm = require_llm
         self._offline = offline
         
-        # Lazy init: don't require API key or openai package at construction
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        # Local-only: no API key needed
+        self.api_key = None
         self._providers = {}  # Lazy-initialized provider cache
         
         # ── Lazy-initialized clients ────────
-        self._client = None              # OpenAI sync client
-        self._async_client = None        # OpenAI async client
-        self._venice_client = None       # Venice sync client
-        self._venice_async_client = None # Venice async client
         self._local_client = None        # Local LLM client
         
         # ── Phase 43/44: Local LLM integration ────────
@@ -250,16 +231,11 @@ class GPTManager:
         self._local_llm_enabled = False  # Set True by _detect_local_llm()
         self._model_router = None        # Lazy-initialized ModelRouter
         
-        # Dual-mentor strategy settings
-        self.enable_dual_mentor = os.getenv("ENABLE_DUAL_MENTOR", "true").lower() == "true"
-        self.mentor_strategy = os.getenv("MENTOR_STRATEGY", "gpt_first")  # gpt_first, local_first, round_robin, parallel
-        self._mentor_call_count = 0  # For round-robin
-        
-        # Strict mode validation
-        if self._enable_llm and self._require_llm and not self.api_key and not self._local_llm_enabled:
+        # Strict mode validation — local LLM must be available
+        if self._enable_llm and self._require_llm and not self._local_llm_enabled:
             raise RuntimeError(
-                "GPTManager: require_llm=True but no API key and no local LLM. "
-                "Set OPENAI_API_KEY, enable FF_LOCAL_LLM, or use offline mode."
+                "GPTManager: require_llm=True but no local LLM available. "
+                "Ensure Ollama is running with Qwen 3.5, or use offline mode."
             )
         
         # Model configuration — Local LLM (Qwen 3.5 Uncensored)
@@ -272,9 +248,6 @@ class GPTManager:
         # Feature flags
         self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
         
-        # Phase 44: HF Provider opt-in
-        self._hf_enabled = os.getenv("FF_HF_PROVIDER", "0").lower() in ("1", "true", "yes", "on")
-        
         # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + GPU model present)
         self._detect_local_llm()  # Sets _local_llm_enabled=True only when FF_LOCAL_LLM=1 + server live
         self.stats_local_llm = {
@@ -284,17 +257,11 @@ class GPTManager:
             "tokens_used": 0
         }
         
-        # Token budgeting - per episode and per agent
-        # Phase 13.0: +100% for ultra-accelerated autonomous learning pipeline
-        # Agents need maximum token headroom to learn from GPT reasoning chains,
-        # build internal world models, and develop autonomous decision-making
-        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "720000"))  # Phase 36: +23% (was 585K) — codex-primary routing needs more headroom
-        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "230000"))  # Phase 36: +23% (was 187.2K) — per-agent capacity for codex reasoning
-        # Phase 13.0: Reasoning tasks get 5.5× multiplier for deep multi-step chains
-        # Supports: exploit reasoning, pwn trajectory analysis, reflective meta-learning,
-        # strategic planning, autonomous decision justification, and output interpretation
+        # Token budgeting - per episode and per agent (observability, not billing)
+        self.token_limit = int(os.getenv("TOKEN_LIMIT_PER_EPISODE", "720000"))
+        self.token_limit_per_agent = int(os.getenv("TOKEN_LIMIT_PER_AGENT", "230000"))
         self.reasoning_task_types = {"reasoning", "tactical", "strategic", "analysis", "learning", "postmortem", "defensive", "reconnaissance"}
-        self.reasoning_token_multiplier = 5.50  # Phase 13.0: +34% (was 4.10) — deeper reasoning chains for autonomous learning
+        self.reasoning_token_multiplier = 5.50
         self.tokens_used = 0
         self.tokens_by_agent: Dict[str, int] = {}
         self.current_episode_id: Optional[str] = None
@@ -302,6 +269,9 @@ class GPTManager:
         # Rate limiting
         self.last_request_time = 0
         self.min_request_interval = 0.1  # 100ms between requests
+
+        # Phase 56: Last reasoning snapshot for dashboard LLM Reasoning panel
+        self._last_reasoning: Dict[str, Any] = {}
         
         # Cross-platform detection
         self.is_windows = platform.system().lower() == "windows"
@@ -325,11 +295,11 @@ class GPTManager:
             "tokens_used_total": 0
         }
 
-        # Phase 6.3: Per-model token tracking and cost estimation
+        # Per-model token tracking (observability only — all local, zero cost)
         self.tokens_by_model: Dict[str, int] = {}       # model_name → total tokens
         self.requests_by_model: Dict[str, int] = {}     # model_name → request count
-        self._cumulative_cost_usd: float = 0.0           # running total $
-        self._episode_cost_usd: float = 0.0              # per-episode $
+        self._cumulative_cost_usd: float = 0.0           # always 0.0 (kept for API compat)
+        self._episode_cost_usd: float = 0.0              # always 0.0 (kept for API compat)
 
         # ── Phase 23: GPT Call Log for dashboard visibility ──────────
         # Ring buffer of recent API calls so the Rich dashboard can show
@@ -356,16 +326,13 @@ class GPTManager:
         logger.debug(f"Platform detected: {platform.system()}")
         if self.is_configured():
             if self._local_llm_enabled:
-                logger.info(f"Local LLM enabled | nano+mini → local GPU")
-            elif self.venice_enabled:
-                logger.debug(f"Venice AI enabled: {self.venice_enabled}, Model: {self.venice_model if self.venice_enabled else 'N/A'}")
+                logger.info(f"Local LLM enabled | all tiers → Ollama")
         else:
             logger.warning("GPTManager: No API key and no local LLM. Calls disabled.")
     
     def is_configured(self) -> bool:
-        """Check if an LLM backend (OpenAI or Local) is available."""
-        has_backend = bool(self.api_key) or self._local_llm_enabled
-        return has_backend and self._enable_llm and not self._offline
+        """Check if the local LLM backend is available."""
+        return self._local_llm_enabled and self._enable_llm and not self._offline
     
     def _detect_local_llm(self) -> bool:
         """Check if local LLM should be activated and detect hardware routing (Phase 43/44).
@@ -442,7 +409,15 @@ class GPTManager:
     
     def is_offline(self) -> bool:
         """Check if running in offline mode."""
-        return self._offline or not self._enable_llm or (not self.api_key and not self._local_llm_enabled)
+        return self._offline or not self._enable_llm or not self._local_llm_enabled
+
+    def is_local_only(self) -> bool:
+        """Always True — all inference is local.
+
+        Callers like MicroChain use this to select shorter timeouts for
+        CPU-bound local inference.
+        """
+        return True
     
     def request(
         self,
@@ -607,189 +582,51 @@ class GPTManager:
             return True
         return response.startswith(GPTManager.OFFLINE_SENTINEL) or response.startswith("Offline mode:")
 
-    @property
-    def client(self):
-        """Lazy-initialize OpenAI sync client on first use."""
-        if self._client is None:
-            if not OPENAI_AVAILABLE or OpenAI is None:
-                raise RuntimeError(
-                    "OpenAI library not installed. Install with: pip install openai"
-                )
-            if not self.api_key:
-                raise RuntimeError(
-                    "OPENAI_API_KEY not set. Set the environment variable or use offline mode."
-                )
-            self._client = OpenAI(api_key=self.api_key)
-        return self._client
-
-    @property
-    def async_client(self):
-        """Lazy-initialize OpenAI async client on first use."""
-        if self._async_client is None:
-            if not OPENAI_AVAILABLE:
-                raise RuntimeError(
-                    "OpenAI library not installed. Install with: pip install openai"
-                )
-            if not self.api_key:
-                raise RuntimeError(
-                    "OPENAI_API_KEY not set. Set the environment variable or use offline mode."
-                )
-            from openai import AsyncOpenAI
-            self._async_client = AsyncOpenAI(api_key=self.api_key)
-        return self._async_client
-
-    @property
-    def venice_client(self):
-        """Lazy-initialize Venice AI sync client on first use."""
-        if self._venice_client is None:
-            if not OPENAI_AVAILABLE or OpenAI is None:
-                raise RuntimeError(
-                    "OpenAI library not installed. Venice uses OpenAI-compatible API. Install with: pip install openai"
-                )
-            if not self.venice_api_key:
-                raise RuntimeError(
-                    "VENICE_API_KEY not set. Set the environment variable to use Venice AI."
-                )
-            self._venice_client = OpenAI(
-                api_key=self.venice_api_key,
-                base_url=self.venice_base_url
-            )
-            logger.info(f"Venice AI client initialized | Model: {self.venice_model}")
-        return self._venice_client
-
-    @property
-    def venice_async_client(self):
-        """Lazy-initialize Venice AI async client on first use."""
-        if self._venice_async_client is None:
-            if not OPENAI_AVAILABLE:
-                raise RuntimeError(
-                    "OpenAI library not installed. Venice uses OpenAI-compatible API. Install with: pip install openai"
-                )
-            if not self.venice_api_key:
-                raise RuntimeError(
-                    "VENICE_API_KEY not set. Set the environment variable to use Venice AI."
-                )
-            from openai import AsyncOpenAI
-            self._venice_async_client = AsyncOpenAI(
-                api_key=self.venice_api_key,
-                base_url=self.venice_base_url
-            )
-            logger.info(f"Venice AI async client initialized | Model: {self.venice_model}")
-        return self._venice_async_client
-
     def has_venice(self) -> bool:
-        """Check if Venice AI is available as secondary provider."""
-        return bool(self.venice_api_key) and self.venice_enabled
+        """Venice AI removed — always returns False."""
+        return False
 
     def has_secondary_provider(self) -> bool:
-        """Check if any secondary LLM provider is available (local or Venice)."""
-        return self.has_local_llm() or self.has_venice()
+        """All inference is local — no secondary provider needed."""
+        return False
 
     def get_next_mentor_provider(self) -> str:
-        """
-        Get the next mentor provider based on strategy.
-        
-        Phase 43: local LLM replaces Venice as secondary provider.
-        
-        Strategies:
-        - gpt_first: Always GPT, local/Venice as fallback
-        - local_first: Local LLM first, GPT as fallback
-        - round_robin: Alternate between GPT and local
-        - parallel: Use both (caller handles)
-        
-        Returns:
-            str: "gpt", "local", or "both"
-        """
-        has_secondary = self.has_secondary_provider()
-        if not has_secondary:
-            return "gpt"
-        
-        # Phase 43: "local_first" and legacy "venice_first" both map to local
-        if self.mentor_strategy in ("local_first", "venice_first"):
-            return "local" if self.has_local_llm() else "venice"
-        elif self.mentor_strategy == "round_robin":
-            self._mentor_call_count += 1
-            if self._mentor_call_count % 2 == 0:
-                return "local" if self.has_local_llm() else "venice"
-            return "gpt"
-        elif self.mentor_strategy == "parallel":
-            return "both"
-        else:  # gpt_first (default)
-            return "gpt"
+        """All mentoring goes through local LLM."""
+        return "local"
 
     def get_mentor_clients(self) -> Dict[str, Any]:
-        """
-        Get mentor clients based on availability.
-        
-        Phase 43: Local LLM preferred as secondary over Venice.
-        
-        Returns:
-            Dict with 'primary', 'secondary', and their async variants
-        """
-        result = {
+        """Get mentor client — local LLM only."""
+        result: Dict[str, Any] = {
             "primary": None,
             "primary_async": None,
             "primary_model": None,
             "secondary": None,
             "secondary_async": None,
             "secondary_model": None,
-            "strategy": self.mentor_strategy
+            "strategy": "local",
         }
-        
-        # Primary is always GPT (if available)
-        if self.api_key and self._enable_llm:
-            try:
-                result["primary"] = self.client
-                result["primary_async"] = self.async_client
-                result["primary_model"] = self.primary_model
-            except RuntimeError:
-                pass
-        
-        # Secondary: prefer local LLM, fall back to Venice
         if self.has_local_llm():
             try:
                 local_cl = self.local_client
-                result["secondary"] = local_cl
-                result["secondary_async"] = local_cl  # llama-cpp sync is fine
-                result["secondary_model"] = self._local_llm_provider.get_model_name()  # pyright: ignore[reportOptionalMemberAccess]
+                result["primary"] = local_cl
+                result["primary_async"] = local_cl
+                result["primary_model"] = self._local_llm_provider.get_model_name()  # pyright: ignore[reportOptionalMemberAccess]
             except Exception:
                 pass
-        elif self.has_venice() and not self.has_local_llm():
-            try:
-                result["secondary"] = self.venice_client
-                result["secondary_async"] = self.venice_async_client
-                result["secondary_model"] = self.venice_model
-            except RuntimeError:
-                pass
-        
         return result
     
     def get_model_for_role(self, agent_id: Optional[str] = None, task_type: Optional[str] = None) -> str:
-        """
-        Get appropriate model based on 3-tier cost-optimized routing.
-        
-        Tier 1 — NANO (local-llm, $0.0001/1K tokens):
-            Simple classification, output reformatting, cache key generation,
-            boolean checks, template selection.
-            
-        Tier 2 — MINI (local-llm, $0.0006/1K tokens):
-            Command parsing, tactical decisions, playbook selection,
-            defensive analysis, reconnaissance planning, output interpretation.
-            
-        Tier 3 — CODEX (local-llm, $0.01/1K tokens):
-            Strategic reasoning, exploit chain planning, postmortem analysis,
-            deep learning/teaching, diversification.
-        
+        """Get appropriate local model based on 3-tier task routing.
+
+        All tiers route to local-llm. ModelRouter handles 4b/9b selection.
+
         Args:
             agent_id: Agent identifier (e.g., "RedAgent", "ScoutAgent")
             task_type: Type of task (e.g., "tactical", "analysis", "postmortem")
-            
+
         Returns:
-            str: Model name to use
+            str: Model name (always "local-llm", resolved by ModelRouter)
         """
-        # Tier 3 — CODEX: Deep reasoning, strategic, tactical, analysis, exploit planning
-        # Phase 36: Promoted tactical+analysis to codex for smarter command selection
-        # Phase 36.1: Moved defensive+reconnaissance back to mini (cost optimization)
         _codex_tasks = {
             "strategic", "postmortem", "reasoning", "learning",
             "diversify", "exploit_chain",
@@ -1064,21 +901,8 @@ class GPTManager:
         if len(prompt) > _char_limit:
             prompt = prompt[:_char_limit]
         
-        # ── Phase 15.0: BudgetManagerV2 pre-check ───────────────────
-        # Estimate tokens and check per-tier budget before proceeding.
-        # Phase 43: Skip budget check for local LLM calls (zero cost).
+        # BudgetManagerV2: all local calls are always allowed (zero cost)
         _bm2_roi_tag = task_type or "general"
-        if self._budget_manager_v2 is not None and not _use_local:
-            _bm2_estimated = max_tokens * 2  # estimate input + output
-            _bm2_decision = self._budget_manager_v2.check_budget(
-                model=model, estimated_tokens=_bm2_estimated, roi_tag=_bm2_roi_tag,
-            )
-            if not _bm2_decision.allowed:
-                logger.debug(
-                    f"BudgetManagerV2: denied {model} ({_bm2_roi_tag}), "
-                    f"reason={_bm2_decision.reason}"
-                )
-                return self._get_offline_placeholder(task_type)
         
         # Log model selection for debugging
         logger.debug(f"Model selected: {model} for agent={agent_id}, task={task_type}")
@@ -1146,39 +970,30 @@ class GPTManager:
             import concurrent.futures
             import signal
             
-            # Determine API endpoint provider
+            # Determine API endpoint provider — local only
             def _get_provider():
-                if self._hf_enabled:
-                    if "hf" not in self._providers:
-                        from core.llm.hf_provider import HFProvider
-                        self._providers["hf"] = HFProvider()
-                    return self._providers["hf"], "hf_native"
-                elif _use_local and self._local_llm_provider:
+                if _use_local and self._local_llm_provider:
                     if "local" not in self._providers:
-                        # Check if we already have a direct LLMProvider (e.g., Ollama)
                         if getattr(self._local_llm_provider, "get_provider_name", lambda: "")() == "ollama":
                             self._providers["local"] = self._local_llm_provider
                         else:
                             from core.llm.llm_provider import LocalServerProvider
                             self._providers["local"] = LocalServerProvider()
-                    # Phase 55: Pass the routed model from ModelRouter (task-aware)
-                    # instead of the provider's default_model (always the same).
                     _routed_model = _routing_decision.model if _routing_decision else self._local_llm_provider.get_model_name()
                     return self._providers["local"], _routed_model
                 else:
-                    if "openai" not in self._providers:
-                        from core.llm.llm_provider import OpenAIProvider
-                        if not self.api_key:
-                            raise RuntimeError("OpenAI API key not found but required for this route.")
-                        self._providers["openai"] = OpenAIProvider(self.api_key)
-                    return self._providers["openai"], model
+                    raise RuntimeError("No local LLM provider available. Ensure Ollama is running.")
             
             def make_gpt_request():
                 provider, actual_model = _get_provider()
                 # Determine config
                 temp = 0.7 if task_type == "diversify" else 0.3
-                fmt = "json_object" if response_format == "json_object" else "text"
+                fmt: Optional[Dict[str, str]] = {"type": "json_object"} if response_format == "json_object" else None
+                # Phase 55: Cap timeout for local providers — Ollama/llama-cpp
+                # are CPU-bound and shouldn't block for 600s.
                 req_timeout = timeout if timeout is not None else 600.0
+                if _use_local and req_timeout > 60.0:
+                    req_timeout = 60.0
                 
                 return provider.chat_completion(
                     messages=[
@@ -1198,6 +1013,9 @@ class GPTManager:
             # after TimeoutError. For slow models (local-llm postmortem with
             # 30K tokens), this would hang for minutes.
             _request_timeout = timeout if timeout is not None else 600.0
+            # Phase 55: Cap outer timeout for local providers to match inner cap
+            if _use_local and _request_timeout > 60.0:
+                _request_timeout = 60.0
             try:
                 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(make_gpt_request)
@@ -1220,12 +1038,7 @@ class GPTManager:
                     return fallback_commands.get(task_type, "echo 'LLM timeout'")
             except Exception as e:
                 logger.warning(f"LLM request failed: {e}")
-                # PHASE 6.5: Activate circuit breaker on quota exhaustion
-                error_str = str(e).lower()
-                if "insufficient_quota" in error_str or "exceeded your current quota" in error_str:
-                    self._quota_exhausted = True
-                    logger.warning("⚡ LLM quota exhausted — circuit breaker activated, all future LLM calls skipped this session")
-                # Immediate fallback for any network issues
+                # Immediate fallback for any errors
                 fallback_commands = {
                     "tactical": "nmap -sV 10.10.10.10",
                     "defensive": "netstat -an",
@@ -1253,40 +1066,22 @@ class GPTManager:
             if content:
                 # Track tokens
                 tokens_used = getattr(response, "total_tokens", 0)
-                if hasattr(response, "usage") and response.usage:
-                    tokens_used = getattr(response.usage, "total_tokens", tokens_used)
                     
                 self.tokens_used += tokens_used
                 self.stats["tokens_used_total"] += tokens_used
                 
-                # Phase 43: Track local LLM separately
-                if _use_local or self._hf_enabled:
-                    self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
-                    self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
-                    self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
-                    
-                # Phase 6.3: per-model tracking + cost
+                # Track local LLM stats
+                self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
+                self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
+                self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
+
+                # Per-model tracking (observability)
                 self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
                 self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
-                
-                step_cost = getattr(response, "cost_usd", 0.0)
-                self._cumulative_cost_usd += step_cost
-                self._episode_cost_usd += step_cost
-                
-                # Phase 15.0: Record spend in BudgetManagerV2
-                # Phase 43: Skip for local LLM (zero cost, avoid depleting OpenAI tiers)
-                if self._budget_manager_v2 is not None and not (_use_local or self._hf_enabled):
-                    self._budget_manager_v2.record_spend(
-                        model=model, tokens_used=tokens_used,
-                        roi_tag=_bm2_roi_tag,
-                    )
 
                 # Phase 23: Record call in visibility log for dashboard
                 input_tok = getattr(response, "input_tokens", 0)
                 output_tok = getattr(response, "output_tokens", 0)
-                if hasattr(response, "usage") and response.usage:
-                    input_tok = getattr(response.usage, 'prompt_tokens', input_tok) or getattr(response.usage, 'input_tokens', input_tok)
-                    output_tok = getattr(response.usage, 'completion_tokens', output_tok) or getattr(response.usage, 'output_tokens', output_tok)
                     
                 _call_record = {
                     "timestamp": time.time(),
@@ -1298,7 +1093,7 @@ class GPTManager:
                     "tokens": tokens_used,
                     "input_tokens": input_tok,
                     "output_tokens": output_tok,
-                    "cost_usd": step_cost,
+                    "cost_usd": 0.0,
                     "cache_hit": False,
                     "latency_ms": getattr(response, "latency_ms", int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0),
                 }
@@ -1418,24 +1213,18 @@ class GPTManager:
         }
 
     def get_cost_summary(self) -> Dict[str, Any]:
-        """Get detailed cost breakdown by model.
-        
-        Returns:
-            Dict with cumulative_usd, episode_usd, and per-model breakdown.
-        """
+        """Get model usage breakdown (all local, zero cost)."""
         breakdown = {}
         for model_name, tok_count in self.tokens_by_model.items():
-            rate = self.COST_PER_1K_TOKENS.get(model_name, 0.001)
-            cost = (tok_count / 1000.0) * rate
             breakdown[model_name] = {
                 "tokens": tok_count,
                 "requests": self.requests_by_model.get(model_name, 0),
-                "cost_usd": round(cost, 6),
-                "rate_per_1k": rate,
+                "cost_usd": 0.0,
+                "rate_per_1k": 0.0,
             }
         return {
-            "cumulative_usd": round(self._cumulative_cost_usd, 6),
-            "episode_usd": round(self._episode_cost_usd, 6),
+            "cumulative_usd": 0.0,
+            "episode_usd": 0.0,
             "models": breakdown,
         }
 
@@ -1468,36 +1257,29 @@ class GPTManager:
         """
         step_calls = self.get_step_calls()
         step_tokens = sum(c.get("tokens", 0) for c in step_calls)
-        step_cost = sum(c.get("cost_usd", 0.0) for c in step_calls)
         step_api_calls = sum(1 for c in step_calls if not c.get("cache_hit"))
         step_cache_hits = sum(1 for c in step_calls if c.get("cache_hit"))
 
-        # Phase 32: episode-level tier cost summary from BudgetManagerV2
-        tier_cost_summary: Dict[str, Any] = {}
-        if self._budget_manager_v2 is not None:
-            tier_cost_summary = self._budget_manager_v2.get_episode_cost_summary()
-        
         return {
-            "cumulative_cost_usd": round(self._cumulative_cost_usd, 4),
-            "episode_cost_usd": round(self._episode_cost_usd, 4),
+            "cumulative_cost_usd": 0.0,
+            "episode_cost_usd": 0.0,
             "total_requests": self.stats.get("total_requests", 0),
             "total_tokens": self.stats.get("tokens_used_total", 0),
             "cache_hits": self.stats.get("cache_hits", 0),
             "step_calls": step_calls,
             "step_tokens": step_tokens,
-            "step_cost_usd": round(step_cost, 6),
+            "step_cost_usd": 0.0,
             "step_api_calls": step_api_calls,
             "step_cache_hits": step_cache_hits,
             "models": {
-                model: {
-                    "tokens": self.tokens_by_model.get(model, 0),
-                    "requests": self.requests_by_model.get(model, 0),
-                    "cost_usd": round((self.tokens_by_model.get(model, 0) / 1000.0) * self.COST_PER_1K_TOKENS.get(model, 0.001), 4),
+                m: {
+                    "tokens": self.tokens_by_model.get(m, 0),
+                    "requests": self.requests_by_model.get(m, 0),
+                    "cost_usd": 0.0,
                 }
-                for model in self.tokens_by_model
+                for m in self.tokens_by_model
             },
-            # Phase 32: per-tier cost summary
-            "tier_cost_summary": tier_cost_summary,
+            "tier_cost_summary": {},
         }
     
     def store_learning_feedback(self, agent_id: str, command: str, 
