@@ -806,13 +806,13 @@ class SmartCoach:
         # PHASE 41: Submodule delegation — companion classes for modularity.
         # SmartCoach delegates specific operations to these extracted classes.
         # =====================================================================
-        from core.training.coach.anti_repeat import AntiRepeatGuard
+        from core.training.coach.anti_repeat import AntiRepeatConfig
         from core.training.coach.evidence_gate import EvidenceGate, EvidenceGateConfig
         from core.training.coach.metrics_tracker import MetricsTracker
         from core.training.coach.episode_lifecycle import EpisodeLifecycle
         from core.training.coach.pipeline_stages import PipelineResult
 
-        self._anti_repeat_guard = AntiRepeatGuard()
+        self._anti_repeat_config = AntiRepeatConfig()
         _eg_mode = "enforce"
         try:
             from core.feature_flags import get_feature_flags
@@ -1815,6 +1815,21 @@ class SmartCoach:
 
         _target_desc = "Metasploitable 3" if _is_ms else f"target {ctx.target}"
         
+        # RAG: Inject FAISS-retrieved prior experience
+        _rag_ctx = ""
+        try:
+            from ariaska_ai.retriever.rag_retriever import build_rag_context
+            _rag_ctx = build_rag_context(
+                phase=ctx.current_phase.name if ctx.current_phase else "RECON",
+                evidence=dict(_disc_board_src) if _disc_board_src else {},
+                recent_commands=(ctx.command_history or [])[-5:],
+                top_k=3,
+            )
+            if _rag_ctx:
+                _rag_ctx = f"\n{_rag_ctx}"
+        except Exception:
+            pass
+
         compact_prompt = (
             f"You are a senior penetration tester coordinating a team of 5 agents "
             f"(Red=offense, Scout=recon, Shadow=stealth, Blue=defense, Orion=strategy) "
@@ -1827,7 +1842,7 @@ class SmartCoach:
             f"Root: {'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'} | "
             f"UserFlag: {'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'} | "
             f"RootFlag: {'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}"
-            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}{_output_learn_ctx}\n"
+            f"{_team_ctx}{_failures_str}{_chain_str}{_plan_str}{_cognitive_ctx}{_output_learn_ctx}{_rag_ctx}\n"
         )
 
         # Only inject MS kill chains for Metasploitable targets
@@ -1975,151 +1990,147 @@ class SmartCoach:
         ],
     }
 
-    def _codex_meta_check(
+    def _codex_check(
         self,
+        mode: str,
         step_ctx: SmartStepContext,
         current_phase: AttackPhase,
         filtered_commands: List[CommandTemplate],
     ) -> Optional[SmartDecisionResult]:
         """
-        Layer 3: Codex Meta-Layer — Strategic stagnation-breaking with local-llm.
+        Unified Layer 3: Codex tactical/strategic stagnation-breaking.
 
-        R60 UPGRADE: Now outputs phase-compatible template_names instead of raw
-        commands. Codex returns JSON with recommended_template that maps to the
-        command registry, ensuring PHASE-GATE sees a valid phase-compatible command.
+        mode="tactical": Phase-level stagnation triggers (R60).
+            Fires on stagnation thresholds, anti-repeat spikes, gate storms, velocity stalls.
+            Budget: codex_meta budget (5/ep + R67 bonus), 2-step cooldown.
 
-        Trigger conditions (R60 — more permissive):
-            1. Stagnation: EXPLOITATION ≥8, PRIV_ESC ≥4, LATERAL ≥5, ENUM ≥10
-            2. Anti-repeat spike: 3+ anti-repeat hits within last 5 steps
-            3. PHASE-GATE override storm: 3+ gate overrides in last 5 steps
-
-        Budget: 5 calls/episode, 2-step cooldown between calls.
-        Only fires for offensive agents (RedAgent is the primary learner).
+        mode="strategic": Episode-level plan repair (R66).
+            Fires when progress is poor (stuck in early phases, coherence collapse).
+            Budget: codex_strategic budget (3/ep), 3-step cooldown.
+            Response is a 3-step plan; first step is executed.
         """
-        # Budget check — R67: adaptive budget boost when velocity stalls
-        _effective_budget = self._codex_meta_max_per_episode + self._r67_codex_bonus_budget
-        if self._codex_meta_calls_episode >= _effective_budget:
+        _is_tactical = (mode == "tactical")
+        _label = "CODEX-META" if _is_tactical else "CODEX-STRATEGIC"
+
+        # ── Budget & cooldown gates (mode-specific) ──
+        if _is_tactical:
+            _effective_budget = self._codex_meta_max_per_episode + self._r67_codex_bonus_budget
+            if self._codex_meta_calls_episode >= _effective_budget:
+                return None
+            if self._codex_meta_cooldown > 0:
+                self._codex_meta_cooldown -= 1
+                return None
+        else:
+            if self._codex_strategic_calls_episode >= self._codex_strategic_max_per_episode:
+                return None
+            if self._codex_strategic_cooldown > 0:
+                self._codex_strategic_cooldown -= 1
+                return None
+
+        # ── Shared gates ──
+        if self.agent_role.get("role") != "offensive":
             return None
-        
-        # Phase 11.0: Centralized budget gate for codex meta calls
+        if self.gpt_manager is None or self.gpt_manager.is_offline():
+            return None
+        if getattr(self.gpt_manager, 'is_local_only', lambda: False)():
+            return None
         if self.budget_controller is not None:
             _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
             _stag = getattr(self, '_stagnation_steps', 0)
             if not self.budget_controller.can_call_mentor(_pname, stagnation_steps=_stag):
-                logger.debug(f"[{self.agent_name}] Codex meta suppressed by budget gate")
+                logger.debug(f"[{self.agent_name}] {_label} suppressed by budget gate")
                 return None
 
-        # R67: Grant bonus codex budget when reward velocity is stalling
-        if self._r67_stalling and self._r67_codex_bonus_budget < 3:
-            self._r67_codex_bonus_budget += 1
-            logger.info(
-                f"[CODEX-META][{self.agent_name}] R67 velocity stall → "
-                f"bonus budget +1 (now {_effective_budget + 1})"
+        # ── Mode-specific trigger check ──
+        if _is_tactical:
+            # R67: Grant bonus codex budget when reward velocity is stalling
+            if self._r67_stalling and self._r67_codex_bonus_budget < 3:
+                self._r67_codex_bonus_budget += 1
+                logger.info(
+                    f"[{_label}][{self.agent_name}] R67 velocity stall → "
+                    f"bonus budget +1 (now {_effective_budget + 1})"
+                )
+            # Track steps in current phase
+            if current_phase != self._codex_meta_last_phase:
+                self._codex_meta_phase_steps = 0
+                self._codex_meta_last_phase = current_phase
+            self._codex_meta_phase_steps += 1
+
+            _CODEX_THRESHOLDS = {
+                AttackPhase.EXPLOITATION: 8,
+                AttackPhase.PRIVILEGE_ESCALATION: 4,
+                AttackPhase.LATERAL_MOVEMENT: 5,
+                AttackPhase.ENUMERATION: 10,
+                AttackPhase.POST_EXPLOITATION: 6,
+            }
+            threshold = _CODEX_THRESHOLDS.get(current_phase, 12)
+            _stagnation_trigger = (
+                self._codex_meta_phase_steps >= threshold
+                and (self._codex_meta_phase_steps - threshold) % 6 == 0
             )
+            _antirepeat_spike = self._codex_meta_antirepeat_hits >= self._anti_repeat_config.codex_antirepeat_hits
+            _gate_storm = self._codex_meta_gate_overrides >= 4
+            _velocity_stall = self._r67_stalling and self._codex_meta_phase_steps >= 3
 
-        # Cooldown check
-        if self._codex_meta_cooldown > 0:
-            self._codex_meta_cooldown -= 1
-            return None
+            if not (_stagnation_trigger or _antirepeat_spike or _gate_storm or _velocity_stall):
+                return None
+            if _antirepeat_spike:
+                self._codex_meta_antirepeat_hits = 0
+            if _gate_storm:
+                self._codex_meta_gate_overrides = 0
 
-        # Track steps in current phase (independent of _stagnation_steps)
-        if current_phase != self._codex_meta_last_phase:
-            self._codex_meta_phase_steps = 0
-            self._codex_meta_last_phase = current_phase
-        self._codex_meta_phase_steps += 1
+            _trigger_reason = "stagnation"
+            if _antirepeat_spike:
+                _trigger_reason = "anti-repeat spike (3+ blocked commands in 5 steps)"
+            elif _gate_storm:
+                _trigger_reason = "phase-gate override storm (3+ overrides in 5 steps)"
+            elif _velocity_stall:
+                _trigger_reason = f"reward velocity stall (v={self._r67_velocity:.1f})"
+        else:
+            step_num = step_ctx.step
+            _coherence = self._r66_coherence
+            _phase_order = self.PHASE_ORDER.get(current_phase, 0)
+            _early_stuck = (step_num >= 15 and _phase_order <= 1)
+            _late_stuck = (step_num >= 25 and _phase_order < 5)
+            _coherence_collapse = (_coherence < 0.30)
+            if not (_early_stuck or _late_stuck or _coherence_collapse):
+                return None
+            _trigger_reason = "early_stuck" if _early_stuck else ("late_stuck" if _late_stuck else "coherence_collapse")
 
-        # Phase-specific stagnation thresholds (R60: lowered)
-        _CODEX_THRESHOLDS = {
-            AttackPhase.EXPLOITATION: 8,
-            AttackPhase.PRIVILEGE_ESCALATION: 4,
-            AttackPhase.LATERAL_MOVEMENT: 5,
-            AttackPhase.ENUMERATION: 10,
-            AttackPhase.POST_EXPLOITATION: 6,
-        }
-        threshold = _CODEX_THRESHOLDS.get(current_phase, 12)
-
-        # R60: Multiple trigger conditions (any one sufficient)
-        # Phase 52: Repeat every 6 steps (was 4) — with only 2 budget, be selective
-        _stagnation_trigger = (
-            self._codex_meta_phase_steps >= threshold
-            and (self._codex_meta_phase_steps - threshold) % 6 == 0
-        )
-        _antirepeat_spike = self._codex_meta_antirepeat_hits >= 4  # Phase 52: 3→4
-        _gate_storm = self._codex_meta_gate_overrides >= 4         # Phase 52: 3→4
-        # R67: Reward velocity stall trigger
-        _velocity_stall = self._r67_stalling and self._codex_meta_phase_steps >= 3
-
-        if not (_stagnation_trigger or _antirepeat_spike or _gate_storm or _velocity_stall):
-            return None
-
-        # Reset spike counters on trigger
-        if _antirepeat_spike:
-            self._codex_meta_antirepeat_hits = 0
-        if _gate_storm:
-            self._codex_meta_gate_overrides = 0
-
-        # Only for offensive agents (Red is the primary attack learner)
-        if self.agent_role.get("role") != "offensive":
-            return None
-
-        # GPT must be available
-        if self.gpt_manager is None or self.gpt_manager.is_offline():
-            return None
-
-        # Phase 55: Skip codex meta when only local (CPU-bound) LLM
-        if getattr(self.gpt_manager, 'is_local_only', lambda: False)():
-            return None
-
-        # Build strategic context from discovery board and attack context
+        # ── Shared context gathering ──
         ctx = step_ctx.attack_context
         discovery_board = step_ctx.state.get("discovery_board", {})
-        recent_cmds = (ctx.command_history or [])[-8:]
-
+        _cmd_count = 8 if _is_tactical else 10
+        recent_cmds = (ctx.command_history or [])[-_cmd_count:]
         _ports = sorted(list(discovery_board.get("ports", set())))[:15]
         _services = sorted(list(discovery_board.get("services", set())))[:10]
         _creds = list(discovery_board.get("credentials", set()))[:5]
         _shells = list(discovery_board.get("shells", set()))[:3]
 
-        # Include best chain from cross-episode memory for context
-        _chain_hint = ""
-        if self._best_chain:
-            _best_cmds = self._best_chain.get("commands", [])[:5]
-            _chain_hint = (
-                f"\nBest attack chain from past episodes (reward={self._best_chain.get('reward', 0):.0f}): "
-                + " → ".join(_best_cmds)
-            )
-
-        # R60: Build list of valid templates for current phase
+        # Valid templates for current + adjacent phase
         valid_templates = self._CODEX_PHASE_TEMPLATES.get(current_phase, [])
-        # Also include templates from adjacent phase (+1)
         _next_phase_order = self.PHASE_ORDER.get(current_phase, 0) + 1
         for phase, order in self.PHASE_ORDER.items():
             if order == _next_phase_order:
                 valid_templates = valid_templates + self._CODEX_PHASE_TEMPLATES.get(phase, [])
                 break
 
-        # Determine trigger reason for the prompt
-        _trigger_reason = "stagnation"
-        if _antirepeat_spike:
-            _trigger_reason = "anti-repeat spike (3+ blocked commands in 5 steps)"
-        elif _gate_storm:
-            _trigger_reason = "phase-gate override storm (3+ overrides in 5 steps)"
-        elif _velocity_stall:
-            _trigger_reason = f"reward velocity stall (v={self._r67_velocity:.1f})"
-
-        # ─── Phase 8: Try persona router (tactical) first ──────────
-        # Persona router has registry-validated outputs — faster and cleaner.
-        # Falls through to raw GPT prompt if persona call fails/unavailable.
+        # ── Persona router attempt ──
+        _persona_type = "tactical" if _is_tactical else "strategic"
         if self.persona_router is not None:
             try:
-                persona_result = self.persona_router.query_tactical(
-                    phase=current_phase.name,
-                    target=ctx.target,
-                    state_flags=dict(ctx.state_flags),
-                    recent_commands=recent_cmds,
-                    discoveries=discovery_board,
-                    agent_name=self.agent_name,
-                )
+                if _is_tactical:
+                    persona_result = self.persona_router.query_tactical(
+                        phase=current_phase.name, target=ctx.target,
+                        state_flags=dict(ctx.state_flags), recent_commands=recent_cmds,
+                        discoveries=discovery_board, agent_name=self.agent_name,
+                    )
+                else:
+                    persona_result = self.persona_router.query_strategic(
+                        phase=current_phase.name, target=ctx.target,
+                        state_flags=dict(ctx.state_flags), discoveries=discovery_board,
+                        episode_history=recent_cmds, agent_name=self.agent_name,
+                    )
                 if (persona_result.success
                         and persona_result.template_name
                         and persona_result.template_name not in self._codex_meta_used_templates):
@@ -2130,146 +2141,184 @@ class SmartCoach:
                             if param not in params:
                                 params[param] = self._get_default_param(param, ctx)
                         command = render_command(_p_template, params)
-                        
-                        self._codex_meta_calls_episode += 1
-                        self._codex_meta_cooldown = 2
+
+                        if _is_tactical:
+                            self._codex_meta_calls_episode += 1
+                            self._codex_meta_cooldown = 2
+                        else:
+                            self._codex_strategic_calls_episode += 1
+                            self._codex_strategic_cooldown = 3
                         self._codex_meta_used_templates.add(persona_result.template_name)
-                        
+
+                        _persona_label = f"PERSONA-{_persona_type.upper()}"
                         logger.info(
-                            f"[PERSONA-TACTICAL][{self.agent_name}] "
+                            f"[{_persona_label}][{self.agent_name}] "
                             f"template={persona_result.template_name} "
                             f"trigger={_trigger_reason}"
                         )
-                        
+                        _calls = self._codex_meta_calls_episode if _is_tactical else self._codex_strategic_calls_episode
+                        _max = self._codex_meta_max_per_episode if _is_tactical else self._codex_strategic_max_per_episode
                         return SmartDecisionResult(
-                            command=command,
-                            source="codex_meta",
+                            command=command, source="codex_meta",
                             confidence=persona_result.confidence,
-                            template_name=persona_result.template_name,
-                            params=params,
-                            reasoning=(
-                                f"[PERSONA-TACTICAL] {_trigger_reason}: "
-                                f"{persona_result.reasoning[:100]}"
-                            ),
-                            mentor_call=True,
-                            model_used="persona:tactical",
-                            mentor_reasoning=(
-                                f"[PERSONA-TACTICAL] {persona_result.template_name}. "
-                                f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
-                            ),
+                            template_name=persona_result.template_name, params=params,
+                            reasoning=f"[{_persona_label}] {_trigger_reason}: {persona_result.reasoning[:100]}",
+                            mentor_call=True, model_used=f"persona:{_persona_type}",
+                            mentor_reasoning=f"[{_persona_label}] {persona_result.template_name}. Call {_calls}/{_max}",
                             phase=current_phase,
                         )
             except Exception as e:
-                logger.debug(f"[PERSONA-TACTICAL] Failed, falling through to raw GPT: {e}")
+                logger.debug(f"[PERSONA-{_persona_type.upper()}] Failed, falling through: {e}")
 
-        # Phase 9: CognitiveBus codex context for tactical analysis
-        _codex_ctx = ""
+        # ── CognitiveBus + RAG context ──
+        _extra_ctx = ""
         try:
             bus = self._get_cognitive_bus()
             if bus is not None:
-                _codex_ctx = bus.get_codex_context(
-                    agent_id=self.agent_name,
-                    persona="tactical",
+                _bus_ctx = bus.get_codex_context(
+                    agent_id=self.agent_name, persona=_persona_type,
                     phase=current_phase.name,
                 )
-                if _codex_ctx:
-                    _codex_ctx = f"\n{_codex_ctx}\n"
+                if _bus_ctx:
+                    _extra_ctx += f"\n{_bus_ctx}\n"
+        except Exception:
+            pass
+        try:
+            from ariaska_ai.retriever.rag_retriever import build_rag_context
+            _rag_ctx = build_rag_context(
+                phase=current_phase.name,
+                evidence=dict(discovery_board) if discovery_board else {},
+                recent_commands=recent_cmds, top_k=3,
+            )
+            if _rag_ctx:
+                _extra_ctx += f"\n{_rag_ctx}\n"
         except Exception:
             pass
 
-        prompt = (
-            f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
-            f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
-            f"Target: {ctx.target}\n"
-            f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n"
-            f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n"
-            f"{_codex_ctx}\n"
-            f"Current state:\n"
-            f"- Ports discovered: {_ports}\n"
-            f"- Services: {_services}\n"
+        # ── Mode-specific prompt ──
+        _state_summary = (
+            f"- Ports: {_ports}\n- Services: {_services}\n"
             f"- Credentials: {_creds if _creds else 'none discovered yet'}\n"
             f"- Shells: {_shells}\n"
             f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
-            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}, "
-            f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
-            f"hash={'YES' if ctx.state_flags.get('hash_known') else 'NO'}, "
-            f"user_flag={'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'}, "
-            f"root_flag={'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}\n"
-            f"- GOALS: If shell obtained → read user flag (cat /home/*/user.txt). "
-            f"If root shell → read root flag (cat /root/root.txt). "
-            f"Flags are HIGH VALUE targets.\n\n"
-            f"Recent commands tried (all failed to advance):\n"
-            + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
-            + f"{_chain_hint}\n\n"
-            f"AVAILABLE TEMPLATES for {current_phase.name} (choose from these):\n"
-            + ", ".join(t for t in valid_templates[:20] if t not in self._codex_meta_used_templates)
-            + (f"\n\nALREADY USED THIS EPISODE (DO NOT repeat): {', '.join(self._codex_meta_used_templates)}" if self._codex_meta_used_templates else "")
-            + f"\n\nRespond with ONLY a JSON object (no markdown, no backticks):\n"
-            '{"recommended_template": "template_name", "reason": "brief why", '
-            '"blocked_families": ["families_to_avoid"], "confidence": 0.8}\n'
-            f"Pick the single best NEW template to break stagnation in {current_phase.name}."
+            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}"
         )
+        _cmd_list = "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
 
+        if _is_tactical:
+            _chain_hint = ""
+            if self._best_chain:
+                _best_cmds = self._best_chain.get("commands", [])[:5]
+                _chain_hint = (
+                    f"\nBest attack chain from past episodes (reward={self._best_chain.get('reward', 0):.0f}): "
+                    + " → ".join(_best_cmds)
+                )
+            prompt = (
+                f"TACTICAL STAGNATION ANALYSIS — Phase: {current_phase.name}\n"
+                f"Trigger: {_trigger_reason}. Steps in phase: {self._codex_meta_phase_steps}.\n"
+                f"Target: {ctx.target}\n"
+                f"Coherence: {self._r66_coherence:.2f}  Macro confidence: {self._r66_macro_conf:.2f}\n"
+                f"Reward velocity: {self._r67_velocity:.1f}  Stalling: {self._r67_stalling}\n"
+                f"{_extra_ctx}\nCurrent state:\n{_state_summary}, "
+                f"creds={'YES' if ctx.state_flags.get('credentials_known') else 'NO'}, "
+                f"hash={'YES' if ctx.state_flags.get('hash_known') else 'NO'}, "
+                f"user_flag={'YES' if ctx.state_flags.get('user_flag_captured') else 'NO'}, "
+                f"root_flag={'YES' if ctx.state_flags.get('root_flag_captured') else 'NO'}\n"
+                f"- GOALS: If shell obtained → read user flag (cat /home/*/user.txt). "
+                f"If root shell → read root flag (cat /root/root.txt). "
+                f"Flags are HIGH VALUE targets.\n\n"
+                f"Recent commands tried (all failed to advance):\n{_cmd_list}{_chain_hint}\n\n"
+                f"AVAILABLE TEMPLATES for {current_phase.name} (choose from these):\n"
+                + ", ".join(t for t in valid_templates[:20] if t not in self._codex_meta_used_templates)
+                + (f"\n\nALREADY USED THIS EPISODE (DO NOT repeat): {', '.join(self._codex_meta_used_templates)}" if self._codex_meta_used_templates else "")
+                + f"\n\nRespond with ONLY a JSON object (no markdown, no backticks):\n"
+                '{"recommended_template": "template_name", "reason": "brief why", '
+                '"blocked_families": ["families_to_avoid"], "confidence": 0.8}\n'
+                f"Pick the single best NEW template to break stagnation in {current_phase.name}."
+            )
+            _max_tokens = 390
+        else:
+            prompt = (
+                f"STRATEGIC PLAN REPAIR — Episode step {step_ctx.step}, Phase: {current_phase.name}\n"
+                f"Trigger: {_trigger_reason}. Coherence: {self._r66_coherence:.2f}. "
+                f"Macro conf: {self._r66_macro_conf:.2f}\n"
+                f"Target: {ctx.target}\n{_extra_ctx}\n"
+                f"Current state:\n{_state_summary}\n\n"
+                f"Recent commands (last {_cmd_count}):\n{_cmd_list}\n\n"
+                f"We are falling behind. Provide a 3-step attack plan to reach CLOSEOUT.\n"
+                f"For each step, name the template_name from the command registry.\n"
+                f"Respond with ONLY a JSON object (no markdown):\n"
+                '{"plan": [{"template": "name1", "reason": "why"}, '
+                '{"template": "name2", "reason": "why"}, '
+                '{"template": "name3", "reason": "why"}], "confidence": 0.8}\n'
+            )
+            _max_tokens = 585
+
+        # ── LLM call + response parsing ──
         try:
             response = self.gpt_manager.gpt_request(
-                prompt=prompt,
-                task_type="strategic",  # Routes to local-llm
-                agent_id=self.agent_name,
-                max_tokens=390,  # Phase 11.5: +50% (was 260) for ultra-rich mentor guidance
+                prompt=prompt, task_type="strategic",
+                agent_id=self.agent_name, max_tokens=_max_tokens,
             )
-
             if not response or not isinstance(response, str) or len(response.strip()) < 5:
                 return None
 
-            # R60: Parse JSON response and map to template
             _chosen_template_name = None
             _codex_reason = ""
             _codex_confidence = 0.80
 
-            # Try JSON parse first
+            # Parse JSON response
             try:
                 import json as _json
-                # Strip markdown code fences if present
                 _clean = response.strip()
                 if _clean.startswith("```"):
                     _clean = _clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
                 _parsed = _json.loads(_clean)
-                _chosen_template_name = _parsed.get("recommended_template")
-                _codex_reason = _parsed.get("reason", "")[:120]
+
+                if _is_tactical:
+                    _chosen_template_name = _parsed.get("recommended_template")
+                    _codex_reason = _parsed.get("reason", "")[:120]
+                else:
+                    _plan = _parsed.get("plan", [])
+                    if not _plan:
+                        return None
+                    _chosen_template_name = _plan[0].get("template", "")
+                    _codex_reason = _plan[0].get("reason", "")[:100]
+
                 _codex_confidence = min(0.95, max(0.5, float(_parsed.get("confidence", 0.8))))
             except (ValueError, TypeError, KeyError):
-                # Fallback: treat response as a template name directly
-                _candidate = response.strip().split("\n")[0].strip().strip('"').strip("'")
-                # Remove common LLM artifacts
-                for prefix in ("template:", "recommended_template:", "> "):
-                    if _candidate.lower().startswith(prefix):
-                        _candidate = _candidate[len(prefix):].strip()
-                _chosen_template_name = _candidate
-                _codex_reason = "raw-response-fallback"
+                if _is_tactical:
+                    _candidate = response.strip().split("\n")[0].strip().strip('"').strip("'")
+                    for prefix in ("template:", "recommended_template:", "> "):
+                        if _candidate.lower().startswith(prefix):
+                            _candidate = _candidate[len(prefix):].strip()
+                    _chosen_template_name = _candidate
+                    _codex_reason = "raw-response-fallback"
+                else:
+                    return None  # Strategic requires valid JSON plan
 
             if not _chosen_template_name:
-                logger.debug(f"[CODEX-META] No template in response: {response[:80]}")
+                logger.debug(f"[{_label}] No template in response: {response[:80]}")
                 return None
 
-            # Look up template in registry
+            # ── Template resolution (shared): exact → fuzzy → random fallback ──
             _template = COMMAND_REGISTRY.get(_chosen_template_name)
-
-            # R60: If exact match fails, try fuzzy match within valid templates
             if _template is None:
                 _name_lower = _chosen_template_name.lower().replace("-", "_")
-                for vt in valid_templates:
-                    if vt.lower() == _name_lower or _name_lower in vt.lower():
-                        _template = COMMAND_REGISTRY.get(vt)
-                        if _template:
-                            _chosen_template_name = vt
+                if _is_tactical:
+                    for vt in valid_templates:
+                        if vt.lower() == _name_lower or _name_lower in vt.lower():
+                            _template = COMMAND_REGISTRY.get(vt)
+                            if _template:
+                                _chosen_template_name = vt
+                                break
+                else:
+                    for vt_name, vt in COMMAND_REGISTRY.items():
+                        if vt_name.lower() == _name_lower or _name_lower in vt_name.lower():
+                            _template = vt
+                            _chosen_template_name = vt_name
                             break
-
-            # If still not found, fall back to a random phase-appropriate template
             if _template is None:
-                logger.info(
-                    f"[CODEX-META][{self.agent_name}] Template '{_chosen_template_name}' "
-                    f"not found in registry. Falling back to phase-appropriate random."
-                )
                 _phase_templates = [
                     COMMAND_REGISTRY.get(t) for t in valid_templates
                     if COMMAND_REGISTRY.get(t) is not None
@@ -2281,312 +2330,85 @@ class SmartCoach:
                 else:
                     return None
 
-            # Render the command from the template
-            assert _template is not None  # guaranteed by above guard
+            # ── Render command from template ──
+            assert _template is not None
             params = {"target": ctx.target}
             for param in _template.required_params:
                 if param not in params:
                     params[param] = self._get_default_param(param, ctx)
             command = render_command(_template, params)
 
-            self._codex_meta_calls_episode += 1
-            # R62: Track used template for dedup; adaptive cooldown
-            if _chosen_template_name in self._codex_meta_used_templates:
-                self._codex_meta_cooldown = 4  # Repeat → longer cooldown
+            # ── Update counters ──
+            if _is_tactical:
+                self._codex_meta_calls_episode += 1
+                if _chosen_template_name in self._codex_meta_used_templates:
+                    self._codex_meta_cooldown = 4  # Repeat → longer cooldown
+                else:
+                    self._codex_meta_cooldown = 2
             else:
-                self._codex_meta_cooldown = 2  # New template → normal cooldown
+                self._codex_strategic_calls_episode += 1
+                self._codex_strategic_cooldown = 3
             self._codex_meta_used_templates.add(_chosen_template_name)
 
+            _calls = self._codex_meta_calls_episode if _is_tactical else self._codex_strategic_calls_episode
+            _max = self._codex_meta_max_per_episode if _is_tactical else self._codex_strategic_max_per_episode
+
             logger.info(
-                f"[CODEX-META][{self.agent_name}] Stagnation break at "
-                f"{current_phase.name} step {self._codex_meta_phase_steps}: "
-                f"template={_chosen_template_name} reason={_codex_reason[:60]} "
-                f"trigger={_trigger_reason[:30]}"
+                f"[{_label}][{self.agent_name}] {'Stagnation break' if _is_tactical else 'Plan repair'} "
+                f"at {current_phase.name} step {self._codex_meta_phase_steps if _is_tactical else step_ctx.step}: "
+                f"template={_chosen_template_name} trigger={_trigger_reason[:30]}"
             )
 
-            # R68: Force PPO to use a different phase-head on next step
-            # When codex breaks stagnation, nudge PPO to think from a
-            # different phase perspective for diversity
-            _PHASE_TO_GROUP = {
-                AttackPhase.RECON: 0, AttackPhase.ENUMERATION: 0,
-                AttackPhase.EXPLOITATION: 1, AttackPhase.PRIVILEGE_ESCALATION: 1,
-                AttackPhase.LATERAL_MOVEMENT: 2, AttackPhase.POST_EXPLOITATION: 2,
-                AttackPhase.EXFILTRATION: 2, AttackPhase.CLOSEOUT: 2,
-            }
-            _current_group = _PHASE_TO_GROUP.get(current_phase, 0)
-            # Rotate to next group (0→1→2→0) for diversity
-            self._r68_forced_phase_group = (_current_group + 1) % 3
-            logger.debug(
-                f"[R68-CODEX][{self.agent_name}] Forcing next PPO phase_group="
-                f"{self._r68_forced_phase_group} (was {_current_group})"
-            )
+            # R68: Force PPO to use a different phase-head on next step (tactical only)
+            if _is_tactical:
+                _PHASE_TO_GROUP = {
+                    AttackPhase.RECON: 0, AttackPhase.ENUMERATION: 0,
+                    AttackPhase.EXPLOITATION: 1, AttackPhase.PRIVILEGE_ESCALATION: 1,
+                    AttackPhase.LATERAL_MOVEMENT: 2, AttackPhase.POST_EXPLOITATION: 2,
+                    AttackPhase.EXFILTRATION: 2, AttackPhase.CLOSEOUT: 2,
+                }
+                _current_group = _PHASE_TO_GROUP.get(current_phase, 0)
+                self._r68_forced_phase_group = (_current_group + 1) % 3
+                logger.debug(
+                    f"[R68-CODEX][{self.agent_name}] Forcing next PPO phase_group="
+                    f"{self._r68_forced_phase_group} (was {_current_group})"
+                )
 
-            result = SmartDecisionResult(
-                command=command,
-                source="codex_meta",
+            return SmartDecisionResult(
+                command=command, source="codex_meta",
                 confidence=_codex_confidence,
-                template_name=_chosen_template_name,  # R60: Now set! PHASE-GATE sees valid template
-                params=params,
+                template_name=_chosen_template_name, params=params,
                 reasoning=(
-                    f"[CODEX-META] {_trigger_reason}: "
-                    f"{self._codex_meta_phase_steps} steps in {current_phase.name}. "
-                    f"Template={_chosen_template_name}. {_codex_reason}"
+                    f"[{_label}] {_trigger_reason}: "
+                    f"{'step ' + str(self._codex_meta_phase_steps) + ' in' if _is_tactical else 'step ' + str(step_ctx.step) + ' in'} "
+                    f"{current_phase.name}. Template={_chosen_template_name}. {_codex_reason}"
                 ),
-                mentor_call=True,
-                model_used="local-llm",
+                mentor_call=True, model_used="local-llm",
                 mentor_reasoning=(
-                    f"[CODEX-META] Strategic override → {_chosen_template_name} "
-                    f"({current_phase.name} step {self._codex_meta_phase_steps}). "
-                    f"Call {self._codex_meta_calls_episode}/{self._codex_meta_max_per_episode}"
+                    f"[{_label}] {'Strategic override' if _is_tactical else 'Plan repair'} → "
+                    f"{_chosen_template_name} ({current_phase.name}). Call {_calls}/{_max}"
                 ),
                 phase=current_phase,
             )
-            return result
         except Exception as e:
-            logger.debug(f"[CODEX-META][{self.agent_name}] Call failed: {e}")
+            logger.debug(f"[{_label}][{self.agent_name}] Call failed: {e}")
 
         return None
 
-    def _codex_strategic_check(
-        self,
-        step_ctx: SmartStepContext,
-        current_phase: AttackPhase,
+    # Backwards-compatible wrappers
+    def _codex_meta_check(
+        self, step_ctx: SmartStepContext, current_phase: AttackPhase,
         filtered_commands: List[CommandTemplate],
     ) -> Optional[SmartDecisionResult]:
-        """
-        R66 Layer 3b: Codex Strategic — Episode-level plan repair.
+        """Layer 3: Tactical stagnation-breaking. Delegates to _codex_check."""
+        return self._codex_check("tactical", step_ctx, current_phase, filtered_commands)
 
-        Fires when overall episode progress is poor:
-          - Step ≥ 15 and still in RECON/ENUMERATION
-          - Coherence collapsing (<0.30 for 3+ steps)
-          - Step ≥ 25 and not yet reached POST_EXPLOITATION
-
-        Separate budget from codex_tactical (3 calls/episode, 3-step cooldown).
-        Uses a broader prompt asking for a multi-step attack plan.
-        """
-        if self._codex_strategic_calls_episode >= self._codex_strategic_max_per_episode:
-            return None
-        if self._codex_strategic_cooldown > 0:
-            self._codex_strategic_cooldown -= 1
-            return None
-        # Only for offensive agents
-        if self.agent_role.get("role") != "offensive":
-            return None
-        if self.gpt_manager is None or self.gpt_manager.is_offline():
-            return None
-
-        # Phase 55: Skip codex strategic when only local (CPU-bound) LLM
-        if getattr(self.gpt_manager, 'is_local_only', lambda: False)():
-            return None
-        
-        # Phase 11.0: Centralized budget gate for codex strategic calls
-        if self.budget_controller is not None:
-            _pname = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
-            _stag = getattr(self, '_stagnation_steps', 0)
-            if not self.budget_controller.can_call_mentor(_pname, stagnation_steps=_stag):
-                logger.debug(f"[{self.agent_name}] Codex strategic suppressed by budget gate")
-                return None
-
-        step_num = step_ctx.step
-        _coherence = self._r66_coherence
-        _phase_order = self.PHASE_ORDER.get(current_phase, 0)
-
-        # Trigger conditions
-        _early_stuck = (step_num >= 15 and _phase_order <= 1)  # RECON/ENUM at step 15+
-        _late_stuck = (step_num >= 25 and _phase_order < 5)  # not POST_EXPLOITATION by step 25
-        _coherence_collapse = (_coherence < 0.30)
-
-        if not (_early_stuck or _late_stuck or _coherence_collapse):
-            return None
-
-        ctx = step_ctx.attack_context
-        discovery_board = step_ctx.state.get("discovery_board", {})
-        recent_cmds = (ctx.command_history or [])[-10:]
-        _ports = sorted(list(discovery_board.get("ports", set())))[:15]
-        _services = sorted(list(discovery_board.get("services", set())))[:10]
-        _creds = list(discovery_board.get("credentials", set()))[:5]
-        _shells = list(discovery_board.get("shells", set()))[:3]
-
-        _trigger = "early_stuck" if _early_stuck else ("late_stuck" if _late_stuck else "coherence_collapse")
-
-        # ─── Phase 8: Try persona router (strategic) first ──────────
-        if self.persona_router is not None:
-            try:
-                persona_result = self.persona_router.query_strategic(
-                    phase=current_phase.name,
-                    target=ctx.target,
-                    state_flags=dict(ctx.state_flags),
-                    discoveries=discovery_board,
-                    episode_history=recent_cmds,
-                    agent_name=self.agent_name,
-                )
-                if (persona_result.success
-                        and persona_result.template_name
-                        and persona_result.template_name not in self._codex_meta_used_templates):
-                    _p_template = COMMAND_REGISTRY.get(persona_result.template_name)
-                    if _p_template is not None:
-                        params = {"target": ctx.target}
-                        for param in _p_template.required_params:
-                            if param not in params:
-                                params[param] = self._get_default_param(param, ctx)
-                        command = render_command(_p_template, params)
-                        
-                        self._codex_strategic_calls_episode += 1
-                        self._codex_strategic_cooldown = 3
-                        self._codex_meta_used_templates.add(persona_result.template_name)
-                        
-                        logger.info(
-                            f"[PERSONA-STRATEGIC][{self.agent_name}] "
-                            f"template={persona_result.template_name} "
-                            f"trigger={_trigger}"
-                        )
-                        
-                        return SmartDecisionResult(
-                            command=command,
-                            source="codex_meta",
-                            confidence=persona_result.confidence,
-                            template_name=persona_result.template_name,
-                            params=params,
-                            reasoning=(
-                                f"[PERSONA-STRATEGIC] {_trigger}: step {step_num}. "
-                                f"{persona_result.reasoning[:100]}"
-                            ),
-                            mentor_call=True,
-                            model_used="persona:strategic",
-                            mentor_reasoning=(
-                                f"[PERSONA-STRATEGIC] Plan repair → {persona_result.template_name}. "
-                                f"Call {self._codex_strategic_calls_episode}/{self._codex_strategic_max_per_episode}"
-                            ),
-                            phase=current_phase,
-                        )
-            except Exception as e:
-                logger.debug(f"[PERSONA-STRATEGIC] Failed, falling through to raw GPT: {e}")
-
-        # Phase 9: CognitiveBus codex context for strategic plan repair
-        _codex_strat_ctx = ""
-        try:
-            bus = self._get_cognitive_bus()
-            if bus is not None:
-                _codex_strat_ctx = bus.get_codex_context(
-                    agent_id=self.agent_name,
-                    persona="strategic",
-                    phase=current_phase.name,
-                )
-                if _codex_strat_ctx:
-                    _codex_strat_ctx = f"\n{_codex_strat_ctx}\n"
-        except Exception:
-            pass
-
-        prompt = (
-            f"STRATEGIC PLAN REPAIR — Episode step {step_num}, Phase: {current_phase.name}\n"
-            f"Trigger: {_trigger}. Coherence: {_coherence:.2f}. Macro conf: {self._r66_macro_conf:.2f}\n"
-            f"Target: {ctx.target}\n"
-            f"{_codex_strat_ctx}\n"
-            f"Current state:\n"
-            f"- Ports: {_ports}\n- Services: {_services}\n"
-            f"- Credentials: {_creds if _creds else 'none discovered yet'}\n"
-            f"- Shells: {_shells}\n"
-            f"- Flags: shell={'YES' if ctx.state_flags.get('shell_obtained') else 'NO'}, "
-            f"root={'YES' if ctx.state_flags.get('root_shell_obtained') else 'NO'}\n\n"
-            f"Recent commands (last 10):\n"
-            + "\n".join(f"  {i+1}. {cmd[:80]}" for i, cmd in enumerate(recent_cmds))
-            + f"\n\nWe are falling behind. Provide a 3-step attack plan to reach CLOSEOUT.\n"
-            f"For each step, name the template_name from the command registry.\n"
-            f"Respond with ONLY a JSON object (no markdown):\n"
-            '{"plan": [{"template": "name1", "reason": "why"}, '
-            '{"template": "name2", "reason": "why"}, '
-            '{"template": "name3", "reason": "why"}], "confidence": 0.8}\n'
-        )
-
-        try:
-            response = self.gpt_manager.gpt_request(
-                prompt=prompt,
-                task_type="strategic",
-                agent_id=self.agent_name,
-                max_tokens=585,  # Phase 11.5: +50% (was 390) for ultra-deep mentor planning
-            )
-            if not response or not isinstance(response, str) or len(response.strip()) < 5:
-                return None
-
-            import json as _json
-            _clean = response.strip()
-            if _clean.startswith("```"):
-                _clean = _clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            _parsed = _json.loads(_clean)
-            _plan = _parsed.get("plan", [])
-            _codex_conf = min(0.95, max(0.5, float(_parsed.get("confidence", 0.8))))
-
-            if not _plan:
-                return None
-
-            # Use the FIRST template from the plan
-            _chosen_name = _plan[0].get("template", "")
-            _reason = _plan[0].get("reason", "")[:100]
-
-            # Look up in registry
-            _template = COMMAND_REGISTRY.get(_chosen_name)
-            if _template is None:
-                # Fuzzy match
-                _name_lower = _chosen_name.lower().replace("-", "_")
-                for vt_name, vt in COMMAND_REGISTRY.items():
-                    if vt_name.lower() == _name_lower or _name_lower in vt_name.lower():
-                        _template = vt
-                        _chosen_name = vt_name
-                        break
-            if _template is None:
-                # Fallback to a random phase-appropriate template
-                valid_templates = self._CODEX_PHASE_TEMPLATES.get(current_phase, [])
-                _phase_templates = [
-                    COMMAND_REGISTRY.get(t) for t in valid_templates
-                    if COMMAND_REGISTRY.get(t) is not None
-                ]
-                if _phase_templates:
-                    import random
-                    _template = random.choice(_phase_templates)
-                    _chosen_name = _template.name if _template else ""
-                    _reason = f"strategic-fallback: {_reason}"
-                else:
-                    return None
-
-            assert _template is not None  # guaranteed by above guard
-            params = {"target": ctx.target}
-            for param in _template.required_params:
-                if param not in params:
-                    params[param] = self._get_default_param(param, ctx)
-            command = render_command(_template, params)
-
-            self._codex_strategic_calls_episode += 1
-            self._codex_strategic_cooldown = 3
-            self._codex_meta_used_templates.add(_chosen_name)  # shared dedup
-
-            logger.info(
-                f"[CODEX-STRATEGIC][{self.agent_name}] Plan repair at step {step_num}: "
-                f"template={_chosen_name} trigger={_trigger} plan_depth={len(_plan)}"
-            )
-
-            result = SmartDecisionResult(
-                command=command,
-                source="codex_meta",  # Keep source compatible with metrics
-                confidence=_codex_conf,
-                template_name=_chosen_name,
-                params=params,
-                reasoning=(
-                    f"[CODEX-STRATEGIC] {_trigger}: step {step_num} in {current_phase.name}. "
-                    f"Template={_chosen_name}. {_reason}"
-                ),
-                mentor_call=True,
-                model_used="local-llm",
-                mentor_reasoning=(
-                    f"[CODEX-STRATEGIC] Plan repair → {_chosen_name}. "
-                    f"Call {self._codex_strategic_calls_episode}/{self._codex_strategic_max_per_episode}"
-                ),
-                phase=current_phase,
-            )
-            return result
-        except Exception as e:
-            logger.debug(f"[CODEX-STRATEGIC][{self.agent_name}] Call failed: {e}")
-
-        return None
+    def _codex_strategic_check(
+        self, step_ctx: SmartStepContext, current_phase: AttackPhase,
+        filtered_commands: List[CommandTemplate],
+    ) -> Optional[SmartDecisionResult]:
+        """Layer 3b: Strategic plan repair. Delegates to _codex_check."""
+        return self._codex_check("strategic", step_ctx, current_phase, filtered_commands)
 
     def _trace_stage(
         self, stage: str, result: str, score: float = 0.0, passed: bool = True
@@ -2600,83 +2422,20 @@ class SmartCoach:
                 "passed": passed,
             })
 
-    def decide(
+    # ─── EXTRACTED BLOCKS FROM decide() ─────────────────────────────────
+
+    def _compute_neuro_state(
         self,
         step_ctx: SmartStepContext,
-        proposed_action: Optional[str] = None,
-        confidence: Optional[float] = None,
-        force_mentor: bool = False,
-        decision_packet: Optional[Any] = None,
-    ) -> SmartDecisionResult:
-        """
-        Make a smart decision using HYBRID mode: registry-first, GPT for strategy.
-        
-        HYBRID MODE LOGIC:
-        1. Registry-first: Use command registry for 80% of decisions (token efficient)
-        2. GPT called ONLY when:
-           a) Phase transition detected (need strategic planning)
-           b) Agent is stuck (repeated actions, needs new ideas)
-           c) No valid registry commands match current state
-           d) force_mentor=True passed explicitly
-        
-        Args:
-            step_ctx: Step context with attack state
-            proposed_action: Agent's proposed action (optional, may be overridden)
-            confidence: Agent's confidence (0-1)
-            force_mentor: Force GPT call regardless of other conditions
-            
-        Returns:
-            SmartDecisionResult with command and full context
-        """
-        confidence = confidence if confidence is not None else 0.5
-        ctx = step_ctx.attack_context
-        
-        # Phase 50: Store DecisionPacket reference for algorithm proposal population
-        self._current_decision_packet = decision_packet
+        ctx: Any,
+        confidence: float,
+    ) -> Dict[str, float]:
+        """Compute neuromodulator state, apply to PPO, and update aggression.
 
-        # C03: SAC shadow select — off-policy observation of every step
-        # C07: Gated by FF_SAC_SHADOW feature flag
-        from core.feature_flags import get_feature_flags as _get_ff
-        if _get_ff().sac_shadow:
-            self._sac_shadow_select(step_ctx)
-
-        # Phase 10.3: Collect reasoning events for dashboard visibility
-        self._step_reasoning_log: List[Dict[str, Any]] = []
-        # Phase 40: Decision chain trace for v6 dashboard
-        self._decision_trace: List[Dict[str, Any]] = []
-        # Phase 38 X3: Per-step LLM call counter — cap at 3 to prevent redundant calls
-        self._step_llm_calls: int = 0
-        _MAX_LLM_CALLS_PER_STEP = 3
-        
-        # =====================================================================
-        # PHASE 6.9: CLOSEOUT HARD GATE
-        # Once phase transitions to CLOSEOUT, ONLY closeout commands are allowed.
-        # No recon, no exploitation, no scanning, no lateral movement.
-        # This enforces real-world red-team discipline: exfil → cleanup → exit.
-        # =====================================================================
-        if ctx and ctx.current_phase == AttackPhase.CLOSEOUT:
-            return self._decide_closeout_only(step_ctx)
-        
-        # =====================================================================
-        # PHASE 11.0: STRICT PHASE LADDER GATE
-        # Prevents phase-skipping by enforcing minimum steps per phase.
-        # When enabled, commands targeting phases ahead of minimum completion
-        # are replaced with phase-appropriate alternatives.
-        # =====================================================================
-        ladder_teaching = self._phase_ladder_gate(step_ctx)
-        if ladder_teaching:
-            self._step_reasoning_log.append({
-                "event": "phase_ladder",
-                "detail": ladder_teaching,
-            })
-        
-        # =====================================================================
-        # PHASE 15.0: NEUROMODULATOR COMPUTE (per-step)
-        # Reads PPO entropy, parser confidence, hypothesis stats, reward
-        # prediction error, stagnation, and detection risk to produce a
-        # 4-dim neuromodulator state (DA, NE, ACh, 5-HT).
-        # Feature-flag gated: FF_NEUROMODULATORS.
-        # =====================================================================
+        Extracted from decide() Block 4+5 (Phase 15.0).
+        Returns the neuromodulation dict. Mutates self._p15_neuromod_state
+        and self._p15_aggression_level as side effects.
+        """
         _p15_modulation: Dict[str, float] = {}
         if self._p15_neuromod_engine is not None:
             try:
@@ -2779,7 +2538,7 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[P15] Neuromod compute failed: {e}")
 
-        # ── Phase 15.0: Apply neuromodulation to PPO ─────────────────
+        # Apply neuromodulation to PPO
         if _p15_modulation and self.ppo_agent is not None:
             try:
                 self.ppo_agent.apply_neuromodulation(
@@ -2790,12 +2549,7 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[P15] PPO neuromod apply failed: {e}")
 
-        # =====================================================================
-        # PHASE 15.0: AGGRESSION CONTROLLER (per-step)
-        # Computes bounded aggression level [0, 1] from neuromod state, phase,
-        # recent success/failure, and detection risk.
-        # Feature-flag gated: FF_AGGRESSION_CONTROLLER.
-        # =====================================================================
+        # Aggression controller
         if self._p15_aggression_controller is not None:
             try:
                 from core.neuro.aggression_controller import AggressionInputs
@@ -2834,13 +2588,19 @@ class SmartCoach:
             except Exception as e:
                 logger.debug(f"[P15] Aggression compute failed: {e}")
 
-        # =====================================================================
-        # PHASE 15.0: REFLEX POLICY (pre-cascade override)
-        # Deterministic fast override before any action selection. Checks
-        # detection risk, aggression, confidence, etc. If reflex fires,
-        # returns immediately with a safe command — no cascade needed.
-        # Feature-flag gated: FF_REFLEX_POLICY.
-        # =====================================================================
+        return _p15_modulation
+
+    def _evaluate_reflex_override(
+        self,
+        step_ctx: SmartStepContext,
+        ctx: Any,
+        confidence: float,
+    ) -> Optional["SmartDecisionResult"]:
+        """Evaluate reflex policy for pre-cascade override.
+
+        Extracted from decide() Block 6 (Phase 15.0 Reflex Policy).
+        Returns SmartDecisionResult if reflex fires, None otherwise.
+        """
         if self._p15_reflex_policy is not None:
             try:
                 from core.neurorouter.reflex_policy import ReflexContext
@@ -2895,6 +2655,191 @@ class SmartCoach:
                         )
             except Exception as e:
                 logger.debug(f"[P15] Reflex eval failed: {e}")
+        return None
+
+    def _escalate_phase_stuck(
+        self,
+        result: "SmartDecisionResult",
+        ctx: Any,
+        step_ctx: SmartStepContext,
+        current_phase: "AttackPhase",
+    ) -> None:
+        """Force escalation commands when stuck in PRIV_ESC or LATERAL_MOVEMENT.
+
+        Extracted from decide() Block 24 (R52 unified phase-stuck escalation).
+        Modifies result in-place if escalation fires.
+        """
+        _privesc_steps = getattr(self, '_privesc_steps', 0)
+        _lateral_steps = getattr(self, '_lateral_steps', 0)
+        _should_escalate = False
+        _escalation_source_phase = ""
+        _escalation_step_count = 0
+
+        if (self.agent_role.get("role") == "offensive"
+                and not ctx.state_flags.get("root_shell_obtained")
+                and getattr(self, '_ssh_failures_this_episode', 0) < 3):
+            if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
+                    and _privesc_steps >= 5
+                    and _privesc_steps % 5 == 0):
+                _should_escalate = True
+                _escalation_source_phase = "PRIV_ESC"
+                _escalation_step_count = _privesc_steps
+            elif (current_phase == AttackPhase.LATERAL_MOVEMENT
+                    and _lateral_steps >= 5
+                    and _lateral_steps % 5 == 0
+                    and ctx.state_flags.get("shell_obtained")):
+                _should_escalate = True
+                _escalation_source_phase = "LATERAL"
+                _escalation_step_count = _lateral_steps
+
+        if _should_escalate:
+            target = ctx.target
+            _escalation_attempt = getattr(self, '_escalation_attempt_count', 0)
+            self._escalation_attempt_count = _escalation_attempt + 1
+
+            _is_ms_target = target in ("172.28.0.10", "172.28.0.11") or "172.28.0" in target
+            _disc_creds = getattr(ctx, 'credentials', None) or set()
+            _esc_user, _esc_pass = "", ""
+            if _is_ms_target:
+                _esc_user, _esc_pass = "msfadmin", "msfadmin"
+            elif isinstance(_disc_creds, (set, list)):
+                for _c in _disc_creds:
+                    if isinstance(_c, str) and ":" in _c:
+                        _esc_user, _esc_pass = _c.split(":", 1)
+                        break
+
+            if _esc_user and _esc_pass:
+                if _escalation_attempt % 2 == 0:
+                    escalation_cmd = (
+                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
+                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
+                        f"'cat /etc/shadow 2>/dev/null'"
+                    )
+                    _esc_type = "shadow_dump"
+                else:
+                    escalation_cmd = (
+                        f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
+                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
+                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
+                        f"'echo {_esc_pass} | sudo -S id'"
+                    )
+                    _esc_type = "sshpass_root"
+            else:
+                if _escalation_attempt % 2 == 0:
+                    escalation_cmd = f"find / -perm -4000 -type f 2>/dev/null | head -20"
+                    _esc_type = "suid_search"
+                else:
+                    escalation_cmd = f"sudo -l 2>/dev/null"
+                    _esc_type = "sudo_check"
+
+            result.command = escalation_cmd
+            result.source = "privesc_escalation"
+            result.confidence = 0.6
+            result.mentor_reasoning = (
+                f"[PHASE-ESCALATION] Forced {_esc_type} after "
+                f"{_escalation_step_count} steps in {_escalation_source_phase}"
+            )
+            logger.info(
+                f"[{self.agent_name}] [PHASE-ESCALATION] Forced {_esc_type} "
+                f"at {_escalation_source_phase} step {_escalation_step_count}"
+            )
+            # Store negative PPO trajectory if this overrides a PPO decision
+            if self._ppo_pending is not None:
+                try:
+                    if self.ppo_agent is not None:
+                        self.ppo_agent.store_transition(
+                            self._ppo_pending['state'],
+                            self._ppo_pending['action'],
+                            self._ppo_pending['log_prob'],
+                            -3.0,
+                            self._ppo_pending['value'],
+                            False,
+                        )
+                        self._ppo_pending = None
+                except Exception:
+                    self._ppo_pending = None
+
+    def decide(
+        self,
+        step_ctx: SmartStepContext,
+        proposed_action: Optional[str] = None,
+        confidence: Optional[float] = None,
+        force_mentor: bool = False,
+        decision_packet: Optional[Any] = None,
+    ) -> SmartDecisionResult:
+        """
+        Make a smart decision using HYBRID mode: registry-first, GPT for strategy.
+        
+        HYBRID MODE LOGIC:
+        1. Registry-first: Use command registry for 80% of decisions (token efficient)
+        2. GPT called ONLY when:
+           a) Phase transition detected (need strategic planning)
+           b) Agent is stuck (repeated actions, needs new ideas)
+           c) No valid registry commands match current state
+           d) force_mentor=True passed explicitly
+        
+        Args:
+            step_ctx: Step context with attack state
+            proposed_action: Agent's proposed action (optional, may be overridden)
+            confidence: Agent's confidence (0-1)
+            force_mentor: Force GPT call regardless of other conditions
+            
+        Returns:
+            SmartDecisionResult with command and full context
+        """
+        confidence = confidence if confidence is not None else 0.5
+        ctx = step_ctx.attack_context
+        
+        # Phase 50: Store DecisionPacket reference for algorithm proposal population
+        self._current_decision_packet = decision_packet
+
+        # C03: SAC shadow select — off-policy observation of every step
+        # C07: Gated by FF_SAC_SHADOW feature flag
+        from core.feature_flags import get_feature_flags as _get_ff
+        if _get_ff().sac_shadow:
+            self._sac_shadow_select(step_ctx)
+
+        # Phase 10.3: Collect reasoning events for dashboard visibility
+        self._step_reasoning_log: List[Dict[str, Any]] = []
+        # Phase 40: Decision chain trace for v6 dashboard
+        self._decision_trace: List[Dict[str, Any]] = []
+        # Phase 38 X3: Per-step LLM call counter — cap at 3 to prevent redundant calls
+        self._step_llm_calls: int = 0
+        _MAX_LLM_CALLS_PER_STEP = 3
+        
+        # =====================================================================
+        # PHASE 6.9: CLOSEOUT HARD GATE
+        # Once phase transitions to CLOSEOUT, ONLY closeout commands are allowed.
+        # No recon, no exploitation, no scanning, no lateral movement.
+        # This enforces real-world red-team discipline: exfil → cleanup → exit.
+        # =====================================================================
+        if ctx and ctx.current_phase == AttackPhase.CLOSEOUT:
+            return self._decide_closeout_only(step_ctx)
+        
+        # =====================================================================
+        # PHASE 11.0: STRICT PHASE LADDER GATE
+        # Prevents phase-skipping by enforcing minimum steps per phase.
+        # When enabled, commands targeting phases ahead of minimum completion
+        # are replaced with phase-appropriate alternatives.
+        # =====================================================================
+        ladder_teaching = self._phase_ladder_gate(step_ctx)
+        if ladder_teaching:
+            self._step_reasoning_log.append({
+                "event": "phase_ladder",
+                "detail": ladder_teaching,
+            })
+        
+        # =====================================================================
+        # PHASE 15.0: NEUROMODULATOR + AGGRESSION (extracted)
+        # =====================================================================
+        _p15_modulation = self._compute_neuro_state(step_ctx, ctx, confidence)
+
+        # =====================================================================
+        # PHASE 15.0: REFLEX POLICY (extracted)
+        # =====================================================================
+        _reflex_result = self._evaluate_reflex_override(step_ctx, ctx, confidence)
+        if _reflex_result is not None:
+            return _reflex_result
 
         # =====================================================================
         # PHASE 15.0: WORKING MEMORY UPDATE (per-step)
@@ -3649,121 +3594,9 @@ class SmartCoach:
             self._trace_stage('tactical_cortex', _tc_vname, _tc_conf, getattr(_tactical_assessment, 'approved', True))
 
         # =========================================================================
-        # R52: UNIFIED PHASE-STUCK ESCALATION SHORTCUT (replaces R49/R50/R51)
-        # When the offensive agent is stuck in PRIV_ESC or LATERAL_MOVEMENT
-        # without root_shell_obtained, force a targeted sshpass root attempt.
-        #
-        # PRIV_ESC: fires at step 3 and every 3 steps after (3, 6, 9, ...)
-        #   - Lowered from 10→3 because R51 showed PRIV_ESC only lasts ~2 steps
-        #     so the old threshold NEVER fired. Now fires on 3rd step.
-        #
-        # LATERAL_MOVEMENT: fires at step 5 and every 5 steps after (5, 10, 15, ...)
-        #   - R51 showed agents grind 10-15 steps in LATERAL waiting for
-        #     domain_admin_obtained (only from enum4linux). Root shell would
-        #     cascade: root → POST_EXPLOITATION → CLOSEOUT (if exfil/persist exist).
-        #
-        # Pre-cleanup: kill stale SSH connections before sshpass attempt.
-        # SSH failure threshold: max 3 failures per episode.
+        # R52: UNIFIED PHASE-STUCK ESCALATION (extracted)
         # =========================================================================
-        _privesc_steps = getattr(self, '_privesc_steps', 0)
-        _lateral_steps = getattr(self, '_lateral_steps', 0)
-        _should_escalate = False
-        _escalation_source_phase = ""
-        _escalation_step_count = 0
-
-        if (self.agent_role.get("role") == "offensive"
-                and not ctx.state_flags.get("root_shell_obtained")
-                and getattr(self, '_ssh_failures_this_episode', 0) < 3):
-            if (current_phase == AttackPhase.PRIVILEGE_ESCALATION
-                    and _privesc_steps >= 5
-                    and _privesc_steps % 5 == 0):  # R56: 3→5. Less aggressive in PRIV_ESC (duration gate keeps agent exploring)
-                _should_escalate = True
-                _escalation_source_phase = "PRIV_ESC"
-                _escalation_step_count = _privesc_steps
-            elif (current_phase == AttackPhase.LATERAL_MOVEMENT
-                    and _lateral_steps >= 5
-                    and _lateral_steps % 5 == 0
-                    and ctx.state_flags.get("shell_obtained")):
-                _should_escalate = True
-                _escalation_source_phase = "LATERAL"
-                _escalation_step_count = _lateral_steps
-
-        if _should_escalate:
-            target = ctx.target
-            # R53: Alternate between sshpass root attempt and /etc/shadow dump.
-            # R52 showed sshpass fails consistently on MS2 (Permission denied / 
-            # connection issues) — agents stuck 40 steps with only sshpass.
-            # Even-numbered fires → cat /etc/shadow (produces hash_known via parser)
-            # Odd-numbered fires → sshpass root attempt (produces root_shell if works)
-            _escalation_attempt = getattr(self, '_escalation_attempt_count', 0)
-            self._escalation_attempt_count = _escalation_attempt + 1
-            
-            # Phase 42: Only use msfadmin creds for Metasploitable targets.
-            # For generic/HTB targets, use discovered credentials or generic privesc.
-            _is_ms_target = target in ("172.28.0.10", "172.28.0.11") or "172.28.0" in target
-            _disc_creds = getattr(ctx, 'credentials', None) or set()
-            _esc_user, _esc_pass = "", ""
-            if _is_ms_target:
-                _esc_user, _esc_pass = "msfadmin", "msfadmin"
-            elif isinstance(_disc_creds, (set, list)):
-                for _c in _disc_creds:
-                    if isinstance(_c, str) and ":" in _c:
-                        _esc_user, _esc_pass = _c.split(":", 1)
-                        break
-            
-            if _esc_user and _esc_pass:
-                if _escalation_attempt % 2 == 0:
-                    # Even: cat /etc/shadow → produces hash_dump discovery → hash_known flag
-                    escalation_cmd = (
-                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
-                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
-                        f"'cat /etc/shadow 2>/dev/null'"
-                    )
-                    _esc_type = "shadow_dump"
-                else:
-                    # Odd: sshpass root attempt → produces root_shell if sudo works
-                    escalation_cmd = (
-                        f"pkill -f 'ssh.*{target}' 2>/dev/null; sleep 0.5; "
-                        f"sshpass -p {_esc_pass} ssh -o StrictHostKeyChecking=no "
-                        f"-o HostKeyAlgorithms=+ssh-rsa {_esc_user}@{target} "
-                        f"'echo {_esc_pass} | sudo -S id'"
-                    )
-                    _esc_type = "sshpass_root"
-            else:
-                # No credentials available — try generic privesc
-                if _escalation_attempt % 2 == 0:
-                    escalation_cmd = f"find / -perm -4000 -type f 2>/dev/null | head -20"
-                    _esc_type = "suid_search"
-                else:
-                    escalation_cmd = f"sudo -l 2>/dev/null"
-                    _esc_type = "sudo_check"
-            
-            result.command = escalation_cmd
-            result.source = "privesc_escalation"
-            result.confidence = 0.6
-            result.mentor_reasoning = (
-                f"[PHASE-ESCALATION] Forced {_esc_type} after "
-                f"{_escalation_step_count} steps in {_escalation_source_phase}"
-            )
-            logger.info(
-                f"[{self.agent_name}] [PHASE-ESCALATION] Forced {_esc_type} "
-                f"at {_escalation_source_phase} step {_escalation_step_count}"
-            )
-            # Store negative PPO trajectory if this overrides a PPO decision
-            if self._ppo_pending is not None:
-                try:
-                    if self.ppo_agent is not None:
-                        self.ppo_agent.store_transition(
-                            self._ppo_pending['state'],
-                            self._ppo_pending['action'],
-                            self._ppo_pending['log_prob'],
-                            -3.0,  # Negative reward: PPO failed to escalate
-                            self._ppo_pending['value'],
-                            False,
-                        )
-                        self._ppo_pending = None
-                except Exception:
-                    self._ppo_pending = None
+        self._escalate_phase_stuck(result, ctx, step_ctx, current_phase)
 
         # =========================================================================
         # PHASE 6: PPO decisions BYPASS post-selection anti-repeat guard.
@@ -3809,18 +3642,10 @@ class SmartCoach:
         # When the system is stuck for 15+ steps without discoveries, raise
         # repeat thresholds. This prevents the anti-repeat from blocking
         # potentially productive commands while the system is struggling.
+        # P56: Thresholds now centralized in AntiRepeatConfig.
         _stag = getattr(self, '_stagnation_steps', 0)
-        _exact_threshold = 3    # Default: hard replace on 3rd exact repeat
-        _prefix_threshold = 5   # Default: hard replace on 5th prefix repeat
-        _family_threshold = 8   # Default: hard replace on 8th family repeat
-        if _stag >= 25:
-            _exact_threshold = 8
-            _prefix_threshold = 12
-            _family_threshold = 16
-        elif _stag >= 15:
-            _exact_threshold = 6
-            _prefix_threshold = 8
-            _family_threshold = 12
+        _arc = self._anti_repeat_config
+        _exact_threshold, _prefix_threshold, _family_threshold = _arc.get_thresholds(_stag)
         
         # ── P50: Flag capture whitelist ──────────────────────────────
         # In late phases (POST_EXPLOITATION+), flag-reading commands MUST
@@ -3858,7 +3683,7 @@ class SmartCoach:
             1 for c in all_cmds
             if getattr(c, 'template_name', self._extract_tool_prefix(c if isinstance(c, str) else '')) == _result_template
         ) if _result_template else prefix_repeat_count
-        if ppo_bypass and result.source == "ppo" and _template_repeat_count >= 3:
+        if ppo_bypass and result.source == "ppo" and _template_repeat_count >= _arc.ppo_bypass_template_max:
             ppo_bypass = False
             logger.info(
                 f"[{self.agent_name}] PPO bypass revoked: "
@@ -3885,7 +3710,7 @@ class SmartCoach:
                     f"exact_repeat_x{exact_repeat_count}")
             elif exact_repeat_count >= 1:
                 # Graded: penalize but allow
-                repeat_penalty = -2.0 * exact_repeat_count
+                repeat_penalty = _arc.exact_penalty_per_repeat * exact_repeat_count
                 result.mentor_reasoning = (
                     f"[REPEAT-PENALTY:{repeat_penalty:.1f}] "
                     f"{result.mentor_reasoning or ''}"
@@ -3898,8 +3723,8 @@ class SmartCoach:
             elif prefix_repeat_count >= _prefix_threshold:
                 result = self._replace_with_alternative(result, step_ctx, ctx, all_cmds,
                     f"prefix_repeat_x{prefix_repeat_count}")
-            elif prefix_repeat_count >= 2:
-                repeat_penalty = -1.0 * (prefix_repeat_count - 1)
+            elif prefix_repeat_count >= _arc.prefix_penalty_min_count:
+                repeat_penalty = _arc.prefix_penalty_per_repeat * (prefix_repeat_count - 1)
                 result.mentor_reasoning = (
                     f"[PREFIX-PENALTY:{repeat_penalty:.1f}] "
                     f"{result.mentor_reasoning or ''}"
@@ -7154,8 +6979,8 @@ class SmartCoach:
                 state_dict, device,
                 current_step=step_ctx.step,
                 max_steps=250,
-                steps_in_phase=0,
-                phase_transitions=0,
+                steps_in_phase=getattr(self, '_codex_meta_phase_steps', 0),
+                phase_transitions=getattr(self, '_phase_transition_count', 0),
                 agent_role=self.agent_role.get("role", ""),
                 # Phase 6.9.6: Reasoning context signals
                 failed_commands_ratio=(
@@ -7204,6 +7029,41 @@ class SmartCoach:
                     self._p16_progress_estimate.momentum
                     if self._p16_progress_estimate else 0.0
                 ),
+                # Phase 56.0: Operational intelligence signals
+                mentor_decision_ratio=(
+                    self._reasoning_mentor_decisions / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_mentor_decisions') else 0.0
+                ),
+                registry_decision_ratio=(
+                    self._reasoning_registry_decisions / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_registry_decisions') else 0.0
+                ),
+                playbook_decision_ratio=(
+                    self._reasoning_playbook_decisions / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_playbook_decisions') else 0.0
+                ),
+                stagnation_severity=min(
+                    getattr(self, '_stagnation_steps', 0) / 50.0, 1.0
+                ),
+                coherence_signal=getattr(self, '_r66_coherence', 0.0),
+                budget_utilization=(
+                    1.0 - (self._budget_manager.remaining_ratio()
+                    if hasattr(self, '_budget_manager') and self._budget_manager
+                    and hasattr(self._budget_manager, 'remaining_ratio') else 1.0)
+                ),
+                discovery_velocity=min(
+                    sum(1 for r in getattr(self, '_reasoning_step_rewards', [])[-5:]
+                        if r > 1.0) / 5.0, 1.0
+                ),
+                forced_novel_ratio=(
+                    self._reasoning_forced_novel_count / max(self._reasoning_total_decisions, 1)
+                    if hasattr(self, '_reasoning_forced_novel_count') else 0.0
+                ),
+                macro_confidence=getattr(self, '_ddqn_confidence', 0.0),
+                exploit_commands_ratio=(
+                    self._reasoning_exploit_commands / max(self._reasoning_total_commands, 1)
+                    if hasattr(self, '_reasoning_exploit_commands') else 0.0
+                ),
             )
 
             # Build mask: only commands in filtered_commands AND in mapper
@@ -7217,7 +7077,7 @@ class SmartCoach:
             precond_mask = self.action_mapper.get_action_mask_with_counts(
                 ctx.state_flags,
                 self.command_repeat_count,
-                max_repeats=1,  # Match anti-repeat guard: block ANY exact repeat
+                max_repeats=self._anti_repeat_config.ppo_mask_max_repeats,
             )
             mask = mask & precond_mask
             
@@ -7260,7 +7120,7 @@ class SmartCoach:
                 if tpl and mask[idx]:
                     # Get the command prefix from template
                     cmd_prefix = tpl.template.split()[0].lower() if tpl.template else name.split("_")[0].lower()
-                    if prefix_counts.get(cmd_prefix, 0) >= 3:
+                    if prefix_counts.get(cmd_prefix, 0) >= self._anti_repeat_config.ppo_mask_prefix_max:
                         mask[idx] = False
 
             # ─── R67: Soft-penalize already-used templates in PPO logits ─
@@ -7273,8 +7133,9 @@ class SmartCoach:
                 for idx, (name, _tpl) in enumerate(self.action_mapper.commands):
                     if name in _used_templates and mask[idx]:
                         _use_count = self.command_repeat_count.get(name, 0)
-                        # Progressive penalty: -1.0 per use, up to -4.0
-                        _r67_logit_bias[idx] = -min(4.0, 1.0 * _use_count)
+                        # Progressive penalty: per_use per use, up to max
+                        _arc = self._anti_repeat_config
+                        _r67_logit_bias[idx] = -min(_arc.logit_bias_max, _arc.logit_bias_per_use * _use_count)
 
             # Phase 6.4: Block commands whose tool is known to not exist on target
             _ft = getattr(self, '_failed_tools', set())
@@ -8120,21 +7981,22 @@ class SmartCoach:
             
             # Count how many times this command prefix was used recently
             recent_prefixes = []
-            for cmd in ctx.command_history[-10:]:
+            _arc = self._anti_repeat_config
+            for cmd in ctx.command_history[-_arc.mentor_prefix_window:]:
                 parts = cmd.lower().split()
                 if parts:
                     recent_prefixes.append(parts[0])
             
             prefix_repeat_count = recent_prefixes.count(mentor_prefix)
             
-            # If this prefix was used 2+ times recently, REJECT and use registry fallback
-            if prefix_repeat_count >= 2:
+            # If this prefix was used N+ times recently, REJECT and use registry fallback
+            if prefix_repeat_count >= _arc.mentor_prefix_max:
                 logger.warning(f"[{self.agent_name}] LLM suggested '{mentor_prefix}' but it was used {prefix_repeat_count}x recently - forcing registry fallback")
                 # Mark this as a stuck situation for the fallback to handle
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # Also check if exact command was used before
-            if mentor_response.command in ctx.command_history[-5:]:
+            if mentor_response.command in ctx.command_history[-_arc.mentor_exact_window:]:
                 logger.warning(f"[{self.agent_name}] LLM suggested exact repeat command - forcing registry fallback")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
@@ -8414,6 +8276,19 @@ class SmartCoach:
                 self._reasoning_ppo_decisions += 1
             elif decision.source in ("anti_repeat", "forced"):
                 self._reasoning_anti_repeat_decisions += 1
+                if decision.source == "forced":
+                    self._reasoning_forced_novel_count += 1
+            elif decision.source in ("mentor", "dual_mentor"):
+                self._reasoning_mentor_decisions += 1
+            elif decision.source == "registry":
+                self._reasoning_registry_decisions += 1
+            elif decision.source == "playbook":
+                self._reasoning_playbook_decisions += 1
+            # Phase 56: Track exploit-phase commands
+            if self.attack_context and hasattr(self.attack_context, 'current_phase'):
+                _cp = self.attack_context.current_phase
+                if _cp and _cp.name in ("EXPLOITATION", "PRIVILEGE_ESCALATION"):
+                    self._reasoning_exploit_commands += 1
             if new_discoveries:
                 self._reasoning_last_discovery_step = getattr(
                     self, '_ppo_step_count', 0
@@ -9032,6 +8907,13 @@ class SmartCoach:
         self._reasoning_total_decisions: int = 0
         self._reasoning_failed_commands: int = 0
         self._reasoning_total_commands: int = 0
+
+        # Phase 56.0: Operational intelligence tracking
+        self._reasoning_mentor_decisions: int = 0
+        self._reasoning_registry_decisions: int = 0
+        self._reasoning_playbook_decisions: int = 0
+        self._reasoning_exploit_commands: int = 0
+        self._reasoning_forced_novel_count: int = 0
 
         # Phase 6.9.1: Reset closeout tracking
         self._closeout_used_templates: set = set()

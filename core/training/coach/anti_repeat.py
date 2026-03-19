@@ -1,24 +1,88 @@
 """Anti-Repeat Guard — prevents command repetition and provides alternatives.
 
 Phase 41: Extracted from SmartCoach for modularity.
+Phase 56: Centralized all anti-repeat thresholds into AntiRepeatConfig.
 """
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, List, Set, Optional
-from dataclasses import dataclass
+from typing import Dict, Any, List, Set, Optional, Tuple
+from dataclasses import dataclass, field
 from collections import deque
 
 logger = logging.getLogger("ariaska.coach.anti_repeat")
 
 
 @dataclass
+class StagnationTier:
+    """Thresholds at a specific stagnation level."""
+    min_stagnation: int
+    exact: int
+    prefix: int
+    family: int
+
+
+@dataclass
 class AntiRepeatConfig:
-    """Configuration for anti-repeat behavior."""
+    """Centralized configuration for ALL anti-repeat thresholds.
+
+    Phase 56: Consolidates 7 threshold locations from SmartCoach into one
+    config object. Each field documents which pipeline stage uses it.
+    """
+
+    # ── Main post-selection guard (L3853-3955) ──
+    # Base thresholds (stagnation < first tier)
+    exact_threshold: int = 3
+    prefix_threshold: int = 5
+    family_threshold: int = 8
+
+    # Stagnation-aware tiers: raised thresholds when system is stuck
+    stagnation_tiers: list = field(default_factory=lambda: [
+        StagnationTier(min_stagnation=15, exact=6, prefix=8, family=12),
+        StagnationTier(min_stagnation=25, exact=8, prefix=12, family=16),
+    ])
+
+    # ── PPO pre-selection masking (L7300, L7343) ──
+    ppo_mask_max_repeats: int = 1       # Hard-mask commands used >= N times
+    ppo_mask_prefix_max: int = 3        # Hard-mask prefixes used >= N times
+
+    # ── PPO bypass revocation (L3907) ──
+    ppo_bypass_template_max: int = 3    # Revoke PPO bypass after N template repeats
+
+    # ── Mentor pre-check (L8211, L8218) ──
+    mentor_prefix_max: int = 2          # Reject mentor if prefix used >= N in window
+    mentor_prefix_window: int = 10      # Window size for mentor prefix check
+    mentor_exact_window: int = 5        # Window size for mentor exact check
+
+    # ── R67 logit bias (L7353-7359) ──
+    logit_bias_per_use: float = 1.0     # Logit penalty per repeat
+    logit_bias_max: float = 4.0         # Maximum logit penalty
+
+    # ── Codex meta spike trigger (L2062) ──
+    codex_antirepeat_hits: int = 4      # Trigger codex after N anti-repeat blocks
+
+    # ── Graded penalties (L3933, L3946) ──
+    exact_penalty_per_repeat: float = -2.0   # Per-occurrence penalty for exact repeats
+    prefix_penalty_per_repeat: float = -1.0  # Per-occurrence penalty for prefix repeats
+    prefix_penalty_min_count: int = 2        # Start penalizing prefix at this count
+
+    # Legacy fields (kept for backward compatibility with AntiRepeatGuard)
     max_recent: int = 30
     prefix_window: int = 10
     exact_block: bool = True
     prefix_block: bool = True
+
+    def get_thresholds(self, stagnation_steps: int) -> Tuple[int, int, int]:
+        """Return (exact, prefix, family) thresholds for the given stagnation level.
+
+        Iterates stagnation tiers in descending order of min_stagnation,
+        returning the first match. Falls back to base thresholds.
+        """
+        for tier in sorted(self.stagnation_tiers,
+                           key=lambda t: t.min_stagnation, reverse=True):
+            if stagnation_steps >= tier.min_stagnation:
+                return tier.exact, tier.prefix, tier.family
+        return self.exact_threshold, self.prefix_threshold, self.family_threshold
 
 
 class AntiRepeatGuard:

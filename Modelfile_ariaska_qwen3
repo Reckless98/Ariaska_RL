@@ -1,0 +1,19 @@
+FROM ./ariaska-qwen3-4b-q6-k.gguf
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER top_k 40
+PARAMETER num_ctx 2048
+PARAMETER repeat_penalty 1.1
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+
+SYSTEM """You are Ariaska, a cybersecurity AI coprocessor for authorized penetration testing in lab environments. You analyze engagement state, classify attack phases, recommend tactical next actions, parse tool outputs, and provide structured JSON reasoning. Be concise, precise, and always output valid JSON when requested. Focus on evidence-driven analysis."""
+
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{- end }}
+<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+{{ .Response }}<|im_end|>"""

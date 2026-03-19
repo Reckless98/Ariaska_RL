@@ -309,10 +309,6 @@ class FakeGPTManager:
         self.tokens_by_agent.clear()
         self._episode_cost_usd = 0.0
     
-    def has_venice(self) -> bool:
-        """Fake manager has no Venice integration."""
-        return False
-    
     def get_budget_status(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
         """Get budget status (always within budget for fake)."""
         return {
@@ -321,6 +317,20 @@ class FakeGPTManager:
             "tokens_remaining": max(0, self.token_limit - self.tokens_used),
         }
     
+    def batch_request(
+        self,
+        queries: List[Dict[str, Any]],
+        max_workers: int = 3,
+    ) -> List[str]:
+        """Deterministic batch request — calls gpt_request() for each query."""
+        results: List[str] = []
+        for q in queries:
+            prompt = q.get("prompt", "")
+            task_type = q.get("task_type", "general")
+            agent_id = q.get("agent_id", "batch")
+            results.append(self.gpt_request(prompt, task_type, agent_id))
+        return results
+
     def cleanup(self):
         """Clean shutdown (no-op for fake)."""
         pass

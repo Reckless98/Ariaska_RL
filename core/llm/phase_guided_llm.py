@@ -440,9 +440,14 @@ class PhaseGuidedLLM:
         discovery_board: Dict[str, Any],
         available_templates: List[Dict[str, Any]],
         last_output_excerpt: str = "",
+        agent_comms: str = "",
     ) -> Optional[PhaseGuidanceResult]:
-        """
-        Produce structured guidance for the given tactical state.
+        """Produce structured guidance for the given tactical state.
+
+        Args:
+            agent_comms: Phase 56 inter-agent bus messages formatted by
+                ``AgentMessageBus.inject_into_prompt()``. Injected into the
+                LLM prompt so phase decisions account for multi-agent context.
 
         Returns PhaseGuidanceResult on success, None if budget exhausted
         or LLM call fails.
@@ -456,6 +461,7 @@ class PhaseGuidedLLM:
             return self._fast_local_guide(
                 episode_id, step_id, agent_role, current_phase,
                 phase_state, discovery_board, available_templates,
+                agent_comms=agent_comms,
             )
 
         # Determine stagnation
@@ -491,6 +497,9 @@ class PhaseGuidedLLM:
             "available_templates": available_templates[:20],  # cap
             "last_output_excerpt": last_output_excerpt[:500],
         }
+        # Phase 56: Inject inter-agent comms for multi-agent awareness
+        if agent_comms:
+            input_data["agent_communications"] = agent_comms
 
         # LLM call — use strategic task_type for 9b brain routing + 20s timeout
         prompt = _build_user_prompt(input_data)
@@ -498,7 +507,7 @@ class PhaseGuidedLLM:
             prompt=prompt,
             task_type="strategic",
             agent_id=f"phase_guide_{agent_role}",
-            max_tokens=400,  # Phase 53: 600→400 — tighter JSON
+            max_tokens=1024,  # Phase 56: generous ceiling — model thinks then outputs compact JSON
             model=model,
             system_prompt=_SYSTEM_PROMPT,
             timeout=600,
@@ -515,7 +524,7 @@ class PhaseGuidedLLM:
                 prompt=_JSON_RETRY_PROMPT + "\n\n" + prompt,
                 task_type="analysis",
                 agent_id=f"phase_guide_{agent_role}",
-                max_tokens=400,  # Phase 53: 600→400
+                max_tokens=1024,  # Phase 56: generous ceiling
                 model=model,
                 system_prompt="You are a JSON-only API. Output ONLY valid JSON. No prose.",
                 timeout=600,
@@ -560,6 +569,7 @@ class PhaseGuidedLLM:
         phase_state: Dict[str, Any],
         discovery_board: Dict[str, Any],
         available_templates: List[Dict[str, Any]],
+        agent_comms: str = "",
     ) -> Optional[PhaseGuidanceResult]:
         """Single-call fast path for local 4B LLM.
 
@@ -583,11 +593,14 @@ class PhaseGuidedLLM:
             for t in available_templates[:10]
         ]
 
+        # Phase 56: Include inter-agent comms if available
+        comms_line = f"\nagent_comms={agent_comms[:200]}" if agent_comms else ""
+
         prompt = (
             "/no_think\n"
             f"phase={current_phase} inferred={inferred_phase} stagnation={stagnation_steps}\n"
             f"ports={ports} services={services} creds={creds} shells={shells}\n"
-            f"templates={tmpl_names}\n"
+            f"templates={tmpl_names}{comms_line}\n"
             "Should we STAY in current phase or ADVANCE? Suggest 3 candidate templates.\n"
             "Reply ONLY JSON:\n"
             '{"stay_or_advance":"stay|advance","reason":"why",'

@@ -208,7 +208,6 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.repeated_action_count = 0
         self.last_action = None
         self.repetition_count = {}
-        self.last_action = None
         self.repeat_steps = 0
         self.gpt_calls_this_episode = 0
         self.gpt_call_limit = 10
@@ -232,7 +231,6 @@ class RedAgent(EnhancedAgentBase, MemorySyncInterface):
         self.prioritized_priorities = []  # Ensure this is always initialized
         
         # Initialize learning context for GPT feedback
-        self.command_history = []
         self.learning_insights = []
         
         logger.debug(

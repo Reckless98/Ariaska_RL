@@ -612,7 +612,7 @@ class MicroChain:
                 prompt=prompt,
                 task_type="analysis",
                 agent_id="micro_chain",
-                max_tokens=250,  # Phase 53: 400→250 — tighter JSON generation
+                max_tokens=1024,  # Phase 56: generous ceiling — thinking model
                 model=_gen_model,
                 timeout=600,
             )
@@ -691,7 +691,7 @@ class MicroChain:
                     prompt=fill_prompt,
                     task_type="analysis",
                     agent_id="micro_chain",
-                    max_tokens=150,  # Phase 53: 250→150 — fill is simple
+                    max_tokens=512,  # Phase 56: generous ceiling — thinking model
                     model=_fill_model,
                     timeout=600,
                 )
@@ -773,7 +773,7 @@ class MicroChain:
                     prompt=prompt,
                     task_type="classification",
                     agent_id="micro_chain",
-                    max_tokens=150,  # Phase 53: 200→150 — scoring is compact
+                    max_tokens=512,  # Phase 56: generous ceiling — thinking model
                     model="local-llm",
                     timeout=600,
                 )

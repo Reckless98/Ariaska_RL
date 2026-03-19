@@ -24,8 +24,9 @@ Architecture:
     Section 14: Progress Estimator       [168-172]  5 dims  (Phase 16.0)
     Section 15: Campaign Intelligence    [173-220] 48 dims  (Phase 19.0)
     Section 16: Episode Summary Embed    [221-236] 16 dims  (Phase 30.0)
+    Section 17: Operational Intelligence [233-242] 10 dims  (Phase 56.0)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~237 / 512  (46% utilisation)
+    Total meaningful dims: ~243 / 512  (47% utilisation)
 """
 
 import torch
@@ -122,6 +123,17 @@ def encode_state(
     progress_momentum: float = 0.0,
     # Phase 30.0: Episode summary embedding (from MentorTrace aggregation)
     episode_summary_embedding: Optional[List[float]] = None,
+    # Phase 56.0: Operational intelligence signals
+    mentor_decision_ratio: float = 0.0,
+    registry_decision_ratio: float = 0.0,
+    playbook_decision_ratio: float = 0.0,
+    stagnation_severity: float = 0.0,
+    coherence_signal: float = 0.0,
+    budget_utilization: float = 0.0,
+    discovery_velocity: float = 0.0,
+    forced_novel_ratio: float = 0.0,
+    macro_confidence: float = 0.0,
+    exploit_commands_ratio: float = 0.0,
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -682,8 +694,53 @@ def encode_state(
             vec[_sec16_start + i] = float(episode_summary_embedding[i])
     idx += 16  # advance past section 16
 
-    # ─── Remaining dims [237-511] are zero-padded ────────────────────
-    # ~237 meaningful dims / 512 total  (46% utilisation, up from 43%)
+    # ─── Section 17: Phase 56 Operational Intelligence (10 dims) [233-242]
+    # Runtime decision-making signals that tell PPO about the agent's
+    # own operational state: how decisions are being made, resource usage,
+    # and momentum indicators not captured by environment state alone.
+
+    # Mentor reliance — how often falling back to LLM mentor (0-1)
+    vec[idx] = min(float(mentor_decision_ratio), 1.0)
+    idx += 1  # 234
+
+    # Registry reliance — high = PPO/mentor struggling (0-1)
+    vec[idx] = min(float(registry_decision_ratio), 1.0)
+    idx += 1  # 235
+
+    # Playbook adherence — following curriculum vs. improvising (0-1)
+    vec[idx] = min(float(playbook_decision_ratio), 1.0)
+    idx += 1  # 236
+
+    # Stagnation severity — SmartCoach internal stagnation counter (0-1)
+    vec[idx] = min(float(stagnation_severity), 1.0)
+    idx += 1  # 237
+
+    # Coherence signal — R66 self-consistency measure (0-1)
+    vec[idx] = min(float(coherence_signal), 1.0)
+    idx += 1  # 238
+
+    # LLM budget utilization — fraction of token budget consumed (0-1)
+    vec[idx] = min(float(budget_utilization), 1.0)
+    idx += 1  # 239
+
+    # Recent discovery velocity — discoveries in recent window (0-1)
+    vec[idx] = min(float(discovery_velocity), 1.0)
+    idx += 1  # 240
+
+    # Forced-novel ratio — anti-repeat forced novel command rate (0-1)
+    vec[idx] = min(float(forced_novel_ratio), 1.0)
+    idx += 1  # 241
+
+    # DDQN macro confidence — high-level strategy confidence (0-1)
+    vec[idx] = min(float(macro_confidence), 1.0)
+    idx += 1  # 242
+
+    # Exploit command ratio — fraction of commands targeting exploitation (0-1)
+    vec[idx] = min(float(exploit_commands_ratio), 1.0)
+    idx += 1  # 243
+
+    # ─── Remaining dims [243-511] are zero-padded ────────────────────
+    # ~243 meaningful dims / 512 total  (47% utilisation)
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

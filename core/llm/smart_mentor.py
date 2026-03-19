@@ -298,15 +298,15 @@ class SmartMentor:
         except Exception:
             web_exploit_reference = ""
         
-        # Phase 9: Venice aha context — inject cross-episode insights
-        venice_aha_context = ""
+        # Phase 9: Cognitive bus context — inject cross-episode insights
+        cognitive_bus_context = ""
         try:
             from core.memory.unified_cognitive_bus import CognitiveBus
             bus = CognitiveBus()  # singleton via __new__
             mentor_ctx = bus.get_mentor_context(max_items=5)
             if mentor_ctx:
-                venice_aha_context = "\n=== COGNITIVE BUS — CROSS-EPISODE INSIGHTS ===\n"
-                venice_aha_context += mentor_ctx
+                cognitive_bus_context = "\n=== COGNITIVE BUS — CROSS-EPISODE INSIGHTS ===\n"
+                cognitive_bus_context += mentor_ctx
         except Exception:
             pass
 
@@ -440,7 +440,7 @@ After ANY shell, read the flag file FIRST.
 
 {web_exploit_reference}
 
-{venice_aha_context}
+{cognitive_bus_context}
 
 {reflective_insights_text}
 
@@ -532,14 +532,14 @@ After ANY shell, read the flag file FIRST.
                 lines.append(suggestion)
             lines.append("")
         
-        # RAG: Query knowledge base for relevant context
+        # RAG: Query FAISS knowledge base for relevant context
         try:
-            from core.knowledge.knowledge_query import build_rag_context
+            from ariaska_ai.retriever.rag_retriever import build_rag_context
             rag_context = build_rag_context(
                 phase=context.current_phase.name if context.current_phase else "RECON",
-                discoveries=context.discoveries,
-                target=context.target,
-                max_snippets=3,
+                evidence=context.discoveries if isinstance(context.discoveries, dict) else {},
+                recent_commands=context.command_history[-5:] if hasattr(context, 'command_history') and context.command_history else None,
+                top_k=5,
             )
             if rag_context:
                 lines.append(rag_context)
@@ -729,7 +729,7 @@ After ANY shell, read the flag file FIRST.
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "max_tokens": 500,
+                    "max_tokens": 1024,  # Phase 56: generous ceiling — thinking model
                     "temperature": self.temperature,
                 }
 
@@ -960,13 +960,11 @@ class DualMentor:
     """
     Dual-mentor system that leverages both GPT and a secondary LLM for command generation.
     
-    Phase 43: Secondary provider is local GPU LLM (replaces Venice AI).
-    Falls back to Venice if local LLM is not available.
+    Phase 43: Secondary provider is local GPU LLM.
     
     Strategies:
     - gpt_first: Use GPT, fallback to secondary on error
     - local_first: Use local LLM, fallback to GPT on error (Phase 43)
-    - venice_first: Alias for local_first (backward compat)
     - round_robin: Alternate between GPT and secondary
     - parallel: Query both, choose best by confidence
     - consensus: Query both, require agreement or escalate
@@ -1008,13 +1006,13 @@ class DualMentor:
             secondary_model: Phase 43: Explicit secondary model name (overrides venice_model)
         """
         self.learned_store = learned_store or get_learned_store()
-        # Phase 43: Normalize strategy — venice_first → local_first
+        # Normalize strategy
         if strategy == "venice_first":
             strategy = "local_first"
         self.strategy = strategy
         self._call_count = 0
         
-        # Phase 43: secondary_client takes priority over venice_client
+        # secondary_client takes priority over venice_client (legacy param)
         _sec_client = secondary_client if secondary_client is not None else venice_client
         _sec_model = secondary_model if secondary_model is not None else venice_model
         
@@ -1027,7 +1025,7 @@ class DualMentor:
             max_retries=max_retries
         ) if gpt_client else None
         
-        # Initialize secondary mentor (local LLM or Venice)
+        # Initialize secondary mentor
         self.secondary_mentor = SmartMentor(
             llm_client=_sec_client,
             learned_store=self.learned_store,
@@ -1035,9 +1033,6 @@ class DualMentor:
             temperature=temperature + 0.1,  # Secondary slightly more creative
             max_retries=max_retries
         ) if _sec_client else None
-        
-        # Backward compat: expose as venice_mentor
-        self.venice_mentor = self.secondary_mentor
         
         self._has_both = self.gpt_mentor is not None and self.secondary_mentor is not None
         
@@ -1058,7 +1053,7 @@ class DualMentor:
         if not self._has_both:
             return "gpt" if self.gpt_mentor else "secondary"
         
-        if self.strategy in ("local_first", "venice_first"):
+        if self.strategy == "local_first":
             return "secondary"
         elif self.strategy == "round_robin":
             self._call_count += 1
@@ -1308,43 +1303,3 @@ def create_smart_mentor(
     )
 
 
-def create_dual_mentor(
-    gpt_client: Any,
-    venice_client: Optional[Any] = None,
-    gpt_model: str = "local-llm",  # Phase 12.1: full reasoning model
-    venice_model: str = "qwen3-coder-480b-a35b-instruct",
-    strategy: str = "gpt_first",
-    temperature: float = 0.7,
-    *,
-    secondary_client: Optional[Any] = None,
-    secondary_model: Optional[str] = None,
-) -> DualMentor:
-    """
-    Factory function to create a DualMentor.
-    
-    Phase 43: Supports secondary_client (local LLM) as explicit override.
-    venice_client/venice_model still accepted for backward compat.
-    
-    Args:
-        gpt_client: OpenAI client for GPT
-        venice_client: OpenAI-compatible client for secondary provider (legacy name)
-        gpt_model: GPT model to use
-        venice_model: Secondary model (legacy name)
-        strategy: Mentor selection strategy (gpt_first, local_first, round_robin, parallel, consensus)
-        temperature: Sampling temperature
-        secondary_client: Phase 43: Explicit secondary client (overrides venice_client)
-        secondary_model: Phase 43: Explicit secondary model name (overrides venice_model)
-        
-    Returns:
-        Configured DualMentor instance
-    """
-    return DualMentor(
-        gpt_client=gpt_client,
-        venice_client=venice_client,
-        gpt_model=gpt_model,
-        venice_model=venice_model,
-        strategy=strategy,
-        temperature=temperature,
-        secondary_client=secondary_client,
-        secondary_model=secondary_model,
-    )

@@ -1,0 +1,75 @@
+# QLoRA Fine-tuning Config for Qwen3.5-4B Uncensored (text backbone)
+# Source: Qwen/Qwen3.5-4B VLM → extract text-only CausalLM → fine-tune
+# Same model as jaahas/qwen3.5-uncensored:4b used in Ariaska
+# Target: CPU inference via GGUF Q6_K after training
+# GPU: RTX 5060 Ti 16GB
+
+model:
+  name: "Qwen/Qwen3.5-4B"               # VLM — script extracts text backbone
+  torch_dtype: "bfloat16"
+  trust_remote_code: true
+  attn_implementation: "sdpa"
+
+# QLoRA configuration
+qlora:
+  r: 64                             # LoRA rank — 64 for 4B model
+  lora_alpha: 128                   # alpha = 2*r (standard scaling)
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  quantization:
+    load_in_4bit: true
+    bnb_4bit_compute_dtype: "bfloat16"
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_use_double_quant: true
+
+# SFT Training
+training:
+  output_dir: "/root/ariaska_finetune/outputs/qwen3-4b-ariaska"
+  num_train_epochs: 3
+  per_device_train_batch_size: 1     # 16GB VRAM — 248K vocab needs small batch
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16    # effective batch = 16
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  max_seq_length: 1024               # 248K vocab — 2048 OOMs on 16GB
+  packing: true                      # pack short sequences
+  logging_steps: 10
+  save_strategy: "steps"
+  save_steps: 500
+  eval_strategy: "steps"
+  eval_steps: 500
+  save_total_limit: 2
+  fp16: false
+  bf16: true
+  gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  dataloader_num_workers: 2
+  seed: 42
+  report_to: "none"
+
+# Dataset (V2 — high-quality extraction with 9 task families)
+dataset:
+  train_file: "/root/ariaska_finetune/dataset/v2/train.jsonl"
+  eval_file: "/root/ariaska_finetune/dataset/v2/val.jsonl"
+  chat_template: "qwen"             # Use Qwen's native chat template
+
+# GGUF Export
+export:
+  merge_adapters: true               # Merge LoRA into base before export
+  gguf_quantizations:
+    - "Q6_K"                         # Primary: high quality for CPU
+    - "Q8_0"                         # Maximum quality comparison
+  output_dir: "/root/ariaska_finetune/outputs/gguf"

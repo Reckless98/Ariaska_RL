@@ -582,18 +582,6 @@ class GPTManager:
             return True
         return response.startswith(GPTManager.OFFLINE_SENTINEL) or response.startswith("Offline mode:")
 
-    def has_venice(self) -> bool:
-        """Venice AI removed — always returns False."""
-        return False
-
-    def has_secondary_provider(self) -> bool:
-        """All inference is local — no secondary provider needed."""
-        return False
-
-    def get_next_mentor_provider(self) -> str:
-        """All mentoring goes through local LLM."""
-        return "local"
-
     def get_mentor_clients(self) -> Dict[str, Any]:
         """Get mentor client — local LLM only."""
         result: Dict[str, Any] = {
@@ -882,6 +870,7 @@ class GPTManager:
             "mini": 1500,   # Phase 36: +67% for richer parsing output
             "codex": 2000,  # Phase 36: +67% for deeper reasoning chains
             "full": 1200,   # Phase 36: +33%
+            "local": 2048,  # Phase 56: local LLM — no cost, generous for thinking
         }
         from core.llm.budget_manager import _MODEL_TIER as _tier_map
         _tier = _tier_map.get(model, "mini")
@@ -895,6 +884,7 @@ class GPTManager:
             "mini": 10_000,  # Phase 36: +67% for richer context
             "codex": 20_000, # Phase 36: +67% for full attack context
             "full": 10_000,  # Phase 36: +67%
+            "local": 12_000, # Phase 56: local LLM — 4096 ctx, generous input
         }
         _input_cap = _TIER_INPUT_CAPS.get(_tier, 6_000)
         _char_limit = _input_cap * 4  # rough chars-to-tokens
@@ -1055,6 +1045,12 @@ class GPTManager:
             # Extract content from LLMResponse
             content = getattr(response, "text", getattr(response, "content", "")).strip()
             
+            # Phase 55: Strip <think>...</think> tags from local Qwen models.
+            # Qwen3.5 emits empty or populated think blocks even with /no_think.
+            if content and "<think>" in content:
+                import re
+                content = re.sub(r"<think>.*?</think>\s*", "", content, flags=re.DOTALL).strip()
+            
             _track_model = getattr(response, "model", model)
             
             if not content:
@@ -1188,14 +1184,76 @@ class GPTManager:
         
         return self.gpt_request(prompt, "tactical", agent_id, max_tokens=50)
     
-    def dual_llm_feedback(self, prompt: str, agent_id: str = "unknown", 
+    def dual_llm_feedback(self, prompt: str, agent_id: str = "unknown",
                          task_type: str = "tactical") -> str:
         """
         Simplified dual feedback — routes through standard model routing.
         This maintains API compatibility with old dual_llm_feedback calls
         """
         return self.gpt_request(prompt, task_type, agent_id)
-    
+
+    # ── Phase 56: Batch LLM calls ───────────────────────────────────
+
+    def batch_request(
+        self,
+        queries: List[Dict[str, Any]],
+        max_workers: int = 3,
+    ) -> List[str]:
+        """Execute multiple LLM queries in parallel.
+
+        Each query dict must have at minimum ``prompt`` and ``agent_id``.
+        Optional keys: ``task_type``, ``max_tokens``, ``system_prompt``,
+        ``response_format``.
+
+        Returns results in the same order as the input queries.
+
+        Args:
+            queries: List of query dicts with prompt + metadata.
+            max_workers: Max concurrent LLM calls (default 3 for Ollama).
+        """
+        import concurrent.futures
+
+        if not queries:
+            return []
+
+        # Single query — skip thread overhead
+        if len(queries) == 1:
+            q = queries[0]
+            return [self.gpt_request(
+                prompt=q["prompt"],
+                task_type=q.get("task_type", "general"),
+                agent_id=q.get("agent_id", "batch"),
+                max_tokens=q.get("max_tokens", 150),
+                system_prompt=q.get("system_prompt"),
+                response_format=q.get("response_format"),
+            )]
+
+        # Submit all queries to a thread pool
+        results: List[Optional[str]] = [None] * len(queries)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_to_idx: Dict[concurrent.futures.Future, int] = {}
+            for idx, q in enumerate(queries):
+                fut = pool.submit(
+                    self.gpt_request,
+                    prompt=q["prompt"],
+                    task_type=q.get("task_type", "general"),
+                    agent_id=q.get("agent_id", "batch"),
+                    max_tokens=q.get("max_tokens", 150),
+                    system_prompt=q.get("system_prompt"),
+                    response_format=q.get("response_format"),
+                )
+                future_to_idx[fut] = idx
+
+            for fut in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[fut]
+                try:
+                    results[idx] = fut.result(timeout=60)
+                except Exception as e:
+                    logger.warning(f"Batch query {idx} failed: {e}")
+                    results[idx] = f"echo 'batch query {idx} failed'"
+
+        return [r or "echo 'no response'" for r in results]
+
     def get_token_usage(self) -> int:
         """Get current token usage for this episode"""
         return self.tokens_used

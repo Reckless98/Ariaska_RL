@@ -73,53 +73,42 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
             
             # Process based on directive type
             directive_type_lower = directive_type.lower()
-            
-            if "strategic_review" in directive_type_lower:
-                # Trigger immediate strategic review
+
+            def _env_context():
                 env_state = {}
                 if self.red_agent and hasattr(self.red_agent, "env"):
                     env_state = self.red_agent.env.get_global_state()
-                context = self._gather_context(env_state)
-                review = self.perform_strategic_review(context)
-                processing_result["action_taken"] = f"Performed strategic review: {review[:100]}..."
-                
-            elif "tactical_review" in directive_type_lower:
-                # Trigger immediate tactical review
-                env_state = {}
-                if self.red_agent and hasattr(self.red_agent, "env"):
-                    env_state = self.red_agent.env.get_global_state()
-                context = self._gather_context(env_state)
-                review = self.perform_tactical_review(context)
-                processing_result["action_taken"] = f"Performed tactical review: {review[:100]}..."
-                
-            elif "adjust_parameters" in directive_type_lower:
-                # Adjust agent parameters
-                env_state = {}
-                if self.red_agent and hasattr(self.red_agent, "env"):
-                    env_state = self.red_agent.env.get_global_state()
-                context = self._gather_context(env_state)
-                adjustments = self.adjust_agent_parameters(context)
-                processing_result["action_taken"] = f"Adjusted parameters: {adjustments}"
-                
+                return self._gather_context(env_state)
+
+            DIRECTIVE_HANDLERS = {
+                "strategic_review": lambda: (
+                    f"Performed strategic review: {self.perform_strategic_review(_env_context())[:100]}..."
+                ),
+                "tactical_review": lambda: (
+                    f"Performed tactical review: {self.perform_tactical_review(_env_context())[:100]}..."
+                ),
+                "adjust_parameters": lambda: (
+                    f"Adjusted parameters: {self.adjust_agent_parameters(_env_context())}"
+                ),
+                "generate_chain": lambda: self._handle_generate_chain(_env_context()),
+            }
+
+            # Match directive to handler
+            handler = None
+            for key, fn in DIRECTIVE_HANDLERS.items():
+                if key in directive_type_lower:
+                    handler = fn
+                    break
+
+            if handler is not None:
+                processing_result["action_taken"] = handler()
             elif "change_strategy" in directive_type_lower:
-                # Change global strategy
                 new_strategy = parameters.get("strategy", "balanced")
                 if new_strategy in ["balanced", "aggressive", "stealth"]:
                     self.global_strategy = new_strategy
                     processing_result["action_taken"] = f"Changed global strategy to: {new_strategy}"
                 else:
                     processing_result["action_taken"] = f"Invalid strategy requested: {new_strategy}"
-                    
-            elif "generate_chain" in directive_type_lower:
-                # Generate new action chain
-                env_state = {}
-                if self.red_agent and hasattr(self.red_agent, "env"):
-                    env_state = self.red_agent.env.get_global_state()
-                context = self._gather_context(env_state)
-                chain = self.generate_action_chain(context)
-                self.current_chain = chain
-                processing_result["action_taken"] = f"Generated action chain with {len(chain)} commands"
-                
             else:
                 processing_result["action_taken"] = f"Acknowledged unknown directive type: {directive_type}"
             
@@ -697,6 +686,12 @@ class OrionAgent(AgentInterface, MemorySyncInterface):
         }
 
         return context
+
+    def _handle_generate_chain(self, context: Dict[str, Any]) -> str:
+        """Generate a new action chain and store it."""
+        chain = self.generate_action_chain(context)
+        self.current_chain = chain
+        return f"Generated action chain with {len(chain)} commands"
 
     def perform_strategic_review(self, context: Dict[str, Any]) -> str:
         """

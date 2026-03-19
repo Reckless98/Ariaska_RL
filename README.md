@@ -1838,9 +1838,110 @@ response = openai.chat.completions.create(...)
 
 ---
 
+---
+
+## Phase 56 — Custom Fine-Tuned LLM (`ariaska-cybersec`)
+
+### Training Pipeline
+
+Ariaska now ships with a fully custom fine-tuned model built from Qwen 3.5 4B via a 5-stage pipeline:
+
+1. **CPT (Continued Pretraining)** — 95K cybersecurity corpus documents injected as domain knowledge (QLoRA r=16, 1 epoch)
+2. **SFT (Supervised Fine-Tuning)** — 34K samples across 9 task families: `command_validate`, `evidence_check`, `next_step`, `phase_classification`, `postmortem`, `retrieval_reasoning`, `retry_or_pivot`, `state_summary`, `tool_output_parse` (QLoRA r=32, 2 epochs, NEFTune alpha=5.0)
+3. **DPO (Direct Preference Optimization)** — 1,795 preference pairs from high/low reward traces (QLoRA r=8, beta=0.1)
+4. **Merge + GGUF Export** — Adapters merged into FP16 base, exported as Q8_0 and Q6_K for Ollama deployment
+5. **Knowledge Distillation** — Fine-tuned Qwen 3.5 9B teacher generates expert responses, 4B student learns from teacher's reasoning
+
+### FAISS RAG Retriever
+
+All LLM calls now include phase-aware retrieval-augmented context from prior traces and postmortems:
+
+- **SmartMentor** (`core/llm/smart_mentor.py`) — FAISS RAG injected at prompt construction (top_k=5)
+- **SmartCoach** (`core/training/smart_coach.py`) — FAISS RAG at 3 decision sites: mentor reasoning, tactical stagnation, strategic repair (top_k=3)
+- **Index**: `ariaska_ai/retriever/rag_retriever.py` — all-MiniLM-L6-v2 embeddings, ~50-200ms per retrieval, zero LLM cost
+
+### Model Router
+
+Unified model routing — all 3 tiers (System1-fast, System2-balanced, System3-deep) now point to `ariaska-cybersec`:
+
+```python
+_DEFAULT_MODEL = "ariaska-cybersec"
+FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", _DEFAULT_MODEL)
+MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", _DEFAULT_MODEL)
+REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", _DEFAULT_MODEL)
+```
+
+Override per-tier via environment variables for A/B testing.
+
+### Deployment
+
+```bash
+# Register in Ollama (laptop CPU inference)
+ollama create ariaska-cybersec -f Modelfile_ariaska_cybersec
+```
+
+### Training Reproduction
+
+```bash
+# On GPU server (2x RTX 5070 Ti or equivalent)
+python3 ariaska_ai/scripts/train_ariaska_v3.py          # CPT + SFT + merge
+python3 ariaska_ai/scripts/train_ariaska_v3.py --stage dpo  # DPO alignment
+python3 ariaska_ai/scripts/train_ariaska_v3.py --distill    # 9B→4B distillation
+```
+
+### Evaluation
+
+```bash
+python3 ariaska_ai/scripts/evaluate.py \
+  --baseline jaahas/qwen3.5-uncensored:4b \
+  --finetuned ariaska-cybersec
+```
+
+Evaluates on V3 holdout set (9 task families): JSON parse rate, phase accuracy, command quality, reasoning F1.
+
+---
+
+### Phase 56: Multi-Agent Orchestration Overhaul
+
+Rewrote the agent execution engine from sequential dispatch to dependency-aware parallel execution with inter-agent communication.
+
+**Async Agent Dispatch** (`core/orchestration/orchestrator.py`):
+- Dependency graph determines execution waves: Scout+Blue (parallel) → Red → Orion → Shadow
+- `ThreadPoolExecutor` runs agents within each wave concurrently
+- Fault-tolerant: failed agents return noop results, pipeline continues
+- 2-3x speedup on multi-agent steps (2 LLM calls instead of 5 sequential)
+
+**Inter-Agent Message Bus** (`core/orchestration/agent_bus.py`):
+- 8 message types: REQUEST_RECON, EXPLOIT_RESULT, DEFENSE_ALERT, STRATEGY_UPDATE, MEMORY_INSIGHT, PHASE_SUGGESTION, DISCOVERY, COORDINATION
+- Messages injected into each agent's prompt context before proposal
+- Agents share discoveries and coordinate tactics without orchestrator mediation
+- Bus cleared between episodes
+
+**Dynamic Agent Selection**:
+- Phase-aware agent activation (not all 5 agents every step)
+- RECON: Scout+Red+Blue+Orion. EXPLOITATION: Red+Blue+Shadow+Orion. PRIVESC+: all five
+- Detection risk and bus messages can pull agents back into active set
+- Reduces unnecessary LLM calls by 20-40% in exploitation phases
+
+**LLM-Enhanced Output Parsing** (`core/orchestration/output_parser.py`):
+- `parse_with_llm()` supplements 15+ compiled regex patterns with semantic LLM extraction
+- LLM only called when output is substantial but regex found few discoveries
+- Structured JSON extraction for 13 discovery types with safe merge
+
+**Batch LLM Calls** (`core/gpt_manager.py`):
+- `batch_request()` runs multiple LLM queries in parallel via ThreadPoolExecutor
+- Configurable max_workers (default 3 for Ollama)
+- Results returned in input order with graceful per-query fallback
+
+**Phase Guidance Integration**:
+- Inter-agent bus messages now feed into PhaseGuidedLLM prompts
+- Phase decisions account for multi-agent context (exploit results, defense alerts)
+
+---
+
 <p align="center">
   <strong>Author:</strong> Filip Volf<br/>
   <strong>Python:</strong> 3.11+ (developed on 3.13)<br/>
   <strong>License:</strong> Private<br/>
-  <strong>Current Phase:</strong> 43 — GPU Acceleration + Local LLM
+  <strong>Current Phase:</strong> 56 — Custom Fine-Tuned LLM + Multi-Agent Orchestration Overhaul
 </p>

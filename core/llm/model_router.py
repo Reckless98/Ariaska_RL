@@ -60,15 +60,12 @@ _SYSTEM3_TASKS = frozenset({
 
 # ── Local model names (Ollama) ──────────────────────────────────────────────
 
-FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", "jaahas/qwen3.5-uncensored:4b")
-MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", "jaahas/qwen3.5-uncensored:4b")
-# ARIASKA_ALL_4B=1 forces ALL tasks (including strategic/postmortem) to 4b
-# for maximum speed on CPU-only systems.
-_ALL_4B = os.getenv("ARIASKA_ALL_4B", "0").lower() in ("1", "true", "yes", "on")
-REASONING_MODEL = os.getenv(
-    "ARIASKA_REASONING_MODEL",
-    "jaahas/qwen3.5-uncensored:4b" if _ALL_4B else "jaahas/qwen3.5-uncensored:9b",
-)
+# Post-fine-tune: single model for all tiers — eliminates Ollama cold-load penalty.
+# Override via env vars if you want to test a different model on a specific tier.
+_DEFAULT_MODEL = "ariaska-cybersec"
+FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", _DEFAULT_MODEL)
+MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", _DEFAULT_MODEL)
+REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", _DEFAULT_MODEL)
 
 
 def classify_tier(model: str) -> str:

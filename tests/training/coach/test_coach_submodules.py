@@ -26,12 +26,12 @@ class TestSubmoduleDelegation:
         from core.testing.fake_gpt_manager import FakeGPTManager
         self.gpt = FakeGPTManager(seed=42)
 
-    def test_coach_has_anti_repeat_guard(self):
+    def test_coach_has_anti_repeat_config(self):
         from core.training.smart_coach import SmartCoach
-        from core.training.coach.anti_repeat import AntiRepeatGuard
+        from core.training.coach.anti_repeat import AntiRepeatConfig
         coach = SmartCoach("RedAgent", self.gpt)
-        assert hasattr(coach, '_anti_repeat_guard')
-        assert isinstance(coach._anti_repeat_guard, AntiRepeatGuard)
+        assert hasattr(coach, '_anti_repeat_config')
+        assert isinstance(coach._anti_repeat_config, AntiRepeatConfig)
 
     def test_coach_has_evidence_gate(self):
         from core.training.smart_coach import SmartCoach

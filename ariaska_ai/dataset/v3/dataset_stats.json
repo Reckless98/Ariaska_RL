@@ -1,0 +1,75 @@
+{
+  "version": "3.0",
+  "total_samples": 34317,
+  "train": 27453,
+  "val": 3432,
+  "holdout": 3432,
+  "dpo_pairs": 1795,
+  "cpt_documents": 95935,
+  "min_quality": 0.6,
+  "per_task": {
+    "command_validate": {
+      "total": 5000,
+      "real": 5000,
+      "knowledge": 0,
+      "synthetic": 0,
+      "avg_quality": 0.957
+    },
+    "evidence_check": {
+      "total": 5000,
+      "real": 1589,
+      "knowledge": 3238,
+      "synthetic": 173,
+      "avg_quality": 0.868
+    },
+    "next_step": {
+      "total": 5000,
+      "real": 4891,
+      "knowledge": 0,
+      "synthetic": 109,
+      "avg_quality": 0.874
+    },
+    "phase_classification": {
+      "total": 5000,
+      "real": 4819,
+      "knowledge": 0,
+      "synthetic": 181,
+      "avg_quality": 0.874
+    },
+    "postmortem": {
+      "total": 2192,
+      "real": 946,
+      "knowledge": 0,
+      "synthetic": 1246,
+      "avg_quality": 0.909
+    },
+    "retrieval_reasoning": {
+      "total": 2035,
+      "real": 0,
+      "knowledge": 436,
+      "synthetic": 1599,
+      "avg_quality": 0.913
+    },
+    "retry_or_pivot": {
+      "total": 2190,
+      "real": 537,
+      "knowledge": 0,
+      "synthetic": 1653,
+      "avg_quality": 0.884
+    },
+    "state_summary": {
+      "total": 5000,
+      "real": 3364,
+      "knowledge": 0,
+      "synthetic": 1636,
+      "avg_quality": 0.787
+    },
+    "tool_output_parse": {
+      "total": 2900,
+      "real": 547,
+      "knowledge": 0,
+      "synthetic": 2353,
+      "avg_quality": 0.944
+    }
+  }
+}

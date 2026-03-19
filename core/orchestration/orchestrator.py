@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-core/orchestration/orchestrator.py — ARIASKA Multi-Agent Orchestrator v1.0
+core/orchestration/orchestrator.py — ARIASKA Multi-Agent Orchestrator v2.0
+
+Phase 56: Async dependency-aware agent dispatch, inter-agent message bus,
+dynamic agent selection, LLM-driven phase guidance.
 
 Coordinates all 5 agents (Scout, Red, Blue, Orion, Shadow) in a unified training loop.
 Each agent has its own ApprenticeCoach for GPT mentorship.
 """
+from __future__ import annotations
 
 import os
-import time
 import logging
 import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from core.gpt_manager import GPTManager
@@ -129,7 +133,21 @@ class Orchestrator:
         self.action_history: Dict[str, List[str]] = {}  # agent -> recent actions
         self.reward_history: List[float] = []  # recent rewards
         self.stuck_agents: set = set()  # agents currently in stuck state
-        
+
+        # Phase 56: Inter-agent message bus
+        from core.orchestration.agent_bus import AgentMessageBus
+        self.agent_bus = AgentMessageBus()
+
+        # Phase 56: Agent dependency graph for parallel dispatch
+        # Agents whose deps are empty can run in parallel
+        self.AGENT_DEPS: Dict[str, List[str]] = {
+            "ScoutAgent": [],                          # No deps — runs first wave
+            "BlueAgent": [],                           # No deps — runs first wave with Scout
+            "RedAgent": ["ScoutAgent"],                # Needs Scout's recon
+            "OrionAgent": ["RedAgent", "BlueAgent"],   # Needs attack+defense context
+            "ShadowAgent": ["OrionAgent"],             # Needs Orion's critique
+        }
+
         logger.info(f"Orchestrator initialized with {len(self.agents)} agents")
     
     def _init_agents(self):
@@ -273,7 +291,10 @@ class Orchestrator:
         self.action_history.clear()
         self.reward_history.clear()
         self.stuck_agents.clear()
-        
+
+        # Reset inter-agent message bus for new episode
+        self.agent_bus.clear_episode()
+
         # Reset environment
         state = self.env.reset()
         if not state:
@@ -319,107 +340,88 @@ class Orchestrator:
         state: Dict[str, Any],
         phase: str,
     ) -> Tuple[List[AgentStepResult], float, bool]:
-        """
-        Run a single step with all agents.
-        
+        """Run a single step with dependency-aware parallel agent dispatch.
+
+        Execution waves are determined by ``self.AGENT_DEPS``:
+          Wave 0: Scout + Blue (no deps)
+          Wave 1: Red (needs Scout)
+          Wave 2: Orion (needs Red + Blue)
+          Wave 3: Shadow (needs Orion)
+
+        Agents within the same wave run in parallel via a thread pool.
+        Inter-agent messages from ``self.agent_bus`` are injected into each
+        agent's enriched state before proposal.
+
         Returns:
             (agent_results, reward, done)
         """
-        from core.training.apprentice_coach import StepContext
-        from core.tracing import StepTrace
-        
-        agent_results: List[AgentStepResult] = []
-        
-        # Build context
+        from core.orchestration.agent_bus import AgentMessage  # noqa: F811
+
+        # ── Shared context ───────────────────────────────────────────
         target_ip = state.get("target_ip", "10.10.10.10") if isinstance(state, dict) else "10.10.10.10"
         open_ports = state.get("open_ports", []) if isinstance(state, dict) else []
         detection_risk = state.get("detection_risk", 0.0) if isinstance(state, dict) else 0.0
         blue_alert = state.get("blue_team_alert", 0.0) if isinstance(state, dict) else 0.0
-        history = state.get("history", []) if isinstance(state, dict) else []
-        
-        # Compute state digest (small hash)
+
         state_str = str(sorted(state.items())) if isinstance(state, dict) else str(state)
         state_digest = hashlib.md5(state_str.encode()).hexdigest()[:8]
-        
-        # Actions to execute (Red + Blue)
-        red_action = None
-        blue_action = None
-        
-        # Process each agent in order
-        for agent_name in self.AGENT_ORDER:
-            if agent_name not in self.agents or agent_name not in self.coaches:
-                continue
-            
-            agent = self.agents[agent_name]
-            coach = self.coaches[agent_name]
-            
-            # Check if agent is stuck (repeated actions)
-            is_stuck = self._check_if_stuck(agent_name)
-            force_mentor = is_stuck and self.config.stuck_force_mentor
-            
-            # Get agent's command history for anti-loop logic
-            agent_cmd_history = self.action_history.get(agent_name, [])
-            
-            # Inject command history into state so coach can see what was tried
-            enriched_state = dict(state) if isinstance(state, dict) else {}
-            enriched_state["command_history"] = agent_cmd_history[-15:]
-            if agent_cmd_history:
-                enriched_state["last_command"] = agent_cmd_history[-1]
-            
-            # Build step context
-            ctx = StepContext(
-                episode=self.current_episode,
+
+        # ── Dynamic agent selection ──────────────────────────────────
+        active_agents = self._select_active_agents(state, phase, step)
+
+        # ── Build dependency waves ───────────────────────────────────
+        waves = self._build_dispatch_waves(active_agents)
+
+        # ── Execute waves ────────────────────────────────────────────
+        agent_results: List[AgentStepResult] = []
+        red_action: Optional[str] = None
+        blue_action: Optional[str] = None
+
+        for wave in waves:
+            wave_results = self._execute_wave(
+                wave=wave,
                 step=step,
+                state=state,
                 phase=phase,
-                state=enriched_state,
-                agent_name=agent_name,
-                history=agent_cmd_history[-5:],  # Use AGENT's history, not global
                 target_ip=target_ip,
                 open_ports=open_ports,
                 detection_risk=detection_risk,
-                blue_alert_level=blue_alert,
+                blue_alert=blue_alert,
             )
-            
-            # Get agent's proposed action
-            proposed_action, confidence = self._get_agent_proposal(agent, state, phase)
-            
-            # Force low confidence if stuck to trigger mentor
-            if force_mentor:
-                confidence = 0.1  # Force mentor call
-            
-            # Consult coach
-            decision = coach.decide(ctx, proposed_action, confidence)
-            
-            # Track action for stuck detection
-            self._record_action(agent_name, decision.chosen_action)
-            
-            # Record result
-            result = AgentStepResult(
-                agent_name=agent_name,
-                proposed_action=proposed_action,
-                chosen_action=decision.chosen_action,
-                mentor_call=decision.mentor_call,
-                model_used=decision.model_used,
-                mentor_guidance=decision.mentor_guidance,
-                mentor_delta=decision.mentor_delta,
-                confidence=decision.confidence,
-                skill_ids=[s.get("id", "") for s in decision.skill_cards],
-            )
-            agent_results.append(result)
-            
-            # Collect executable actions
-            if agent_name == "RedAgent":
-                red_action = decision.chosen_action
-            elif agent_name == "BlueAgent":
-                blue_action = decision.chosen_action
-        
-        # Execute environment step with Red + Blue actions
+            for result in wave_results:
+                agent_results.append(result)
+                # Collect executable actions
+                if result.agent_name == "RedAgent":
+                    red_action = result.chosen_action
+                elif result.agent_name == "BlueAgent":
+                    blue_action = result.chosen_action
+
+                # Post discoveries to agent bus for downstream agents
+                self.agent_bus.send(AgentMessage(
+                    sender=result.agent_name,
+                    receiver="ALL",
+                    msg_type="DISCOVERY",
+                    content=result.chosen_action,
+                    step=step,
+                    priority=1 if result.mentor_call else 0,
+                ))
+
+        # ── Execute environment step ─────────────────────────────────
         env_reward, done = self._execute_env_step(red_action, blue_action)
-        
-        # Record reward for stuck detection
         self.record_step_reward(env_reward)
-        
-        # Log traces for all agents
+
+        # ── Broadcast reward to bus ──────────────────────────────────
+        if env_reward != 0:
+            self.agent_bus.send(AgentMessage(
+                sender="Orchestrator",
+                receiver="ALL",
+                msg_type="STRATEGY_UPDATE",
+                content=f"Step {step} reward={env_reward:.2f}, done={done}",
+                step=step,
+                priority=2,
+            ))
+
+        # ── Log traces ───────────────────────────────────────────────
         for result in agent_results:
             self._log_step_trace(
                 episode_id=episode_id,
@@ -430,8 +432,224 @@ class Orchestrator:
                 done=done,
                 state_digest=state_digest,
             )
-        
+
         return agent_results, env_reward, done
+
+    # ── Parallel dispatch internals ──────────────────────────────────
+
+    def _build_dispatch_waves(
+        self, active_agents: List[str],
+    ) -> List[List[str]]:
+        """Build ordered waves from dependency graph.
+
+        Returns a list of waves, where each wave is a list of agent names
+        that can run concurrently.
+        """
+        remaining = set(active_agents)
+        completed: set[str] = set()
+        waves: List[List[str]] = []
+
+        while remaining:
+            # Find agents whose deps are all completed (or not active)
+            wave = [
+                a for a in remaining
+                if all(
+                    d in completed or d not in remaining
+                    for d in self.AGENT_DEPS.get(a, [])
+                )
+            ]
+            if not wave:
+                # Circular dep or orphan — force remaining into final wave
+                wave = list(remaining)
+            waves.append(wave)
+            completed.update(wave)
+            remaining -= set(wave)
+
+        return waves
+
+    def _execute_wave(
+        self,
+        wave: List[str],
+        step: int,
+        state: Dict[str, Any],
+        phase: str,
+        target_ip: str,
+        open_ports: list,
+        detection_risk: float,
+        blue_alert: float,
+    ) -> List[AgentStepResult]:
+        """Execute a wave of agents in parallel."""
+        if len(wave) == 1:
+            # Single agent — skip thread overhead
+            return [self._run_single_agent(
+                wave[0], step, state, phase,
+                target_ip, open_ports, detection_risk, blue_alert,
+            )]
+
+        results: List[AgentStepResult] = []
+        with ThreadPoolExecutor(max_workers=len(wave), thread_name_prefix="agent") as pool:
+            futures: Dict[Future, str] = {}
+            for agent_name in wave:
+                fut = pool.submit(
+                    self._run_single_agent,
+                    agent_name, step, state, phase,
+                    target_ip, open_ports, detection_risk, blue_alert,
+                )
+                futures[fut] = agent_name
+
+            for fut in as_completed(futures):
+                agent_name = futures[fut]
+                try:
+                    result = fut.result(timeout=30)
+                    results.append(result)
+                except Exception as e:
+                    logger.error(f"Agent {agent_name} failed in wave: {e}")
+                    # Return a noop result so the pipeline continues
+                    results.append(AgentStepResult(
+                        agent_name=agent_name,
+                        proposed_action="noop",
+                        chosen_action="noop",
+                        mentor_call=False,
+                        model_used=None,
+                        mentor_guidance=None,
+                        mentor_delta="unchanged",
+                        confidence=0.0,
+                        skill_ids=[],
+                    ))
+
+        # Sort by AGENT_ORDER to maintain deterministic result ordering
+        order_map = {name: i for i, name in enumerate(self.AGENT_ORDER)}
+        results.sort(key=lambda r: order_map.get(r.agent_name, 99))
+        return results
+
+    def _run_single_agent(
+        self,
+        agent_name: str,
+        step: int,
+        state: Dict[str, Any],
+        phase: str,
+        target_ip: str,
+        open_ports: list,
+        detection_risk: float,
+        blue_alert: float,
+    ) -> AgentStepResult:
+        """Run proposal + coach decision for a single agent."""
+        from core.training.apprentice_coach import StepContext
+
+        if agent_name not in self.agents or agent_name not in self.coaches:
+            return AgentStepResult(
+                agent_name=agent_name, proposed_action="noop",
+                chosen_action="noop", mentor_call=False, model_used=None,
+                mentor_guidance=None, mentor_delta="unchanged",
+                confidence=0.0, skill_ids=[],
+            )
+
+        agent = self.agents[agent_name]
+        coach = self.coaches[agent_name]
+
+        is_stuck = self._check_if_stuck(agent_name)
+        force_mentor = is_stuck and self.config.stuck_force_mentor
+
+        agent_cmd_history = self.action_history.get(agent_name, [])
+
+        # ── Build enriched state with bus messages ────────────────
+        enriched_state = dict(state) if isinstance(state, dict) else {}
+        enriched_state["command_history"] = agent_cmd_history[-15:]
+        if agent_cmd_history:
+            enriched_state["last_command"] = agent_cmd_history[-1]
+
+        # Inject inter-agent messages from bus
+        bus_context = self.agent_bus.inject_into_prompt(
+            agent_name, since_step=max(0, step - 3),
+        )
+        if bus_context:
+            enriched_state["agent_comms"] = bus_context
+
+        ctx = StepContext(
+            episode=self.current_episode,
+            step=step,
+            phase=phase,
+            state=enriched_state,
+            agent_name=agent_name,
+            history=agent_cmd_history[-5:],
+            target_ip=target_ip,
+            open_ports=open_ports,
+            detection_risk=detection_risk,
+            blue_alert_level=blue_alert,
+        )
+
+        proposed_action, confidence = self._get_agent_proposal(agent, state, phase)
+
+        if force_mentor:
+            confidence = 0.1
+
+        decision = coach.decide(ctx, proposed_action, confidence)
+        self._record_action(agent_name, decision.chosen_action)
+
+        return AgentStepResult(
+            agent_name=agent_name,
+            proposed_action=proposed_action,
+            chosen_action=decision.chosen_action,
+            mentor_call=decision.mentor_call,
+            model_used=decision.model_used,
+            mentor_guidance=decision.mentor_guidance,
+            mentor_delta=decision.mentor_delta,
+            confidence=decision.confidence,
+            skill_ids=[s.get("id", "") for s in decision.skill_cards],
+        )
+
+    # ── Dynamic agent selection ──────────────────────────────────
+
+    def _select_active_agents(
+        self,
+        state: Dict[str, Any],
+        phase: str,
+        step: int,
+    ) -> List[str]:
+        """Decide which agents should participate this step.
+
+        Uses lightweight heuristics first, falls back to LLM for ambiguous
+        situations. Always includes at least RedAgent (executor).
+
+        Phase-aware defaults:
+          RECON/ENUMERATION: Scout + Red + Blue + Orion
+          EXPLOITATION:       Red + Blue + Shadow + Orion
+          PRIV_ESC+:          All five
+        """
+        available = [a for a in self.AGENT_ORDER if a in self.agents]
+
+        # Early steps: always all agents (exploration)
+        if step < 3:
+            return available
+
+        # Phase-based defaults
+        phase_lower = phase.lower() if phase else "recon"
+        if phase_lower in ("recon", "enumeration"):
+            defaults = {"ScoutAgent", "RedAgent", "BlueAgent", "OrionAgent"}
+        elif phase_lower in ("exploitation",):
+            defaults = {"RedAgent", "BlueAgent", "ShadowAgent", "OrionAgent"}
+        else:
+            # privilege_escalation, lateral_movement, post_exploitation, etc.
+            defaults = set(available)
+
+        # If detection risk is high, always include Blue + Shadow
+        det_risk = state.get("detection_risk", 0.0) if isinstance(state, dict) else 0.0
+        if det_risk > 0.5:
+            defaults.add("BlueAgent")
+            defaults.add("ShadowAgent")
+
+        # Check bus for phase suggestions — if any agent requested recon, include Scout
+        phase_suggestions = self.agent_bus.get_messages_for(
+            "OrionAgent", since_step=max(0, step - 2),
+            msg_types=frozenset({"PHASE_SUGGESTION", "REQUEST_RECON"}),
+        )
+        if phase_suggestions:
+            defaults.add("ScoutAgent")
+
+        # Always include Red (executor)
+        defaults.add("RedAgent")
+
+        return [a for a in available if a in defaults]
     
     def _get_agent_proposal(
         self,
@@ -516,6 +734,10 @@ class Orchestrator:
                     reward = result.get("reward", 0.0)
                     done = result.get("done", False)
                 else:
+                    logger.warning(
+                        "env.step() returned unexpected type %s; defaulting reward=0.0, done=False",
+                        type(result).__name__,
+                    )
                     reward = 0.0
                     done = False
                 

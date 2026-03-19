@@ -1,14 +1,20 @@
 """Output Parser — standalone discovery extraction from command output.
 
 Phase 41: Extracted parsing logic from SmartOrchestrator._parse_output_for_discoveries.
+Phase 56: Added LLM-enhanced semantic parsing alongside regex extraction.
+
 These are stateless utility functions that can be used independently.
 """
 from __future__ import annotations
 
+import json
 import re
 import logging
-from typing import Dict, Any, List, Set, Optional, Tuple
+from typing import Dict, Any, List, Set, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
+
+if TYPE_CHECKING:
+    from core.gpt_manager import GPTManager
 
 logger = logging.getLogger("ariaska.orchestration.output_parser")
 
@@ -331,3 +337,165 @@ def parse_all(output: str) -> DiscoveryResult:
         smb_shares=parse_smb_shares(output),
         databases=parse_databases(output),
     )
+
+
+# ── LLM-enhanced semantic parsing ───────────────────────────────────────
+
+_LLM_PARSE_PROMPT = """Extract ALL security-relevant discoveries from this tool output.
+Return ONLY valid JSON with these keys (empty lists/sets if nothing found):
+{{
+  "ports": [int],
+  "services": ["str"],
+  "credentials": [["user", "pass"]],
+  "users": ["str"],
+  "vulns": ["str"],
+  "web_paths": ["/path"],
+  "cves": ["CVE-XXXX-XXXXX"],
+  "hashes": ["hash"],
+  "shell_type": null or "shell" or "root_shell",
+  "capabilities": ["/path=cap"],
+  "smb_shares": ["share"],
+  "databases": ["db"],
+  "flags": ["flag"],
+  "insights": ["one-line tactical insight"]
+}}
+
+Command: {command}
+Output (truncated to 2000 chars):
+{output}"""
+
+
+def parse_with_llm(
+    output: str,
+    command: str,
+    gpt_manager: GPTManager,
+    agent_id: str = "OutputParser",
+) -> DiscoveryResult:
+    """Parse output using regex first, then supplement with LLM for semantic extraction.
+
+    The LLM is only called when the output is substantial (>200 chars) but regex
+    found few discoveries — suggesting complex or non-standard tool output.
+    """
+    # Always run regex first (fast path)
+    regex_result = parse_all(output)
+
+    # Gate LLM call: only for substantial outputs with few regex hits
+    if not output or len(output.strip()) < 200:
+        return regex_result
+    if regex_result.total_count >= 5:
+        return regex_result  # regex already found plenty
+
+    # Ask LLM for semantic extraction
+    try:
+        truncated = output[:2000]
+        prompt = _LLM_PARSE_PROMPT.format(command=command, output=truncated)
+        raw = gpt_manager.gpt_request(
+            prompt=prompt,
+            task_type="tool_output_parse",
+            agent_id=agent_id,
+            max_tokens=400,
+            response_format="json_object",
+        )
+        llm_discoveries = _parse_llm_json(raw)
+        return _merge_discoveries(regex_result, llm_discoveries)
+    except Exception as e:
+        logger.debug(f"LLM parse fallback failed: {e}")
+        return regex_result
+
+
+def _parse_llm_json(raw: str) -> Dict[str, Any]:
+    """Extract JSON from LLM response, handling markdown fences."""
+    text = raw.strip()
+    # Strip markdown code fences
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Try to find JSON object in the response
+        match = re.search(r"\{[\s\S]*\}", text)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                pass
+    return {}
+
+
+def _merge_discoveries(
+    regex: DiscoveryResult,
+    llm: Dict[str, Any],
+) -> DiscoveryResult:
+    """Merge LLM-extracted discoveries into the regex result."""
+    if not llm:
+        return regex
+
+    # Merge ports
+    for p in llm.get("ports", []):
+        if isinstance(p, int) and 1 <= p <= 65535:
+            regex.ports.add(p)
+
+    # Merge services
+    for s in llm.get("services", []):
+        if isinstance(s, str) and s:
+            regex.services.add(s.lower())
+
+    # Merge credentials
+    for cred in llm.get("credentials", []):
+        if isinstance(cred, (list, tuple)) and len(cred) >= 2:
+            pair = (str(cred[0]), str(cred[1]))
+            if pair not in regex.credentials:
+                regex.credentials.append(pair)
+
+    # Merge users
+    for u in llm.get("users", []):
+        if isinstance(u, str) and u:
+            regex.users.add(u)
+
+    # Merge vulns
+    for v in llm.get("vulns", []):
+        if isinstance(v, str) and v:
+            regex.vulns.add(v)
+
+    # Merge web_paths
+    for wp in llm.get("web_paths", []):
+        if isinstance(wp, str) and wp.startswith("/"):
+            regex.web_paths.add(wp)
+
+    # Merge CVEs
+    for cve in llm.get("cves", []):
+        if isinstance(cve, str) and cve.upper().startswith("CVE-"):
+            regex.cves.add(cve.upper())
+
+    # Merge hashes
+    for h in llm.get("hashes", []):
+        if isinstance(h, str) and len(h) >= 32:
+            regex.hashes.add(h)
+
+    # Merge shell detection
+    shell_type = llm.get("shell_type")
+    if shell_type in ("shell", "root_shell"):
+        regex.shells.add(shell_type)
+
+    # Merge capabilities
+    for cap in llm.get("capabilities", []):
+        if isinstance(cap, str):
+            regex.capabilities.add(cap)
+
+    # Merge SMB shares
+    for share in llm.get("smb_shares", []):
+        if isinstance(share, str):
+            regex.smb_shares.add(share)
+
+    # Merge databases
+    for db in llm.get("databases", []):
+        if isinstance(db, str):
+            regex.databases.add(db)
+
+    # Merge flags
+    for flag in llm.get("flags", []):
+        if isinstance(flag, str):
+            regex.flags.add(flag)
+
+    return regex
