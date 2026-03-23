@@ -1,1 +1,0 @@
-{"event_id": "0:0000:ScoutAgent", "agent": "ScoutAgent", "task_type": "tactical", "prompt_summary": "recon: analyze_environment", "mentor_guidance": "ACTION: nmap -p 2287,2521,4169,6816,9005,9355,9699 -oA nmap_scan | REASON: Comprehensive scan to identify open ports and services.", "model_used": "local-llm", "mentor_delta": "changed", "timestamp": 1773314552.5058956}

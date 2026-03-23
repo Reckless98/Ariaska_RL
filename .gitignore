@@ -99,3 +99,43 @@ data/knowledge_repos_snapshots/
 
 # Claude Code personal overrides
 .claude/settings.local.json
+
+# ── HuggingFace / large model artefacts ─────────────────────────────────────
+# Full model directories (pushed to HuggingFace, not needed in git)
+models/ariaska-*/
+models/enhanced/
+models/fp16/
+models/merged/
+
+# Partial / temp download files produced by HF hub or PEFT merge
+.*.RQOD*
+.*.GUPP*
+.*.tmp
+*.gguf.*
+*.safetensors.*
+
+# ── Training datasets (live on HuggingFace) ──────────────────────────────────
+ariaska_ai/dataset/
+ariaska_ai/memory_index/
+data/ariaska_schema_sft_v4.jsonl
+data/ariaska_schema_sft_*.jsonl
+
+# Large knowledge files already synced separately
+data/knowledge_base/
+data/knowledge_candidates_v2/
+data/knowledge_indices/
+data/kg_store/
+data/kg_snapshot.json
+
+# ── Runtime outputs (not needed in git) ──────────────────────────────────────
+artifacts/
+traces/
+postmortems/
+results/
+
+# SQLite WAL / SHM temp files
+*.db-shm
+*.db-wal
+
+# Shell typos / accident files
+leep*

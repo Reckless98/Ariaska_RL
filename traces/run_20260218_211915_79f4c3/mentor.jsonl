@@ -1,1 +1,0 @@
-{"event_id": "0:0000:ScoutAgent", "agent": "ScoutAgent", "task_type": "tactical", "prompt_summary": "recon: analyze_environment", "mentor_guidance": "nmap -sV -sC -p 118,366,1558,2242,4480,6300,7332,9989 109.19.47.128", "model_used": "gpt-5.2-codex", "mentor_delta": "kept", "timestamp": 1771445958.7265158}

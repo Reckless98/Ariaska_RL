@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 
 # ── LLM extraction constants ──────────────────────────────────────────
 LLM_PARSER_MODEL = "nano"
-_LLM_MAX_OUTPUT_CHARS = 1500  # Truncate STDOUT before sending to LLM
+_LLM_MAX_OUTPUT_CHARS = 1500      # Max chars for local 4B (fast, structured)
+_LLM_LONG_OUTPUT_THRESHOLD = 1500 # Outputs longer than this route to cloud 70B
+_LLM_CLOUD_MAX_CHARS = 12000      # Max chars for cloud 70B (handles web pages, linpeas)
 
 
 @dataclass
@@ -253,20 +255,37 @@ JSON:"""
     def _llm_extract(
         self, command: str, output: str, tool: str,
     ) -> Optional[ParsedOutput]:
-        """Use the local LLM to parse STDOUT into a ParsedOutput."""
+        """Use LLM to parse STDOUT into a ParsedOutput.
+
+        Smart routing (Phase 57):
+          - Short outputs (<=1500 chars): local 4B, fast classification
+          - Long outputs (>1500 chars): cloud 70B with more context
+            (web pages, linpeas, big scans lose critical info when truncated)
+        """
         if not self._gpt:
             return None
 
-        truncated = output[:_LLM_MAX_OUTPUT_CHARS]
+        is_long = len(output) > _LLM_LONG_OUTPUT_THRESHOLD
+        if is_long:
+            # Route to cloud 70B — can handle full web pages, linpeas reports
+            truncated = output[:_LLM_CLOUD_MAX_CHARS]
+            task_type = "strategic"   # model_router sends to cloud 70B
+            max_tokens = 600          # cloud can produce richer extraction
+        else:
+            # Route to local 4B — fast structured extraction
+            truncated = output[:_LLM_MAX_OUTPUT_CHARS]
+            task_type = "classification"  # model_router sends to local 4B
+            max_tokens = 300
+
         prompt = self._LLM_EXTRACTION_PROMPT.format(
             tool=tool, command=command, output=truncated,
         )
 
         response = self._gpt.gpt_request(
             prompt=prompt,
-            task_type="classification",
+            task_type=task_type,
             agent_id=f"output_parser_{tool}",
-            max_tokens=300,
+            max_tokens=max_tokens,
             model=LLM_PARSER_MODEL,
             temperature=0.1,
             system_prompt=self._LLM_SYSTEM_PROMPT,

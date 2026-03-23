@@ -172,8 +172,9 @@ DEFAULT_SOURCE_WEIGHTS: Dict[str, float] = {
     "skill": 0.50,        # Skill library replay
     "registry": 0.35,     # Generic registry match
     "reflex": 0.90,       # Hardcoded safety responses
-    "followup": 0.80,     # Queued follow-up commands
+    "followup": 0.30,     # Web path curl probes — LOW priority, must not override LLM/PPO
     "arbitrator": 0.70,   # Legacy arbitrator (if still used)
+    "strategic_advisor": 0.85,  # Cloud LLM strategic plans — high priority
 }
 
 
@@ -452,14 +453,34 @@ class DecisionCore:
         _is_rl = source in ("ppo", "sac", "cognition")
         _is_llm = source in (
             "mentor", "micro_chain", "phase_guided", "codex_meta",
+            "strategic_advisor",
         )
+        _is_rigid = source in ("followup", "playbook", "skill")
 
         if stagnation_steps <= 25:
-            return 0.7 if _is_rl else (1.2 if _is_llm else 1.0)
+            if _is_rl:
+                return 0.7
+            if _is_llm:
+                return 1.2
+            if _is_rigid:
+                return 0.6  # Penalize rigid queues when stagnating
+            return 1.0
         if stagnation_steps <= 50:
-            return 0.3 if _is_rl else (1.8 if _is_llm else 1.0)
+            if _is_rl:
+                return 0.3
+            if _is_llm:
+                return 1.8
+            if _is_rigid:
+                return 0.2  # Strong penalty — rigid queues causing stagnation
+            return 1.0
         # Emergency: 51+ steps stagnating
-        return 0.1 if _is_rl else (2.5 if _is_llm else 1.0)
+        if _is_rl:
+            return 0.1
+        if _is_llm:
+            return 2.5
+        if _is_rigid:
+            return 0.05  # Nearly silenced — let LLMs take over
+        return 1.0
 
     def _maturity_factor(self, source: str, maturity: float) -> float:
         """Compute maturity-dependent scaling factor for a source.
@@ -476,7 +497,8 @@ class DecisionCore:
             return 1.0 + maturity
 
         # Mentor/LLM sources: 1.0 → 0.2
-        if source in ("mentor", "micro_chain", "phase_guided", "codex_meta"):
+        if source in ("mentor", "micro_chain", "phase_guided", "codex_meta",
+                       "strategic_advisor"):
             return 1.0 - 0.8 * maturity
 
         # CognitionNode: 0.8 → 1.2 (grows slightly with data)

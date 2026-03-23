@@ -596,15 +596,15 @@ class PhaseGuidedLLM:
         # Phase 56: Include inter-agent comms if available
         comms_line = f"\nagent_comms={agent_comms[:200]}" if agent_comms else ""
 
+        # V2 opt: No /no_think — V2 trained with /think for better reasoning.
+        # Think tags stripped by GPTManager at line ~1070.
         prompt = (
-            "/no_think\n"
             f"phase={current_phase} inferred={inferred_phase} stagnation={stagnation_steps}\n"
             f"ports={ports} services={services} creds={creds} shells={shells}\n"
             f"templates={tmpl_names}{comms_line}\n"
-            "Should we STAY in current phase or ADVANCE? Suggest 3 candidate templates.\n"
-            "Reply ONLY JSON:\n"
-            '{"stay_or_advance":"stay|advance","reason":"why",'
-            '"candidates":["tmpl1","tmpl2","tmpl3"],"confidence":0.0-1.0}'
+            "Assess: should we STAY or ADVANCE? What 3 templates maximize progress from here?\n"
+            "Consider evidence quality, stagnation level, and what each template reveals.\n"
+            'JSON: {"stay_or_advance":"stay|advance","reason":"...","candidates":["t1","t2","t3"],"confidence":0.0-1.0}'
         )
 
         import time as _time
@@ -614,9 +614,9 @@ class PhaseGuidedLLM:
                 prompt=prompt,
                 task_type="classification",
                 agent_id=f"phase_guide_local_{agent_role}",
-                max_tokens=120,
+                max_tokens=300,  # V2 opt: headroom for <think> block + JSON output
                 model="local-llm",
-                timeout=30,
+                timeout=120,  # Iris XE hardware: ~3-4 tok/s, needs breathing room
             )
             _latency_ms = int((_time.monotonic() - _t0) * 1000)
             self._call_count += 1
@@ -694,7 +694,7 @@ class PhaseGuidedLLM:
                     "reasoning": reason[:200],
                     "confidence": confidence,
                     "latency_ms": _latency_ms,
-                    "model": "qwen3.5:4b",
+                    "model": os.getenv("ARIASKA_MEDIUM_MODEL", "ariaska-cybersec4"),
                 }
                 logger.info(
                     f"PG:local {stay_or_advance} conf={confidence:.2f} "

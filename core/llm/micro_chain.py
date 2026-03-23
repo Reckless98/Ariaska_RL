@@ -408,15 +408,16 @@ class MicroChain:
         recent = recent_commands[-5:] if recent_commands else []
         templates = available_templates[:10]
 
+        # V2 opt: No /no_think — V2 trained with /think for better JSON quality.
+        # Think tags stripped by GPTManager.
         prompt = (
-            "/no_think\n"
             f"phase={phase} role={agent_role} stagnation={stagnation_steps}\n"
             f"ports={ports} services={services} creds={creds}\n"
             f"recent={recent}\n"
             f"templates={templates}\n"
-            "Pick the BEST next command. Reply ONLY JSON:\n"
-            '{"command":"full command string","template_name":"from templates list",'
-            '"reasoning":"why this command","score":0.0-1.0}'
+            "Choose the single best command to advance the attack. Avoid repeating recent commands.\n"
+            "Think about what each template targets and which fills the biggest intelligence gap.\n"
+            'JSON: {"command":"full cmd","template_name":"from list","reasoning":"why","score":0.0-1.0}'
         )
         import time as _time
         _t0 = _time.monotonic()
@@ -425,9 +426,9 @@ class MicroChain:
                 prompt=prompt,
                 task_type="classification",
                 agent_id="micro_chain_local",
-                max_tokens=120,
+                max_tokens=512,  # P58: 300→512 — Qwen3.5 <think> blocks eat ~200 tokens before JSON
                 model="local-llm",
-                timeout=30,
+                timeout=120,  # Iris XE hardware: ~3-4 tok/s, needs breathing room
             )
             _latency_ms = int((_time.monotonic() - _t0) * 1000)
             parsed = _safe_json_load(response)
@@ -465,7 +466,7 @@ class MicroChain:
                     "reasoning": candidate.reasoning[:200],
                     "score": score,
                     "latency_ms": _latency_ms,
-                    "model": "qwen3.5:4b",
+                    "model": os.getenv("ARIASKA_FAST_MODEL", "ariaska-cybersec4"),
                 }
                 logger.info(
                     f"MC:local {candidate.command[:50]} score={score:.2f} "

@@ -515,10 +515,63 @@ class SACAgent:
         self._update_count = checkpoint.get("update_count", 0)
         logger.info(f"SAC model loaded from {path} (step={self._step_count}, updates={self._update_count})")
     
+    def get_confidence_signal(
+        self, state: torch.Tensor, ppo_action: int
+    ) -> Dict[str, float]:
+        """Get cross-algorithm confidence metrics for PPO-SAC coordination.
+
+        Computes how much SAC's independent value estimate agrees with PPO's
+        chosen action.  High disagreement = uncertain state → explore more.
+
+        Args:
+            state: Current state tensor [state_dim] or [1, state_dim].
+            ppo_action: Action index PPO selected.
+
+        Returns:
+            agreement: Probability SAC assigns to PPO's action [0, 1].
+            exploration_pressure: SAC's current entropy (high = exploring).
+            q_spread: max(Q) - min(Q) across actions (high = clear preference).
+            sac_preferred: Action index SAC would choose greedily.
+            ensemble_disagreement: |Q1 - Q2| for PPO's action (high = uncertain).
+        """
+        default = {
+            "agreement": 0.5, "exploration_pressure": 0.0,
+            "q_spread": 0.0, "sac_preferred": ppo_action,
+            "ensemble_disagreement": 0.0,
+        }
+        if not TORCH_AVAILABLE:
+            return default
+
+        try:
+            with torch.no_grad():
+                s = state.unsqueeze(0) if state.dim() == 1 else state
+                s = s.to(self.device)
+
+                probs, log_probs = self.actor(s)
+                q1, q2 = self.critic(s)
+                q_min = torch.min(q1, q2).squeeze(0)
+
+                agreement = float(probs[0, ppo_action].item())
+                entropy = float(-(probs * log_probs).sum(dim=-1).mean().item())
+                q_spread = float((q_min.max() - q_min.min()).item())
+                sac_preferred = int(q_min.argmax().item())
+                ensemble_disag = float(abs(q1[0, ppo_action] - q2[0, ppo_action]).item())
+
+            return {
+                "agreement": agreement,
+                "exploration_pressure": entropy,
+                "q_spread": q_spread,
+                "sac_preferred": sac_preferred,
+                "ensemble_disagreement": ensemble_disag,
+            }
+        except Exception as e:
+            logger.debug(f"SAC confidence signal failed: {e}")
+            return default
+
     def reset(self) -> None:
         """Reset episode-level counters (not weights)."""
         pass  # SAC is off-policy, no episode-level reset needed
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get agent statistics."""
         return {

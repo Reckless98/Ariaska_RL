@@ -639,6 +639,9 @@ class SILBuffer:
     rollout. Only stores transitions with POSITIVE advantage (returns
     above the running mean), ensuring we never imitate bad behavior.
 
+    Algorithm Harmony: When macro labels are provided, maintains per-macro
+    baselines so golden segments within mediocre episodes can be captured.
+
     Reference: Oh et al., "Self-Imitation Learning" (ICML 2018).
     """
 
@@ -649,6 +652,9 @@ class SILBuffer:
         self.returns: List[float] = []
         self._return_baseline = 0.0
         self._return_count = 0
+        # Algorithm Harmony: Per-macro baselines for macro-conditioned SIL
+        self._macro_baselines: dict[int, float] = {}
+        self._macro_counts: dict[int, int] = {}
 
     def _update_baseline(self, ep_return: float):
         """Update running baseline (EMA of episode returns)."""
@@ -656,32 +662,42 @@ class SILBuffer:
         alpha = min(0.1, 1.0 / self._return_count)
         self._return_baseline = (1 - alpha) * self._return_baseline + alpha * ep_return
 
+    def _update_macro_baseline(self, macro: int, segment_return: float):
+        """Update per-macro running baseline (EMA)."""
+        self._macro_counts[macro] = self._macro_counts.get(macro, 0) + 1
+        alpha = min(0.15, 1.0 / self._macro_counts[macro])
+        old = self._macro_baselines.get(macro, 0.0)
+        self._macro_baselines[macro] = old + alpha * (segment_return - old)
+
     def add_episode(
         self,
         states: List[torch.Tensor],
         actions: List[int],
         rewards: List[float],
         gamma: float = 0.99,
+        macros: Optional[List[int]] = None,
     ):
         """Store transitions from an above-average episode.
 
         Only stores transitions whose discounted return exceeds the
         running baseline (positive advantage only — core SIL principle).
 
+        When ``macros`` is provided, transitions are evaluated against
+        per-macro baselines, enabling golden segment capture even from
+        mediocre overall episodes.
+
         Args:
             states: List of state tensors from the episode.
             actions: List of action indices.
             rewards: List of per-step rewards.
             gamma: Discount factor for computing returns.
+            macros: Optional list of macro-intent indices per step.
         """
         ep_return = sum(rewards)
         self._update_baseline(ep_return)
 
         # Phase 13.0: Lowered threshold — store ANY episode with positive return.
-        # Original SIL required ep_return > baseline, which filters too aggressively
-        # in early learning when baseline is low. A positive return means the agent
-        # did SOMETHING right — capture those transitions for imitation.
-        if ep_return <= 0:
+        if ep_return <= 0 and macros is None:
             return 0
 
         # Compute discounted returns for each step
@@ -692,15 +708,39 @@ class SILBuffer:
             running = rewards[t] + gamma * running
             returns[t] = running
 
-        # Store transitions with positive advantage
+        # Algorithm Harmony: When macros provided, use per-macro baselines
+        # so golden segments within bad episodes are still captured.
         added = 0
-        for t in range(n):
-            adv = returns[t] - self._return_baseline
-            if adv > 0:
-                self.states.append(states[t].detach().cpu())
-                self.actions.append(actions[t])
-                self.returns.append(returns[t])
-                added += 1
+        if macros is not None and len(macros) == n:
+            # Update per-macro baselines with segment returns
+            _seg_returns: dict[int, list[float]] = {}
+            for t in range(n):
+                m = macros[t]
+                _seg_returns.setdefault(m, []).append(returns[t])
+            for m, rets in _seg_returns.items():
+                self._update_macro_baseline(m, sum(rets) / len(rets))
+
+            # Store transitions that beat their macro's baseline
+            for t in range(n):
+                m = macros[t]
+                macro_baseline = self._macro_baselines.get(m, 0.0)
+                adv = returns[t] - macro_baseline
+                if adv > 0:
+                    self.states.append(states[t].detach().cpu())
+                    self.actions.append(actions[t])
+                    self.returns.append(returns[t])
+                    added += 1
+        else:
+            # Original path: episode-level baseline
+            if ep_return <= 0:
+                return 0
+            for t in range(n):
+                adv = returns[t] - self._return_baseline
+                if adv > 0:
+                    self.states.append(states[t].detach().cpu())
+                    self.actions.append(actions[t])
+                    self.returns.append(returns[t])
+                    added += 1
 
         # Evict oldest if over capacity
         while len(self.states) > self.capacity:
@@ -1685,6 +1725,7 @@ class PPOAgent:
         states: List[torch.Tensor],
         actions: List[int],
         rewards: List[float],
+        macros: Optional[List[int]] = None,
     ) -> int:
         """Store an episode's transitions in the SIL buffer if above average.
 
@@ -1694,12 +1735,13 @@ class PPOAgent:
             states: List of state tensors from the episode.
             actions: List of action indices.
             rewards: List of per-step rewards.
+            macros: Optional macro-intent indices per step (Algorithm Harmony).
 
         Returns:
             Number of transitions stored (0 if below average).
         """
         return self.sil_buffer.add_episode(
-            states, actions, rewards, gamma=self.config.gamma
+            states, actions, rewards, gamma=self.config.gamma, macros=macros,
         )
 
     # ── Persistence ──────────────────────────────────────────────────

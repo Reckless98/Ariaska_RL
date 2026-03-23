@@ -1,1 +1,0 @@
-{"episode_id": "run_20260219_012829_cebe1d_ep0000", "run_id": "run_20260219_012829_cebe1d", "episode_number": 0, "start_time": 1771460909.737309, "end_time": 1771460909.7402084, "total_reward": 27.5, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"offline": 10}, "avg_confidence": 0.5, "duration": 0.0028994083404541016}

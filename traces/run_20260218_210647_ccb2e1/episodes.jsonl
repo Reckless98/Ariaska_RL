@@ -1,1 +1,0 @@
-{"episode_id": "run_20260218_210647_ccb2e1_ep0000", "run_id": "run_20260218_210647_ccb2e1", "episode_number": 0, "start_time": 1771445208.077253, "end_time": 1771445208.0818388, "total_reward": 27.5, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"offline": 10}, "avg_confidence": 0.5, "duration": 0.004585742950439453}

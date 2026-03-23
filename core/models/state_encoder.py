@@ -25,8 +25,14 @@ Architecture:
     Section 15: Campaign Intelligence    [173-220] 48 dims  (Phase 19.0)
     Section 16: Episode Summary Embed    [221-236] 16 dims  (Phase 30.0)
     Section 17: Operational Intelligence [233-242] 10 dims  (Phase 56.0)
+    Section 18: HTB Extended Ports      [243-254] 12 dims  (Phase 57.0)
+    Section 19: HTB Extended Services   [255-262]  8 dims  (Phase 57.0)
+    Section 20: Web Attack Surface      [263-272] 10 dims  (Phase 57.0)
+    Section 21: Privesc Vectors         [273-282] 10 dims  (Phase 57.0)
+    Section 22: OS Fingerprint          [283-290]  8 dims  (Phase 57.0)
+    Section 23: Network Topology        [291-295]  5 dims  (Phase 57.0)
     ──────────────────────────────────────────────────────────
-    Total meaningful dims: ~243 / 512  (47% utilisation)
+    Total meaningful dims: ~296 / 512  (58% utilisation)
 """
 
 import torch
@@ -86,6 +92,15 @@ TARGET_PROFILES = {
     "metasploitable2": {"ms2": True, "linux": True, "difficulty": 0.3},
     "metasploitable3": {"ms2": False, "linux": True, "difficulty": 0.6},
     "generic": {"ms2": False, "linux": False, "difficulty": 0.5},
+    # Phase 57: HTB box archetypes
+    "htb_linux_easy": {"ms2": False, "linux": True, "difficulty": 0.4},
+    "htb_linux_medium": {"ms2": False, "linux": True, "difficulty": 0.6},
+    "htb_linux_hard": {"ms2": False, "linux": True, "difficulty": 0.85},
+    "htb_windows_easy": {"ms2": False, "linux": False, "difficulty": 0.45},
+    "htb_windows_medium": {"ms2": False, "linux": False, "difficulty": 0.65},
+    "htb_windows_hard": {"ms2": False, "linux": False, "difficulty": 0.9},
+    "htb_ad": {"ms2": False, "linux": False, "difficulty": 0.8},
+    "htb_web": {"ms2": False, "linux": True, "difficulty": 0.55},
 }
 
 
@@ -739,8 +754,139 @@ def encode_state(
     vec[idx] = min(float(exploit_commands_ratio), 1.0)
     idx += 1  # 243
 
-    # ─── Remaining dims [243-511] are zero-padded ────────────────────
-    # ~243 meaningful dims / 512 total  (47% utilisation)
+    # ─── Section 18: Phase 57 HTB Extended Port Presence (12 dims) [243-254]
+    # Ports commonly seen on HTB retired boxes but NOT in COMMON_PORTS.
+    # Added as a separate section to preserve checkpoint compatibility
+    # (existing dims 0-242 unchanged).
+    _HTB_EXTRA_PORTS = [
+        88, 389, 636, 5985, 5986,      # Kerberos, LDAP, WinRM
+        6379, 27017, 11211,              # Redis, MongoDB, Memcached
+        8000, 8443, 8888, 9090,          # Custom web apps
+    ]
+    for port in _HTB_EXTRA_PORTS:
+        vec[idx] = 1.0 if port in open_port_set else 0.0
+        idx += 1  # 255 after loop
+
+    # ─── Section 19: HTB Extended Service Types (8 dims) [255-262]
+    _HTB_EXTRA_SERVICES = [
+        "kerberos", "ldap", "winrm", "redis",
+        "mongodb", "memcached", "docker", "kubernetes",
+    ]
+    for svc in _HTB_EXTRA_SERVICES:
+        found = any(svc in s for s in services_lower)
+        vec[idx] = 1.0 if found else 0.0
+        idx += 1  # 263 after loop
+
+    # ─── Section 20: Web Attack Surface Depth (10 dims) [263-272]
+    # Signals that help PPO reason about web exploitation chains
+    # (critical for HTB boxes that require multi-step web attacks)
+    web_state = state.get("web_attack_surface", {})
+    # Directories discovered via fuzzing (gobuster/ffuf)
+    vec[idx] = min(float(web_state.get("directories_found", 0)) / 20.0, 1.0)
+    idx += 1
+    # Parameters discovered
+    vec[idx] = min(float(web_state.get("parameters_found", 0)) / 10.0, 1.0)
+    idx += 1
+    # Forms found (login pages, upload forms)
+    vec[idx] = min(float(web_state.get("forms_found", 0)) / 5.0, 1.0)
+    idx += 1
+    # File inclusion indicators (LFI/RFI paths found)
+    vec[idx] = 1.0 if web_state.get("lfi_detected", False) else 0.0
+    idx += 1
+    # SQL injection indicators
+    vec[idx] = 1.0 if web_state.get("sqli_detected", False) else 0.0
+    idx += 1
+    # File upload capability found
+    vec[idx] = 1.0 if web_state.get("upload_found", False) else 0.0
+    idx += 1
+    # Authentication bypass / default creds on web
+    vec[idx] = 1.0 if web_state.get("web_auth_bypass", False) else 0.0
+    idx += 1
+    # API endpoints discovered
+    vec[idx] = min(float(web_state.get("api_endpoints", 0)) / 10.0, 1.0)
+    idx += 1
+    # CMS detected (WordPress, Joomla, Drupal)
+    vec[idx] = 1.0 if web_state.get("cms_detected", False) else 0.0
+    idx += 1
+    # Web technology stack richness
+    vec[idx] = min(float(web_state.get("tech_stack_count", 0)) / 5.0, 1.0)
+    idx += 1  # 273 after section
+
+    # ─── Section 21: Privilege Escalation Vectors (10 dims) [273-282]
+    # Signals discovered during post-exploitation enumeration
+    privesc_state = state.get("privesc_vectors", {})
+    # SUID binaries found
+    vec[idx] = min(float(privesc_state.get("suid_count", 0)) / 20.0, 1.0)
+    idx += 1
+    # Writable cron directories/files
+    vec[idx] = min(float(privesc_state.get("writable_cron", 0)) / 5.0, 1.0)
+    idx += 1
+    # Docker group membership
+    vec[idx] = 1.0 if privesc_state.get("docker_group", False) else 0.0
+    idx += 1
+    # LXD group membership
+    vec[idx] = 1.0 if privesc_state.get("lxd_group", False) else 0.0
+    idx += 1
+    # Sudo entries (non-trivial sudo -l results)
+    vec[idx] = min(float(privesc_state.get("sudo_entries", 0)) / 10.0, 1.0)
+    idx += 1
+    # Writable /etc/passwd
+    vec[idx] = 1.0 if privesc_state.get("writable_passwd", False) else 0.0
+    idx += 1
+    # Kernel version exploitable (based on exploit-suggester)
+    vec[idx] = 1.0 if privesc_state.get("kernel_exploitable", False) else 0.0
+    idx += 1
+    # Capabilities on binaries
+    vec[idx] = min(float(privesc_state.get("capabilities_count", 0)) / 10.0, 1.0)
+    idx += 1
+    # PATH hijack opportunities
+    vec[idx] = 1.0 if privesc_state.get("path_hijack", False) else 0.0
+    idx += 1
+    # Wildcard injection opportunities (tar, rsync in cron)
+    vec[idx] = 1.0 if privesc_state.get("wildcard_inject", False) else 0.0
+    idx += 1  # 283 after section
+
+    # ─── Section 22: OS & Environment Fingerprint (8 dims) [283-290]
+    os_state = state.get("os_fingerprint", {})
+    # OS family one-hot (4 dims: linux, windows, bsd, unknown)
+    _os_family = os_state.get("family", "unknown")
+    for _os_type in ["linux", "windows", "bsd", "unknown"]:
+        vec[idx] = 1.0 if _os_family == _os_type else 0.0
+        idx += 1
+    # Kernel/OS version age bucket (0=unknown, 0.25=modern, 0.5=dated, 1.0=ancient)
+    vec[idx] = min(float(os_state.get("version_age_bucket", 0.0)), 1.0)
+    idx += 1
+    # Is domain-joined (AD indicator)
+    vec[idx] = 1.0 if os_state.get("domain_joined", False) else 0.0
+    idx += 1
+    # Container detection (running in Docker/LXC)
+    vec[idx] = 1.0 if os_state.get("is_container", False) else 0.0
+    idx += 1
+    # Architecture (0=x86, 0.5=x64, 1.0=arm)
+    vec[idx] = float(os_state.get("arch_ordinal", 0.5))
+    idx += 1  # 291 after section
+
+    # ─── Section 23: Network Topology (5 dims) [291-295]
+    net_state = state.get("network_topology", {})
+    # Additional hosts discovered (beyond target)
+    vec[idx] = min(float(net_state.get("hosts_found", 0)) / 10.0, 1.0)
+    idx += 1
+    # Subnets discovered
+    vec[idx] = min(float(net_state.get("subnets_found", 0)) / 5.0, 1.0)
+    idx += 1
+    # Internal interfaces on compromised host
+    vec[idx] = min(float(net_state.get("interfaces_found", 0)) / 5.0, 1.0)
+    idx += 1
+    # Pivot opportunities (reachable internal hosts)
+    vec[idx] = min(float(net_state.get("pivot_targets", 0)) / 5.0, 1.0)
+    idx += 1
+    # DNS reveals internal domain
+    vec[idx] = 1.0 if net_state.get("internal_domain", False) else 0.0
+    idx += 1  # 296 after section
+
+    # ─── Remaining dims [296-511] are zero-padded ────────────────────
+    # ~296 meaningful dims / 512 total  (58% utilisation)
+    # Phase 57: +53 dims for HTB generalization
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 

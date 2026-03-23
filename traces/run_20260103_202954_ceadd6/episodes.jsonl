@@ -1,1 +1,0 @@
-{"episode_id": "run_20260103_202954_ceadd6_ep0000", "run_id": "run_20260103_202954_ceadd6", "episode_number": 0, "start_time": 1767468594.7202027, "end_time": 1767468594.7458146, "total_reward": 14.0, "total_steps": 2, "success": false, "final_phase": "recon", "mentor_calls": 0, "mentor_models_used": {}, "avg_confidence": 0.13932299613952637, "duration": 0.02561187744140625}

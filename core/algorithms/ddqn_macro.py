@@ -84,6 +84,9 @@ MACRO_COMMAND_MAP: Dict[MacroIntent, Set[str]] = {
         "ssh_audit", "nikto_scan", "nuclei_scan",
         "ldapsearch_base", "ldapsearch_users",
         "ftp_anonymous", "redis_cli", "wpscan",
+        # Phase 57: Web discovery for HTB targets
+        "gobuster_dir", "gobuster_vhost", "ffuf_fuzz", "feroxbuster",
+        "wfuzz_params", "whatweb",
     },
     MacroIntent.CREDENTIAL_CHAIN: {
         "hydra_ssh", "hydra_ftp", "hydra_smb", "hydra_http_form",
@@ -100,6 +103,10 @@ MACRO_COMMAND_MAP: Dict[MacroIntent, Set[str]] = {
         "sqlmap_get", "sqlmap_post", "sqlmap_test", "sqlmap_shell",
         "war_deploy",
         "impacket_psexec", "impacket_smbexec", "impacket_wmiexec",
+        # Phase 57: Web exploitation for HTB targets
+        "ssrf_localhost_scan", "ssrf_cloud_metadata", "ssrf_internal_admin",
+        "upload_php_double_ext", "upload_htaccess", "upload_aspx_shell",
+        "webshell_cmd", "jwt_none_attack", "jwt_crack_secret",
     },
     MacroIntent.POST_SHELL_ENUM: {
         "sudo_list", "find_suid", "find_capabilities", "find_writable_etc",

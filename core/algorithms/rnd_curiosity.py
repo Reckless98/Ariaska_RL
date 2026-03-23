@@ -84,6 +84,14 @@ class RNDCuriosity:
         self.ms3_multiplier = ms3_multiplier
         self._is_ms3 = False
 
+        # Algorithm Harmony: Discovery-gated task-relevance scaling
+        # Tracks recent discovery rate to modulate curiosity signal.
+        # Productive exploration (discoveries) → boost; wandering → dampen.
+        self._discovery_window: list[bool] = []  # Last N steps had discovery?
+        self._discovery_window_size: int = 10
+        self._discovery_gate_boost: float = 1.5   # Multiplier when productive
+        self._discovery_gate_dampen: float = 0.4   # Multiplier when wandering
+
         # Fixed target network — random initialization, never updated
         self.target_net = RNDNetwork(state_dim, hidden_dim, output_dim).to(self.device)
         for p in self.target_net.parameters():
@@ -109,17 +117,43 @@ class RNDCuriosity:
         self._is_ms3 = "ms3" in env_name.lower() or "172.28.0.11" in env_name
         logger.debug(f"RND target mode: {'MS3' if self._is_ms3 else 'MS2'}")
 
+    def record_discovery(self, had_discovery: bool) -> None:
+        """Record whether the current step produced a discovery.
+
+        Called by SmartOrchestrator each step to feed the discovery-gate.
+        """
+        self._discovery_window.append(had_discovery)
+        if len(self._discovery_window) > self._discovery_window_size:
+            self._discovery_window.pop(0)
+
+    def _discovery_gate_multiplier(self) -> float:
+        """Compute task-relevance multiplier from recent discovery rate.
+
+        Returns a value in [_discovery_gate_dampen, _discovery_gate_boost].
+        """
+        if len(self._discovery_window) < 3:
+            return 1.0  # Not enough data yet
+        rate = sum(self._discovery_window) / len(self._discovery_window)
+        if rate > 0.2:
+            # Recent discoveries — exploration is productive, boost curiosity
+            return 1.0 + (self._discovery_gate_boost - 1.0) * min(1.0, rate / 0.5)
+        if rate == 0.0 and len(self._discovery_window) >= self._discovery_window_size:
+            # No discoveries for a full window — wandering, dampen
+            return self._discovery_gate_dampen
+        # Intermediate — slight dampening
+        return 0.7 + 0.3 * (rate / 0.2)
+
     def compute_intrinsic_reward(
         self,
         state: torch.Tensor,
         phase: str = "RECON",
     ) -> float:
         """Compute intrinsic curiosity reward for a state.
-        
+
         Args:
             state: (state_dim,) state tensor
             phase: Current attack phase name (for decay near CLOSEOUT)
-            
+
         Returns:
             Intrinsic reward (float), capped and phase-decayed.
         """
@@ -146,6 +180,9 @@ class RNDCuriosity:
         # Target-aware scaling
         if self._is_ms3:
             raw_reward *= self.ms3_multiplier
+
+        # Algorithm Harmony: Discovery-gated task-relevance scaling
+        raw_reward *= self._discovery_gate_multiplier()
 
         # Cap
         return min(raw_reward, self.reward_cap)

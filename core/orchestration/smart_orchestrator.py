@@ -264,6 +264,15 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("CampaignMemory", "warn", str(e)[:120]))
         
+        # ─── PHASE 58: Target Knowledge — per-target persistent learning ──
+        self.target_knowledge = None
+        try:
+            from core.memory.target_knowledge import TargetKnowledge
+            self.target_knowledge = TargetKnowledge(base_dir="data/target_knowledge")
+            _init_modules.append(("TargetKnowledge", "ok", "ready"))
+        except Exception as e:
+            _init_modules.append(("TargetKnowledge", "warn", str(e)[:120]))
+        
         # Phase 6.5: Detect live mode EARLY — needed by watchdog, coaches, reward calc
         self._is_live_mode = getattr(env, 'live_mode', False) or getattr(env, 'mode', '') == 'live'
         
@@ -730,6 +739,17 @@ class SmartOrchestrator:
         except Exception as e:
             _init_modules.append(("Reptile Meta", "warn", str(e)[:120]))
         
+        # ─── Algorithm Harmony: Meta-RL Adaptive Controller ─────────
+        # Episode-level hyperparameter adaptation based on performance trends.
+        # Adjusts entropy, LR, DDQN epsilon, RND scale across episodes.
+        self.meta_rl = None
+        try:
+            from core.algorithms.meta_rl_controller import MetaRLController
+            self.meta_rl = MetaRLController()
+            _init_modules.append(("MetaRL Controller", "ok", "adaptive HP tuning"))
+        except Exception as e:
+            _init_modules.append(("MetaRL Controller", "warn", str(e)[:120]))
+
         # ─── C09: Held-Out Evaluator ─────────────────────────────────
         # Periodic evaluation on held-out scenarios without training.
         # Gated by FF_HELDOUT_EVAL (default=False).
@@ -1313,6 +1333,21 @@ class SmartOrchestrator:
         """Initialize SmartCoach for each agent."""
         from core.training.mentor_policy import MentorPolicy, MentorPolicyConfig
         from core.training.mentor_controller import MentorController, MentorControllerConfig
+
+        # P58: Shared strategic advisor — one LLM plan call per phase,
+        # all agents share the same 20-step plan round-robin.
+        self._shared_strategic_advisor = None
+        try:
+            from core.llm.strategic_advisor import StrategicAdvisor
+            self._shared_strategic_advisor = StrategicAdvisor(
+                gpt_manager=self.gpt_manager,
+                plan_horizon=20,
+                replan_on_phase_change=True,
+                replan_on_stagnation=5,
+            )
+            logger.info("[P58] Shared StrategicAdvisor created — 1 LLM call per phase for all agents")
+        except Exception as e:
+            logger.debug(f"[P58] Shared StrategicAdvisor init failed: {e}")
         
         # Phase 11.1: Base policy config (doubled for learning acceleration)
         policy_config = MentorPolicyConfig(
@@ -1383,6 +1418,8 @@ class SmartOrchestrator:
                 tactical_cortex=self.tactical_cortex,
                 executive_cortex=self.executive_cortex,
                 budget_controller=self.budget_controller,
+                strategic_advisor=self._shared_strategic_advisor,
+                campaign_memory=self.campaign_memory,
             )
         
         logger.debug(f"Initialized smart coaches: {list(self.coaches.keys())}")
@@ -1458,6 +1495,17 @@ class SmartOrchestrator:
             self.attack_context._r66_scan_hints = self.scan_randomizer.get_randomized_initial_commands(target)  # type: ignore[attr-defined]
         else:
             self.attack_context._r66_scan_hints = []  # type: ignore[attr-defined]
+        
+        # ─── PHASE 58: Load per-target knowledge for warm starts ──
+        if self.target_knowledge is not None:
+            try:
+                self.target_knowledge.load(target)
+                self.target_knowledge.reset_episode()
+                logger.debug(
+                    f"[P58] Target knowledge loaded: {self.target_knowledge.get_stats()}"
+                )
+            except Exception as _e:
+                logger.debug(f"[P58] Target knowledge load failed: {_e}")
         
         return self.attack_context
     
@@ -1704,6 +1752,7 @@ class SmartOrchestrator:
         
         # ─── PHASE 8.0: Post-shell exploration tracking ─────────────
         self._shell_obtained_step: Optional[int] = None
+        self._closeout_revert_count: int = 0  # Track CLOSEOUT→EXPLOITATION cycles
         self.POST_SHELL_EXPLORE_STEPS = 12  # HTB: 10→12 for 60-step episodes
         
         # ─── R56: Minimum PRIV_ESC duration gate ────────────────────
@@ -2488,7 +2537,7 @@ class SmartOrchestrator:
                         self._rnd_state_tensor = None  # consumed
                 except Exception:
                     pass
-            
+
             # Check for discoveries this step
             if disc_board_display:
                 _cur_disc_count = sum(
@@ -2498,6 +2547,12 @@ class SmartOrchestrator:
                 _prev_disc_count = getattr(self, '_r66_prev_disc_count', 0)
                 _r66_had_discovery = _cur_disc_count > _prev_disc_count
                 self._r66_prev_disc_count = _cur_disc_count
+                # Algorithm Harmony: Feed discovery signal to RND task-relevance gate
+                if self.rnd_curiosity:
+                    try:
+                        self.rnd_curiosity.record_discovery(_r66_had_discovery)
+                    except Exception:
+                        pass
             
             # Coherence tracking
             _phase_ord = {"RECON": 0, "ENUMERATION": 1, "EXPLOITATION": 2,
@@ -3011,17 +3066,41 @@ class SmartOrchestrator:
                         agent="system"
                     )
                 elif not _closeout_has_flags:
-                    # No flags yet — revert to EXPLOITATION to keep hunting
-                    logger.info(
-                        "[CLOSEOUT-NOFLAG] Reached CLOSEOUT without flags. "
-                        "Reverting to EXPLOITATION to continue hunting."
-                    )
-                    self.attack_context.current_phase = AttackPhase.EXPLOITATION
-                    self.dashboard.add_event(
-                        "closeout_revert",
-                        "🔄 No flags captured — reverting to EXPLOITATION",
-                        agent="system"
-                    )
+                    self._closeout_revert_count += 1
+                    # Non-CTF targets (MS2/MS3) don't have flag files.
+                    # After 2 reversions, accept CLOSEOUT if compromise evidence exists.
+                    _has_shell = bool(self.discovery_board.get("shells"))
+                    _has_creds = bool(self.discovery_board.get("credentials"))
+                    _has_vulns = bool(self.discovery_board.get("vulns"))
+                    _compromise_evidence = _has_shell or (_has_creds and _has_vulns)
+                    if self._closeout_revert_count >= 2 and _compromise_evidence:
+                        done = True
+                        self.episode_termination_reason = TerminationReason.GOAL_REACHED
+                        logger.info(
+                            f"[CLOSEOUT-ACCEPTED] No flags but compromise confirmed "
+                            f"(shell={_has_shell} creds={_has_creds} vulns={_has_vulns}) "
+                            f"after {self._closeout_revert_count} CLOSEOUT cycles. "
+                            f"Ending episode."
+                        )
+                        self.dashboard.add_event(
+                            "closeout_complete",
+                            f"✅ CLOSEOUT accepted — compromise confirmed after "
+                            f"{self._closeout_revert_count} cycles",
+                            agent="system"
+                        )
+                    else:
+                        logger.info(
+                            f"[CLOSEOUT-NOFLAG] Reached CLOSEOUT without flags "
+                            f"(revert #{self._closeout_revert_count}). "
+                            f"Reverting to EXPLOITATION to continue hunting."
+                        )
+                        self.attack_context.current_phase = AttackPhase.EXPLOITATION
+                        self.dashboard.add_event(
+                            "closeout_revert",
+                            f"🔄 No flags captured (cycle {self._closeout_revert_count}) "
+                            f"— reverting to EXPLOITATION",
+                            agent="system"
+                        )
 
             # =========================================================================
             # PHASE 26: AUTO-CLOSE ON FLAG CAPTURE (CTF MODE)
@@ -3454,6 +3533,51 @@ class SmartOrchestrator:
             except Exception as e:
                 logger.warning("ReflectiveMetaLearner reflection failed: %s", e)
 
+        # ─── Algorithm Harmony: Meta-RL adaptive hyperparameter tuning ──
+        # After episode metrics are final, adapt algorithm parameters for next episode.
+        if self.meta_rl is not None:
+            try:
+                _meta_metrics = {
+                    "total_reward": episode_reward,
+                    "steps": len(step_results),
+                    "discoveries": len(getattr(self, '_episode_shared_discoveries', set())),
+                    "highest_phase": highest_phase_for_summary,
+                    "avg_sac_agreement": 0.5,  # Default; updated below if available
+                }
+                # Collect SAC-PPO agreement from coaches
+                _sac_signals = []
+                for _cn, _coach in self.coaches.items():
+                    _sig = getattr(_coach, '_sac_harmony_signal', None)
+                    if _sig and isinstance(_sig, dict):
+                        _sac_signals.append(_sig.get("agreement", 0.5))
+                if _sac_signals:
+                    _meta_metrics["avg_sac_agreement"] = sum(_sac_signals) / len(_sac_signals)
+
+                adjustments = self.meta_rl.adapt(_meta_metrics)
+
+                # Apply adjustments to algorithms
+                for _cn, _coach in self.coaches.items():
+                    # PPO entropy coefficient
+                    if hasattr(_coach, 'ppo_agent') and _coach.ppo_agent is not None:
+                        _new_entropy = adjustments.get("entropy_coef", 0.01)
+                        _coach.ppo_agent.entropy_coef = _new_entropy
+                    # DDQN exploration rate
+                    if hasattr(_coach, 'ddqn_macro') and _coach.ddqn_macro is not None:
+                        _new_eps = adjustments.get("ddqn_epsilon", 0.15)
+                        if hasattr(_coach.ddqn_macro, 'config'):
+                            _coach.ddqn_macro.config.epsilon = _new_eps
+
+                # RND reward scale
+                if self.rnd_curiosity is not None:
+                    _new_rnd = adjustments.get("rnd_scale", 1.0)
+                    self.rnd_curiosity.reward_scale = _new_rnd
+
+                metrics["meta_rl_signal"] = adjustments.get("meta_signal", "")
+                metrics["meta_rl_entropy"] = adjustments.get("entropy_coef", 0.01)
+                metrics["meta_rl_rnd_scale"] = adjustments.get("rnd_scale", 1.0)
+            except Exception as e:
+                logger.debug(f"MetaRL adaptation failed: {e}")
+
         # ─── PHASE 42: TTFTracker — log episode metrics ──────────────
         ttf = self._ensure_ttf_tracker()
         if ttf is not None:
@@ -3814,6 +3938,42 @@ class SmartOrchestrator:
                     self.campaign_memory.save()
             except Exception as e:
                 logger.warning(f"Phase 6.3: Campaign memory record error: {e}")
+        
+        # ─── PHASE 58: Save per-target knowledge at episode end ──────
+        if self.target_knowledge is not None:
+            try:
+                _target = target or self.config.default_target
+                if not self.target_knowledge._target_id:
+                    self.target_knowledge.load(_target)
+                # Record discovered services
+                for port_val in self.discovery_board.get("ports", set()):
+                    try:
+                        _p = int(port_val)
+                        _svc_name = ""
+                        for s in self.discovery_board.get("services", set()):
+                            _svc_name = str(s)
+                            break
+                        self.target_knowledge.record_service(_p, _svc_name)
+                    except (ValueError, TypeError):
+                        pass
+                # Record attack chain
+                _chain_steps = []
+                for sr_list in step_results:
+                    for sr in sr_list:
+                        if sr.decision and sr.decision.template_name:
+                            _chain_steps.append(sr.decision.template_name)
+                if _chain_steps:
+                    self.target_knowledge.record_attack_chain(
+                        steps=_chain_steps,
+                        highest_phase=highest_phase,
+                        total_reward=episode_reward,
+                        episode=episode_number,
+                    )
+                # Auto-save every 5 episodes
+                if (episode_number + 1) % 5 == 0:
+                    self.target_knowledge.save()
+            except Exception as _e58:
+                logger.debug(f"[P58] Target knowledge save error: {_e58}")
         
         # ─── PHASE 6.3: Add watchdog stats to metrics ───────────────
         if self.watchdog:
@@ -4796,6 +4956,36 @@ class SmartOrchestrator:
                         _lg.getLogger("ariaska.orchestration").debug(
                             f"[P15] Sensory push failed: {e}"
                         )
+            
+            # ─────────────────────────────────────────────────────────────
+            # PHASE 58: EXPLOIT REASONER — output→hypothesis feedback loop
+            # Feed command output through ExploitReasoner to generate new
+            # hypotheses, then inject them into the coach's HypothesisGenerator.
+            # Feature-flag gated: FF_EXPLOIT_REASONER.
+            # ─────────────────────────────────────────────────────────────
+            if result.agent_name in self.coaches and output_to_parse:
+                _coach58 = self.coaches[result.agent_name]
+                _hyp_gen = getattr(_coach58, '_p14_hypothesis_gen', None)
+                if _hyp_gen is not None:
+                    _reasoner = getattr(_hyp_gen, '_reasoner', None)
+                    if _reasoner is not None:
+                        try:
+                            from core.feature_flags import get_feature_flags
+                            _ff58 = get_feature_flags()
+                            if getattr(_ff58, 'exploit_reasoner', True):
+                                _cmd = result.decision.command or ""
+                                _output_hyps = _reasoner.reason_from_output(
+                                    _cmd, output_to_parse, current_step=step,
+                                )
+                                if _output_hyps:
+                                    _hyp_gen.ingest_reasoner_hypotheses(
+                                        _output_hyps, current_step=step,
+                                    )
+                        except Exception as _e58:
+                            import logging as _lg58
+                            _lg58.getLogger("ariaska.orchestration").debug(
+                                f"[P58] Output→reasoner failed: {_e58}"
+                            )
             
             # ─────────────────────────────────────────────────────────────
             # PHASE 6.5: COMMAND-BASED SHELL DETECTION
@@ -7992,8 +8182,8 @@ class SmartOrchestrator:
                     "mentor_budget": int(self.config.mentor_budget_pct * 100)
                         if hasattr(self.config, 'mentor_budget_pct') else 30,
                     # Local LLM model visibility
-                    "llm_brain": "Qwen3.5-9b",
-                    "llm_fast": "Qwen3.5-4b",
+                    "llm_brain": os.getenv("ARIASKA_MEDIUM_MODEL", "ariaska-cybersec4"),
+                    "llm_fast": os.getenv("ARIASKA_FAST_MODEL", "ariaska-cybersec4"),
                     "gpt_primary": getattr(self.gpt_manager, 'primary_model', 'local-llm'),
                     "gpt_nano": getattr(self.gpt_manager, 'nano_model', 'local-llm'),
                     "gpt_postmortem": getattr(self.gpt_manager, 'postmortem_model', 'local-llm'),
@@ -8083,12 +8273,13 @@ class SmartOrchestrator:
         if self.decision_logger is not None:
             try:
                 self.decision_logger.end_run(
-                    final_metrics={"avg_reward": final_metrics["avg_reward_recent"]},
+                    final_metrics={"avg_reward": final_metrics.get("total_reward", 0.0)},
                 )
             except Exception:
                 pass
         
         # Return results compatible with existing training system
+        # NOTE: CLI reads result["episode_metrics"] for summary display.
         return {
             "session_id": self.run_id,
             "episodes_completed": 1,
@@ -8098,6 +8289,7 @@ class SmartOrchestrator:
             "root_flag_captured": _root_flag,
             "user_flag_value": _user_flag_val,
             "root_flag_value": _root_flag_val,
+            "episode_metrics": metrics,  # Full episode metrics for CLI summary
             "final_metrics": {
                 "total_reward": episode_rewards[0] if episode_rewards else 0.0,
                 "total_steps": metrics.get("total_steps", 0),

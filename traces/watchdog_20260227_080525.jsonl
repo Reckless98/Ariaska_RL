@@ -1,3 +1,0 @@
-{"event": "attempt_start", "attempt": 1, "seed": null, "target": "10.129.5.115", "max_steps": 500, "timestamp": "2026-02-27T08:05:25.355806"}
-{"event": "attempt_complete", "attempt": 1, "elapsed_s": 110.2, "reward": 0.0, "highest_phase": "RECON", "steps": 0, "unique_cmds": 0, "discoveries": 0, "user_flag": true, "root_flag": true, "user_flag_value": "32154d5ced6ba5345bd40cd378133ec4", "root_flag_value": "32154d5ced6ba5345bd40cd378133ec4", "timestamp": "2026-02-27T08:07:15.585518"}
-{"event": "mission_complete", "attempt": 1, "timestamp": "2026-02-27T08:07:15.588579"}

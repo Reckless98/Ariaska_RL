@@ -112,6 +112,7 @@ def run_training(
     ethics_mode: str = "training",
     seed_skills: bool = False,
     ctf_mode: bool = False,
+    fresh: bool = False,
 ):
     """
     Single continuous engagement against target.
@@ -177,11 +178,12 @@ def run_training(
         verbosity=verbosity,
     )
 
-    # Load checkpoint if exists
-    if resume_path and os.path.exists(resume_path):
-        orch.load_ppo_checkpoints(resume_path)
-    elif os.path.exists(checkpoint_path):
-        orch.load_ppo_checkpoints(checkpoint_path)
+    # Load checkpoint if exists (skip when --fresh)
+    if not fresh:
+        if resume_path and os.path.exists(resume_path):
+            orch.load_ppo_checkpoints(resume_path)
+        elif os.path.exists(checkpoint_path):
+            orch.load_ppo_checkpoints(checkpoint_path)
     
     # Phase 6.2: Initialize CheckpointManager for atomic saves
     from core.training.checkpoint_manager import CheckpointManager, CheckpointConfig
@@ -687,6 +689,10 @@ def main():
                          help="Enable anti-forensics in CLOSEOUT phase (default: OFF)")
     train_p.add_argument("--no-anti-forensics", dest="anti_forensics", action="store_false",
                          help="Disable anti-forensics in CLOSEOUT phase")
+    train_p.add_argument("--model", type=str, default=None,
+                         help="Override local LLM model (e.g. ariaska-cybersec2, ariaska-cybersec4)")
+    train_p.add_argument("--fresh", action="store_true", default=False,
+                         help="Reset campaign memory before run (clean start, no stale history)")
     train_p.add_argument("--ethics-mode", type=str, default="training",
                          choices=["training", "assessment", "demo"],
                          help="Ethics mode: training=full capability, assessment=audit logging, demo=investor-safe display (default: training)")
@@ -775,6 +781,19 @@ def main():
         os.environ["ARIASKA_LIVE_MODE"] = "true"
         os.environ["ARIASKA_TARGET_IP"] = target_ip
 
+        # --model: Override local LLM model for this run
+        if getattr(args, 'model', None):
+            os.environ["ARIASKA_FAST_MODEL"] = args.model
+            os.environ["ARIASKA_MEDIUM_MODEL"] = args.model
+            os.environ["ARIASKA_REASONING_MODEL"] = args.model
+
+        # --fresh: Reset campaign memory for clean start
+        if getattr(args, 'fresh', False):
+            _campaign_path = os.path.join(os.path.dirname(__file__), "data", "campaign_state.json")
+            if os.path.exists(_campaign_path):
+                os.remove(_campaign_path)
+                console.print("[yellow]🧹 Campaign memory reset (--fresh)[/yellow]")
+
         # Phase 40: Distilled checkpoint auto-load control
         os.environ["ARIASKA_LOAD_DISTILLED"] = "1" if args.distilled else "0"
 
@@ -809,6 +828,7 @@ def main():
                 ethics_mode=args.ethics_mode,
                 seed_skills=args.seed_skills,
                 ctf_mode=args.ctf,
+                fresh=getattr(args, 'fresh', False),
             )
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠️ Training interrupted by user[/yellow]")

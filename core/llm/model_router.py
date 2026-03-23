@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-core/llm/model_router.py — Phase 43 / 44 / 54: Intelligent Model Router
+core/llm/model_router.py — Phase 57: Hybrid Cloud+Local Model Router
 
-Routes LLM requests to the optimal local model based on task complexity:
-  - Fast tasks (classification, diversify, parsing) → 4B model (System 1: fast, reflexive)
-  - Medium tasks (recon, defensive, general) → 4B model (System 2: same physical model)
-  - Heavy tasks (tactical, analysis, strategic, postmortem) → 9B model (System 3: deep reasoning)
+Routes LLM requests to the optimal provider based on task complexity:
+  - System 1 (local 4B): classification, parsing, command selection — fast reflexive
+  - System 2 (local 4B): recon, defensive, general — balanced reasoning
+  - System 3: strategic planning, postmortem — deep reasoning
+      Priority: local-strategic 9B > local 4B (cloud removed)
 
-Phase 55 — Qwen 3.5 Uncensored tri-model local routing:
-  All tiers route to local Ollama models. Task type determines which model
-  handles the request, matching cognitive load to model capability:
-    System 1 (jaahas/qwen3.5-uncensored:4b): ~12-15 tok/s CPU — MicroChain, classification, parsing
-    System 2 (jaahas/qwen3.5-uncensored:4b): ~12-15 tok/s CPU — recon, defensive, general
-    System 3 (jaahas/qwen3.5-uncensored:9b): ~5-8 tok/s CPU — tactical, strategic, postmortem
+Phase 58 — Local-first routing (cloud removed from chain):
+  1. Local 4B (ariaska-cybersec4) for System 1+2 fast/tactical tasks.
+  2. Local 9B (ariaska-strategic-9b) for System 3 when available —
+     fine-tuned on Ariaska schemas, zero latency, no API limits.
+  3. Local 4B as System 3 fallback when 9B not available.
+  Cloud removed: free tiers hit daily rate limits, and cloud models
+  hallucinate wrong target IPs (192.168.x.x instead of actual target).
 
 Feature-flag gated: FF_LOCAL_LLM + FF_LOCAL_LLM_OFFLOAD_ALL.
 
-Author: Phase 43/44/54 — Full Local LLM Operation
+Author: Phase 43/44/54/56/57 — Hybrid Cloud+Local
 """
 
 from __future__ import annotations
@@ -32,72 +34,109 @@ logger = logging.getLogger("ariaska.llm.model_router")
 @dataclass(frozen=True)
 class RoutingDecision:
     """Result of a model routing decision."""
-    provider: str       # "local"
-    model: str          # Local model name for Ollama
-    tier: str           # Budget tier: "local"
+    provider: str       # "local" or "cloud"
+    model: str          # Model name for the provider
+    tier: str           # Budget tier: "local" or "cloud"
     reason: str = ""    # Why this routing was chosen
 
 
 # ── Task-type to cognitive tier mapping ─────────────────────────────────────
 
-# System 1: Fast reflexive tasks → 4B model (low latency, simple tasks)
+# System 1: Fast reflexive tasks → local 4B (low latency, structured output)
 _SYSTEM1_TASKS = frozenset({
     "classification", "diversify", "parsing", "playbook",
     "command_selection", "output_parse",
 })
 
-# System 2: Medium reasoning → 4B model (same model as S1, different task pool)
-# On CPU, favour 4b for speed. Tactical/analysis moved here from S3.
+# System 2: Medium reasoning → local 4B (same model, different task pool)
 _SYSTEM2_TASKS = frozenset({
     "reconnaissance", "defensive", "general", "embedding",
-    "tactical", "analysis", "reasoning", "learning", "reflection",
+    "tactical", "learning", "reflection",
 })
 
-# System 3: Deep reasoning → 9B model (only truly critical slow tasks)
+# System 3: Deep reasoning → local 9B or local 4B (strategic planning, analysis)
+# P58: Cloud removed — free tiers rate-limit and hallucinate wrong IPs.
 _SYSTEM3_TASKS = frozenset({
-    "strategic", "postmortem",
+    "strategic", "postmortem", "analysis", "reasoning",
 })
 
 # ── Local model names (Ollama) ──────────────────────────────────────────────
 
-# Post-fine-tune: single model for all tiers — eliminates Ollama cold-load penalty.
-# Override via env vars if you want to test a different model on a specific tier.
-_DEFAULT_MODEL = "ariaska-cybersec"
-FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", _DEFAULT_MODEL)
-MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", _DEFAULT_MODEL)
-REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", _DEFAULT_MODEL)
+# Phase 57: Local 4B for fast tasks (System 1+2), local 9B for strategic (System 3).
+# The fine-tuned ariaska-cybersec3 retains cybersec vocabulary for structured output.
+# ariaska-strategic-9b is trained specifically for multi-step attack planning.
+_LOCAL_DEFAULT = "ariaska-cybersec4"
+FAST_MODEL = os.getenv("ARIASKA_FAST_MODEL", _LOCAL_DEFAULT)
+MEDIUM_MODEL = os.getenv("ARIASKA_MEDIUM_MODEL", _LOCAL_DEFAULT)
+# REASONING_MODEL: used as System 3 fallback when neither strategic-9b nor cloud is available
+REASONING_MODEL = os.getenv("ARIASKA_REASONING_MODEL", _LOCAL_DEFAULT)
+# STRATEGIC_MODEL: local 9B fine-tuned for System 3 (replaces cloud when available)
+STRATEGIC_MODEL = os.getenv("ARIASKA_STRATEGIC_MODEL", "ariaska-strategic-9b")
+
+# Runtime availability flags — set by GPTManager during init
+_cloud_available: bool = False
+_local_strategic_available: bool = False
+
+
+def set_cloud_available(available: bool) -> None:
+    """Called by GPTManager when cloud provider is detected."""
+    global _cloud_available
+    _cloud_available = available
+    if available:
+        logger.info("[ROUTER] Cloud reasoning provider available — System 3 cloud fallback ready")
+
+
+def set_local_strategic_available(available: bool, model_name: str = "") -> None:
+    """Called by GPTManager when local strategic 9B is detected in Ollama."""
+    global _local_strategic_available, STRATEGIC_MODEL
+    _local_strategic_available = available
+    if model_name:
+        STRATEGIC_MODEL = model_name
+    if available:
+        logger.info(f"[ROUTER] Local strategic model available — System 3 routes to {STRATEGIC_MODEL}")
 
 
 def classify_tier(model: str) -> str:
-    """Classify a model name into a budget tier. All models are local."""
+    """Classify a model name into a budget tier."""
+    if model in ("cloud", "cloud-reasoning"):
+        return "cloud"
     return "local"
 
 
-def _task_to_model(task_type: Optional[str]) -> tuple[str, str]:
-    """Map task_type to (model_name, system_label).
-    
-    Returns the optimal local model and a human-readable label.
+def _task_to_model(task_type: Optional[str]) -> tuple[str, str, str]:
+    """Map task_type to (model_name, system_label, provider).
+
+    Returns the optimal model, a human-readable label, and provider name.
+
+    System 3 priority chain (P58: cloud removed):
+      1. Local strategic 9B (fine-tuned, zero latency, no API limits)
+      2. Local 4B fallback (always available, no rate limits)
     """
     if task_type in _SYSTEM1_TASKS:
-        return FAST_MODEL, "System1-fast"
+        return FAST_MODEL, "System1-fast", "local"
+
     if task_type in _SYSTEM3_TASKS:
-        return REASONING_MODEL, "System3-reasoning"
+        if _local_strategic_available:
+            return STRATEGIC_MODEL, "System3-local-strategic", "local-strategic"
+        return REASONING_MODEL, "System3-local", "local"
+
     if task_type in _SYSTEM2_TASKS:
-        return MEDIUM_MODEL, "System2-balanced"
-    # Default: medium model for unknown task types
-    return MEDIUM_MODEL, "System2-default"
+        return MEDIUM_MODEL, "System2-balanced", "local"
+
+    # Default: local for unknown task types
+    return MEDIUM_MODEL, "System2-default", "local"
 
 
 class ModelRouter:
     """
-    Routes model requests to local Ollama models based on task complexity.
+    Routes model requests to local or cloud models based on task complexity.
 
-    Tri-model strategy:
-      - System 1 (4B): classification, diversify, parsing — fast reflexive
-      - System 2 (4B): recon, defensive, general — balanced
-      - System 3 (9B): strategic, postmortem — deep reasoning
+    Hybrid strategy (Phase 56):
+      - System 1 (local 4B): classification, diversify, parsing — fast reflexive
+      - System 2 (local 4B): recon, defensive, general — balanced
+      - System 3 (local 9B/4B): strategic, analysis, postmortem — deep reasoning
 
-    All inference is local. No external API fallback.
+    Falls back to local for System 3 if no cloud API key is configured.
     """
 
     def __init__(
@@ -114,8 +153,9 @@ class ModelRouter:
         self._offload_mini = offload_mini
         self._offload_all = offload_all
         self._routed_local = 0
+        self._routed_cloud = 0
         self._routed_by_system: dict[str, int] = {"s1": 0, "s2": 0, "s3": 0}
-    
+
     @classmethod
     def from_flags(cls) -> "ModelRouter":
         """Create router from feature flags and runtime state."""
@@ -132,7 +172,7 @@ class ModelRouter:
             offload_nano = True
             offload_mini = True
             offload_all = os.getenv("FF_LOCAL_LLM_OFFLOAD_ALL", "0").lower() in _truthy
-        
+
         local_model_name = ""
         if local_llm:
             try:
@@ -142,7 +182,7 @@ class ModelRouter:
                 local_llm = provider.is_available()
             except Exception:
                 local_llm = False
-        
+
         return cls(
             local_available=local_llm,
             local_model_name=local_model_name,
@@ -155,55 +195,83 @@ class ModelRouter:
     def for_full_local(cls) -> "ModelRouter":
         """Create a router that sends ALL tiers to local models.
 
-        Convenience factory for fully offline operation (Phase 44/54).
+        Convenience factory for fully offline operation.
         """
         router = cls.from_flags()
         router._offload_all = True
         return router
-    
+
     def route(self, model: str, task_type: Optional[str] = None) -> RoutingDecision:
         """
-        Route a model request to the optimal local model by task complexity.
-        
+        Route a model request to the optimal provider by task complexity.
+
         Args:
             model: The requested model name (e.g. "local-llm")
             task_type: Task type for cognitive-tier routing
-            
+
         Returns:
             RoutingDecision with provider, model, and tier.
         """
-        # If local LLM is not available, return error decision
-        if not self._local_available:
+        # If no LLM is available at all, error
+        if not self._local_available and not _cloud_available and not _local_strategic_available:
             return RoutingDecision(
                 provider="local", model=model, tier="local",
-                reason="local LLM unavailable — check Ollama"
+                reason="no LLM available — check Ollama or set cloud API key"
             )
 
-        # Task-aware tri-model local routing
-        target_model, system_label = _task_to_model(task_type)
-        self._routed_local += 1
-        # Track per-system stats
+        # Task-aware hybrid routing
+        target_model, system_label, provider = _task_to_model(task_type)
+
+        # Fallback chains when preferred provider is unavailable:
+        # P58: local-strategic → local 4B (cloud removed from chain)
+        if provider == "local-strategic" and not _local_strategic_available:
+            if self._local_available:
+                target_model = REASONING_MODEL
+                system_label = f"{system_label}→local-fallback"
+                provider = "local"
+
+        # local → cloud fallback
+        if provider == "local" and not self._local_available and _cloud_available:
+            target_model = "cloud-reasoning"
+            system_label = f"{system_label}→cloud-fallback"
+            provider = "cloud"
+
+        # Normalize provider for stats and downstream: local-strategic uses local Ollama
+        effective_provider = "local" if provider == "local-strategic" else provider
+
+        # Track stats
+        if effective_provider == "cloud":
+            self._routed_cloud += 1
+        else:
+            self._routed_local += 1
+
         if system_label.startswith("System1"):
             self._routed_by_system["s1"] += 1
         elif system_label.startswith("System3"):
             self._routed_by_system["s3"] += 1
         else:
             self._routed_by_system["s2"] += 1
+
         return RoutingDecision(
-            provider="local", model=target_model, tier="local",
+            provider=effective_provider, model=target_model, tier=provider,
             reason=f"{task_type or 'unknown'} → {system_label} ({target_model})"
         )
-    
+
     def get_stats(self) -> dict:
         """Get routing statistics."""
+        total = self._routed_local + self._routed_cloud
         return {
             "local_available": self._local_available,
+            "cloud_available": _cloud_available,
+            "local_strategic_available": _local_strategic_available,
             "local_model": self._local_model_name,
+            "strategic_model": STRATEGIC_MODEL if _local_strategic_available else None,
             "routed_local": self._routed_local,
-            "local_pct": 100.0,
+            "routed_cloud": self._routed_cloud,
+            "cloud_pct": round(self._routed_cloud / max(1, total) * 100, 1),
             "system_routing": self._routed_by_system,
         }
-    
+
     def set_local_available(self, available: bool, model_name: str = "") -> None:
         """Update local availability at runtime."""
         self._local_available = available

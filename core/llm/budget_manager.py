@@ -57,8 +57,13 @@ _BURST_TIERS = frozenset({"mini", "codex"})  # Only mini+codex get bursts
 _MODEL_TIER: Dict[str, str] = {
     "local-llm": "local",
     "local": "local",
+    "ariaska-cybersec": "local",
+    "ariaska-cybersec2": "local",
+    "ariaska-cybersec4": "local",
     "jaahas/qwen3.5-uncensored:4b": "local",
     "jaahas/qwen3.5-uncensored:9b": "local",
+    "cloud-reasoning": "cloud",
+    "cloud": "cloud",
 }
 
 # Valid ROI tags

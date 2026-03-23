@@ -1,21 +1,21 @@
 {
   "version": "1.0",
-  "last_updated": 1773428543.2705088,
-  "skill_count": 2,
+  "last_updated": 1774197745.7971854,
+  "skill_count": 5,
   "skills": {
     "skill_001": {
       "id": "skill_001",
-      "if_condition": "When a target service is discovered during reconnaissance",
-      "then_action": "Fingerprint the service version and enumerate with appropriate scripts/modules",
+      "if_condition": "When port 22 is open and SSH banner detected",
+      "then_action": "Run SSH enumeration with nmap scripts",
       "parameters_template": {
-        "phase": "recon",
-        "action": "service_fingerprint"
+        "port": 22,
+        "script": "ssh-*"
       },
-      "confidence": 0.72,
+      "confidence": 0.85,
       "evidence_refs": [
-        "ep0000_summary"
+        "ep0000_step1"
       ],
-      "created_at": 1771418472.2116103,
+      "created_at": 1774017339.259359,
       "usage_count": 0,
       "success_rate": 0.0,
       "preconditions": {},
@@ -29,17 +29,87 @@
     },
     "skill_002": {
       "id": "skill_002",
-      "if_condition": "When an attack path is identified",
-      "then_action": "Prioritize exploitation steps that maximize reward with minimal risk",
+      "if_condition": "When HTTP service is detected on port 80",
+      "then_action": "Perform HTTP enumeration with dirbuster",
       "parameters_template": {
-        "phase": "exploit",
-        "strategy": "low_risk_high_reward"
+        "port": 80,
+        "tool": "dirbuster"
       },
-      "confidence": 0.68,
+      "confidence": 0.8,
       "evidence_refs": [
-        "ep0000_summary"
+        "ep0000_step2"
       ],
-      "created_at": 1771418472.211621,
+      "created_at": 1774017339.2593715,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_003": {
+      "id": "skill_003",
+      "if_condition": "When MySQL service is detected on port 3306",
+      "then_action": "Run MySQL enumeration with nmap scripts",
+      "parameters_template": {
+        "port": 3306,
+        "script": "mysql-*"
+      },
+      "confidence": 0.9,
+      "evidence_refs": [
+        "ep0000_step3"
+      ],
+      "created_at": 1774017339.2593803,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_004": {
+      "id": "skill_004",
+      "if_condition": "When a potential vulnerability is detected",
+      "then_action": "Run exploit with Metasploit",
+      "parameters_template": {
+        "tool": "metasploit"
+      },
+      "confidence": 0.85,
+      "evidence_refs": [
+        "ep0000_step4"
+      ],
+      "created_at": 1774017339.2593875,
+      "usage_count": 0,
+      "success_rate": 0.0,
+      "preconditions": {},
+      "postconditions": {},
+      "failure_signatures": [],
+      "expected_output_patterns": [],
+      "service_archetypes": [],
+      "reward_history": [],
+      "last_used_episode": 0,
+      "applicable_phases": []
+    },
+    "skill_005": {
+      "id": "skill_005",
+      "if_condition": "When a system is fully compromised",
+      "then_action": "Perform post-exploitation activities",
+      "parameters_template": {
+        "tool": "post-exploitation scripts"
+      },
+      "confidence": 0.8,
+      "evidence_refs": [
+        "ep0000_step5"
+      ],
+      "created_at": 1774017339.2593937,
       "usage_count": 0,
       "success_rate": 0.0,
       "preconditions": {},

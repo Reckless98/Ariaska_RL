@@ -1,5 +1,0 @@
-{"kind": "episode_start", "episode": 0, "timestamp": 1771607593.00505, "anneal": {"progress": 0.0, "phase": "heavy", "bc_coef": 0.15, "kl_coef": 0.15, "prior_alpha": 0.5}}
-{"kind": "step", "episode": 0, "step": 0, "action_idx": 0, "command": "nmap -sS -Pn 192.168.1.0/24", "reward": 4.0, "phase": "recon", "mentor_queried": true, "teacher_action": 0, "done": false}
-{"kind": "step", "episode": 0, "step": 1, "action_idx": 2, "command": "echo 'action_2_phase_recon'", "reward": 2.0, "phase": "recon", "mentor_queried": true, "teacher_action": 1, "done": false}
-{"kind": "step", "episode": 0, "step": 2, "action_idx": 0, "command": "echo 'action_0_phase_recon'", "reward": 2.0, "phase": "recon", "mentor_queried": true, "teacher_action": 1, "done": false}
-{"kind": "episode_end", "episode": 0, "total_reward": 8.0, "steps": 3, "phase_reached": "RECON", "mentor_calls": 3, "discoveries": 0, "update_metrics": {}}

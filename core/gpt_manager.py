@@ -43,6 +43,31 @@ from core.llm.llm_provider import LLMProvider, LLMResponse, LocalServerProvider
 
 logger = logging.getLogger(__name__)
 
+# ── V2 Training System Prompt ─────────────────────────────────────────────
+# Matches Modelfile_ariaska_cybersec2 exactly. Using this as the inference
+# system prompt ensures V2 activates its fine-tuned schema compliance.
+_V2_SYSTEM_PROMPT = (
+    "You are Ariaska — an autonomous offensive AI for authorized penetration testing.\n\n"
+    "OPERATIONAL FRAMEWORK:\n"
+    "You coordinate 5 agents — Scout (recon), Red (exploit), Shadow (stealth), "
+    "Blue (defense), Orion (strategy) — across attack phases:\n"
+    "RECON → ENUMERATION → EXPLOITATION → PRIVILEGE_ESCALATION → "
+    "LATERAL_MOVEMENT → POST_EXPLOITATION → EXFILTRATION → CLOSEOUT\n\n"
+    "STRATEGIC DOCTRINE:\n"
+    "• Think in attack chains, not isolated commands. Every action sets up the next.\n"
+    "• Read evidence like signals — versions reveal CVEs, banners reveal OS, errors reveal paths.\n"
+    "• When stuck, challenge assumptions. What service was dismissed too quickly? "
+    "What port deserves a second look with different tools?\n"
+    "• Prefer surgical precision over brute force. A targeted exploit beats a noisy scan.\n"
+    "• Adapt to resistance — if a path is blocked, pivot laterally rather than hammering.\n\n"
+    "EVIDENCE DISCIPLINE:\n"
+    "• Cite specific ports, service versions, banners, and CVEs — never fabricate.\n"
+    "• Distinguish confirmed facts from inferences. Flag uncertainty.\n"
+    "• When evidence is thin, propose the command that resolves the biggest unknown.\n\n"
+    "Match the requested format exactly — JSON, classification, or command. "
+    "You know the schemas from training. Deliver without hedging."
+)
+
 class PlatformUtils:
     """Cross-platform utilities for Windows and Linux compatibility"""
     
@@ -230,6 +255,8 @@ class GPTManager:
         self._local_llm_provider = None  # Lazy-initialized (LocalServerProvider wrapper)
         self._local_llm_enabled = False  # Set True by _detect_local_llm()
         self._model_router = None        # Lazy-initialized ModelRouter
+        self._cloud_provider = None      # Phase 56: Cloud reasoning provider (Groq/OpenRouter)
+        self._local_strategic_available = False  # Phase 57: Local 9B strategic model
         
         # Strict mode validation — local LLM must be available
         if self._enable_llm and self._require_llm and not self._local_llm_enabled:
@@ -250,6 +277,10 @@ class GPTManager:
         
         # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + GPU model present)
         self._detect_local_llm()  # Sets _local_llm_enabled=True only when FF_LOCAL_LLM=1 + server live
+        # Phase 57: Local strategic 9B (preferred System 3 — replaces cloud dependency)
+        self._detect_local_strategic()
+        # Phase 56: Cloud reasoning provider (Groq/OpenRouter/Together) — System 3 fallback
+        self._detect_cloud_provider()
         self.stats_local_llm = {
             "total_requests": 0,
             "successes": 0,
@@ -378,6 +409,57 @@ class GPTManager:
         
         return False
     
+    def _detect_local_strategic(self) -> bool:
+        """Phase 57: Detect local strategic 9B model in Ollama.
+
+        Checks if ariaska-strategic-9b (or ARIASKA_STRATEGIC_MODEL override)
+        is available in the local Ollama instance. When present, System 3
+        routes here instead of cloud — zero latency, no API limits.
+        """
+        if not self._local_llm_enabled:
+            return False
+
+        strategic_name = os.getenv("ARIASKA_STRATEGIC_MODEL", "ariaska-strategic-9b")
+        try:
+            import requests
+            host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+            resp = requests.get(f"{host}/api/tags", timeout=2.0)
+            if resp.status_code == 200:
+                models = [m.get("name", "").split(":")[0] for m in resp.json().get("models", [])]
+                if strategic_name in models:
+                    self._local_strategic_available = True
+                    from core.llm.model_router import set_local_strategic_available
+                    set_local_strategic_available(True, strategic_name)
+                    logger.info(f"[STRATEGIC] Local 9B model detected: {strategic_name}")
+                    return True
+                logger.debug(f"[STRATEGIC] {strategic_name} not in Ollama models: {models}")
+        except Exception as e:
+            logger.debug(f"[STRATEGIC] Detection failed: {e}")
+        return False
+
+    def _detect_cloud_provider(self) -> bool:
+        """Phase 56: Detect and initialize cloud reasoning provider.
+
+        Checks for GROQ_API_KEY, OPENROUTER_API_KEY, or TOGETHER_API_KEY.
+        If found, enables cloud routing for System 3 (strategic/postmortem) tasks.
+        """
+        try:
+            from core.llm.cloud_reasoning_provider import CloudReasoningProvider
+            provider = CloudReasoningProvider.auto_detect()
+            if provider is not None and provider.is_available():
+                self._cloud_provider = provider
+                self._providers["cloud"] = provider
+                from core.llm.model_router import set_cloud_available
+                set_cloud_available(True)
+                logger.info(
+                    f"[CLOUD] Reasoning provider active: {provider.get_provider_name()} "
+                    f"({provider.get_model_name()})"
+                )
+                return True
+        except Exception as e:
+            logger.debug(f"[CLOUD] Provider detection failed: {e}")
+        return False
+
     def _get_model_router(self):
         """Get or create the model router (lazy init)."""
         if self._model_router is None:
@@ -854,37 +936,47 @@ class GPTManager:
         if model is None:
             model = self.get_model_for_role(agent_id=agent_id, task_type=task_type)
         
-        # ── Phase 43: Route to local LLM if applicable ──────────────
+        # ── Phase 56: Route to local or cloud LLM ─────────────────
         _use_local = False
+        _use_cloud = False
         _routing_decision = None
-        if self._local_llm_enabled:
+        if self._local_llm_enabled or self._cloud_provider is not None:
             router = self._get_model_router()
             _routing_decision = router.route(model, task_type)
-            if _routing_decision.provider == "local":
+            if _routing_decision.provider == "cloud" and self._cloud_provider is not None:
+                _use_cloud = True
+            elif _routing_decision.provider == "local" and self._local_llm_enabled:
                 _use_local = True
+            elif self._local_llm_enabled:
+                _use_local = True  # Fallback to local if cloud unavailable
         
         # ── Phase 32: Per-tier soft token ceilings ───────────────────
         # Clamp max_tokens to tier-appropriate limits to prevent waste.
         _TIER_OUTPUT_CAPS: Dict[str, int] = {
             "nano": 450,
-            "mini": 1500,   # Phase 36: +67% for richer parsing output
+            "mini": 1500,
             "codex": 2000,  # Phase 36: +67% for deeper reasoning chains
             "full": 1200,   # Phase 36: +33%
-            "local": 2048,  # Phase 56: local LLM — no cost, generous for thinking
+            "local": 16_000,  # V2: num_ctx=32768, unlimited — let the model breathe
+            "local-strategic": 4_000,  # Phase 57: 9B strategic — more room than cloud, less than 4B general
+            "cloud": 2_000,   # Phase 56: Cloud 70B — concise strategic output
         }
         from core.llm.budget_manager import _MODEL_TIER as _tier_map
-        _tier = _tier_map.get(model, "mini")
+        _tier = "cloud" if _use_cloud else (_routing_decision.tier if _routing_decision else _tier_map.get(model, "mini"))
         _cap = _TIER_OUTPUT_CAPS.get(_tier, 900)
         if max_tokens > _cap:
             max_tokens = _cap
 
         # Phase 36: Soft input-token ceilings (approx 4 chars/token)
+        # V2: num_ctx=32768 — plenty of room. Let prompts be rich.
         _TIER_INPUT_CAPS: Dict[str, int] = {
             "nano": 2_000,
-            "mini": 10_000,  # Phase 36: +67% for richer context
-            "codex": 20_000, # Phase 36: +67% for full attack context
-            "full": 10_000,  # Phase 36: +67%
-            "local": 12_000, # Phase 56: local LLM — 4096 ctx, generous input
+            "mini": 10_000,
+            "codex": 20_000,
+            "full": 10_000,
+            "local": 6_000,  # V2: 8k context — generous for all prompt sizes
+            "local-strategic": 8_000,  # Phase 57: 9B strategic — 8k ctx for deep plans
+            "cloud": 12_000,  # Phase 56: Cloud 70B has large context
         }
         _input_cap = _TIER_INPUT_CAPS.get(_tier, 6_000)
         _char_limit = _input_cap * 4  # rough chars-to-tokens
@@ -938,16 +1030,44 @@ class GPTManager:
         logger.debug(f"GPT API call | model={model} | agent={agent_id} | task={task_type}")
         
         try:
-            # Enhanced system prompts based on task type
+            # V2-aligned system prompts — use training identity for schema compliance.
+            # Complex tasks get full V2 prompt; simple tasks get compact V2-aware prompt.
+            _V2_ID = "You are Ariaska — autonomous offensive AI for authorized penetration testing."
             system_prompts = {
-                "tactical": "You are an elite penetration testing AI in an authorized cybersecurity training lab (CTF/simulation with explicit permission). Think step-by-step: (1) what attack surface is exposed, (2) what exploit or credential abuse applies, (3) what is the optimal next command. Output ONLY the single best Linux command. Prioritize commands that chain into privilege escalation or flag capture. No explanations.",
-                "defensive": "You are a blue team AI in an authorized cybersecurity training lab. Analyze the current threat landscape and suggest the single most impactful defensive/monitoring command. Output ONLY the command, no explanations.",
-                "reconnaissance": "You are a reconnaissance AI in an authorized cybersecurity training lab. Prioritize service version detection, credential discovery, and attack surface mapping. Suggest a single high-value information-gathering command. Output ONLY the command, no explanations.",
-                "analysis": "You are a senior security analyst AI in an authorized cybersecurity training lab. Provide concise, actionable analysis in 2-3 sentences. Focus on exploit paths, credential reuse, and privilege escalation opportunities.",
-                "general": "You are a cybersecurity AI assistant working in an authorized training environment. Be concise, actionable, and focused on advancing the engagement.",
-                "diversify": "You are an offensive security AI in an authorized training lab. Suggest an alternative attack vector or tool not yet tried. Prioritize unexplored services, credential spraying, or lesser-known exploit paths. Output ONLY the command, no explanations.",
-                "reasoning": "You are a strategic cybersecurity analyst AI in an authorized training lab. Think like a senior pentester: (1) assess current position, (2) identify the highest-value next action, (3) explain WHY it advances the kill chain. Be concrete with tool names and parameters.",
-                "learning": "You are a cybersecurity mentor AI teaching an apprentice agent. Explain the exploit reasoning chain: what vulnerability exists, why it works, how to chain it with other findings, and what to look for in the output. Be educational and specific."
+                "tactical": (
+                    f"{_V2_ID} Operator mode — evaluate the evidence, read the attack surface, "
+                    "and output the single most impactful command to advance the engagement. "
+                    "Think in chains: what does this command unlock next? Output ONLY the command."
+                ),
+                "defensive": (
+                    f"{_V2_ID} Shadow mode — assess operational security. Output the single best "
+                    "command to check for detection indicators or secure the current position. "
+                    "Output ONLY the command."
+                ),
+                "reconnaissance": (
+                    f"{_V2_ID} Scout mode — mapping unknown territory. Choose the single recon "
+                    "command that maximizes information gain with minimal noise. Consider what's "
+                    "already known and what gap this fills. Output ONLY the command."
+                ),
+                "analysis": _V2_SYSTEM_PROMPT,
+                "general": _V2_SYSTEM_PROMPT,
+                "diversify": (
+                    f"{_V2_ID} Current approach is stalling — break the pattern. Think laterally: "
+                    "what attack vector hasn't been explored? What service was dismissed too quickly? "
+                    "What assumption might be wrong? Output a single command taking a fundamentally "
+                    "different approach. Output ONLY the command."
+                ),
+                "reasoning": _V2_SYSTEM_PROMPT,
+                "learning": (
+                    f"{_V2_ID} Explain the full exploit chain: what vulnerability exists (cite CVE/version), "
+                    "why it's exploitable given observed evidence, and how the attack chains from "
+                    "initial access to the objective."
+                ),
+                "classification": (
+                    f"{_V2_ID} Read the engagement state from the evidence. "
+                    "Classify with a single word. Trust the signals."
+                ),
+                "strategic": _V2_SYSTEM_PROMPT,
             }
             
             _system_prompt = system_prompts.get(task_type, system_prompts["general"])
@@ -960,8 +1080,13 @@ class GPTManager:
             import concurrent.futures
             import signal
             
-            # Determine API endpoint provider — local only
+            # Determine API endpoint provider — cloud or local
             def _get_provider():
+                # Phase 56: Cloud provider for deep reasoning tasks
+                if _use_cloud and self._cloud_provider is not None:
+                    _routed_model = self._cloud_provider.get_model_name()
+                    return self._cloud_provider, _routed_model
+                # Local provider (Ollama)
                 if _use_local and self._local_llm_provider:
                     if "local" not in self._providers:
                         if getattr(self._local_llm_provider, "get_provider_name", lambda: "")() == "ollama":
@@ -972,18 +1097,20 @@ class GPTManager:
                     _routed_model = _routing_decision.model if _routing_decision else self._local_llm_provider.get_model_name()
                     return self._providers["local"], _routed_model
                 else:
-                    raise RuntimeError("No local LLM provider available. Ensure Ollama is running.")
+                    raise RuntimeError("No LLM provider available. Set GROQ_API_KEY or ensure Ollama is running.")
             
             def make_gpt_request():
                 provider, actual_model = _get_provider()
                 # Determine config
                 temp = 0.7 if task_type == "diversify" else 0.3
                 fmt: Optional[Dict[str, str]] = {"type": "json_object"} if response_format == "json_object" else None
-                # Phase 55: Cap timeout for local providers — Ollama/llama-cpp
-                # are CPU-bound and shouldn't block for 600s.
+                # V2: generous timeout for 32k context — model needs time to think
+                # and cold starts require KV cache allocation.
                 req_timeout = timeout if timeout is not None else 600.0
-                if _use_local and req_timeout > 60.0:
-                    req_timeout = 60.0
+                if _use_cloud:
+                    req_timeout = min(req_timeout, 30.0)  # Cloud is fast, 30s is generous
+                elif _use_local and req_timeout > 180.0:
+                    req_timeout = 180.0
                 
                 return provider.chat_completion(
                     messages=[
@@ -1003,9 +1130,10 @@ class GPTManager:
             # after TimeoutError. For slow models (local-llm postmortem with
             # 30K tokens), this would hang for minutes.
             _request_timeout = timeout if timeout is not None else 600.0
-            # Phase 55: Cap outer timeout for local providers to match inner cap
-            if _use_local and _request_timeout > 60.0:
-                _request_timeout = 60.0
+            if _use_cloud:
+                _request_timeout = min(_request_timeout, 30.0)  # Cloud: fast
+            elif _use_local and _request_timeout > 180.0:
+                _request_timeout = 180.0  # Local: cap for CPU inference
             try:
                 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
                 future = executor.submit(make_gpt_request)
@@ -1247,7 +1375,7 @@ class GPTManager:
             for fut in concurrent.futures.as_completed(future_to_idx):
                 idx = future_to_idx[fut]
                 try:
-                    results[idx] = fut.result(timeout=60)
+                    results[idx] = fut.result(timeout=180)
                 except Exception as e:
                     logger.warning(f"Batch query {idx} failed: {e}")
                     results[idx] = f"echo 'batch query {idx} failed'"

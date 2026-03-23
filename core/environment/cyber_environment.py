@@ -182,6 +182,13 @@ class CyberEnvironment:
         self.training_mode = "adaptive"
         self.blue_team_aggressiveness = 3
 
+        # Phase 57: HTB extended state signals — populated by command processing
+        # and derived from environment state for state_encoder sections 20-23.
+        self._web_attack_surface: Dict[str, float] = {}
+        self._privesc_vectors: Dict[str, float] = {}
+        self._os_fingerprint: Dict[str, float] = {}
+        self._network_topo_signals: Dict[str, float] = {}
+
         # Only call reset_environment if not deferring
         if not defer_reset:
             self.reset_environment()
@@ -334,7 +341,13 @@ class CyberEnvironment:
             self.done = False
             self.active_shells = []
             self.active_processes = []
-            
+
+            # Phase 57: Reset HTB extended state signals
+            self._web_attack_surface = {}
+            self._privesc_vectors = {}
+            self._os_fingerprint = {}
+            self._network_topo_signals = {}
+
             # Apply domain randomization if context detector available
             if not self.live_mode and hasattr(self, "context_detector") and self.context_detector:
                 randomized_params = self.context_detector.randomize_domain()
@@ -599,6 +612,84 @@ class CyberEnvironment:
         """Get current environment state for agent decision making."""
         return self.get_global_state()
 
+    # ── Phase 57: HTB Extended State Signal Derivation ────────────────
+    def _derive_htb_state_signals(self) -> None:
+        """Derive web_attack_surface, privesc_vectors, os_fingerprint,
+        and network_topology dicts from current environment state.
+
+        Called lazily by get_global_state() so the state encoder always
+        sees fresh values without every _process_* method needing to
+        update them explicitly.
+        """
+        # Guard: some tests use __new__ and skip __init__, so attrs may be missing
+        discovered_info = getattr(self, "discovered_info", set())
+        discovered_vulns = getattr(self, "discovered_vulnerabilities", [])
+        service_banners = getattr(self, "service_banners", {})
+        open_ports = getattr(self, "open_ports", [])
+        compromised = getattr(self, "compromised_hosts", set())
+        if not hasattr(self, "_web_attack_surface"):
+            self._web_attack_surface = {}
+            self._privesc_vectors = {}
+            self._os_fingerprint = {}
+            self._network_topo_signals = {}
+
+        # ── web_attack_surface (10 dims in encoder section 20) ────────
+        web_dirs = [k for k in discovered_info if k.startswith("webdir_")]
+        web_ports = [p for p, b in service_banners.items()
+                     if "http" in b.lower() or p in (80, 443, 8080, 8443)]
+        was = self._web_attack_surface
+        was["directories_found"] = min(len(web_dirs) / 10.0, 1.0)
+        was["parameters_found"] = was.get("parameters_found", 0.0)
+        was["forms_found"] = was.get("forms_found", 0.0)
+        was["lfi_detected"] = 1.0 if any("lfi" in v for v in discovered_vulns) else 0.0
+        was["sqli_detected"] = 1.0 if any("sqli" in v or "sql" in v for v in discovered_vulns) else 0.0
+        was["upload_found"] = 1.0 if any("upload" in d for d in web_dirs) else 0.0
+        was["web_auth_bypass"] = was.get("web_auth_bypass", 0.0)
+        was["api_endpoints"] = min(len([d for d in web_dirs if "api" in d]) / 5.0, 1.0)
+        was["cms_detected"] = 1.0 if any(k in discovered_info for k in ("cms_wordpress", "cms_joomla", "cms_drupal")) else 0.0
+        was["tech_stack_count"] = min(len(web_ports) / 4.0, 1.0)
+
+        # ── privesc_vectors (10 dims in encoder section 21) ───────────
+        pv = self._privesc_vectors
+        pv["suid_count"] = min(len([k for k in discovered_info if "suid" in k]) / 5.0, 1.0)
+        pv["writable_cron"] = 1.0 if any("cron" in k for k in discovered_info) else 0.0
+        pv["docker_group"] = 1.0 if "privesc_docker" in discovered_info or "docker_privesc" in discovered_info else 0.0
+        pv["lxd_group"] = 1.0 if "privesc_lxd" in discovered_info or "lxd_privesc" in discovered_info else 0.0
+        pv["sudo_entries"] = min(len([k for k in discovered_info if "sudo" in k]) / 3.0, 1.0)
+        pv["writable_passwd"] = 1.0 if "writable_etc_passwd" in discovered_info else 0.0
+        pv["kernel_exploitable"] = 1.0 if any("kernel" in k for k in discovered_info) else 0.0
+        pv["capabilities_count"] = min(len([k for k in discovered_info if "cap_" in k]) / 3.0, 1.0)
+        pv["path_hijack"] = pv.get("path_hijack", 0.0)
+        pv["wildcard_inject"] = pv.get("wildcard_inject", 0.0)
+
+        # ── os_fingerprint (8 dims in encoder section 22) ─────────────
+        of = self._os_fingerprint
+        all_banners = " ".join(service_banners.values()).lower()
+        is_linux = any(k in all_banners for k in ("linux", "ubuntu", "debian", "centos", "fedora", "red hat"))
+        is_windows = any(k in all_banners for k in ("windows", "microsoft", "iis"))
+        is_bsd = "bsd" in all_banners
+        of["is_linux"] = 1.0 if is_linux else 0.0
+        of["is_windows"] = 1.0 if is_windows else 0.0
+        of["is_bsd"] = 1.0 if is_bsd else 0.0
+        of["is_unknown"] = 1.0 if not (is_linux or is_windows or is_bsd) else 0.0
+        of["version_age_bucket"] = of.get("version_age_bucket", 0.5)
+        of["domain_joined"] = 1.0 if any(p in open_ports for p in (88, 389, 636)) else 0.0
+        of["is_container"] = of.get("is_container", 0.0)
+        of["arch_ordinal"] = of.get("arch_ordinal", 0.5)
+
+        # ── network_topology (5 dims in encoder section 23) ───────────
+        nt = self._network_topo_signals
+        nt["hosts_found"] = min(len(compromised) / 5.0, 1.0)
+        subnets = set()
+        for h in compromised:
+            parts = h.split(".")
+            if len(parts) == 4:
+                subnets.add(".".join(parts[:3]))
+        nt["subnets_found"] = min(len(subnets) / 3.0, 1.0)
+        nt["interfaces_found"] = nt.get("interfaces_found", 0.0)
+        nt["pivot_targets"] = nt.get("pivot_targets", 0.0)
+        nt["internal_domain"] = 1.0 if any(p in open_ports for p in (88, 389, 636, 5985)) else 0.0
+
     def get_global_state(self):
         # Build state_flags for SmartCoach compatibility
         # Phase 8.2 Batch 10: Use exact matching for service names to prevent
@@ -622,7 +713,10 @@ class CyberEnvironment:
             "root_shell_obtained": self.privilege_level == "root",
             "admin_credentials_known": self.privilege_level == "root",
         }
-        
+
+        # Phase 57: Derive HTB extended signals from current env state
+        self._derive_htb_state_signals()
+
         return {
             "phase": self.current_phase,
             "open_ports": self.open_ports,
@@ -644,7 +738,12 @@ class CyberEnvironment:
             "done": self.done,
             "phase_progress": self.phase_progress,
             "live_mode": self.live_mode,
-            "state_flags": state_flags,  # For SmartCoach compatibility
+            "state_flags": state_flags,
+            # Phase 57: HTB extended state signals for state_encoder sections 20-23
+            "web_attack_surface": self._web_attack_surface,
+            "privesc_vectors": self._privesc_vectors,
+            "os_fingerprint": self._os_fingerprint,
+            "network_topology": self._network_topo_signals,
         }
 
     # ─────────────────────────────────────────────

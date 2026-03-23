@@ -176,13 +176,24 @@ class HypothesisGenerator:
     """
     Generates hypotheses from EvidenceGraph + knowledge indices.
 
-    Contract C1.4: NO LLM by default. Uses pattern-matching on
-    service→exploit knowledge (SERVICE_EXPLOIT_PATTERNS).
+    Contract C1.4: NO LLM by default. Uses ExploitReasoner (80+ service
+    patterns, 30+ privesc, 15+ output patterns) as primary source, with
+    SERVICE_EXPLOIT_PATTERNS as fallback for backward compatibility.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, campaign_memory: Any = None) -> None:
         self._hypotheses: Dict[str, Hypothesis] = {}
         self._tested_templates: set = set()
+        self._reasoner: Any = None
+        self._campaign = campaign_memory
+        try:
+            from core.reasoning.exploit_reasoner import ExploitReasoner
+            self._reasoner = ExploitReasoner(
+                campaign_memory=campaign_memory,
+            )
+            logger.debug("[P58] ExploitReasoner wired into HypothesisGenerator")
+        except Exception as e:
+            logger.debug(f"[P58] ExploitReasoner unavailable, using fallback: {e}")
 
     def generate(
         self,
@@ -197,14 +208,15 @@ class HypothesisGenerator:
 
         Process:
         1. Get discovered services from EvidenceGraph
-        2. Match against SERVICE_EXPLOIT_PATTERNS
-        3. Check campaign memory for prior successes
+        2. Use ExploitReasoner (80+ patterns) as primary source
+        3. Fall back to SERVICE_EXPLOIT_PATTERNS if reasoner unavailable
         4. Return ranked by expected_value
         """
         hypotheses: List[Hypothesis] = []
 
         # Get services from evidence graph
         services = []
+        state_flags: Dict[str, bool] = {}
         if evidence_graph is not None and hasattr(evidence_graph, "_nodes"):
             for node in evidence_graph._nodes.values():
                 if hasattr(node, "node_type") and str(node.node_type) in (
@@ -212,42 +224,96 @@ class HypothesisGenerator:
                 ):
                     services.append(node.properties)
 
-        # Match against known patterns
-        for svc_props in services:
-            svc_name = str(svc_props.get("service", "")).lower()
-            svc_version = str(svc_props.get("version", "")).lower()
+        # ── PRIMARY: ExploitReasoner (80+ service patterns) ──────────
+        if self._reasoner is not None and services:
+            svc_dicts = []
+            for svc_props in services:
+                svc_dicts.append({
+                    "service": str(svc_props.get("service", "")),
+                    "version": str(svc_props.get("version", "")),
+                    "port": str(svc_props.get("port", "")),
+                })
+            reasoner_results = self._reasoner.reason_from_services(
+                svc_dicts, state_flags, current_step=current_step,
+            )
+            for rh in reasoner_results:
+                template = rh.get("then_try", "")
+                if template in self._tested_templates:
+                    continue
+                h = Hypothesis(
+                    if_observed=rh.get("if_observed", ""),
+                    then_try=template,
+                    expected_result=rh.get("expected_result", ""),
+                    test_command=rh.get("test_command", template),
+                    confidence=rh.get("confidence", 0.5),
+                    reward_if_confirmed=rh.get("reward_if_confirmed", 10.0),
+                    source="exploit_reasoner",
+                    evidence_ids=[],
+                    created_step=current_step,
+                )
+                hypotheses.append(h)
+                self._hypotheses[h.id] = h
+        # ── FALLBACK: SERVICE_EXPLOIT_PATTERNS (10 basic patterns) ───
+        elif services:
+            for svc_props in services:
+                svc_name = str(svc_props.get("service", "")).lower()
+                svc_version = str(svc_props.get("version", "")).lower()
 
-            for pattern in SERVICE_EXPLOIT_PATTERNS:
-                pat_svc = pattern["service_pattern"].lower()
-                pat_ver = pattern.get("version_pattern")
+                for pattern in SERVICE_EXPLOIT_PATTERNS:
+                    pat_svc = pattern["service_pattern"].lower()
+                    pat_ver = pattern.get("version_pattern")
 
-                if pat_svc in svc_name:
-                    # Version match if specified
-                    if pat_ver and pat_ver.lower() not in svc_version:
-                        continue
-
-                    template = pattern["then_try"]
-                    # Skip already-tested templates
-                    if template in self._tested_templates:
-                        continue
-
-                    h = Hypothesis(
-                        if_observed=f"Service {svc_name} detected",
-                        then_try=template,
-                        expected_result=pattern["expected_result"],
-                        test_command=template,
-                        confidence=pattern["confidence"],
-                        reward_if_confirmed=pattern["reward"],
-                        source="knowledge_base",
-                        evidence_ids=[svc_props.get("node_id", "")],
-                        created_step=current_step,
-                    )
-                    hypotheses.append(h)
-                    self._hypotheses[h.id] = h
+                    if pat_svc in svc_name:
+                        if pat_ver and pat_ver.lower() not in svc_version:
+                            continue
+                        template = pattern["then_try"]
+                        if template in self._tested_templates:
+                            continue
+                        h = Hypothesis(
+                            if_observed=f"Service {svc_name} detected",
+                            then_try=template,
+                            expected_result=pattern["expected_result"],
+                            test_command=template,
+                            confidence=pattern["confidence"],
+                            reward_if_confirmed=pattern["reward"],
+                            source="knowledge_base",
+                            evidence_ids=[svc_props.get("node_id", "")],
+                            created_step=current_step,
+                        )
+                        hypotheses.append(h)
+                        self._hypotheses[h.id] = h
 
         # Sort by expected value descending
         hypotheses.sort(key=lambda h: h.expected_value(), reverse=True)
         return hypotheses[:max_hypotheses]
+
+    def ingest_reasoner_hypotheses(
+        self,
+        reasoner_results: List[Dict[str, Any]],
+        current_step: int = 0,
+    ) -> List[Hypothesis]:
+        """
+        Ingest hypotheses from ExploitReasoner output/privesc/credential methods.
+        Called by SmartOrchestrator when new output is parsed.
+        """
+        added: List[Hypothesis] = []
+        for rh in reasoner_results:
+            template = rh.get("then_try", "")
+            if template in self._tested_templates:
+                continue
+            h = Hypothesis(
+                if_observed=rh.get("if_observed", ""),
+                then_try=template,
+                expected_result=rh.get("expected_result", ""),
+                test_command=rh.get("test_command", template),
+                confidence=rh.get("confidence", 0.5),
+                reward_if_confirmed=rh.get("reward_if_confirmed", 10.0),
+                source=rh.get("source", "exploit_reasoner"),
+                created_step=current_step,
+            )
+            added.append(h)
+            self._hypotheses[h.id] = h
+        return added
 
     def get_top_untested(self, evidence_graph: Any = None, n: int = 3) -> List[Hypothesis]:
         """Return top N untested hypotheses by expected_value."""

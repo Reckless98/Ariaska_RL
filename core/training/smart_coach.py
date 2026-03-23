@@ -340,6 +340,8 @@ class SmartCoach:
         tactical_cortex: Optional[Any] = None,
         executive_cortex: Optional[Any] = None,
         budget_controller: Optional[Any] = None,
+        strategic_advisor: Optional[Any] = None,  # P58: Shared across agents
+        campaign_memory: Optional[Any] = None,  # P58: Cross-episode memory for ExploitReasoner
     ):
         self.agent_name = agent_name
         self.gpt_manager = gpt_manager
@@ -356,6 +358,7 @@ class SmartCoach:
         
         # ─── PHASE 11.0: Adaptive budget gating ──────────────────────
         self.budget_controller = budget_controller  # AdaptiveBudgetController instance
+        self._campaign_memory = campaign_memory  # P58: Cross-episode memory
         
         # R42: Forced-novel cap per episode — prevent forced dominance
         self._forced_novel_count = 0
@@ -503,6 +506,7 @@ class SmartCoach:
         except Exception as e:
             logger.debug(f"SAC init skipped for {agent_name}: {e}")
         self._sac_pending = None  # C03: SAC shadow select pending transition
+        self._sac_harmony_signal = None  # Algorithm Harmony: SAC confidence oracle
 
         # =====================================================================
         # PHASE 9.0: DDQN Macro-Intent Selector (Hierarchical RL)
@@ -516,6 +520,13 @@ class SmartCoach:
         self._ddqn_pending = None       # Pending DDQN transition (state, macro)
         self._ddqn_prev_macro = None    # R57 Layer 1: Previous macro for switch penalty
         self._last_step_had_discovery = False  # R57 Layer 1: Discovery signal for DDQN
+        # Algorithm Harmony: Per-macro running reward baselines for credit assignment
+        # Tracks EMA of reward per macro-intent so DDQN gets credit when its macro
+        # outperforms global baseline, and PPO is evaluated relative to macro expectation.
+        self._macro_reward_baselines: dict[int, float] = {i: 0.0 for i in range(9)}
+        self._macro_reward_counts: dict[int, int] = {i: 0 for i in range(9)}
+        self._global_reward_baseline: float = 0.0
+        self._global_reward_count: int = 0
         try:
             from core.algorithms.ddqn_macro import DDQNMacro, DDQNConfig
             ddqn_config = DDQNConfig(state_dim=512, num_macros=9)
@@ -563,6 +574,27 @@ class SmartCoach:
                 logger.debug(f"[P27] MicroChain initialized for {agent_name}")
         except Exception as e:
             logger.debug(f"[P27] MicroChain init skipped for {agent_name}: {e}")
+
+        # ─── Strategic Advisor: LLM plans N steps ahead, PPO executes ──
+        # P58: Accept shared advisor from orchestrator (one LLM call per phase,
+        # all agents share the plan). Falls back to per-agent if not provided.
+        self._strategic_advisor = strategic_advisor
+        self._shared_strategic_advisor = strategic_advisor is not None
+        if self._strategic_advisor is None:
+            try:
+                if self.gpt_manager is not None:
+                    from core.llm.strategic_advisor import StrategicAdvisor
+                    self._strategic_advisor = StrategicAdvisor(
+                        gpt_manager=self.gpt_manager,
+                        plan_horizon=20,
+                        replan_on_phase_change=True,
+                        replan_on_stagnation=5,
+                    )
+                    logger.debug(f"[STRATEGIC] Advisor initialized for {agent_name}")
+            except Exception as e:
+                logger.debug(f"[STRATEGIC] Advisor init skipped for {agent_name}: {e}")
+        else:
+            logger.debug(f"[STRATEGIC][P58] {agent_name} using shared advisor")
 
         # ─── Phase 34: PhaseGuidedLLM (structured guidance + distillation) ─
         self._phase_guided: Any = None
@@ -668,7 +700,9 @@ class SmartCoach:
                 self._p14_autonomy_scheduler.register_agent(agent_name)
             if _ff.hypothesis_engine:
                 from core.reasoning.hypothesis import HypothesisGenerator
-                self._p14_hypothesis_gen = HypothesisGenerator()
+                self._p14_hypothesis_gen = HypothesisGenerator(
+                    campaign_memory=self._campaign_memory,
+                )
             if _ff.evidence_graph:
                 from core.knowledge.evidence_graph import EvidenceGraph
                 self._p14_evidence_graph = EvidenceGraph()
@@ -3175,12 +3209,62 @@ class SmartCoach:
                 )
         
         # =====================================================================
+        # LAYER 2.4: STRATEGIC ADVISOR — LLM plans N steps, PPO executes
+        # Check if a strategic plan step is available before calling micro_chain.
+        # If yes, use plan step directly (zero LLM latency for this step).
+        # If no plan exists or it's time to replan, create one via single LLM call.
+        # =====================================================================
+        strategic_result = None
+        if self._strategic_advisor is not None:
+            try:
+                _sa_phase = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
+                _sa_stag = getattr(self, '_stagnation_steps', 0)
+                _sa_step = step_ctx.step if hasattr(step_ctx, 'step') else 0
+                _sa_templates = [c.name for c in filtered_commands[:20]] if filtered_commands else []
+                _sa_recent = list(self.episode_used_commands)[-10:] if self.episode_used_commands else []
+
+                # Check if we need a new plan
+                if self._strategic_advisor.should_replan(_sa_step, _sa_phase, _sa_stag):
+                    # P58: Shared advisor uses team role; solo uses agent name
+                    _sa_role = "multi-agent-team" if self._shared_strategic_advisor else self.agent_name
+                    self._strategic_advisor.create_plan(
+                        phase=_sa_phase,
+                        discovery_board=discovery_board,
+                        available_templates=_sa_templates,
+                        agent_role=_sa_role,
+                        step=_sa_step,
+                        recent_commands=_sa_recent,
+                    )
+
+                # Get next plan step
+                _plan_step = self._strategic_advisor.get_next_step(_sa_templates)
+                if _plan_step is not None:
+                    self._strategic_advisor.mark_executed(_plan_step)
+                    strategic_result = SmartDecisionResult(
+                        command=_plan_step.command,
+                        confidence=_plan_step.priority,
+                        reasoning=f"strategic_plan: {_plan_step.reasoning[:120]}",
+                        source="strategic_advisor",
+                        template_name=_plan_step.template_name,
+                        tokens_used=0,  # Plan step = zero LLM cost
+                        model_used="strategic_plan",
+                        mentor_call=False,  # No LLM call for this step
+                    )
+                    logger.debug(
+                        f"[STRATEGIC][{self.agent_name}] Using plan step: "
+                        f"{_plan_step.template_name} ({_plan_step.command[:60]})"
+                    )
+            except Exception as e:
+                logger.debug(f"[STRATEGIC][{self.agent_name}] Error: {e}")
+
+        # =====================================================================
         # LAYER 2.5: MICRO-CHAIN — Phase 27 nano→mini→nano scoring
         # Runs BEFORE codex meta-layer. If it returns a result, it takes
         # priority over codex meta (but not over skill/playbook/web_followup).
+        # Only runs if strategic advisor didn't provide a step.
         # =====================================================================
         micro_chain_result = None
-        if self._micro_chain is not None:
+        if self._micro_chain is not None and strategic_result is None:
             try:
                 _mc_templates = [c.name for c in filtered_commands[:20]] if filtered_commands else []
                 _mc_recent = list(self.episode_used_commands)[-10:] if self.episode_used_commands else []
@@ -3225,7 +3309,7 @@ class SmartCoach:
         # returns candidates, they supplement the pipeline.
         # =====================================================================
         phase_guided_result = None
-        if micro_chain_result is None and self._phase_guided is not None:
+        if micro_chain_result is None and strategic_result is None and self._phase_guided is not None:
             try:
                 _pg_phase = current_phase.name if hasattr(current_phase, 'name') else str(current_phase)
                 _pg_stag = getattr(self, '_stagnation_steps', 0)  # Phase 38: fix stagnation pass-through
@@ -3393,13 +3477,16 @@ class SmartCoach:
         # Replaces: 12-level cascade, ActionArbitrator, coin flip,
         #           mentor-first/PPO-first paths, codex stagnation override.
         # =====================================================================
+        # Strategic advisor result flows through micro_chain_result slot
+        _effective_mc_result = strategic_result or micro_chain_result
+
         result = self._p1_arbitrate_decision(
             step_ctx=step_ctx,
             proposed_action=proposed_action,
             confidence=confidence,
             skill_result=skill_result,
             playbook_result=playbook_result,
-            micro_chain_result=micro_chain_result,
+            micro_chain_result=_effective_mc_result,
             phase_guided_result=phase_guided_result,
             codex_meta_result=codex_meta_result,
             cognition_decision=cognition_decision,
@@ -4505,9 +4592,10 @@ class SmartCoach:
                     "done": False,
                     "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
                     "teacher_action": self._ppo_pending.get("teacher_action"),
+                    "macro": self._ppo_pending.get("macro"),
                 })
                 self._ppo_pending = None
-            
+
             logger.debug(
                 f"[{self.agent_name}] ANTI-REPEAT→REGISTRY: "
                 f"'{_dynamic_cmd[:50]}' (phase-aware)"
@@ -4685,9 +4773,10 @@ class SmartCoach:
                 "done": False,
                 "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
                 "teacher_action": self._ppo_pending.get("teacher_action"),
+                "macro": self._ppo_pending.get("macro"),
             })
             self._ppo_pending = None
-        
+
         return result
     
     def _filter_commands_for_role(self, commands: List[CommandTemplate]) -> List[CommandTemplate]:
@@ -4959,14 +5048,61 @@ class SmartCoach:
         filtered_commands: Optional[list] = None,
     ) -> Optional[SmartDecisionResult]:
         """
-        Use HypothesisGenerator to select commands that test untested hypotheses.
-        Feature-flag gated: only fires when ff.hypothesis_engine is True.
-        Returns None if no hypotheses are available or engine is disabled.
+        Use HypothesisGenerator + ExploitReasoner to select commands that
+        test untested hypotheses. Feature-flag gated: ff.hypothesis_engine.
+
+        P58 enhancement: Also triggers privesc/credential reasoning when
+        shell access or credentials are detected in discovery_board.
         """
         if self._p14_hypothesis_gen is None:
             return None
 
         try:
+            # P58: Refresh hypotheses from evidence graph + reasoner each step
+            if self._p14_evidence_graph is not None:
+                ctx = step_ctx.attack_context
+                self._p14_hypothesis_gen.generate(
+                    evidence_graph=self._p14_evidence_graph,
+                    current_step=getattr(step_ctx, 'step', 0),
+                )
+
+                # P58: If shell obtained, trigger privesc reasoning
+                _reasoner = getattr(self._p14_hypothesis_gen, '_reasoner', None)
+                if _reasoner is not None and ctx is not None:
+                    _state_flags = getattr(ctx, 'state_flags', {})
+                    _disc_board = getattr(step_ctx, 'discovery_board', {})
+
+                    if _state_flags.get("shell_obtained") and not _state_flags.get("root_shell_obtained"):
+                        _os = _disc_board.get("os_info", "") if isinstance(_disc_board, dict) else ""
+                        _kernel = _disc_board.get("kernel_version", "") if isinstance(_disc_board, dict) else ""
+                        privesc_hyps = _reasoner.reason_from_shell(
+                            shell_type="user", os_info=_os,
+                            kernel_version=_kernel,
+                            current_step=getattr(step_ctx, 'step', 0),
+                        )
+                        if privesc_hyps:
+                            self._p14_hypothesis_gen.ingest_reasoner_hypotheses(
+                                privesc_hyps,
+                                current_step=getattr(step_ctx, 'step', 0),
+                            )
+
+                    # P58: If credentials found, trigger credential reuse reasoning
+                    _creds = _disc_board.get("credentials", set()) if isinstance(_disc_board, dict) else set()
+                    if _creds:
+                        _services_list = []
+                        for s in _disc_board.get("services", set()):
+                            _services_list.append({"service": str(s), "version": "", "port": ""})
+                        _cred_list = [{"username": str(c), "password": "", "source_service": ""} for c in _creds]
+                        cred_hyps = _reasoner.reason_from_credentials(
+                            _cred_list, _services_list,
+                            current_step=getattr(step_ctx, 'step', 0),
+                        )
+                        if cred_hyps:
+                            self._p14_hypothesis_gen.ingest_reasoner_hypotheses(
+                                cred_hyps,
+                                current_step=getattr(step_ctx, 'step', 0),
+                            )
+
             hypotheses = self._p14_hypothesis_gen.get_top_untested(n=1)
             if not hypotheses:
                 return None
@@ -5239,15 +5375,18 @@ class SmartCoach:
 
         # ── 5. Collect all advisories ────────────────────────────────
         # Fallback: if DecisionCore is None, return first non-None result
+        # P57: LLM sources before web_followup — followup should not override
         if self._decision_core is None:
             for _fb in [
-                skill_result, web_followup, playbook_result,
+                skill_result,
                 micro_chain_result, phase_guided_result, codex_meta_result,
-                cognition_decision, hyp_result,
                 _mentor_result if _mentor_result and getattr(
                     _mentor_result, "mentor_call", False
                 ) else None,
-                _ppo_result, _registry_result,
+                cognition_decision, hyp_result,
+                playbook_result, _ppo_result,
+                web_followup,  # P57: web_followup LAST before registry
+                _registry_result,
             ]:
                 if _fb is not None and getattr(_fb, "command", None):
                     return _fb
@@ -6325,10 +6464,29 @@ class SmartCoach:
         
         Only fires for ScoutAgent and RedAgent roles. Tracks which
         paths have been followed up to avoid repeats.
+        
+        Phase 57 fixes:
+        - Capped at 4 total web_followup decisions per engagement
+        - Only fires during RECON/ENUMERATION phases
+        - Lower confidence (0.50-0.60) so LLM/PPO can override
         """
         # agent_role is a dict like {"role": "offensive", ...} — extract the role string
         _role_str = self.agent_role.get("role", "") if isinstance(self.agent_role, dict) else self.agent_role
         if _role_str not in ("recon", "offensive"):
+            return None
+
+        # ── P57: Phase gate — only fire during RECON/ENUMERATION ─────
+        ctx = step_ctx.attack_context
+        current_phase = ctx.current_phase if ctx else None
+        _phase_name = getattr(current_phase, 'name', str(current_phase or ''))
+        if _phase_name not in ("RECON", "ENUMERATION", ""):
+            return None
+
+        # ── P57: Cap total web_followup decisions per engagement ─────
+        if not hasattr(self, '_web_followup_count'):
+            self._web_followup_count = 0
+        _MAX_WEB_FOLLOWUP = 4  # Max curl probes before yielding to LLM/PPO
+        if self._web_followup_count >= _MAX_WEB_FOLLOWUP:
             return None
         
         web_paths = discovery_board.get("web_paths", set())
@@ -6354,6 +6512,7 @@ class SmartCoach:
 
             if not self._initial_web_probe_done:
                 self._initial_web_probe_done = True
+                self._web_followup_count += 1
                 cmd = (
                     f"curl -sL http://{target}/ | head -200; "
                     f"echo '---HREFS---'; "
@@ -6366,7 +6525,7 @@ class SmartCoach:
                 return SmartDecisionResult(
                     command=cmd,
                     source="web_followup",
-                    confidence=0.90,
+                    confidence=0.55,
                     template_name="curl_homepage",
                     params={"target": target},
                     reasoning="[WEB_FOLLOWUP] Homepage probe + link extraction (HTTP found, no web paths yet)",
@@ -6376,6 +6535,7 @@ class SmartCoach:
 
             if not self._common_paths_probed:
                 self._common_paths_probed = True
+                self._web_followup_count += 1
                 # P51: Also probe FTP (port 21) which PPO often misses
                 # in initial nmap. Cap and many HTB boxes have FTP.
                 _ports = discovery_board.get("ports", set())
@@ -6395,7 +6555,7 @@ class SmartCoach:
                 return SmartDecisionResult(
                     command=cmd,
                     source="web_followup",
-                    confidence=0.85,
+                    confidence=0.50,
                     template_name="curl_common_paths",
                     params={"target": target},
                     reasoning="[WEB_FOLLOWUP] Probing common paths (/data, /download, /capture, etc.)",
@@ -6434,6 +6594,7 @@ class SmartCoach:
             # First: explore the path itself
             if path_clean not in self._explored_web_paths:
                 self._explored_web_paths.add(path_clean)
+                self._web_followup_count += 1
                 cmd = f"curl -sL http://{target}/{path_clean} | head -200"
                 self._step_reasoning_log.append({
                     "event": "web_followup",
@@ -6442,7 +6603,7 @@ class SmartCoach:
                 return SmartDecisionResult(
                     command=cmd,
                     source="web_followup",
-                    confidence=0.85,
+                    confidence=0.45,
                     template_name="curl_web_path",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Exploring discovered path /{path_clean}",
@@ -6476,6 +6637,7 @@ class SmartCoach:
             # Third: extract links from IDOR-successful pages (find download URLs)
             if path_clean not in self._explored_web_path_html:
                 self._explored_web_path_html.add(path_clean)
+                self._web_followup_count += 1
                 logger.debug(
                     f"[WEB_FOLLOWUP][{self.agent_name}] Phase3: extracting links from /{path_clean}/0"
                 )
@@ -6490,7 +6652,7 @@ class SmartCoach:
                 return SmartDecisionResult(
                     command=cmd,
                     source="web_followup",
-                    confidence=0.80,
+                    confidence=0.35,
                     template_name="curl_web_path_links",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Extracting links from /{path_clean}/0 HTML",
@@ -6503,6 +6665,7 @@ class SmartCoach:
             # Tries /download/N (common webapp pattern), then /path/N/download.
             if path_clean not in self._explored_web_path_downloads:
                 self._explored_web_path_downloads.add(path_clean)
+                self._web_followup_count += 1
                 logger.debug(
                     f"[WEB_FOLLOWUP][{self.agent_name}] Phase4: downloading from /download/0-3"
                 )
@@ -6529,7 +6692,7 @@ class SmartCoach:
                 return SmartDecisionResult(
                     command=cmd,
                     source="web_followup",
-                    confidence=0.85,
+                    confidence=0.40,
                     template_name="download_idor_content",
                     params={"target": target, "path": path_clean},
                     reasoning=f"[WEB_FOLLOWUP] Downloading /download/0-3 + credential extraction",
@@ -7384,6 +7547,19 @@ class SmartCoach:
                 prior_alpha=_p37_alpha,
             )
 
+            # ── Algorithm Harmony: SAC confidence oracle ──────────────
+            # Query SAC's independent value estimate for PPO's chosen action.
+            # High disagreement → uncertain state → boost exploration signal.
+            _sac_conf = None
+            if self.sac_agent is not None:
+                try:
+                    _sac_conf = self.sac_agent.get_confidence_signal(
+                        state_tensor, action_idx
+                    )
+                    self._sac_harmony_signal = _sac_conf
+                except Exception:
+                    pass
+
             template_name = self.action_mapper.action_to_name(action_idx)
             if template_name is None:
                 return None
@@ -7393,11 +7569,15 @@ class SmartCoach:
                 blue_cmd = self.action_mapper.get_blue_command(action_idx)
                 if blue_cmd:
                     cmd_str, desc = blue_cmd
+                    _blue_macro = None
+                    if self._active_macro is not None:
+                        _blue_macro = self._active_macro.value if hasattr(self._active_macro, "value") else int(self._active_macro)
                     self._ppo_pending = {
                         "state": state_tensor, "action": action_idx,
                         "log_prob": log_prob, "value": value,
                         "teacher_distribution": _p37_teacher_dist,
                         "teacher_action": action_idx,
+                        "macro": _blue_macro,
                     }
                     return SmartDecisionResult(
                         command=cmd_str,
@@ -7426,11 +7606,16 @@ class SmartCoach:
                 return None
 
             # Store pending trajectory entry (reward paired later in record_result)
+            # Algorithm Harmony: Include active macro for macro-conditioned SIL
+            _pending_macro = None
+            if self._active_macro is not None:
+                _pending_macro = self._active_macro.value if hasattr(self._active_macro, "value") else int(self._active_macro)
             self._ppo_pending = {
                 "state": state_tensor, "action": action_idx,
                 "log_prob": log_prob, "value": value,
                 "teacher_distribution": _p37_teacher_dist,
                 "teacher_action": action_idx,
+                "macro": _pending_macro,
             }
 
             self.step_used_commands.add(template.name)
@@ -7440,6 +7625,20 @@ class SmartCoach:
             )
 
             # Phase 50: Populate PPO proposal on DecisionPacket
+            # Algorithm Harmony: SAC-modulated confidence
+            # When SAC strongly disagrees with PPO's choice, lower confidence
+            # → more likely to trigger mentor tiebreaker for uncertain states.
+            _harmony_conf = 0.7
+            if _sac_conf is not None:
+                _agreement = _sac_conf.get("agreement", 0.5)
+                _q_spread = _sac_conf.get("q_spread", 0.0)
+                # SAC disagrees AND has a strong preference → lower confidence
+                if _agreement < 0.15 and _q_spread > 1.5:
+                    _harmony_conf = max(0.3, 0.7 - (1.0 - _agreement) * 0.3)
+                # SAC strongly agrees → boost confidence
+                elif _agreement > 0.5:
+                    _harmony_conf = min(0.9, 0.7 + _agreement * 0.2)
+
             _dp = getattr(self, '_current_decision_packet', None)
             if _dp is not None:
                 _dp.ppo.action_idx = action_idx
@@ -7447,7 +7646,7 @@ class SmartCoach:
                 _dp.ppo.value = float(value)
                 _dp.ppo.command = command
                 _dp.ppo.template_name = template.name
-                _dp.ppo.confidence = 0.7
+                _dp.ppo.confidence = _harmony_conf
                 _dp.ppo.head_group = {0: "recon", 1: "exploit", 2: "post_exploit"}.get(
                     _r68_phase_group, "recon"
                 )
@@ -7459,7 +7658,7 @@ class SmartCoach:
                 params=params,
                 mentor_call=False,
                 mentor_reasoning=f"🧠 PPO[{action_idx}] → {template.description[:40]}",
-                confidence=0.7,
+                confidence=_harmony_conf,
                 phase=template.phase,
                 source="ppo",
             )
@@ -7778,14 +7977,18 @@ class SmartCoach:
                 )
             
             # ── R70: Store episode in Self-Imitation Learning buffer ──
-            # Feed trajectory (states, actions, raw rewards) to SIL buffer.
-            # Buffer only stores above-average episodes (positive advantage).
+            # Algorithm Harmony: Pass macro labels for macro-conditioned SIL.
+            # Enables golden segment capture per-macro, not just per-episode.
             if hasattr(self.ppo_agent, 'store_sil_episode') and self._ppo_trajectory:
                 _sil_states = [t["state"] for t in self._ppo_trajectory]
                 _sil_actions = [t["action"] for t in self._ppo_trajectory]
                 _sil_rewards = [t["reward"] for t in self._ppo_trajectory]
+                _sil_macros = [t.get("macro") for t in self._ppo_trajectory]
+                # Only pass macros if we actually tracked them (DDQN was active)
+                _has_macros = any(m is not None for m in _sil_macros)
                 _sil_added = self.ppo_agent.store_sil_episode(
-                    _sil_states, _sil_actions, _sil_rewards
+                    _sil_states, _sil_actions, _sil_rewards,
+                    macros=_sil_macros if _has_macros else None,
                 )
                 if _sil_added > 0:
                     logger.debug(
@@ -8579,6 +8782,8 @@ class SmartCoach:
                 # Phase 37: Teacher data for KL + ranking loss
                 "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
                 "teacher_action": self._ppo_pending.get("teacher_action"),
+                # Algorithm Harmony: Macro label for macro-conditioned SIL
+                "macro": self._ppo_pending.get("macro"),
             })
             self._ppo_pending = None
 
@@ -8666,21 +8871,40 @@ class SmartCoach:
                             else str(self._last_phase)
                         )
                     
+                    _step_rew = _unified_reward.total if _unified_reward is not None else breakdown.total
                     macro_reward = compute_macro_reward(
                         macro=self._active_macro,  # type: ignore[arg-type]
-                        step_reward=_unified_reward.total if _unified_reward is not None else breakdown.total,
+                        step_reward=_step_rew,
                         phase_name=phase_name,
                         discoveries=new_discoveries or {},
                         prev_phase=prev_phase_name,
                         prev_macro=self._ddqn_pending.get("prev_macro"),  # R57 Layer 1
                     )
-                    
+
+                    # ── Algorithm Harmony: Cross-layer credit assignment ──
+                    # Update running baselines and apply credit bonuses.
+                    _macro_idx = self._ddqn_pending["macro"]
+                    _macro_val = _macro_idx.value if hasattr(_macro_idx, "value") else int(_macro_idx)
+                    # Update global baseline (EMA α=0.1)
+                    self._global_reward_count += 1
+                    _g_alpha = min(0.1, 1.0 / self._global_reward_count)
+                    self._global_reward_baseline += _g_alpha * (_step_rew - self._global_reward_baseline)
+                    # Update per-macro baseline
+                    self._macro_reward_counts[_macro_val] = self._macro_reward_counts.get(_macro_val, 0) + 1
+                    _m_alpha = min(0.15, 1.0 / max(1, self._macro_reward_counts[_macro_val]))
+                    _old_baseline = self._macro_reward_baselines.get(_macro_val, 0.0)
+                    self._macro_reward_baselines[_macro_val] = _old_baseline + _m_alpha * (_step_rew - _old_baseline)
+                    # Credit: DDQN bonus when macro outperforms global baseline
+                    if self._global_reward_count > 5:
+                        _macro_advantage = self._macro_reward_baselines[_macro_val] - self._global_reward_baseline
+                        macro_reward += max(-2.0, min(2.0, _macro_advantage * 0.5))
+
                     # R57 Layer 1: Record macro outcome for success tracking
                     _had_disc = bool(new_discoveries)
                     self.ddqn_macro.record_macro_outcome(
                         self._ddqn_pending["macro"], macro_reward, _had_disc,
                     )
-                    
+
                     self.ddqn_macro.store_transition(
                         state=self._ddqn_pending["state"],
                         macro=self._ddqn_pending["macro"],

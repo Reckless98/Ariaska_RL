@@ -120,8 +120,10 @@ class TestLocalLLMProvider:
 
     def test_model_name_no_path(self):
         from core.llm.local_llm_provider import LocalLLMProvider, LocalLLMConfig
+        from unittest.mock import patch
         config = LocalLLMConfig(model_path="")
-        provider = LocalLLMProvider(config)
+        with patch.object(LocalLLMProvider, '_find_model_file', return_value=""):
+            provider = LocalLLMProvider(config)
         assert provider.get_model_name() == "local-model"
 
     def test_server_not_running(self):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import requests
 from typing import Any, Dict, List, Optional
@@ -13,15 +14,28 @@ from core.llm.llm_provider import LLMProvider, LLMResponse
 
 logger = logging.getLogger(__name__)
 
+# Pre-compiled regex for think tag stripping — Qwen3.5 models emit
+# <think>...</think> blocks even with /no_think system prompt.
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
 class OllamaProvider(LLMProvider):
     """Provider wrapping a local Ollama server (optimized for CPU/iGPU).
     
     Connects to the native Ollama API on http://localhost:11434.
     """
 
-    def __init__(self, host: str = "http://localhost:11434", default_model: str = "jaahas/qwen3.5-uncensored:4b") -> None:
+    def __init__(
+        self,
+        host: str = "http://localhost:11434",
+        default_model: Optional[str] = None,
+    ) -> None:
         self.host = host.rstrip("/")
-        self.default_model = default_model
+        self.default_model = (
+            default_model
+            or os.getenv("ARIASKA_FAST_MODEL")
+            or os.getenv("ARIASKA_MEDIUM_MODEL")
+            or "ariaska-cybersec4"
+        )
         self._stats = {
             "total_requests": 0,
             "total_tokens": 0,
@@ -42,12 +56,15 @@ class OllamaProvider(LLMProvider):
         actual_model = model if model not in ["local-llm", "local"] else self.default_model
         
         # Ollama API translation
+        # num_ctx=8192: KV cache context window. 4B models handle 8k well on CPU.
+        # Allows rich prompts with discovery history + detailed JSON output.
         payload = {
             "model": actual_model,
             "messages": messages,
             "options": {
                 "temperature": temperature,
-                "num_predict": max_tokens
+                "num_predict": max_tokens,
+                "num_ctx": 8192,
             },
             "stream": False
         }
@@ -69,6 +86,12 @@ class OllamaProvider(LLMProvider):
             result = response.json()
                 
             text = result.get("message", {}).get("content", "")
+            
+            # Strip <think>...</think> blocks at source — Qwen3.5 models emit
+            # these even with /no_think. Strip BEFORE any downstream processing.
+            if text and "<think>" in text:
+                text = _THINK_TAG_RE.sub("", text).strip()
+            
             input_tokens = result.get("prompt_eval_count", 0)
             output_tokens = result.get("eval_count", 0)
             total_tokens = input_tokens + output_tokens

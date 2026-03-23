@@ -1,1 +1,0 @@
-{"episode_id": "run_20260209_130347_a7fa78_ep0000", "run_id": "run_20260209_130347_a7fa78", "episode_number": 0, "start_time": 1770638627.3916466, "end_time": 1770638627.396037, "total_reward": -15.0, "total_steps": 10, "success": false, "final_phase": "unknown", "mentor_calls": 10, "mentor_models_used": {"offline": 10}, "avg_confidence": 0.5, "duration": 0.0043904781341552734}

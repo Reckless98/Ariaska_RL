@@ -131,6 +131,8 @@ class FeatureFlags:
         default_factory=lambda: _env_bool("FF_EVIDENCE_GRAPH", True))
     hypothesis_engine: bool = field(
         default_factory=lambda: _env_bool("FF_HYPOTHESIS_ENGINE", True))
+    exploit_reasoner: bool = field(
+        default_factory=lambda: _env_bool("FF_EXPLOIT_REASONER", True))
     strategy_plan: bool = field(
         default_factory=lambda: _env_bool("FF_STRATEGY_PLAN", True))
     autonomy_scheduler: bool = field(
