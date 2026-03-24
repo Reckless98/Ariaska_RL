@@ -137,5 +137,10 @@ results/
 *.db-shm
 *.db-wal
 
+# Runtime-generated memory/skill audit files
+core/memory/skill_audit.jsonl
+core/memory/*.db-shm
+core/memory/*.db-wal
+
 # Shell typos / accident files
 leep*
