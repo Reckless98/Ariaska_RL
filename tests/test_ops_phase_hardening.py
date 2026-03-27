@@ -23,8 +23,9 @@ class TestPhaseInvariantChecker:
     @pytest.fixture(autouse=True)
     def setup(self):
         from core.ops.phase_invariants import PhaseInvariantChecker
-        self.checker = PhaseInvariantChecker(strict=True)
-        self.lenient = PhaseInvariantChecker(strict=False)
+        self.checker = PhaseInvariantChecker(strict=True, use_dag=False)
+        self.lenient = PhaseInvariantChecker(strict=False, use_dag=False)
+        self.dag_checker = PhaseInvariantChecker(use_dag=True)
 
     def test_valid_forward_transition(self):
         """RECON -> ENUMERATION is valid with port discovered."""
@@ -213,6 +214,49 @@ class TestPhaseInvariantChecker:
             discovery_board={},
         )
         assert result.recommended_phase  # Non-empty string
+
+    # ── Phase 38.3: DAG mode tests ────────────────────────────────────
+
+    def test_dag_skip_optional_phases(self):
+        """DAG mode allows skipping LATERAL_MOVEMENT on single-host targets."""
+        result = self.dag_checker.validate_transition(
+            current_phase="PRIVILEGE_ESCALATION",
+            requested_phase="EXFILTRATION",
+            state_flags={"shell_obtained": True},
+            discovery_board={"shells": {"user-shell"}},
+        )
+        assert result.valid
+
+    def test_dag_requires_preconditions(self):
+        """DAG mode still enforces preconditions."""
+        result = self.dag_checker.validate_transition(
+            current_phase="ENUMERATION",
+            requested_phase="PRIVILEGE_ESCALATION",
+            state_flags={"services_enumerated": True},
+            discovery_board={"services": {"http"}},
+        )
+        assert not result.valid
+        assert "shell_obtained" in result.details
+
+    def test_dag_allows_skip_with_preconditions(self):
+        """DAG mode allows RECON→EXPLOITATION when preconditions are met."""
+        result = self.dag_checker.validate_transition(
+            current_phase="RECON",
+            requested_phase="EXPLOITATION",
+            state_flags={"ports_discovered": True, "services_enumerated": True},
+            discovery_board={"ports": {"80"}, "services": {"http"}},
+        )
+        assert result.valid
+
+    def test_dag_backward_still_rejected(self):
+        """DAG mode still rejects backward transitions."""
+        result = self.dag_checker.validate_transition(
+            current_phase="EXPLOITATION",
+            requested_phase="RECON",
+            state_flags={},
+            discovery_board={},
+        )
+        assert not result.valid
 
 
 # ─────────────────────────────────────────────────────────────────────────────
