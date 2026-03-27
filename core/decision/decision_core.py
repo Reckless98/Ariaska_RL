@@ -198,22 +198,51 @@ class DecisionCore:
             × confidence
             × (0.5 + 0.3 × phase_fit + 0.2 × novelty)
             × maturity_scaling[source]
+            × exploit_graph_boost  (Phase 38.3)
         )
 
     Where maturity_scaling is:
         PPO: increases with maturity (1.0 → 2.0)
         Mentor/LLM: decreases with maturity (1.0 → 0.2)
         Registry/Skill: stable (1.0)
+
+    Phase 38.3 additions:
+        - Exploit graph boosting: actions on known exploit paths get 2.5× score
+        - Source entropy regularization: prevents decision collapse
+        - Stagnation replan hook: callback to generate novel advisories when stuck
     """
+
+    # Entropy floor — if source entropy drops below this, boost non-PPO sources
+    ENTROPY_FLOOR: float = 1.0
+    # How aggressively to boost non-PPO sources during low-entropy periods
+    ENTROPY_BOOST_FACTOR: float = 1.5
+    # Stagnation threshold for triggering replan callback
+    REPLAN_STAGNATION_THRESHOLD: int = 8
+    # Replan every N steps during stagnation (don't spam LLM)
+    REPLAN_INTERVAL: int = 4
 
     def __init__(
         self,
         source_weights: Optional[Dict[str, float]] = None,
+        exploit_graph: Optional[Any] = None,
+        replan_callback: Optional[Any] = None,
     ) -> None:
+        """
+        Args:
+            source_weights: Base weight per advisory source.
+            exploit_graph: Optional exploit graph with a ``next_steps(discovery_board)``
+                method returning a set of template names on the optimal exploit path.
+            replan_callback: Optional callable ``(stagnation_steps, discovery_board, failed_history)``
+                that returns an Advisory with a novel strategy when the agent is stuck.
+        """
         self._source_weights = dict(source_weights or DEFAULT_SOURCE_WEIGHTS)
         self._decision_count: int = 0
         self._source_hit_count: Dict[str, int] = {}
         self._last_result: Optional[ArbitrationResult] = None
+        self._exploit_graph = exploit_graph
+        self._replan_callback = replan_callback
+        # Phase 38.3: Track recent entropy for regularization
+        self._recent_entropy: List[float] = []
 
     # ------------------------------------------------------------------
     # Primary API
@@ -227,6 +256,8 @@ class DecisionCore:
         rnd_novelty: float = 0.0,
         source_win_rates: Optional[Dict[str, float]] = None,
         stagnation_steps: int = 0,
+        discovery_board: Optional[Dict[str, Any]] = None,
+        failed_history: Optional[List[str]] = None,
     ) -> ArbitrationResult:
         """Score all advisories, apply constraints, select winner.
 
@@ -237,6 +268,8 @@ class DecisionCore:
             rnd_novelty: Current step's RND novelty score.
             source_win_rates: EMA win-rate per source (from SourceWinRateTracker).
             stagnation_steps: Steps since last discovery (0 = no stagnation).
+            discovery_board: Current discovery board (for exploit graph + replan).
+            failed_history: Recent failed commands (for replan callback).
 
         Returns:
             ArbitrationResult with winner, weights, scores, and full trace.
@@ -247,6 +280,51 @@ class DecisionCore:
         result = ArbitrationResult()
         result.advisories_received = len(advisories)
         trace: List[Dict[str, Any]] = []
+
+        # ── Phase 38.3: Stagnation replan injection ───────────────────
+        # When stuck, invoke replan callback to generate a novel advisory
+        # BEFORE scoring. This ensures the LLM's novel strategy competes
+        # fairly against existing advisories rather than being a last resort.
+        if (
+            self._replan_callback is not None
+            and stagnation_steps >= self.REPLAN_STAGNATION_THRESHOLD
+            and stagnation_steps % self.REPLAN_INTERVAL == 0
+        ):
+            try:
+                replan_adv = self._replan_callback(
+                    stagnation_steps,
+                    discovery_board or {},
+                    failed_history or [],
+                )
+                if replan_adv is not None and getattr(replan_adv, "command", ""):
+                    advisories = list(advisories) + [replan_adv]
+                    trace.append({
+                        "event": "replan_injected",
+                        "stagnation": stagnation_steps,
+                        "command": replan_adv.command[:60],
+                    })
+            except Exception as e:
+                logger.debug(f"[DC] Replan callback failed: {e}")
+
+        # ── Phase 38.3: Source entropy regularization ─────────────────
+        # If decision source entropy has dropped below floor for 5+
+        # consecutive decisions, temporarily boost non-PPO sources to
+        # prevent decision collapse.
+        _entropy = self.get_decision_source_entropy()
+        self._recent_entropy.append(_entropy)
+        if len(self._recent_entropy) > 20:
+            self._recent_entropy = self._recent_entropy[-20:]
+        _low_entropy_streak = sum(
+            1 for e in self._recent_entropy[-5:]
+            if e < self.ENTROPY_FLOOR
+        )
+        _entropy_boost_active = _low_entropy_streak >= 5
+        if _entropy_boost_active:
+            trace.append({
+                "event": "entropy_regularization",
+                "entropy": round(_entropy, 3),
+                "streak": _low_entropy_streak,
+            })
 
         if not advisories:
             result.source = "none"
@@ -327,9 +405,22 @@ class DecisionCore:
 
         # ── Step 2: Score each advisory ──────────────────────────────
         win_rates = source_win_rates or {}
+
+        # Phase 38.3: Compute exploit graph next steps (if graph available)
+        _exploit_steps: Optional[Set[str]] = None
+        if self._exploit_graph is not None and discovery_board:
+            try:
+                _next = self._exploit_graph.next_steps(discovery_board)
+                if _next:
+                    _exploit_steps = set(_next) if not isinstance(_next, set) else _next
+            except Exception:
+                pass  # Graph may not support next_steps — degrade gracefully
+
         for advisory in filtered:
             score = self._score_advisory(
-                advisory, maturity, rnd_novelty, win_rates, stagnation_steps
+                advisory, maturity, rnd_novelty, win_rates, stagnation_steps,
+                exploit_graph_steps=_exploit_steps,
+                entropy_boost_active=_entropy_boost_active,
             )
             advisory.arbitration_score = score
             result.all_scores[advisory.source] = score
@@ -397,17 +488,22 @@ class DecisionCore:
         rnd_novelty: float,
         win_rates: Dict[str, float],
         stagnation_steps: int = 0,
+        exploit_graph_steps: Optional[Set[str]] = None,
+        entropy_boost_active: bool = False,
     ) -> float:
         """Compute arbitration score for a single advisory.
 
         Score = source_weight × confidence × quality × maturity_factor
-               × win_rate_factor × stagnation_factor
+               × win_rate_factor × stagnation_factor × exploit_boost
+               × entropy_diversity_boost
 
         Where:
             quality = 0.5 + 0.3 × phase_fit + 0.2 × novelty
             maturity_factor = per-source scaling from maturity signal
             win_rate_factor = boost for historically successful sources
             stagnation_factor = penalizes PPO / boosts LLM when stagnating
+            exploit_boost = 2.5× for actions on known exploit graph paths
+            entropy_diversity_boost = boost non-PPO when decision entropy is low
         """
         source = advisory.source
         base_weight = self._source_weights.get(source, 0.5)
@@ -430,6 +526,17 @@ class DecisionCore:
         # Expected value bonus (if available, e.g., from Q-values)
         if advisory.expected_value > 0:
             score += 0.1 * min(advisory.expected_value, 5.0)
+
+        # Phase 38.3: Exploit graph boosting — actions on known exploit paths
+        # get a 2.5× score multiplier. This creates a "highway" where the agent
+        # follows known-good attack chains when available.
+        if exploit_graph_steps and advisory.template_name in exploit_graph_steps:
+            score *= 2.5
+
+        # Phase 38.3: Entropy regularization — when decision entropy is low
+        # (PPO monopolizing), boost non-PPO sources to restore diversity.
+        if entropy_boost_active and source not in ("ppo", "sac", "cognition"):
+            score *= self.ENTROPY_BOOST_FACTOR
 
         return score
 
@@ -519,6 +626,14 @@ class DecisionCore:
     # ------------------------------------------------------------------
     # Source weight updates
     # ------------------------------------------------------------------
+
+    def set_exploit_graph(self, graph: Any) -> None:
+        """Set or replace the exploit graph for action boosting."""
+        self._exploit_graph = graph
+
+    def set_replan_callback(self, callback: Any) -> None:
+        """Set or replace the stagnation replan callback."""
+        self._replan_callback = callback
 
     def update_source_weight(self, source: str, weight: float) -> None:
         """Update a source's base weight (e.g., from win-rate tracker)."""

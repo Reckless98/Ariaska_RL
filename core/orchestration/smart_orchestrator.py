@@ -87,6 +87,13 @@ class SmartOrchestratorConfig:
     
     # Execution — HTB Capability Upgrade: 60 steps (was 40) for deeper kill chains
     max_steps_per_episode: int = 60
+
+    # Phase 38.3: Dynamic episode length
+    dynamic_episode_length: bool = True
+    dynamic_min_steps: int = 20       # Minimum episode length (never terminate before this)
+    dynamic_max_steps: int = 120      # Maximum extension for productive episodes
+    dynamic_regress_grace: int = 5    # Grace steps after regression detected before early termination
+    dynamic_extend_threshold: int = 3 # Discoveries in last 10 steps to earn extension
     
     # Logging
     mentor_log_dir: str = "traces"
@@ -1990,8 +1997,46 @@ class SmartOrchestrator:
             self.fast_learn_metrics.reset_episode(episode=episode_number)
         
         total_mentor_calls = 0
-        
-        for step in range(max_steps):
+
+        # Phase 38.3: Dynamic episode length tracking
+        _dyn_effective_max = max_steps
+        _dyn_recent_discoveries: List[int] = []  # step indices of recent discoveries
+        _dyn_regress_start: int = -1  # step when regression detected
+
+        for step in range(self.config.dynamic_max_steps if self.config.dynamic_episode_length else max_steps):
+            # Dynamic episode length: check termination conditions
+            if self.config.dynamic_episode_length and step >= self.config.dynamic_min_steps:
+                # Count discoveries in last 10 steps
+                _dyn_recent = sum(1 for s in _dyn_recent_discoveries if s > step - 10)
+
+                if step >= max_steps:
+                    # Past base max_steps — only continue if making discoveries
+                    if _dyn_recent < self.config.dynamic_extend_threshold:
+                        logger.debug(
+                            f"[DYN-EP] Terminating at step {step}: past base max "
+                            f"({max_steps}), recent discoveries={_dyn_recent}"
+                        )
+                        self.episode_termination_reason = TerminationReason.MAX_STEPS
+                        break
+
+                # Early termination: no discoveries for extended period
+                _total_stag = max(
+                    self._steps_without_discoveries.get(a, 0)
+                    for a in self.agents
+                ) if self._steps_without_discoveries else 0
+
+                if step > 30 and _total_stag > 15 and _dyn_recent == 0:
+                    if _dyn_regress_start < 0:
+                        _dyn_regress_start = step
+                    elif step - _dyn_regress_start >= self.config.dynamic_regress_grace:
+                        logger.debug(
+                            f"[DYN-EP] Early termination at step {step}: "
+                            f"stagnation={_total_stag}, no recent discoveries"
+                        )
+                        self.episode_termination_reason = TerminationReason.MAX_STEPS
+                        break
+                else:
+                    _dyn_regress_start = -1  # Reset regression tracker
             self.current_step = step
             
             # R55: Track phase BEFORE _run_step() to detect transitions.
@@ -5730,6 +5775,8 @@ class SmartOrchestrator:
                 # Phase 0.1: Update stagnation counter
                 if agent_discoveries:
                     self._steps_without_discoveries[result.agent_name] = 0  # Reset on discovery
+                    # Phase 38.3: Track discovery steps for dynamic episode length
+                    _dyn_recent_discoveries.append(step)
                 else:
                     self._steps_without_discoveries[result.agent_name] = (
                         self._steps_without_discoveries.get(result.agent_name, 0) + 1

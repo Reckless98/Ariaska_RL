@@ -5442,6 +5442,55 @@ class SmartCoach:
                 )
                 _result_map[_src_name] = _src_res
 
+        # ── Phase 38.3: Skill library multi-injection ─────────────────
+        # Query the skill library for ALL matching skills (top 3) and inject
+        # them as advisories. This transfers learned patterns between episodes
+        # without waiting for PPO to reconverge on known-good strategies.
+        if self.skill_library and hasattr(self.skill_library, 'get_skills_for_condition'):
+            try:
+                _sl_ctx = step_ctx.attack_context
+                _sl_phase = _sl_ctx.current_phase.name.lower() if _sl_ctx.current_phase else "recon"
+                _sl_keywords = [_sl_phase]
+                for _f, _a in _sl_ctx.state_flags.items():
+                    if _a:
+                        _sl_keywords.append(_f.replace("_", " "))
+                _sl_matches = self.skill_library.get_skills_for_condition(_sl_keywords)
+                _sl_injected = 0
+                for _sk in (_sl_matches or [])[:3]:
+                    if _sk.confidence < 0.6:
+                        continue
+                    _sk_cmd = _sk.then_action
+                    # Deduplicate: don't inject if already in advisory pool
+                    if any(a.command == _sk_cmd for a in _advisories):
+                        continue
+                    _sk_novel = (
+                        _sk_cmd not in _used
+                        and not any(_sk_cmd[:40] == u[:40] for u in _used)
+                    )
+                    _advisories.append(
+                        Advisory(
+                            source="skill",
+                            command=_sk_cmd,
+                            template_name="",
+                            confidence=_sk.confidence,
+                            phase_fit=1.0 if _sl_phase in _sk.if_condition.lower() else 0.5,
+                            novelty=0.8 if _sk_novel else 0.1,
+                            metadata={
+                                "source_key": "skill_library_multi",
+                                "skill_id": _sk.id,
+                                "hit_count": getattr(_sk, "hit_count", 0),
+                            },
+                        )
+                    )
+                    _sl_injected += 1
+                if _sl_injected > 0:
+                    logger.debug(
+                        f"[P38.3][{self.agent_name}] Injected {_sl_injected} "
+                        f"skill advisories from library"
+                    )
+            except Exception as _sl_err:
+                logger.debug(f"[P38.3] Skill multi-inject failed: {_sl_err}")
+
         if not _advisories:
             return _registry_result
 
@@ -5466,6 +5515,14 @@ class SmartCoach:
 
         # ── 7. Arbitrate ─────────────────────────────────────────────
         _stagnation = getattr(self, '_stagnation_steps', 0)
+        # Phase 38.3: Pass discovery board + failed history for exploit graph
+        # boosting and stagnation replanning features in DecisionCore.
+        _disc_board = None
+        if step_ctx.attack_context:
+            _disc_board = getattr(step_ctx.attack_context, 'discoveries', None)
+            if _disc_board is None:
+                _disc_board = step_ctx.state.get("discovery_board") if step_ctx.state else None
+        _failed_hist = list(getattr(self, '_recent_failed_commands', []))[-10:]
         _arb = self._decision_core.arbitrate(
             _advisories,
             constraints=[],
@@ -5473,6 +5530,8 @@ class SmartCoach:
             rnd_novelty=_rnd_novelty,
             source_win_rates=_win_rates,
             stagnation_steps=_stagnation,
+            discovery_board=_disc_board,
+            failed_history=_failed_hist,
         )
 
         # ── 8. Convert ArbitrationResult → SmartDecisionResult ───────

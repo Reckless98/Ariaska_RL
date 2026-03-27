@@ -1,15 +1,17 @@
 """
-core/ops/phase_invariants.py — Phase 38.2: Phase Hardening Invariant Checker
+core/ops/phase_invariants.py — Phase 38.3: Phase DAG Invariant Checker
 
-Enforces strict phase ordering and transition requirements.
-Prevents phase skipping, validates preconditions for each phase,
-and provides rollback recommendations.
+Enforces phase transitions via a precondition DAG rather than strict linear
+ordering. LATERAL_MOVEMENT and POST_EXPLOITATION are optional branches that
+only activate when multi-host or persistence scenarios are detected.
 
 Rules:
-  - Phase transitions must follow the kill chain order.
   - Each phase has mandatory preconditions (discovery gates).
-  - Violations are logged and optionally enforced (demotion).
+  - Transitions must follow the DAG (no backward to *dependencies*).
+  - Optional phases (LATERAL_MOVEMENT, POST_EXPLOITATION) are skippable
+    when their triggers are absent (single-host, no persistence needed).
   - Shell validation gates EXPLOITATION→PRIVILEGE_ESCALATION.
+  - Violations are logged and optionally enforced (demotion).
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 logger = logging.getLogger("ariaska.ops.phase_invariants")
 
@@ -35,6 +37,30 @@ PHASE_ORDER: List[str] = [
 ]
 
 _PHASE_INDEX: Dict[str, int] = {p: i for i, p in enumerate(PHASE_ORDER)}
+
+# ── Phase DAG (precondition-based, replaces strict linear chain) ──────────────
+# Keys are phases; values are the set of phases that MUST have been visited
+# (or whose preconditions are met) before entry is allowed.
+# LATERAL_MOVEMENT and POST_EXPLOITATION are optional branches — the main
+# highway is RECON → ENUM → EXPLOIT → PRIVESC → EXFIL → CLOSEOUT.
+PHASE_DAG: Dict[str, FrozenSet[str]] = {
+    "RECON":                  frozenset(),
+    "ENUMERATION":            frozenset({"RECON"}),
+    "EXPLOITATION":           frozenset({"ENUMERATION"}),
+    "PRIVILEGE_ESCALATION":   frozenset({"EXPLOITATION"}),
+    "LATERAL_MOVEMENT":       frozenset({"EXPLOITATION"}),       # optional branch
+    "POST_EXPLOITATION":      frozenset({"PRIVILEGE_ESCALATION"}),  # optional branch
+    "EXFILTRATION":           frozenset({"PRIVILEGE_ESCALATION"}),
+    "CLOSEOUT":               frozenset({"EXFILTRATION"}),
+}
+
+# Phases that can be skipped if their activation conditions are not met.
+# Single-host targets skip LATERAL_MOVEMENT; non-persistence scenarios skip
+# POST_EXPLOITATION. The agent can jump directly past these.
+OPTIONAL_PHASES: FrozenSet[str] = frozenset({
+    "LATERAL_MOVEMENT",
+    "POST_EXPLOITATION",
+})
 
 
 # ── Phase preconditions ──────────────────────────────────────────────────────
@@ -99,15 +125,23 @@ class PhaseInvariantChecker:
             # Demote to result.recommended_phase
     """
 
-    def __init__(self, strict: bool = True) -> None:
+    def __init__(self, strict: bool = True, use_dag: bool = True) -> None:
         """
         Args:
-            strict: If True, enforce sequential order (no skipping).
-                    If False, only check preconditions.
+            strict: If True and use_dag=False, enforce sequential order.
+                    Ignored when use_dag=True (DAG mode).
+            use_dag: If True (default), use the precondition DAG which allows
+                     skipping optional phases (LATERAL_MOVEMENT, POST_EXPLOITATION)
+                     when their triggers are absent.
         """
         self._strict = strict
+        self._use_dag = use_dag
         self._transition_log: List[Dict[str, Any]] = []
-        logger.debug("PhaseInvariantChecker initialised (strict=%s)", strict)
+        self._visited_phases: Set[str] = {"RECON"}  # Track visited phases for DAG
+        logger.debug(
+            "PhaseInvariantChecker initialised (strict=%s, use_dag=%s)",
+            strict, use_dag,
+        )
 
     def validate_transition(
         self,
@@ -117,7 +151,14 @@ class PhaseInvariantChecker:
         discovery_board: Optional[Dict[str, Any]] = None,
     ) -> PhaseValidationResult:
         """
-        Validate a phase transition.
+        Validate a phase transition using the DAG or strict linear mode.
+
+        DAG mode (default): Allows skipping optional phases when preconditions
+        for the target phase are met. The main highway is:
+            RECON → ENUM → EXPLOIT → PRIVESC → EXFIL → CLOSEOUT
+
+        LATERAL_MOVEMENT is only required when multiple hosts are discovered.
+        POST_EXPLOITATION is only required when persistence is needed.
 
         Args:
             current_phase: Current phase name (e.g. "RECON").
@@ -138,7 +179,7 @@ class PhaseInvariantChecker:
 
         violations: List[str] = []
 
-        # 1. Check phase ordering
+        # 1. Check phase ordering (DAG-aware)
         cur_idx = _PHASE_INDEX.get(current, -1)
         req_idx = _PHASE_INDEX.get(requested, -1)
 
@@ -156,19 +197,39 @@ class PhaseInvariantChecker:
                     recommended_phase=current,
                 )
 
-            # Reject backward transitions
+            # Reject backward transitions (still enforced in DAG mode)
             if req_idx < cur_idx:
                 violations.append(
                     f"Backward transition {current}→{requested} "
                     f"(index {cur_idx}→{req_idx})"
                 )
 
-            # Strict mode: reject skipping more than 1 phase
-            if self._strict and req_idx > cur_idx + 1:
-                violations.append(
-                    f"Phase skip {current}→{requested} "
-                    f"(skips {req_idx - cur_idx - 1} phases)"
-                )
+            if self._use_dag:
+                # DAG mode: check that all *required* dependencies are satisfied.
+                # Optional phases (LATERAL_MOVEMENT, POST_EXPLOITATION) are
+                # implicitly satisfied when skipped.
+                dag_deps = PHASE_DAG.get(requested, frozenset())
+                for dep in dag_deps:
+                    if dep in OPTIONAL_PHASES:
+                        continue  # Optional deps don't block
+                    dep_precond = PHASE_PRECONDITIONS.get(dep, {})
+                    dep_flags = dep_precond.get("required_flags", {})
+                    dep_satisfied = all(
+                        state_flags.get(f, False) == v
+                        for f, v in dep_flags.items()
+                    )
+                    if not dep_satisfied and dep not in self._visited_phases:
+                        violations.append(
+                            f"DAG dependency not met: {requested} requires "
+                            f"{dep} (preconditions not satisfied)"
+                        )
+            else:
+                # Legacy strict mode: reject skipping more than 1 phase
+                if self._strict and req_idx > cur_idx + 1:
+                    violations.append(
+                        f"Phase skip {current}→{requested} "
+                        f"(skips {req_idx - cur_idx - 1} phases)"
+                    )
 
         # 2. Check preconditions for requested phase
         precond = PHASE_PRECONDITIONS.get(requested, {})
@@ -194,7 +255,7 @@ class PhaseInvariantChecker:
                     f"(need {min_count}) for {requested}"
                 )
 
-        # 3. Determine recommended phase
+        # 3. Determine recommended phase (DAG-aware)
         recommended = self._find_highest_valid_phase(
             state_flags, discovery_board,
         )
@@ -221,6 +282,9 @@ class PhaseInvariantChecker:
                 "Phase transition %s→%s rejected: %s",
                 current, requested, result.details[:120],
             )
+        else:
+            # Valid transition — record visited phase for DAG tracking
+            self._visited_phases.add(requested)
 
         return result
 
@@ -229,9 +293,30 @@ class PhaseInvariantChecker:
         state_flags: Dict[str, bool],
         discovery_board: Dict[str, Any],
     ) -> str:
-        """Find the highest phase whose preconditions are met."""
+        """Find the highest phase whose preconditions are met.
+
+        In DAG mode, optional phases (LATERAL_MOVEMENT, POST_EXPLOITATION)
+        are skipped if their activation signals are absent, allowing the
+        agent to advance directly along the main highway.
+        """
         highest = PHASE_ORDER[0]
         for phase in PHASE_ORDER:
+            # DAG mode: skip optional phases whose triggers are absent
+            if self._use_dag and phase in OPTIONAL_PHASES:
+                if phase == "LATERAL_MOVEMENT":
+                    # Only relevant when multiple hosts discovered
+                    net_state = discovery_board.get("network_topology", {})
+                    hosts = 0
+                    if isinstance(net_state, dict):
+                        hosts = net_state.get("hosts_found", 0)
+                    if hosts < 2:
+                        continue  # Skip — single host, no lateral needed
+                elif phase == "POST_EXPLOITATION":
+                    # Only relevant when persistence is explicitly required
+                    # (e.g., long-running engagements, not CTF)
+                    if phase not in self._visited_phases:
+                        continue  # Skip unless explicitly entered
+
             precond = PHASE_PRECONDITIONS.get(phase, {})
 
             # Check required flags
@@ -253,6 +338,9 @@ class PhaseInvariantChecker:
             if flags_ok and disc_ok:
                 highest = phase
             else:
+                # In DAG mode, optional phases don't block progression
+                if self._use_dag and phase in OPTIONAL_PHASES:
+                    continue
                 break
 
         return highest
@@ -298,5 +386,6 @@ class PhaseInvariantChecker:
         return list(self._transition_log)
 
     def reset(self) -> None:
-        """Reset checker state."""
+        """Reset checker state for new episode."""
         self._transition_log.clear()
+        self._visited_phases = {"RECON"}

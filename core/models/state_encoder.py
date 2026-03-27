@@ -149,6 +149,13 @@ def encode_state(
     forced_novel_ratio: float = 0.0,
     macro_confidence: float = 0.0,
     exploit_commands_ratio: float = 0.0,
+    # Phase 38.3: Enhanced intelligence signals
+    command_success_history: Optional[List[bool]] = None,
+    per_phase_success_rates: Optional[Dict[str, float]] = None,
+    stagnation_steps: int = 0,
+    skill_advisory_count: int = 0,
+    exploit_graph_position: Optional[List[float]] = None,
+    decision_source_entropy: float = 0.0,
 ) -> torch.Tensor:
     """Encode environment state into a rich 512-dimensional feature vector.
 
@@ -884,9 +891,50 @@ def encode_state(
     vec[idx] = 1.0 if net_state.get("internal_domain", False) else 0.0
     idx += 1  # 296 after section
 
-    # ─── Remaining dims [296-511] are zero-padded ────────────────────
-    # ~296 meaningful dims / 512 total  (58% utilisation)
-    # Phase 57: +53 dims for HTB generalization
+    # ─── Section 24: Phase 38.3 Command Success History (10 dims) [296-305]
+    # Sliding window of last 10 commands' success/fail — lets PPO learn which
+    # action sequences lead to breakthroughs vs. dead ends.
+    _cmd_hist = command_success_history or []
+    for i in range(10):
+        if i < len(_cmd_hist):
+            vec[idx] = 1.0 if _cmd_hist[-(i + 1)] else 0.0
+        idx += 1  # 306 after loop
+
+    # ─── Section 25: Per-Phase Success Rate (8 dims) [306-313]
+    # How often commands succeed in each phase — encodes phase-specific
+    # difficulty and tool effectiveness.
+    _phase_rates = per_phase_success_rates or {}
+    for _ps_phase in PHASES:
+        vec[idx] = min(float(_phase_rates.get(_ps_phase, 0.0)), 1.0)
+        idx += 1  # 314 after loop
+
+    # ─── Section 26: Stagnation & Decision Intelligence (5 dims) [314-318]
+    # Direct encoding of stagnation severity, skill library availability,
+    # and decision diversity — signals that help PPO decide when to defer
+    # to LLM sources vs. trust its own policy.
+    vec[idx] = min(float(stagnation_steps) / 50.0, 1.0)  # raw stagnation
+    idx += 1
+    vec[idx] = 1.0 if stagnation_steps >= 8 else float(stagnation_steps) / 8.0  # replan-eligible
+    idx += 1
+    vec[idx] = min(float(skill_advisory_count) / 3.0, 1.0)  # skill library richness
+    idx += 1
+    vec[idx] = min(float(decision_source_entropy) / 3.0, 1.0)  # decision diversity
+    idx += 1
+    vec[idx] = 1.0 if decision_source_entropy < 1.0 else 0.0  # collapse warning
+    idx += 1  # 319 after section
+
+    # ─── Section 27: Exploit Graph Position (20 dims) [319-338]
+    # Encodes which exploit graph nodes have been reached — tells PPO
+    # where it is on the known attack chain for this target.
+    _eg_pos = exploit_graph_position or []
+    for i in range(20):
+        if i < len(_eg_pos):
+            vec[idx] = max(0.0, min(1.0, float(_eg_pos[i])))
+        idx += 1  # 339 after loop
+
+    # ─── Remaining dims [339-511] are zero-padded ────────────────────
+    # ~339 meaningful dims / 512 total (66% utilisation, up from 58%)
+    # Phase 38.3: +43 dims for command history, stagnation, exploit graph
 
     return torch.tensor(vec, dtype=torch.float32, device=device)
 
