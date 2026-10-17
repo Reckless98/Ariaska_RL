@@ -273,8 +273,11 @@ class SmartMentor:
             decision_rules_text = "\n=== EXPERT DECISION RULES (IF → THEN) ===\n"
             decision_rules_text += "Apply these rules like a human pentester — check conditions, execute matching actions:\n\n"
             for rule in HTB_DECISION_RULES:
-                decision_rules_text += f"[P{rule['priority']}] IF: {rule['if_condition']}\n"
-                decision_rules_text += f"     THEN: {rule['then_action']}\n"
+                # Knowledge packs use if/then; preserve legacy rule-key precedence.
+                condition = rule['if_condition'] if 'if_condition' in rule else rule['if']
+                action = rule['then_action'] if 'then_action' in rule else rule['then']
+                decision_rules_text += f"[P{rule['priority']}] IF: {condition}\n"
+                decision_rules_text += f"     THEN: {action}\n"
                 decision_rules_text += f"     WHY: {rule['reasoning']}\n\n"
             # Build CVE quick-reference
             cve_text = "\n=== CVE QUICK REFERENCE ===\n"
