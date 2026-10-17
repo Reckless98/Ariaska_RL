@@ -478,6 +478,12 @@ class RolloutBuffer:
         # Phase 37: Teacher distributions for KL loss + teacher actions for ranking
         self.teacher_distributions: List[Optional[torch.Tensor]] = []
         self.teacher_actions: List[Optional[int]] = []
+        self.behavior_contexts = []
+        self.next_values = []
+        self.terminated = []
+        self.truncated = []
+        self.episode_ids = []
+        self.step_ids = []
         self.size = 0
 
     def add(
@@ -490,14 +496,31 @@ class RolloutBuffer:
         done: bool,
         teacher_distribution: Optional[torch.Tensor] = None,
         teacher_action: Optional[int] = None,
+        behavior_context: Optional[Dict[str, Any]] = None,
+        next_value: Optional[float] = None,
+        truncated: bool = False,
+        episode_id: Optional[str] = None,
+        step_id: Optional[int] = None,
     ):
         """Add a single transition."""
-        self.states.append(state.detach().cpu())
+        if episode_id is not None and step_id is not None and self.size:
+            if self.episode_ids[-1] == episode_id and self.step_ids[-1] is not None and step_id <= self.step_ids[-1]:
+                raise ValueError("rollout transitions must be unique and chronological")
+        self.behavior_contexts.append({
+            k: v.detach().cpu().clone() if torch.is_tensor(v) else v
+            for k, v in (behavior_context or {}).items()
+        })
+        self.next_values.append(next_value)
+        self.terminated.append(bool(done and not truncated))
+        self.truncated.append(bool(truncated))
+        self.episode_ids.append(episode_id)
+        self.step_ids.append(step_id)
+        self.states.append(state.detach().cpu().clone())
         self.actions.append(action)
         self.log_probs.append(log_prob)
         self.rewards.append(reward)
         self.values.append(value)
-        self.dones.append(done)
+        self.dones.append(bool(done or truncated))
         # Phase 37: Store teacher data for auxiliary losses
         self.teacher_distributions.append(
             teacher_distribution.detach().cpu() if teacher_distribution is not None else None
@@ -526,19 +549,18 @@ class RolloutBuffer:
         last_gae = 0.0
 
         for t in reversed(range(n)):
-            if t == n - 1:
-                next_value = last_value
-                next_non_terminal = 1.0 - float(self.dones[t])
+            boundary = self.dones[t] or (
+                t + 1 < n and self.episode_ids[t] is not None
+                and self.episode_ids[t + 1] != self.episode_ids[t]
+            )
+            if self.next_values[t] is not None:
+                next_value = self.next_values[t]
+            elif t == n - 1 or boundary:
+                next_value = last_value if t == n - 1 else 0.0
             else:
                 next_value = self.values[t + 1]
-                next_non_terminal = 1.0 - float(self.dones[t])
-
-            delta = (
-                self.rewards[t]
-                + gamma * next_value * next_non_terminal
-                - self.values[t]
-            )
-            last_gae = delta + gamma * gae_lambda * next_non_terminal * last_gae
+            delta = self.rewards[t] + gamma * next_value * (not self.terminated[t]) - self.values[t]
+            last_gae = delta + gamma * gae_lambda * (not boundary) * last_gae
             advantages[t] = last_gae
 
         values_arr = np.array(self.values, dtype=np.float32)
@@ -582,11 +604,11 @@ class RolloutBuffer:
         values_t = torch.tensor(self.values, dtype=torch.float32)
 
         # Phase 37: Pre-stack teacher distributions (None → zeros)
-        action_dim = 5  # default
+        action_dim = next((td.numel() for td in self.teacher_distributions if td is not None), 0)
         has_any_teacher = any(td is not None for td in self.teacher_distributions)
         if has_any_teacher:
             teacher_dists_t = torch.stack([
-                td if td is not None else torch.zeros(action_dim)
+                td.reshape(action_dim) if td is not None else torch.zeros(action_dim)
                 for td in self.teacher_distributions
             ])
             teacher_has_mask = torch.tensor([
@@ -610,6 +632,7 @@ class RolloutBuffer:
             mb_idx = indices[start:end]
 
             batch = {
+                "behavior_contexts": [self.behavior_contexts[int(i)] for i in mb_idx],
                 "states": states_t[mb_idx].to(device),
                 "actions": actions_t[mb_idx].to(device),
                 "old_log_probs": old_log_probs_t[mb_idx].to(device),
@@ -964,12 +987,40 @@ class PPOAgent:
                 llm_prior=llm_prior, prior_alpha=prior_alpha,
             )
 
-        self.network.train()
+        offset = torch.zeros(self.config.action_dim)
+        if logit_bias is not None:
+            offset += logit_bias.detach().cpu().reshape(-1)
+        if llm_prior is not None and prior_alpha > 0:
+            offset += prior_alpha * llm_prior.detach().cpu().reshape(-1)
+        self.last_selection_context = {
+            "action_mask": action_mask.detach().cpu().reshape(-1).clone() if action_mask is not None else torch.ones(self.config.action_dim, dtype=torch.bool),
+            "logit_offset": offset,
+            "phase_group": phase_group if phase_group is not None else int(self.network._extract_phase_group(state_tensor)[0]),
+        }
+        # Rollout and gradient evaluation both disable stochastic layers.
         return (
             int(action.item()),
             float(log_prob.item()),
             float(value.item()),
         )
+
+    def evaluate_actions(self, states, actions, contexts=None):
+        """Recompute the behavior-policy distribution with current weights.
+
+        eval() disables dropout/spectral-buffer mutation, not autograd.
+        Stored masks, offsets and phase heads are conditioning data.
+        """
+        self.network.eval()
+        kwargs = {}
+        if contexts and any(contexts):
+            dim = self.config.action_dim
+            groups = self.network._extract_phase_group(states)
+            kwargs = {
+                "action_mask": torch.stack([c.get("action_mask", torch.ones(dim, dtype=torch.bool)) for c in contexts]).to(self.device),
+                "logit_bias": torch.stack([c.get("logit_offset", torch.zeros(dim)) for c in contexts]).to(self.device),
+                "phase_group": torch.tensor([c.get("phase_group", int(groups[i])) for i, c in enumerate(contexts)], device=self.device),
+            }
+        return self.network.get_action_and_value(states, actions, **kwargs)
 
     def propose_action(
         self, state: Dict[str, Any], **kwargs
@@ -1093,6 +1144,11 @@ class PPOAgent:
         done: bool,
         teacher_distribution: Optional[torch.Tensor] = None,
         teacher_action: Optional[int] = None,
+        behavior_context: Optional[Dict[str, Any]] = None,
+        next_value: Optional[float] = None,
+        truncated: bool = False,
+        episode_id: Optional[str] = None,
+        step_id: Optional[int] = None,
     ):
         """Store a single transition in the rollout buffer.
 
@@ -1108,6 +1164,8 @@ class PPOAgent:
             state, action, log_prob, normalized_reward, value, done,
             teacher_distribution=teacher_distribution,
             teacher_action=teacher_action,
+            behavior_context=behavior_context, next_value=next_value,
+            truncated=truncated, episode_id=episode_id, step_id=step_id,
         )
         self.total_steps += 1
 
@@ -1150,7 +1208,7 @@ class PPOAgent:
 
     # ── PPO Update ───────────────────────────────────────────────────
 
-    def update(self, last_value: float = 0.0) -> Dict[str, float]:
+    def update(self, last_value: float = 0.0, finalize: bool = False) -> Dict[str, float]:
         """Run PPO update on collected trajectory.
 
         Should be called after each episode or when the rollout buffer
@@ -1162,7 +1220,7 @@ class PPOAgent:
         Returns:
             Dict of training metrics for this update.
         """
-        if self.buffer.size < self.config.minibatch_size:
+        if not self.buffer.size or (self.buffer.size < self.config.minibatch_size and not finalize):
             return {}
 
         # ── Compute GAE Advantages ───────────────────────────────────
@@ -1193,7 +1251,7 @@ class PPOAgent:
             self._update_return_stats(float(r))
 
         # Normalise advantages (critical for PPO stability)
-        adv_std = advantages.std()
+        adv_std = advantages.std(unbiased=False)
         if adv_std > 1e-8:
             advantages = (advantages - advantages.mean()) / (adv_std + 1e-8)
 
@@ -1253,8 +1311,8 @@ class PPOAgent:
             ):
                 # Forward pass
                 _, new_log_probs, entropy, new_values = (
-                    self.network.get_action_and_value(
-                        batch["states"], batch["actions"]
+                    self.evaluate_actions(
+                        batch["states"], batch["actions"], batch["behavior_contexts"]
                     )
                 )
 
