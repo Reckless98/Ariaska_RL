@@ -3,8 +3,8 @@
   <img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
   <img src="https://img.shields.io/badge/RL-PPO%20Actor--Critic%20v3.0-green?style=for-the-badge" alt="PPO"/>
   <img src="https://img.shields.io/badge/Agents-5%20Autonomous-orange?style=for-the-badge" alt="5 Agents"/>
-  <img src="https://img.shields.io/badge/Tests-1%2C753%20Passing-brightgreen?style=for-the-badge" alt="Tests"/>
-  <img src="https://img.shields.io/badge/Phase-43-purple?style=for-the-badge" alt="Phase 43"/>
+  <img src="https://img.shields.io/badge/Tests-3%2C150%20Collected-brightgreen?style=for-the-badge" alt="Tests"/>
+  <img src="https://img.shields.io/badge/Mentor-Optional%20(none%20%7C%20local%20%7C%20cloud)-purple?style=for-the-badge" alt="Mentor optional"/>
   <img src="https://img.shields.io/badge/License-Private-red?style=for-the-badge" alt="License"/>
 </p>
 
@@ -17,7 +17,7 @@
 </h3>
 
 <p align="center">
-  5 specialized AI agents · GPT-5.2 hybrid decision pipeline · PPO Actor-Critic v3.0 · 107K knowledge corpus · ~160K lines of Python
+  5 custom RL agents · PPO Actor-Critic v3.0 core · DecisionCore arbitration · optional, interchangeable LLM mentors (none · local · cloud) · ~240K lines of Python
 </p>
 
 ---
@@ -36,6 +36,8 @@
   - [PhaseGuidedLLM](#phaseguidedllm-phase-34)
   - [LLM Policy Bridge](#llm-policy-bridge-phase-37)
   - [Evidence Gate](#evidence-gate)
+- [Optional LLM Mentorship](#optional-llm-mentorship-mentor2apprentice)
+- [Autonomous Operation Without an LLM](#autonomous-operation-without-an-llm)
 - [Distillation Pipeline](#distillation-pipeline)
 - [Knowledge System](#knowledge-system-v2)
 - [Token Budget Management](#token-budget-management)
@@ -46,6 +48,7 @@
 - [Command Registry](#command-registry)
 - [Memory Architecture](#memory-architecture)
 - [Safety & Scope Controls](#safety--scope-controls)
+- [Refactor Phase 1](#refactor-phase-1-2026-10--rl-core-integrity--optional-mentorship)
 - [Project Statistics](#project-statistics)
 - [Getting Started](#getting-started)
 - [CLI Reference](#cli-reference)
@@ -59,7 +62,16 @@
 
 **Ariaska_RL** is a production-grade autonomous penetration testing system that combines deep reinforcement learning with large language model reasoning to conduct live, authorized security assessments. The system deploys five cooperating AI agents — each with a distinct tactical role — through an eight-stage cyber kill chain, making real-time decisions about reconnaissance, exploitation, privilege escalation, lateral movement, and exfiltration.
 
-Unlike traditional automated scanners that follow rigid scripts, Ariaska learns and adapts. Its PPO Actor-Critic v3.0 policy network learns from every engagement, while a tiered GPT-5.2 hybrid pipeline provides strategic reasoning, command validation, and distillation signals that accelerate the RL agent's convergence. The system has been refined over **43 development phases** into a deeply integrated cognitive architecture spanning 160K+ lines of Python across 340+ modules.
+Unlike script-driven automation, Ariaska learns. Its intelligence is the reinforcement-learning stack: a per-agent **PPO Actor-Critic v3.0** policy, a `SmartCoach` decision pipeline with **DecisionCore** weighted arbitration over candidate producers (policy, registry, playbook curricula, skill library), and auxiliary learners (SAC shadow, DDQN macro-intent, RND curiosity, CognitionNode). A large language model is only ever an **optional mentor**: it may be consulted selectively, its demonstrations become behavioral-cloning signals, every intervention is measured, and it can be switched between a local model, a cloud API, or removed entirely without changing the agents or their learned policies. The system has grown over 58 development phases into ~240K lines of Python across 300+ core modules.
+
+### What Ariaska Is — and Is Not
+
+| | |
+|:---|:---|
+| **Is** | Five custom RL agents (Scout, Red, Blue, Shadow, Orion) whose decisions come from learned policies plus deterministic decision systems. |
+| **Is** | Mentor2Apprentice: optional LLM mentorship that produces measurable learning signals (TeacherTrace → BCBuffer → PPO behavioral-cloning loss) and is budget-controlled. |
+| **Is** | Autonomous by default — `ARIASKA_MENTOR_BACKEND=none` runs pure RL. Owner-reported (not reproduced in CI): the PPO policies completed both Metasploitable lab targets without mentor assistance. |
+| **Is not** | An LLM-agent wrapper. The fine-tuned local Qwen models are a *local substitute for a cloud mentor*, not the agents' intelligence. No agent identity or policy is bound to a model family. |
 
 ### Core Design Principles
 
@@ -775,14 +787,57 @@ graph LR
 
 ---
 
+## Optional LLM Mentorship (Mentor2Apprentice)
+
+All LLM traffic flows through `GPTManager` (invariant #1). At startup the gateway resolves **one mentor backend** from the operator request and what is actually reachable — a pure function in `core/llm/mentor_backend.py`, so the policy is identical everywhere and unit-tested as a matrix.
+
+| Backend | When | Effect on the decision pipeline |
+|:---|:---|:---|
+| `none` | requested, or nothing reachable | Mentor-free RL. `GPTManager.is_offline()` → `True`; every LLM producer stays inert. |
+| `local` | a local server (Ollama / llama-cpp / vLLM) answers | CPU-friendly single-call fast paths and the 1-call-per-5-steps mentor rate limit apply (`is_local_only()` → `True`). |
+| `cloud` | only a hosted API is configured | Full multi-stage LLM pipelines allowed (`is_local_only()` → `False`). Previously impossible without a local server. |
+| `hybrid` | both available and explicitly requested | System 1/2 tasks → local, System 3 (strategic / postmortem / analysis) → cloud. Fast paths kept unless `ARIASKA_HYBRID_FAST_PATH=0`. |
+
+`auto` (default) preserves existing behaviour: local present → `local` (even when a cloud key is also present); nothing → `none`; cloud only → `cloud`.
+
+```bash
+ARIASKA_MENTOR_BACKEND=auto|none|local|cloud|hybrid      # which mentor serves this process
+ARIASKA_CLOUD_PROVIDER=auto|anthropic|openai-compatible  # cloud provider preference
+# Anthropic (optional SDK: pip install anthropic)
+ANTHROPIC_API_KEY=...   ANTHROPIC_WORKSPACE_ID=...        # workspace id is required for user-scoped keys
+ARIASKA_ANTHROPIC_MODEL=claude-opus-5-5   ARIASKA_ANTHROPIC_EFFORT=medium
+# OpenAI-compatible endpoints
+GROQ_API_KEY | OPENROUTER_API_KEY | TOGETHER_API_KEY | ARIASKA_CLOUD_API_KEY + ARIASKA_CLOUD_BASE_URL + ARIASKA_CLOUD_MODEL
+```
+
+**Providers** implement one contract (`core/llm/llm_provider.py::LLMProvider`) and are discovered by `core/llm/cloud_provider_registry.py`; no SDK is imported unless its credentials are present. The Anthropic provider (`core/llm/anthropic_provider.py`) translates chat messages to the Messages API, floors `max_tokens` so adaptive thinking cannot starve the answer, sends the workspace header when configured, enables server-side refusal fallbacks (and downgrades automatically if the API rejects them), reports a refusal as an *error response* so the RL policy simply continues, disables itself on authentication errors, cools down on rate limits, and reports per-call USD cost. Local models cost `$0`; cloud cost is tracked per model in `GPTManager.get_cost_summary()`.
+
+**What callers see:** `gpt_manager.mentor_backend`, `gpt_manager.get_mentor_backend_state()`, `get_stats()["mentor_backend"]`, and the backend-aware startup log line.
+
+**Measuring mentorship.** Every accepted mentor answer becomes a `TeacherTrace` that is finalized in `SmartCoach.record_result` with the executed step's outcome (`actual_reward`, `produced_discovery`, `mentor_won`, `teacher_was_correct`) *before* it enters the `BCBuffer`. A per-agent `MentorLedger` (`core/training/mentor_ledger.py`) counts proposals, rejections by reason, wins/losses, correctness when the mentor's command was executed, and the reward gap between mentor-won and policy steps per phase — exposed via `SmartCoach.get_stats()["mentor_ledger"]`. `FF_MENTOR_OUTCOME_WEIGHTING` (default OFF) halves the behavioral-cloning weight of mentor-won demonstrations that produced neither reward nor discovery.
+
+> **Known limitation.** In the current production path `SmartCoach._init_smart_mentor` only builds a `SmartMentor` when `GPTManager` exposes an OpenAI-style client, which the gateway no longer does; until `SmartMentor` is constructed over `GPTManager.gpt_request`, the mentor advisory and the ledger remain inert at runtime (the seam is wired and tested). See `docs/architecture_refactor_phase1.md`.
+
+---
+
+## Autonomous Operation Without an LLM
+
+```bash
+ARIASKA_MENTOR_BACKEND=none ARIASKA_DRY_RUN=1 python ariaska_cli.py smart-train --target <lab-ip> --steps 50
+```
+
+With no mentor the pipeline is: PPO policy → DecisionCore arbitration against registry / playbook / skill-library candidates → quality and anti-repeat guards → execution → `UnifiedRewardPipeline` → learners. All LLM producers return `None`, no budget is consumed, and no network is touched. This is the configuration under which the owner reports the Metasploitable baselines were achieved.
+
+---
+
 ## Distillation Pipeline
 
-The distillation system transfers LLM reasoning into the PPO policy network, enabling the RL agent to internalize GPT-level tactical intelligence over time:
+The distillation system transfers LLM reasoning into the PPO policy network, enabling the RL agent to internalize mentor-level tactical intelligence over time:
 
 ```mermaid
 graph TB
     subgraph "Knowledge Distillation Flow"
-        MENTOR["GPT Mentor Call"] --> MT["MentorTrace (P30)<br/>━━━━━━━━━━━━━━<br/>command · reasoning · confidence<br/>alternatives · phase · discoveries<br/>state_vector (512-dim)<br/>actual_reward · was_correct"]
+        MENTOR["Mentor call (any backend)"] --> MT["MentorTrace (P30)<br/>━━━━━━━━━━━━━━<br/>command · reasoning · confidence<br/>alternatives · phase · discoveries<br/>state_vector (512-dim)<br/>actual_reward · was_correct"]
         
         MC["MicroChain Result"] --> TT
         PG["PhaseGuide Result"] --> TT
@@ -1174,7 +1229,7 @@ The LiveDashboard v6.0 provides a real-time Rich terminal UI showing all aspects
 
 ```mermaid
 graph TD
-    START["System Startup"] --> CHECK{"OPENAI_API_KEY<br/>present?"}
+    START["System Startup"] --> CHECK{"pytest / ARIASKA_DRY_RUN?"}
     CHECK -->|Yes| PYTEST{"Running under<br/>pytest?"}
     CHECK -->|No| OFFLINE["OFFLINE Profile<br/>All LLM flags OFF"]
     PYTEST -->|Yes| DET["DETERMINISTIC Profile<br/>All LLM flags OFF"]
@@ -1189,7 +1244,7 @@ graph TD
 
 | Profile | Condition | LLM Flags | Parser Mode |
 |:---|:---|:---|:---|
-| **CLOUD** | `OPENAI_API_KEY` present | ON | `intelligent_fullparse` |
+| **LOCAL** | default (not under pytest) | ON | `intelligent_fullparse` |
 | **DETERMINISTIC** | pytest / `ARIASKA_DRY_RUN=1` | OFF | `intelligent_fullparse` |
 | **OFFLINE** | No API key | OFF | `intelligent_fullparse` |
 
@@ -1348,26 +1403,47 @@ graph TB
 
 ---
 
+## Refactor Phase 1 (2026-10) — RL Core Integrity & Optional Mentorship
+
+Full report: [`docs/architecture_refactor_phase1.md`](docs/architecture_refactor_phase1.md).
+
+| Fix | Where | Why it matters |
+|:---|:---|:---|
+| Mentor backend seam `none / local / cloud / hybrid` | `core/llm/mentor_backend.py`, `core/gpt_manager.py`, `core/llm/model_router.py` | Cloud-only mentorship was impossible (`is_offline()` required a local server; `is_local_only()` was hard-coded). Mentors are now interchangeable and removable. |
+| Pluggable cloud providers + optional Anthropic provider | `core/llm/cloud_provider_registry.py`, `core/llm/anthropic_provider.py` | No SDK is mandatory; providers plug into the existing `LLMProvider` contract. |
+| PPO sample pairing | `SmartCoach._restore_ppo_pairing` | A later PPO re-sample could overwrite the stored `(state, action, log_prob, value)` of the executed command; the stored sample now matches what ran. Action selection unchanged. |
+| Real teacher action index | `SmartCoach` arbitration | PPO's teacher-conditioned losses received the student's own action; they now receive the mentor's mapped action when one exists. |
+| Outcome-aware `TeacherTrace` + `MentorLedger` | `core/reasoning/teacher_trace.py`, `core/training/mentor_ledger.py` | Mentor interventions are measured, and demonstrations enter the BC buffer with their outcome attached. |
+| Hooks that must see every executed step | `SmartCoach.record_result` | SkillCard promotion and bridge outcome recording were unreachable for mentor-won steps under default flags. |
+| Episode finalization | `SmartCoach.end_episode_ppo` | Episode-end side effects (DDQN / cognition / memory / consolidation) now run even with an empty PPO trajectory; postmortem transcript built before the trajectory is cleared. |
+| Registry attribution | `SmartCoach` registry constructors | Registry-produced decisions declare `source="registry"` instead of `"unknown"` (label only). |
+
+**Verified results (offline, deterministic):** 67 new tests (66 pass, 1 skip); focused validation of gateway, mentor, coach, PPO wiring, lifecycle and checkpoint suites: **1,036 passed, 2 skipped**; 3,150 tests collected. Baseline before changes: 3,018 / 3,083 passed with every failure traced to a missing optional package in the fresh environment.
+
+**Not done / deferred:** `SmartMentor` construction over the gateway; live cloud test (needs a workspace-scoped Anthropic key or `ANTHROPIC_WORKSPACE_ID`); reader-reported findings on duplicate learner writes, penalty ordering, buffer padding and checkpoint persistence (documented, unverified).
+
+---
+
 ## Project Statistics
 
 | Metric | Value |
 |:---|---:|
-| **Total Python Files** | 400+ |
-| **Total Lines of Python** | ~160,000 |
-| **Core Modules** | 340+ |
-| **Test Files** | 145 |
-| **Tests Collected** | 1,753 |
-| **Tests Passing** | 1,753 (100%) |
-| **Command Templates** | 294 |
+| **Total Python Files** | 565 |
+| **Total Lines of Python** | ~242,000 |
+| **Core Modules** | 309 |
+| **Test Files** | 154 |
+| **Tests Collected** | 3,150 |
+| **Focused validation (this branch)** | 1,036 passed / 2 skipped |
+| **Command Templates** | 279 |
 | **Knowledge Entries** | 107,933 |
 | **Knowledge Indices** | 12 |
-| **Feature Flags** | 90+ |
-| **Development Phases** | 43 |
+| **Feature Flags** | 115 |
+| **Development Phases** | 58 + Refactor Phase 1 |
 | **Agents** | 5 |
 | **Kill Chain Phases** | 8 |
 | **State Dimensions** | 512 (768 enhanced) |
 | **PPO Action Dimensions** | 5 |
-| **LLM Tiers** | 4 (nano, mini, full, codex) |
+| **Mentor Backends** | none · local · cloud · hybrid |
 | **Max Token Budget** | 1,148,850/episode |
 | **Reward Range** | [-15.0, +100.0] |
 | **BCBuffer Capacity** | 2,000 |
@@ -1378,13 +1454,13 @@ graph TB
 
 | File | Lines | Role |
 |:---|---:|:---|
-| `core/training/smart_coach.py` | 9,306 | Per-agent decision pipeline |
-| `core/orchestration/smart_orchestrator.py` | 8,890 | Main training loop (THE BRAIN) |
+| `core/training/smart_coach.py` | 9,719 | Per-agent decision pipeline |
+| `core/orchestration/smart_orchestrator.py` | 8,364 | Main training loop (THE BRAIN) |
 | `core/commands/command_registry.py` | 4,595 | 294 command templates |
-| `core/observability/live_dashboard.py` | 2,965 | Rich terminal dashboard |
-| `core/environment/cyber_environment.py` | 2,969 | Kill chain state machine |
-| `core/algorithms/ppo_agent.py` | 1,906 | PPO Actor-Critic v3.0 |
-| `core/gpt_manager.py` | 1,619 | Centralized LLM gateway |
+| `core/observability/live_dashboard.py` | 2,990 | Rich terminal dashboard |
+| `core/environment/cyber_environment.py` | 3,134 | Kill chain state machine |
+| `core/algorithms/ppo_agent.py` | 1,948 | PPO Actor-Critic v3.0 |
+| `core/gpt_manager.py` | 1,672 | Centralized LLM gateway |
 | `core/llm/reward_calculator.py` | 906 | Shaped reward computation |
 | `core/llm/phase_guided_llm.py` | 796 | Phase-guided LLM reasoning |
 | `core/llm/llm_policy_bridge.py` | 784 | Level 5 GPT↔RL bridge |
@@ -1399,7 +1475,7 @@ graph TB
 - **Python 3.11+** (developed on 3.13)
 - **PyTorch 2.x** (CPU or CUDA)
 - **Docker** (for Metasploitable targets)
-- **OpenAI API Key** (for live LLM; system works offline without it)
+- **Optional LLM mentor** — a local server (Ollama) or a cloud API key (Anthropic / OpenAI-compatible). The RL core runs with no LLM at all.
 
 ### Installation
 
@@ -1417,7 +1493,7 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env to add OPENAI_API_KEY (optional — system works offline)
+# Edit .env to choose a mentor backend (optional — ARIASKA_MENTOR_BACKEND=none runs pure RL)
 
 # Verify installation
 make test
@@ -1485,7 +1561,7 @@ Options for replay:
 ### Running Tests
 
 ```bash
-# Full test suite (1,753 tests)
+# Full test suite (3,150 tests)
 make test
 
 # Quick run (skip integration)
@@ -1538,7 +1614,10 @@ class TestMyFeature:
 
 | Variable | Purpose | Default |
 |:---|:---|:---|
-| `OPENAI_API_KEY` | OpenAI API authentication | — (offline mode) |
+| `ARIASKA_MENTOR_BACKEND` | Mentor backend: `auto` / `none` / `local` / `cloud` / `hybrid` | `auto` |
+| `ARIASKA_CLOUD_PROVIDER` | Cloud mentor preference: `auto` / `anthropic` / `openai-compatible` | `auto` |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_WORKSPACE_ID` | Optional Anthropic mentor (workspace id for user-scoped keys) | — |
+| `GROQ_API_KEY` / `OPENROUTER_API_KEY` / `TOGETHER_API_KEY` | Optional OpenAI-compatible cloud mentor | — |
 | `ARIASKA_DRY_RUN` | `1` → prevent real command execution | `0` |
 | `ARIASKA_TARGET` | Default target IP | — |
 | `ARIASKA_ENV` | Environment type (htb, live, msf) | — |
@@ -1575,7 +1654,7 @@ flags = get_runtime_flags()
 12. **Evidence Gate default = `enforce`**
 13. **MicroChain escalation threshold = 0.40**
 14. **Git policy: `master` branch only**
-15. **Test baseline: 1,753 tests** — all must pass after any change
+15. **Test baseline: 3,150 tests collected** — all must pass after any change
 
 ---
 
@@ -1638,6 +1717,8 @@ flags = get_runtime_flags()
 | **40** | UX + Execution | Dashboard v6, SSH pool, parallel exec, OS-aware filtering, web probing |
 | **42** | Deep Wiring | HER, DAgger, contrastive PPO, action grammar, hallucination guard |
 | **43** | GPU + Local LLM | GPU acceleration, local LLM offloading for nano/mini tiers |
+| **56–58** | Local Mentor | Fine-tuned local Qwen mentor, local-first routing |
+| **R1 (2026-10)** | RL Core Integrity | Mentor backend seam, optional Anthropic provider, PPO sample pairing, outcome-aware TeacherTrace + MentorLedger, episode-end lifecycle fix |
 
 ---
 
@@ -1806,7 +1887,7 @@ scripts/
 ├── htb_readiness.py                        # HTB readiness assessment
 └── tool_dependency_audit.py                # Audit tool dependencies
 
-tests/                                      # 145 test files, 1,753 tests
+tests/                                      # 154 test files, 3,150 tests
 ```
 
 </details>
@@ -1831,7 +1912,8 @@ response = openai.chat.completions.create(...)
 **Features:**
 - Response caching by state fingerprint
 - Per-episode token budgets (`can_make_request()`)
-- Auto offline mode when `OPENAI_API_KEY` missing
+- Mentor backend resolution `none / local / cloud / hybrid` (`ARIASKA_MENTOR_BACKEND`), pluggable cloud providers
+- Per-model cost tracking (`get_cost_summary()`; local = $0, cloud = provider-reported USD)
 - Rate limiting with retry + exponential backoff
 - Model routing by role/task type
 - Request history for telemetry
@@ -1840,11 +1922,11 @@ response = openai.chat.completions.create(...)
 
 ---
 
-## Phase 56 — Custom Fine-Tuned LLM (`ariaska-cybersec`)
+## Local Mentor — Fine-Tuned Qwen (Phase 56, `ariaska-cybersec`)
 
 ### Training Pipeline
 
-Ariaska now ships with a fully custom fine-tuned model built from Qwen 3.5 4B via a 5-stage pipeline:
+The default *local* mentor is a custom fine-tuned model built from Qwen 3.5 4B via a 5-stage pipeline (it is a mentor substitute, not the agents' policy):
 
 1. **CPT (Continued Pretraining)** — 95K cybersecurity corpus documents injected as domain knowledge (QLoRA r=16, 1 epoch)
 2. **SFT (Supervised Fine-Tuning)** — 34K samples across 9 task families: `command_validate`, `evidence_check`, `next_step`, `phase_classification`, `postmortem`, `retrieval_reasoning`, `retry_or_pivot`, `state_summary`, `tool_output_parse` (QLoRA r=32, 2 epochs, NEFTune alpha=5.0)
@@ -1943,5 +2025,5 @@ Rewrote the agent execution engine from sequential dispatch to dependency-aware 
   <strong>Author:</strong> Filip Volf<br/>
   <strong>Python:</strong> 3.11+ (developed on 3.13)<br/>
   <strong>License:</strong> Private<br/>
-  <strong>Current Phase:</strong> 56 — Custom Fine-Tuned LLM + Multi-Agent Orchestration Overhaul
+  <strong>Current Phase:</strong> Refactor Phase 1 — RL Core Integrity &amp; Optional Mentorship
 </p>

@@ -77,6 +77,15 @@ class TeacherTrace:
     phase: str = ""
     timestamp: float = field(default_factory=time.time)
 
+    # Outcome (Mentor outcome ledger) — filled post-hoc by SmartCoach.record_result
+    # so every mentor intervention becomes a MEASURABLE learning signal.
+    # All optional/defaulted: older serialized traces load unchanged.
+    mentor_won: Optional[bool] = None                # mentor's command was the executed action
+    actual_reward: Optional[float] = None            # unified step reward observed after execution
+    produced_discovery: Optional[bool] = None        # the executed step yielded a new discovery
+    teacher_was_correct: Optional[bool] = None       # mentor_won and (reward > 0 or discovery)
+    finalized: bool = False
+
     def __post_init__(self) -> None:
         # Truncate string fields to contracted bounds
         if len(self.rationale) > 512:
@@ -107,6 +116,30 @@ class TeacherTrace:
             episode=self.episode,
             step=self.step,
         )
+
+    def finalize_outcome(
+        self,
+        actual_reward: float,
+        produced_discovery: bool,
+        mentor_won: bool,
+        success_threshold: float = 0.0,
+    ) -> None:
+        """Attach the executed step's outcome to this demonstration (idempotent).
+
+        ``teacher_was_correct`` is only defined when the mentor's command was the
+        one executed (``mentor_won``); when PPO or another source won we cannot
+        judge the mentor's suggestion, so it stays ``None`` (no counterfactual).
+        """
+        self.actual_reward = float(actual_reward)
+        self.produced_discovery = bool(produced_discovery)
+        self.mentor_won = bool(mentor_won)
+        if mentor_won:
+            self.teacher_was_correct = bool(
+                produced_discovery or float(actual_reward) > success_threshold
+            )
+        else:
+            self.teacher_was_correct = None
+        self.finalized = True
 
     def compute_divergence(self) -> float:
         """Compute divergence between teacher and student predictions."""

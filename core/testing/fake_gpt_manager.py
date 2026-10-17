@@ -144,6 +144,21 @@ class FakeGPTManager:
     def is_offline(self) -> bool:
         """Fake manager is never truly offline."""
         return False
+
+    def is_local_only(self) -> bool:
+        """Fake mentor behaves like a fast cloud mentor: no CPU fast paths / rate limits."""
+        return False
+
+    @property
+    def mentor_backend(self) -> str:
+        return "fake"
+
+    def get_mentor_backend_state(self) -> Dict[str, Any]:
+        return {
+            "backend": "fake", "requested": "fake", "reason": "FakeGPTManager (deterministic tests)",
+            "local_available": False, "cloud_available": False, "local_model": "", "cloud_provider": "fake",
+            "cloud_model": "fake-llm", "hybrid_fast_path": False, "offline": False, "local_only": False,
+        }
     
     def request(
         self,
