@@ -32,7 +32,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("ariaska.checkpoints")
 
 # ── Constants ─────────────────────────────────────────────────────────────
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 UNIFIED_DIR = Path("models/unified")
 
 # Legacy path patterns
@@ -73,6 +73,13 @@ class UnifiedCheckpoint:
     sac_state: Optional[Dict[str, Any]] = None
     agent_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
+    # v3: independent policies and action identities, never broadcast across roles.
+    ppo_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    sac_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    action_maps: Dict[str, List[str]] = field(default_factory=dict)
+    resume_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    rng_state: Dict[str, Any] = field(default_factory=dict)
+
     # Training metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -111,7 +118,23 @@ class UnifiedCheckpoint:
         if self.agent_states:
             payload["agent_states"] = self.agent_states
 
-        torch.save(payload, str(path))
+        for key in ('ppo_states', 'sac_states', 'action_maps', 'resume_states', 'rng_state'):
+            if getattr(self, key):
+                payload[key] = getattr(self, key)
+        # Write in the destination directory so replacement is atomic on one filesystem.
+        import tempfile
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + '.',
+                                             suffix='.tmp', delete=False) as stream:
+                temporary = stream.name
+                torch.save(payload, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
         logger.info(
             "Unified checkpoint saved: %s  (ep=%d, source=%s, ppo=%s, ddqn=%d, sac=%s, agents=%d)",
             path.name,
@@ -155,6 +178,11 @@ class UnifiedCheckpoint:
                 sac_state=data.get("sac_state"),
                 agent_states=data.get("agent_states", {}),
                 metadata=data.get("metadata", {}),
+                ppo_states=data.get('ppo_states', {}),
+                sac_states=data.get('sac_states', {}),
+                action_maps=data.get('action_maps', {}),
+                resume_states=data.get('resume_states', {}),
+                rng_state=data.get('rng_state', {}),
             )
 
         # ── Legacy PPO format (distilled / enhanced) ──────────────────
@@ -210,7 +238,7 @@ class UnifiedCheckpoint:
 
     # ── Apply to live agents ──────────────────────────────────────────
 
-    def apply_ppo(self, ppo_agent: Any) -> bool:
+    def apply_ppo(self, ppo_agent: Any, role: Optional[str] = None) -> bool:
         """Load PPO state into a live ``PPOAgent`` instance.
 
         Uses ``PPOAgent.load_from_state_dict()`` for direct in-memory
@@ -219,10 +247,13 @@ class UnifiedCheckpoint:
         Returns True on success, False if no PPO state is available or
         loading failed.
         """
-        if self.ppo_state is None:
+        state = self.ppo_states.get(role) if self.ppo_states else self.ppo_state
+        if state is None:
+            logger.warning('No compatible explicitly selected PPO role: %s', role)
             return False
         try:
-            ppo_agent.load_from_state_dict(self.ppo_state)
+            _validate_module(ppo_agent.network, state['network_state_dict'])
+            ppo_agent.load_from_state_dict(state)
             return True
         except Exception as e:
             logger.warning("Failed to apply PPO state: %s", e)
@@ -342,13 +373,23 @@ class UnifiedCheckpoint:
         local orchestrator.  It grabs PPO, DDQN, SAC, and agent brain
         states so that reloading reproduces the exact same state.
         """
+        import copy
+        ppo_states = {}; sac_states = {}; action_maps = {}; resume_states = {}
         ppo_state: Optional[Dict[str, Any]] = None
         ddqn_states: Dict[str, Dict[str, Any]] = {}
         sac_state: Optional[Dict[str, Any]] = None
         agent_states: Dict[str, Dict[str, Any]] = {}
 
         for name, coach in coaches.items():
-            # PPO — all coaches share the same PPO, capture once
+            if getattr(coach, 'ppo_agent', None) is not None:
+                ppo_states[name] = _capture_ppo_state(coach.ppo_agent)
+                mapper = getattr(coach, 'action_mapper', None)
+                if mapper is not None:
+                    action_maps[name] = [str(x[0]) for x in mapper.commands]
+                resume_states[name] = _capture_resume(coach)
+            if getattr(coach, 'sac_agent', None) is not None:
+                sac_states[name] = _capture_sac_state(coach.sac_agent)
+            # Legacy aliases are read only by explicitly selected single-agent consumers.
             if ppo_state is None and hasattr(coach, "ppo_agent") and coach.ppo_agent is not None:
                 ppo_state = _capture_ppo_state(coach.ppo_agent)
 
@@ -378,8 +419,61 @@ class UnifiedCheckpoint:
             ddqn_states=ddqn_states,
             sac_state=sac_state,
             agent_states=agent_states,
+            ppo_states=copy.deepcopy(ppo_states), sac_states=copy.deepcopy(sac_states),
+            action_maps=action_maps, resume_states=copy.deepcopy(resume_states),
+            rng_state=_capture_rng(),
             metadata=metadata or {},
         )
+
+    def apply_coaches(self, coaches: Dict[str, Any], restore_rng: bool = True) -> int:
+        """Validate every role before mutating; rollback all roles on any load failure.
+
+        Legacy single-policy files require explicit apply_ppo(role_agent): their
+        role/action-map identity cannot safely reconstruct a five-policy run.
+        """
+        import copy
+        if not self.ppo_states:
+            raise ValueError('Legacy single-policy checkpoint cannot resume all roles; select a compatible role explicitly')
+        expected = {n for n,c in coaches.items() if getattr(c, 'ppo_agent', None) is not None}
+        if set(self.ppo_states) != expected:
+            raise ValueError('Checkpoint role set differs from the live role set')
+        for name in sorted(expected):
+            c = coaches[name]; state = self.ppo_states[name]
+            names = [str(x[0]) for x in c.action_mapper.commands]
+            if self.action_maps.get(name) != names:
+                raise ValueError('Action map identity mismatch for ' + name)
+            _validate_module(c.ppo_agent.network, state['network_state_dict'])
+            _validate_optimizer(c.ppo_agent.optimizer, state['optimizer_state_dict'])
+            if name in self.sac_states:
+                sac = c.sac_agent; ss = self.sac_states[name]
+                if sac is None:
+                    raise ValueError('Missing SAC for ' + name)
+                for key in ('actor', 'critic', 'target_critic'):
+                    _validate_module(getattr(sac, key), ss[key])
+                _validate_optimizer(sac.actor_optimizer, ss['actor_optimizer'])
+                _validate_optimizer(sac.critic_optimizer, ss['critic_optimizer'])
+            if name in self.ddqn_states and c.ddqn_macro is not None:
+                candidate = copy.deepcopy(c.ddqn_macro)
+                candidate.load_state_dict(self.ddqn_states[name])
+        backup = UnifiedCheckpoint.from_coaches(coaches)
+        def install(checkpoint):
+            for name in sorted(expected):
+                c = coaches[name]
+                c.ppo_agent.load_from_state_dict(checkpoint.ppo_states[name])
+                if name in checkpoint.sac_states:
+                    c.sac_agent.load_state_dict(checkpoint.sac_states[name])
+                if name in checkpoint.ddqn_states and c.ddqn_macro is not None:
+                    c.ddqn_macro.load_state_dict(checkpoint.ddqn_states[name])
+                _restore_resume(c, copy.deepcopy(checkpoint.resume_states.get(name, {})))
+        try:
+            install(self)
+            if restore_rng and self.rng_state:
+                _restore_rng(self.rng_state)
+        except Exception:
+            install(backup)
+            _restore_rng(backup.rng_state)
+            raise
+        return len(expected)
 
     # ── Scanning / discovery ──────────────────────────────────────────
 
@@ -613,24 +707,9 @@ def _capture_ppo_state(ppo_agent: Any) -> Dict[str, Any]:
 
 
 def _capture_sac_state(sac_agent: Any) -> Optional[Dict[str, Any]]:
-    """Capture SAC state via temp file (SAC has no direct state_dict API)."""
-    import tempfile
-    import torch
-
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
-            tmp = f.name
-        sac_agent.save(tmp)
-        state = torch.load(tmp, map_location="cpu", weights_only=False)
-        return state
-    except Exception as e:
-        logger.warning("Failed to capture SAC state: %s", e)
-        return None
-    finally:
-        try:
-            os.unlink(tmp)
-        except Exception:
-            pass
+    if hasattr(sac_agent, 'state_dict'):
+        return sac_agent.state_dict()
+    raise ValueError('SAC does not expose resumable state')
 
 
 def _capture_agent_brain(agent: Any) -> Optional[Dict[str, Any]]:
@@ -696,3 +775,52 @@ def _guess_agent_name(path: Path) -> str:
     if name in {"red_agent", "red"}:
         return "RedAgent"
     return "UnknownAgent"
+
+
+def _validate_module(module, state):
+    live = module.state_dict()
+    if set(live) != set(state):
+        raise ValueError('Checkpoint parameter keys differ')
+    for key, value in live.items():
+        if value.shape != state[key].shape or value.dtype != state[key].dtype:
+            raise ValueError('Checkpoint parameter shape/dtype mismatch: ' + key)
+
+
+def _validate_optimizer(optimizer, state):
+    import copy
+    candidate = copy.deepcopy(optimizer)
+    candidate.load_state_dict(copy.deepcopy(state))
+    for param, values in candidate.state.items():
+        for key, value in values.items():
+            if hasattr(value, 'shape') and value.numel() > 1 and value.shape != param.shape:
+                raise ValueError('Checkpoint optimizer moment shape mismatch: ' + key)
+
+
+def _capture_rng():
+    import random, numpy as np, torch
+    return dict(python=random.getstate(), numpy=np.random.get_state(), torch=torch.get_rng_state())
+
+
+def _restore_rng(state):
+    import random, numpy as np, torch
+    random.setstate(state['python']); np.random.set_state(state['numpy']); torch.set_rng_state(state['torch'])
+
+
+def _capture_resume(coach):
+    result = {}
+    for key in ('_ppo_trajectory', '_ppo_episode_history', '_p14_bc_buffer', '_mentor_ledger',
+                'current_episode', 'episode_used_commands', 'command_repeat_count'):
+        if hasattr(coach, key): result[key] = getattr(coach, key)
+    ppo = coach.ppo_agent
+    result['ppo_buffer'] = ppo.buffer
+    result['sil_buffer'] = ppo.sil_buffer
+    return result
+
+
+def _restore_resume(coach, state):
+    for key, value in state.items():
+        if key == 'ppo_buffer': coach.ppo_agent.buffer = value
+        elif key == 'sil_buffer': coach.ppo_agent.sil_buffer = value
+        else: setattr(coach, key, value)
+    if getattr(coach, '_p14_bc_buffer', None) is not None:
+        coach.ppo_agent.config.bc_buffer = coach._p14_bc_buffer

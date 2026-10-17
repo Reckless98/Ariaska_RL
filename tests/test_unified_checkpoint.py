@@ -122,7 +122,7 @@ class TestSaveLoad:
         assert Path(saved).exists()
 
         loaded = UnifiedCheckpoint.load(path)
-        assert loaded.format_version == 2
+        assert loaded.format_version == 3
         assert loaded.run_id == "test_run"
         assert loaded.episode == 5
         assert loaded.source == "test"
@@ -270,6 +270,7 @@ class TestApplyMethods:
         from core.checkpoints.unified_checkpoint import UnifiedCheckpoint
 
         mock_ppo = MagicMock()
+        mock_ppo.network.state_dict.return_value = sample_ppo_state["network_state_dict"]
         ckpt = UnifiedCheckpoint(ppo_state=sample_ppo_state)
         result = ckpt.apply_ppo(mock_ppo)
         assert result is True
