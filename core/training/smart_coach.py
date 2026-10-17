@@ -2828,11 +2828,21 @@ class SmartCoach:
             # Store negative PPO trajectory if this overrides a PPO decision
             self._discard_ppo_proposal("proposal_replaced")
 
+    def discard_unexecuted_proposals(self):
+        """A skipped/replaced proposal has no environment outcome to learn from."""
+        if getattr(self, '_pending_teacher_trace', None) is not None:
+            self._pending_teacher_trace.mentor_won = False
+            self._discarded_teacher_traces = getattr(self, '_discarded_teacher_traces', 0) + 1
+        self._pending_teacher_trace = None
+        self._ppo_pending = None
+        self._sac_pending = None
+        self._cognition_result = None
+
     def decide(self, step_ctx, proposed_action=None, confidence=None,
                force_mentor=False, decision_packet=None):
         """Capture the observation; only record_result commits execution history."""
         import copy
-        self._ppo_pending = None
+        self.discard_unexecuted_proposals()
         self._execution_step = step_ctx
         self._current_decision_packet = decision_packet
         result = None
@@ -9161,6 +9171,7 @@ class SmartCoach:
         self.reward_calculator.reset()
         self._mentor_ledger.reset_episode()
         self._pending_teacher_trace = None
+        self._p14_traces_this_episode = []
 
         # Phase 9.1: Signal HybridMemory episode start
         hm = self._get_hybrid_memory()

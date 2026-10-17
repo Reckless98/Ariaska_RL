@@ -4641,6 +4641,8 @@ class SmartOrchestrator:
             # C02: Populate full RND signal on packet
             decision_packet.rnd.novelty_score = _p50_rnd_novelty
             decision_packet.rnd.phase_decay = _p50_rnd_decay
+            coach.discard_unexecuted_proposals()
+            coach._current_decision_packet = decision_packet
             
             # =========================================================================
             # PHASE 0.1: STUCK-ESCAPE LOGIC
@@ -4832,6 +4834,12 @@ class SmartOrchestrator:
             step_used_commands.add(decision.command[:50])  # Also track command prefix
             
             # Create result
+            # Early deterministic sources bypass decide(); bind their observation
+            # before environment execution, never reconstruct it after the outcome.
+            if not hasattr(decision, '_execution_observation'):
+                decision._execution_observation = coach._encode_execution_state(step_ctx.state, step)
+                decision._execution_id = (self.current_episode, step)
+                decision._ppo_sample = None
             # Phase 50: Sync DecisionPacket with final decision
             decision_packet.chosen_command = decision.command
             decision_packet.chosen_template = decision.template_name

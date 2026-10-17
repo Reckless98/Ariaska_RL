@@ -125,3 +125,18 @@ def test_mock_mentor_student_snapshot_phase_and_bc_lifecycle(coach,monkeypatch,a
     assert len(c._p14_bc_buffer)==before+(answer=='accepted')
     if answer=='accepted':assert trace.teacher_was_correct is False
     assert c._pending_teacher_trace is None
+
+
+def test_skipped_teacher_proposal_is_not_attached_to_next_action(coach,monkeypatch):
+    from core.reasoning.teacher_trace import TeacherTrace
+    c=coach;t=TeacherTrace(state_vector=[0.]*512,teacher_action_idx=0)
+    c._pending_teacher_trace=t;c._p14_traces_this_episode=[t]
+    result=sample_result(c,0,1)
+    monkeypatch.setattr(c,'_decide_impl',lambda *a,**kw:result)
+    before=len(c._p14_bc_buffer)
+    d=c.decide(SmartStepContext(0,0,c.agent_name,c.attack_context,{}))
+    c.record_result(d,True,'synthetic',next_state=torch.ones(512))
+    assert len(c._p14_bc_buffer)==before and t.actual_reward is None
+    assert c._discarded_teacher_traces==1
+    c.reset_episode(1)
+    assert not c._p14_traces_this_episode
