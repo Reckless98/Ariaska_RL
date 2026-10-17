@@ -1,5 +1,7 @@
 # Ariaska_RL — Refactor Phase 1: RL Core Integrity & Optional Mentorship
 
+> Historical document. Current implementation contracts, recovery measurements and limitations are recorded in [recovery_validation.md](recovery_validation.md); older counts and architecture claims are not current verification.
+
 **Date:** 2026-10-17
 **Branch:** `claude/dreamy-ptolemy-tzek6r`
 **Scope:** general-purpose reinforcement-learning core, learning-signal integrity,
