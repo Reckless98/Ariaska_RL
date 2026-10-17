@@ -52,7 +52,7 @@ was reverted before delivery (see §8).
 | LS-09 | `end_episode_ppo` returned early on an empty trajectory, skipping the `finally` block that resets DDQN/CognitionNode state, signals memory/bus episode end and runs consolidation. | `smart_coach.py::end_episode_ppo` | **Fixed** (§5.5) |
 | LS-10 | The postmortem transcript was built after `_ppo_trajectory.clear()`, so it was always empty. | same | **Fixed** (§5.5) |
 | F3 | Results produced by `_decide_from_registry` and the Blue/Orion registry helpers had `source == "unknown"` inside `decide()`; attribution, win-rate feedback and the override-penalty table keyed on `"registry"` never matched. | `smart_coach.py` registry constructors | **Fixed** (label only, §5.6) |
-| M-01 | `SmartCoach._init_smart_mentor` only constructs a `SmartMentor` when `GPTManager` exposes `async_client`/`client`; the current gateway exposes neither, so in production no `SmartMentor` exists and the mentor → TeacherTrace → BCBuffer → ledger chain is inert for every backend. | `smart_coach.py::_init_smart_mentor`, `core/gpt_manager.py` | **Documented, not fixed** (§8) |
+| M-01 | `SmartCoach._init_smart_mentor` only constructed a `SmartMentor` when `GPTManager` exposed `async_client`/`client`; the current gateway exposes neither, so in production no `SmartMentor` existed and the mentor → TeacherTrace → BCBuffer → ledger chain was inert for every backend. | `smart_coach.py::_init_smart_mentor`, `core/gpt_manager.py` | **Fixed in R1.1** (`core/llm/gateway_chat_client.py`) |
 | AL-01 | `record_result` reads `self._maturity_controller._state` (attribute is `state`), so the maturity-scaled RND factor always falls back to 1.0. | `smart_coach.py::record_result` | **Documented, not fixed** |
 
 ## 4. Reader-reported findings (not independently verified)
@@ -180,11 +180,10 @@ the changes are reported in the pull request description with exact numbers.
 
 ## 8. Known limitations and deferred items
 
-1. **SmartMentor construction (M-01)** — the mentor seam is wired and tested, but in the
-   production path `_init_smart_mentor` does not construct a `SmartMentor` because
-   `GPTManager` no longer exposes an OpenAI-style client. The mentor advisory and the new
-   ledger stay inert until `SmartMentor` is built over `GPTManager.gpt_request`
-   (invariant #1) — a small, separate change.
+1. **SmartMentor construction (M-01) — resolved in follow-up R1.1.** `_init_smart_mentor` now builds the
+   mentor over `GPTManager.gpt_request` via `core/llm/gateway_chat_client.py` for resolved
+   `local` / `cloud` / `hybrid` backends. Validated with offline tests (adapter mapping, async path,
+   construction matrix, SmartMentor end-to-end with a stubbed gateway); not yet exercised in a live run.
 2. **Live cloud mentor test not performed.** The provider is validated with mocked SDK
    responses only. A user-scoped Anthropic key requires `ANTHROPIC_WORKSPACE_ID`; use a
    workspace-scoped key or set that variable in a later authorized session.
@@ -207,8 +206,8 @@ the changes are reported in the pull request description with exact numbers.
 
 ## 10. Roadmap (prioritized)
 
-1. Build `SmartMentor` over `GPTManager.gpt_request` so mentorship is live for every
-   backend; add a coach-level mentor-free inertness test.
+1. ~~Build `SmartMentor` over `GPTManager.gpt_request`~~ (done, R1.1); add a coach-level
+   mentor-free inertness test and a live-backend smoke run.
 2. Honour `LLMResponse.error` in `gpt_request` (typed outcome instead of fallback strings).
 3. Route the immediate PPO penalty stores through the trajectory; gate CognitionNode's
    duplicate PPO/SAC writes behind a flag (default off) with a measured A/B.
