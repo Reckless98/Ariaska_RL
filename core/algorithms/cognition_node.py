@@ -439,7 +439,9 @@ class CognitionNode:
         self._ema_slow += self.config.ema_slow_alpha * (total_reward - self._ema_slow)
 
         # ── PPO trajectory ──
-        if self.ppo is not None and cognition_result.ppo_state is not None:
+        if (self.ppo is not None and cognition_result.ppo_state is not None
+                and cognition_result.action_idx == cognition_result.ppo_action
+                and cognition_result.winning_brain == "ppo"):
             try:
                 self.ppo.store_transition(
                     state=cognition_result.ppo_state,
@@ -448,6 +450,7 @@ class CognitionNode:
                     reward=total_reward,
                     value=cognition_result.ppo_value,
                     done=done,
+                    behavior_context=getattr(cognition_result, "ppo_behavior_context", None),
                 )
             except Exception as e:
                 logger.debug(f"PPO store failed: {e}")
@@ -457,7 +460,7 @@ class CognitionNode:
             try:
                 self.sac.store_transition(
                     state=cognition_result.sac_state,
-                    action=cognition_result.sac_action,
+                    action=cognition_result.action_idx,
                     reward=total_reward,
                     next_state=next_state,
                     done=done,
@@ -550,7 +553,7 @@ class CognitionNode:
 
         # PPO update happens externally in SmartCoach.end_episode_ppo()
         # SAC update if enough buffer
-        if self.sac is not None:
+        if self.sac is not None and not getattr(self, "external_transition_owner", False):
             try:
                 sac_loss = self.sac.update()
                 if sac_loss is not None:
@@ -846,31 +849,9 @@ class CognitionNode:
 
         # Pick best transition from buffer
         best = max(self._sil_buffer, key=lambda x: x["reward"])
-        if best["state"] is not None:
-            try:
-                # C04 B2 fix: Use proper value estimate from critic instead
-                # of value=0.0 which corrupted PPO's GAE computation.
-                _sil_value = 0.0
-                if best["state"] is not None:
-                    with torch.no_grad():
-                        _s = best["state"]
-                        if _s.dim() == 1:
-                            _s = _s.unsqueeze(0)
-                        _s = _s.to(self.ppo.device)
-                        _, _v = self.ppo.network(_s)
-                        _sil_value = _v.squeeze(-1).item()
-                self.ppo.store_transition(
-                    state=best["state"],
-                    action=best["action"],
-                    log_prob=best["log_prob"],
-                    reward=best["reward"] * 0.5,  # Discount replayed reward
-                    value=_sil_value,  # C04 B2: proper value estimate
-                    done=False,
-                )
-                return best
-            except Exception:
-                return None
-        return None
+        # Historical demonstrations are proposals. PPO's dedicated SIL loss
+        # handles replay; old log probabilities never enter an on-policy rollout.
+        return best if best['state'] is not None else None
 
     # ─────────────────────────────────────────────────────────────────────
     # Private: gate training

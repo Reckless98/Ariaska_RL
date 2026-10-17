@@ -2933,7 +2933,7 @@ class SmartCoach:
             return self._p1_arbitrate_decision(step_ctx, proposed_action,
                 confidence, None, None, None, None, None, None,
                 filtered_commands=candidates, discovery_board={},
-                gpt_available=bool(self.smart_mentor and getattr(self.gpt_manager, 'llm_enabled', False)),
+                gpt_available=bool(self.smart_mentor and not self.gpt_manager.is_offline()),
                 should_call_gpt=force_mentor)
 
         # C03: SAC shadow select — off-policy observation of every step
@@ -5653,6 +5653,8 @@ class SmartCoach:
                 # mentor's template maps to a real action index, pass that instead.
                 if self._ppo_pending is not None and _teacher_idx_mapped >= 0:
                     self._ppo_pending["teacher_action"] = _teacher_idx_mapped
+                    if getattr(_ppo_result, '_ppo_sample', None) is not None:
+                        _ppo_result._ppo_sample['teacher_action'] = _teacher_idx_mapped
                 # Mentor outcome ledger: defer BCBuffer storage to record_result so
                 # the demonstration is finalized with the outcome it produced.
                 self._pending_teacher_trace = _tt
@@ -7725,7 +7727,7 @@ class SmartCoach:
                         "state": state_tensor, "action": action_idx,
                         "log_prob": log_prob, "value": value,
                         "teacher_distribution": _p37_teacher_dist,
-                        "teacher_action": action_idx,
+                        "teacher_action": None,
                         "macro": _blue_macro,
                     }
                     return SmartDecisionResult(
@@ -7763,7 +7765,7 @@ class SmartCoach:
                 "state": state_tensor, "action": action_idx,
                 "log_prob": log_prob, "value": value,
                 "teacher_distribution": _p37_teacher_dist,
-                "teacher_action": action_idx,
+                "teacher_action": None,
                 "macro": _pending_macro,
             }
 
@@ -7925,6 +7927,7 @@ class SmartCoach:
                 teacher_distribution=t.get('teacher_distribution'),
                 teacher_action=t.get('teacher_action'),
                 behavior_context=t.get('behavior_context'), next_value=t.get('next_value'),
+                reward_is_final=True,
                 truncated=t.get('truncated', False),
                 episode_id=t.get('episode_id'), step_id=t.get('step_id'))
         if not hasattr(self, '_ppo_episode_history'):
@@ -8061,7 +8064,7 @@ class SmartCoach:
             return metrics
         except Exception as e:
             logger.warning(f"PPO update error for {self.agent_name}: {e}")
-            return None
+            raise RuntimeError(f"PPO update failed for {self.agent_name}") from e
         finally:
             # Phase 8.0: Save episode attack chain to cross-episode memory
             total_ep_reward = sum(t.get("reward", 0) for t in getattr(self, '_ppo_episode_history', []))
@@ -8522,6 +8525,7 @@ class SmartCoach:
                        and hasattr(decision.phase, "name") else str(getattr(decision, "phase", ""))),
                 trace=_tt_pending,
                 bc_stored=_bc_stored,
+                actual_success=success,
             )
         except Exception as e:
             logger.debug(f"[{self.agent_name}] MentorLedger record failed: {e}")

@@ -91,3 +91,15 @@ def test_seed_repeatability_and_explicit_step_cap(tmp_path,monkeypatch):
         fingerprints.append({r:torch.cat([x.flatten() for x in c.ppo_agent.network.state_dict().values()]).clone() for r,c in o.coaches.items()})
     assert actions[0]==actions[1]
     assert all(torch.equal(fingerprints[0][r],fingerprints[1][r]) for r in fingerprints[0])
+
+
+def test_learning_error_is_reported_and_preserves_valid_checkpoint(tmp_path,monkeypatch):
+    o=make_orchestrator(tmp_path,monkeypatch,horizon=2)
+    first=o.run_training(episodes=1,target_ip='192.0.2.10');path=Path(first['checkpoint']);before=path.read_bytes()
+    def failed_update(*a,**kw):raise ArithmeticError('fixture invalid loss')
+    monkeypatch.setattr(o.coaches['RedAgent'].ppo_agent,'update',failed_update)
+    with pytest.raises(RuntimeError,match='learning finalization failed'):
+        o.run_episode('failed-learning',1,max_steps=2)
+    assert path.read_bytes()==before
+    saved=UnifiedCheckpoint.load(o._last_interruption_checkpoint)
+    assert saved.metadata['error_type']=='RuntimeError'

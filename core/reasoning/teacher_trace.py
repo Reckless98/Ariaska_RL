@@ -105,7 +105,7 @@ class TeacherTrace:
         """Convert to BCSample for BCBuffer. Returns None if no state_vector."""
         if torch is None or self.state_vector is None or self.teacher_action_idx < 0:
             return None
-        state_tensor = torch.tensor(self.state_vector, dtype=torch.float32)
+        state_tensor = torch.as_tensor(self.state_vector, dtype=torch.float32).detach().clone()
         weight = self.confidence * decay_factor
         rationale_hash = hash(self.rationale) & 0xFFFFFFFF
         return BCSample(

@@ -102,3 +102,35 @@ def test_discovery_episode_completes(monkeypatch,tmp_path):
     assert orch._rnd_state_tensor is None  # predictor update consumed the observation
     assert 'open_port:12345' in orch._episode_rewarded_discoveries
     assert sum(payments)==pytest.approx(2.5)
+
+
+def test_provider_timeouts_bound_threads_and_account_late_completion(gateway):
+    import threading
+    gm,p=gateway;release=threading.Event();calls=[]
+    def blocked_provider(**kwargs):
+        calls.append(1);release.wait(2)
+        return LLMResponse(text='{}',model='late-fixture',provider='fixture',total_tokens=5,cost_usd=.01)
+    p.chat_completion=blocked_provider
+    try:
+        for i in range(4):
+            gm.gpt_request(f'timeout-{i}',timeout=.01,use_cache=False)
+            assert gm.get_request_record()['error']=='provider_timeout'
+        gm.gpt_request('over-capacity',timeout=.01,use_cache=False)
+        assert gm.get_request_record()['error']=='provider_capacity_exhausted'
+        assert len(calls)==4
+    finally:
+        release.set()
+        gm._provider_executor.shutdown(wait=True)
+    assert gm.get_cost_summary()['cumulative_usd']==pytest.approx(.04)
+    assert gm.stats['tokens_used_total']==20
+    assert all(r['completed_after_timeout'] for r in gm.get_recent_calls(4))
+    gm.cleanup()
+
+
+def test_cache_preserves_served_model_without_charging_again(gateway):
+    gm,p=gateway;client=GatewayChatClient(gm)
+    first=client.create_sync(messages=[{'role':'user','content':'cache metadata'}],response_format={'type':'json_object'})
+    second=client.create_sync(messages=[{'role':'user','content':'cache metadata'}],response_format={'type':'json_object'})
+    assert first.model==second.model=='fixture-served'
+    assert second.usage.total_tokens==0
+    assert len(p.calls)==1 and gm.tokens_used==7

@@ -1149,6 +1149,7 @@ class PPOAgent:
         truncated: bool = False,
         episode_id: Optional[str] = None,
         step_id: Optional[int] = None,
+        reward_is_final: bool = False,
     ):
         """Store a single transition in the rollout buffer.
 
@@ -1159,7 +1160,11 @@ class PPOAgent:
         Phase 37: Optionally stores teacher distribution + action for
         KL distillation and ranking loss during PPO update.
         """
-        normalized_reward = self.normalize_reward(reward, state_tensor=state)
+        if teacher_distribution is not None and teacher_distribution.numel() != self.config.action_dim:
+            raise ValueError('Teacher distribution does not match role action dimension')
+        if teacher_action is not None and not 0 <= teacher_action < self.config.action_dim:
+            raise ValueError('Teacher label outside role action map')
+        normalized_reward = self.normalize_reward(reward, state_tensor=None if reward_is_final else state)
         self.buffer.add(
             state, action, log_prob, normalized_reward, value, done,
             teacher_distribution=teacher_distribution,
@@ -1551,6 +1556,8 @@ class PPOAgent:
                         except Exception:
                             pass  # Non-critical — skip if autograd fails
 
+                if not torch.isfinite(loss):
+                    raise ArithmeticError('Non-finite PPO loss; update aborted')
                 (loss / _grad_accum).backward()
                 _accum_idx += 1
 

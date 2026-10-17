@@ -124,7 +124,7 @@ class TestRNDInjectionIntoPPO:
             confidence=0.7,
             source="ppo",
         )
-        breakdown = coach.record_result(
+        breakdown = _record_bound_result(coach,
             decision=decision,
             success=True,
             raw_output="80/tcp open http",
@@ -157,7 +157,7 @@ class TestRNDInjectionIntoPPO:
             confidence=0.7,
             source="ppo",
         )
-        breakdown = coach.record_result(
+        breakdown = _record_bound_result(coach,
             decision=decision,
             success=True,
             raw_output="80/tcp open http",
@@ -167,7 +167,7 @@ class TestRNDInjectionIntoPPO:
         last_entry = coach._ppo_trajectory[-1]
         # Reward should be close to breakdown.total (no RND)
         # (there may be other bonuses from discovery/reasoning channels)
-        assert abs(last_entry["reward"] - breakdown.total) < 0.01 or last_entry["reward"] >= breakdown.total
+        assert last_entry["reward"] == pytest.approx(breakdown.total)
 
     def test_no_rnd_when_signal_zero(self):
         """When RND intrinsic is 0.0, no extra reward added."""
@@ -192,7 +192,7 @@ class TestRNDInjectionIntoPPO:
             confidence=0.7,
             source="ppo",
         )
-        breakdown = coach.record_result(
+        breakdown = _record_bound_result(coach,
             decision=decision, success=True, raw_output="", done=False,
         )
         assert len(coach._ppo_trajectory) >= 1
@@ -223,7 +223,7 @@ class TestRNDInjectionIntoPPO:
             confidence=0.7,
             source="ppo",
         )
-        breakdown = coach.record_result(
+        breakdown = _record_bound_result(coach,
             decision=decision, success=True, raw_output="", done=False,
         )
         # Reward composition should be populated
@@ -371,7 +371,7 @@ class TestRNDPPOIntegration:
             confidence=0.7,
             source="ppo",
         )
-        breakdown = coach.record_result(
+        breakdown = _record_bound_result(coach,
             decision=decision, success=True, raw_output="80/tcp open http", done=False,
         )
 
@@ -423,7 +423,7 @@ class TestRNDPPOIntegration:
                 confidence=0.7,
                 source="ppo",
             )
-            coach.record_result(
+            _record_bound_result(coach,
                 decision=decision, success=True, raw_output="", done=False,
             )
             # Update RND predictor
@@ -434,3 +434,28 @@ class TestRNDPPOIntegration:
         # Each entry's reward should be >= its intrinsic
         for j, entry in enumerate(coach._ppo_trajectory[-5:]):
             assert entry["reward"] >= intrinsics[j] - 0.01
+
+
+def _record_bound_result(coach, decision, **kwargs):
+    """Bind a real role-valid policy sample; stale advisory slots are not outcomes."""
+    import torch
+    pending = coach._ppo_pending or {}
+    state = pending.get('state', torch.zeros(512))
+    action = int(pending.get('action', 0))
+    mapped = coach._decision_for_action(action, coach.attack_context, 'ppo')
+    decision.command = mapped.command
+    decision.template_name = mapped.template_name
+    decision.params = mapped.params
+    mask = torch.zeros(coach.action_mapper.action_dim, dtype=torch.bool)
+    mask[action] = True
+    selected, log_prob, value = coach.ppo_agent.select_action(state, action_mask=mask, phase_group=0)
+    decision._ppo_sample = dict(state=state, action=selected, log_prob=log_prob,
+        value=value, command=decision.command, template_name=decision.template_name,
+        behavior_context=coach.ppo_agent.last_selection_context)
+    packet = getattr(coach, '_current_decision_packet', None)
+    decision._execution_id = (getattr(packet, 'episode', 0), getattr(packet, 'step', len(coach._ppo_trajectory)))
+    result = coach.record_result(decision=decision, **kwargs)
+    assert coach.last_executed_transition.action == selected
+    if coach.sac_agent is not None:
+        assert coach.sac_agent.replay_buffer.buffer[-1][1] == selected
+    return result
