@@ -258,12 +258,9 @@ class GPTManager:
         self._cloud_provider = None      # Phase 56: Cloud reasoning provider (Groq/OpenRouter)
         self._local_strategic_available = False  # Phase 57: Local 9B strategic model
         
-        # Strict mode validation — local LLM must be available
-        if self._enable_llm and self._require_llm and not self._local_llm_enabled:
-            raise RuntimeError(
-                "GPTManager: require_llm=True but no local LLM available. "
-                "Ensure Ollama is running with Qwen 3.5, or use offline mode."
-            )
+        # NOTE: strict-mode (require_llm) validation runs AFTER backend detection
+        # below. It previously ran here, before any provider was probed, so it
+        # could never observe an available backend.
         
         # Model configuration — Local LLM (Qwen 3.5 Uncensored)
         self.primary_model = os.getenv("LLM_PRIMARY_MODEL", "local-llm")
@@ -275,12 +272,38 @@ class GPTManager:
         # Feature flags
         self.enable_postmortem_5_2 = True  # Always use deep model for postmortem
         
-        # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + GPU model present)
-        self._detect_local_llm()  # Sets _local_llm_enabled=True only when FF_LOCAL_LLM=1 + server live
-        # Phase 57: Local strategic 9B (preferred System 3 — replaces cloud dependency)
-        self._detect_local_strategic()
-        # Phase 56: Cloud reasoning provider (Groq/OpenRouter/Together) — System 3 fallback
-        self._detect_cloud_provider()
+        # ── Mentor backend (Mentor2Apprentice seam) ──────────────────────
+        # The five agents are driven by PPO + decision systems; any LLM is an
+        # optional, interchangeable MENTOR. ARIASKA_MENTOR_BACKEND selects
+        # none | local | cloud | hybrid | auto (default). Detection is skipped
+        # for backends the operator excluded — no probes, no SDK imports.
+        from core.llm.mentor_backend import requested_backend_from_env, resolve_mentor_backend
+        self._mentor_backend_requested = requested_backend_from_env()
+        self._hybrid_fast_path = os.getenv("ARIASKA_HYBRID_FAST_PATH", "1").lower() in ("1", "true", "yes", "on")
+        if self._enable_llm and self._mentor_backend_requested not in ("none", "cloud"):
+            # Phase 43: Local LLM (opt-in via FF_LOCAL_LLM=1 + server live)
+            self._detect_local_llm()
+            # Phase 57: Local strategic 9B (preferred System 3 when local is in play)
+            self._detect_local_strategic()
+        if self._enable_llm and self._mentor_backend_requested not in ("none", "local"):
+            # Cloud mentor via pluggable registry (Anthropic / OpenAI-compatible)
+            self._detect_cloud_provider()
+        _backend, _reason = resolve_mentor_backend(
+            self._mentor_backend_requested,
+            local_available=self._local_llm_enabled,
+            cloud_available=self._cloud_provider is not None,
+        )
+        self._mentor_backend: str = _backend.value
+        self._mentor_backend_reason: str = _reason
+        logger.info(f"[MENTOR] backend={self._mentor_backend} ({_reason})")
+
+        # Strict mode validation — some mentor backend must be available
+        if self._enable_llm and self._require_llm and self._mentor_backend == "none":
+            raise RuntimeError(
+                "GPTManager: require_llm=True but no mentor backend is available "
+                f"({_reason}). Start a local LLM server, configure a cloud provider "
+                "(ANTHROPIC_API_KEY / GROQ_API_KEY / ...), or use offline mode."
+            )
         self.stats_local_llm = {
             "total_requests": 0,
             "successes": 0,
@@ -329,8 +352,9 @@ class GPTManager:
         # Per-model token tracking (observability only — all local, zero cost)
         self.tokens_by_model: Dict[str, int] = {}       # model_name → total tokens
         self.requests_by_model: Dict[str, int] = {}     # model_name → request count
-        self._cumulative_cost_usd: float = 0.0           # always 0.0 (kept for API compat)
-        self._episode_cost_usd: float = 0.0              # always 0.0 (kept for API compat)
+        self._cumulative_cost_usd: float = 0.0           # 0.0 for local; real USD for cloud mentors
+        self._episode_cost_usd: float = 0.0              # reset per episode
+        self.cost_by_model: Dict[str, float] = {}        # model_name → cumulative USD
 
         # ── Phase 23: GPT Call Log for dashboard visibility ──────────
         # Ring buffer of recent API calls so the Rich dashboard can show
@@ -356,14 +380,44 @@ class GPTManager:
         logger.debug(f"Fallback model: {self.fallback_model}")
         logger.debug(f"Platform detected: {platform.system()}")
         if self.is_configured():
-            if self._local_llm_enabled:
-                logger.info(f"Local LLM enabled | all tiers → Ollama")
-        else:
-            logger.warning("GPTManager: No API key and no local LLM. Calls disabled.")
+            _state = self.get_mentor_backend_state()
+            if self._mentor_backend == "local":
+                logger.info(f"[MENTOR] Local mentor enabled | all tiers → {_state['local_model'] or 'local server'}")
+            elif self._mentor_backend == "cloud":
+                logger.info(f"[MENTOR] Cloud mentor enabled | {_state['cloud_provider']} / {_state['cloud_model']} "
+                            f"(no local server — full LLM pipelines allowed)")
+            else:
+                logger.info(f"[MENTOR] Hybrid mentor | System 1/2 → {_state['local_model'] or 'local'}, "
+                            f"System 3 → {_state['cloud_provider']} / {_state['cloud_model']}")
+        elif self._enable_llm and not self._offline:
+            logger.warning(f"GPTManager: no mentor backend available — mentor-free RL mode ({self._mentor_backend_reason})")
     
     def is_configured(self) -> bool:
-        """Check if the local LLM backend is available."""
-        return self._local_llm_enabled and self._enable_llm and not self._offline
+        """True when some mentor backend (local or cloud) is usable."""
+        return self._enable_llm and not self._offline and self._mentor_backend != "none"
+
+    @property
+    def mentor_backend(self) -> str:
+        """Resolved mentor backend: 'none' | 'local' | 'cloud' | 'hybrid'."""
+        return self._mentor_backend
+
+    def get_mentor_backend_state(self) -> Dict[str, Any]:
+        """Telemetry snapshot of how the mentor backend was resolved."""
+        cloud = self._cloud_provider
+        local = self._local_llm_provider
+        return {
+            "backend": self._mentor_backend,
+            "requested": self._mentor_backend_requested,
+            "reason": self._mentor_backend_reason,
+            "local_available": bool(self._local_llm_enabled),
+            "cloud_available": cloud is not None,
+            "local_model": (local.get_model_name() if local is not None and hasattr(local, "get_model_name") else ""),
+            "cloud_provider": (cloud.get_provider_name() if cloud is not None else ""),
+            "cloud_model": (cloud.get_model_name() if cloud is not None else ""),
+            "hybrid_fast_path": self._hybrid_fast_path,
+            "offline": self.is_offline(),
+            "local_only": self.is_local_only(),
+        }
     
     def _detect_local_llm(self) -> bool:
         """Check if local LLM should be activated and detect hardware routing (Phase 43/44).
@@ -438,27 +492,40 @@ class GPTManager:
         return False
 
     def _detect_cloud_provider(self) -> bool:
-        """Phase 56: Detect and initialize cloud reasoning provider.
+        """Detect and install an optional cloud mentor provider.
 
-        Checks for GROQ_API_KEY, OPENROUTER_API_KEY, or TOGETHER_API_KEY.
-        If found, enables cloud routing for System 3 (strategic/postmortem) tasks.
+        Uses core.llm.cloud_provider_registry: Anthropic (ANTHROPIC_API_KEY) or an
+        OpenAI-compatible endpoint (GROQ_API_KEY / OPENROUTER_API_KEY /
+        TOGETHER_API_KEY / ARIASKA_CLOUD_*). Preference via ARIASKA_CLOUD_PROVIDER.
+        No SDK is imported unless its credentials are present.
         """
         try:
-            from core.llm.cloud_reasoning_provider import CloudReasoningProvider
-            provider = CloudReasoningProvider.auto_detect()
-            if provider is not None and provider.is_available():
-                self._cloud_provider = provider
-                self._providers["cloud"] = provider
-                from core.llm.model_router import set_cloud_available
-                set_cloud_available(True)
-                logger.info(
-                    f"[CLOUD] Reasoning provider active: {provider.get_provider_name()} "
-                    f"({provider.get_model_name()})"
-                )
+            from core.llm.cloud_provider_registry import detect_cloud_provider
+            provider = detect_cloud_provider()
+            if provider is not None:
+                self._install_cloud_provider(provider)
                 return True
         except Exception as e:
             logger.debug(f"[CLOUD] Provider detection failed: {e}")
         return False
+
+    def _install_cloud_provider(self, provider: Any) -> None:
+        """Wire a cloud LLMProvider into routing (shared by detection and tests)."""
+        self._cloud_provider = provider
+        self._providers["cloud"] = provider
+        from core.llm.model_router import set_cloud_available
+        set_cloud_available(True)
+        logger.info(
+            f"[CLOUD] Mentor provider active: {provider.get_provider_name()} "
+            f"({provider.get_model_name()})"
+        )
+
+    def _cloud_timeout_cap(self) -> float:
+        """Outer timeout cap for cloud calls; providers may declare `default_timeout`."""
+        try:
+            return float(getattr(self._cloud_provider, "default_timeout", 30.0) or 30.0)
+        except Exception:
+            return 30.0
 
     def _get_model_router(self):
         """Get or create the model router (lazy init)."""
@@ -475,6 +542,7 @@ class GPTManager:
                 offload_nano=ff.local_llm_offload_nano,
                 offload_mini=ff.local_llm_offload_mini,
                 offload_all=ff.local_llm_offload_all,
+                cloud_system3=(getattr(self, "_mentor_backend", "none") == "hybrid"),
             )
         return self._model_router
     
@@ -490,15 +558,26 @@ class GPTManager:
         return self._local_llm_enabled and self._local_llm_provider is not None
     
     def is_offline(self) -> bool:
-        """Check if running in offline mode."""
-        return self._offline or not self._enable_llm or not self._local_llm_enabled
+        """True when NO mentor will answer (mentor-free RL): forced offline,
+        LLM disabled, or no backend resolved. Cloud-only setups are online."""
+        return self._offline or not self._enable_llm or self._mentor_backend == "none"
 
     def is_local_only(self) -> bool:
-        """Always True — all inference is local.
+        """True when no cloud mentor serves this process.
 
-        Callers like MicroChain use this to select shorter timeouts for
-        CPU-bound local inference.
+        Callers (MicroChain, PhaseGuidedLLM, SmartCoach) use this to pick the
+        CPU-friendly single-call fast paths and the 1-per-5-steps mentor rate
+        limit. Semantics by backend:
+          none   → True  (irrelevant: is_offline() gates first)
+          local  → True
+          cloud  → False (full multi-stage pipelines allowed)
+          hybrid → ARIASKA_HYBRID_FAST_PATH (default True: local still answers
+                   System 1/2 calls, so keep the fast paths)
         """
+        if self._mentor_backend == "cloud":
+            return False
+        if self._mentor_backend == "hybrid":
+            return self._hybrid_fast_path
         return True
     
     def request(
@@ -949,6 +1028,8 @@ class GPTManager:
                 _use_local = True
             elif self._local_llm_enabled:
                 _use_local = True  # Fallback to local if cloud unavailable
+            elif self._cloud_provider is not None:
+                _use_cloud = True  # Cloud-only backend: no local server to fall back to
         
         # ── Phase 32: Per-tier soft token ceilings ───────────────────
         # Clamp max_tokens to tier-appropriate limits to prevent waste.
@@ -1097,7 +1178,11 @@ class GPTManager:
                     _routed_model = _routing_decision.model if _routing_decision else self._local_llm_provider.get_model_name()
                     return self._providers["local"], _routed_model
                 else:
-                    raise RuntimeError("No LLM provider available. Set GROQ_API_KEY or ensure Ollama is running.")
+                    raise RuntimeError(
+                        f"No LLM provider available (mentor backend={self._mentor_backend}). "
+                        "Start a local LLM server or configure a cloud provider "
+                        "(ANTHROPIC_API_KEY / GROQ_API_KEY / ...)."
+                    )
             
             def make_gpt_request():
                 provider, actual_model = _get_provider()
@@ -1108,7 +1193,7 @@ class GPTManager:
                 # and cold starts require KV cache allocation.
                 req_timeout = timeout if timeout is not None else 600.0
                 if _use_cloud:
-                    req_timeout = min(req_timeout, 30.0)  # Cloud is fast, 30s is generous
+                    req_timeout = min(req_timeout, self._cloud_timeout_cap())
                 elif _use_local and req_timeout > 180.0:
                     req_timeout = 180.0
                 
@@ -1131,7 +1216,7 @@ class GPTManager:
             # 30K tokens), this would hang for minutes.
             _request_timeout = timeout if timeout is not None else 600.0
             if _use_cloud:
-                _request_timeout = min(_request_timeout, 30.0)  # Cloud: fast
+                _request_timeout = min(_request_timeout, self._cloud_timeout_cap())
             elif _use_local and _request_timeout > 180.0:
                 _request_timeout = 180.0  # Local: cap for CPU inference
             try:
@@ -1206,6 +1291,15 @@ class GPTManager:
                 # Phase 23: Record call in visibility log for dashboard
                 input_tok = getattr(response, "input_tokens", 0)
                 output_tok = getattr(response, "output_tokens", 0)
+                # Cost: 0.0 for local providers, provider-reported USD for cloud mentors
+                try:
+                    _cost_usd = float(getattr(response, "cost_usd", 0.0) or 0.0)
+                except (TypeError, ValueError):
+                    _cost_usd = 0.0
+                if _cost_usd:
+                    self._episode_cost_usd += _cost_usd
+                    self._cumulative_cost_usd += _cost_usd
+                    self.cost_by_model[_track_model] = self.cost_by_model.get(_track_model, 0.0) + _cost_usd
                     
                 _call_record = {
                     "timestamp": time.time(),
@@ -1217,7 +1311,7 @@ class GPTManager:
                     "tokens": tokens_used,
                     "input_tokens": input_tok,
                     "output_tokens": output_tok,
-                    "cost_usd": 0.0,
+                    "cost_usd": round(_cost_usd, 6),
                     "cache_hit": False,
                     "latency_ms": getattr(response, "latency_ms", int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0),
                 }
@@ -1396,21 +1490,24 @@ class GPTManager:
             "episode_cost_usd": round(self._episode_cost_usd, 6),
             "tokens_by_model": dict(self.tokens_by_model),
             "requests_by_model": dict(self.requests_by_model),
+            "mentor_backend": self._mentor_backend,
         }
 
     def get_cost_summary(self) -> Dict[str, Any]:
-        """Get model usage breakdown (all local, zero cost)."""
+        """Per-model usage breakdown. Local models are 0.0; cloud mentors report USD."""
         breakdown = {}
         for model_name, tok_count in self.tokens_by_model.items():
+            cost = round(self.cost_by_model.get(model_name, 0.0), 6)
             breakdown[model_name] = {
                 "tokens": tok_count,
                 "requests": self.requests_by_model.get(model_name, 0),
-                "cost_usd": 0.0,
-                "rate_per_1k": 0.0,
+                "cost_usd": cost,
+                "rate_per_1k": round((cost / tok_count * 1000.0), 6) if tok_count and cost else 0.0,
             }
         return {
-            "cumulative_usd": 0.0,
-            "episode_usd": 0.0,
+            "cumulative_usd": round(self._cumulative_cost_usd, 6),
+            "episode_usd": round(self._episode_cost_usd, 6),
+            "mentor_backend": self._mentor_backend,
             "models": breakdown,
         }
 

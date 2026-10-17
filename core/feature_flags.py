@@ -61,6 +61,11 @@ class FeatureFlags:
         default_factory=lambda: _env_bool("FF_SINGLE_PARSE_CACHE", True))
     ppo_reward_attribution_fix: bool = field(
         default_factory=lambda: _env_bool("FF_PPO_REWARD_ATTRIBUTION_FIX", True))
+    # Mentor outcome ledger: weight BC demonstrations by their observed outcome
+    # (failed mentor-won demonstrations get 0.5x). OFF preserves legacy
+    # confidence-only weighting while the ledger still records outcomes.
+    mentor_outcome_weighting: bool = field(
+        default_factory=lambda: _env_bool("FF_MENTOR_OUTCOME_WEIGHTING", False))
 
     # ── Phase 9.6: Architecture Wiring ──────────────────────────────
     tactical_cortex_gate: bool = field(

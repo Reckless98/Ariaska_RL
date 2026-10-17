@@ -24,7 +24,8 @@ onnxruntime>=1.17.0
 # -----------------------------------------------------------------------------
 # LLM Integration
 # -----------------------------------------------------------------------------
-openai>=1.30.0
+openai>=1.30.0            # OpenAI-compatible endpoints (local servers, Groq, OpenRouter, Together)
+# anthropic>=1.0.0        # OPTIONAL cloud mentor — install only if ANTHROPIC_API_KEY is used
 llama-cpp-python>=0.2.0
 huggingface_hub>=0.23.0
 

@@ -146,8 +146,13 @@ class ModelRouter:
         offload_nano: bool = True,
         offload_mini: bool = True,
         offload_all: bool = True,
+        cloud_system3: bool = False,
     ):
         self._local_available = local_available
+        # HYBRID mentor backend: deep-reasoning (System 3) tasks go to the cloud
+        # mentor when one is configured; System 1/2 stay local. Default False
+        # preserves the Phase 58 local-first chain.
+        self._cloud_system3 = cloud_system3
         self._local_model_name = local_model_name or FAST_MODEL
         self._offload_nano = offload_nano
         self._offload_mini = offload_mini
@@ -222,6 +227,10 @@ class ModelRouter:
         # Task-aware hybrid routing
         target_model, system_label, provider = _task_to_model(task_type)
 
+        # HYBRID backend: System 3 → cloud mentor when available
+        if self._cloud_system3 and _cloud_available and task_type in _SYSTEM3_TASKS:
+            target_model, system_label, provider = "cloud-reasoning", "System3-cloud", "cloud"
+
         # Fallback chains when preferred provider is unavailable:
         # P58: local-strategic → local 4B (cloud removed from chain)
         if provider == "local-strategic" and not _local_strategic_available:
@@ -270,6 +279,7 @@ class ModelRouter:
             "routed_cloud": self._routed_cloud,
             "cloud_pct": round(self._routed_cloud / max(1, total) * 100, 1),
             "system_routing": self._routed_by_system,
+            "cloud_system3": self._cloud_system3,
         }
 
     def set_local_available(self, available: bool, model_name: str = "") -> None:

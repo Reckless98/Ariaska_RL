@@ -76,6 +76,31 @@ def minimal_coach(fake_gpt_manager):
     coach._cred_sprayer = None
     coach._action_grammar = None
     coach._hallucination_guard = None
+    # Episode-end side effects now ALWAYS run in end_episode_ppo's `finally`
+    # (LS-09), so the minimal coach needs the attributes that path touches.
+    from core.training.mentor_ledger import MentorLedger
+    coach._episode_chain = []
+    coach._reasoning_hypotheses = []
+    coach._p15_consolidation_engine = None
+    coach._p15_consolidation_samples = []
+    coach.ddqn_macro = None
+    coach.cognition_node = None
+    coach._postmortem_extractor = None
+    coach._p37_llm_bridge = None
+    coach._p14_bc_buffer = None
+    coach._pending_teacher_trace = None
+    coach._mentor_ledger = MentorLedger()
+    coach.current_episode = 0
+    coach.skill_library = None
+    coach._cognitive_bus = None
+    coach._hybrid_memory = None
+    # Phase 10.0 cloud-role handles reset at episode end
+    coach._strategic_planner = None
+    coach._tactical_advisor = None
+    coach._judge_ranker = None
+    coach._dagger_corrector = None
+    coach._successful_chains = []
+    coach._episode_chain_rewards = []
     return coach
 
 

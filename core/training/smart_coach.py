@@ -683,6 +683,10 @@ class SmartCoach:
         # =====================================================================
         self._p14_autonomy_scheduler = None
         self._p14_bc_buffer = None
+        # Mentor outcome ledger — makes every mentor intervention measurable
+        from core.training.mentor_ledger import MentorLedger
+        self._mentor_ledger = MentorLedger()
+        self._pending_teacher_trace = None  # TeacherTrace awaiting its outcome in record_result
         self._p14_hypothesis_gen = None
         self._p14_evidence_graph = None
         self._p14_lesson_extractor = None
@@ -1414,6 +1418,32 @@ class SmartCoach:
             tag_info="random_fallback",
         )
     
+    def _restore_ppo_pairing(
+        self,
+        result: Optional["SmartDecisionResult"],
+        ppo_result: Optional["SmartDecisionResult"],
+        pending_for_result: Optional[Dict[str, Any]],
+    ) -> bool:
+        """LS-01: keep the stored PPO sample paired with the executed PPO command.
+
+        Producers that run after the PPO advisory was built (registry fallback,
+        mentor fallbacks) may call PPO again and overwrite ``self._ppo_pending``.
+        When the arbitration winner is the original PPO advisory, restore the
+        tuple that produced it. Returns True when a mismatch was corrected.
+        Action selection is unchanged; only the (state, action, log_prob, value)
+        bookkeeping is corrected.
+        """
+        if result is None or ppo_result is None or pending_for_result is None:
+            return False
+        if result is not ppo_result:
+            return False
+        current = self._ppo_pending
+        if current is not None and current.get("action") == pending_for_result.get("action") \
+                and current.get("log_prob") == pending_for_result.get("log_prob"):
+            return False
+        self._ppo_pending = dict(pending_for_result)
+        return True
+
     def _get_default_param(self, param: str, ctx: "AttackContext") -> str:
         """Get default value for a required parameter.
 
@@ -4965,6 +4995,7 @@ class SmartCoach:
             mentor_reasoning=f"🛡️ Defensive: {description}",
             confidence=0.75,
             phase=ctx.current_phase,
+            source="registry",
         )
     
     def _get_orion_coordination(self, ctx: AttackContext, step: int) -> SmartDecisionResult:
@@ -5037,6 +5068,7 @@ class SmartCoach:
             mentor_reasoning=reasoning,
             confidence=0.8,
             phase=phase,
+            source="registry",
         )
 
     # =====================================================================
@@ -5327,6 +5359,14 @@ class SmartCoach:
         _ppo_result: Optional[SmartDecisionResult] = None
         if self.ppo_agent and self.action_mapper:
             _ppo_result = self._ppo_select_command(step_ctx, filtered_commands)
+        # Learning-signal integrity (LS-01): remember the exact (state, action,
+        # log_prob, value) tuple that produced _ppo_result. Later producers
+        # (registry fallback, mentor fallbacks) may re-sample PPO and overwrite
+        # self._ppo_pending; if the arbitration winner IS _ppo_result the stored
+        # transition must describe the command that is actually executed.
+        _ppo_pending_for_result = (
+            dict(self._ppo_pending) if (_ppo_result is not None and self._ppo_pending) else None
+        )
 
         # ── 3. Gate mentor call via MaturityController ───────────────
         _mentor_result: Optional[SmartDecisionResult] = None
@@ -5547,6 +5587,10 @@ class SmartCoach:
                 confidence=_arb.confidence,
             )
 
+        # LS-01: the executed PPO command must be paired with ITS OWN sample
+        if self._restore_ppo_pairing(result, _ppo_result, _ppo_pending_for_result):
+            self._mentor_ledger.record_pairing_restored()
+
         # ── 9. Mentor suggestion for PPO imitation tracking ──────────
         if _mentor_result is not None and getattr(
             _mentor_result, "mentor_call", False
@@ -5566,15 +5610,18 @@ class SmartCoach:
 
                 _state_id = f"ep{self.current_episode}_s{step_ctx.step}"
                 _teacher_action_idx = 0
+                _teacher_idx_mapped = -1  # LS-04: only a REAL mapping may feed PPO
                 if self.action_mapper and _mentor_result.template_name:
                     try:
                         _teacher_action_idx = self.action_mapper.command_to_action(
                             _mentor_result.template_name
                         )
+                        _teacher_idx_mapped = int(_teacher_action_idx)
                         if _teacher_action_idx < 0:
                             _teacher_action_idx = 0
                     except Exception:
                         _teacher_action_idx = 0
+                        _teacher_idx_mapped = -1
 
                 _student_action_idx = (
                     self._ppo_pending.get("action", 0)
@@ -5613,7 +5660,14 @@ class SmartCoach:
                     agent_id=self.agent_name,
                     phase=str(getattr(step_ctx, "phase", "RECON")),
                 )
-                self._p14_bc_buffer.store(_tt)
+                # LS-04: PPO's ranking/KL losses previously received the student's
+                # OWN sampled action as "teacher_action" (self-ranking). When the
+                # mentor's template maps to a real action index, pass that instead.
+                if self._ppo_pending is not None and _teacher_idx_mapped >= 0:
+                    self._ppo_pending["teacher_action"] = _teacher_idx_mapped
+                # Mentor outcome ledger: defer BCBuffer storage to record_result so
+                # the demonstration is finalized with the outcome it produced.
+                self._pending_teacher_trace = _tt
                 self._p14_traces_this_episode.append(_tt)
                 logger.debug(
                     f"[P1] TeacherTrace: div={_tt.compute_divergence():.1f} "
@@ -5850,6 +5904,7 @@ class SmartCoach:
                     mentor_reasoning=f"{reason}",
                     confidence=0.4,
                     phase=AttackPhase.RECON,
+                    source="registry",
                 )
             elif role_name == "offensive":
                 # Red agent aggressive fallbacks - EXTENSIVE list with SIGNATURES for dedup
@@ -5924,6 +5979,7 @@ class SmartCoach:
                     mentor_reasoning=reason,
                     confidence=0.5,
                     phase=AttackPhase.EXPLOITATION,
+                    source="registry",
                 )
             elif role_name == "stealth":
                 # Shadow agent quiet fallbacks - EXTENSIVE list with SIGNATURES
@@ -5990,6 +6046,7 @@ class SmartCoach:
                     mentor_reasoning=reason,
                     confidence=0.4,
                     phase=AttackPhase.ENUMERATION,
+                    source="registry",
                 )
             else:
                 # Generic fallback - use step-based variety to avoid loops
@@ -6010,6 +6067,7 @@ class SmartCoach:
                     mentor_call=False,
                     confidence=0.3,
                     phase=AttackPhase.RECON,
+                    source="registry",
                 )
         
         # Check learned commands for suggestions (filtered by role)
@@ -6053,6 +6111,7 @@ class SmartCoach:
                         mentor_reasoning=f"{self._role_emoji()} Proven: {template.description[:40]} (success: {best.success_rate:.0%})",
                         confidence=min(0.9, best.success_rate + 0.2),
                         phase=template.phase,
+                        source="registry",
                     )
                 except ValueError:
                     pass
@@ -6149,6 +6208,7 @@ class SmartCoach:
             mentor_reasoning=f"{self._role_emoji()} {template.description[:50]}",
             confidence=0.6,
             phase=template.phase,
+            source="registry",
         )
     
     def _role_emoji(self) -> str:
@@ -7837,12 +7897,17 @@ class SmartCoach:
             except Exception as e:
                 logger.warning("DAgger decay_weights failed: %s", e)
 
-        if not self.ppo_agent or not self._ppo_trajectory:
+        _skip_ppo_update = not self.ppo_agent or not self._ppo_trajectory
+        if _skip_ppo_update:
             self._ppo_trajectory.clear()
             self._ppo_pending = None
-            return None
 
         try:
+            if _skip_ppo_update:
+                # LS-09: nothing to update, but the episode-end side effects in
+                # `finally` (memory, DDQN, cognition, bus, consolidation) must
+                # still run — previously an early `return` skipped all of them.
+                return None
             # Phase 6.9: inject terminal reward + incomplete-closeout penalty
             if highest_phase and self._ppo_trajectory:
                 terminal_bonus = self.PPO_TERMINAL_REWARDS.get(highest_phase, 0.0)
@@ -8062,6 +8127,11 @@ class SmartCoach:
         finally:
             # Phase 8.0: Save episode attack chain to cross-episode memory
             total_ep_reward = sum(t.get("reward", 0) for t in self._ppo_trajectory)
+            # LS-10: build the postmortem transcript BEFORE the trajectory is cleared
+            _ep_transcript = "\n".join(
+                f"[{t.get('_r69_template', '?')}] r={t.get('reward', 0):.1f}"
+                for t in (self._ppo_trajectory or [])[-20:]
+            )
             self._save_episode_chain(total_ep_reward, highest_phase)
             self._reset_episode_chain()
 
@@ -8151,10 +8221,7 @@ class SmartCoach:
             # Phase 10.0: Cloud role — PostmortemSkillExtractor at episode end
             if self._postmortem_extractor and self._postmortem_extractor.can_call():
                 try:
-                    transcript = "\n".join(
-                        f"[{t.get('_r69_template', '?')}] r={t.get('reward', 0):.1f}"
-                        for t in (self._ppo_trajectory or [])[-20:]
-                    )
+                    transcript = _ep_transcript
                     skills = self._postmortem_extractor.extract_skills(  # type: ignore[attr-defined]
                         transcript=transcript,
                         total_reward=total_ep_reward,
@@ -8218,13 +8285,14 @@ class SmartCoach:
         
         try:
             mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
-            provider_used = "local"
+            provider_used = str(getattr(self.gpt_manager, "mentor_backend", "local") or "local")
             tokens_used = getattr(mentor_response, 'tokens_used', 0)
             
             # VALIDATE: Reject offline placeholders masquerading as commands
             from core.gpt_manager import GPTManager as _GPTMgr
             if _GPTMgr.is_offline_placeholder(mentor_response.command):
                 logger.debug(f"[{self.agent_name}] Mentor returned offline placeholder, falling back to registry")
+                self._mentor_ledger.record_rejection("offline_placeholder")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # VALIDATE: Check if mentor's command violates role exclusivity (belt & suspenders)
@@ -8234,6 +8302,7 @@ class SmartCoach:
             if not is_valid_for_role:
                 # Mentor suggested a command that belongs to another agent's domain
                 logger.debug(f"[{self.agent_name}] Mentor suggested '{mentor_response.command}' but it violates role exclusivity, falling back to registry")
+                self._mentor_ledger.record_rejection("role_violation")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # =================================================================
@@ -8255,11 +8324,13 @@ class SmartCoach:
             if prefix_repeat_count >= _arc.mentor_prefix_max:
                 logger.warning(f"[{self.agent_name}] LLM suggested '{mentor_prefix}' but it was used {prefix_repeat_count}x recently - forcing registry fallback")
                 # Mark this as a stuck situation for the fallback to handle
+                self._mentor_ledger.record_rejection("prefix_repeat")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # Also check if exact command was used before
             if mentor_response.command in ctx.command_history[-_arc.mentor_exact_window:]:
                 logger.warning(f"[{self.agent_name}] LLM suggested exact repeat command - forcing registry fallback")
+                self._mentor_ledger.record_rejection("exact_repeat")
                 return self._decide_from_registry(step_ctx, proposed_action, confidence)
             
             # ─── FIX: Substitute any remaining {param} placeholders ─────
@@ -8290,6 +8361,7 @@ class SmartCoach:
             
             # Add provider info to model_used
             model_display = self.model
+            self._mentor_ledger.record_accepted()
             
             return SmartDecisionResult(
                 command=mentor_response.command,
@@ -8308,6 +8380,7 @@ class SmartCoach:
             
         except Exception as e:
             logger.debug(f"Smart mentor failed: {e}, falling back to registry")
+            self._mentor_ledger.record_rejection("exception")
             return self._decide_from_registry(step_ctx, proposed_action, confidence)
     
     def _validate_command_for_role(self, command: str) -> bool:
@@ -8425,6 +8498,46 @@ class SmartCoach:
         # Track reward in HarmonyMetrics
         if self._harmony_metrics is not None:
             self._harmony_metrics.record_reward(breakdown.total)
+
+        # ── Mentor outcome ledger ────────────────────────────────────────
+        # The unified step scalar every learner sees; used for all outcome
+        # bookkeeping below so trackers and learners agree.
+        _step_scalar = _unified_reward.total if _unified_reward is not None else breakdown.total
+        _produced_discovery = bool(new_discoveries)
+        _mentor_won_step = decision.source == "mentor"
+        _tt_pending = getattr(self, "_pending_teacher_trace", None)
+        self._pending_teacher_trace = None
+        _bc_stored = False
+        if _tt_pending is not None:
+            try:
+                _tt_pending.finalize_outcome(
+                    actual_reward=_step_scalar,
+                    produced_discovery=_produced_discovery,
+                    mentor_won=_mentor_won_step,
+                )
+                _bc_factor = 1.0  # legacy: weight == mentor confidence
+                try:
+                    from core.feature_flags import get_feature_flags as _gff
+                    if _gff().mentor_outcome_weighting and _mentor_won_step and not _tt_pending.teacher_was_correct:
+                        _bc_factor = 0.5  # failed demonstration: half weight
+                except Exception:
+                    pass
+                if self._p14_bc_buffer is not None:
+                    _bc_stored = bool(self._p14_bc_buffer.store(_tt_pending, decay_factor=_bc_factor))
+            except Exception as e:
+                logger.debug(f"[{self.agent_name}] TeacherTrace finalize failed: {e}")
+        try:
+            self._mentor_ledger.record_outcome(
+                source=decision.source,
+                reward=_step_scalar,
+                produced_discovery=_produced_discovery,
+                phase=(decision.phase.name if getattr(decision, "phase", None) is not None
+                       and hasattr(decision.phase, "name") else str(getattr(decision, "phase", ""))),
+                trace=_tt_pending,
+                bc_stored=_bc_stored,
+            )
+        except Exception as e:
+            logger.debug(f"[{self.agent_name}] MentorLedger record failed: {e}")
         
         # D2: Populate discovery_details for _emit_step_event tracking
         if new_discoveries:
@@ -8777,35 +8890,7 @@ class SmartCoach:
             # Use unified reward if available, else fallback to breakdown.total
             ppo_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
             
-            # ── Phase 13.0: Auto-promote high-reward mentor commands to SkillLibrary ──
-            # When a mentor-suggested command produces reward > 5.0, it's a proven
-            # tactic. Automatically create a SkillCard so the agent can use it
-            # autonomously in future episodes without needing the mentor.
-            if (
-                decision.source == "mentor"
-                and decision.template_name
-                and breakdown.total > 5.0
-                and self.skill_library is not None
-            ):
-                try:
-                    from core.postmortem.orion_postmortem import SkillCard
-                    _phase_name = decision.phase.name if decision.phase else "RECON"
-                    _skill_id = f"auto_{self.agent_name}_{decision.template_name}_{_phase_name}"
-                    _skill = SkillCard(
-                        id=_skill_id,
-                        if_condition=f"phase={_phase_name}, agent={self.agent_name}",
-                        then_action=decision.command[:200],
-                        parameters_template=decision.params or {},
-                        confidence=min(0.85, breakdown.total / 20.0),  # Scale confidence by reward
-                        evidence_refs=[f"auto-promoted:reward={breakdown.total:.1f}"],
-                    )
-                    if self.skill_library.promote(_skill, reason=f"Phase 13.0 auto-promote: reward={breakdown.total:.1f}"):
-                        logger.info(
-                            f"[SKILL-AUTO][{self.agent_name}] Promoted mentor command "
-                            f"'{decision.template_name}' → SkillCard (reward={breakdown.total:.1f})"
-                        )
-                except Exception as e:
-                    logger.debug(f"Auto-promote failed: {e}")
+            # (Phase 13.0 SkillCard auto-promote moved below the _ppo_pending guard — LS-07)
             
             # R69: Tag trajectory entry with discovery + template metadata for HTR
             _r69_disc_types = []
@@ -8846,16 +8931,55 @@ class SmartCoach:
             })
             self._ppo_pending = None
 
-            # Phase 37: Record step outcome for LLM bridge anneal
-            if self._p37_llm_bridge is not None:
-                _disc_count = len(_r69_disc_types) if _r69_disc_types else 0
-                self._p37_llm_bridge.record_step_outcome(
-                    reward=ppo_reward,
-                    discoveries=_disc_count,
-                    exploit_success=bool(new_discoveries and (
-                        'shell' in new_discoveries or 'credential' in new_discoveries
-                    )),
+            # (Phase 37 bridge step outcome moved below the _ppo_pending guard — LS-07)
+
+        # ── LS-07: hooks that must see EVERY executed step ─────────────
+        # Both blocks used to live inside `if self._ppo_pending is not None`, but
+        # FF_PPO_REWARD_ATTRIBUTION_FIX clears _ppo_pending whenever a non-PPO
+        # source wins, so mentor-won steps never reached them.
+        # ── Phase 13.0: Auto-promote high-reward mentor commands to SkillLibrary ──
+        # When a mentor-suggested command produces reward > 5.0, it's a proven
+        # tactic. Automatically create a SkillCard so the agent can use it
+        # autonomously in future episodes without needing the mentor.
+        if (
+            decision.source == "mentor"
+            and decision.template_name
+            and breakdown.total > 5.0
+            and self.skill_library is not None
+        ):
+            try:
+                from core.postmortem.orion_postmortem import SkillCard
+                _phase_name = decision.phase.name if decision.phase else "RECON"
+                _skill_id = f"auto_{self.agent_name}_{decision.template_name}_{_phase_name}"
+                _skill = SkillCard(
+                    id=_skill_id,
+                    if_condition=f"phase={_phase_name}, agent={self.agent_name}",
+                    then_action=decision.command[:200],
+                    parameters_template=decision.params or {},
+                    confidence=min(0.85, breakdown.total / 20.0),  # Scale confidence by reward
+                    evidence_refs=[f"auto-promoted:reward={breakdown.total:.1f}"],
                 )
+                if self.skill_library.promote(_skill, reason=f"Phase 13.0 auto-promote: reward={breakdown.total:.1f}"):
+                    logger.info(
+                        f"[SKILL-AUTO][{self.agent_name}] Promoted mentor command "
+                        f"'{decision.template_name}' → SkillCard (reward={breakdown.total:.1f})"
+                    )
+            except Exception as e:
+                logger.debug(f"Auto-promote failed: {e}")
+
+        # Phase 37: Record step outcome for LLM bridge anneal
+        if self._p37_llm_bridge is not None:
+            _disc_count_all = 0
+            if new_discoveries:
+                for _dv in new_discoveries.values():
+                    _disc_count_all += len(_dv) if isinstance(_dv, list) else 1
+            self._p37_llm_bridge.record_step_outcome(
+                reward=_step_scalar,
+                discoveries=_disc_count_all,
+                exploit_success=bool(new_discoveries and (
+                    'shell' in new_discoveries or 'credential' in new_discoveries
+                )),
+            )
 
         # ─── C03: SAC off-policy transition storage + update ────────
         # SAC is off-policy: store ALL transitions (regardless of who won)
@@ -9115,6 +9239,8 @@ class SmartCoach:
         self.current_episode = episode
         self.mentor_policy.reset_episode(episode)
         self.reward_calculator.reset()
+        self._mentor_ledger.reset_episode()
+        self._pending_teacher_trace = None
 
         # Phase 9.1: Signal HybridMemory episode start
         hm = self._get_hybrid_memory()
@@ -9324,6 +9450,7 @@ class SmartCoach:
             "policy_stats": self.mentor_policy.get_stats(),
             "reward_stats": self.reward_calculator.get_session_stats(),
             "learned_commands": self.learned_store.get_summary(),
+            "mentor_ledger": self._mentor_ledger.summary(),
         }
     
     def suggest_exploration(self) -> List[str]:
