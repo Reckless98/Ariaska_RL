@@ -1,0 +1,95 @@
+{
+  "cases": [
+    {
+      "role": "RedAgent",
+      "phase": 0,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "RedAgent",
+      "phase": 1,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "RedAgent",
+      "phase": 2,
+      "ratio": 1.000000238418579,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "BlueAgent",
+      "phase": 0,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "BlueAgent",
+      "phase": 1,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "BlueAgent",
+      "phase": 2,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ScoutAgent",
+      "phase": 0,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ScoutAgent",
+      "phase": 1,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ScoutAgent",
+      "phase": 2,
+      "ratio": 1.0000004768371582,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ShadowAgent",
+      "phase": 0,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ShadowAgent",
+      "phase": 1,
+      "ratio": 1.0000004768371582,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "ShadowAgent",
+      "phase": 2,
+      "ratio": 0.9999997615814209,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "OrionAgent",
+      "phase": 0,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "OrionAgent",
+      "phase": 1,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    },
+    {
+      "role": "OrionAgent",
+      "phase": 2,
+      "ratio": 1.0,
+      "conditioned_log_probability_error": 0.0
+    }
+  ],
+  "guard_blocked": 0
+}

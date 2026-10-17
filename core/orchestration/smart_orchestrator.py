@@ -8346,8 +8346,7 @@ class SmartOrchestrator:
         _user_flag_val = next((m.get("user_flag_value", "") for m in all_metrics if m.get("user_flag_captured")), "")
         _root_flag_val = next((m.get("root_flag_value", "") for m in all_metrics if m.get("root_flag_captured")), "")
 
-        from core.llm.smart_mentor import AttackPhase
-        _phase_rank = {phase.name: i for i, phase in enumerate(AttackPhase)}
+        _phase_rank = {phase.name: rank for phase, rank in SmartCoach.PHASE_ORDER.items()}
         _highest_phase = max((m.get("highest_phase", "RECON") for m in all_metrics),
                              key=lambda phase: _phase_rank.get(phase, -1), default="RECON")
         final_metrics = {

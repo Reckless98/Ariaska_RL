@@ -1,10 +1,7 @@
 # Recovery validation — 17 October 2026
 
-This document supersedes historical architecture/audit claims where they conflict.
-The recovery branches are proposals, not merged master. Review PRs #6 through #13
-in dependency order; the owner retains merge approval. Follow-up integration hardening is
-in [PR #14](https://github.com/Reckless98/Ariaska_RL/pull/14); its
-[merge-readiness report](integration_merge_readiness.md) records the newer evidence and review dispositions.
+This document records the initial recovery evidence and supersedes earlier architecture claims where they conflict.
+The [controlled merge validation](controlled_merge_validation.md) records the latest test coverage and merge disposition for PRs #6 through #14. The [integration hardening report](integration_merge_readiness.md) retains all 33 original review dispositions and the newer repeated-seed learning evidence. Consult GitHub for each PR's actual merge state.
 
 **Status: PARTIAL research readiness.** The bounded native offline MDP path is
 verified through all five independent PPO policies, execution attribution,
@@ -73,9 +70,10 @@ Its [result](evidence/recovery_2026-10-17/mentor_free_no_sdk.json) confirms that
 mentor-free execution does not require those LLM libraries. It still needs the
 ordinary application/RL dependencies.
 
-The guard intentionally blocks child processes and tool availability probes.
-Five existing tests consequently fail under this command; do not interpret a
-zero subprocess count as validation of those subprocess/CLI paths.
+The guard blocks general child processes and tool probes. The later controlled
+merge validation adds a bounded guarded Python CLI harness and deterministic
+tool-availability mocks. The five failures reported below are historical results,
+not the current suite status.
 
 ## Full-suite result
 
@@ -199,8 +197,9 @@ integration study; they are not the five verified role policies.
 4. Establish end-to-end evidence for DAgger consumption, Reptile/meta controllers,
    reward-learning efficacy and other auxiliary paths. DAgger now collects real
    labels/states; it is not a demonstrated training consumer in this path.
-5. Test child-process CLI wiring in a separately isolated approved harness.
-   Tool probes remain blocked here; optional Optuna and online tests are not run.
+5. The CLI harness now executes the real bounded trainer with guards installed
+   before imports. Tool availability uses mocks; physical tools, optional Optuna
+   and live-provider behavior remain unverified.
 6. Provider threads are bounded, but a non-cooperative SDK cannot be forcibly
    stopped safely in a Python thread. Transport timeouts and backpressure remain
    necessary; no live provider behavior was measured.

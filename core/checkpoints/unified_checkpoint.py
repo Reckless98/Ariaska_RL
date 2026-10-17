@@ -169,6 +169,9 @@ class UnifiedCheckpoint:
         if not path.exists():
             raise FileNotFoundError(path)
 
+        from core.checkpoints.safe_loading import require_safe_checkpoint_runtime
+        require_safe_checkpoint_runtime()
+
         # Fixed, application-owned allowlist: never allow globals named by a file.
         # Legacy snapshots contain these data containers and NumPy RNG arrays.
         import numpy as np

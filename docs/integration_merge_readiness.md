@@ -1,5 +1,7 @@
 # Ariaska_RL integration hardening and merge readiness
 
+> Historical initial hardening snapshot. The [controlled merge validation](controlled_merge_validation.md) supersedes its merge decision and coverage gaps. The original failed/blocked checks and experiment provenance below are retained unchanged for auditability.
+
 17 October 2026. Follow-up [PR #14](https://github.com/Reckless98/Ariaska_RL/pull/14), targeting `recovery/research-validation` (#13). No PR was merged or force-pushed. The original eight branches and their committed evidence remain intact.
 
 **Decision: BLOCKED for unconditional merge sign-off.** The confirmed integration defects are repaired and the final CPU offline checks are complete. The stack is ready for the requested independent review. Five CLI/tool-probe checks remain unverified under the mandatory execution guard, there is no independent CI result, and physical CUDA execution is untested. Those coverage gaps need an explicit owner/reviewer disposition before claiming the entire stack is fully verified. This does not mean the repaired numerical or transition contracts failed.
@@ -10,7 +12,7 @@ The integration review inspected `1835612ea2687a1868c440090544ee7a2b6b3a1c`. The
 
 - `878586cffa2354cec4c843ba344309e4ce786845`: integrated rollout, attribution, persistence, reliability and test repairs.
 - `49ddbedf2425265889e899fcfa90cca2e2f86eea`: restricted decoding of pre-hardening checkpoint containers.
-- `47da407a20d4951707a2eafc8933ece3e0ace7e3`: preserve copying and plain-string storage of simulated display output. This is the final application/test source validated below. Subsequent PR commits contain documentation/evidence only.
+- `47da407a20d4951707a2eafc8933ece3e0ace7e3`: preserve copying and plain-string storage of simulated display output. This is the application/test source validated in this historical snapshot. Later CLI/CI and compatibility fixes are recorded in the controlled merge validation.
 
 Local commits were preserved as well. GitHub API trees were compared with the corresponding local git trees before advancing the follow-up branch, using expected-head leases. An automatic approval review rejected an unnecessary local `git reset --hard` because of potential patch loss. It was not retried; the local commits and backup branch were retained. Publication succeeded independently without resetting or rewriting the original stack.
 

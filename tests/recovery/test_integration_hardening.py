@@ -301,6 +301,59 @@ def test_multi_episode_flags_and_phase_are_aggregated(tmp_path,monkeypatch):
     assert result['final_metrics']['total_steps']==6 and result['final_score']==9
 
 
+@pytest.mark.parametrize('phases', [
+    ('POST_EXPLOITATION', 'EXFILTRATION'),
+    ('EXFILTRATION', 'POST_EXPLOITATION'),
+])
+def test_run_summary_uses_canonical_phase_progression(tmp_path, monkeypatch, phases):
+    from test_offline_integration import make_orchestrator
+    o = make_orchestrator(tmp_path, monkeypatch, horizon=1)
+    episodes = iter(dict(total_steps=1, total_reward=0, highest_phase=phase,
+                         phase_progression=['RECON', phase]) for phase in phases)
+    monkeypatch.setattr(o, 'run_episode', lambda *a, **kw: next(episodes))
+    summary = Mock()
+    monkeypatch.setattr(o.dashboard, 'print_run_summary', summary)
+    result = o.run_training(episodes=2, target_ip='192.0.2.10')
+    assert result['final_metrics']['highest_phase'] == 'EXFILTRATION'
+    assert summary.call_args.kwargs['final_metrics']['highest_phase'] == 'EXFILTRATION'
+
+
+@pytest.mark.parametrize('loader', ['unified', 'sac'])
+@pytest.mark.parametrize('version', ['2.0.0', '2.4.0', '2.9.1', '2.10.0rc1'])
+def test_checkpoint_rejects_unsupported_runtime_before_deserialization(tmp_path, monkeypatch, loader, version):
+    from core.checkpoints.unified_checkpoint import UnifiedCheckpoint
+    path = tmp_path / 'checkpoint.pt'
+    path.write_bytes(b'not a checkpoint: must not be read')
+    load = Mock(side_effect=AssertionError('deserialization must not start'))
+    monkeypatch.setattr(torch, '__version__', version)
+    monkeypatch.setattr(torch, 'load', load)
+    load_checkpoint = UnifiedCheckpoint.load if loader == 'unified' else SACAgent(SACConfig(action_dim=2)).load
+    with pytest.raises(RuntimeError, match='PyTorch >=2.10.0'):
+        load_checkpoint(path)
+    load.assert_not_called()
+
+
+def test_checkpoint_runtime_requirement_excludes_unsafe_or_missing_apis():
+    from packaging.requirements import Requirement
+    requirement = next(Requirement(line) for line in Path('requirements.txt').read_text().splitlines()
+                       if line.startswith('torch>='))
+    assert '2.4.0' not in requirement.specifier
+    assert '2.9.1' not in requirement.specifier
+    assert torch.__version__.split('+')[0] in requirement.specifier
+
+
+def test_checkpoint_missing_restricted_api_fails_with_upgrade_guidance(tmp_path, monkeypatch):
+    from core.checkpoints.unified_checkpoint import UnifiedCheckpoint
+    path = tmp_path / 'checkpoint.pt'
+    path.write_bytes(b'not a checkpoint')
+    monkeypatch.delattr(torch.serialization, 'safe_globals')
+    load = Mock(side_effect=AssertionError('deserialization must not start'))
+    monkeypatch.setattr(torch, 'load', load)
+    with pytest.raises(RuntimeError, match='PyTorch >=2.10.0'):
+        UnifiedCheckpoint.load(path)
+    load.assert_not_called()
+
+
 def test_evaluation_refuses_every_nonempty_directory_and_tracks_all_sources(tmp_path):
     from scripts.evaluate_recovery import prepare_output,experiment_provenance
     root=tmp_path/'experiment';root.mkdir();(root/'training_curve.csv').write_text('preserve me')

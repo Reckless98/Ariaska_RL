@@ -506,6 +506,8 @@ class SACAgent:
 
         No implicit unsafe fallback or user-supplied global allowlist is used.
         """
+        from core.checkpoints.safe_loading import require_safe_checkpoint_runtime
+        require_safe_checkpoint_runtime()
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         self.load_state_dict(checkpoint)
 

@@ -1,0 +1,19 @@
+{
+  "episodes": 2,
+  "updates": {
+    "ScoutAgent": 2,
+    "RedAgent": 2,
+    "BlueAgent": 2,
+    "OrionAgent": 2,
+    "ShadowAgent": 2
+  },
+  "provider_requests": 0,
+  "forbidden_imports_loaded": [],
+  "blocked_libraries": [
+    "anthropic",
+    "huggingface_hub",
+    "langchain",
+    "openai",
+    "transformers"
+  ]
+}

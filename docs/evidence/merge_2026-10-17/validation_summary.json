@@ -1,0 +1,93 @@
+{
+  "local_suite": {
+    "passed": 3306,
+    "failed": 0,
+    "skipped": 6,
+    "warnings": 5,
+    "seconds": 65.44,
+    "guard_denials": 12,
+    "isolated_cli_children": 8
+  },
+  "skips": [
+    {
+      "test": "tests.recovery.test_integration_hardening::test_physical_cuda_rng_replays_each_visible_device",
+      "reason": "Physical CUDA device unavailable; CPU is the supported CI target"
+    },
+    {
+      "test": "tests.test_online_makes_mentor_calls::test_online_makes_mentor_calls",
+      "reason": "OPENAI_API_KEY not set"
+    },
+    {
+      "test": "tests.test_online_makes_mentor_calls::test_mentor_calls_logged_correctly",
+      "reason": "OPENAI_API_KEY not set"
+    },
+    {
+      "test": "tests.test_optuna_wiring.TestHyperparamSweepClass::test_run_with_mock_train_fn",
+      "reason": "could not import 'optuna': No module named 'optuna'"
+    },
+    {
+      "test": "tests.test_phase14_hypothesis.TestHypothesisEngineWiring::test_hypothesis_status_transitions",
+      "reason": "No hypotheses generated for ssh"
+    },
+    {
+      "test": "tests.training.coach.test_learning_signal_contract.TestMentorOutcomeLedgerEndToEnd::test_mentor_intervention_is_measured",
+      "reason": "mentor gate did not open in this configuration (budget/phase gate)"
+    }
+  ],
+  "harness": {
+    "entrypoint": "core.training.ariaska_trainer",
+    "episodes_cap": 2,
+    "steps_cap": 3,
+    "isolated_python": true,
+    "network_and_tools": "denied",
+    "availability_probes": "mocked"
+  },
+  "supported_validation_target": "CPU; CUDA physical test is explicit and skipped on this host",
+  "final_local_suite": {
+    "passed": 3318,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 6,
+    "seconds": 65.69,
+    "warnings": 5,
+    "guard_denials": 12,
+    "isolated_cli_children": 8,
+    "source_local_commit": "24026799f36fce0f9f242ee7f2ba6ba16946848f",
+    "source_tree": "eab3b1003e1b764880d6f0ef0986b2de100f17fa"
+  },
+  "hosted_baseline": {
+    "run_id": 39067576174,
+    "job_id": 117498320895,
+    "artifact_id": 12113727219,
+    "head_sha": "9d04524222d3e862031c88b420204e9cb35df4b1",
+    "tested_commit": "ee4ea8a8e71fdd185b9ca3723080698cbcb755e6",
+    "tested_tree": "efa1cc5ab475108b7b519096e357c180bf899470",
+    "passed": 3306,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 6,
+    "seconds": 67.2,
+    "warnings": 5,
+    "artifact_sha256": "6077bbcfe3ad861671011e91cbb4c282a43c1998344188366b570cb2e1b3f7dd"
+  },
+  "new_review_regressions": {
+    "before": {
+      "failed": 11,
+      "guard_attempts": 0
+    },
+    "focused_after": {
+      "passed": 68,
+      "skipped": 1,
+      "warnings": 1
+    },
+    "additional_missing_api_case": "included in final full suite"
+  },
+  "final_contracts": {
+    "numerical_cases": 15,
+    "role_checkpoint_resumes": 15,
+    "guard_denials": 0,
+    "provider_requests": 0,
+    "source_local_commit": "24026799f36fce0f9f242ee7f2ba6ba16946848f",
+    "source_tree": "eab3b1003e1b764880d6f0ef0986b2de100f17fa"
+  }
+}

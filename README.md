@@ -88,18 +88,22 @@ Ariaska contains an implemented reinforcement-learning stack: a per-agent **PPO 
 
 ## Recovery status — 17 October 2026
 
-The [recovery validation report](docs/recovery_validation.md) is the current
-source for verified behavior, reproduction commands and limitations; historical
-phase descriptions below describe components, not universal end-to-end guarantees.
-Recovery PRs are unmerged proposals and do not describe master until reviewed.
+The [controlled merge validation](docs/controlled_merge_validation.md) records the
+latest coverage and merge gates. The [recovery report](docs/recovery_validation.md)
+and [integration report](docs/integration_merge_readiness.md) preserve the full
+evidence and limitations. Historical phase descriptions below describe components,
+not universal end-to-end guarantees. Consult GitHub for the actual PR merge state.
 
 - All five role policies have verified sampling/update contracts, executed-action
   attribution, bounded multi-episode training and independent checkpoint restores.
-- Delivery suite: **3,239 passed, 5 guard-blocked failures, 10 skipped**. No live
-  security tools, targets or model APIs were used.
-- A three-seed two-choice synthetic diagnostic improved aggregate held-out base-
-  policy accuracy from 49.31% frozen to 68.22% trained. **Orion averaged 43.91%**;
-  this does not demonstrate reliable learning by every role or cybersecurity skill.
+- The complete guarded suite runs in pinned CPU GitHub Actions; current counts,
+  explicit skips and tested commit identities are in the controlled merge report.
+  No live security tools, targets or model APIs are used.
+- Two separate three-seed two-choice synthetic evaluations produced byte-identical
+  metrics and CSVs: 49.31% frozen versus **96.18% trained** mean accuracy, with
+  3.58 percentage-point across-seed SD. All five roles improved on this task;
+  this does not establish general learning or cybersecurity skill. The older
+  68.22% result and Orion failure remain in the historical recovery report.
 - Checkpoints v3 preserve independent role identities. Exact restoration of an
   external environment and every experimental controller remains unverified.
 - DecisionCore is central, but deterministic gates still bypass arbitration in
@@ -1450,7 +1454,7 @@ Full report: [`docs/architecture_refactor_phase1.md`](docs/architecture_refactor
 ### Prerequisites
 
 - **Python 3.11+** (developed on 3.13)
-- **PyTorch 2.x** (CPU or CUDA)
+- **PyTorch 2.10+** (CPU validated; physical CUDA validation remains pending). Restricted checkpoint loading requires this minimum; the reproducible CPU environment is pinned in `requirements-recovery.lock`.
 - **Docker** (for Metasploitable targets)
 - **Optional LLM mentor** — a local server (Ollama) or a cloud API key (Anthropic / OpenAI-compatible). The RL core runs with no LLM at all.
 
