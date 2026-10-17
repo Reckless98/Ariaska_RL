@@ -103,7 +103,7 @@ class TeacherTrace:
 
     def to_bc_sample(self, decay_factor: float = 1.0) -> Optional["BCSample"]:
         """Convert to BCSample for BCBuffer. Returns None if no state_vector."""
-        if torch is None or self.state_vector is None:
+        if torch is None or self.state_vector is None or self.teacher_action_idx < 0:
             return None
         state_tensor = torch.tensor(self.state_vector, dtype=torch.float32)
         weight = self.confidence * decay_factor
@@ -123,6 +123,7 @@ class TeacherTrace:
         produced_discovery: bool,
         mentor_won: bool,
         success_threshold: float = 0.0,
+        actual_success: Optional[bool] = None,
     ) -> None:
         """Attach the executed step's outcome to this demonstration (idempotent).
 
@@ -134,9 +135,7 @@ class TeacherTrace:
         self.produced_discovery = bool(produced_discovery)
         self.mentor_won = bool(mentor_won)
         if mentor_won:
-            self.teacher_was_correct = bool(
-                produced_discovery or float(actual_reward) > success_threshold
-            )
+            self.teacher_was_correct = actual_success
         else:
             self.teacher_was_correct = None
         self.finalized = True

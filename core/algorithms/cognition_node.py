@@ -316,6 +316,7 @@ class CognitionNode:
             result.ppo_value = ppo_vote.q_value
             result.ppo_state = state
             result.ppo_action = ppo_vote.action_idx
+            result.ppo_behavior_context = getattr(self.ppo, "last_selection_context", None)
 
         # ── 3. SAC Explorer ──
         sac_vote = self._vote_sac(s, action_mask, macro_allowed_indices)
@@ -415,6 +416,7 @@ class CognitionNode:
         reward: float,
         next_state: torch.Tensor,
         done: bool,
+        update_learners: bool = True,
     ) -> None:
         """
         After environment returns reward, update all sub-brains.
@@ -425,6 +427,11 @@ class CognitionNode:
             next_state: Next state tensor (512,).
             done: Whether episode ended.
         """
+        if not update_learners:
+            self._ema_fast += self.config.ema_fast_alpha * (reward - self._ema_fast)
+            self._ema_slow += self.config.ema_slow_alpha * (reward - self._ema_slow)
+            self._train_gate(cognition_result, reward)
+            return
         total_reward = reward + cognition_result.rnd_bonus + cognition_result.sil_bonus
 
         # ── EMA update ──
@@ -828,6 +835,8 @@ class CognitionNode:
         phase: str,
     ) -> Optional[Dict[str, Any]]:
         """Check if self-imitation replay should inject a golden transition."""
+        if getattr(self, "external_transition_owner", False):
+            return None
         if not self._sil_buffer or self.ppo is None:
             return None
 

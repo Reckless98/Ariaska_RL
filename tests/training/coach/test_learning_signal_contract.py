@@ -36,14 +36,14 @@ class TestTeacherTraceOutcome:
         from core.reasoning.teacher_trace import TeacherTrace
         tt = TeacherTrace(teacher_action_idx=2, student_action_idx=1, confidence=0.8)
         assert tt.finalized is False and tt.teacher_was_correct is None
-        tt.finalize_outcome(actual_reward=6.5, produced_discovery=False, mentor_won=True)
+        tt.finalize_outcome(actual_reward=6.5, produced_discovery=False, mentor_won=True, actual_success=True)
         assert tt.finalized and tt.mentor_won is True
         assert tt.actual_reward == 6.5 and tt.teacher_was_correct is True
 
     def test_finalize_mentor_won_failure_and_lost(self):
         from core.reasoning.teacher_trace import TeacherTrace
         tt = TeacherTrace(teacher_action_idx=2, confidence=0.8)
-        tt.finalize_outcome(actual_reward=-3.0, produced_discovery=False, mentor_won=True)
+        tt.finalize_outcome(actual_reward=-3.0, produced_discovery=False, mentor_won=True, actual_success=False)
         assert tt.teacher_was_correct is False
         tt2 = TeacherTrace(teacher_action_idx=2, confidence=0.8)
         tt2.finalize_outcome(actual_reward=9.0, produced_discovery=True, mentor_won=False)
@@ -55,7 +55,7 @@ class TestTeacherTraceOutcome:
                   "episode": 3, "step": 7, "agent_id": "RedAgent", "phase": "RECON"}
         tt = TeacherTrace.from_dict(legacy)
         assert tt.finalized is False and tt.actual_reward is None
-        tt.finalize_outcome(1.0, False, True)
+        tt.finalize_outcome(1.0, False, True, actual_success=True)
         d = tt.to_compact()
         assert d["finalized"] is True and d["mentor_won"] is True and "state_vector" not in d
         assert TeacherTrace.from_dict(d).teacher_was_correct is True
@@ -85,7 +85,7 @@ class TestMentorLedger:
         assert led.acceptance_rate == pytest.approx(0.5)
 
         won = TeacherTrace(teacher_action_idx=1)
-        won.finalize_outcome(5.0, True, mentor_won=True)
+        won.finalize_outcome(5.0, True, mentor_won=True, actual_success=True)
         lost = TeacherTrace(teacher_action_idx=1)
         lost.finalize_outcome(2.0, False, mentor_won=False)
         led.record_outcome("mentor", 5.0, True, phase="RECON", trace=won, bc_stored=True)
