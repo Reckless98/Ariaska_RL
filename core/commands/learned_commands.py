@@ -126,8 +126,8 @@ class LearnedCommandStore:
                          Defaults to data/learned_commands.json
         """
         if storage_path is None:
-            base_dir = Path(__file__).parent.parent.parent
-            storage_path = base_dir / "data" / "learned_commands.json"
+            base_dir = Path(os.environ.get("ARIASKA_DATA_DIR", Path(__file__).parent.parent.parent / "data"))
+            storage_path = base_dir / "learned_commands.json"
         
         self.storage_path = Path(storage_path)
         self.commands: Dict[str, LearnedCommand] = {}

@@ -8497,7 +8497,7 @@ class SmartCoach:
         if _dp is not None and hasattr(_dp, 'rnd') and _dp.rnd.valid:
             _rnd_intrinsic_for_pipeline = _dp.rnd.intrinsic_reward
             _rnd_scale_for_pipeline = getattr(
-                self._maturity_controller, '_state', None
+                self._maturity_controller, 'state', None
             )
             if _rnd_scale_for_pipeline is not None:
                 _rnd_scale_for_pipeline = getattr(

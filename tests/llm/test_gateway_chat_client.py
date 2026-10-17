@@ -79,7 +79,7 @@ class TestGatewayChatClient:
         assert call["agent_id"] == "RedAgent" and call["task_type"] == "tactical"
         assert call["timeout"] == 12.0
         assert "model" not in call  # routing alias stays with GPTManager/ModelRouter
-        assert "temperature" not in call
+        assert call["temperature"] == 0.7
 
     def test_explicit_non_alias_model_is_forwarded(self):
         gw = _StubGateway()
