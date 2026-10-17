@@ -174,6 +174,7 @@ class SmartStepContext:
     
     # Raw state for compatibility
     state: Dict[str, Any] = field(default_factory=dict)
+    native_actions: bool = False  # Set only by an explicit offline MDP adapter
     
     @property
     def phase(self) -> str:
@@ -2828,11 +2829,21 @@ class SmartCoach:
             # Store negative PPO trajectory if this overrides a PPO decision
             self._discard_ppo_proposal("proposal_replaced")
 
+    def discard_unexecuted_proposals(self):
+        """A skipped/replaced proposal has no environment outcome to learn from."""
+        if getattr(self, '_pending_teacher_trace', None) is not None:
+            self._pending_teacher_trace.mentor_won = False
+            self._discarded_teacher_traces = getattr(self, '_discarded_teacher_traces', 0) + 1
+        self._pending_teacher_trace = None
+        self._ppo_pending = None
+        self._sac_pending = None
+        self._cognition_result = None
+
     def decide(self, step_ctx, proposed_action=None, confidence=None,
                force_mentor=False, decision_packet=None):
         """Capture the observation; only record_result commits execution history."""
         import copy
-        self._ppo_pending = None
+        self.discard_unexecuted_proposals()
         self._execution_step = step_ctx
         self._current_decision_packet = decision_packet
         result = None
@@ -2856,7 +2867,7 @@ class SmartCoach:
                 candidate = self._ppo_pending
                 if candidate.get('command') == result.command:
                     sample = dict(candidate)
-            allowed = step_ctx.state.get('available_action_indices')
+            allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
             if allowed is not None and self.action_mapper.command_to_action(result.template_name) not in allowed:
                 result = self._decision_for_action(int(allowed[0]), step_ctx.attack_context, 'registry')
                 sample = None
@@ -2920,7 +2931,7 @@ class SmartCoach:
         # Phase 50: Store DecisionPacket reference for algorithm proposal population
         self._current_decision_packet = decision_packet
 
-        if 'available_action_indices' in step_ctx.state:
+        if step_ctx.native_actions:
             # An environment-native MDP uses opaque action IDs. Cyber-specific
             # evidence/phase overrides do not describe its transition function.
             # Reuse the production policy, registry and single arbitration path.
@@ -5719,7 +5730,7 @@ class SmartCoach:
         - OrionAgent: Strategic coordination
         - ShadowAgent: Stealth/persistence commands
         """
-        allowed = step_ctx.state.get('available_action_indices')
+        allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
         if allowed is not None:
             if not allowed:
                 raise ValueError('Environment provides no valid actions')
@@ -7678,7 +7689,7 @@ class SmartCoach:
                 except Exception as _e37:
                     logger.debug(f"[P37] LLM guidance compute failed: {_e37}")
 
-            allowed = step_ctx.state.get('available_action_indices')
+            allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
             if allowed is not None:
                 # Environment-native legal actions are authoritative; cyber-specific
                 # phase/tool heuristics are not constraints of an abstract MDP.
@@ -9161,6 +9172,7 @@ class SmartCoach:
         self.reward_calculator.reset()
         self._mentor_ledger.reset_episode()
         self._pending_teacher_trace = None
+        self._p14_traces_this_episode = []
 
         # Phase 9.1: Signal HybridMemory episode start
         hm = self._get_hybrid_memory()

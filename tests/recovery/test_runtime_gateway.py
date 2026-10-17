@@ -134,3 +134,28 @@ def test_cache_preserves_served_model_without_charging_again(gateway):
     assert first.model==second.model=='fixture-served'
     assert second.usage.total_tokens==0
     assert len(p.calls)==1 and gm.tokens_used==7
+
+
+def test_legacy_deterministic_override_keeps_pre_execution_observation(tmp_path,monkeypatch):
+    import torch
+    from core.orchestration.smart_orchestrator import SmartOrchestrator,SmartOrchestratorConfig
+    from core.gpt_manager import GPTManager
+    monkeypatch.chdir(tmp_path)
+    class Env:
+        live_mode=False;mode='sim'
+        def reset(self):return {'phase':'recon','target_ip':'192.0.2.10','state_flags':{'ports_discovered':False}}
+        def step(self,_):return {'phase':'recon','state_flags':{'ports_discovered':True}},0,False,{}
+    o=SmartOrchestrator(Env(),GPTManager(enable_llm=False,offline=True),
+        config=SmartOrchestratorConfig(dashboard_enabled=False,dashboard_mode='off',dynamic_episode_length=False),verbosity='quiet')
+    monkeypatch.setattr(o,'_generate_simulated_output',lambda _:'synthetic observation')
+    monkeypatch.setattr(o,'_parse_output_for_discoveries',lambda *a,**kw:{})
+    monkeypatch.setattr(o,'_check_repeat_stuck',lambda *_:(True,10))
+    for c in o.coaches.values():
+        monkeypatch.setattr(c,'_force_novel_action',lambda ctx,_c=c,**kw:_c._decision_for_action(0,ctx.attack_context,'forced'))
+    o.run_episode('legacy-override',0,max_steps=1,target='192.0.2.10')
+    transitions=[c.last_executed_transition for c in o.coaches.values() if hasattr(c,'last_executed_transition')]
+    assert transitions
+    for t in transitions:
+        assert t.step==0 and not bool(t.state.flatten()[13])
+        assert bool(t.next_state.flatten()[13])
+        assert t.policy_sample is None
