@@ -65,7 +65,7 @@ def should_succeed(category: str, *, rng: random.Random | None = None) -> bool:
     return roll <= rate
 
 
-def generate_simulated_output(
+def _generate_simulated_output(
     command: str,
     attack_context: Any = None,
     sim_deterministic: bool = False,
@@ -90,7 +90,7 @@ def generate_simulated_output(
         Simulated output string.
     """
     if not command:
-        return ""
+        return SimulatedOutput("", False)
     
     
     target = attack_context.target if attack_context else "10.10.10.10"
@@ -190,7 +190,7 @@ def generate_simulated_output(
     
     if command_fails and not sim_deterministic:
         failures = FAILURE_MESSAGES.get(category, FAILURE_MESSAGES["default"])
-        return random.choice(failures)
+        return SimulatedOutput(random.choice(failures), False)
     
     # ─── Metasploitable 2 realistic service fingerprints ─────────
     _all_msf2_ports = [
@@ -778,3 +778,18 @@ def generate_simulated_output(
 
     return f"[SIM] {command[:80]}... executed"
 
+
+
+class SimulatedOutput(str):
+    """String-compatible display output carrying the simulator's outcome."""
+    def __new__(cls, output: str, success: bool):
+        result = super().__new__(cls, output)
+        result.success = success
+        return result
+
+
+def generate_simulated_output(command: str, attack_context: Any = None,
+                              sim_deterministic: bool = False,
+                              target_profile: str = "metasploitable2") -> str:
+    output = _generate_simulated_output(command, attack_context, sim_deterministic, target_profile)
+    return SimulatedOutput(output, getattr(output, 'success', bool(output)))

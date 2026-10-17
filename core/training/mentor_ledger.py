@@ -78,6 +78,18 @@ class MentorLedger:
     episode_proposed: int = 0
     episode_won: int = 0
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        for key in ('rejected_by_reason', 'mentor_steps', 'policy_steps'):
+            state[key] = dict(state[key])
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.rejected_by_reason = defaultdict(int, self.rejected_by_reason)
+        self.mentor_steps = defaultdict(_RewardStat, self.mentor_steps)
+        self.policy_steps = defaultdict(_RewardStat, self.policy_steps)
+
     # ── Recording ────────────────────────────────────────────────────────
 
     def record_rejection(self, reason: str) -> None:

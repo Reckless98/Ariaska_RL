@@ -2837,6 +2837,12 @@ class SmartCoach:
         self._pending_teacher_trace = None
         self._ppo_pending = None
         self._sac_pending = None
+        if getattr(self, '_ddqn_pending', None) is not None:
+            self._ddqn_prev_macro = self._ddqn_pending.get('prev_macro')
+        self._ddqn_pending = None
+        self._active_macro = None
+        self._active_macro_q = None
+        self._ddqn_confidence = 0.0
         self._cognition_result = None
 
     def decide(self, step_ctx, proposed_action=None, confidence=None,
@@ -8097,19 +8103,19 @@ class SmartCoach:
                             "agent": self.agent_name,
                             "total_reward": total_ep_reward,
                             "highest_phase": highest_phase or "RECON",
-                            "steps": len(self._ppo_trajectory),
+                            "steps": len(getattr(self, '_ppo_episode_history', [])),
                             "unique_actions": len(set(
                                 t.get("action", 0) for t in getattr(self, '_ppo_episode_history', [])
-                            )) if self._ppo_trajectory else 0,
+                            )) if getattr(self, '_ppo_episode_history', []) else 0,
                         },
                     )
                 except Exception:
                     pass
             
             # Phase 8.1: Log learning progress for hypothesis-test-learn cycle
-            if self._ppo_trajectory:
+            if getattr(self, '_ppo_episode_history', []):
                 _unique = len(set(t.get("action", 0) for t in getattr(self, '_ppo_episode_history', [])))
-                _total = len(self._ppo_trajectory)
+                _total = len(self._ppo_episode_history)
                 logger.debug(
                     f"[LEARN] {self.agent_name}: {_unique}/{_total} unique PPO actions, "
                     f"hypotheses={len(self._reasoning_hypotheses)}, "
@@ -8378,7 +8384,42 @@ class SmartCoach:
         
         return True
     
-    def record_result(
+    def record_result(self, decision, success, raw_output, new_discoveries=None,
+                      done=False, shared_discoveries=None, next_state=None,
+                      truncated=False, environment_reward=None):
+        """Prepare retryably; a partial learner commit must recover from a checkpoint.
+
+        Retrying partially applied optimizer/replay writes would duplicate experience.
+        Only preparation failures are rolled back and safe to retry on this decision.
+        """
+        import copy
+        if getattr(decision, '_outcome_recorded', False):
+            raise ValueError('The same decision outcome cannot be recorded twice')
+        if getattr(decision, '_outcome_commit_started', False):
+            raise RuntimeError('Outcome commit was interrupted; restore a checkpoint before retrying')
+        reward_state = copy.deepcopy(self.reward_calculator.__dict__)
+        pipeline = self._reward_pipeline
+        pipeline_state = copy.deepcopy(pipeline.__dict__) if pipeline is not None else None
+        discoveries = set(shared_discoveries) if shared_discoveries is not None else None
+        pending = self._ppo_pending
+        try:
+            result = self._record_result_impl(decision, success, raw_output, new_discoveries,
+                done, shared_discoveries, next_state, truncated, environment_reward)
+        except BaseException:
+            if not getattr(decision, '_outcome_commit_started', False):
+                self.reward_calculator.__dict__.clear()
+                self.reward_calculator.__dict__.update(reward_state)
+                if pipeline is not None:
+                    pipeline.__dict__.clear(); pipeline.__dict__.update(pipeline_state)
+                if shared_discoveries is not None:
+                    shared_discoveries.clear(); shared_discoveries.update(discoveries)
+                self._ppo_pending = pending
+            raise
+        decision._outcome_recorded = True
+        decision._outcome_commit_started = False
+        return result
+
+    def _record_result_impl(
         self,
         decision: SmartDecisionResult,
         success: bool,
@@ -8411,7 +8452,6 @@ class SmartCoach:
         identity = getattr(decision, '_execution_id', (self.current_episode, len(self.decisions)))
         if getattr(decision, '_outcome_recorded', False):
             raise ValueError('The same decision outcome cannot be recorded twice')
-        decision._outcome_recorded = True
         sample = getattr(decision, '_ppo_sample', None)
         if sample is not None and sample.get('command') != decision.command:
             sample = None
@@ -8427,13 +8467,6 @@ class SmartCoach:
         # An altered command with a stale template is not a mapped execution.
         if decision.source in ('anti_repeat', 'privesc_escalation'):
             executed_action = -1
-        if decision.template_name:
-            self.step_used_commands.add(decision.template_name)
-            self.episode_used_commands.add(decision.template_name)
-            self.command_repeat_count[decision.template_name] = self.command_repeat_count.get(decision.template_name, 0) + 1
-        if self.attack_context is not None:
-            self.attack_context.command_history.append(decision.command)
-
         # Calculate smart reward
         breakdown = self.reward_calculator.calculate_reward(
             template_name=decision.template_name,
@@ -8483,6 +8516,15 @@ class SmartCoach:
                 rnd_intrinsic=_rnd_intrinsic_for_pipeline,
                 rnd_scale=_rnd_scale_for_pipeline,
             )
+
+        # From here writes may include optimizer steps and cannot be replayed safely.
+        decision._outcome_commit_started = True
+        if decision.template_name:
+            self.step_used_commands.add(decision.template_name)
+            self.episode_used_commands.add(decision.template_name)
+            self.command_repeat_count[decision.template_name] = self.command_repeat_count.get(decision.template_name, 0) + 1
+        if self.attack_context is not None:
+            self.attack_context.command_history.append(decision.command)
 
         # Track reward in HarmonyMetrics
         if self._harmony_metrics is not None:

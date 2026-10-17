@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import core.testing.offline_guard as guard  # Install before application imports.
 import argparse, contextlib, csv, hashlib, json, logging, os, random, tempfile
+from importlib import metadata
 import numpy as np
 import torch
 from core.testing.synthetic_role_env import SyntheticRoleEnvironment
@@ -40,6 +41,41 @@ def evaluate(o, seed, episodes, horizon, kind):
     return rows
 
 
+def prepare_output(output):
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    if any(output.iterdir()):
+        raise FileExistsError('Use an empty output directory; existing experiments are preserved')
+    # Exclusive ownership prevents two evaluators from passing the empty check.
+    with (output / '.experiment-lock').open('x') as stream:
+        stream.write('Ariaska recovery evaluation\n')
+    return output
+
+
+def experiment_provenance(repo):
+    # Content identities work offline, from source exports, and with uncommitted changes.
+    # Hash all application/test/evaluation code and dependency/config inputs; no data or secrets.
+    paths = set()
+    for directory in ('core', 'agents', 'scripts', 'tests', 'configs', '.github'):
+        root = repo / directory
+        if root.exists():
+            paths.update(p for p in root.rglob('*') if p.is_file() and '__pycache__' not in p.parts
+                         and p.suffix in {'.py', '.json', '.yaml', '.yml', '.toml', '.ini'})
+    paths.update(p for p in repo.glob('*') if p.is_file() and
+                 (p.name.startswith('requirements') or p.name in {'pyproject.toml','pytest.ini','setup.cfg'}))
+    hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(paths)}
+    digest = hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+    packages = sorted((d.metadata['Name'], d.version) for d in metadata.distributions())
+    from dataclasses import asdict
+    from core.feature_flags import get_feature_flags
+    return dict(source_sha256=digest, source_hashes=hashes, packages=dict(packages),
+                feature_flags=asdict(get_feature_flags()),
+                torch_threads=torch.get_num_threads(), device='cpu',
+                deterministic_algorithms=torch.are_deterministic_algorithms_enabled(),
+                environment={k: os.environ.get(k) for k in ('ARIASKA_DRY_RUN','ARIASKA_MENTOR_BACKEND',
+                    'HF_HUB_OFFLINE','TRANSFORMERS_OFFLINE','OMP_NUM_THREADS','MKL_NUM_THREADS')})
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -47,13 +83,13 @@ def main():
     parser.add_argument('--evaluation-episodes', type=int, default=128)
     parser.add_argument('--horizon', type=int, default=8)
     parser.add_argument('--seeds', type=int, nargs='+', default=[11,22,33])
-    args = parser.parse_args(); output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
-    if any(output.glob('seed*.pt')) or (output/'metrics.json').exists():
-        raise FileExistsError('Use a new output directory; existing experiments are preserved')
+    args = parser.parse_args()
+    if min(args.episodes, args.evaluation_episodes, args.horizon) < 1 or len(set(args.seeds)) != len(args.seeds):
+        parser.error('Episode counts/horizon must be positive and seeds must be unique')
+    output = prepare_output(args.output)
     repo = Path(__file__).resolve().parents[1]
-    source_hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in [repo/'core/training/smart_coach.py', repo/'core/algorithms/ppo_agent.py',
-                  repo/'core/orchestration/smart_orchestrator.py', repo/'core/checkpoints/unified_checkpoint.py']}
+    provenance = experiment_provenance(repo)
+    source_hashes = provenance['source_hashes']
     curves=[]; evaluations=[]; diagnostics=[]
     for seed in args.seeds:
         print(f'seed {seed}: fixed-budget training {args.episodes} episodes',flush=True)
@@ -87,7 +123,9 @@ def main():
                         episode=args.episodes-1).save(output/f'seed{seed}.pt')
                     diagnostics.append(dict(seed=seed,provider_requests=gm.stats['total_requests'],
                         updates={r:c.ppo_agent.updates_done for r,c in o.coaches.items()},checkpoint=Path(path).name))
-            finally:os.chdir(original)
+            finally:
+                if 'gm' in locals(): gm.cleanup()
+                os.chdir(original)
         print(f'seed {seed}: complete',flush=True)
     for name,rows in [('training_curve.csv',curves),('heldout_results.csv',evaluations)]:
         with (output/name).open('w',newline='') as f:
@@ -108,7 +146,7 @@ def main():
         arbitration='PPO weight 2; every other source .01',
         evaluation='Greedy base PPO with legal-action mask and phase head 0; no mentor prior or cyber heuristic bias',
         task='Cue is port21/22; correct opaque role action is 0/1; reward +1/-1; identical held-out cues for all baselines'),
-        source_hashes=source_hashes,diagnostics=diagnostics,guard_blocked_attempts=len(guard.blocked),summary=summary)
+        source_hashes=source_hashes,provenance=provenance,diagnostics=diagnostics,guard_blocked_attempts=len(guard.blocked),summary=summary)
     (output/'metrics.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))
 

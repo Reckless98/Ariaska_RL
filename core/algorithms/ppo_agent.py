@@ -555,6 +555,8 @@ class RolloutBuffer:
             )
             if self.next_values[t] is not None:
                 next_value = self.next_values[t]
+            elif boundary and not self.terminated[t] and t < n - 1:
+                raise ValueError('Nonterminal rollout boundary requires next_value')
             elif t == n - 1 or boundary:
                 next_value = last_value if t == n - 1 else 0.0
             else:
@@ -1003,6 +1005,19 @@ class PPOAgent:
             float(log_prob.item()),
             float(value.item()),
         )
+
+    @torch.no_grad()
+    def _refresh_critic_spectral_norm(self):
+        """Advance critic power iteration after a weight update, outside likelihood evaluation."""
+        for layer in self.network.critic.modules():
+            if hasattr(layer, 'weight_orig') and hasattr(layer, 'weight_u'):
+                was_training = layer.training
+                try:
+                    layer.train()
+                    layer(torch.zeros(1, layer.in_features, device=layer.weight_orig.device,
+                                      dtype=layer.weight_orig.dtype))
+                finally:
+                    layer.train(was_training)
 
     def evaluate_actions(self, states, actions, contexts=None):
         """Recompute the behavior-policy distribution with current weights.
@@ -1573,6 +1588,7 @@ class PPOAgent:
                         else float(_total_norm)
                     )
                     self.optimizer.step()
+                    self._refresh_critic_spectral_norm()
                     self.optimizer.zero_grad()
 
                     # R75: Polyak-update EMA target network
@@ -1606,6 +1622,10 @@ class PPOAgent:
 
             # R73: Step on any remaining accumulated gradients
             if _accum_idx % _grad_accum != 0:
+                _remaining = _accum_idx % _grad_accum
+                for parameter in self.network.parameters():
+                    if parameter.grad is not None:
+                        parameter.grad.mul_(_grad_accum / _remaining)
                 _total_norm = nn.utils.clip_grad_norm_(
                     self.network.parameters(), self.config.max_grad_norm
                 )
@@ -1617,6 +1637,10 @@ class PPOAgent:
                     else float(_total_norm)
                 )
                 self.optimizer.step()
+                self._refresh_critic_spectral_norm()
+                if self.ema_network is not None:
+                    for p_online, p_ema in zip(self.network.parameters(), self.ema_network.parameters()):
+                        p_ema.data.mul_(self.config.ema_tau).add_(p_online.data, alpha=1-self.config.ema_tau)
 
             # Early stopping if KL divergence is too large
             if approx_kl > 0.015:

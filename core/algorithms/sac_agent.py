@@ -28,7 +28,7 @@ import math
 import numpy as np
 from collections import deque
 from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 logger = logging.getLogger("ariaska.sac_agent")
 
@@ -493,11 +493,7 @@ class SACAgent:
             "alpha": self.alpha,
             "step_count": self._step_count,
             "update_count": self._update_count,
-            "config": {
-                "state_dim": self.config.state_dim,
-                "action_dim": self.config.action_dim,
-                "hidden_dims": self.config.hidden_dims,
-            },
+            "config": asdict(self.config),
             "alpha_optimizer": self.alpha_optimizer.state_dict() if self.alpha_optimizer else None,
             "replay": list(self.replay_buffer.buffer),
         })
@@ -506,11 +502,22 @@ class SACAgent:
         torch.save(self.state_dict(), path)
     
     def load(self, path: str) -> None:
-        """Load model checkpoint."""
-        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        """Load tensor/primitive checkpoints only; arbitrary legacy pickle is rejected.
+
+        No implicit unsafe fallback or user-supplied global allowlist is used.
+        """
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         self.load_state_dict(checkpoint)
 
     def load_state_dict(self, checkpoint):
+        saved = checkpoint.get('config', {})
+        for key in ('state_dim', 'action_dim', 'hidden_dims', 'auto_alpha'):
+            if key in saved and saved[key] != getattr(self.config, key):
+                raise ValueError('Incompatible SAC configuration: ' + key)
+        restored = SACConfig(**{**asdict(self.config), **saved})
+        self.config = restored
+        self.target_entropy = -restored.target_entropy_ratio * math.log(1.0 / restored.action_dim)
+        self.replay_buffer.buffer = deque(self.replay_buffer.buffer, maxlen=restored.buffer_size)
         self.actor.load_state_dict(checkpoint["actor"])
         self.critic.load_state_dict(checkpoint["critic"])
         self.target_critic.load_state_dict(checkpoint["target_critic"])
@@ -519,6 +526,8 @@ class SACAgent:
         if checkpoint.get("log_alpha") is not None and self.log_alpha is not None:
             self.log_alpha.data.copy_(torch.tensor(checkpoint["log_alpha"], device=self.device))
             self.alpha = self.log_alpha.exp().item()
+        if self.log_alpha is None:
+            self.alpha = float(checkpoint.get("alpha", self.config.alpha))
         self._step_count = checkpoint.get("step_count", 0)
         self._update_count = checkpoint.get("update_count", 0)
         if self.alpha_optimizer and checkpoint.get('alpha_optimizer') is not None:
