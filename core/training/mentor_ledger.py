@@ -13,7 +13,7 @@ Per agent (one ledger per SmartCoach) it records:
   * won / lost  — whether the mentor's command was the executed action
   * outcomes    — unified step reward and discovery flag on mentor-won steps,
                   plus the same statistics for non-mentor steps, per phase,
-                  so "does the mentor actually help here?" has a number.
+                  for observational comparisons only; source selection confounds these means.
 
 The summary feeds SmartCoach.get_stats() / telemetry. Nothing here changes
 what PPO learns; it only observes.
@@ -163,6 +163,7 @@ class MentorLedger:
 
     def summary(self) -> Dict[str, Any]:
         return {
+            "observational_only": True,
             "proposed": self.proposed,
             "accepted": self.accepted,
             "rejected": self.rejected,

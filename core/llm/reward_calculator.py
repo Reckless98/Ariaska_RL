@@ -289,6 +289,7 @@ class SmartRewardCalculator:
         # Phase 16.0: Progress Estimator integration
         progress_delta: Optional[float] = None,
         estimator_confidence: float = 0.0,
+        environment_reward: Optional[float] = None,
     ) -> RewardBreakdown:
         """
         Calculate reward for a command execution.
@@ -307,6 +308,14 @@ class SmartRewardCalculator:
         Returns:
             RewardBreakdown with detailed reward components
         """
+        if environment_reward is not None:
+            import math
+            if not math.isfinite(environment_reward):
+                raise ValueError('Environment reward must be finite')
+            breakdown = RewardBreakdown(base_reward=float(environment_reward),
+                explanation='Authoritative environment-native task reward')
+            breakdown.calculate_total()
+            return breakdown
         breakdown = RewardBreakdown()
         explanations = []
         

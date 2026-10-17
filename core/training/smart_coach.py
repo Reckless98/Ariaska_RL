@@ -2856,6 +2856,10 @@ class SmartCoach:
                 candidate = self._ppo_pending
                 if candidate.get('command') == result.command:
                     sample = dict(candidate)
+            allowed = step_ctx.state.get('available_action_indices')
+            if allowed is not None and self.action_mapper.command_to_action(result.template_name) not in allowed:
+                result = self._decision_for_action(int(allowed[0]), step_ctx.attack_context, 'registry')
+                sample = None
             # A post-arbitration rewrite invalidates the policy sample.
             if sample is not None and sample.get('command') != result.command:
                 sample = None
@@ -2915,6 +2919,22 @@ class SmartCoach:
         
         # Phase 50: Store DecisionPacket reference for algorithm proposal population
         self._current_decision_packet = decision_packet
+
+        if 'available_action_indices' in step_ctx.state:
+            # An environment-native MDP uses opaque action IDs. Cyber-specific
+            # evidence/phase overrides do not describe its transition function.
+            # Reuse the production policy, registry and single arbitration path.
+            allowed = step_ctx.state['available_action_indices']
+            if not allowed or any(not 0 <= int(i) < self.action_mapper.action_dim for i in allowed):
+                raise ValueError('Invalid environment-native action space')
+            self._step_reasoning_log = []; self._decision_trace = []
+            candidates = [self.action_mapper.action_to_command(int(i)) for i in allowed]
+            candidates = [c for c in candidates if c is not None]
+            return self._p1_arbitrate_decision(step_ctx, proposed_action,
+                confidence, None, None, None, None, None, None,
+                filtered_commands=candidates, discovery_board={},
+                gpt_available=bool(self.smart_mentor and getattr(self.gpt_manager, 'llm_enabled', False)),
+                should_call_gpt=force_mentor)
 
         # C03: SAC shadow select — off-policy observation of every step
         # C07: Gated by FF_SAC_SHADOW feature flag
@@ -5665,6 +5685,22 @@ class SmartCoach:
 
         return result
 
+    def _decision_for_action(self, action, ctx, source):
+        """Render an existing mapped identity; no command is executed here."""
+        name = self.action_mapper.action_to_name(action)
+        if name is None:
+            raise ValueError('Environment action is outside the role map')
+        blue = self.action_mapper.get_blue_command(action) if self.agent_name == 'BlueAgent' else None
+        if blue:
+            command = blue[0]; params = {}
+        else:
+            template = self.action_mapper.action_to_command(action)
+            params = {key: self._get_default_param(key, ctx) for key in template.required_params}
+            params.update(template.optional_params)
+            command = render_command(template, params)
+        return SmartDecisionResult(command=command, template_name=name, params=params,
+                                   source=source, phase=ctx.current_phase, confidence=0.7)
+
     def _decide_from_registry(
         self,
         step_ctx: SmartStepContext,
@@ -5681,6 +5717,11 @@ class SmartCoach:
         - OrionAgent: Strategic coordination
         - ShadowAgent: Stealth/persistence commands
         """
+        allowed = step_ctx.state.get('available_action_indices')
+        if allowed is not None:
+            if not allowed:
+                raise ValueError('Environment provides no valid actions')
+            return self._decision_for_action(int(allowed[0]), step_ctx.attack_context, 'registry')
         ctx = step_ctx.attack_context
         role_name = self.agent_role.get("role", "generic")
         
@@ -7635,6 +7676,17 @@ class SmartCoach:
                 except Exception as _e37:
                     logger.debug(f"[P37] LLM guidance compute failed: {_e37}")
 
+            allowed = step_ctx.state.get('available_action_indices')
+            if allowed is not None:
+                # Environment-native legal actions are authoritative; cyber-specific
+                # phase/tool heuristics are not constraints of an abstract MDP.
+                mask = torch.zeros(self.action_mapper.action_dim, dtype=torch.bool)
+                for index in allowed:
+                    if not 0 <= int(index) < mask.numel():
+                        raise ValueError('Environment action outside role map')
+                    mask[int(index)] = True
+                if not mask.any():
+                    return None
             # PPO selects — R67: logit_bias, R68: phase_group, P37: llm_prior
             action_idx, log_prob, value = self.ppo_agent.select_action(
                 state_tensor, training=True, action_mask=mask,
@@ -8322,6 +8374,7 @@ class SmartCoach:
         shared_discoveries: Optional[Set[str]] = None,
         next_state=None,
         truncated: bool = False,
+        environment_reward: Optional[float] = None,
     ) -> RewardBreakdown:
         """
         Record the result of a command execution and calculate reward.
@@ -8371,6 +8424,7 @@ class SmartCoach:
         breakdown = self.reward_calculator.calculate_reward(
             template_name=decision.template_name,
             command=decision.command,
+            environment_reward=environment_reward,
             success=success,
             raw_output=raw_output,
             current_phase=decision.phase,
