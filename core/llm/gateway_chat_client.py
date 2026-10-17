@@ -121,6 +121,7 @@ class GatewayChatClient:
         max_tokens: int = 150,
         temperature: Optional[float] = None,  # routing/provider decides; accepted for compatibility
         response_format: Any = None,
+        use_cache: Optional[bool] = None,
         **_ignored: Any,
     ) -> GatewayChatResponse:
         system_prompt, prompt = _split_messages(messages)
@@ -133,6 +134,10 @@ class GatewayChatClient:
             "agent_id": self.agent_id,
             "max_tokens": int(max_tokens or 150),
         }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        if use_cache is not None:
+            kwargs["use_cache"] = use_cache
         if system_prompt:
             kwargs["system_prompt"] = system_prompt
         if fmt:
@@ -149,8 +154,18 @@ class GatewayChatClient:
             text = ""
         text = str(text)
 
-        usage = self._usage_since(started)
-        served_model = self._served_model(model)
+        record_reader = getattr(self._gm, "get_request_record", None)
+        if callable(record_reader):
+            rec = record_reader()
+            usage = GatewayUsage(
+                prompt_tokens=int(rec.get("input_tokens", 0)),
+                completion_tokens=int(rec.get("output_tokens", 0)),
+                total_tokens=int(rec.get("tokens", 0)),
+            )
+            served_model = rec.get("model") or model or "gateway"
+        else:  # Compatibility with older injected gateways.
+            usage = self._usage_since(started)
+            served_model = self._served_model(model)
         return GatewayChatResponse(
             choices=[GatewayChoice(message=GatewayMessage(content=text))],
             usage=usage,

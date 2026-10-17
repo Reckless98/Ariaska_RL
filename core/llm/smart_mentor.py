@@ -702,6 +702,8 @@ After ANY shell, read the flag file FIRST.
                     ],
                     "max_tokens": 4096,  # V2: unlimited context, let thinking breathe
                     "temperature": self.temperature,
+                    "response_format": {"type": "json_object"},
+                    "use_cache": False,
                 }
 
                 response = await self.llm_client.chat.completions.create(**request_params)

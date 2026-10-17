@@ -335,7 +335,8 @@ class GPTManager:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = self.cache_dir / "gpt_cache.json"
         self.cache = {}
-        self.cache_lock = threading.Lock()
+        self.cache_lock = threading.RLock()
+        self._request_context = threading.local()
         
         # Learning storage for agent feedback
         self.learning_feedback = {}
@@ -962,21 +963,21 @@ class GPTManager:
         
         return command.strip()
     
-    def _create_cache_key(self, prompt: str, task_type: str, agent_id: str) -> str:
-        """Create a cache key for the request.
-        
-        Phase 38: Use full prompt hash to prevent stale cache hits when
-        discovery state changes (e.g., ports/services differ between steps).
-        """
-        content = f"{task_type}|{agent_id}|{prompt}"
-        return hashlib.md5(content.encode()).hexdigest()
-    
+    def get_request_record(self) -> Dict[str, Any]:
+        """Metadata for this caller thread's last request, never another caller's."""
+        return dict(getattr(self._request_context, "record", {}))
+
+    def _create_cache_key(self, prompt: str, task_type: str, agent_id: str, **options) -> str:
+        content = json.dumps([task_type, agent_id, prompt, options], sort_keys=True, default=str)
+        return hashlib.sha256(content.encode()).hexdigest()
+
     def gpt_request(self, prompt: str, task_type: str = "general", 
                    agent_id: str = "unknown", max_tokens: int = 150,
                    model: Optional[str] = None, allow_fallback: bool = True,
                    timeout: Optional[int] = None,
                    system_prompt: Optional[str] = None,
-                   response_format: Optional[str] = None) -> str:
+                   response_format: Optional[str] = None,
+                   temperature: Optional[float] = None, use_cache: bool = True) -> str:
         """
         Make a request to GPT with role-based model routing.
         
@@ -997,6 +998,7 @@ class GPTManager:
         Returns:
             str: The model's response
         """
+        self._request_context.record = {}
         # CRITICAL: Check offline mode FIRST, before any logging or API access
         if self.is_offline():
             return self._get_offline_placeholder(task_type)
@@ -1071,11 +1073,17 @@ class GPTManager:
         logger.debug(f"Model selected: {model} for agent={agent_id}, task={task_type}")
         
         # Create cache key
-        cache_key = self._create_cache_key(prompt, task_type, agent_id)
+        cache_key = self._create_cache_key(
+            prompt, task_type, agent_id, system_prompt=system_prompt,
+            response_format=response_format, max_tokens=max_tokens, temperature=temperature,
+            model=model, routed_model=getattr(_routing_decision, "model", None),
+            backend=self._mentor_backend,
+            provider=self._cloud_provider.get_model_name() if _use_cloud else "local",
+        )
         
         # Check cache first
         with self.cache_lock:
-            if cache_key in self.cache:
+            if use_cache and cache_key in self.cache:
                 self.stats["cache_hits"] += 1
                 # Phase 15.0: Record cache hit in BudgetManagerV2
                 if self._budget_manager_v2 is not None:
@@ -1098,6 +1106,7 @@ class GPTManager:
                     "cache_hit": True,
                     "latency_ms": 0,
                 }
+                self._request_context.record = dict(_cache_record)
                 self._call_log.append(_cache_record)
                 self._step_calls.append(_cache_record)
                 return self.cache[cache_key]["response"]
@@ -1187,7 +1196,7 @@ class GPTManager:
             def make_gpt_request():
                 provider, actual_model = _get_provider()
                 # Determine config
-                temp = 0.7 if task_type == "diversify" else 0.3
+                temp = temperature if temperature is not None else (0.7 if task_type == "diversify" else 0.3)
                 fmt: Optional[Dict[str, str]] = {"type": "json_object"} if response_format == "json_object" else None
                 # V2: generous timeout for 32k context — model needs time to think
                 # and cold starts require KV cache allocation.
@@ -1240,6 +1249,8 @@ class GPTManager:
                     }
                     return fallback_commands.get(task_type, "echo 'LLM timeout'")
             except Exception as e:
+                if "executor" in locals():
+                    executor.shutdown(wait=False, cancel_futures=True)
                 logger.warning(f"LLM request failed: {e}")
                 # Immediate fallback for any errors
                 fallback_commands = {
@@ -1253,7 +1264,6 @@ class GPTManager:
                 return fallback_commands.get(task_type, "echo 'LLM error'")
             
             self.last_request_time = time.time()
-            self.stats["total_requests"] += 1
             
             # Extract content from LLMResponse
             content = getattr(response, "text", getattr(response, "content", "")).strip()
@@ -1272,54 +1282,62 @@ class GPTManager:
                     f"model={_track_model}"
                 )
                 
-            if content:
-                # Track tokens
-                tokens_used = getattr(response, "total_tokens", 0)
+            if response is not None:
+                with self.cache_lock:
+                    self.stats["total_requests"] += 1
+                    # Track tokens, including charged empty/error responses.
+                    tokens_used = getattr(response, "total_tokens", 0)
                     
-                self.tokens_used += tokens_used
-                self.stats["tokens_used_total"] += tokens_used
+                    self.tokens_used += tokens_used
+                    self.stats["tokens_used_total"] += tokens_used
                 
-                # Track local LLM stats
-                self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
-                self.stats_local_llm["successes"] = self.stats_local_llm.get("successes", 0) + 1
-                self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
+                    # Track local LLM stats
+                    self.stats_local_llm["total_requests"] = self.stats_local_llm.get("total_requests", 0) + 1
+                    _ok = bool(content) and not getattr(response, "error", None)
+                    self.stats_local_llm["successes"] += int(_ok)
+                    self.stats_local_llm["failures"] += int(not _ok)
+                    self.stats_local_llm["tokens_used"] = self.stats_local_llm.get("tokens_used", 0) + tokens_used
 
-                # Per-model tracking (observability)
-                self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
-                self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
+                    # Per-model tracking (observability)
+                    self.tokens_by_model[_track_model] = self.tokens_by_model.get(_track_model, 0) + tokens_used
+                    self.requests_by_model[_track_model] = self.requests_by_model.get(_track_model, 0) + 1
 
-                # Phase 23: Record call in visibility log for dashboard
-                input_tok = getattr(response, "input_tokens", 0)
-                output_tok = getattr(response, "output_tokens", 0)
-                # Cost: 0.0 for local providers, provider-reported USD for cloud mentors
-                try:
-                    _cost_usd = float(getattr(response, "cost_usd", 0.0) or 0.0)
-                except (TypeError, ValueError):
-                    _cost_usd = 0.0
-                if _cost_usd:
-                    self._episode_cost_usd += _cost_usd
-                    self._cumulative_cost_usd += _cost_usd
-                    self.cost_by_model[_track_model] = self.cost_by_model.get(_track_model, 0.0) + _cost_usd
+                    # Phase 23: Record call in visibility log for dashboard
+                    input_tok = getattr(response, "input_tokens", 0)
+                    output_tok = getattr(response, "output_tokens", 0)
+                    # Cost: 0.0 for local providers, provider-reported USD for cloud mentors
+                    try:
+                        _cost_usd = float(getattr(response, "cost_usd", 0.0) or 0.0)
+                    except (TypeError, ValueError):
+                        _cost_usd = 0.0
+                    if _cost_usd:
+                        self._episode_cost_usd += _cost_usd
+                        self._cumulative_cost_usd += _cost_usd
+                        self.cost_by_model[_track_model] = self.cost_by_model.get(_track_model, 0.0) + _cost_usd
                     
-                _call_record = {
-                    "timestamp": time.time(),
-                    "model": _track_model,
-                    "agent_id": agent_id,
-                    "task_type": task_type,
-                    "prompt_snippet": prompt[:120].replace("\n", " ").strip(),
-                    "response_snippet": content[:120].replace("\n", " ").strip(),
-                    "tokens": tokens_used,
-                    "input_tokens": input_tok,
-                    "output_tokens": output_tok,
-                    "cost_usd": round(_cost_usd, 6),
-                    "cache_hit": False,
-                    "latency_ms": getattr(response, "latency_ms", int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0),
-                }
-                self._call_log.append(_call_record)
-                self._step_calls.append(_call_record)
+                    _call_record = {
+                        "timestamp": time.time(),
+                        "model": _track_model,
+                        "agent_id": agent_id,
+                        "task_type": task_type,
+                        "prompt_snippet": prompt[:120].replace("\n", " ").strip(),
+                        "response_snippet": content[:120].replace("\n", " ").strip(),
+                        "tokens": tokens_used,
+                        "input_tokens": input_tok,
+                        "output_tokens": output_tok,
+                        "cost_usd": round(_cost_usd, 6),
+                        "cache_hit": False,
+                        "latency_ms": getattr(response, "latency_ms", int((time.time() - self.last_request_time) * 1000) if self.last_request_time else 0),
+                    }
+                    _call_record["error"] = getattr(response, "error", None)
+                    self._request_context.record = dict(_call_record)
+                    self._call_log.append(_call_record)
+                    self._step_calls.append(_call_record)
+                if not content or _call_record["error"]:
+                    return ""
                 
                 # Sanitize if it's a command
-                if task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
+                if response_format != "json_object" and task_type in ["tactical", "defensive", "reconnaissance", "diversify"]:
                     content = self._sanitize_command(content)
                     if not content:
                         logger.warning(f"Sanitizer emptied LLM response for {agent_id}/{task_type}")
@@ -1327,6 +1345,8 @@ class GPTManager:
                 
                 # Cache the response
                 with self.cache_lock:
+                    if not use_cache:
+                        return content
                     self.cache[cache_key] = {
                         "response": content,
                         "timestamp": time.time(),

@@ -223,6 +223,7 @@ class SmartOrchestrator:
         verbosity: str = "verbose",  # Post-Phase 20: max verbosity by default
     ):
         self.env = env
+        self._integrity_check = None
         self.gpt_manager = gpt_manager
         self.trace_writer = trace_writer
         self.config = config or SmartOrchestratorConfig()
@@ -1540,6 +1541,7 @@ class SmartOrchestrator:
             Episode metrics with detailed reward breakdown
         """
         max_steps = max_steps or self.config.max_steps_per_episode
+        self._episode_max_steps = max_steps
         self.current_episode = episode_number
         # Phase 9.5: Track episode_id for parse cache keying
         self._current_episode_id = episode_number
@@ -1690,6 +1692,7 @@ class SmartOrchestrator:
         # Phase 5.2: Cross-agent discovery deduplication
         # Prevents 5 agents from each getting reward for the same port/service/credential
         self._episode_shared_discoveries: set = set()
+        self._episode_rewarded_discoveries: set = set()
         
         # ─── PHASE 42: Reflective meta-learner — context injection ───
         meta = self._ensure_meta_learner()
@@ -1857,7 +1860,7 @@ class SmartOrchestrator:
 
         # Initialize attack context
         target = target or state.get("target_ip", self.config.default_target)
-        difficulty = difficulty or self.config.default_difficulty
+        difficulty = difficulty or self.config.difficulty
         platform = platform or state.get("os", self.config.default_platform)
         self.init_attack(target, difficulty, platform)
         
@@ -2000,14 +2003,14 @@ class SmartOrchestrator:
 
         # Phase 38.3: Dynamic episode length tracking
         _dyn_effective_max = max_steps
-        _dyn_recent_discoveries: List[int] = []  # step indices of recent discoveries
+        self._dyn_recent_discoveries: List[int] = []  # step indices of recent discoveries
         _dyn_regress_start: int = -1  # step when regression detected
 
         for step in range(self.config.dynamic_max_steps if self.config.dynamic_episode_length else max_steps):
             # Dynamic episode length: check termination conditions
             if self.config.dynamic_episode_length and step >= self.config.dynamic_min_steps:
                 # Count discoveries in last 10 steps
-                _dyn_recent = sum(1 for s in _dyn_recent_discoveries if s > step - 10)
+                _dyn_recent = sum(1 for s in self._dyn_recent_discoveries if s > step - 10)
 
                 if step >= max_steps:
                     # Past base max_steps — only continue if making discoveries
@@ -2433,7 +2436,7 @@ class SmartOrchestrator:
                         phase=_fl_phase_str,
                         template=_fl_template,
                         value_pred=_fl_value_pred,
-                        reward=global_reward,
+                        reward=env_reward,
                         step_cost=_fl_cost,
                         hallucination_flags=_fl_hallucinations,
                         contradictions=_fl_contradictions,
@@ -4545,7 +4548,7 @@ class SmartOrchestrator:
                     from core.models.state_encoder import encode_state as _enc50
                     _st50 = _enc50(
                         enriched_state, _t50.device("cpu"),
-                        current_step=step, max_steps=max_steps,
+                        current_step=step, max_steps=getattr(self, "_episode_max_steps", self.config.max_steps_per_episode),
                     )
                     _p50_phase = (
                         ctx.current_phase.name if ctx else "RECON"
@@ -4567,8 +4570,8 @@ class SmartOrchestrator:
                         _p50_rnd_decay = max(0.1, 1.0 - (_p50_ord - 4) * 0.3)
                     # Stash tensor for post-step RND predictor update
                     self._rnd_state_tensor = _st50
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("RND observation failed: %s", exc)
 
             decision_packet = DecisionPacket.from_step_context(
                 step_ctx,
@@ -5761,11 +5764,11 @@ class SmartOrchestrator:
             if result.agent_name in self.coaches:
                 breakdown = self.coaches[result.agent_name].record_result(
                     decision=result.decision,
-                    success=sim_success or env_reward >= 0,
+                    success=(result.live_result.success if result.live_result is not None else sim_success),
                     raw_output=output_to_parse,
                     new_discoveries=deduped_discoveries,
                     done=done,  # Phase 4: pass done for PPO trajectory
-                    shared_discoveries=self._episode_shared_discoveries,  # Phase 6: cross-agent dedup
+                    shared_discoveries=self._episode_rewarded_discoveries,  # Separate claim and payment ledgers
                 )
                 result.reward_breakdown = breakdown
                 # Accumulate smart rewards from all agents
@@ -5776,7 +5779,7 @@ class SmartOrchestrator:
                 if agent_discoveries:
                     self._steps_without_discoveries[result.agent_name] = 0  # Reset on discovery
                     # Phase 38.3: Track discovery steps for dynamic episode length
-                    _dyn_recent_discoveries.append(step)
+                    self._dyn_recent_discoveries.append(step)
                 else:
                     self._steps_without_discoveries[result.agent_name] = (
                         self._steps_without_discoveries.get(result.agent_name, 0) + 1
@@ -5806,7 +5809,7 @@ class SmartOrchestrator:
                             reward_progress=breakdown.progress_bonus if breakdown else 0.0,
                             reward_novelty=breakdown.novelty_bonus if breakdown else 0.0,
                             reward_redundancy=breakdown.redundancy_penalty if breakdown else 0.0,
-                            success=sim_success or env_reward >= 0,
+                            success=(result.live_result.success if result.live_result is not None else sim_success),
                             cognition_brain=(
                                 _cog_telem.get("winning_brain") if _cog_telem else None
                             ),
