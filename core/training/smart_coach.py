@@ -174,6 +174,7 @@ class SmartStepContext:
     
     # Raw state for compatibility
     state: Dict[str, Any] = field(default_factory=dict)
+    native_actions: bool = False  # Set only by an explicit offline MDP adapter
     
     @property
     def phase(self) -> str:
@@ -2866,7 +2867,7 @@ class SmartCoach:
                 candidate = self._ppo_pending
                 if candidate.get('command') == result.command:
                     sample = dict(candidate)
-            allowed = step_ctx.state.get('available_action_indices')
+            allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
             if allowed is not None and self.action_mapper.command_to_action(result.template_name) not in allowed:
                 result = self._decision_for_action(int(allowed[0]), step_ctx.attack_context, 'registry')
                 sample = None
@@ -2930,7 +2931,7 @@ class SmartCoach:
         # Phase 50: Store DecisionPacket reference for algorithm proposal population
         self._current_decision_packet = decision_packet
 
-        if 'available_action_indices' in step_ctx.state:
+        if step_ctx.native_actions:
             # An environment-native MDP uses opaque action IDs. Cyber-specific
             # evidence/phase overrides do not describe its transition function.
             # Reuse the production policy, registry and single arbitration path.
@@ -5729,7 +5730,7 @@ class SmartCoach:
         - OrionAgent: Strategic coordination
         - ShadowAgent: Stealth/persistence commands
         """
-        allowed = step_ctx.state.get('available_action_indices')
+        allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
         if allowed is not None:
             if not allowed:
                 raise ValueError('Environment provides no valid actions')
@@ -7688,7 +7689,7 @@ class SmartCoach:
                 except Exception as _e37:
                     logger.debug(f"[P37] LLM guidance compute failed: {_e37}")
 
-            allowed = step_ctx.state.get('available_action_indices')
+            allowed = step_ctx.state.get('available_action_indices') if step_ctx.native_actions else None
             if allowed is not None:
                 # Environment-native legal actions are authoritative; cyber-specific
                 # phase/tool heuristics are not constraints of an abstract MDP.

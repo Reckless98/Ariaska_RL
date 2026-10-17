@@ -4441,7 +4441,7 @@ class SmartOrchestrator:
         for role, coach in self.coaches.items():
             observation = state.get('agents', {}).get(role, state)
             ctx = SmartStepContext(self.current_episode, step, role,
-                                   self.attack_context, observation)
+                                   self.attack_context, observation, native_actions=True)
             decision = coach.decide(ctx)
             action = coach.action_mapper.command_to_action(decision.template_name)
             if decision.source in ('anti_repeat', 'privesc_escalation'):
