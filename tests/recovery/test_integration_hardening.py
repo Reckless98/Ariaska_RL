@@ -342,3 +342,29 @@ def test_cognition_demo_enters_sil_loss_buffer_only():
     assert len(p.sil_buffer)==1 and len(p.buffer)==0
     node.external_transition_owner=True
     assert node._check_sil(torch.zeros(512),torch.ones(2,dtype=torch.bool),'RECON') is None
+
+
+def test_restricted_loader_preserves_pre_hardening_bc_and_ledger_pickles(tmp_path,monkeypatch):
+    from collections import deque
+    from core.checkpoints.unified_checkpoint import UnifiedCheckpoint
+    from core.reasoning.teacher_trace import BCBuffer,TeacherTrace
+    from core.training.mentor_ledger import MentorLedger
+    bc=BCBuffer(capacity=7)
+    bc.store(TeacherTrace(state_id='legacy',state_vector=[0.]*512,teacher_action_idx=1))
+    ledger=MentorLedger();ledger.record_outcome('ppo',2,False,actual_success=True)
+    # Emulate the original #13 writer: pickled deque/defaultdict rather than lists/dicts.
+    def old_bc_state(self):
+        result=self.__dict__.copy();result.pop('_lock',None);return result
+    monkeypatch.setattr(BCBuffer,'__getstate__',old_bc_state)
+    monkeypatch.setattr(MentorLedger,'__getstate__',lambda self:self.__dict__.copy())
+    path=tmp_path/'legacy-v3.pt'
+    cp=UnifiedCheckpoint(resume_states={'RedAgent':{'_p14_bc_buffer':bc,'_mentor_ledger':ledger}})
+    cp.save(path)
+    loaded=UnifiedCheckpoint.load(path).resume_states['RedAgent']
+    assert len(loaded['_p14_bc_buffer'])==1
+    assert isinstance(loaded['_p14_bc_buffer']._samples,deque)
+    assert loaded['_p14_bc_buffer']._samples.maxlen==7
+    restored=loaded['_mentor_ledger']
+    assert restored.policy_steps['RECON'].count==0  # known factory reconstructed
+    restored.record_outcome('ppo',3,False,actual_success=True)
+    assert restored.policy_steps['ALL'].count==2

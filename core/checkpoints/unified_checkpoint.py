@@ -171,14 +171,15 @@ class UnifiedCheckpoint:
 
         # Fixed, application-owned allowlist: never allow globals named by a file.
         # Legacy snapshots contain these data containers and NumPy RNG arrays.
-        from collections import defaultdict, deque
         import numpy as np
         from numpy._core.multiarray import _reconstruct, scalar
         from core.algorithms.ppo_agent import PPOConfig, RolloutBuffer, SILBuffer
         from core.reasoning.teacher_trace import BCBuffer, BCSample, TeacherTrace
         from core.training.mentor_ledger import MentorLedger, _RewardStat
         allowed = [PPOConfig, RolloutBuffer, SILBuffer, BCBuffer, BCSample, TeacherTrace,
-                   MentorLedger, _RewardStat, defaultdict, deque, int, float,
+                   MentorLedger, _RewardStat, int, float,
+                   (_legacy_deque_data, 'collections.deque'),
+                   (_legacy_defaultdict_data, 'collections.defaultdict'),
                    np.ndarray, np.dtype, type(np.dtype('uint32')), _reconstruct, scalar]
         with torch.serialization.safe_globals(allowed):
             data = torch.load(str(path), map_location="cpu", weights_only=True)
@@ -812,6 +813,16 @@ def _validate_optimizer(optimizer, state):
         for key, value in values.items():
             if hasattr(value, 'shape') and value.numel() > 1 and value.shape != param.shape:
                 raise ValueError('Checkpoint optimizer moment shape mismatch: ' + key)
+
+
+def _legacy_deque_data(values=(), maxlen=None):
+    """Restricted legacy pickle adapter; BCBuffer restores its own bounded deque."""
+    return list(values)
+
+
+def _legacy_defaultdict_data(default_factory=None, values=None):
+    """Decode data only; MentorLedger restores its known local default factories."""
+    return dict(values or {})
 
 
 def _capture_rng():
