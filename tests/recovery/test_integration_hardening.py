@@ -376,3 +376,18 @@ def test_simulator_display_value_remains_deepcopy_compatible(success):
     value=SimulatedOutput('[SIM] synthetic display',success)
     cloned=copy.deepcopy(value)
     assert cloned==value and cloned.success is success
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='Physical CUDA device unavailable; CPU is the supported CI target')
+def test_physical_cuda_rng_replays_each_visible_device():
+    from core.checkpoints.unified_checkpoint import _capture_rng, _restore_rng
+    original = _capture_rng()
+    try:
+        expected = [torch.rand(16, device=f'cuda:{index}').cpu()
+                    for index in range(torch.cuda.device_count())]
+        _restore_rng(original)
+        actual = [torch.rand(16, device=f'cuda:{index}').cpu()
+                  for index in range(torch.cuda.device_count())]
+        assert all(torch.equal(left, right) for left, right in zip(expected, actual))
+    finally:
+        _restore_rng(original)

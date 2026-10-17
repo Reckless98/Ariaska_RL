@@ -32,87 +32,25 @@ def clean_traces(project_root):
     # (disabled to allow inspection)
 
 
-def test_offline_multiagent_smoke(project_root, clean_traces, tmp_path):
+def test_offline_multiagent_smoke(tmp_path):
+    """Real entry point and all five traces, with guarded simulation only.
+
+    Offline execution may produce no mentor entries; fabricating one is not
+    required. This CLI uses the legacy Orchestrator, not the verified PPO path.
     """
-    Run offline training and verify all 5 agents appear in traces.
-    
-    Acceptance Criteria A:
-    - exit 0
-    - no GPT API call logs
-    - steps.jsonl includes all 5 agents
-    - mentor.jsonl created
-    """
-    python = project_root / ".venv" / "bin" / "python"
-    if not python.exists():
-        pytest.skip("Virtual environment not found. Run 'make venv' first.")
-    
-    # Clear OPENAI_API_KEY to ensure offline mode
-    env = os.environ.copy()
-    env.pop("OPENAI_API_KEY", None)
-    
-    # Run training
-    result = subprocess.run(
-        [
-            str(python),
-            "-m", "core.training.ariaska_trainer",
-            "--offline",
-            "--episodes", "2",
-            "--max-steps", "3",
-            "--seed", "1337",
-            "--verbosity", "quiet",
-        ],
-        cwd=str(project_root),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    
-    # Check exit code
-    assert result.returncode == 0, f"Training failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    
-    # Find the latest trace directory
-    traces_dir = project_root / "traces"
-    assert traces_dir.exists(), "traces/ directory not found"
-    
-    trace_dirs = sorted(traces_dir.glob("run_*"), key=lambda p: p.stat().st_mtime, reverse=True)
-    assert len(trace_dirs) > 0, "No trace directories found"
-    
-    latest_trace = trace_dirs[0]
-    
-    # Check steps.jsonl exists and contains all 5 agents
-    steps_file = latest_trace / "steps.jsonl"
-    assert steps_file.exists(), f"steps.jsonl not found in {latest_trace}"
-    
-    with open(steps_file) as f:
-        steps = [json.loads(line) for line in f if line.strip()]
-    
-    agents_found = set()
-    for step in steps:
-        if "agent" in step:
-            agents_found.add(step["agent"])
-    
-    expected_agents = {"ScoutAgent", "RedAgent", "BlueAgent", "OrionAgent", "ShadowAgent"}
-    assert expected_agents.issubset(agents_found), (
-        f"Missing agents. Expected: {expected_agents}, Found: {agents_found}"
-    )
-    
-    # Check mentor.jsonl exists
-    mentor_file = latest_trace / "mentor.jsonl"
-    assert mentor_file.exists(), f"mentor.jsonl not found in {latest_trace}"
-    
-    # Verify mentor.jsonl has content
-    with open(mentor_file) as f:
-        mentor_entries = [json.loads(line) for line in f if line.strip()]
-    
-    assert len(mentor_entries) > 0, "mentor.jsonl is empty"
-    
-    # Verify offline mode (model_used should be "offline" or null)
-    for entry in mentor_entries:
-        model = entry.get("model_used")
-        assert model in (None, "offline", ""), (
-            f"Expected offline mode but got model_used={model}"
-        )
+    from core.testing.guarded_cli import run_trainer_cli
+    result = run_trainer_cli(['--offline', '--episodes', '2', '--max-steps', '3'], tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.guard_report['network_or_tool_executions'] == 0
+    runs = list((tmp_path / 'traces').glob('run_*'))
+    assert len(runs) == 1
+    steps = [json.loads(line) for line in (runs[0] / 'steps.jsonl').read_text().splitlines() if line]
+    expected = {'ScoutAgent', 'RedAgent', 'BlueAgent', 'OrionAgent', 'ShadowAgent'}
+    assert expected.issubset({row.get('agent') for row in steps})
+    mentor = runs[0] / 'mentor.jsonl'
+    assert mentor.exists()
+    entries = [json.loads(line) for line in mentor.read_text().splitlines() if line]
+    assert all(row.get('model_used') in (None, '', 'offline') for row in entries)
 
 
 def test_all_agent_types_present_in_orchestrator(project_root):

@@ -1,0 +1,55 @@
+name: Offline recovery
+on:
+  pull_request:
+    branches: [master, 'recovery/**']
+  push:
+    branches: [master]
+permissions:
+  contents: read
+concurrency:
+  group: offline-recovery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  cpu-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ARIASKA_DRY_RUN: '1'
+      ARIASKA_LIVE_MODE: 'false'
+      ARIASKA_MENTOR_BACKEND: none
+      ARIASKA_DATA_DIR: ${{ runner.temp }}/ariaska-data
+      OPENAI_API_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-recovery.lock
+      - name: Install pinned CPU dependencies
+        run: python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements-recovery.lock
+      - name: Record tested tree
+        run: |
+          mkdir -p ci-results
+          git rev-parse HEAD > ci-results/commit.txt
+          git rev-parse HEAD^{tree} > ci-results/tree.txt
+          python -m pip freeze > ci-results/packages.txt
+      - name: Complete guarded offline suite
+        run: python -m pytest -p core.testing.offline_guard tests --timeout=90 -q --junitxml=ci-results/pytest.xml
+      - name: Mentor-free training without LLM dependencies
+        run: python scripts/verify_mentor_free.py --output ci-results/mentor-free.json
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-recovery-${{ github.sha }}
+          path: ci-results/
+          retention-days: 14

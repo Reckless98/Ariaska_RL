@@ -163,25 +163,8 @@ def test_mentor_calls_logged_correctly(project_root):
         assert has_identification, f"Entry missing identification (episode/step or event_id): {entry}"
 
 
-def test_offline_flag_documented(project_root):
-    """
-    Verify that --offline flag is documented in help text.
-    """
-    python = project_root / ".venv" / "bin" / "python"
-    if not python.exists():
-        pytest.skip("Virtual environment not found. Run 'make venv' first.")
-    
-    # Get help text
-    result = subprocess.run(
-        [str(python), "-m", "core.training.ariaska_trainer", "--help"],
-        cwd=str(project_root),
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    
-    help_text = result.stdout + result.stderr
-    
-    # Verify key flags are documented
-    assert "--offline" in help_text, "--offline flag not documented"
-    assert "--no-require-llm" in help_text, "--no-require-llm flag not documented"
+def test_offline_flag_documented(tmp_path):
+    from core.testing.guarded_cli import run_trainer_cli
+    result = run_trainer_cli(['--help'], tmp_path)
+    assert result.returncode == 0
+    assert '--offline' in result.stdout and '--no-require-llm' in result.stdout

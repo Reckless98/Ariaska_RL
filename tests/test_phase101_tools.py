@@ -154,14 +154,23 @@ class TestBootstrapReport:
         from core.tools.tool_registry import reset_tool_registry
         reset_tool_registry()
 
-    def test_bootstrap_dry_run(self):
+    def test_bootstrap_dry_run(self, monkeypatch):
+        from types import SimpleNamespace
         from core.tools.tool_registry import get_tool_registry
         reg = get_tool_registry()
-        report = reg.bootstrap(profile="dev", dry_run=True)
-        # Should have skipped (present) + missing (not present) but no installed
-        assert len(report.installed) == 0
-        total = len(report.skipped) + len(report.missing)
-        assert total > 0
+        required = reg.get_profile_tools('dev')
+        present = required[0]
+        success_command = reg.get_tool(present).check_commands[0]
+        probes = []
+        def probe(command, **kwargs):
+            probes.append(command)
+            return SimpleNamespace(returncode=0 if command == success_command else 1)
+        monkeypatch.setattr('core.tools.tool_registry.subprocess.run', probe)
+        report = reg.bootstrap(profile='dev', dry_run=True)
+        assert report.installed == [] and report.failures == []
+        assert report.skipped == [present]
+        assert set(report.missing) == set(required) - {present}
+        assert probes
 
     def test_bootstrap_report_to_dict(self):
         from core.tools.tool_registry import BootstrapReport, InstallResult

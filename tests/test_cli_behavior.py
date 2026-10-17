@@ -23,84 +23,22 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 class TestCLIBehavior:
-    """Tests for CLI argument handling and LLM mode behavior."""
-    
-    def test_default_fails_fast_without_key(self):
-        """Default CLI run MUST fail fast when OPENAI_API_KEY is missing and no local LLM."""
-        env = os.environ.copy()
-        # Set to empty string to override .env file loading
-        env["OPENAI_API_KEY"] = ""
-        # Disable local LLM to test pure-offline failure path
-        env["FF_LOCAL_LLM"] = "0"
-        
-        result = subprocess.run(
-            [sys.executable, "-m", "core.training.ariaska_trainer", "--episodes", "1"],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=Path(__file__).parent.parent
-        )
-        
-        # Should fail with exit code 1
-        assert result.returncode == 1, f"Expected exit code 1, got {result.returncode}"
-        
-        # Should have clear error message about missing LLM access
-        combined = result.stdout + result.stderr
-        assert ("OPENAI_API_KEY" in combined or "Local LLM" in combined or "LLM" in combined), \
-            f"Expected LLM error message, got:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    
-    def test_offline_mode_succeeds_without_key(self):
-        """--offline mode should succeed without API key."""
-        env = os.environ.copy()
-        # Set to empty string to override .env file loading
-        env["OPENAI_API_KEY"] = ""
-        # Disable local LLM to avoid slow Ollama inference in subprocess
-        env["FF_LOCAL_LLM"] = "0"
-        
-        result = subprocess.run(
-            [
-                sys.executable, "-m", "core.training.ariaska_trainer",
-                "--offline", "--episodes", "1", "--max-steps", "2", "--verbosity", "quiet"
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=Path(__file__).parent.parent,
-            timeout=60
-        )
-        
-        # Should succeed
-        assert result.returncode == 0, \
-            f"Expected exit code 0, got {result.returncode}\nstderr: {result.stderr}"
-        
-        # Should complete training
-        assert "TRAINING SUMMARY" in result.stdout or "total_episodes" in result.stdout, \
-            f"Expected training summary, got:\n{result.stdout}"
-    
-    def test_no_require_llm_graceful_degrade(self):
-        """--no-require-llm should gracefully degrade without API key."""
-        env = os.environ.copy()
-        # Set to empty string to override .env file loading
-        env["OPENAI_API_KEY"] = ""
-        # Disable local LLM to avoid slow Ollama inference in subprocess
-        env["FF_LOCAL_LLM"] = "0"
-        
-        result = subprocess.run(
-            [
-                sys.executable, "-m", "core.training.ariaska_trainer",
-                "--no-require-llm", "--episodes", "1", "--max-steps", "2", 
-                "--verbosity", "quiet"
-            ],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd=Path(__file__).parent.parent,
-            timeout=60
-        )
-        
-        # Should succeed (graceful degradation)
-        assert result.returncode == 0, \
-            f"Expected exit code 0 for graceful degrade, got {result.returncode}\nstderr: {result.stderr}"
+    """Exercise the real module entry point in a bounded offline child."""
+
+    def test_default_fails_fast_without_key(self, tmp_path):
+        from core.testing.guarded_cli import run_trainer_cli
+        result = run_trainer_cli([], tmp_path)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert 'LLM' in result.stdout + result.stderr
+        assert result.guard_report['network_or_tool_executions'] == 0
+
+    @pytest.mark.parametrize('mode', ['--offline', '--no-require-llm'])
+    def test_offline_modes_complete_without_key(self, tmp_path, mode):
+        from core.testing.guarded_cli import run_trainer_cli
+        result = run_trainer_cli([mode], tmp_path)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert 'TRAINING SUMMARY' in result.stdout
+        assert result.guard_report['network_or_tool_executions'] == 0
 
 
 class TestGPTManagerIntegration:

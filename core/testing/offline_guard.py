@@ -5,6 +5,8 @@ os.environ.update(ARIASKA_DRY_RUN='1',ARIASKA_MENTOR_BACKEND='none',HF_HUB_OFFLI
 import torch
 torch.set_num_threads(1)
 import socket,subprocess
+_original_popen = subprocess.Popen
+permitted_python_children = []
 blocked=[]
 def deny(*a,**k):
  blocked.append(str(a[0])[:80] if a else 'unknown')
@@ -18,4 +20,4 @@ subprocess.Popen=deny
 os.system=deny
 
 def pytest_terminal_summary(terminalreporter):
-    terminalreporter.write_line(f'Offline guard blocked {len(blocked)} network/process attempts; none executed.')
+    terminalreporter.write_line(f'Offline guard blocked {len(blocked)} network/tool attempts; none executed. Isolated Python CLI runs: {len(permitted_python_children)}.')
