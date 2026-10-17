@@ -41,7 +41,7 @@ def test_offline_multiagent_smoke(tmp_path):
     from core.testing.guarded_cli import run_trainer_cli
     result = run_trainer_cli(['--offline', '--episodes', '2', '--max-steps', '3'], tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert result.guard_report['network_or_tool_executions'] == 0
+    assert result.guard_report['guarded'] is True
     runs = list((tmp_path / 'traces').glob('run_*'))
     assert len(runs) == 1
     steps = [json.loads(line) for line in (runs[0] / 'steps.jsonl').read_text().splitlines() if line]

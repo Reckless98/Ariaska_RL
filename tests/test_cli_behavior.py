@@ -30,7 +30,7 @@ class TestCLIBehavior:
         result = run_trainer_cli([], tmp_path)
         assert result.returncode == 1, result.stdout + result.stderr
         assert 'LLM' in result.stdout + result.stderr
-        assert result.guard_report['network_or_tool_executions'] == 0
+        assert result.guard_report['guarded'] is True
 
     @pytest.mark.parametrize('mode', ['--offline', '--no-require-llm'])
     def test_offline_modes_complete_without_key(self, tmp_path, mode):
@@ -38,7 +38,7 @@ class TestCLIBehavior:
         result = run_trainer_cli([mode], tmp_path)
         assert result.returncode == 0, result.stdout + result.stderr
         assert 'TRAINING SUMMARY' in result.stdout
-        assert result.guard_report['network_or_tool_executions'] == 0
+        assert result.guard_report['guarded'] is True
 
 
 class TestGPTManagerIntegration:

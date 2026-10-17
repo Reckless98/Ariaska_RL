@@ -55,14 +55,15 @@ def run_trainer_cli(arguments, directory, timeout=60):
 import sys
 sys.path.insert(0, {str(repo)!r})
 import core.testing.offline_guard as guard
-import json, runpy
+import json, runpy, socket, subprocess
 from pathlib import Path
 sys.argv = ['core.training.ariaska_trainer'] + {arguments!r}
 try:
     runpy.run_module('core.training.ariaska_trainer', run_name='__main__')
 finally:
     Path('offline_guard.json').write_text(json.dumps(dict(blocked_attempts=len(guard.blocked),
-        network_or_tool_executions=0, guarded=True)) + '\\n')
+        guarded=(subprocess.Popen is guard.deny and socket.socket.connect is guard.deny
+                 and socket.create_connection is guard.deny))) + '\\n')
 '''
     environment = {
         'PATH': os.defpath, 'HOME': str(directory), 'TMPDIR': str(directory),
@@ -84,4 +85,6 @@ finally:
             raise
     result = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     result.guard_report = json.loads((directory / 'offline_guard.json').read_text())
+    if not result.guard_report['guarded']:
+        raise RuntimeError('Child network/process guard was modified')
     return result

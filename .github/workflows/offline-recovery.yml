@@ -17,7 +17,7 @@ jobs:
       ARIASKA_DRY_RUN: '1'
       ARIASKA_LIVE_MODE: 'false'
       ARIASKA_MENTOR_BACKEND: none
-      ARIASKA_DATA_DIR: ${{ runner.temp }}/ariaska-data
+      ARIASKA_DATA_DIR: /tmp/ariaska-data
       OPENAI_API_KEY: ''
       ANTHROPIC_API_KEY: ''
       HF_HUB_OFFLINE: '1'
