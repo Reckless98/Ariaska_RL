@@ -1,5 +1,7 @@
 # Ariaska_RL — Post-Consolidation Structural Audit
 
+> Historical document. Current implementation contracts, recovery measurements and limitations are recorded in [recovery_validation.md](recovery_validation.md); older counts and architecture claims are not current verification.
+
 **Date:** 2026-02-23
 **Auditor:** Automated structural analysis
 **Scope:** Full runtime orchestration autopsy of current codebase state

@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
   <img src="https://img.shields.io/badge/RL-PPO%20Actor--Critic%20v3.0-green?style=for-the-badge" alt="PPO"/>
   <img src="https://img.shields.io/badge/Agents-5%20Autonomous-orange?style=for-the-badge" alt="5 Agents"/>
-  <img src="https://img.shields.io/badge/Tests-3%2C150%20Collected-brightgreen?style=for-the-badge" alt="Tests"/>
+  <img src="https://img.shields.io/badge/Tests-Offline%20Validation-blue?style=for-the-badge" alt="Offline validation"/>
   <img src="https://img.shields.io/badge/Mentor-Optional%20(none%20%7C%20local%20%7C%20cloud)-purple?style=for-the-badge" alt="Mentor optional"/>
   <img src="https://img.shields.io/badge/License-Private-red?style=for-the-badge" alt="License"/>
 </p>
@@ -13,7 +13,7 @@
 </h1>
 
 <h3 align="center">
-  <em>Autonomous Multi-Agent Reinforcement Learning System for Live Authorized Penetration Testing</em>
+  <em>Multi-Agent Reinforcement Learning Research for Authorized, Isolated Labs</em>
 </h3>
 
 <p align="center">
@@ -60,9 +60,9 @@
 
 ## Overview
 
-**Ariaska_RL** is a production-grade autonomous penetration testing system that combines deep reinforcement learning with large language model reasoning to conduct live, authorized security assessments. The system deploys five cooperating AI agents — each with a distinct tactical role — through an eight-stage cyber kill chain, making real-time decisions about reconnaissance, exploitation, privilege escalation, lateral movement, and exfiltration.
+**Ariaska_RL** is an experimental multi-agent reinforcement learning research platform for authorized, isolated lab environments. It combines five independent role policies, deterministic decision systems and optional model mentorship. Offline recovery validation establishes a bounded synthetic learning path; live capability and production readiness have not been independently demonstrated.
 
-Unlike script-driven automation, Ariaska learns. Its intelligence is the reinforcement-learning stack: a per-agent **PPO Actor-Critic v3.0** policy, a `SmartCoach` decision pipeline with **DecisionCore** weighted arbitration over candidate producers (policy, registry, playbook curricula, skill library), and auxiliary learners (SAC shadow, DDQN macro-intent, RND curiosity, CognitionNode). A large language model is only ever an **optional mentor**: it may be consulted selectively, its demonstrations become behavioral-cloning signals, every intervention is measured, and it can be switched between a local model, a cloud API, or removed entirely without changing the agents or their learned policies. The system has grown over 58 development phases into ~240K lines of Python across 300+ core modules.
+Ariaska contains an implemented reinforcement-learning stack: a per-agent **PPO Actor-Critic v3.0** policy, a `SmartCoach` decision pipeline with **DecisionCore** weighted arbitration over candidate producers (policy, registry, playbook curricula, skill library), and auxiliary learners (SAC shadow, DDQN macro-intent, RND curiosity, CognitionNode). A large language model is only ever an **optional mentor**: it may be consulted selectively, its demonstrations become behavioral-cloning signals, interventions have observational bookkeeping, and it can be switched between a local model, a cloud API, or removed entirely without changing the agents or their learned policies. The system has grown over 58 development phases into ~240K lines of Python across 300+ core modules.
 
 ### What Ariaska Is — and Is Not
 
@@ -70,7 +70,7 @@ Unlike script-driven automation, Ariaska learns. Its intelligence is the reinfor
 |:---|:---|
 | **Is** | Five custom RL agents (Scout, Red, Blue, Shadow, Orion) whose decisions come from learned policies plus deterministic decision systems. |
 | **Is** | Mentor2Apprentice: optional LLM mentorship that produces measurable learning signals (TeacherTrace → BCBuffer → PPO behavioral-cloning loss) and is budget-controlled. |
-| **Is** | Autonomous by default — `ARIASKA_MENTOR_BACKEND=none` runs pure RL. Owner-reported (not reproduced in CI): the PPO policies completed both Metasploitable lab targets without mentor assistance. |
+| **Is** | Mentor-free hybrid policy/registry operation — `ARIASKA_MENTOR_BACKEND=none` disables mentorship. Owner-reported (not reproduced in CI): the PPO policies completed both Metasploitable lab targets without mentor assistance. |
 | **Is not** | An LLM-agent wrapper. The fine-tuned local Qwen models are a *local substitute for a cloud mentor*, not the agents' intelligence. No agent identity or policy is bound to a model family. |
 
 ### Core Design Principles
@@ -78,7 +78,7 @@ Unlike script-driven automation, Ariaska learns. Its intelligence is the reinfor
 | Principle | Implementation |
 |-----------|---------------|
 | **Learn, don't script** | PPO policy trained via shaped rewards from real engagement outcomes |
-| **Reason, don't guess** | 3-stage MicroChain + PhaseGuidedLLM validate every exploit attempt |
+| **Reason, don't guess** | Optional MicroChain/PhaseGuidedLLM advice; coverage depends on flags and execution path |
 | **Cooperate, don't conflict** | 5 agents with distinct roles, shared discovery board, memory sync |
 | **Budget, don't burn** | BudgetManagerV2 with tiered token allocation and burst pooling |
 | **Validate, don't trust** | Evidence Gate enforces exploit preconditions before execution |
@@ -86,67 +86,44 @@ Unlike script-driven automation, Ariaska learns. Its intelligence is the reinfor
 
 ---
 
+## Recovery status — 17 October 2026
+
+The [recovery validation report](docs/recovery_validation.md) is the current
+source for verified behavior, reproduction commands and limitations; historical
+phase descriptions below describe components, not universal end-to-end guarantees.
+Recovery PRs are unmerged proposals and do not describe master until reviewed.
+
+- All five role policies have verified sampling/update contracts, executed-action
+  attribution, bounded multi-episode training and independent checkpoint restores.
+- Delivery suite: **3,239 passed, 5 guard-blocked failures, 10 skipped**. No live
+  security tools, targets or model APIs were used.
+- A three-seed two-choice synthetic diagnostic improved aggregate held-out base-
+  policy accuracy from 49.31% frozen to 68.22% trained. **Orion averaged 43.91%**;
+  this does not demonstrate reliable learning by every role or cybersecurity skill.
+- Checkpoints v3 preserve independent role identities. Exact restoration of an
+  external environment and every experimental controller remains unverified.
+- DecisionCore is central, but deterministic gates still bypass arbitration in
+  some legacy paths. Mentor-free operation also includes registry/rule decisions.
+
 ## System Architecture
 
 ### High-Level Data Flow
 
 ```mermaid
-graph TB
-    CLI["ariaska_cli.py<br/>CLI Entry Point"] --> SO["SmartOrchestrator<br/>(THE BRAIN — 8,890L)"]
-    
-    SO --> AM["AgentManager<br/>5 Agent Factory"]
-    SO --> ENV["CyberEnvironment<br/>Kill Chain State Machine"]
-    SO --> DB["Discovery Board<br/>Shared Cross-Agent State"]
-    
-    AM --> SCOUT["🔍 ScoutAgent<br/>Recon & Discovery"]
-    AM --> RED["⚔️ RedAgent<br/>Exploitation & PrivEsc"]
-    AM --> BLUE["🛡️ BlueAgent<br/>Defensive & Reactive"]
-    AM --> SHADOW["👻 ShadowAgent<br/>Stealth & Evasion"]
-    AM --> ORION["🧠 OrionAgent<br/>Strategic Coordination"]
-    
-    SCOUT --> SC1["SmartCoach<br/>(9,306L per agent)"]
-    RED --> SC2["SmartCoach"]
-    BLUE --> SC3["SmartCoach"]
-    SHADOW --> SC4["SmartCoach"]
-    ORION --> SC5["SmartCoach"]
-    
-    SC1 & SC2 & SC3 & SC4 & SC5 --> PIPELINE["4-Stage Hybrid Pipeline"]
-    
-    PIPELINE --> PB["1. Playbook<br/>Curriculum-guided"]
-    PIPELINE --> PPO["2. PPO<br/>RL Policy Network"]
-    PIPELINE --> REG["3. Registry<br/>294 Commands"]
-    PIPELINE --> MENTOR["4. GPT Mentor<br/>SmartMentor / DualMentor"]
-    
-    PB & PPO & REG & MENTOR --> INTEL["Intelligence Layers"]
-    
-    INTEL --> MC["MicroChain<br/>nano→mini→nano"]
-    INTEL --> PG["PhaseGuidedLLM<br/>Structured Guidance"]
-    INTEL --> EG["Evidence Gate<br/>Exploit Validation"]
-    INTEL --> TC["TacticalCortex<br/>7-Rule Quality Gate"]
-    
-    INTEL --> EXEC["Execution Layer"]
-    EXEC --> LIVE["LiveExecutor<br/>Real Commands"]
-    EXEC --> SAND["SandboxedExecutor<br/>Safety Layer"]
-    EXEC --> PARSE["ParserBroker<br/>4-Stage Output Parser"]
-    
-    PARSE --> REWARD["SmartRewardCalculator<br/>Shaped Rewards"]
-    REWARD --> PPO_UPDATE["PPO Update<br/>GAE-λ + Distillation"]
-    
-    ENV --> |"state, reward, done"| SO
-    
-    SO --> DASH["LiveDashboard v6.0<br/>Rich Terminal UI"]
-    SO --> TRACE["Episode Trace<br/>JSONL Logging"]
-    SO --> OPS["OpsHub<br/>Pre-flight + Post-step"]
-
-    style SO fill:#1a1a2e,stroke:#e94560,stroke-width:3px,color:#fff
-    style PIPELINE fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style INTEL fill:#0f3460,stroke:#533483,stroke-width:2px,color:#fff
-    style RED fill:#8b0000,stroke:#ff4444,stroke-width:2px,color:#fff
-    style SCOUT fill:#006400,stroke:#44ff44,stroke-width:2px,color:#fff
-    style BLUE fill:#00008b,stroke:#4444ff,stroke-width:2px,color:#fff
-    style SHADOW fill:#2d2d2d,stroke:#888,stroke-width:2px,color:#fff
-    style ORION fill:#4a0080,stroke:#9944ff,stroke-width:2px,color:#fff
+flowchart TD
+    O["SmartOrchestrator"] --> S["State encoding and five SmartCoaches"]
+    S --> C["Policy, registry and optional mentor candidates"]
+    C --> D["DecisionCore and deterministic gates"]
+    D --> E["Environment execution and authoritative outcomes"]
+    E --> T["ExecutedTransition and shared reward"]
+    T --> P["Independent role PPO and auxiliary learners"]
+    P --> K["Role-aware checkpoint v3"]
+    E --> O
 ```
+
+The native offline MDP adapter executes opaque action IDs. Legacy cyber
+execution paths retain domain-specific gates and have not been run in recovery.
+
 
 ### Module Dependency Architecture
 
@@ -1418,9 +1395,9 @@ Full report: [`docs/architecture_refactor_phase1.md`](docs/architecture_refactor
 | Episode finalization | `SmartCoach.end_episode_ppo` | Episode-end side effects (DDQN / cognition / memory / consolidation) now run even with an empty PPO trajectory; postmortem transcript built before the trajectory is cleared. |
 | Registry attribution | `SmartCoach` registry constructors | Registry-produced decisions declare `source="registry"` instead of `"unknown"` (label only). |
 
-**Verified results (offline, deterministic):** 67 new tests (66 pass, 1 skip); focused validation of gateway, mentor, coach, PPO wiring, lifecycle and checkpoint suites: **1,036 passed, 2 skipped**; 3,150 tests collected. Baseline before changes: 3,018 / 3,083 passed with every failure traced to a missing optional package in the fresh environment.
+**Historical Phase 1 results (not the current recovery result):** 67 new tests (66 pass, 1 skip); focused validation of gateway, mentor, coach, PPO wiring, lifecycle and checkpoint suites: **1,036 passed, 2 skipped**; 3,150 tests collected. Baseline before changes: 3,018 / 3,083 passed with every failure traced to a missing optional package in the fresh environment.
 
-**Not done / deferred:** live cloud test (needs a workspace-scoped Anthropic key or `ANTHROPIC_WORKSPACE_ID`); reader-reported findings on duplicate learner writes, penalty ordering, buffer padding and checkpoint persistence (documented, unverified).
+**Historical Phase 1 deferrals:** superseded by the [recovery report](docs/recovery_validation.md). Duplicate writes, ordering, padding and role checkpoint defects received recovery fixes; live cloud behavior remains unexecuted.
 
 ---
 

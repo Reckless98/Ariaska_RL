@@ -1,5 +1,7 @@
 # Ariaska_RL — Full Structural Orchestration Audit
 
+> Historical document. Current implementation contracts, recovery measurements and limitations are recorded in [recovery_validation.md](recovery_validation.md); older counts and architecture claims are not current verification.
+
 **Date:** 2025-07-14
 **Author:** System Audit (automated)
 **Scope:** Runtime execution paths, training signal flows, scheduling coherence, generalization capacity, structural harmony/instability, redesign proposals, missing metrics.
