@@ -65,9 +65,21 @@
     "restricted_legacy_and_checkpoint_passed": 50
   },
   "independent_ci": {
-    "check_runs": 0,
-    "statuses": 0,
-    "workflows_present": false
+    "application_test_runs_observed": 0,
+    "workflows_present": false,
+    "github_checks_inspected_at_commit": "429834c899961b5f383e8c653357ba50abb6c81b",
+    "github_checks": [
+      {
+        "name": "GitGuardian Security Checks",
+        "conclusion": "success",
+        "scope": "secret scanning, not application tests"
+      },
+      {
+        "name": "Sourcery review",
+        "status": "in_progress",
+        "scope": "automated review, not application tests"
+      }
+    ]
   },
   "physical_cuda_tested": false
 }

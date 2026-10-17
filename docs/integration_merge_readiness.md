@@ -44,7 +44,7 @@ All application tests ran with `core.testing.offline_guard`, synthetic observati
 | Reptile | Two real inner updates preserve every outer rollout field and conditioned likelihood; outer rollout subsequently updates. Separate injected failure restores buffer, environment and weights. This validates integration, not meta-learning efficacy. |
 | Deterministic multi-episode integration | Three episodes × four steps × five roles, termination/truncation variants, repeatability, interruption and learning-error checkpoint paths pass. |
 | Mentor-free without LLM dependencies | Fresh interpreter blocks OpenAI/Anthropic/Transformers/Hugging Face/LangChain imports; five roles complete two updates each, provider requests zero. |
-| Independent CI / physical CUDA | No check runs, statuses or workflow observed for the published code at inspection; no CUDA hardware available. CUDA generator behavior uses mocks only. |
+| Independent test CI / physical CUDA | No application-test CI workflow/result observed; no CUDA hardware available. CUDA generator behavior uses mocks only. At head `429834c`, GitGuardian secret scanning passed and Sourcery review was still running. Neither runs the offline application test suite. |
 
 Reproduction commands (activate Python 3.12 environment installed from `requirements-recovery.lock`):
 
@@ -152,7 +152,7 @@ Master was `4f98a1c6bf8908247537c84745899c60ad270bac` at inspection. Merge order
 
 For a later owner-controlled merge, use merge commits to preserve stack ancestry. After each parent is merged, retarget the next child to master and verify its remaining diff; retain parent branches until their child is retargeted. GitHub may retarget automatically when deleting a merged base branch, but verify rather than assume. Do not squash/rebase this stack without a separate branch-maintenance plan. Do not train, publish checkpoints or release from a partially merged stack: intermediate branches retain defects repaired by later PRs. After the complete stack reaches master, run the final offline validation on that resulting merge commit.
 
-No retargeting was performed during this hardening pass. No original PR branch changed. No merge action was invoked.
+No retargeting was performed during this hardening pass. No original PR branch changed. All nine PRs were open, unmerged and mechanically mergeable at final inspection; that is not test approval. No merge action was invoked.
 
 ## Remaining gates and prioritized next steps
 
