@@ -480,9 +480,10 @@ class SACAgent:
             probs, _ = self.actor(state)
             return probs.squeeze(0)
     
-    def save(self, path: str) -> None:
-        """Save model checkpoint."""
-        torch.save({
+    def state_dict(self):
+        """Complete resumable state, including replay and entropy optimizer."""
+        import copy
+        return copy.deepcopy({
             "actor": self.actor.state_dict(),
             "critic": self.critic.state_dict(),
             "target_critic": self.target_critic.state_dict(),
@@ -497,23 +498,35 @@ class SACAgent:
                 "action_dim": self.config.action_dim,
                 "hidden_dims": self.config.hidden_dims,
             },
-        }, path)
-        logger.info(f"SAC model saved to {path}")
+            "alpha_optimizer": self.alpha_optimizer.state_dict() if self.alpha_optimizer else None,
+            "replay": list(self.replay_buffer.buffer),
+        })
+
+    def save(self, path: str) -> None:
+        torch.save(self.state_dict(), path)
     
     def load(self, path: str) -> None:
         """Load model checkpoint."""
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        self.load_state_dict(checkpoint)
+
+    def load_state_dict(self, checkpoint):
         self.actor.load_state_dict(checkpoint["actor"])
         self.critic.load_state_dict(checkpoint["critic"])
         self.target_critic.load_state_dict(checkpoint["target_critic"])
         self.actor_optimizer.load_state_dict(checkpoint["actor_optimizer"])
         self.critic_optimizer.load_state_dict(checkpoint["critic_optimizer"])
         if checkpoint.get("log_alpha") is not None and self.log_alpha is not None:
-            self.log_alpha.data = torch.tensor(checkpoint["log_alpha"])
+            self.log_alpha.data.copy_(torch.tensor(checkpoint["log_alpha"], device=self.device))
             self.alpha = self.log_alpha.exp().item()
         self._step_count = checkpoint.get("step_count", 0)
         self._update_count = checkpoint.get("update_count", 0)
-        logger.info(f"SAC model loaded from {path} (step={self._step_count}, updates={self._update_count})")
+        if self.alpha_optimizer and checkpoint.get('alpha_optimizer') is not None:
+            self.alpha_optimizer.load_state_dict(checkpoint['alpha_optimizer'])
+        if 'replay' in checkpoint:
+            self.replay_buffer.buffer.clear()
+            self.replay_buffer.buffer.extend(checkpoint['replay'])
+        logger.info('SAC state restored (steps=%s, updates=%s)', self._step_count, self._update_count)
     
     def get_confidence_signal(
         self, state: torch.Tensor, ppo_action: int

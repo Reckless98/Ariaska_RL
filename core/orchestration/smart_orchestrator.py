@@ -4296,31 +4296,17 @@ class SmartOrchestrator:
 
         logger.info("[AUTOLOAD] Best checkpoint: %s", ckpt.summary())
 
-        # ── 2. Apply PPO to main ppo_agent ───────────────────────────
-        if ckpt.ppo_state and self.ppo_agent is not None:
-            if ckpt.apply_ppo(self.ppo_agent):
-                loaded_total += 1
-                logger.info(
-                    "[AUTOLOAD] main PPO loaded: steps=%s, updates=%s",
-                    ckpt.ppo_state.get("total_steps", 0),
-                    ckpt.ppo_state.get("updates_done", 0),
-                )
-
-        # ── 3. Apply to each coach ───────────────────────────────────
-        for coach_name, coach in self.coaches.items():
-            # PPO — share the same checkpoint to all coaches
-            if ckpt.ppo_state and hasattr(coach, "ppo_agent") and coach.ppo_agent is not None:
-                if ckpt.apply_ppo(coach.ppo_agent):
-                    loaded_total += 1
-
-            # DDQN — per-agent if available
-            if ckpt.ddqn_states and hasattr(coach, "ddqn_macro") and coach.ddqn_macro is not None:
-                if ckpt.apply_ddqn(coach.ddqn_macro, coach_name):
-                    loaded_total += 1
-
-            # SAC — shared
-            if ckpt.sac_state and hasattr(coach, "sac_agent") and coach.sac_agent is not None:
-                if ckpt.apply_sac(coach.sac_agent):
+        if ckpt.ppo_states:
+            try:
+                loaded_total += ckpt.apply_coaches(self.coaches)
+            except Exception as exc:
+                logger.warning('[AUTOLOAD] Role checkpoint rejected atomically: %s', exc)
+                return 0
+        elif ckpt.ppo_state:
+            logger.warning('[AUTOLOAD] Legacy single-policy state requires explicit compatible-role import; not broadcast')
+        else:
+            for coach_name, coach in self.coaches.items():
+                if coach.ddqn_macro is not None and ckpt.apply_ddqn(coach.ddqn_macro, coach_name):
                     loaded_total += 1
 
         # ── 4. Also scan for additional per-agent DDQN in enhanced ───
