@@ -196,6 +196,7 @@ class MentorResponse:
     alternative_commands: List[str] = field(default_factory=list)
     phase: AttackPhase = AttackPhase.RECON
     tokens_used: int = 0
+    is_fallback: bool = False
     
     # Phase 6.3: Structured reasoning fields
     intent: str = ""  # Strategic intent of this action
@@ -816,6 +817,7 @@ After ANY shell, read the flag file FIRST.
                 cmd, template_name, reason = random.choice(fallback_pool)
             
             return MentorResponse(
+                is_fallback=True,
                 command=cmd,
                 template_name=template_name,
                 params={"target": context.target},
@@ -861,6 +863,7 @@ After ANY shell, read the flag file FIRST.
             command = template.template.format_map(params)
         
         return MentorResponse(
+                is_fallback=True,
             command=command,
             template_name=template.name,
             params=params,

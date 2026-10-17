@@ -5767,7 +5767,8 @@ class SmartOrchestrator:
                     success=(result.live_result.success if result.live_result is not None else sim_success),
                     raw_output=output_to_parse,
                     new_discoveries=deduped_discoveries,
-                    done=done,  # Phase 4: pass done for PPO trajectory
+                    done=done,  # True termination from the environment
+                    next_state=new_state,
                     shared_discoveries=self._episode_rewarded_discoveries,  # Separate claim and payment ledgers
                 )
                 result.reward_breakdown = breakdown

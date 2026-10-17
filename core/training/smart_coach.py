@@ -2826,22 +2826,63 @@ class SmartCoach:
                 f"at {_escalation_source_phase} step {_escalation_step_count}"
             )
             # Store negative PPO trajectory if this overrides a PPO decision
-            if self._ppo_pending is not None:
-                try:
-                    if self.ppo_agent is not None:
-                        self.ppo_agent.store_transition(
-                            self._ppo_pending['state'],
-                            self._ppo_pending['action'],
-                            self._ppo_pending['log_prob'],
-                            -3.0,
-                            self._ppo_pending['value'],
-                            False,
-                        )
-                        self._ppo_pending = None
-                except Exception:
-                    self._ppo_pending = None
+            self._discard_ppo_proposal("proposal_replaced")
 
-    def decide(
+    def decide(self, step_ctx, proposed_action=None, confidence=None,
+               force_mentor=False, decision_packet=None):
+        """Capture the observation; only record_result commits execution history."""
+        import copy
+        self._ppo_pending = None
+        self._execution_step = step_ctx
+        self._current_decision_packet = decision_packet
+        result = None
+        if self.cognition_node is not None:
+            self.cognition_node.external_transition_owner = True
+        snapshot = (set(self.step_used_commands), set(self.episode_used_commands),
+                    dict(self.command_repeat_count), list(step_ctx.attack_context.command_history))
+        try:
+            result = self._decide_impl(step_ctx, proposed_action, confidence,
+                                       force_mentor, decision_packet)
+            sample = getattr(result, '_ppo_sample', None)
+            cog = getattr(self, '_cognition_result', None)
+            if (sample is None and result.source == 'cognition_node' and cog is not None
+                    and cog.winning_brain == 'ppo' and cog.action_idx == cog.ppo_action):
+                sample = dict(state=cog.ppo_state, action=cog.ppo_action,
+                    log_prob=cog.ppo_log_prob, value=cog.ppo_value,
+                    behavior_context=getattr(cog, 'ppo_behavior_context', None),
+                    command=result.command, template_name=result.template_name)
+
+            if sample is None and self._ppo_pending is not None:
+                candidate = self._ppo_pending
+                if candidate.get('command') == result.command:
+                    sample = dict(candidate)
+            # A post-arbitration rewrite invalidates the policy sample.
+            if sample is not None and sample.get('command') != result.command:
+                sample = None
+            result._ppo_sample = copy.deepcopy(sample)
+            result._execution_observation = self._encode_execution_state(step_ctx.state, step_ctx.step)
+            result._execution_id = (step_ctx.episode, step_ctx.step)
+            return result
+        finally:
+            self.step_used_commands.clear(); self.step_used_commands.update(snapshot[0])
+            self.episode_used_commands.clear(); self.episode_used_commands.update(snapshot[1])
+            self.command_repeat_count.clear(); self.command_repeat_count.update(snapshot[2])
+            step_ctx.attack_context.command_history[:] = snapshot[3]
+            self._ppo_pending = getattr(result, '_ppo_sample', None)
+
+    def _encode_execution_state(self, observation=None, step=0):
+        import torch
+        from core.models.state_encoder import encode_state
+        ctx = self.attack_context
+        data = observation or {
+            'state_flags': dict(ctx.state_flags) if ctx else {},
+            'phase': ctx.current_phase.name if ctx else 'RECON',
+        }
+        return encode_state(data, torch.device('cpu'), current_step=step,
+                            max_steps=getattr(self, '_episode_max_steps', 250),
+                            agent_role=self.agent_role.get('role', ''))
+
+    def _decide_impl(
         self,
         step_ctx: SmartStepContext,
         proposed_action: Optional[str] = None,
@@ -3183,7 +3224,7 @@ class SmartCoach:
                     state_tensor = encode_state(
                         state_dict, _torch.device("cpu"),
                         current_step=step_ctx.step,
-                        max_steps=250,
+                        max_steps=getattr(self, "_episode_max_steps", 250),
                     )
                     phase_name = current_phase.name if current_phase else "RECON"
                     # R57 Layer 1: Pass discovery signal for stagnation detection
@@ -3694,10 +3735,7 @@ class SmartCoach:
                                     ),
                                 })
                                 # Store negative PPO trajectory for the blocked command
-                                if self._ppo_pending is not None:
-                                    self._store_ppo_negative_reward(
-                                        -3.0, f"tactical_{_tactical_assessment.verdict.name.lower()}"
-                                    )
+                                self._discard_ppo_proposal("proposal_replaced")
                                 result.command = _tactical_assessment.alternative
                                 result.template_name = _tactical_assessment.alternative_template or result.template_name
                                 result.source = "tactical_cortex"
@@ -3888,50 +3926,7 @@ class SmartCoach:
         # original PPO log_prob, teaching PPO the wrong signal.
         # Controlled by FF_PPO_REWARD_ATTRIBUTION_FIX.
         # =====================================================================
-        if (result.source not in ("ppo", "cognition_node")
-                and self._ppo_pending is not None
-                and not ppo_bypass):
-            try:
-                from core.feature_flags import get_feature_flags
-                if get_feature_flags().ppo_reward_attribution_fix:
-                    if self.ppo_agent is not None:
-                        try:
-                            # Phase 38 X1: Differentiated override penalties
-                            # instead of flat -3.0 for all overrides
-                            _override_penalties = {
-                                "anti_repeat": -1.0,       # Soft: PPO wasn't wrong, just redundant
-                                "registry": -1.5,          # Registry found better match
-                                "mentor": -2.0,            # Mentor override — moderate
-                                "micro_chain": -2.0,
-                                "phase_guided": -2.0,
-                                "playbook": -2.5,          # Curriculum-guided override
-                                "fallback": -3.0,          # PPO produced garbage
-                            }
-                            _override_reason = result.source or "unknown"
-                            # Evidence gate enforce gets its own penalty
-                            if getattr(result, 'evidence_gate_result', '') == "enforce_reject":
-                                _penalty = -2.0
-                                _override_reason = "evidence_gate"
-                            else:
-                                _penalty = _override_penalties.get(_override_reason, -3.0)
-                            
-                            self.ppo_agent.store_transition(
-                                state=self._ppo_pending["state"],
-                                action=self._ppo_pending["action"],
-                                log_prob=self._ppo_pending["log_prob"],
-                                reward=_penalty,
-                                value=self._ppo_pending["value"],
-                                done=False,
-                            )
-                            logger.debug(
-                                f"[PPO-ATTRIB-FIX][{self.agent_name}] Stored {_penalty:.1f} penalty "
-                                f"for override by {_override_reason}, clearing _ppo_pending"
-                            )
-                        except Exception:
-                            pass
-                    self._ppo_pending = None
-            except ImportError:
-                pass
+        self._discard_ppo_proposal("arbitration_override")
 
         # =====================================================================
         # PHASE 7.1: SMART REASONING CHECK (codex-mini)
@@ -4048,8 +4043,7 @@ class SmartCoach:
                         ) + 1
                         # Phase 7.2: Teach PPO that backward commands are bad
                         # Store negative reward so PPO learns not to propose them
-                        if self._ppo_pending is not None:
-                            self._store_ppo_negative_reward(-5.0, "backward_phase_command")
+                        self._discard_ppo_proposal("proposal_replaced")
 
         # ─── P36: STRUCTURED DECISION REASONING — NEVER EMPTY ─────────
         # Build structured reasoning with EVIDENCE, GOAL, WHY_THIS, CONF.
@@ -4277,35 +4271,15 @@ class SmartCoach:
                 return family
         return "other"
     
+    def _discard_ppo_proposal(self, reason: str) -> None:
+        if self._ppo_pending is not None:
+            self._rejected_ppo_proposals = getattr(self, '_rejected_ppo_proposals', 0) + 1
+        self._ppo_pending = None
+
     def _store_ppo_negative_reward(self, penalty: float, reason: str) -> None:
-        """
-        Phase 7.2: Store a negative reward for the pending PPO trajectory.
-        
-        When a PPO-selected command gets replaced (e.g., backward phase, wrong
-        command), we inject a negative reward so PPO learns not to propose it again.
-        This fixes the 'silent disconnect' where PPO never gets feedback on bad choices.
-        """
-        if self._ppo_pending is None:
-            return
-        
-        try:
-            if self.ppo_agent is not None:
-                self.ppo_agent.store_transition(
-                    state=self._ppo_pending["state"],
-                    action=self._ppo_pending["action"],
-                    log_prob=self._ppo_pending["log_prob"],
-                    reward=penalty,
-                    value=self._ppo_pending["value"],
-                    done=False,
-                )
-                self._ppo_pending = None
-                logger.debug(
-                    f"[PPO-NEG] {self.agent_name}: Stored penalty {penalty:.1f} "
-                    f"for {reason}"
-                )
-        except Exception as e:
-            logger.debug(f"[PPO-NEG] Failed to store penalty: {e}")
-    
+        """Compatibility hook: rejected proposals have no observed reward."""
+        self._discard_ppo_proposal(reason)
+
     # ─── Phase 8.0: Cross-episode attack chain memory ────────────────────────
     
     def _record_chain_step(self, command: str, reward: float) -> None:
@@ -4630,19 +4604,7 @@ class SmartCoach:
                 _repeat_count = sum(1 for c in all_cmds if c == result.command)
                 _repeat_penalty = -3.0 - min(5.0, _repeat_count * 1.5)
             
-            if self._ppo_pending is not None:
-                self._ppo_trajectory.append({
-                    "state": self._ppo_pending["state"],
-                    "action": self._ppo_pending["action"],
-                    "log_prob": self._ppo_pending["log_prob"],
-                    "value": self._ppo_pending["value"],
-                    "reward": _repeat_penalty,
-                    "done": False,
-                    "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
-                    "teacher_action": self._ppo_pending.get("teacher_action"),
-                    "macro": self._ppo_pending.get("macro"),
-                })
-                self._ppo_pending = None
+            self._discard_ppo_proposal("proposal_replaced")
 
             logger.debug(
                 f"[{self.agent_name}] ANTI-REPEAT→REGISTRY: "
@@ -4811,19 +4773,7 @@ class SmartCoach:
             _repeat_penalty = -3.0 - min(5.0, _repeat_count * 1.5)  # Up to -10.5
         
         # Store PPO trajectory with graduated negative reward
-        if self._ppo_pending is not None:
-            self._ppo_trajectory.append({
-                "state": self._ppo_pending["state"],
-                "action": self._ppo_pending["action"],
-                "log_prob": self._ppo_pending["log_prob"],
-                "value": self._ppo_pending["value"],
-                "reward": _repeat_penalty,
-                "done": False,
-                "teacher_distribution": self._ppo_pending.get("teacher_distribution"),
-                "teacher_action": self._ppo_pending.get("teacher_action"),
-                "macro": self._ppo_pending.get("macro"),
-            })
-            self._ppo_pending = None
+        self._discard_ppo_proposal("proposal_replaced")
 
         return result
     
@@ -5627,7 +5577,7 @@ class SmartCoach:
                 from core.reasoning.teacher_trace import TeacherTrace
 
                 _state_id = f"ep{self.current_episode}_s{step_ctx.step}"
-                _teacher_action_idx = 0
+                _teacher_action_idx = -1
                 _teacher_idx_mapped = -1  # LS-04: only a REAL mapping may feed PPO
                 if self.action_mapper and _mentor_result.template_name:
                     try:
@@ -5636,27 +5586,27 @@ class SmartCoach:
                         )
                         _teacher_idx_mapped = int(_teacher_action_idx)
                         if _teacher_action_idx < 0:
-                            _teacher_action_idx = 0
+                            _teacher_action_idx = -1
                     except Exception:
-                        _teacher_action_idx = 0
+                        _teacher_action_idx = -1
                         _teacher_idx_mapped = -1
 
                 _student_action_idx = (
-                    self._ppo_pending.get("action", 0)
-                    if self._ppo_pending
+                    _ppo_pending_for_result.get("action", 0)
+                    if _ppo_pending_for_result
                     else 0
                 )
                 _student_log_prob = (
-                    self._ppo_pending.get("log_prob", 0.0)
-                    if self._ppo_pending
+                    _ppo_pending_for_result.get("log_prob", 0.0)
+                    if _ppo_pending_for_result
                     else 0.0
                 )
 
                 _tt = TeacherTrace(
                     state_id=_state_id,
                     state_vector=(
-                        self._ppo_pending.get("state", [])
-                        if self._ppo_pending
+                        _ppo_pending_for_result.get("state", [])
+                        if _ppo_pending_for_result
                         else []
                     ),
                     teacher_action_idx=_teacher_action_idx,
@@ -5676,7 +5626,7 @@ class SmartCoach:
                     episode=self.current_episode,
                     step=step_ctx.step,
                     agent_id=self.agent_name,
-                    phase=str(getattr(step_ctx, "phase", "RECON")),
+                    phase=step_ctx.attack_context.current_phase.name,
                 )
                 # LS-04: PPO's ranking/KL losses previously received the student's
                 # OWN sampled action as "teacher_action" (self-ranking). When the
@@ -7236,7 +7186,17 @@ class SmartCoach:
     # PHASE 4: PPO-DRIVEN COMMAND SELECTION
     # =====================================================================
 
-    def _ppo_select_command(
+    def _ppo_select_command(self, step_ctx, filtered_commands):
+        import copy
+        result = self._ppo_select_command_impl(step_ctx, filtered_commands)
+        if result is not None and self._ppo_pending is not None:
+            self._ppo_pending['command'] = result.command
+            self._ppo_pending['template_name'] = result.template_name
+            self._ppo_pending['behavior_context'] = copy.deepcopy(getattr(self.ppo_agent, "last_selection_context", None))
+            result._ppo_sample = copy.deepcopy(self._ppo_pending)
+        return result
+
+    def _ppo_select_command_impl(
         self,
         step_ctx: "SmartStepContext",
         filtered_commands: List[CommandTemplate],
@@ -7278,7 +7238,7 @@ class SmartCoach:
             state_tensor = encode_state(
                 state_dict, device,
                 current_step=step_ctx.step,
-                max_steps=250,
+                max_steps=getattr(self, "_episode_max_steps", 250),
                 steps_in_phase=getattr(self, '_codex_meta_phase_steps', 0),
                 phase_transitions=getattr(self, '_phase_transition_count', 0),
                 agent_role=self.agent_role.get("role", ""),
@@ -7892,14 +7852,42 @@ class SmartCoach:
     # Phase 6.9: Penalty for reaching EXFIL but NOT completing CLOSEOUT
     PPO_INCOMPLETE_CLOSEOUT_PENALTY = -15.0
 
+    def _bootstrap_value(self, state, terminated, context=None):
+        if terminated or self.ppo_agent is None:
+            return 0.0
+        import torch
+        self.ppo_agent.network.eval()
+        with torch.no_grad():
+            _, value = self.ppo_agent.network(state.reshape(1, -1).to(self.ppo_agent.device),
+                phase_group=(torch.tensor([(context or {})['phase_group']], device=self.ppo_agent.device)
+                             if context and context.get('phase_group') is not None else None))
+        return float(value.item())
+
+    def _flush_ppo_trajectory(self, finalize=False):
+        if self.ppo_agent is None or not self._ppo_trajectory:
+            return None
+        for t in self._ppo_trajectory:
+            self.ppo_agent.store_transition(
+                state=t['state'], action=t['action'], log_prob=t['log_prob'],
+                reward=t['reward'], value=t['value'], done=t['done'],
+                teacher_distribution=t.get('teacher_distribution'),
+                teacher_action=t.get('teacher_action'),
+                behavior_context=t.get('behavior_context'), next_value=t.get('next_value'),
+                truncated=t.get('truncated', False),
+                episode_id=t.get('episode_id'), step_id=t.get('step_id'))
+        if not hasattr(self, '_ppo_episode_history'):
+            self._ppo_episode_history = []
+        self._ppo_episode_history.extend(self._ppo_trajectory)
+        self._ppo_trajectory.clear()
+        return self.ppo_agent.update(finalize=finalize)
+
     def end_episode_ppo(
         self, done: bool = True, highest_phase: str = ""
     ) -> Optional[Dict[str, float]]:
         """Feed collected trajectory to PPO and run update.
 
         Called by SmartOrchestrator at the end of each episode.
-        Phase 5.1: injects terminal reward into last trajectory entry
-        so PPO gradient path sees phase-completion incentive.
+        Rewards remain those finalized by the shared step pipeline.
 
         Args:
             done: Whether the episode terminated.
@@ -7915,7 +7903,7 @@ class SmartCoach:
             except Exception as e:
                 logger.warning("DAgger decay_weights failed: %s", e)
 
-        _skip_ppo_update = not self.ppo_agent or not self._ppo_trajectory
+        _skip_ppo_update = not self.ppo_agent or not (self._ppo_trajectory or getattr(self, '_ppo_episode_history', []))
         if _skip_ppo_update:
             self._ppo_trajectory.clear()
             self._ppo_pending = None
@@ -7926,138 +7914,18 @@ class SmartCoach:
                 # `finally` (memory, DDQN, cognition, bus, consolidation) must
                 # still run — previously an early `return` skipped all of them.
                 return None
-            # Phase 6.9: inject terminal reward + incomplete-closeout penalty
-            if highest_phase and self._ppo_trajectory:
-                terminal_bonus = self.PPO_TERMINAL_REWARDS.get(highest_phase, 0.0)
-                if terminal_bonus > 0:
-                    self._ppo_trajectory[-1]["reward"] += terminal_bonus
-                    logger.debug(
-                        f"[PPO][{self.agent_name}] Terminal bonus +{terminal_bonus:.1f} "
-                        f"for reaching {highest_phase}"
-                    )
-                # Phase 6.9: Penalize reaching EXFIL but not CLOSEOUT
-                # This teaches PPO that the job isn't done until cleanup is complete
-                if highest_phase == "EXFILTRATION":
-                    self._ppo_trajectory[-1]["reward"] += self.PPO_INCOMPLETE_CLOSEOUT_PENALTY
-                    logger.debug(
-                        f"[PPO][{self.agent_name}] Incomplete closeout penalty "
-                        f"{self.PPO_INCOMPLETE_CLOSEOUT_PENALTY:.1f} (reached EXFIL but not CLOSEOUT)"
-                    )
-                # R54: Efficiency bonus REMOVED.
-                # R52-R53 showed this trained PPO to rush episodes (avg 16 steps),
-                # reducing cumulative reward. R48 (avg 27 steps, +2863.8) proves
-                # longer episodes = more total reward. Removing the speed incentive
-                # lets PPO optimize for cumulative reward through deeper exploration.
-                # (Was: 5.0 × (25 - traj_len), capped at 50.0)
-                
-                # ── R58 Layer 2b: Fast-completion terminal bonus ────────
-                # Compensate PPO for fewer reward-accumulation steps when
-                # CLOSEOUT is reached efficiently. R57 episodes averaged 18 steps
-                # vs R48's 25, losing ~500 cumulative reward from shorter runs.
-                # This bonus teaches PPO that fast CLOSEOUT is GOOD, not a penalty.
-                # Only applies when CLOSEOUT is actually reached (not for rushers).
-                if highest_phase == "CLOSEOUT" and self._ppo_trajectory:
-                    traj_len = len(self._ppo_trajectory)
-                    _max_steps = 40  # Default max steps per episode
-                    speed_bonus = min(30.0, max(0.0, (_max_steps - traj_len) * 1.0))
-                    if speed_bonus > 0:
-                        self._ppo_trajectory[-1]["reward"] += speed_bonus
-                        logger.debug(
-                            f"[PPO][{self.agent_name}] R58 speed bonus +{speed_bonus:.1f} "
-                            f"(CLOSEOUT in {traj_len} steps)"
-                        )
-
-            # ── R69: Hindsight Trajectory Relabeling (HTR) ──────────
-            # Walk backward through the trajectory: when a step produced
-            # discoveries, retroactively credit prior steps whose commands
-            # ENABLED those discoveries (via precondition chains).
-            # This solves temporal credit assignment: nmap at step 3 that
-            # discovers ports gets credit when exploit at step 8 uses them.
-            #
-            # Also applies chain momentum: consecutive discovery steps get
-            # amplifying retroactive bonuses.
-            # ─────────────────────────────────────────────────────────────
-            _htr_total = 0.0
-            _htr_count = 0
-            HTR_WINDOW = 6       # Look back up to 6 steps
-            HTR_ALPHA = 0.25     # Fraction of discovery reward attributed back
-            HTR_DECAY = 0.85     # Per-step decay within the window
-            
-            # Discovery types → what preconditions they satisfy
-            _DISC_TO_PRECOND = {
-                "open_port": {"ports_discovered"},
-                "service": {"services_discovered", "ports_discovered"},
-                "version_info": {"services_discovered"},
-                "credential": {"credentials_known"},
-                "password": {"credentials_known"},
-                "shell": {"shell_obtained"},
-                "root_shell": {"shell_obtained", "root_obtained"},
-                "hash": {"hash_known"},
-                "vulnerability": {"vulnerability_found"},
-            }
-            
-            traj = self._ppo_trajectory
-            for i in range(len(traj) - 1, 0, -1):
-                disc_types = traj[i].get("_r69_discoveries", [])
-                if not disc_types:
-                    continue
-                
-                # Compute what preconditions this discovery satisfies
-                _satisfied = set()
-                for dt in disc_types:
-                    _satisfied |= _DISC_TO_PRECOND.get(dt, set())
-                
-                if not _satisfied:
-                    continue
-                
-                # Walk backward from i-1 to max(0, i-HTR_WINDOW)
-                _disc_reward = traj[i]["reward"]
-                for j in range(i - 1, max(-1, i - 1 - HTR_WINDOW), -1):
-                    _prior_template = traj[j].get("_r69_template", "")
-                    _prior_preconds = traj[j].get("_r69_preconditions", set())
-                    
-                    # Credit if: (a) prior step has preconditions matching what
-                    # this discovery satisfies (causal link), OR
-                    # (b) prior step itself had discoveries (chain momentum)
-                    _causal = bool(_prior_preconds & _satisfied)
-                    _chain = bool(traj[j].get("_r69_discoveries", []))
-                    
-                    if _causal or _chain:
-                        distance = i - j
-                        bonus = HTR_ALPHA * abs(_disc_reward) * (HTR_DECAY ** distance)
-                        bonus = min(bonus, 10.0)  # Cap per-link bonus
-                        traj[j]["reward"] += bonus
-                        _htr_total += bonus
-                        _htr_count += 1
-            
-            if _htr_count > 0:
-                logger.debug(
-                    f"[PPO][{self.agent_name}] R69 HTR: relabeled {_htr_count} "
-                    f"trajectory entries, total bonus +{_htr_total:.1f}"
-                )
-
-            for t in self._ppo_trajectory:
-                self.ppo_agent.store_transition(
-                    state=t["state"],
-                    action=t["action"],
-                    log_prob=t["log_prob"],
-                    reward=t["reward"],
-                    value=t["value"],
-                    done=t["done"],
-                    teacher_distribution=t.get("teacher_distribution"),
-                    teacher_action=t.get("teacher_action"),
-                )
-
-            # Phase 37: Record episode end for bridge anneal
+            # Rewards were finalized once by the shared reward pipeline.
+            # Do not relabel only PPO with additional post-hoc bonuses.
+            # Episode ends are either true terminals or time-limit truncations.
+            final = self._ppo_trajectory[-1] if self._ppo_trajectory else None
+            if final is not None and not final['done']:
+                final['done'] = True
+                final['truncated'] = not done
+                if done:
+                    final['next_value'] = 0.0
             if self._p37_llm_bridge is not None:
                 self._p37_llm_bridge.record_episode_end()
-
-            # Bootstrap value
-            last_value = 0.0
-            if self._ppo_trajectory and not self._ppo_trajectory[-1]["done"]:
-                last_value = self._ppo_trajectory[-1]["value"]
-
-            metrics = self.ppo_agent.update(last_value=last_value)
+            metrics = self._flush_ppo_trajectory(finalize=True)
             if metrics:
                 logger.info(
                     f"[PPO][{self.agent_name}] Update #{self.ppo_agent.updates_done}: "
@@ -8121,11 +7989,11 @@ class SmartCoach:
             # ── R70: Store episode in Self-Imitation Learning buffer ──
             # Algorithm Harmony: Pass macro labels for macro-conditioned SIL.
             # Enables golden segment capture per-macro, not just per-episode.
-            if hasattr(self.ppo_agent, 'store_sil_episode') and self._ppo_trajectory:
-                _sil_states = [t["state"] for t in self._ppo_trajectory]
-                _sil_actions = [t["action"] for t in self._ppo_trajectory]
-                _sil_rewards = [t["reward"] for t in self._ppo_trajectory]
-                _sil_macros = [t.get("macro") for t in self._ppo_trajectory]
+            if hasattr(self.ppo_agent, 'store_sil_episode') and getattr(self, '_ppo_episode_history', []):
+                _sil_states = [t["state"] for t in getattr(self, '_ppo_episode_history', [])]
+                _sil_actions = [t["action"] for t in getattr(self, '_ppo_episode_history', [])]
+                _sil_rewards = [t["reward"] for t in getattr(self, '_ppo_episode_history', [])]
+                _sil_macros = [t.get("macro") for t in getattr(self, '_ppo_episode_history', [])]
                 # Only pass macros if we actually tracked them (DDQN was active)
                 _has_macros = any(m is not None for m in _sil_macros)
                 _sil_added = self.ppo_agent.store_sil_episode(
@@ -8144,11 +8012,11 @@ class SmartCoach:
             return None
         finally:
             # Phase 8.0: Save episode attack chain to cross-episode memory
-            total_ep_reward = sum(t.get("reward", 0) for t in self._ppo_trajectory)
+            total_ep_reward = sum(t.get("reward", 0) for t in getattr(self, '_ppo_episode_history', []))
             # LS-10: build the postmortem transcript BEFORE the trajectory is cleared
             _ep_transcript = "\n".join(
                 f"[{t.get('_r69_template', '?')}] r={t.get('reward', 0):.1f}"
-                for t in (self._ppo_trajectory or [])[-20:]
+                for t in getattr(self, '_ppo_episode_history', [])[-20:]
             )
             self._save_episode_chain(total_ep_reward, highest_phase)
             self._reset_episode_chain()
@@ -8165,7 +8033,7 @@ class SmartCoach:
                             "highest_phase": highest_phase or "RECON",
                             "steps": len(self._ppo_trajectory),
                             "unique_actions": len(set(
-                                t.get("action", 0) for t in self._ppo_trajectory
+                                t.get("action", 0) for t in getattr(self, '_ppo_episode_history', [])
                             )) if self._ppo_trajectory else 0,
                         },
                     )
@@ -8174,7 +8042,7 @@ class SmartCoach:
             
             # Phase 8.1: Log learning progress for hypothesis-test-learn cycle
             if self._ppo_trajectory:
-                _unique = len(set(t.get("action", 0) for t in self._ppo_trajectory))
+                _unique = len(set(t.get("action", 0) for t in getattr(self, '_ppo_episode_history', [])))
                 _total = len(self._ppo_trajectory)
                 logger.debug(
                     f"[LEARN] {self.agent_name}: {_unique}/{_total} unique PPO actions, "
@@ -8208,6 +8076,7 @@ class SmartCoach:
                 except Exception as e:
                     logger.debug(f"[P15] Consolidation run failed: {e}")
 
+            self._ppo_episode_history = []
             self._ppo_trajectory.clear()
             self._ppo_pending = None
             
@@ -8305,6 +8174,10 @@ class SmartCoach:
             mentor_response = self.smart_mentor.get_command(ctx, filtered_commands)  # type: ignore[union-attr]
             provider_used = str(getattr(self.gpt_manager, "mentor_backend", "local") or "local")
             tokens_used = getattr(mentor_response, 'tokens_used', 0)
+            if getattr(mentor_response, 'is_fallback', False):
+                self._mentor_ledger.record_rejection('local_fallback')
+                return self._decide_from_registry(step_ctx, proposed_action, confidence)
+
             
             # VALIDATE: Reject offline placeholders masquerading as commands
             from core.gpt_manager import GPTManager as _GPTMgr
@@ -8447,6 +8320,8 @@ class SmartCoach:
         new_discoveries: Optional[Dict[str, Any]] = None,
         done: bool = False,
         shared_discoveries: Optional[Set[str]] = None,
+        next_state=None,
+        truncated: bool = False,
     ) -> RewardBreakdown:
         """
         Record the result of a command execution and calculate reward.
@@ -8464,6 +8339,34 @@ class SmartCoach:
         if not self.attack_context:
             self.attack_context = AttackContext(target="unknown")
         
+        import torch
+        from core.training.executed_transition import ExecutedTransition
+        identity = getattr(decision, '_execution_id', (self.current_episode, len(self.decisions)))
+        if getattr(decision, '_outcome_recorded', False):
+            raise ValueError('The same decision outcome cannot be recorded twice')
+        decision._outcome_recorded = True
+        sample = getattr(decision, '_ppo_sample', None)
+        if sample is not None and sample.get('command') != decision.command:
+            sample = None
+        self._ppo_pending = sample
+        before = getattr(decision, '_execution_observation', None)
+        if sample is not None:
+            before = sample['state'].detach().cpu().clone()
+        if before is None:
+            before = self._encode_execution_state(step=identity[1])
+        after = (next_state.detach().cpu().clone() if isinstance(next_state, torch.Tensor)
+                 else self._encode_execution_state(next_state, identity[1] + 1))
+        executed_action = self.action_mapper.command_to_action(decision.template_name) if self.action_mapper else -1
+        # An altered command with a stale template is not a mapped execution.
+        if decision.source in ('anti_repeat', 'privesc_escalation'):
+            executed_action = -1
+        if decision.template_name:
+            self.step_used_commands.add(decision.template_name)
+            self.episode_used_commands.add(decision.template_name)
+            self.command_repeat_count[decision.template_name] = self.command_repeat_count.get(decision.template_name, 0) + 1
+        if self.attack_context is not None:
+            self.attack_context.command_history.append(decision.command)
+
         # Calculate smart reward
         breakdown = self.reward_calculator.calculate_reward(
             template_name=decision.template_name,
@@ -8521,6 +8424,17 @@ class SmartCoach:
         # The unified step scalar every learner sees; used for all outcome
         # bookkeeping below so trackers and learners agree.
         _step_scalar = _unified_reward.total if _unified_reward is not None else breakdown.total
+        transition = ExecutedTransition(
+            role=self.agent_name, episode=identity[0], step=identity[1],
+            state=before, next_state=after, action=int(executed_action),
+            command=decision.command, template=decision.template_name,
+            reward=float(_step_scalar), terminated=bool(done and not truncated),
+            truncated=bool(truncated), source=decision.source, policy_sample=sample)
+        self.last_executed_transition = transition
+        if sample is None and self._ppo_trajectory:
+            # A rejected/on-policy gap ends GAE recursion; bootstrap its actual next state.
+            self._ppo_trajectory[-1]['done'] = True
+            self._ppo_trajectory[-1]['truncated'] = True
         _produced_discovery = bool(new_discoveries)
         _mentor_won_step = decision.source == "mentor"
         _tt_pending = getattr(self, "_pending_teacher_trace", None)
@@ -8532,6 +8446,7 @@ class SmartCoach:
                     actual_reward=_step_scalar,
                     produced_discovery=_produced_discovery,
                     mentor_won=_mentor_won_step,
+                    actual_success=success,
                 )
                 _bc_factor = 1.0  # legacy: weight == mentor confidence
                 try:
@@ -8827,14 +8742,14 @@ class SmartCoach:
         if dagger_buf is not None:
             try:
                 _mentor_suggestion = getattr(decision, '_mentor_suggestion', None)
-                if _mentor_suggestion and decision.source == "mentor":
+                if _tt_pending is not None and _tt_pending.teacher_action_idx >= 0 and _mentor_won_step:
                     dagger_buf.store(
                         state_hash=getattr(self, '_current_state_hash', ''),
-                        state_vector=[0.0] * 10,
-                        mentor_action_idx=0,
+                        state_vector=before.detach().cpu().flatten().tolist(),
+                        mentor_action_idx=_tt_pending.teacher_action_idx,
                         mentor_command=decision.command[:200] if decision.command else "",
-                        policy_action_idx=0,
-                        policy_command="",
+                        policy_action_idx=_tt_pending.student_action_idx,
+                        policy_command=_tt_pending.student_command,
                         mentor_confidence=0.8,
                         phase=str(decision.phase),
                         episode=getattr(self, 'current_episode', 0),
@@ -8933,7 +8848,12 @@ class SmartCoach:
                 "log_prob": self._ppo_pending["log_prob"],
                 "value": self._ppo_pending["value"],
                 "reward": ppo_reward,
-                "done": done,
+                "done": done or truncated,
+                "truncated": truncated,
+                "episode_id": identity[0], "step_id": identity[1],
+                "behavior_context": self._ppo_pending.get('behavior_context'),
+                "next_value": self._bootstrap_value(after, done and not truncated,
+                                                       self._ppo_pending.get('behavior_context')),
                 # R69 HTR metadata (not consumed by PPO directly)
                 "_r69_discoveries": _r69_disc_types,
                 "_r69_template": decision.template_name or "",
@@ -9002,50 +8922,12 @@ class SmartCoach:
         # ─── C03: SAC off-policy transition storage + update ────────
         # SAC is off-policy: store ALL transitions (regardless of who won)
         # and update every step for maximum sample efficiency.
-        if self._sac_pending is not None and self.sac_agent is not None:
-            try:
-                import torch as _t_sac
-                from core.models.state_encoder import encode_state as _enc_sac
-                # Encode next state from current attack context
-                # Note: record_result() doesn't have step_ctx, so we use
-                # self.attack_context and trajectory length for step number.
-                _sac_next_state_dict = {
-                    "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
-                    "phase": (
-                        self.attack_context.current_phase.name
-                        if self.attack_context else "RECON"
-                    ),
-                }
-                _sac_step_num = len(self._ppo_trajectory) if self._ppo_trajectory else 1
-                _sac_next_st = _enc_sac(
-                    _sac_next_state_dict, _t_sac.device("cpu"),
-                    current_step=_sac_step_num + 1,
-                    max_steps=500,
-                )
-                # STRUCTURAL REWRITE: Unified reward for all learners
-                _sac_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
+        if self.sac_agent is not None and transition.action >= 0:
+            self.sac_agent.store_transition(transition.state, transition.action,
+                transition.reward, transition.next_state, transition.terminated)
+            self.sac_agent.update()
+        self._sac_pending = None
 
-                self.sac_agent.store_transition(
-                    state=self._sac_pending["state"],
-                    action=self._sac_pending["action"],
-                    reward=_sac_reward,
-                    next_state=_sac_next_st,
-                    done=done,
-                )
-                # Off-policy update every step
-                _sac_metrics = self.sac_agent.update()
-                if _sac_metrics and _sac_metrics.get("critic_loss", 0) > 0:
-                    logger.debug(
-                        f"[SAC][{self.agent_name}] Update #{self.sac_agent._update_count}: "
-                        f"π={_sac_metrics.get('actor_loss', 0):.4f} "
-                        f"Q={_sac_metrics.get('critic_loss', 0):.4f} "
-                        f"α={_sac_metrics.get('alpha', 0):.4f} "
-                        f"H={_sac_metrics.get('entropy', 0):.4f}"
-                    )
-            except Exception as e:
-                logger.debug(f"[SAC][{self.agent_name}] Transition failed: {e}")
-            self._sac_pending = None
-        
         # ─── PHASE 9.0: Store DDQN macro transition ────────────────
         if self._ddqn_pending is not None and self.ddqn_macro is not None:
             try:
@@ -9121,22 +9003,9 @@ class SmartCoach:
         
         # ─── C04: CognitionNode observe — re-enabled with bug fixes ───
         if self.cognition_node is not None and self._cognition_result is not None:
-            try:
-                import torch as _cog_t
-                from core.models.state_encoder import encode_state as _cog_enc
-                _cog_next = _cog_enc(
-                    {"state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
-                     "phase": self.attack_context.current_phase.name if self.attack_context else "RECON"},
-                    _cog_t.device("cpu"),
-                    current_step=len(self._ppo_trajectory) if self._ppo_trajectory else 1,
-                    max_steps=500,
-                )
-                _cog_reward = _unified_reward.total if _unified_reward is not None else breakdown.total
-                self.cognition_node.observe(
-                    self._cognition_result, _cog_reward, _cog_next, done,
-                )
-            except Exception as e:
-                logger.debug(f"[COGNITION][{self.agent_name}] Observe failed: {e}")
+            if self._cognition_result.action_idx == transition.action:
+                self.cognition_node.observe(self._cognition_result, transition.reward,
+                    transition.next_state, done, update_learners=False)
         self._cognition_result = None
         
         # ─── PHASE 8: Tick persona cooldowns ───
@@ -9150,44 +9019,18 @@ class SmartCoach:
         # Mirrors all transitions to the unified 3-tier memory so PPO, SAC,
         # DDQN, and CognitionNode can sample from a shared replay buffer.
         hm = self._get_hybrid_memory()
-        if hm is not None:
-            try:
-                import torch as _hm_torch
-                _, _, _, encode_state = _lazy_ppo()
-                if encode_state is not None:
-                    _hm_state_dict = {
-                        "state_flags": dict(self.attack_context.state_flags) if self.attack_context else {},
-                    }
-                    _hm_state = encode_state(_hm_state_dict, _hm_torch.device("cpu"))
-                    _hm_state_np = _hm_state.detach().cpu().numpy().flatten()
+        if hm is not None and transition.action >= 0:
+            hm.store_transition(state=transition.state.detach().cpu().numpy().flatten(),
+                action=transition.action, reward=transition.reward,
+                next_state=transition.next_state.detach().cpu().numpy().flatten(),
+                done=done or truncated,
+                metadata={'agent_id': transition.role, 'episode': transition.episode,
+                          'step': transition.step, 'source': transition.source,
+                          'command': transition.command, 'template': transition.template},
+                priority=abs(transition.reward) + 0.01)
 
-                    # Action index: use PPO action if available, else hash command
-                    _hm_action = 0
-                    if self._ppo_trajectory and self._ppo_trajectory[-1].get("action") is not None:
-                        _hm_action = int(self._ppo_trajectory[-1]["action"])
-                    elif decision.command:
-                        _hm_action = hash(decision.command) % 256
-
-                    hm.store_transition(
-                        state=_hm_state_np,
-                        action=_hm_action,
-                        reward=_unified_reward.total if _unified_reward is not None else breakdown.total,
-                        next_state=_hm_state_np,  # Current state (next will overwrite on next step)
-                        done=done,
-                        metadata={
-                            "agent_id": self.agent_name,
-                            "source": decision.source or "unknown",
-                            "command": decision.command or "",
-                            "template": decision.template_name or "",
-                            "phase": (self.attack_context.current_phase.name
-                                      if self.attack_context and self.attack_context.current_phase
-                                      else "RECON"),
-                        },
-                        priority=abs(_unified_reward.total if _unified_reward is not None else breakdown.total) + 0.01,
-                    )
-            except Exception as e:
-                logger.debug(f"[HYBRID_MEM][{self.agent_name}] store failed: {e}")
-        
+        if self.ppo_agent is not None and len(self._ppo_trajectory) >= self.ppo_agent.config.rollout_size:
+            self._last_periodic_ppo_metrics = self._flush_ppo_trajectory()
         return breakdown
     
     # =====================================================================
@@ -9254,6 +9097,7 @@ class SmartCoach:
 
     def reset_episode(self, episode: int):
         """Reset for new episode."""
+        self._ppo_episode_history = []
         self.current_episode = episode
         self.mentor_policy.reset_episode(episode)
         self.reward_calculator.reset()
