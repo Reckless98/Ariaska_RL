@@ -1,0 +1,233 @@
+[
+  {
+    "pr": 6,
+    "comment": 4303041685,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303041685",
+    "classification": "Confirmed and fixed",
+    "evidence": "Publish discovery claims after outcome recording; preparation restores payment state on failure. Partial learner commits fail closed."
+  },
+  {
+    "pr": 6,
+    "comment": 4303041691,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303041691",
+    "classification": "Not applicable in final stack",
+    "evidence": "PR #10 makes configured max_steps a hard cap; dynamic episode logic cannot extend it. RND progress uses that cap."
+  },
+  {
+    "pr": 6,
+    "comment": 4303041696,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303041696",
+    "classification": "Confirmed and fixed",
+    "evidence": "Only deduped discoveries reset stagnation and enter recent-discovery metrics."
+  },
+  {
+    "pr": 6,
+    "comment": 4303041698,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303041698",
+    "classification": "Confirmed and fixed",
+    "evidence": "Standalone run_episode initializes IntegrityCheck and executes its runtime check; regression spies on the real check."
+  },
+  {
+    "pr": 6,
+    "comment": 4303068812,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303068812",
+    "classification": "Confirmed and fixed",
+    "evidence": "Simulator outcome travels independently of [SIM] display; actual legacy recording is exercised."
+  },
+  {
+    "pr": 6,
+    "comment": 4303068813,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/6#discussion_r4303068813",
+    "classification": "Already fixed elsewhere",
+    "evidence": "PR #11 stores the served model in cache records. Existing cache regression verifies no extra charge and correct model."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083091,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083091",
+    "classification": "Confirmed and fixed",
+    "evidence": "Reject a non-final nonterminal boundary without its own next_value; final boundary can use explicit last_value."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083096,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083096",
+    "classification": "Confirmed and fixed",
+    "evidence": "Rescale the last accumulation group by its actual minibatch count. Compare full gradient vectors for accumulation 1 versus 2."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083101,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083101",
+    "classification": "Already fixed in production path",
+    "evidence": "PRs #8/#12 bind deep-copied behavior context to each SmartDecisionResult. Legacy direct PPO callers must copy last_selection_context before another selection; delayed direct-call storage remains a documented API constraint."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083105,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083105",
+    "classification": "Confirmed and fixed",
+    "evidence": "Independent masked/biased/prior-conditioned Categorical oracle with deliberately distinct phase gates, across all five roles and three heads."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083110,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083110",
+    "classification": "Confirmed and fixed",
+    "evidence": "Assert the actual present teacher distribution and absent-entry zero padding, beyond shape/mask assertions."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083116,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083116",
+    "classification": "Confirmed and fixed",
+    "evidence": "Spy on evaluate_actions to prove singleton minibatch processing; additional gradient test checks full-strength updates."
+  },
+  {
+    "pr": 7,
+    "comment": 4303083120,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303083120",
+    "classification": "Confirmed and fixed",
+    "evidence": "Refresh critic spectral-normalization power iteration after optimizer steps while leaving action likelihood evaluation deterministic."
+  },
+  {
+    "pr": 7,
+    "comment": 4303110954,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/7#discussion_r4303110954",
+    "classification": "Confirmed and fixed",
+    "evidence": "Swap the complete rollout object; preserve all context/boundary fields and restore in finally, including failure cleanup."
+  },
+  {
+    "pr": 8,
+    "comment": 4303107672,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/8#discussion_r4303107672",
+    "classification": "Confirmed and fixed",
+    "evidence": "Retry preparation failures after restoring reward/pipeline/discovery state. Mark success only at the end; reject retries after partial learner commits."
+  },
+  {
+    "pr": 8,
+    "comment": 4303132660,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/8#discussion_r4303132660",
+    "classification": "Confirmed and fixed",
+    "evidence": "HybridMemory steps/unique_actions and learning log read preserved episode history, including the guard."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123237,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123237",
+    "classification": "Confirmed and fixed",
+    "evidence": "SAC weights_only=True; unified loader also restricted. Harmless pickle-global regression proves rejection without execution."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123241,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123241",
+    "classification": "Confirmed and fixed",
+    "evidence": "Deep-copy DDQN state before installation. Real DDQN parameters survive a later-role load failure."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123247,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123247",
+    "classification": "Confirmed and fixed",
+    "evidence": "Persist/restore full SACConfig and fixed alpha; validate topology and auto-alpha compatibility before loading."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123254,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123254",
+    "classification": "Confirmed and fixed; hardware unverified",
+    "evidence": "Capture per-device CUDA RNG; validate device count and restore CPU generator tensors. Mocked device tests pass; no physical CUDA host used."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123255,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123255",
+    "classification": "Confirmed and fixed",
+    "evidence": "Do not write first-role PPO/SAC compatibility aliases into multi-role v3 files. Explicit single-policy saves remain supported."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123258,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123258",
+    "classification": "Confirmed and fixed",
+    "evidence": "Fsync the containing directory after atomic replace on platforms with O_DIRECTORY."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123265,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123265",
+    "classification": "Known limitation",
+    "evidence": "Capture/restore require quiescent training. Production orchestrator updates and checkpoints synchronously; concurrent in-process trainers/captures are unsupported. No shared-lock protocol is claimed."
+  },
+  {
+    "pr": 9,
+    "comment": 4303123269,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303123269",
+    "classification": "Known limitation",
+    "evidence": "RNG restoration is process-global. Restore at startup/quiescence with no other RNG consumers, or pass restore_rng=False. Separate training jobs need separate processes."
+  },
+  {
+    "pr": 9,
+    "comment": 4303141194,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303141194",
+    "classification": "Confirmed and fixed",
+    "evidence": "Restore role-keyed DDQN independently of refusing an ambiguous v2 PPO broadcast. Production autoload regression covers the mixed v2 file."
+  },
+  {
+    "pr": 9,
+    "comment": 4303141199,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/9#discussion_r4303141199",
+    "classification": "Confirmed and fixed; hardware unverified",
+    "evidence": "Duplicate CUDA RNG concern; same implementation and mocked-device evidence as comment 4303123254."
+  },
+  {
+    "pr": 10,
+    "comment": 4303152116,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/10#discussion_r4303152116",
+    "classification": "Confirmed and fixed",
+    "evidence": "Read TTF milestone dictionaries from ttf_by_type rather than nonexistent top-level keys."
+  },
+  {
+    "pr": 10,
+    "comment": 4303172649,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/10#discussion_r4303172649",
+    "classification": "Confirmed and fixed",
+    "evidence": "Aggregate captured flags/values and highest phase across all episodes; regression puts successes in earlier episodes."
+  },
+  {
+    "pr": 11,
+    "comment": 4303186810,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/11#discussion_r4303186810",
+    "classification": "Confirmed and fixed",
+    "evidence": "Standalone Cognition demonstrations enter dedicated SILBuffer, never fresh PPO rollouts. SmartCoach-owned mode stays disabled to avoid duplicate ownership."
+  },
+  {
+    "pr": 11,
+    "comment": 4303186813,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/11#discussion_r4303186813",
+    "classification": "Known limitation with mitigation",
+    "evidence": "Four non-cooperative provider threads can exhaust capacity. Transport deadlines are forwarded; capacity fails closed, fallback mentorship is rejected, and operators must restart the isolated worker process if SDK I/O never returns. No unbounded thread replacement or hard thread cancellation. Also repaired capacity leakage if executor creation fails."
+  },
+  {
+    "pr": 12,
+    "comment": 4303228963,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/12#discussion_r4303228963",
+    "classification": "Confirmed and fixed",
+    "evidence": "Clear DDQN pending/active/Q/confidence state and restore the last executed macro. Every role then records a deterministic outcome without DDQN replay writes."
+  },
+  {
+    "pr": 13,
+    "comment": 4303279751,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/13#discussion_r4303279751",
+    "classification": "Confirmed and fixed",
+    "evidence": "Reject any nonempty output directory, including lone CSVs; exclusive ownership marker closes the simultaneous-start race."
+  },
+  {
+    "pr": 13,
+    "comment": 4303279753,
+    "url": "https://github.com/Reckless98/Ariaska_RL/pull/13#discussion_r4303279753",
+    "classification": "Confirmed and fixed",
+    "evidence": "Hash all 556 source/config/test/dependency inputs present in the experiment, record aggregate digest, installed packages, feature flags, thread/determinism settings and protocol. Both independent runs have identical metrics and CSV bytes."
+  }
+]

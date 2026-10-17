@@ -1,0 +1,73 @@
+{
+  "code_commit": "47da407a20d4951707a2eafc8933ece3e0ace7e3",
+  "suite": {
+    "passed": 3285,
+    "failed": 5,
+    "skipped": 10,
+    "errors": 0,
+    "console_seconds": 46.4,
+    "guard_blocked_attempts": 16,
+    "external_attempts_executed": 0
+  },
+  "failures": [
+    "tests.test_cli_behavior.TestCLIBehavior::test_default_fails_fast_without_key",
+    "tests.test_cli_behavior.TestCLIBehavior::test_offline_mode_succeeds_without_key",
+    "tests.test_cli_behavior.TestCLIBehavior::test_no_require_llm_graceful_degrade",
+    "tests.test_phase101_acceptance.TestEndToEndSubsystems::test_tool_registry_smoke",
+    "tests.test_phase101_tools.TestBootstrapReport::test_bootstrap_dry_run"
+  ],
+  "skips": [
+    {
+      "test": "tests.test_multiagent_training_smoke::test_offline_multiagent_smoke",
+      "reason": "Virtual environment not found. Run 'make venv' first."
+    },
+    {
+      "test": "tests.test_online_makes_mentor_calls::test_online_makes_mentor_calls",
+      "reason": "OPENAI_API_KEY not set"
+    },
+    {
+      "test": "tests.test_online_makes_mentor_calls::test_mentor_calls_logged_correctly",
+      "reason": "OPENAI_API_KEY not set"
+    },
+    {
+      "test": "tests.test_online_makes_mentor_calls::test_offline_flag_documented",
+      "reason": "Virtual environment not found. Run 'make venv' first."
+    },
+    {
+      "test": "tests.test_online_requires_key::test_online_without_key_fails",
+      "reason": "Virtual environment not found. Run 'make venv' first."
+    },
+    {
+      "test": "tests.test_online_requires_key::test_offline_without_key_succeeds",
+      "reason": "Virtual environment not found. Run 'make venv' first."
+    },
+    {
+      "test": "tests.test_online_requires_key::test_no_require_llm_flag_exists",
+      "reason": "Virtual environment not found. Run 'make venv' first."
+    },
+    {
+      "test": "tests.test_optuna_wiring.TestHyperparamSweepClass::test_run_with_mock_train_fn",
+      "reason": "could not import 'optuna': No module named 'optuna'"
+    },
+    {
+      "test": "tests.test_phase14_hypothesis.TestHypothesisEngineWiring::test_hypothesis_status_transitions",
+      "reason": "No hypotheses generated for ssh"
+    },
+    {
+      "test": "tests.training.coach.test_learning_signal_contract.TestMentorOutcomeLedgerEndToEnd::test_mentor_intervention_is_measured",
+      "reason": "mentor gate did not open in this configuration (budget/phase gate)"
+    }
+  ],
+  "new_regressions_passed": 46,
+  "focused": {
+    "before_fix_failures": 14,
+    "integrated_passed": 203,
+    "restricted_legacy_and_checkpoint_passed": 50
+  },
+  "independent_ci": {
+    "check_runs": 0,
+    "statuses": 0,
+    "workflows_present": false
+  },
+  "physical_cuda_tested": false
+}

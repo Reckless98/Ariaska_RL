@@ -1,0 +1,20 @@
+{
+  "training_curve.csv": {
+    "identical": true,
+    "sha256": "5bd5075b33a2bd39f0adb2c50dd185d7c8e3c942a572b1f3d215e792b41bd180"
+  },
+  "heldout_results.csv": {
+    "identical": true,
+    "sha256": "7142b976e0ea00856229058e1bb54a411835fc5dbadc29cf2ac83afd9738d8ec"
+  },
+  "metrics.json": {
+    "identical": true,
+    "sha256": "70d002f1c411e8cfdd27b8c5da49e9be787725168f9b817d3440072565645c6e"
+  },
+  "seeds": [
+    11,
+    22,
+    33
+  ],
+  "evaluation_code_commit": "878586cffa2354cec4c843ba344309e4ce786845"
+}
