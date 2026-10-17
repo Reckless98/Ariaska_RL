@@ -337,6 +337,8 @@ class GPTManager:
         self.cache = {}
         self.cache_lock = threading.RLock()
         self._request_context = threading.local()
+        self._provider_executor = None
+        self._provider_slots = threading.BoundedSemaphore(4)
         
         # Learning storage for agent feedback
         self.learning_feedback = {}
@@ -967,6 +969,31 @@ class GPTManager:
         """Metadata for this caller thread's last request, never another caller's."""
         return dict(getattr(self._request_context, "record", {}))
 
+    def _account_late_response(self, future, agent_id, task_type, episode_id):
+        """Account for a cooperative provider that completes after caller timeout."""
+        if future.cancelled():
+            return
+        try:
+            response = future.result()
+            tokens = int(getattr(response, 'total_tokens', 0) or 0)
+            cost = float(getattr(response, 'cost_usd', 0) or 0)
+            model = str(getattr(response, 'model', 'unknown'))
+        except Exception:
+            return
+        with self.cache_lock:
+            self.stats['total_requests'] += 1
+            self.stats['tokens_used_total'] += tokens
+            self.tokens_by_model[model] = self.tokens_by_model.get(model, 0) + tokens
+            self.requests_by_model[model] = self.requests_by_model.get(model, 0) + 1
+            self.cost_by_model[model] = self.cost_by_model.get(model, 0) + cost
+            self._cumulative_cost_usd += cost
+            if self.current_episode_id == episode_id:
+                self.tokens_used += tokens
+                self._episode_cost_usd += cost
+            self._call_log.append(dict(agent_id=agent_id, task_type=task_type,
+                episode_id=episode_id, model=model, tokens=tokens, cost_usd=cost,
+                completed_after_timeout=True, cache_hit=False, timestamp=time.time()))
+
     def _create_cache_key(self, prompt: str, task_type: str, agent_id: str, **options) -> str:
         content = json.dumps([task_type, agent_id, prompt, options], sort_keys=True, default=str)
         return hashlib.sha256(content.encode()).hexdigest()
@@ -1094,7 +1121,7 @@ class GPTManager:
                 # Phase 23: Record cache hit in call log
                 _cache_record = {
                     "timestamp": time.time(),
-                    "model": model,
+                    "model": self.cache[cache_key].get("model", model),
                     "agent_id": agent_id,
                     "task_type": task_type,
                     "prompt_snippet": prompt[:80].replace("\n", " ").strip(),
@@ -1229,15 +1256,28 @@ class GPTManager:
             elif _use_local and _request_timeout > 180.0:
                 _request_timeout = 180.0  # Local: cap for CPU inference
             try:
-                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                future = executor.submit(make_gpt_request)
+                if not self._provider_slots.acquire(blocking=False):
+                    self._request_context.record = dict(error='provider_capacity_exhausted', tokens=0)
+                    return self._get_offline_placeholder(task_type)
+                with self.cache_lock:
+                    if self._provider_executor is None:
+                        self._provider_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+                try:
+                    future = self._provider_executor.submit(make_gpt_request)
+                except BaseException:
+                    self._provider_slots.release()
+                    raise
+                _request_episode = self.current_episode_id
+                future.add_done_callback(lambda _future: self._provider_slots.release())
                 try:
                     response = future.result(timeout=_request_timeout)
-                    executor.shutdown(wait=False)
                 except concurrent.futures.TimeoutError:
                     logger.warning(f"LLM request timed out after {_request_timeout}s for {agent_id}")
+                    self._request_context.record = dict(error='provider_timeout', tokens=0,
+                                                         accounting_pending=not future.done())
+                    future.add_done_callback(lambda completed: self._account_late_response(
+                        completed, agent_id, task_type, _request_episode))
                     future.cancel()
-                    executor.shutdown(wait=False, cancel_futures=True)
                     # Return immediate fallback command based on task type
                     fallback_commands = {
                         "tactical": "nmap -sV 10.10.10.10",
@@ -1249,8 +1289,7 @@ class GPTManager:
                     }
                     return fallback_commands.get(task_type, "echo 'LLM timeout'")
             except Exception as e:
-                if "executor" in locals():
-                    executor.shutdown(wait=False, cancel_futures=True)
+                self._request_context.record = dict(error="provider_exception", tokens=0)
                 logger.warning(f"LLM request failed: {e}")
                 # Immediate fallback for any errors
                 fallback_commands = {
@@ -1349,6 +1388,7 @@ class GPTManager:
                         return content
                     self.cache[cache_key] = {
                         "response": content,
+                        "model": _track_model,
                         "timestamp": time.time(),
                         "agent_id": agent_id,
                         "task_type": task_type
@@ -1682,6 +1722,9 @@ class GPTManager:
     def cleanup(self):
         """Clean shutdown - save cache and stats"""
         self._save_cache()
+        if self._provider_executor is not None:
+            self._provider_executor.shutdown(wait=False, cancel_futures=True)
+            self._provider_executor = None
         logger.info("GPTManager cleaned up successfully")
 
 # Singleton instance

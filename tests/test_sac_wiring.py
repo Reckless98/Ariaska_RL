@@ -140,7 +140,7 @@ class TestSACTransitionStorage:
             confidence=0.7,
             source="ppo",
         )
-        coach.record_result(
+        _record_bound_result(coach,
             decision=decision,
             success=True,
             raw_output="80/tcp open http",
@@ -173,7 +173,7 @@ class TestSACTransitionStorage:
             template_name="nmap_version",
             confidence=0.7, source="ppo",
         )
-        coach.record_result(
+        _record_bound_result(coach,
             decision=decision, success=True, raw_output="", done=False,
         )
         assert coach._sac_pending is None
@@ -201,7 +201,7 @@ class TestSACTransitionStorage:
             confidence=0.7, source="ppo",
         )
         # Should not crash
-        coach.record_result(
+        _record_bound_result(coach,
             decision=decision, success=True, raw_output="", done=False,
         )
 
@@ -306,7 +306,7 @@ class TestSACPacketIntegration:
                 template_name="nmap_version",
                 confidence=0.7, source="ppo",
             )
-            coach.record_result(
+            _record_bound_result(coach,
                 decision=decision, success=True, raw_output="", done=False,
             )
             assert coach._sac_pending is None
@@ -347,7 +347,7 @@ class TestSACPacketIntegration:
             template_name="nmap_version",
             confidence=0.7, source="ppo",
         )
-        coach.record_result(
+        _record_bound_result(coach,
             decision=decision, success=True, raw_output="", done=False,
         )
         # Decision source should still be "ppo", not "sac"
@@ -389,3 +389,28 @@ class TestSACAgentUnit:
         assert stats["algorithm"] == "SAC"
         assert "alpha" in stats
         assert "buffer_size" in stats
+
+
+def _record_bound_result(coach, decision, **kwargs):
+    """Bind a real role-valid policy sample; stale advisory slots are not outcomes."""
+    import torch
+    pending = coach._ppo_pending or {}
+    state = pending.get('state', torch.zeros(512))
+    action = int(pending.get('action', 0))
+    mapped = coach._decision_for_action(action, coach.attack_context, 'ppo')
+    decision.command = mapped.command
+    decision.template_name = mapped.template_name
+    decision.params = mapped.params
+    mask = torch.zeros(coach.action_mapper.action_dim, dtype=torch.bool)
+    mask[action] = True
+    selected, log_prob, value = coach.ppo_agent.select_action(state, action_mask=mask, phase_group=0)
+    decision._ppo_sample = dict(state=state, action=selected, log_prob=log_prob,
+        value=value, command=decision.command, template_name=decision.template_name,
+        behavior_context=coach.ppo_agent.last_selection_context)
+    packet = getattr(coach, '_current_decision_packet', None)
+    decision._execution_id = (getattr(packet, 'episode', 0), getattr(packet, 'step', len(coach._ppo_trajectory)))
+    result = coach.record_result(decision=decision, **kwargs)
+    assert coach.last_executed_transition.action == selected
+    if coach.sac_agent is not None:
+        assert coach.sac_agent.replay_buffer.buffer[-1][1] == selected
+    return result

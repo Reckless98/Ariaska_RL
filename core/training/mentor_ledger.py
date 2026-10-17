@@ -69,6 +69,7 @@ class MentorLedger:
     won: int = 0
     lost: int = 0
     correct_when_won: int = 0
+    correct_outcomes_measured: int = 0
     finalized_traces: int = 0
     bc_samples_stored: int = 0
     ppo_pairing_restored: int = 0
@@ -100,6 +101,7 @@ class MentorLedger:
         phase: str = "",
         trace: Any = None,
         bc_stored: bool = False,
+        actual_success: Optional[bool] = None,
     ) -> None:
         """Record the executed step's outcome.
 
@@ -115,6 +117,8 @@ class MentorLedger:
                 if mentor_won:
                     self.won += 1
                     self.episode_won += 1
+                    if getattr(trace, "teacher_was_correct", None) is not None:
+                        self.correct_outcomes_measured += 1
                     if getattr(trace, "teacher_was_correct", None):
                         self.correct_when_won += 1
                 else:
@@ -122,8 +126,9 @@ class MentorLedger:
         elif mentor_won:
             self.won += 1
             self.episode_won += 1
-            if produced_discovery or reward > 0:
-                self.correct_when_won += 1
+            if actual_success is not None:
+                self.correct_outcomes_measured += 1
+                self.correct_when_won += int(actual_success)
         if bc_stored:
             self.bc_samples_stored += 1
         bucket = self.mentor_steps if mentor_won else self.policy_steps
@@ -150,7 +155,7 @@ class MentorLedger:
 
     @property
     def correct_rate(self) -> float:
-        return self.correct_when_won / self.won if self.won else 0.0
+        return self.correct_when_won / self.correct_outcomes_measured if self.correct_outcomes_measured else 0.0
 
     def reward_delta(self, phase: str = "ALL") -> Optional[float]:
         """mean(mentor-won reward) - mean(policy reward) for a phase; None if no data."""
@@ -173,6 +178,7 @@ class MentorLedger:
             "lost": self.lost,
             "win_rate": round(self.win_rate, 4),
             "correct_when_won": self.correct_when_won,
+            "correct_outcomes_measured": self.correct_outcomes_measured,
             "correct_rate": round(self.correct_rate, 4),
             "finalized_traces": self.finalized_traces,
             "bc_samples_stored": self.bc_samples_stored,

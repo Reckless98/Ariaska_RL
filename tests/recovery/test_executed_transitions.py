@@ -90,3 +90,38 @@ def test_teacher_unknown_mapping_and_success_are_not_fabricated():
     assert t.teacher_was_correct is False
     t.finalize_outcome(-100,False,False,actual_success=True)
     assert t.teacher_was_correct is None
+
+
+@pytest.mark.parametrize('answer',['accepted','unknown','fallback'])
+def test_mock_mentor_student_snapshot_phase_and_bc_lifecycle(coach,monkeypatch,answer):
+    from types import SimpleNamespace
+    from core.llm.smart_mentor import MentorResponse
+    from core.decision.decision_core import DecisionCore
+    c=coach;ctx=c.attack_context
+    original=c._decision_for_action(0,ctx,'mentor')
+    response=MentorResponse(command=original.command,
+        template_name=original.template_name if answer!='unknown' else 'unmapped-fixture',
+        params=original.params,reasoning='in-memory teacher',confidence=.9,phase=ctx.current_phase,
+        is_fallback=answer=='fallback')
+    c.smart_mentor=SimpleNamespace(get_command=lambda *a,**k:response)
+    monkeypatch.setattr(c.gpt_manager,'is_offline',lambda:False)
+    c._maturity_controller=SimpleNamespace(should_call_mentor=lambda *_:True,state=SimpleNamespace(maturity=0))
+    c._decision_core=DecisionCore(source_weights={'mentor':2,'ppo':.01,'registry':.01})
+    step=SmartStepContext(0,0,c.agent_name,ctx,{'available_action_indices':[0,1]})
+    before=len(c._p14_bc_buffer)
+    d=c.decide(step,force_mentor=True)
+    trace=c._pending_teacher_trace
+    if answer=='fallback':
+        assert trace is None and c._mentor_ledger.rejected_by_reason['local_fallback']==1
+    else:
+        assert trace is not None
+        assert trace.phase==ctx.current_phase.name
+        assert trace.student_action_idx>=0
+        assert trace.student_template==c.action_mapper.action_to_name(trace.student_action_idx)
+        assert len(c._p14_bc_buffer)==before
+        if answer=='accepted':assert d.source=='mentor'
+        else:assert trace.teacher_action_idx==-1
+    c.record_result(d,False,'synthetic failure',environment_reward=1,next_state=torch.ones(512))
+    assert len(c._p14_bc_buffer)==before+(answer=='accepted')
+    if answer=='accepted':assert trace.teacher_was_correct is False
+    assert c._pending_teacher_trace is None

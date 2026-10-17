@@ -1526,11 +1526,16 @@ class SmartOrchestrator:
                                           target, difficulty, platform)
         except BaseException as exc:
             self._last_episode_error = type(exc).__name__
-            for coach in self.coaches.values():
-                coach.end_episode_ppo(done=False)
+            cleanup_errors = []
+            for role, coach in self.coaches.items():
+                try:
+                    coach.end_episode_ppo(done=False)
+                except Exception as cleanup_error:
+                    cleanup_errors.append({'role': role, 'error_type': type(cleanup_error).__name__})
             self._last_interruption_checkpoint = self.save_unified_checkpoint(
                 run_id=(getattr(self, 'run_id', None) or 'local') + '_interrupted', episode=episode_number,
-                metadata={'interrupted': True, 'error_type': type(exc).__name__})
+                metadata={'interrupted': True, 'error_type': type(exc).__name__,
+                          'cleanup_errors': cleanup_errors})
             raise
 
     def _run_episode_impl(  # pyright: ignore[reportGeneralClassIssues]
@@ -3557,7 +3562,7 @@ class SmartOrchestrator:
                         metrics[f"ppo_{coach_name}_value_loss"] = ppo_metrics.get("value_loss", 0.0)
                         metrics[f"ppo_{coach_name}_entropy"] = ppo_metrics.get("entropy", 0.0)
                 except Exception as e:
-                    logger.warning(f"PPO update error for {coach_name}: {e}")
+                    raise RuntimeError(f"PPO learning finalization failed for {coach_name}") from e
 
         # Aggregate PPO metrics
         metrics["ppo_updates_fired"] = ppo_updates_fired
