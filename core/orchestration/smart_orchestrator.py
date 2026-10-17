@@ -5011,7 +5011,7 @@ class SmartOrchestrator:
             # ── SIM MODE: Generate simulated output per agent ───────
             for result in agent_results:
                 sim_output = self._generate_simulated_output(result.decision.command)
-                result.decision.command_output = sim_output
+                result.decision.command_output = str(sim_output)
                 result.sim_success = getattr(sim_output, "success", None)
         
         # Parse outputs for discoveries

@@ -782,7 +782,7 @@ def _generate_simulated_output(
 
 class SimulatedOutput(str):
     """String-compatible display output carrying the simulator's outcome."""
-    def __new__(cls, output: str, success: bool):
+    def __new__(cls, output: str, success: bool = True):
         result = super().__new__(cls, output)
         result.success = success
         return result

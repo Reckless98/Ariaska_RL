@@ -368,3 +368,11 @@ def test_restricted_loader_preserves_pre_hardening_bc_and_ledger_pickles(tmp_pat
     assert restored.policy_steps['RECON'].count==0  # known factory reconstructed
     restored.record_outcome('ppo',3,False,actual_success=True)
     assert restored.policy_steps['ALL'].count==2
+
+
+@pytest.mark.parametrize('success',[False,True])
+def test_simulator_display_value_remains_deepcopy_compatible(success):
+    from core.orchestration.simulated_output import SimulatedOutput
+    value=SimulatedOutput('[SIM] synthetic display',success)
+    cloned=copy.deepcopy(value)
+    assert cloned==value and cloned.success is success
