@@ -87,6 +87,7 @@ class SmartOrchestratorConfig:
     
     # Execution — HTB Capability Upgrade: 60 steps (was 40) for deeper kill chains
     max_steps_per_episode: int = 60
+    checkpoint_dir: str = "models/unified"
 
     # Phase 38.3: Dynamic episode length
     dynamic_episode_length: bool = True
@@ -1517,7 +1518,22 @@ class SmartOrchestrator:
         
         return self.attack_context
     
-    def run_episode(  # pyright: ignore[reportGeneralClassIssues]
+    def run_episode(self, episode_id, episode_number, max_steps=None,
+                    target=None, difficulty=None, platform=None):
+        """Finalize partial learner trajectories if an episode is interrupted."""
+        try:
+            return self._run_episode_impl(episode_id, episode_number, max_steps,
+                                          target, difficulty, platform)
+        except BaseException as exc:
+            self._last_episode_error = type(exc).__name__
+            for coach in self.coaches.values():
+                coach.end_episode_ppo(done=False)
+            self._last_interruption_checkpoint = self.save_unified_checkpoint(
+                run_id=(getattr(self, 'run_id', None) or 'local') + '_interrupted', episode=episode_number,
+                metadata={'interrupted': True, 'error_type': type(exc).__name__})
+            raise
+
+    def _run_episode_impl(  # pyright: ignore[reportGeneralClassIssues]
         self,
         episode_id: str,
         episode_number: int,
@@ -1540,7 +1556,11 @@ class SmartOrchestrator:
         Returns:
             Episode metrics with detailed reward breakdown
         """
-        max_steps = max_steps or self.config.max_steps_per_episode
+        max_steps = self.config.max_steps_per_episode if max_steps is None else max_steps
+        if max_steps < 1:
+            raise ValueError('max_steps must be positive')
+        for coach in self.coaches.values():
+            coach._episode_max_steps = max_steps
         self._episode_max_steps = max_steps
         self.current_episode = episode_number
         # Phase 9.5: Track episode_id for parse cache keying
@@ -2006,7 +2026,7 @@ class SmartOrchestrator:
         self._dyn_recent_discoveries: List[int] = []  # step indices of recent discoveries
         _dyn_regress_start: int = -1  # step when regression detected
 
-        for step in range(self.config.dynamic_max_steps if self.config.dynamic_episode_length else max_steps):
+        for step in range(max_steps):
             # Dynamic episode length: check termination conditions
             if self.config.dynamic_episode_length and step >= self.config.dynamic_min_steps:
                 # Count discoveries in last 10 steps
@@ -3524,7 +3544,9 @@ class SmartOrchestrator:
             if hasattr(coach, 'end_episode_ppo'):
                 try:
                     ppo_metrics = coach.end_episode_ppo(
-                        done=done, highest_phase=highest_phase
+                        done=(getattr(self, "_native_episode_terminated", done)
+                              if callable(getattr(self.env, "step_agents", None)) else done),
+                        highest_phase=highest_phase
                     )
                     if ppo_metrics:
                         ppo_updates_fired += 1
@@ -3630,10 +3652,10 @@ class SmartOrchestrator:
         ttf = self._ensure_ttf_tracker()
         if ttf is not None:
             try:
-                ttf_metrics = ttf.get_metrics()
+                ttf_metrics = ttf.episode_summary()
                 logger.debug(
                     "TTF episode summary: port=%s service=%s shell=%s",
-                    ttf_metrics.ttf_port, ttf_metrics.ttf_service, ttf_metrics.ttf_shell,
+                    ttf_metrics.get("ttf_port"), ttf_metrics.get("ttf_service"), ttf_metrics.get("ttf_shell"),
                 )
                 ttf.reset()
             except Exception as e:
@@ -4372,7 +4394,7 @@ class SmartOrchestrator:
                 metadata=metadata or {},
             )
             tag = f"ariaska_{ckpt.run_id}_ep{episode:04d}"
-            path = UNIFIED_DIR / f"{tag}.pt"
+            path = Path(self.config.checkpoint_dir) / f"{tag}.pt"
             return ckpt.save(path)
         except Exception as e:
             logger.warning("Failed to save unified checkpoint: %s", e)
@@ -4403,6 +4425,47 @@ class SmartOrchestrator:
                     lines.append(f"          output: {snippet}")
         return "\n".join(lines)
     
+    def _run_multi_agent_environment_step(self, episode_id, step, state):
+        """Drive existing coaches/arbitration using environment-native action IDs.
+
+        A step_agents environment executes opaque role-specific IDs and returns
+        per-role authoritative success/reward/next observation/terminal flags.
+        No command text is executed by this adapter.
+        """
+        results = []; actions = {}
+        for role, coach in self.coaches.items():
+            observation = state.get('agents', {}).get(role, state)
+            ctx = SmartStepContext(self.current_episode, step, role,
+                                   self.attack_context, observation)
+            decision = coach.decide(ctx)
+            action = coach.action_mapper.command_to_action(decision.template_name)
+            if decision.source in ('anti_repeat', 'privesc_escalation'):
+                action = -1
+            actions[role] = action
+            results.append(SmartStepResult(agent_name=role, decision=decision))
+        observation, outcomes = self.env.step_agents(actions)
+        terminal = all(bool(outcomes[r].get('terminated', False)) for r in actions)
+        boundary = all(bool(outcomes[r].get('terminated', False) or
+                            outcomes[r].get('truncated', False)) for r in actions)
+        total = 0.0
+        for result in results:
+            role = result.agent_name; outcome = dict(outcomes[role])
+            if step + 1 >= self._episode_max_steps and not outcome.get('terminated', False):
+                outcome['truncated'] = True
+            coach = self.coaches[role]
+            result.decision.command_output = str(outcome.get('output', 'synthetic observation'))
+            result.reward_breakdown = coach.record_result(
+                result.decision, bool(outcome['success']), result.decision.command_output,
+                new_discoveries=outcome.get('discoveries', {}),
+                done=bool(outcome.get('terminated', False)),
+                truncated=bool(outcome.get('truncated', False)),
+                next_state=observation.get('agents', {}).get(role, observation),
+                environment_reward=float(outcome['reward']))
+            self._record_action(role, result.decision.command)
+            total += result.reward_breakdown.total
+        self._native_episode_terminated = terminal
+        return results, total, observation, boundary
+
     def _run_step(
         self,
         episode_id: str,
@@ -4417,6 +4480,11 @@ class SmartOrchestrator:
         Returns:
             (agent_results, reward, new_state, done)
         """
+        if callable(getattr(self.env, 'step_agents', None)):
+            if self._is_live_mode:
+                raise ValueError('Native research environments must be offline')
+            return self._run_multi_agent_environment_step(episode_id, step, state)
+
         agent_results: List[SmartStepResult] = []
         
         # Build step context
@@ -4757,17 +4825,6 @@ class SmartOrchestrator:
             # Track this command as used for deduplication
             step_used_commands.add(decision.template_name)
             step_used_commands.add(decision.command[:50])  # Also track command prefix
-            
-            # Track action for stuck detection
-            self._record_action(agent_name, decision.command)
-            
-            # CRITICAL: Add command to attack_context.command_history IMMEDIATELY
-            # This enables the anti-repeat guard in SmartCoach to work properly
-            if ctx and decision.command:
-                ctx.command_history.append(decision.command)
-                # Keep history bounded
-                if len(ctx.command_history) > 100:
-                    ctx.command_history = ctx.command_history[-100:]
             
             # Create result
             # Phase 50: Sync DecisionPacket with final decision
@@ -5755,8 +5812,10 @@ class SmartOrchestrator:
                     new_discoveries=deduped_discoveries,
                     done=done,  # True termination from the environment
                     next_state=new_state,
+                    truncated=(not done and step + 1 >= self._episode_max_steps),
                     shared_discoveries=self._episode_rewarded_discoveries,  # Separate claim and payment ledgers
                 )
+                self._record_action(result.agent_name, result.decision.command)
                 result.reward_breakdown = breakdown
                 # Accumulate smart rewards from all agents
                 if breakdown:
@@ -8104,27 +8163,16 @@ class SmartOrchestrator:
         difficulty: str = "normal",
         platform: str = "unknown",
     ) -> Dict[str, Any]:
-        """
-        Run continuous penetration test against a live target.
-        
-        Phase 24: Episodes removed — runs as a single continuous engagement
-        with auto-termination on user+root flag capture. The `episodes` param
-        is retained for backwards compat but defaults to 1 internally.
-        Steps are the only loop with a high safety limit (default 500).
-        
-        Args:
-            episodes: Ignored for live targets (always 1 continuous run)
-            target_ip: Target IP address
-            difficulty: Target difficulty (default: normal = zero restrictions)
-            platform: Target platform (linux, windows, unknown)
-            
-        Returns:
-            Training results with metrics
+        """Run the requested bounded episodes; save each completed episode.
+
+        CLI callers wanting one engagement should explicitly request episodes=1.
+        Exceptions and interrupts propagate after run_episode saves partial state.
         """
         import uuid
         
         # Phase 24: Force single continuous episode for live targets
-        episodes = 1
+        if episodes < 1:
+            raise ValueError("episodes must be positive")
         
         self.run_id = f"smart_{uuid.uuid4().hex[:8]}"
         self.total_episodes = episodes
@@ -8147,7 +8195,7 @@ class SmartOrchestrator:
         target = target_ip or self.config.default_target
         
         # Post-Phase 20: Simplified env tag — always "live"
-        _env_tag = "live"
+        _env_tag = "live" if self._is_live_mode else "sim"
         
         # R66: JSONL RunLogger
         try:
@@ -8170,7 +8218,7 @@ class SmartOrchestrator:
         if self.rnd_curiosity:
             self.rnd_curiosity.set_target_mode(_env_tag)
         
-        logger.info(f"Starting smart training: continuous run, max_steps={self.config.max_steps_per_episode}, target={target}")
+        logger.info(f"Starting smart training: {episodes} episodes, max_steps={self.config.max_steps_per_episode}, target={target}")
         self._r66_env_tag = _env_tag
         
         # Phase 8: Start DecisionLogger run
@@ -8209,13 +8257,13 @@ class SmartOrchestrator:
             }
             self.dashboard.print_training_start(
                 config={
-                    "mode": "continuous",
-                    "episodes": "Continuous",
+                    "mode": "training",
+                    "episodes": episodes,
                     "steps_per_episode": self.config.max_steps_per_episode,
-                    "env": "live",  # Post-Phase 20: always live
+                    "env": _env_tag,
                     "target": str(target),
-                    "difficulty": "normal",  # Post-Phase 20: always unrestricted
-                    "live": True,  # Post-Phase 20: always live
+                    "difficulty": difficulty,
+                    "live": self._is_live_mode,
                     "mentor_budget": int(self.config.mentor_budget_pct * 100)
                         if hasattr(self.config, 'mentor_budget_pct') else 30,
                     # Local LLM model visibility
@@ -8256,27 +8304,22 @@ class SmartOrchestrator:
                 )
             # If not passed, check_boot raises RuntimeError
         
-        # Phase 24: Single continuous run — no episode loop
-        episode_id = f"{self.run_id}_ep0000"
-        
-        logger.info(f"[DIAG] Starting continuous engagement against {target}")
-        metrics = self.run_episode(
-            episode_id=episode_id,
-            episode_number=0,
-            target=target,
-            difficulty=difficulty,
-            platform=platform,
-        )
-        logger.info(f"[DIAG] Engagement complete, reward={metrics.get('total_reward', 0):.1f}")
-        
-        all_metrics.append(metrics)
-        episode_rewards.append(metrics["total_reward"])
-        phase_progressions.append(metrics.get("phase_progression", ["RECON"]))
-        
-        # Update skill library size in dashboard
-        if self.skill_library:
-            self.dashboard.set_skill_library_size(len(self.skill_library))
-        
+        for episode_number in range(episodes):
+            episode_id = f'{self.run_id}_ep{episode_number:04d}'
+            metrics = self.run_episode(episode_id=episode_id, episode_number=episode_number,
+                max_steps=self.config.max_steps_per_episode, target=target,
+                difficulty=difficulty, platform=platform)
+            all_metrics.append(metrics)
+            episode_rewards.append(metrics['total_reward'])
+            phase_progressions.append(metrics.get('phase_progression', ['RECON']))
+            checkpoint = self.save_unified_checkpoint(run_id=self.run_id,
+                episode=episode_number, metadata={'episodes_completed': len(all_metrics),
+                                                  'total_steps': sum(m.get('total_steps', 0) for m in all_metrics)})
+            if checkpoint is None:
+                raise RuntimeError('Training checkpoint could not be saved')
+            if self.skill_library:
+                self.dashboard.set_skill_library_size(len(self.skill_library))
+
         # Compute final metrics
         total_time = time.time() - self.start_time
         
@@ -8287,8 +8330,8 @@ class SmartOrchestrator:
         _root_flag_val = metrics.get("root_flag_value", "")
         
         final_metrics = {
-            "total_reward": episode_rewards[0] if episode_rewards else 0.0,
-            "total_steps": metrics.get("total_steps", 0),
+            "total_reward": sum(episode_rewards),
+            "total_steps": sum(m.get("total_steps", 0) for m in all_metrics),
             "highest_phase": metrics.get("highest_phase", "RECON"),
             "skill_library_size": len(self.skill_library) if self.skill_library else 0,
             "user_flag_captured": _user_flag,
@@ -8301,7 +8344,7 @@ class SmartOrchestrator:
         # Print final run summary
         self.dashboard.print_run_summary(
             run_id=self.run_id,
-            total_episodes=1,
+            total_episodes=len(all_metrics),
             total_time=total_time,
             final_metrics=final_metrics,
         )
@@ -8319,17 +8362,18 @@ class SmartOrchestrator:
         # NOTE: CLI reads result["episode_metrics"] for summary display.
         return {
             "session_id": self.run_id,
-            "episodes_completed": 1,
+            "episodes_completed": len(all_metrics),
             "total_training_time": total_time,
-            "final_score": episode_rewards[0] if episode_rewards else 0.0,
+            "final_score": sum(episode_rewards),
             "user_flag_captured": _user_flag,
             "root_flag_captured": _root_flag,
             "user_flag_value": _user_flag_val,
             "root_flag_value": _root_flag_val,
-            "episode_metrics": metrics,  # Full episode metrics for CLI summary
+            "episode_metrics": metrics,
+            "checkpoint": checkpoint,  # Full episode metrics for CLI summary
             "final_metrics": {
-                "total_reward": episode_rewards[0] if episode_rewards else 0.0,
-                "total_steps": metrics.get("total_steps", 0),
+                "total_reward": sum(episode_rewards),
+                "total_steps": sum(m.get("total_steps", 0) for m in all_metrics),
                 "highest_phase": phase_progressions[0][-1] if phase_progressions and phase_progressions[0] else "RECON",
             },
             "all_episode_metrics": all_metrics,
