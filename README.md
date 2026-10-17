@@ -816,7 +816,7 @@ GROQ_API_KEY | OPENROUTER_API_KEY | TOGETHER_API_KEY | ARIASKA_CLOUD_API_KEY + A
 
 **Measuring mentorship.** Every accepted mentor answer becomes a `TeacherTrace` that is finalized in `SmartCoach.record_result` with the executed step's outcome (`actual_reward`, `produced_discovery`, `mentor_won`, `teacher_was_correct`) *before* it enters the `BCBuffer`. A per-agent `MentorLedger` (`core/training/mentor_ledger.py`) counts proposals, rejections by reason, wins/losses, correctness when the mentor's command was executed, and the reward gap between mentor-won and policy steps per phase — exposed via `SmartCoach.get_stats()["mentor_ledger"]`. `FF_MENTOR_OUTCOME_WEIGHTING` (default OFF) halves the behavioral-cloning weight of mentor-won demonstrations that produced neither reward nor discovery.
 
-> **Known limitation.** In the current production path `SmartCoach._init_smart_mentor` only builds a `SmartMentor` when `GPTManager` exposes an OpenAI-style client, which the gateway no longer does; until `SmartMentor` is constructed over `GPTManager.gpt_request`, the mentor advisory and the ledger remain inert at runtime (the seam is wired and tested). See `docs/architecture_refactor_phase1.md`.
+> **Wiring.** `SmartCoach._init_smart_mentor` builds the `SmartMentor` over `GPTManager.gpt_request` through `core/llm/gateway_chat_client.py` whenever a `local`, `cloud` or `hybrid` backend is resolved. Mentor-free runs (`none`) and the deterministic test fake construct no mentor, so nothing changes for them. See `docs/architecture_refactor_phase1.md`.
 
 ---
 
@@ -1420,7 +1420,7 @@ Full report: [`docs/architecture_refactor_phase1.md`](docs/architecture_refactor
 
 **Verified results (offline, deterministic):** 67 new tests (66 pass, 1 skip); focused validation of gateway, mentor, coach, PPO wiring, lifecycle and checkpoint suites: **1,036 passed, 2 skipped**; 3,150 tests collected. Baseline before changes: 3,018 / 3,083 passed with every failure traced to a missing optional package in the fresh environment.
 
-**Not done / deferred:** `SmartMentor` construction over the gateway; live cloud test (needs a workspace-scoped Anthropic key or `ANTHROPIC_WORKSPACE_ID`); reader-reported findings on duplicate learner writes, penalty ordering, buffer padding and checkpoint persistence (documented, unverified).
+**Not done / deferred:** live cloud test (needs a workspace-scoped Anthropic key or `ANTHROPIC_WORKSPACE_ID`); reader-reported findings on duplicate learner writes, penalty ordering, buffer padding and checkpoint persistence (documented, unverified).
 
 ---
 

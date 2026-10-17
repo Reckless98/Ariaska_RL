@@ -1015,7 +1015,25 @@ class SmartCoach:
                 )
                 logger.debug(f"SmartMentor initialized with sync client for {self.agent_name}")
             else:
-                logger.debug(f"No LLM client available, SmartMentor disabled")
+                # R1.1: build the mentor over GPTManager.gpt_request (invariant #1)
+                # whenever a real mentor backend is resolved. Mentor-free ("none")
+                # and the deterministic FakeGPTManager ("fake") construct no mentor,
+                # so those configurations behave exactly as before.
+                _backend = str(getattr(self.gpt_manager, "mentor_backend", "none") or "none")
+                _configured = getattr(self.gpt_manager, "is_configured", lambda: False)()
+                if _backend in ("local", "cloud", "hybrid") and _configured:
+                    from core.llm.gateway_chat_client import GatewayChatClient
+                    self.smart_mentor = SmartMentor(
+                        llm_client=GatewayChatClient(self.gpt_manager, agent_id=self.agent_name),
+                        learned_store=self.learned_store,
+                        model=self.model,
+                    )
+                    logger.info(
+                        f"SmartMentor initialized over GPTManager gateway for {self.agent_name} "
+                        f"(backend={_backend})"
+                    )
+                else:
+                    logger.debug(f"No mentor backend resolved ({_backend}); SmartMentor disabled")
         except Exception as e:
             logger.warning(f"Failed to init SmartMentor: {e}")
 
