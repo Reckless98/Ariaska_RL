@@ -849,9 +849,13 @@ class CognitionNode:
 
         # Pick best transition from buffer
         best = max(self._sil_buffer, key=lambda x: x["reward"])
-        # Historical demonstrations are proposals. PPO's dedicated SIL loss
-        # handles replay; old log probabilities never enter an on-policy rollout.
-        return best if best['state'] is not None else None
+        # Historical demonstrations enter only the dedicated SIL loss.
+        # Never inject their old likelihoods into the on-policy rollout.
+        if best['state'] is None:
+            return None
+        stored = self.ppo.sil_buffer.add_episode(
+            [best['state']], [best['action']], [best['reward']], gamma=self.ppo.config.gamma)
+        return best if stored else None
 
     # ─────────────────────────────────────────────────────────────────────
     # Private: gate training

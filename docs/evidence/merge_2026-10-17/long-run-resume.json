@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "seed": 11,
+      "roles_restored": 5,
+      "updates_after_resume": {
+        "ScoutAgent": 41,
+        "RedAgent": 41,
+        "BlueAgent": 41,
+        "OrionAgent": 41,
+        "ShadowAgent": 41
+      },
+      "provider_requests": 0
+    },
+    {
+      "seed": 22,
+      "roles_restored": 5,
+      "updates_after_resume": {
+        "ScoutAgent": 41,
+        "RedAgent": 41,
+        "BlueAgent": 41,
+        "OrionAgent": 41,
+        "ShadowAgent": 41
+      },
+      "provider_requests": 0
+    },
+    {
+      "seed": 33,
+      "roles_restored": 5,
+      "updates_after_resume": {
+        "ScoutAgent": 41,
+        "RedAgent": 41,
+        "BlueAgent": 41,
+        "OrionAgent": 41,
+        "ShadowAgent": 41
+      },
+      "provider_requests": 0
+    }
+  ],
+  "guard_blocked": 0
+}

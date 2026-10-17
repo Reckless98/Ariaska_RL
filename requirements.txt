@@ -6,7 +6,10 @@
 # -----------------------------------------------------------------------------
 # Core ML / RL
 # -----------------------------------------------------------------------------
-torch>=2.0.0
+# Restricted checkpoint loading requires safe_globals and the weights-only fix:
+# https://github.com/pytorch/pytorch/security/advisories/GHSA-63cw-57p8-fm3p
+torch>=2.10.0
+packaging>=23.0
 numpy>=2.0.0
 scipy>=1.12.0
 scikit-learn>=1.4.0

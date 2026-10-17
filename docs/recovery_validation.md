@@ -1,8 +1,7 @@
 # Recovery validation — 17 October 2026
 
-This document supersedes historical architecture/audit claims where they conflict.
-The recovery branches are proposals, not merged master. Review PRs #6 through #13
-in dependency order; the owner retains merge approval.
+This document records the initial recovery evidence and supersedes earlier architecture claims where they conflict.
+The [controlled merge validation](controlled_merge_validation.md) records the latest test coverage and merge disposition for PRs #6 through #14. The [integration hardening report](integration_merge_readiness.md) retains all 33 original review dispositions and the newer repeated-seed learning evidence. Consult GitHub for each PR's actual merge state.
 
 **Status: PARTIAL research readiness.** The bounded native offline MDP path is
 verified through all five independent PPO policies, execution attribution,
@@ -53,8 +52,8 @@ PYTHONPATH=. .venv-recovery/bin/python -m pytest -p core.testing.offline_guard t
 .venv-recovery/bin/python scripts/evaluate_recovery.py --output /tmp/ariaska-new-experiment --seeds 11 22 33 --episodes 40 --horizon 8 --evaluation-episodes 128
 ```
 
-The evaluation output directory must be new; existing experiment checkpoints are
-not overwritten. The evaluation script imports the network/process guard before
+The evaluation output directory must be empty; all existing artifacts are preserved.
+An exclusive marker reserves it for one evaluator. The evaluation script imports the network/process guard before
 application code, uses temporary stores and never executes command strings.
 `ARIASKA_DRY_RUN=1` resolves the existing DETERMINISTIC feature profile, disabling
 LLM features. Exact flags and source hashes are recorded in the evidence.
@@ -71,9 +70,10 @@ Its [result](evidence/recovery_2026-10-17/mentor_free_no_sdk.json) confirms that
 mentor-free execution does not require those LLM libraries. It still needs the
 ordinary application/RL dependencies.
 
-The guard intentionally blocks child processes and tool availability probes.
-Five existing tests consequently fail under this command; do not interpret a
-zero subprocess count as validation of those subprocess/CLI paths.
+The guard blocks general child processes and tool probes. The later controlled
+merge validation adds a bounded guarded Python CLI harness and deterministic
+tool-availability mocks. The five failures reported below are historical results,
+not the current suite status.
 
 ## Full-suite result
 
@@ -162,10 +162,13 @@ Raw evidence: [configuration/results](evidence/recovery_2026-10-17/metrics.json)
 
 `UnifiedCheckpoint.from_coaches(...).save(new_path)` captures independent role
 policies, optimizers, SAC replay/entropy optimizer, available DDQN state, BC/SIL/
-rollout metadata and CPU Python/NumPy/torch RNG state. `load(...).apply_coaches(...)`
+rollout metadata and Python/NumPy/torch CPU plus per-device CUDA RNG state. `load(...).apply_coaches(...)`
 validates all roles and action maps before installing, and rolls back a failed
 installation. Atomic same-directory replacement protects an existing file if
-serialization fails. Existing single-policy formats can be imported explicitly
+serialization fails; supported platforms also sync the containing directory. SAC and
+unified loading are restricted, with no arbitrary-pickle fallback; see the
+[compatibility boundary](integration_merge_readiness.md#compatibility-and-operational-boundaries).
+Capture/apply require quiescent training. Existing single-policy formats can be imported explicitly
 into a compatible role; they are not broadcast during automatic loading.
 
 `run_training(episodes=N)` honors N, saves completed episodes to configured
@@ -174,17 +177,19 @@ valid partial transitions and writes a separately named checkpoint tagged as
 interrupted. Failures are not reported as successful learning.
 
 This is learning-state persistence, **not an exact external-environment snapshot**.
-Campaign/global auxiliary state, every adaptive controller, GPU RNG and live
-sessions are not comprehensively restored. Resume into a fresh bounded episode
+Campaign/global auxiliary state, every adaptive controller and live sessions are
+not comprehensively restored. CUDA RNG capture/restore is implemented and mocked;
+physical GPU resume is unverified. Resume into a fresh bounded episode
 unless the environment owner independently restores its state. The separate
 legacy global five-action PPO and some advanced controllers still require an
 integration study; they are not the five verified role policies.
 
 ## Remaining work
 
-1. Investigate role-dependent learning failure, especially Orion, with feature-
-   identical inference and controlled schedule/auxiliary ablations. Preserve this
-   fixed-budget baseline; do not tune until it becomes a passing assertion.
+1. Investigate role-dependent variance and robustness with feature-
+   identical inference and controlled schedule/auxiliary ablations. Preserve the
+   historical baseline and the newer three-seed 96.18% result in the integration
+   report; neither is a general learning guarantee.
 2. Measure default arbitration, including policy-selection bias from admitting
    only some PPO proposals. Its learning behavior is not proved by ratio identity.
 3. Specify complete experiment/environment/controller resume semantics. Role
@@ -192,8 +197,9 @@ integration study; they are not the five verified role policies.
 4. Establish end-to-end evidence for DAgger consumption, Reptile/meta controllers,
    reward-learning efficacy and other auxiliary paths. DAgger now collects real
    labels/states; it is not a demonstrated training consumer in this path.
-5. Test child-process CLI wiring in a separately isolated approved harness.
-   Tool probes remain blocked here; optional Optuna and online tests are not run.
+5. The CLI harness now executes the real bounded trainer with guards installed
+   before imports. Tool availability uses mocks; physical tools, optional Optuna
+   and live-provider behavior remain unverified.
 6. Provider threads are bounded, but a non-cooperative SDK cannot be forcibly
    stopped safely in a Python thread. Transport timeouts and backpressure remain
    necessary; no live provider behavior was measured.

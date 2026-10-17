@@ -159,3 +159,20 @@ def test_legacy_deterministic_override_keeps_pre_execution_observation(tmp_path,
         assert t.step==0 and not bool(t.state.flatten()[13])
         assert bool(t.next_state.flatten()[13])
         assert t.policy_sample is None
+
+
+def test_provider_executor_creation_failure_does_not_leak_capacity(gateway,monkeypatch):
+    import concurrent.futures
+    gm,p=gateway
+    def fail(*a,**kw):raise RuntimeError('executor unavailable')
+    monkeypatch.setattr(concurrent.futures,'ThreadPoolExecutor',fail)
+    for i in range(6):
+        gm.gpt_request(f'creation-failure-{i}',use_cache=False)
+        assert gm.get_request_record()['error']=='provider_exception'
+    acquired=0
+    try:
+        for _ in range(4):
+            assert gm._provider_slots.acquire(blocking=False)
+            acquired+=1
+    finally:
+        for _ in range(acquired):gm._provider_slots.release()

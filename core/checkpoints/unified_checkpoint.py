@@ -109,11 +109,11 @@ class UnifiedCheckpoint:
             "metadata": self.metadata,
         }
 
-        if self.ppo_state is not None:
+        if self.ppo_state is not None and not self.ppo_states:
             payload["ppo_state"] = self.ppo_state
         if self.ddqn_states:
             payload["ddqn_states"] = self.ddqn_states
-        if self.sac_state is not None:
+        if self.sac_state is not None and not self.sac_states:
             payload["sac_state"] = self.sac_state
         if self.agent_states:
             payload["agent_states"] = self.agent_states
@@ -132,6 +132,12 @@ class UnifiedCheckpoint:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, path)
+            if hasattr(os, 'O_DIRECTORY'):
+                directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         finally:
             if temporary and os.path.exists(temporary):
                 os.unlink(temporary)
@@ -151,7 +157,7 @@ class UnifiedCheckpoint:
 
     @classmethod
     def load(cls, path: str | Path) -> "UnifiedCheckpoint":
-        """Load from disk — handles unified v2 and ALL legacy formats.
+        """Load supported unified/legacy data with a fixed restricted allowlist.
 
         Raises:
             FileNotFoundError: If *path* doesn't exist.
@@ -163,7 +169,23 @@ class UnifiedCheckpoint:
         if not path.exists():
             raise FileNotFoundError(path)
 
-        data = torch.load(str(path), map_location="cpu", weights_only=False)
+        from core.checkpoints.safe_loading import require_safe_checkpoint_runtime
+        require_safe_checkpoint_runtime()
+
+        # Fixed, application-owned allowlist: never allow globals named by a file.
+        # Legacy snapshots contain these data containers and NumPy RNG arrays.
+        import numpy as np
+        from numpy._core.multiarray import _reconstruct, scalar
+        from core.algorithms.ppo_agent import PPOConfig, RolloutBuffer, SILBuffer
+        from core.reasoning.teacher_trace import BCBuffer, BCSample, TeacherTrace
+        from core.training.mentor_ledger import MentorLedger, _RewardStat
+        allowed = [PPOConfig, RolloutBuffer, SILBuffer, BCBuffer, BCSample, TeacherTrace,
+                   MentorLedger, _RewardStat, int, float,
+                   (_legacy_deque_data, 'collections.deque'),
+                   (_legacy_defaultdict_data, 'collections.defaultdict'),
+                   np.ndarray, np.dtype, type(np.dtype('uint32')), _reconstruct, scalar]
+        with torch.serialization.safe_globals(allowed):
+            data = torch.load(str(path), map_location="cpu", weights_only=True)
 
         # ── Unified format ────────────────────────────────────────────
         if isinstance(data, dict) and data.get("__unified_checkpoint__"):
@@ -396,7 +418,7 @@ class UnifiedCheckpoint:
             # DDQN — per-agent
             if hasattr(coach, "ddqn_macro") and coach.ddqn_macro is not None:
                 try:
-                    ddqn_states[name] = coach.ddqn_macro.state_dict()
+                    ddqn_states[name] = copy.deepcopy(coach.ddqn_macro.state_dict())
                 except Exception:
                     pass
 
@@ -409,7 +431,7 @@ class UnifiedCheckpoint:
             if agent is not None:
                 brain_state = _capture_agent_brain(agent)
                 if brain_state:
-                    agent_states[name] = brain_state
+                    agent_states[name] = copy.deepcopy(brain_state)
 
         return cls(
             run_id=run_id,
@@ -796,14 +818,32 @@ def _validate_optimizer(optimizer, state):
                 raise ValueError('Checkpoint optimizer moment shape mismatch: ' + key)
 
 
+def _legacy_deque_data(values=(), maxlen=None):
+    """Restricted legacy pickle adapter; BCBuffer restores its own bounded deque."""
+    return list(values)
+
+
+def _legacy_defaultdict_data(default_factory=None, values=None):
+    """Decode data only; MentorLedger restores its known local default factories."""
+    return dict(values or {})
+
+
 def _capture_rng():
     import random, numpy as np, torch
-    return dict(python=random.getstate(), numpy=np.random.get_state(), torch=torch.get_rng_state())
+    state = dict(python=random.getstate(), numpy=np.random.get_state(), torch=torch.get_rng_state())
+    if torch.cuda.is_available():
+        state['cuda'] = [value.cpu().clone() for value in torch.cuda.get_rng_state_all()]
+    return state
 
 
 def _restore_rng(state):
     import random, numpy as np, torch
-    random.setstate(state['python']); np.random.set_state(state['numpy']); torch.set_rng_state(state['torch'])
+    cuda = state.get('cuda')
+    if cuda is not None and (not torch.cuda.is_available() or len(cuda) != torch.cuda.device_count()):
+        raise ValueError('CUDA RNG restoration requires the saved device count')
+    random.setstate(state['python']); np.random.set_state(state['numpy']); torch.set_rng_state(state['torch'].cpu())
+    if cuda is not None:
+        torch.cuda.set_rng_state_all([value.cpu() for value in cuda])
 
 
 def _capture_resume(coach):

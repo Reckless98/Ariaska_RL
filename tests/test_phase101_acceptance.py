@@ -253,11 +253,20 @@ class TestEndToEndSubsystems:
         assert len(result.allowed) >= 1
         assert any(c.name == "test_none" for c in result.allowed)
 
-    def test_tool_registry_smoke(self):
+    @pytest.mark.parametrize('available', [False, True])
+    def test_tool_registry_smoke(self, monkeypatch, available):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
         from core.tools.tool_registry import get_tool_registry, reset_tool_registry
         reset_tool_registry()
         reg = get_tool_registry()
-        assert reg.is_available("nmap") or not reg.is_available("nmap")  # no crash
+        probe = Mock(return_value=SimpleNamespace(returncode=0 if available else 1))
+        monkeypatch.setattr('core.tools.tool_registry.subprocess.run', probe)
+        assert reg.is_available('nmap') is available
+        count = probe.call_count
+        assert count > 0
+        assert reg.is_available('nmap') is available and probe.call_count == count
+        assert not reg.is_available('unregistered-fixture') and probe.call_count == count
 
     def test_wordlist_engine_smoke(self):
         from core.tools.wordlist_engine import WordlistMutationEngine, MutationContext

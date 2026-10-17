@@ -1259,10 +1259,10 @@ class GPTManager:
                 if not self._provider_slots.acquire(blocking=False):
                     self._request_context.record = dict(error='provider_capacity_exhausted', tokens=0)
                     return self._get_offline_placeholder(task_type)
-                with self.cache_lock:
-                    if self._provider_executor is None:
-                        self._provider_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
                 try:
+                    with self.cache_lock:
+                        if self._provider_executor is None:
+                            self._provider_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
                     future = self._provider_executor.submit(make_gpt_request)
                 except BaseException:
                     self._provider_slots.release()

@@ -192,11 +192,13 @@ class BCBuffer:
         """Support deepcopy/pickle by excluding threading.Lock."""
         state = self.__dict__.copy()
         state.pop("_lock", None)
+        state["_samples"] = list(self._samples)
         return state
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
         """Restore from pickle/deepcopy with fresh lock."""
         self.__dict__.update(state)
+        self._samples = deque(self._samples, maxlen=self.capacity)
         self._lock = threading.Lock()
 
     def store(self, trace: TeacherTrace, decay_factor: float = 1.0) -> bool:

@@ -1521,6 +1521,9 @@ class SmartOrchestrator:
     def run_episode(self, episode_id, episode_number, max_steps=None,
                     target=None, difficulty=None, platform=None):
         """Finalize partial learner trajectories if an episode is interrupted."""
+        if self._integrity_check is None:
+            from core.decision.integrity_check import IntegrityCheck
+            self._integrity_check = IntegrityCheck()
         try:
             return self._run_episode_impl(episode_id, episode_number, max_steps,
                                           target, difficulty, platform)
@@ -3660,7 +3663,7 @@ class SmartOrchestrator:
                 ttf_metrics = ttf.episode_summary()
                 logger.debug(
                     "TTF episode summary: port=%s service=%s shell=%s",
-                    ttf_metrics.get("ttf_port"), ttf_metrics.get("ttf_service"), ttf_metrics.get("ttf_shell"),
+                    *(ttf_metrics.get("ttf_by_type", {}).get(k) for k in ("port", "service", "shell")),
                 )
                 ttf.reset()
             except Exception as e:
@@ -4329,9 +4332,9 @@ class SmartOrchestrator:
             except Exception as exc:
                 logger.warning('[AUTOLOAD] Role checkpoint rejected atomically: %s', exc)
                 return 0
-        elif ckpt.ppo_state:
-            logger.warning('[AUTOLOAD] Legacy single-policy state requires explicit compatible-role import; not broadcast')
         else:
+            if ckpt.ppo_state:
+                logger.warning('[AUTOLOAD] Legacy single-policy state requires explicit compatible-role import; not broadcast')
             for coach_name, coach in self.coaches.items():
                 if coach.ddqn_macro is not None and ckpt.apply_ddqn(coach.ddqn_macro, coach_name):
                     loaded_total += 1
@@ -5008,7 +5011,8 @@ class SmartOrchestrator:
             # ── SIM MODE: Generate simulated output per agent ───────
             for result in agent_results:
                 sim_output = self._generate_simulated_output(result.decision.command)
-                result.decision.command_output = sim_output
+                result.decision.command_output = str(sim_output)
+                result.sim_success = getattr(sim_output, "success", None)
         
         # Parse outputs for discoveries
         smart_reward_total = 0.0
@@ -5768,16 +5772,19 @@ class SmartOrchestrator:
                 "permission denied", "connection refused", "connection timed out",
                 "network is unreachable", "name or service not known",
             ])
-            sim_success = bool(
-                output_to_parse
-                and not output_to_parse.startswith("[SIM]")
-                and len(output_to_parse) > 20
-                and not _is_tool_failure
-            )
+            sim_success = getattr(result, "sim_success", None)
+            if sim_success is None:
+                sim_success = bool(
+                    output_to_parse
+                    and not output_to_parse.startswith("[SIM]")
+                    and len(output_to_parse) > 20
+                    and not _is_tool_failure
+                )
             
             # Phase 5.2 + R67: Cross-agent discovery deduplication
             # R67: Use SharedDiscoverySet for structured dedup with metrics
             deduped_discoveries = {}
+            _step_discovery_claims = []
             if agent_discoveries:
                 for disc_type, disc_values in agent_discoveries.items():
                     if isinstance(disc_values, list):
@@ -5787,11 +5794,11 @@ class SmartOrchestrator:
                             # R67: Try SharedDiscoverySet first, fall back to old set
                             _is_new = False
                             if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
-                                _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                                _is_new = not self.shared_discovery.is_known(key)
                             else:
                                 _is_new = key not in self._episode_shared_discoveries
-                            if _is_new:
-                                self._episode_shared_discoveries.add(key)
+                            if _is_new and key not in _step_discovery_claims:
+                                _step_discovery_claims.append(key)
                                 new_vals.append(v)
                         if new_vals:
                             deduped_discoveries[disc_type] = new_vals
@@ -5799,21 +5806,21 @@ class SmartOrchestrator:
                         key = f"{disc_type}:found"
                         _is_new = False
                         if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
-                            _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                            _is_new = not self.shared_discovery.is_known(key)
                         else:
                             _is_new = key not in self._episode_shared_discoveries
-                        if _is_new:
-                            self._episode_shared_discoveries.add(key)
+                        if _is_new and key not in _step_discovery_claims:
+                            _step_discovery_claims.append(key)
                             deduped_discoveries[disc_type] = disc_values
                     else:
                         key = f"{disc_type}:{disc_values}"
                         _is_new = False
                         if hasattr(self, 'shared_discovery') and self.shared_discovery is not None:
-                            _is_new = self.shared_discovery.claim(key, agent=result.agent_name)
+                            _is_new = not self.shared_discovery.is_known(key)
                         else:
                             _is_new = key not in self._episode_shared_discoveries
-                        if _is_new:
-                            self._episode_shared_discoveries.add(key)
+                        if _is_new and key not in _step_discovery_claims:
+                            _step_discovery_claims.append(key)
                             deduped_discoveries[disc_type] = disc_values
             
             # Record result with DEDUPED discoveries (for ALL agents, not just RedAgent)
@@ -5828,6 +5835,11 @@ class SmartOrchestrator:
                     truncated=(not done and step + 1 >= self._episode_max_steps),
                     shared_discoveries=self._episode_rewarded_discoveries,  # Separate claim and payment ledgers
                 )
+                # Publish claims only after outcome recording succeeds.
+                for key in _step_discovery_claims:
+                    self._episode_shared_discoveries.add(key)
+                    if getattr(self, 'shared_discovery', None) is not None:
+                        self.shared_discovery.claim(key, agent=result.agent_name)
                 self._record_action(result.agent_name, result.decision.command)
                 result.reward_breakdown = breakdown
                 # Accumulate smart rewards from all agents
@@ -5835,7 +5847,7 @@ class SmartOrchestrator:
                     smart_reward_total += breakdown.total
                 
                 # Phase 0.1: Update stagnation counter
-                if agent_discoveries:
+                if deduped_discoveries:
                     self._steps_without_discoveries[result.agent_name] = 0  # Reset on discovery
                     # Phase 38.3: Track discovery steps for dynamic episode length
                     self._dyn_recent_discoveries.append(step)
@@ -7733,91 +7745,77 @@ class SmartOrchestrator:
             else:
                 self.env.current_phase = "recon"
 
-            # Save and reset rollout buffer (Fix #2)
-            _saved_buffer_states = list(_ppo.buffer.states)
-            _saved_buffer_actions = list(_ppo.buffer.actions)
-            _saved_buffer_log_probs = list(_ppo.buffer.log_probs)
-            _saved_buffer_rewards = list(_ppo.buffer.rewards)
-            _saved_buffer_values = list(_ppo.buffer.values)
-            _saved_buffer_dones = list(_ppo.buffer.dones)
-            _saved_buffer_size = _ppo.buffer.size
-            _saved_buffer_teacher_dist = list(_ppo.buffer.teacher_distributions)
-            _saved_buffer_teacher_act = list(_ppo.buffer.teacher_actions)
-            _ppo.buffer.reset()
+            # Keep the entire outer rollout (including future metadata) untouched.
+            from core.algorithms.ppo_agent import RolloutBuffer
+            _saved_buffer = _ppo.buffer
+            _saved_context = copy.deepcopy(getattr(_ppo, 'last_selection_context', None))
+            _ppo.buffer = RolloutBuffer(_saved_buffer.capacity)
 
-            # Run K simulated steps collecting scenario-specific data
-            total_reward = 0.0
-            _phase_reward_map = {
-                "recon": 1.0, "enumeration": 2.5, "exploitation": 5.0,
-                "privilege_escalation": 8.0, "lateral_movement": 6.0,
-                "post_exploitation": 7.0, "exfiltration": 9.0,
-            }
-            _base_reward = _phase_reward_map.get(
-                self.env.current_phase, 1.0
-            ) * difficulty
-            import random as _rng
-            for _k in range(inner_steps):
-                state = self.env.get_global_state()
-                state_tensor = encode_state(state, _device)
+            try:
+                # Run K simulated steps collecting scenario-specific data
+                total_reward = 0.0
+                _phase_reward_map = {
+                    "recon": 1.0, "enumeration": 2.5, "exploitation": 5.0,
+                    "privilege_escalation": 8.0, "lateral_movement": 6.0,
+                    "post_exploitation": 7.0, "exfiltration": 9.0,
+                }
+                _base_reward = _phase_reward_map.get(
+                    self.env.current_phase, 1.0
+                ) * difficulty
+                import random as _rng
+                for _k in range(inner_steps):
+                    state = self.env.get_global_state()
+                    state_tensor = encode_state(state, _device)
 
-                # Get action mask from coach if available
-                action_mask = None
-                if _coach is not None and hasattr(_coach, '_get_action_mask'):
-                    try:
-                        action_mask = _coach._get_action_mask(state)
-                    except Exception:
-                        pass
+                    # Get action mask from coach if available
+                    action_mask = None
+                    if _coach is not None and hasattr(_coach, '_get_action_mask'):
+                        try:
+                            action_mask = _coach._get_action_mask(state)
+                        except Exception:
+                            pass
 
-                action_idx, log_prob, value = _ppo.select_action(
-                    state_tensor, training=True, action_mask=action_mask,
-                )
+                    action_idx, log_prob, value = _ppo.select_action(
+                        state_tensor, training=True, action_mask=action_mask,
+                    )
 
-                # Varied reward: base from phase×difficulty + random noise
-                # This gives PPO a meaningful gradient signal per scenario.
-                _sim_reward = _base_reward + _rng.gauss(0, 0.5 * difficulty)
-                _ppo.buffer.add(
-                    state=state_tensor,
-                    action=action_idx,
-                    log_prob=log_prob,
-                    reward=_sim_reward,
-                    value=value,
-                    done=(_k == inner_steps - 1),
-                )
-                total_reward += _sim_reward
+                    # Varied reward: base from phase×difficulty + random noise
+                    # This gives PPO a meaningful gradient signal per scenario.
+                    _sim_reward = _base_reward + _rng.gauss(0, 0.5 * difficulty)
+                    _ppo.buffer.add(
+                        state=state_tensor,
+                        action=action_idx,
+                        log_prob=log_prob,
+                        reward=_sim_reward,
+                        value=value,
+                        done=(_k == inner_steps - 1),
+                        behavior_context=copy.deepcopy(_ppo.last_selection_context),
+                        episode_id=f"reptile:{scenario_name}", step_id=_k,
+                    )
+                    total_reward += _sim_reward
 
-            # Run PPO update on scenario-specific buffer
-            _update_metrics = {}
-            if _ppo.buffer.size >= _ppo.config.minibatch_size:
-                _update_metrics = _ppo.update(last_value=0.0)
-            else:
-                # Not enough data — still count as a training step
-                _update_metrics = {"skipped": True, "buffer_size": _ppo.buffer.size}
+                # Run PPO update on scenario-specific buffer
+                _update_metrics = {}
+                if _ppo.buffer.size >= _ppo.config.minibatch_size:
+                    _update_metrics = _ppo.update(last_value=0.0)
+                else:
+                    # Not enough data — still count as a training step
+                    _update_metrics = {"skipped": True, "buffer_size": _ppo.buffer.size}
 
-            # Restore main buffer state
-            _ppo.buffer.reset()
-            _ppo.buffer.states = _saved_buffer_states
-            _ppo.buffer.actions = _saved_buffer_actions
-            _ppo.buffer.log_probs = _saved_buffer_log_probs
-            _ppo.buffer.rewards = _saved_buffer_rewards
-            _ppo.buffer.values = _saved_buffer_values
-            _ppo.buffer.dones = _saved_buffer_dones
-            _ppo.buffer.size = _saved_buffer_size
-            _ppo.buffer.teacher_distributions = _saved_buffer_teacher_dist
-            _ppo.buffer.teacher_actions = _saved_buffer_teacher_act
-
-            # Restore env state
-            self.env.open_ports = _saved_ports
-            self.env.services = _saved_services
-            self.env.current_phase = _saved_phase
-            self.env.live_mode = _saved_live
-
-            return {
-                "loss": _update_metrics.get("policy_loss", 0.0),
-                "reward": total_reward,
-                "scenario": scenario_name,
-                "steps": inner_steps,
-                "success": total_reward > 0,
-            }
+                return {
+                    "loss": _update_metrics.get("policy_loss", 0.0),
+                    "reward": total_reward,
+                    "scenario": scenario_name,
+                    "steps": inner_steps,
+                    "success": total_reward > 0,
+                }
+            finally:
+                _ppo.buffer = _saved_buffer
+                _ppo.last_selection_context = _saved_context
+                self.env.open_ports = _saved_ports
+                self.env.services = _saved_services
+                self.env.current_phase = _saved_phase
+                self.env.live_mode = _saved_live
 
         # ── Run Reptile meta-step ────────────────────────────────────
         _maturity = 0.0
@@ -7826,22 +7824,28 @@ class SmartOrchestrator:
                 self._maturity_controller.state, 'maturity', 0.0
             )
 
-        stats = self.reptile.meta_step(
-            model=_network,
-            inner_train_fn=_inner_train_fn,
-            global_step=self._reptile_global_step,
-            maturity=_maturity,
-        )
-        self._reptile_global_step += 1
+        _network_snapshot = copy.deepcopy(_network.state_dict())
+        try:
+            stats = self.reptile.meta_step(
+                model=_network,
+                inner_train_fn=_inner_train_fn,
+                global_step=self._reptile_global_step,
+                maturity=_maturity,
+            )
+            self._reptile_global_step += 1
 
-        # ── Restore optimizer + EMA + counter state (Fix #1 completion) ─
-        # After Reptile interpolation, Adam momentum/variance are stale.
-        # Reset optimizer so it starts fresh with the interpolated weights.
-        _ppo.optimizer.load_state_dict(_optimizer_snapshot)
-        _ppo.lr_scheduler.load_state_dict(_lr_scheduler_snapshot)
-        _ppo.updates_done = _updates_done_snapshot
-        if _ema_snapshot is not None and _ppo.ema_network is not None:
-            _ppo.ema_network.load_state_dict(_ema_snapshot)
+        except BaseException:
+            _network.load_state_dict(_network_snapshot)
+            raise
+        finally:
+            # ── Restore optimizer + EMA + counter state (Fix #1 completion) ─
+            # After Reptile interpolation, Adam momentum/variance are stale.
+            # Reset optimizer so it starts fresh with the interpolated weights.
+            _ppo.optimizer.load_state_dict(_optimizer_snapshot)
+            _ppo.lr_scheduler.load_state_dict(_lr_scheduler_snapshot)
+            _ppo.updates_done = _updates_done_snapshot
+            if _ema_snapshot is not None and _ppo.ema_network is not None:
+                _ppo.ema_network.load_state_dict(_ema_snapshot)
 
         return stats
 
@@ -8337,15 +8341,18 @@ class SmartOrchestrator:
         total_time = time.time() - self.start_time
         
         # Phase 24: Check if flags were captured
-        _user_flag = metrics.get("user_flag_captured", False)
-        _root_flag = metrics.get("root_flag_captured", False)
-        _user_flag_val = metrics.get("user_flag_value", "")
-        _root_flag_val = metrics.get("root_flag_value", "")
-        
+        _user_flag = any(m.get("user_flag_captured", False) for m in all_metrics)
+        _root_flag = any(m.get("root_flag_captured", False) for m in all_metrics)
+        _user_flag_val = next((m.get("user_flag_value", "") for m in all_metrics if m.get("user_flag_captured")), "")
+        _root_flag_val = next((m.get("root_flag_value", "") for m in all_metrics if m.get("root_flag_captured")), "")
+
+        _phase_rank = {phase.name: rank for phase, rank in SmartCoach.PHASE_ORDER.items()}
+        _highest_phase = max((m.get("highest_phase", "RECON") for m in all_metrics),
+                             key=lambda phase: _phase_rank.get(phase, -1), default="RECON")
         final_metrics = {
             "total_reward": sum(episode_rewards),
             "total_steps": sum(m.get("total_steps", 0) for m in all_metrics),
-            "highest_phase": metrics.get("highest_phase", "RECON"),
+            "highest_phase": _highest_phase,
             "skill_library_size": len(self.skill_library) if self.skill_library else 0,
             "user_flag_captured": _user_flag,
             "root_flag_captured": _root_flag,
@@ -8387,7 +8394,7 @@ class SmartOrchestrator:
             "final_metrics": {
                 "total_reward": sum(episode_rewards),
                 "total_steps": sum(m.get("total_steps", 0) for m in all_metrics),
-                "highest_phase": phase_progressions[0][-1] if phase_progressions and phase_progressions[0] else "RECON",
+                "highest_phase": _highest_phase,
             },
             "all_episode_metrics": all_metrics,
         }
