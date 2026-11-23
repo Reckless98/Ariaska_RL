@@ -1,0 +1,35 @@
+name: Reproducibility or software bug
+description: Report a non-sensitive defect with an inert reproduction.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities or sensitive material, use SECURITY.md instead of a public issue. Do not include credentials, payloads or private target data."
+  - type: input
+    id: revision
+    attributes:
+      label: Commit and environment
+      description: Exact commit, Python version, OS and dependency set.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal offline reproduction
+      description: Use synthetic inputs or inert fixtures. Include the exact command and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Actual result
+      description: Include a small sanitized output excerpt, failures and skips. Distinguish a new run from historical evidence.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Report scope
+      options:
+        - label: This public report contains no credentials, private target data or undisclosed vulnerability details.
+          required: true

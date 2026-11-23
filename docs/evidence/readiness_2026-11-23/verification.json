@@ -1,0 +1,211 @@
+{
+  "date": "2026-11-23",
+  "runtime_source_base": "d2f72feeaf33b24e4f5d504aae9d5f8215cf98c2",
+  "base_tree": "083ad1913c18dbabf1d69d48e9fd02e0442fb932",
+  "environment": {
+    "host": "Ubuntu 26.04.1 LTS, x86_64",
+    "python": "CPython 3.12.12",
+    "environment_manager": "uv 0.9.18",
+    "pytorch": "2.14.1+cpu",
+    "numpy": "2.5.4",
+    "pytest": "9.1.1",
+    "requirements_lock_sha256": "6ed737d1d3d06ff2c892bfa529a0995a9b2f558823db11159655c301c1bcfc3d",
+    "exact_distribution_count": 67,
+    "uv_pip_check": "passed"
+  },
+  "current_focused_pytest": {
+    "passed": 47,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "junit_seconds": 4.383,
+    "passed_by_module": {
+      "test_guarded_cli": 10,
+      "test_nstep_returns": 13,
+      "test_ppo_contracts": 24
+    },
+    "expected_guard_denials": 1,
+    "isolated_cli_children": 0,
+    "guard_exercised": "Deliberately invalid child-process request rejected before launch"
+  },
+  "not_run_in_this_review": [
+    "Complete repository suite, including offensive workflow integration",
+    "Mentor-free probe through the production orchestrator",
+    "New training or synthetic evaluation with that orchestrator",
+    "Live services or models, external targets, physical CUDA, and historical model/checkpoint loading"
+  ],
+  "historical_evidence_check": {
+    "recovery_csv_rows": 7680,
+    "recovery_mean_accuracy": 0.6821614583333333,
+    "integration_metrics_sha256": "70d002f1c411e8cfdd27b8c5da49e9be787725168f9b817d3440072565645c6e",
+    "integration_mean_accuracy_from_reported_seeds": 0.9617838541666667,
+    "integration_raw_csv_availability": "Only checksums for the later curves/results are tracked. The committed CSV rows belong to the earlier recovery experiment.",
+    "aggregate_output_sha256": "90acb47eedcb857cbd44025233f6973caac2328fe919293050986ad3af18a673"
+  },
+  "workflow_validation": {
+    "actionlint": "v1.7.7 with ShellCheck, passed",
+    "official_action_tags_verified": {
+      "actions/checkout@v7.0.1": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/setup-python@v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "actions/upload-artifact@v7.0.2": "cf430e030ddbb5b0abf93d22962f4752f3646cd9"
+    },
+    "routing_fixture_cases_passed": 19,
+    "sparse_pr_simulation": "Metadata passed with only the metadata-job checkout paths present. The reviewed 29-path diff selected metadata only.",
+    "metadata_checker": "Passed on a local worktree and its simulated sparse two-parent PR.",
+    "scoped_lint": "ruff 0.17.1 passed E4/E7/E9/F on the metadata checker and CI selector.",
+    "citation_schema": "CITATION.cff passed upstream CFF 1.2.0 JSON Schema draft-07 with Python jsonschema 4.19.2, including format checks.",
+    "citation_schema_sha256": "0b8d22140da702d766df318dcff3a91af2f39521298dcf36d76315fd99cc169b",
+    "routing_fixture_scope": "Actual scope shell exercised reviewed bootstrap, tamper rejection, trusted-base selector with lying PR scripts, runtime/rename/dependency classification, master pushes and failures for missing or invalid scope. Full CPU job condition checked statically only.",
+    "negative_record_fixtures_passed": 19,
+    "negative_record_fixture_scope": "Malformed or inconsistent JSON records, missing/duplicate baselines or seeds, invalid CSV identities, package duplicates, source identity, hash and count mismatches."
+  },
+  "dependency_advisory_scan": {
+    "service": "PyPI",
+    "tool": "pip-audit 2.9.0",
+    "scope": "67 exact entries in requirements-recovery.lock",
+    "audited": 66,
+    "unresolved": [
+      "Dependency not found on PyPI and could not be audited: torch (2.14.1+cpu)"
+    ],
+    "exit_code": 1,
+    "advisory_count": 17,
+    "affected": [
+      {
+        "name": "certifi",
+        "version": "2026.7.22",
+        "advisories": [
+          {
+            "id": "PYSEC-2026-4320",
+            "fix_versions": [
+              "2026.10.18"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "filelock",
+        "version": "3.32.3",
+        "advisories": [
+          {
+            "id": "GHSA-v4x8-3wr5-3wq8",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-9vhv-jxww-xfm5",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-567q-5qvw-pf92",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-m462-7rxw-wvpg",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-j8f7-rjxc-mr56",
+            "fix_versions": [
+              "4.0.9"
+            ]
+          },
+          {
+            "id": "GHSA-8mx5-7m5m-r77g",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-69hj-f68j-2879",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-9c4x-gm8v-wgc4",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-rfpc-qcw5-3pc4",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-cwqr-hh33-gh44",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-fq56-3cx3-fjxp",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          },
+          {
+            "id": "GHSA-6627-m3xw-93mp",
+            "fix_versions": [
+              "4.2.1"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "opentelemetry-api",
+        "version": "1.45.1",
+        "advisories": [
+          {
+            "id": "GHSA-mf5v-w3w3-f6cg",
+            "fix_versions": [
+              "1.45.2"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "setuptools",
+        "version": "78.1.0",
+        "advisories": [
+          {
+            "id": "PYSEC-2025-49",
+            "fix_versions": [
+              "78.1.1"
+            ]
+          },
+          {
+            "id": "PYSEC-2026-3447",
+            "fix_versions": [
+              "83.0.0"
+            ]
+          },
+          {
+            "id": "GHSA-xmj3-9gf7-h52w",
+            "fix_versions": [
+              "84.1.0"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "repeat_focused_pytest": {
+    "method": "Fresh venv, PyTorch CPU index for torch only and PyPI for the rest, same selection and guard",
+    "tests": 47,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "junit_seconds": 3.421,
+    "expected_guard_denials": 1,
+    "isolated_cli_children": 0
+  }
+}

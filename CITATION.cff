@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this research software, cite it and include the exact commit and experiment configuration."
+type: software
+title: "Ariaska_RL: Independent Agent Policies and Optional Model Mentorship"
+authors:
+  - family-names: Volf
+    given-names: Filip
+    alias: Reckless98
+repository-code: "https://github.com/Reckless98/Ariaska_RL"
+url: "https://github.com/Reckless98/Ariaska_RL"
+abstract: >-
+  Experimental multi-agent reinforcement-learning research framework with independent
+  role policies, optional language-model mentorship, executed-outcome attribution
+  and bounded synthetic CPU evaluation. Current licensing is source-available
+  non-commercial; open-source relicensing remains subject to rights clearance.
+keywords:
+  - reinforcement learning
+  - multi-agent systems
+  - reproducibility
+  - agent reliability
+  - optional model mentorship
+license-url: "https://github.com/Reckless98/Ariaska_RL/blob/master/LICENSE"

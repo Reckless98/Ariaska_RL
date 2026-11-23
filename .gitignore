@@ -78,12 +78,15 @@ data/htb_walkthroughs/
 data/memmap_store/
 data/lmdb_store/
 
-# API keys and secrets
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Local settings and credentials. Keep the public template available.
+.env.*
+!.env.example
+
+# Local verification outputs
+/.venv-*/
+/.pytest_cache/
+/.ruff_cache/
+/ci-results/
 
 # Docker
 .dockerignore
