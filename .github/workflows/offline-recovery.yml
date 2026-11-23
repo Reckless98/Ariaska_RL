@@ -10,7 +10,61 @@ concurrency:
   group: offline-recovery-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  metadata:
+    name: Research documentation and evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run_full: ${{ steps.scope.outputs.run_full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*.md
+            /AUTHORS
+            /CITATION.cff
+            /LICENSE
+            /MAINTAINERS
+            /docs/
+            /.github/
+            /scripts/check_repository_metadata.py
+      - name: Select validation scope
+        id: scope
+        env:
+          EXPECTED_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/master ]]; then
+            run_full=true
+          elif [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            base=$(git rev-parse --verify 'HEAD^1')
+            [[ "$base" == "$EXPECTED_BASE" ]] || { echo 'Unexpected PR base'; exit 1; }
+            selector="$RUNNER_TEMP/select_ci_scope.py"
+            if [[ "$base" == d2f72feeaf33b24e4f5d504aae9d5f8215cf98c2 ]]; then
+              git show HEAD:scripts/select_ci_scope.py > "$selector"
+              echo "08066242ed5bfa521959ed26ab4c1a8a28538b2698eee7fed808f9b810b1b743  $selector" | sha256sum --check
+            else
+              git show "$base:scripts/select_ci_scope.py" > "$selector"
+            fi
+            run_full=$(python3 -I -S "$selector" "$GITHUB_WORKSPACE" "$base")
+          else
+            echo 'Unsupported validation event'; exit 1
+          fi
+          [[ "$run_full" == true || "$run_full" == false ]] || { echo 'Invalid scope output'; exit 1; }
+          echo "run_full=$run_full" >> "$GITHUB_OUTPUT"
+          if [ "$run_full" = false ]; then
+            echo 'Documentation and metadata checks only. Full guarded suite and mentor-free probe skipped.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Full CPU recovery job requested.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Check repository metadata and historical results
+        run: python3 scripts/check_repository_metadata.py
   cpu-offline:
+    needs: metadata
+    if: ${{ success() && needs.metadata.result == 'success' && needs.metadata.outputs.run_full == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -48,7 +102,7 @@ jobs:
         run: |
           mkdir -p ci-results
           git rev-parse HEAD > ci-results/commit.txt
-          git rev-parse HEAD^{tree} > ci-results/tree.txt
+          git rev-parse 'HEAD^{tree}' > ci-results/tree.txt
           python -m pip freeze > ci-results/packages.txt
       - name: Complete guarded offline suite
         run: python -m pytest -p core.testing.offline_guard tests --timeout=90 -q --junitxml=ci-results/pytest.xml
