@@ -1,0 +1,1146 @@
+{
+  "title": "Declared dependency licenses for the offline recovery environment",
+  "review_date": "2026-11-23",
+  "assessed_repository_commit": "d2f72feeaf33b24e4f5d504aae9d5f8215cf98c2",
+  "python_version": "3.12.12",
+  "method": "Read installed distribution METADATA and checked license-file names and presence in .dist-info directories. Preserved producer-supplied fields and selected home/source URLs. The 67 installed versions exactly match requirements-recovery.lock. Other lists are compared by normalized package name. Comments are excluded.",
+  "limits": "The review did not verify source URLs, audit license texts, resolve full application dependencies, inspect native binaries or determine AGPL compatibility. It covers the local recovery environment. A release requires a review of the exact redistributed artifacts and notices.",
+  "requirement_lists": {
+    "requirements-recovery.lock": {
+      "sha256": "6ed737d1d3d06ff2c892bfa529a0995a9b2f558823db11159655c301c1bcfc3d",
+      "requirements": 67,
+      "present_by_name": 67,
+      "absent_by_name": 0
+    },
+    "requirements.txt": {
+      "sha256": "8a9e3d369f27e51eacdf8e1d1685abd6145809ed7563bcb907af77968bcd9b7d",
+      "requirements": 53,
+      "present_by_name": 24,
+      "absent_by_name": 29
+    },
+    "requirements-streamlit.txt": {
+      "sha256": "b4e7046eb1cd3cea7faf2fd44faf0d73de8554e85e742c4c5f4d9348eec2b804",
+      "requirements": 7,
+      "present_by_name": 3,
+      "absent_by_name": 4
+    }
+  },
+  "summary": {
+    "installed_recovery_packages": 67,
+    "declaring_license_files": 63,
+    "license_files_found_in_dist_info": 67,
+    "with_project_urls": 67,
+    "license_metadata_sources": {
+      "classifiers_only": 4,
+      "classifiers_with_long_legacy_field": 1,
+      "expression": 38,
+      "short_legacy_field": 24
+    },
+    "unique_declared_requirements_absent_from_recovery": 32
+  },
+  "review_flags": [
+    "SciPy identifies GCC runtime under GPL-3.0-or-later WITH GCC-exception-3.1 and libquadmath under LGPL-2.1-or-later in its long legacy field. Preserve upstream notices and review how these libraries are conveyed.",
+    "certifi declares MPL-2.0 and tqdm declares MPL-2.0 AND MIT. PyTorch and NumPy have multi-license expressions. Broad BSD classifiers and the legacy value BSD leave the variant unresolved.",
+    "No recovered top-level expression or short legacy field identifies a GPL-only package. The full-stack python-nmap declaration and all absent packages require exact artifact review."
+  ],
+  "recovery_packages": [
+    {
+      "name": "aiohappyeyeballs",
+      "version": "2.7.1",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "PSF-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Python Software Foundation License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Repository": "https://github.com/aio-libs/aiohappyeyeballs"
+      }
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.14.5",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0 AND MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Homepage": "https://github.com/aio-libs/aiohttp",
+        "GitHub: repo": "https://github.com/aio-libs/aiohttp"
+      }
+    },
+    {
+      "name": "aiosignal",
+      "version": "1.4.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache 2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/aio-libs/aiosignal",
+        "GitHub: repo": "https://github.com/aio-libs/aiosignal"
+      }
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/annotated-types/annotated-types",
+        "Source": "https://github.com/annotated-types/annotated-types"
+      }
+    },
+    {
+      "name": "anthropic",
+      "version": "1.15.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 0,
+      "project_urls": {
+        "Homepage": "https://github.com/anthropics/anthropic-sdk-python",
+        "Repository": "https://github.com/anthropics/anthropic-sdk-python"
+      }
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source code": "https://github.com/agronholm/anyio"
+      }
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "GitHub": "https://github.com/python-attrs/attrs"
+      }
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MPL-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/certifi/python-certifi",
+        "Source": "https://github.com/certifi/python-certifi"
+      }
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Code": "https://github.com/jawah/charset_normalizer"
+      }
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/pallets/click/"
+      }
+    },
+    {
+      "name": "cloudpickle",
+      "version": "3.1.2",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/cloudpipe/cloudpickle"
+      }
+    },
+    {
+      "name": "docstring_parser",
+      "version": "0.18.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "homepage": "https://github.com/rr-/docstring_parser",
+        "repository": "https://github.com/rr-/docstring_parser"
+      }
+    },
+    {
+      "name": "filelock",
+      "version": "3.32.3",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/tox-dev/py-filelock",
+        "Source": "https://github.com/tox-dev/py-filelock"
+      }
+    },
+    {
+      "name": "frozenlist",
+      "version": "1.8.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/aio-libs/frozenlist",
+        "GitHub: repo": "https://github.com/aio-libs/frozenlist"
+      }
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.7.0",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/fsspec/filesystem_spec"
+      }
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/python-hyper/h11"
+      }
+    },
+    {
+      "name": "hf-xet",
+      "version": "1.7.0",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/huggingface/xet-core",
+        "Repository": "https://github.com/huggingface/xet-core.git"
+      }
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://www.encode.io/httpcore/",
+        "Source": "https://github.com/encode/httpcore"
+      }
+    },
+    {
+      "name": "httpcore2",
+      "version": "2.13.1",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pydantic/httpx2",
+        "Source": "https://github.com/pydantic/httpx2/blob/main/src/httpcore2"
+      }
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 0,
+      "project_urls": {
+        "Homepage": "https://github.com/encode/httpx",
+        "Source": "https://github.com/encode/httpx"
+      }
+    },
+    {
+      "name": "httpx2",
+      "version": "2.13.1",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pydantic/httpx2",
+        "Source": "https://github.com/pydantic/httpx2"
+      }
+    },
+    {
+      "name": "huggingface_hub",
+      "version": "2.2.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/huggingface/huggingface_hub"
+      }
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/kjd/idna"
+      }
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pytest-dev/iniconfig"
+      }
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "license_metadata_source": "classifiers_only",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/pallets/jinja/"
+      }
+    },
+    {
+      "name": "jiter",
+      "version": "0.17.0",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/pydantic/jiter/"
+      }
+    },
+    {
+      "name": "joblib",
+      "version": "1.6.0",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://joblib.readthedocs.io",
+        "Source": "https://github.com/joblib/joblib"
+      }
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.2.0",
+      "license_metadata_source": "classifiers_only",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Homepage": "https://github.com/executablebooks/markdown-it-py"
+      }
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.3",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/pallets/markupsafe/"
+      }
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "license_metadata_source": "classifiers_only",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 0,
+      "project_urls": {
+        "Homepage": "https://github.com/executablebooks/mdurl"
+      }
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "http://mpmath.org/",
+        "Source": "https://github.com/fredrik-johansson/mpmath"
+      }
+    },
+    {
+      "name": "multidict",
+      "version": "7.1.0",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/aio-libs/multidict",
+        "GitHub: repo": "https://github.com/aio-libs/multidict"
+      }
+    },
+    {
+      "name": "narwhals",
+      "version": "2.27.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/narwhals-dev/narwhals",
+        "Repository": "https://github.com/narwhals-dev/narwhals"
+      }
+    },
+    {
+      "name": "networkx",
+      "version": "3.6.1",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://networkx.org/",
+        "Source Code": "https://github.com/networkx/networkx"
+      }
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.4",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 17,
+      "project_urls": {
+        "homepage": "https://numpy.org",
+        "source": "https://github.com/numpy/numpy"
+      }
+    },
+    {
+      "name": "openai",
+      "version": "3.33.0",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/openai/openai-python",
+        "Repository": "https://github.com/openai/openai-python"
+      }
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.45.1",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
+        "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+      }
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0 OR BSD-2-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 3,
+      "project_urls": {
+        "Source": "https://github.com/pypa/packaging"
+      }
+    },
+    {
+      "name": "pluggy",
+      "version": "1.7.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pytest-dev/pluggy",
+        "Repository": "https://github.com/pytest-dev/pluggy"
+      }
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Home-page": "https://github.com/aio-libs/propcache",
+        "GitHub: repo": "https://github.com/aio-libs/propcache"
+      }
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/giampaolo/psutil"
+      }
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pydantic/pydantic",
+        "Source": "https://github.com/pydantic/pydantic"
+      }
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/pydantic/pydantic",
+        "Homepage": "https://github.com/pydantic",
+        "Source": "https://github.com/pydantic/pydantic/tree/main/pydantic-core"
+      }
+    },
+    {
+      "name": "Pygments",
+      "version": "2.21.0",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-2-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Homepage": "https://pygments.org",
+        "Source": "https://github.com/pygments/pygments"
+      }
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://docs.pytest.org/en/latest/",
+        "Source": "https://github.com/pytest-dev/pytest"
+      }
+    },
+    {
+      "name": "pytest-asyncio",
+      "version": "1.4.0",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pytest-dev/pytest-asyncio",
+        "Source Code": "https://github.com/pytest-dev/pytest-asyncio"
+      }
+    },
+    {
+      "name": "pytest-timeout",
+      "version": "2.4.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: DFSG approved",
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://github.com/pytest-dev/pytest-timeout"
+      }
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.4",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/theskumar/python-dotenv"
+      }
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.3",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://pyyaml.org/",
+        "Source Code": "https://github.com/yaml/pyyaml"
+      }
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Source": "https://github.com/psf/requests"
+      }
+    },
+    {
+      "name": "rich",
+      "version": "15.0.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/Textualize/rich"
+      }
+    },
+    {
+      "name": "ruff",
+      "version": "0.17.1",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home-page": "https://docs.astral.sh/ruff",
+        "Repository": "https://github.com/astral-sh/ruff"
+      }
+    },
+    {
+      "name": "scikit-learn",
+      "version": "1.9.1",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "homepage": "https://scikit-learn.org",
+        "source": "https://github.com/scikit-learn/scikit-learn"
+      }
+    },
+    {
+      "name": "scipy",
+      "version": "1.18.1",
+      "license_metadata_source": "classifiers_with_long_legacy_field",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "long_legacy_license_omitted": true,
+      "bundled_components_in_legacy_license": {
+        "OpenBLAS": "BSD-3-Clause",
+        "LAPACK": "BSD-3-Clause-Open-MPI",
+        "GCC runtime library": "GPL-3.0-or-later WITH GCC-exception-3.1",
+        "libquadmath": "LGPL-2.1-or-later"
+      },
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 0,
+      "project_urls": {
+        "homepage": "https://scipy.org/",
+        "source": "https://github.com/scipy/scipy"
+      }
+    },
+    {
+      "name": "setuptools",
+      "version": "78.1.0",
+      "license_metadata_source": "classifiers_only",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/pypa/setuptools"
+      }
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MIT OR Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Apache Software License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 3,
+      "project_urls": {
+        "Homepage": "https://github.com/python-trio/sniffio"
+      }
+    },
+    {
+      "name": "SQLAlchemy",
+      "version": "2.1.5",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Homepage": "https://www.sqlalchemy.org",
+        "Source Code": "https://github.com/sqlalchemy/sqlalchemy"
+      }
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "BSD",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ],
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Home-page": "https://sympy.org",
+        "Source": "https://github.com/sympy/sympy"
+      }
+    },
+    {
+      "name": "tenacity",
+      "version": "9.2.1",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/jd/tenacity",
+        "Source": "https://github.com/jd/tenacity"
+      }
+    },
+    {
+      "name": "threadpoolctl",
+      "version": "3.7.0",
+      "license_metadata_source": "expression",
+      "license_expression": "BSD-3-Clause",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "homepage": "https://github.com/joblib/threadpoolctl"
+      }
+    },
+    {
+      "name": "torch",
+      "version": "2.14.1+cpu",
+      "license_metadata_source": "expression",
+      "license_expression": "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 86,
+      "project_urls": {
+        "Homepage": "https://pytorch.org",
+        "Repository": "https://github.com/pytorch/pytorch"
+      }
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "MPL-2.0 AND MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "homepage": "https://tqdm.github.io",
+        "repository": "https://github.com/tqdm/tqdm"
+      }
+    },
+    {
+      "name": "truststore",
+      "version": "0.10.5",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Source": "https://github.com/sethmlarson/truststore"
+      }
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license_metadata_source": "expression",
+      "license_expression": "PSF-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Home": "https://github.com/python/typing_extensions",
+        "Repository": "https://github.com/python/typing_extensions"
+      }
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Homepage": "https://github.com/pydantic/typing-inspection",
+        "Source": "https://github.com/pydantic/typing-inspection"
+      }
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "license_metadata_source": "expression",
+      "license_expression": "MIT",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 1,
+      "project_urls": {
+        "Code": "https://github.com/urllib3/urllib3"
+      }
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "license_metadata_source": "short_legacy_field",
+      "legacy_license": "Apache-2.0",
+      "license_files_present_in_dist_info": true,
+      "declared_license_file_count": 2,
+      "project_urls": {
+        "Home-page": "https://github.com/aio-libs/yarl",
+        "GitHub: repo": "https://github.com/aio-libs/yarl"
+      }
+    }
+  ],
+  "declared_requirements_absent_from_recovery": [
+    {
+      "name": "bcrypt",
+      "requirements": {
+        "requirements.txt": "bcrypt>=4.1.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "chromadb",
+      "requirements": {
+        "requirements.txt": "chromadb>=0.5.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "colorama",
+      "requirements": {
+        "requirements.txt": "colorama>=0.4.6"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "cryptography",
+      "requirements": {
+        "requirements.txt": "cryptography>=42.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "diskcache",
+      "requirements": {
+        "requirements.txt": "diskcache>=5.6.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "faiss-cpu",
+      "requirements": {
+        "requirements.txt": "faiss-cpu>=1.8.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "greenlet",
+      "requirements": {
+        "requirements.txt": "greenlet>=3.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "ipython",
+      "requirements": {
+        "requirements.txt": "ipython>=8.20.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "llama-cpp-python",
+      "requirements": {
+        "requirements.txt": "llama-cpp-python>=0.2.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "lmdb",
+      "requirements": {
+        "requirements.txt": "lmdb>=1.5.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "matplotlib",
+      "requirements": {
+        "requirements.txt": "matplotlib>=3.8.0",
+        "requirements-streamlit.txt": "matplotlib>=3.7.1"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "onnxruntime",
+      "requirements": {
+        "requirements.txt": "onnxruntime>=1.17.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "opentelemetry-exporter-otlp-proto-grpc",
+      "requirements": {
+        "requirements.txt": "opentelemetry-exporter-otlp-proto-grpc>=1.20.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "opentelemetry-sdk",
+      "requirements": {
+        "requirements.txt": "opentelemetry-sdk>=1.20.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "optuna",
+      "requirements": {
+        "requirements.txt": "optuna>=4.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "orjson",
+      "requirements": {
+        "requirements.txt": "orjson>=3.9.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "pandas",
+      "requirements": {
+        "requirements-streamlit.txt": "pandas>=2.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "pillow",
+      "requirements": {
+        "requirements.txt": "pillow>=10.2.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "plotly",
+      "requirements": {
+        "requirements-streamlit.txt": "plotly>=5.15.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "posthog",
+      "requirements": {
+        "requirements.txt": "posthog>=3.3.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "prompt-toolkit",
+      "requirements": {
+        "requirements.txt": "prompt_toolkit>=3.0.40"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "pypdf2",
+      "requirements": {
+        "requirements.txt": "PyPDF2>=3.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "python-nmap",
+      "requirements": {
+        "requirements.txt": "python-nmap>=0.7.1"
+      },
+      "status": "not installed; exact artifact terms unresolved",
+      "review_note": "The publisher identifies a GPL version 3 license file for 0.7.1. Check the resolved distribution, version option and use in any release.",
+      "upstream_reference": "https://pypi.org/project/python-nmap/0.7.1/"
+    },
+    {
+      "name": "regex",
+      "requirements": {
+        "requirements.txt": "regex>=2024.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "safetensors",
+      "requirements": {
+        "requirements.txt": "safetensors>=0.4.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "sentence-transformers",
+      "requirements": {
+        "requirements.txt": "sentence-transformers>=3.0.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "streamlit",
+      "requirements": {
+        "requirements-streamlit.txt": "streamlit>=1.24.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "textual",
+      "requirements": {
+        "requirements.txt": "textual>=0.50.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "tokenizers",
+      "requirements": {
+        "requirements.txt": "tokenizers>=0.20.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "transformers",
+      "requirements": {
+        "requirements.txt": "transformers>=4.40.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "typer",
+      "requirements": {
+        "requirements.txt": "typer>=0.12.0"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    },
+    {
+      "name": "vulture",
+      "requirements": {
+        "requirements.txt": "vulture>=2.10"
+      },
+      "status": "not installed; exact artifact terms unresolved"
+    }
+  ]
+}

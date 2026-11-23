@@ -1,0 +1,25 @@
+name: Research question or documentation
+description: Propose a bounded study or clarify existing evidence.
+title: "[Research]: "
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or proposed correction
+      description: Identify the source, claim or research question.
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Evidence or proposed protocol
+      description: For experiments, state baselines, fixed seeds, budget, measurements and limitations. No live-target actions are authorized by an issue.
+    validations:
+      required: true
+  - type: textarea
+    id: rights
+    attributes:
+      label: Inputs and permissions
+      description: Link the origin and terms of proposed data or assets, or state that no new inputs are needed.
+    validations:
+      required: true

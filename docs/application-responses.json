@@ -1,0 +1,11 @@
+{
+  "status": "Draft for maintainer review; current license is not open source. Do not submit as a claim of completed relicensing.",
+  "evidence_date": "2026-11-23",
+  "role": "Primary maintainer",
+  "responses": {
+    "why_repository_qualifies": "I created and maintain Ariaska_RL to study independent RL policies, optional LLM mentorship and agent reliability. It has 853 baseline commits, 12 merged PRs, public synthetic evaluation data and successful historical offline CI. Adoption is early: 1 star and 0 forks. Its potential contribution is reproducible evidence about learning and safety boundaries. The current license is source-available; open-source relicensing is pending third-party rights clearance.",
+    "why_codex_security": "Ariaska_RL combines model-provider calls, tool-execution boundaries, checkpoint loading and generated artifacts. I would use Codex Security to review this repository for unsafe deserialization, credential exposure, dependency risks and permission failures, then add protective regression tests. The scope is maintaining the project and improving its safety, not testing external systems or expanding offensive capabilities.",
+    "how_api_credits_will_be_used": "I would use API credits for Ariaska_RL maintenance: reviewing scoped PRs, explaining test failures, improving documentation, checking release evidence and developing protective regressions. Any optional model evaluation would use cleared synthetic inputs, fixed budgets and a mentor-free baseline. I would publish reproducible methods and aggregate results where permissions allow, with no credentials or private target data.",
+    "additional_information": "I am the creator and primary maintainer. The October 2026 recovery work made policy ownership, executed-outcome attribution and checkpoint behavior auditable. This readiness proposal adds governance and a rights review while preserving negative results and limitations. There is no published release, verified download count or broad adoption claim. A research preview and AGPL migration remain subject to rights clearance and my review."
+  }
+}

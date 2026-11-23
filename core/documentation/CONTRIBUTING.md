@@ -1,3 +1,5 @@
+> **Historical engineering notes.** The current contribution policy and setup guidance are in [CONTRIBUTING.md](../../CONTRIBUTING.md) and [the reproducibility guide](../../docs/reproducibility.md). Commands and provider assumptions below may be obsolete; they are preserved for context, not the default onboarding path.
+
 # Contributing to ARIASKA_RL
 
 Thank you for your interest in contributing to ARIASKA_RL! This document provides guidelines and instructions for contributing to the project effectively.
