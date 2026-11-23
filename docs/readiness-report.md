@@ -84,7 +84,8 @@ as a fresh full-suite pass. See [reproducibility](reproducibility.md) for exact 
 
 ## Remaining blockers
 
-1. **Relicensing:** contributor and third-party provenance is not established for
+1. **Relicensing:** the maintainer has confirmed ownership of his original code
+   and the listed author aliases, but third-party provenance is not established for
    the full tree. Walkthrough-derived corpora, embedded knowledge, generated data,
    weights and executable artifacts need exact rights decisions. Earlier GPL/AGPL
    license texts do not clear later additions.
@@ -119,8 +120,10 @@ as a fresh full-suite pass. See [reproducibility](reproducibility.md) for exact 
 
 ## Next decisions
 
-Review this PR's documentation and CI changes. Resolve contribution rights and the
-asset manifest with the relevant rightsholders before authorizing a license change.
+Review this PR's documentation and CI changes. The maintainer has authorized
+AGPL-3.0-only for his original code; resolve the boundary of third-party material
+and the asset manifest before applying a repository-wide license change. Public
+walkthrough availability, without an identified grant, does not settle that boundary.
 Address the dated dependency findings with compatible updates and appropriate
 regression verification. Recover the missing study artifacts or publish a separately
 identified reproduction. Only then review the exact candidate for tagging/release

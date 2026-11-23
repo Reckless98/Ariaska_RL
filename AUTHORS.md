@@ -18,9 +18,12 @@ commits had these labels:
 | Ariaska GPU | 1 |
 | zer0 | 1 |
 
-These are Git metadata labels, not a verified count of people or external
-contributors, and not evidence of copyright assignment. The inventory preserves
-attribution without publishing commit email addresses or inferring legal identity.
+On 23 November 2026, Filip Volf confirmed that these labels represent his
+accounts or development tools and that he has the right to publish his original
+code under AGPL-3.0-only. This maintainer declaration does not cover third-party
+material, dependency licenses or model/data rights. The labels are not a count
+of external contributors; no copyright assignment is inferred from Git metadata.
+The inventory preserves attribution without publishing commit email addresses.
 
 Third-party libraries, source material and model families retain their own rights.
 See the [rights review](docs/licensing-review.md) and

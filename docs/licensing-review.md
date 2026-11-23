@@ -28,9 +28,11 @@ copies and rights involved; this PR does not attempt to revoke them. See the
 
 The current license's section 5 asserts a copyright assignment on contribution.
 No separate assignment records or per-contribution evidence were identified in
-the reviewed tree. That clause alone does not settle third-party rights or the
-status of earlier contributions. Git author labels and repository administration
-rights likewise do not prove copyright ownership. The [authorship inventory](../AUTHORS.md)
+the reviewed tree. On 23 November 2026, the maintainer confirmed that the listed
+author labels are his accounts/tools and that he may license his original code
+under AGPL-3.0-only. This supplies an original-code ownership declaration; it does
+not establish permission for incorporated third-party material. Git metadata or
+the current contribution clause alone does not prove those third-party rights. The [authorship inventory](../AUTHORS.md)
 keeps those distinctions explicit; see also the
 [FSF contributor FAQ](https://www.fsf.org/licensing/contributor-faq).
 
@@ -38,7 +40,7 @@ keeps those distinctions explicit; see also the
 
 | Blocker | Evidence needed | Decision owner |
 | --- | --- | --- |
-| Contributor rights | Reconcile author aliases and automated-account operators; document ownership, applicable grants or written consent for affected contributions | Maintainer and relevant rightsholders |
+| Original-code boundary | Maintainer confirmation covers the listed author aliases and his original code; identify which incorporated material falls outside that declaration and preserve its applicable grants/notices | Maintainer and relevant rightsholders |
 | Walkthroughs and embedded knowledge | Exact origins, applicable terms and permissions; trace extracted JSON, embedded Python content, generated datasets and derivative weights | Maintainer and source rightsholders |
 | Trained models | Base-model revision/license, conversion record, training inputs and permissions, artifact hashes and redistribution terms | Maintainer and model/data rightsholders |
 | Bundled binaries and run data | Origin, license, authorization to distribute and privacy/disclosure review | Maintainer |
@@ -48,7 +50,11 @@ The [third-party inventory](third-party-inventory.md) identifies concrete paths 
 limits. Hack The Box's current acceptable use policy restricts AI training,
 evaluation, dataset compilation and derivative synthetic training data using its
 content unless expressly authorized by a service agreement. No such agreement was
-available for this audit. Determine which terms applied to historical activity
+available for this audit. The maintainer subsequently clarified that the walkthroughs
+were publicly available and that he has no written grant. No redistribution license
+was identified in the twelve tracked Markdown files, including their index. Public
+availability is not evidence of permission to apply AGPL; an explicit published
+license could supply permission if its source and terms are verified. Determine which terms applied to historical activity
 separately; do not infer that a current policy proves every past act was prohibited.
 Removing a PDF, its attribution or a dataset label does not clear its derivatives.
 [Hack The Box acceptable use policy, section 6.2](https://www.hackthebox.com/hubfs/Legal/AUP.pdf?hsLang=en)
